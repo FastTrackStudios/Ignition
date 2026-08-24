@@ -115,10 +115,19 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         // columns, not the cool-grey walls that would otherwise also hit
         // an.x/an.y > 0.9.
         let axes = select(in.world_pos.yz, in.world_pos.xz, an.x > 0.9);
-        let ad = ashlar_dist(axes, 0.4, 0.3);
-        rgb *= mix(0.72, 1.0, smoothstep(0.0, 0.012, ad.x));
+        // Smaller blocks (0.25 x 0.2m) than the first pass so a column
+        // this size (0.81 x 1.22m) shows several courses, not just one or
+        // two; deeper, wider mortar joints and much stronger per-block
+        // tint so it reads as coursed stone instead of a subtly-bumpy flat
+        // panel.
+        let ad = ashlar_dist(axes, 0.25, 0.2);
+        rgb *= mix(0.45, 1.0, smoothstep(0.0, 0.02, ad.x));
         let block_tint = hash21(vec2<f32>(ad.y, 2.0));
-        rgb *= 0.88 + block_tint * 0.24;
+        rgb *= 0.72 + block_tint * 0.5;
+        // A second, finer hash per block for surface-roughness speckle —
+        // real cut stone isn't flat within a block either.
+        let speckle = hash21(axes * 19.0 + ad.y);
+        rgb *= 0.94 + speckle * 0.12;
     } else if (an.z > 0.9 && (in.color.r + in.color.g + in.color.b) < 0.3) {
         // Stage floor — black-painted plywood: coarse 1.22m (4ft) sheet
         // seams, not the audience's narrow boards. Distinguished from the
