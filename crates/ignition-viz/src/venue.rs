@@ -47,6 +47,10 @@ pub struct FixtureRecord {
     pub tags: Vec<String>,
     #[serde(default = "default_patched")]
     pub patched: bool,
+    #[serde(default)]
+    pub manufacturer: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
     pub position: Vec3,
     pub eulers: Vec3,
     pub quat: Quat,

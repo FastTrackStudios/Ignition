@@ -5,7 +5,9 @@
 //! exists to serve today: render a venue to a PNG with no display attached.
 
 pub mod camera;
+pub mod fixture_profile;
 pub mod mesh;
+pub mod obj_mesh;
 pub mod renderer;
 pub mod scene;
 pub mod venue;

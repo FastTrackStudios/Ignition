@@ -1,10 +1,15 @@
+use crate::fixture_profile::add_typed_fixture;
 use crate::mesh::MeshBuilder;
 use crate::venue::Venue;
 
 const ROOM_COLOR: [f32; 3] = [0.42, 0.44, 0.48];
 const FLOOR_COLOR: [f32; 3] = [0.30, 0.31, 0.34];
 const SCREEN_COLOR: [f32; 3] = [0.20, 0.45, 0.85];
-const PROP_COLOR: [f32; 3] = [0.55, 0.40, 0.28];
+// Was [0.55, 0.40, 0.28] — read as orange next to the fixture markers'
+// own orange (Mover) colour, which is exactly the mix-up reported: props
+// and moving heads were hard to tell apart at a glance. Desaturated and
+// cooled toward neutral grey-brown.
+const PROP_COLOR: [f32; 3] = [0.42, 0.38, 0.34];
 
 /// Objects whose `name` contains any of these substrings are left out of the
 /// scene — e.g. `["Ceiling"]` for a top-down plan view that would otherwise
@@ -36,7 +41,14 @@ pub fn build_scene(venue: &Venue, exclude: &[String]) -> MeshBuilder {
     }
 
     for g in &venue.props {
-        if skip(&g.name) {
+        // People and pillars have no dedicated shape yet — as plain AABB
+        // boxes they're tall, undifferentiated, and easy to mistake for
+        // fixture markers (a standing person's bounding box is just a
+        // "tall box" with no readable silhouette). Hidden unconditionally
+        // for now rather than left in looking wrong; bring back once
+        // there's a real human/architectural model to draw instead.
+        let is_placeholder_only = g.name.starts_with("Person") || g.name.starts_with("Pillar");
+        if skip(&g.name) || is_placeholder_only {
             continue;
         }
         mesh.add_box(g.position.to_glam(), g.orientation(), g.size.to_glam(), PROP_COLOR);
@@ -50,7 +62,16 @@ pub fn build_scene(venue: &Venue, exclude: &[String]) -> MeshBuilder {
         if skip(&f.name) || !f.patched {
             continue;
         }
-        mesh.add_fixture(f.position.to_glam(), f.orientation(), f.kind().color());
+        let manufacturer = f.manufacturer.as_deref().unwrap_or("");
+        let model = f.model.as_deref().unwrap_or("");
+        add_typed_fixture(
+            &mut mesh,
+            f.position.to_glam(),
+            f.orientation(),
+            manufacturer,
+            model,
+            f.kind().color(),
+        );
     }
 
     mesh

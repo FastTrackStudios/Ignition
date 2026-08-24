@@ -86,18 +86,29 @@ impl Camera {
             min = min.min(p);
             max = max.max(p);
         }
-        let size = (max - min) + Vec3::splat(pad * 2.0);
         let center = (min + max) * 0.5;
-        let extent = size.length().max(2.0);
+        // The diagonal of the *actual* points, not a padded bounding box —
+        // padding every axis before measuring inflates the distance badly
+        // for a flat/linear cluster (e.g. three fixtures in a row, same
+        // y/z: two of the three axes have zero real spread, so padding
+        // them dominates the "extent" and pushes the camera much further
+        // back than the cluster warrants). `pad` is added once, in metres,
+        // to the final distance instead.
+        let spread = (max - min).length();
+        let distance = spread.max(0.5) * 0.9 + pad;
         let sign = if view_from_neg_y { -1.0 } else { 1.0 };
-        // Look up at the cluster from slightly below rather than down from
-        // above: most fixtures in a venue are overhead with little ceiling
-        // clearance (a rig hung a few centimetres under a 3.5m ceiling has
-        // no room for an elevated vantage), whereas the floor is generally
-        // clear. A fixed elevation offset (not scaled by `extent`) keeps
-        // this from blowing through the ceiling on a tightly-clustered but
-        // physically large group of points.
-        let eye = center + Vec3::new(0.0, sign * extent * 0.45, -0.6);
+        // Elevation offset direction depends on how high the cluster
+        // already sits, not a fixed sign: an overhead rig (near a ~3.5m
+        // ceiling) has no headroom for an elevated vantage, so look up at
+        // it from below; a floor-level cluster has no "below" to speak of
+        // (the floor is right there), so look down at it from above
+        // instead. Either way the offset is a small fixed distance, not
+        // scaled by distance — a large-but-tight cluster shouldn't be able
+        // to push the eye through the ceiling or the floor.
+        let elevation = if center.z > 1.5 { -0.6 } else { 0.6 };
+        let eye_z = (center.z + elevation).max(0.3);
+        let eye = Vec3::new(center.x, center.y + sign * distance, eye_z);
+        let extent = distance + spread;
         Self {
             eye,
             target: center,

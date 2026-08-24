@@ -1,0 +1,19 @@
+These .obj files are converted from the Collada (.dae) fixture meshes in
+Q Light Controller+ (https://github.com/mcallegari/qlcplus),
+resources/meshes/fixtures/{hazer,moving_head,par,scanner,smoke,strobe}.dae,
+licensed Apache-2.0. QLC+'s own README for that directory: "If you use
+Blender to create meshes... Blender works with a Z-Up coordinate system...
+Once the model is saved in DAE format, change the <up_axis> tag to be
+Y_UP" — these are QLC+'s own generic per-category fixture models, not
+manufacturer-specific, used the same way here: one shape per fixture
+category (par, moving head, hazer, ...), not per manufacturer.
+
+Converted by crates/ignition-viz's build tooling (see the commit that added
+this directory): positions/normals only, Y-up remapped to this project's
+Z-up world convention (local -Z = beam/hang direction), triangulated,
+re-emitted as plain OBJ (v/vn/f, no materials — this project computes its
+own flat shading and colour per fixture kind). No geometry was otherwise
+modified.
+
+Original files retain their Apache-2.0 licence; this notice satisfies the
+attribution requirement. See https://github.com/mcallegari/qlcplus/blob/master/LICENSE.
