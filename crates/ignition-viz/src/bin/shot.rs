@@ -5,6 +5,9 @@
 //! cargo run -p ignition-viz --bin shot -- \
 //!     --venue data/venues/norco --out /tmp/norco.png --view house
 //! ```
+//!
+//! Props (drum kit, speakers, mics, ...) are hidden by default — pass
+//! `--show-props` to bring them back.
 
 use ignition_viz::{build_scene, Camera, HeadlessRenderer, Venue};
 use std::path::PathBuf;
@@ -17,6 +20,7 @@ struct Args {
     view: String,
     exclude: Vec<String>,
     focus_chans: Vec<u32>,
+    show_props: bool,
 }
 
 fn parse_args() -> Args {
@@ -27,6 +31,7 @@ fn parse_args() -> Args {
     let mut view = "house".to_string();
     let mut exclude = Vec::new();
     let mut focus_chans = Vec::new();
+    let mut show_props = false;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -40,10 +45,11 @@ fn parse_args() -> Args {
             "--focus-chan" => focus_chans.push(
                 args.next().expect("--focus-chan needs a channel number").parse().unwrap(),
             ),
+            "--show-props" => show_props = true,
             other => eprintln!("ignition-shot: ignoring unknown argument {other}"),
         }
     }
-    Args { venue, out, width, height, view, exclude, focus_chans }
+    Args { venue, out, width, height, view, exclude, focus_chans, show_props }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -90,7 +96,7 @@ fn main() -> anyhow::Result<()> {
         other => anyhow::bail!("unknown --view {other}; use house, stage, top, screens, or chans"),
     };
 
-    let mesh = build_scene(&venue, &args.exclude);
+    let mesh = build_scene(&venue, &args.exclude, args.show_props);
     println!("scene: {} vertices, {} indices", mesh.vertices.len(), mesh.indices.len());
 
     let renderer = HeadlessRenderer::new()?;

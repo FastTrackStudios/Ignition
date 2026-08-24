@@ -13,8 +13,13 @@ const PROP_COLOR: [f32; 3] = [0.48, 0.30, 0.62];
 
 /// Objects whose `name` contains any of these substrings are left out of the
 /// scene — e.g. `["Ceiling"]` for a top-down plan view that would otherwise
-/// just render the roof.
-pub fn build_scene(venue: &Venue, exclude: &[String]) -> MeshBuilder {
+/// just render the roof. `show_props` is a separate on/off switch for the
+/// whole props layer (drum kit, speakers, mics, ...) — off by default per
+/// the operator's 2026-08-24 call: with only placeholder box/purple-tint
+/// geometry, props were cluttering every shot without adding information
+/// worth the visual noise while the fixture layout itself is still being
+/// iterated on. Not deleted — `--show-props` in `shot` brings it back.
+pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshBuilder {
     let mut mesh = MeshBuilder::default();
     let skip = |name: &str| exclude.iter().any(|e| name.contains(e.as_str()));
 
@@ -40,18 +45,21 @@ pub fn build_scene(venue: &Venue, exclude: &[String]) -> MeshBuilder {
         mesh.add_box(g.position.to_glam(), g.orientation(), backing_size, [0.08, 0.08, 0.10]);
     }
 
-    for g in &venue.props {
-        // People and pillars have no dedicated shape yet — as plain AABB
-        // boxes they're tall, undifferentiated, and easy to mistake for
-        // fixture markers (a standing person's bounding box is just a
-        // "tall box" with no readable silhouette). Hidden unconditionally
-        // for now rather than left in looking wrong; bring back once
-        // there's a real human/architectural model to draw instead.
-        let is_placeholder_only = g.name.starts_with("Person") || g.name.starts_with("Pillar");
-        if skip(&g.name) || is_placeholder_only {
-            continue;
+    if show_props {
+        for g in &venue.props {
+            // People and pillars have no dedicated shape yet — as plain
+            // AABB boxes they're tall, undifferentiated, and easy to
+            // mistake for fixture markers (a standing person's bounding
+            // box is just a "tall box" with no readable silhouette).
+            // Hidden even when the rest of the props layer is on; bring
+            // back once there's a real human/architectural model to draw
+            // instead.
+            let is_placeholder_only = g.name.starts_with("Person") || g.name.starts_with("Pillar");
+            if skip(&g.name) || is_placeholder_only {
+                continue;
+            }
+            mesh.add_box(g.position.to_glam(), g.orientation(), g.size.to_glam(), PROP_COLOR);
         }
-        mesh.add_box(g.position.to_glam(), g.orientation(), g.size.to_glam(), PROP_COLOR);
     }
 
     for f in &venue.fixtures {
