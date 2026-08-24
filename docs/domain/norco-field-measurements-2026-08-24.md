@@ -149,49 +149,64 @@ rather than writing it silently.
 
 ---
 
-## Par/light groups — geometry described, NEEDS CHANNEL MAPPING
+## Par/light groups — resolved 2026-08-24 against the live patch/positions
 
-All of the following are real, specific, computable positions once tile=2ft
-is applied — the blocker on all of them is that I don't have a confirmed
-channel number to attach each position to, and `fixtures.json`'s existing 59
-`Luminaire_LED_Wash` entries aren't labelled by which physical group they
-belong to (unlike the movers, which at least have a distinct tag). Recording
-the raw geometry here so it's not lost, pending a channel list.
+Cross-checked every one of these against the actual live position of all 48
+pars + 8 strips (`docs/domain/norco-patch-and-groups.md`) and the 112 real
+group names/membership from the console. Every one of the 48 par channels
+falls into a named group or a previously-documented old-rig-facts pattern —
+there is no leftover, unaccounted set of pars waiting to be discovered. That
+matters: it means the items below that *don't* match are not "unmapped
+channels I haven't found yet," they're descriptions that don't correspond to
+anything currently in this show's patch/position data at all.
 
-**Side rail angled bars** (×2, mirrored): 3 tiles (6 ft) back, angled in
-starting halfway through the 3rd tile; 5 tiles (10 ft) from the upstage
-divider (the seam, `y ≈ −0.40` per the revised figures above); **12 lights on
-1 bar** — likely the Rockstrip foot-light bars (90–97 in the existing patch,
-7-channel fixtures — "12 lights" plausibly the individually-addressable pixel
-count within one DMX fixture, not 12 separate channels).
+**Confirmed, no change needed**:
+- **2 pars angled toward the drum kit** — 42/46, the documented
+  drum-kit-convergence pair. Matches exactly.
+- **"The center 12 pars"** — channels 19–30, group 94 **`Pars Middle`**.
+  Spatially centred (x from −3.6 to +3.6), 12 channel numbers, no better
+  match among all 112 groups.
 
-**3 pars on the tile line above the upstage edge**, 13 ft in (from centre,
-presumed — could also be from a side wall; ambiguous as dictated).
+**Plausible candidates, not confirmed**:
+- **"3 pars on the tile line above the upstage edge, 13 ft in"** — best
+  candidate is channels **90/91/92** (`x = −3.5, 0, 3.5`, `y = 2.85`,
+  essentially sitting right at the upstage wall). Three fixtures, evenly
+  spaced, right where "above the upstage edge" would put them. The one
+  mismatch: these are Rockstrip *strips*, not pars, and the 13 ft figure
+  doesn't land cleanly on any obvious reference point from their position
+  (closest read: ~11.5 ft from centre, off by 1.5 ft). Close enough to flag
+  as the likely match, not close enough to call confirmed.
+- **"Side rail angled bars... 12 lights on 1 bar"** — best candidate is
+  **95/96** (`x = ±5.1–5.25`, nearest the side walls of anything in the
+  patch). But their stored rotation is flat (`eulers.z = 0`, no yaw) — the
+  "angled" the dictation describes isn't reflected in the console's own
+  orientation data for these, so either the model doesn't capture the real
+  physical angle (plausible — this is exactly the kind of thing this whole
+  measurement session has been correcting elsewhere), or this isn't the
+  right pair. Flagged, not applied.
 
-**2 pars angled toward the drum kit**, one per side, flanking the center 10 ft
-platform — this one *does* map cleanly onto the existing model: matches
-`norco-rig-facts.md`'s documented **42/46, drum-kit corners, the one
-deliberate convergence in the rig**. No new channel-mapping question here,
-just confirms the existing entry.
+**Doesn't map onto anything in the current patch** — checked and ruled out,
+not just "not yet found":
+- **The 2 flanking cans at the edge of "the center 12 pars"**, asymmetric
+  (1 stage-right instead of 2). The only spatially-adjacent channel
+  (31, right next to Pars Middle's edge) sits at the *same* Y as the
+  group's own edge, not "a tile back" as described — doesn't fit the
+  offset the dictation describes.
+- **The back row's "2 and 4" split**, staggered in three depths. Nothing in
+  the remaining pars (32–39, already the named `Wide Left`/`Wide Right`
+  groups) sits at three different depths — they're all on one row
+  (`y = −1.01`).
+- **"2 par cans each side, middle of each side section, 2 tiles from the
+  back wall"** — no pars sit near `y ≈ 1.73` (2 tiles/4 ft in from the
+  `y = 2.95` back wall) other than 90–92, already claimed above.
 
-**2 par cans each side, at the edge of "the center 12 pars"**: a tile back
-(2 ft), on the inner part of the next tile, then diagonal one tile further
-back. **Asymmetric**: only 1 on stage right instead of 2. ("The center 12
-pars" is itself an unidentified group in the current data — needs its own
-channel list before this one can be placed relative to it.)
-
-**Back row** (furthest upstage par row): 5 tiles (10 ft) back from the very
-end of the stage. Grouped **2 + 4**, the 4 on the inner edge:
-- Outer 2: start 4 ft in from the side walls
-- Group of 4: half a tile (1 ft) further back than the outer 2, starting 8 ft
-  in from the side wall
-- Furthest-back 2: 2 tiles (4 ft) further back than the group of 4 — **16 ft
-  from the edge of the stage** total, per the dictation's own cross-check
-  (10 + 1(half tile rounds oddly here, taking the dictation's stated total as
-  authoritative over my own tile arithmetic) — recorded as stated: 16 ft).
-
-**2 par cans each side, middle of each side section**, 2 tiles (4 ft) from
-the back wall.
+Most likely explanation for the three that don't map: they describe a
+planned change (new fixtures/positions not yet patched or repositioned in
+Augment3d) rather than something already in this show, consistent with how
+much *else* in today's session turned out to be the operator correcting the
+model to match reality rather than the reverse. Worth asking directly next
+time, rather than guessing further from position data that's already been
+checked as exhaustively as it usefully can be.
 
 ---
 
@@ -231,27 +246,11 @@ from a live OSC read of the running Nomad on `voyager` (see
    downstage pars 1/2 moved ~5m; that's real repositioning, not
    measurement noise).
 
-## What the live pull resolves from the open items below
-
-- **Full DMX universe/address for all 71 channels** — this was the original
-  ask. See `docs/domain/norco-patch-and-groups.md`.
-- **"The center 12 pars"** — very likely group 94, **`Pars Middle`**,
-  channels 19–30: spatially centred (x from −3.6 to +3.6, unlike any other
-  named par subset) and literally 12 channel numbers. Confidence: high, not
-  certain — no group is named "center" explicitly, this is the best fit
-  among all 112 group names.
-- **"A par angled toward the drum kit on either side"** — confirmed, no
-  change needed: group 20/99, **`Drums`**, is channels `42-46, 50-53`, and
-  42/46 already match `norco-rig-facts.md`'s documented convergence pair
-  exactly.
-- **Still unresolved**: the side-rail bars ("12 lights on 1 bar"), the
-  3-par tile-line group, the exact flanking cans at the edge of `Pars
-  Middle` (channel 31 sits almost exactly where `Pars Middle` ends
-  spatially, which reads as *part of* that group rather than the separate
-  offset flanking pair described — not a confident match), and the back
-  row's "2 and 4" split. None of the 112 group names is an obviously better
-  fit than what's already checked above, and I'd rather leave these open
-  than force a weak match onto a live rig's data.
-- **Speakers**: unaffected — Eos patch is lighting channels only; TVs and
-  speakers aren't DMX-addressed and don't appear in the live pull. The
-  partial cross-check from before still stands, still unresolved.
+The full DMX universe/address for all 71 channels — the original ask that
+started the live pull — is in `docs/domain/norco-patch-and-groups.md`. The
+par-group questions from the section above are resolved as far as the live
+data allows in the **"Par/light groups"** section above (rewritten
+2026-08-24 with the live positions and full group membership); speakers are
+untouched by the live pull (Eos patch is lighting channels only — TVs and
+speakers aren't DMX-addressed) and the partial cross-check from earlier
+still stands, still unresolved.
