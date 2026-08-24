@@ -139,17 +139,61 @@ No mature MVR-specific Rust crate exists; there's a C++ reference
   channel map, and rendered — the fixture visibly turned red in the output
   PNG in response to a live network packet, not a static value.
 
-## Deferred (not built in this slice)
+## Slice 2 — visual realism (2026-08-24, same day as Slice 1)
 
-- **Visual realism** (real per-fixture point lights, additive beam cones,
-  haze) — the shader still only does the original flat/procedural
-  texturing; dimmer/colour changes the fixture mesh's own material colour
-  but there's no light-emission or beam-cone rendering yet. QLC+ and ASLS
-  Studio both keep beam rendering cheap (no full volumetric raymarch) —
-  the right target when this is picked up.
+Live-mode-only, exactly like Slice 1's philosophy: a separate shader
+(`live_shader.wgsl`) and a second pipeline in `live_renderer.rs`, so
+`renderer.rs`'s headless `shot` path — and every regression screenshot
+this whole modelling session has been run against — stays byte-identical
+(verified: same MD5 before/after this slice).
+
+- **Real point lights**: `mesh.rs`'s `PointLight` (position + dimmer-
+  scaled colour) is a new field on `MeshBuilder`; `fixture_profile.rs`'s
+  `add_typed_fixture` takes an optional `LiveEmission` and, when present
+  and the resolved dimmer is above a small noise floor, calls
+  `mesh.add_light()` at the fixture's already-computed anchor point (the
+  same point the Bottom/Top anchor maths already resolves — no separate
+  "lens position" concept needed). `live_shader.wgsl`'s `fs_main` loops
+  over a `var<storage, read> point_lights: array<PointLight>` (bind group
+  1) with a cheap inverse-square-ish falloff, so a lit fixture actually
+  illuminates the wall/floor around it, not just its own mesh.
+- **Beam cones**: a second, separately-blended geometry list
+  (`glow_vertices`/`glow_indices`) built by `add_glow_cone` (shares its
+  geometry code with the existing `add_cone` via a new `build_cone` free
+  function) — a cone from the fixture's anchor point along its local -Z
+  (this project's aim convention), radius derived from the real fixture's
+  `beam_angle_deg` (now parsed from `fixtures.json`, previously ignored)
+  when known. Drawn in a second render pass with additive blending
+  (`fs_glow`, pure emissive, no lighting) and depth-tested-but-not-
+  depth-written against the opaque pass, so a beam doesn't glow through a
+  wall but overlapping beams blend into each other instead of z-fighting.
+- **Hazers get a white beam**: a fixture whose channel map has no colour
+  channel at all (the Hurricane Haze's plain Dimmer map) still emits, as
+  white — "no beam" would read as broken, and a real hazer genuinely does
+  haze up whatever colour light is already hitting it.
+- **Verified**: WGSL passes wgpu's runtime shader validation (no errors on
+  module creation); `live` ran clean for repeated multi-second sessions
+  with real sACN packets actively driving a moving head's pan/tilt/dimmer
+  and a par's colour — both the point-light and glow-cone code paths
+  exercised every frame, no panics, no wgpu validation errors. Could not
+  get a pixel-level screenshot of the actual window in this dev sandbox
+  (no working Wayland screen-capture protocol, ImageMagick's X11 `import`
+  path blocked by policy) — worth a visual gut-check on Cody's own
+  machine before calling this slice fully done.
+
+## Deferred
+
 - **GDTF/MVR import** — biggest value, least mature Rust tooling; right
-  thing to defer until the live-DMX core (this slice) is proven.
+  thing to defer until the live-DMX core is further proven out at the
+  real rig.
 - **Per-fixture confirmed channel maps** — every entry in `channel_map.rs`
   has a confirmed *footprint* (real DMX-address spacing from the live
   patch) but an *estimated* per-channel function order. See
   `docs/domain/dmx-channel-maps.md`.
+- **Gobo/colour-wheel rendering** — `Attribute::GoboWheel`/`ColorWheel`
+  resolve in `dmx.rs` but nothing downstream reads them yet (no gobo
+  texture, no wheel-slot colour swap). Both QLC+'s and ASLS Studio's own
+  visualizers treat this as later/optional work too.
+- **Haze/fog volumetrics** — the beam cones are solid additive geometry,
+  not a scattering/haze simulation. Matches where ASLS Studio's own docs
+  say their fog support stops (a toggle, no real volumetric technique).

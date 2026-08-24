@@ -201,6 +201,19 @@ fn is_mounted_upright(placement_rot: Quat) -> bool {
     (placement_rot * Vec3::NEG_Z).z > 0.0
 }
 
+/// A lit fixture's live state, for `live` mode's point-light + beam-cone
+/// emission — `None` in headless `shot` mode (no live data to emit) and for
+/// any live-mode fixture whose resolved dimmer is at/near zero (blacked
+/// out, or just no channel map yet). `color` is already dimmer-scaled (see
+/// `scene.rs`) — matches `mesh::PointLight`'s convention.
+pub struct LiveEmission {
+    pub color: [f32; 3],
+    /// The real fixture's beam spread, in degrees, if known
+    /// (`FixtureRecord::beam_angle_deg`) — sizes the beam cone's radius.
+    /// Falls back to a generic spread for fixtures/venues without it.
+    pub beam_angle_deg: Option<f32>,
+}
+
 /// `rot` is always the fixed *mount* rotation — it alone decides the
 /// Bottom/Top anchor (a mechanical fact of how the fixture is rigged, not
 /// something pan/tilt changes) and is what the anchor-point maths below is
@@ -212,6 +225,12 @@ fn is_mounted_upright(placement_rot: Quat) -> bool {
 /// around the anchor point instead, since there's no yoke/head geometry
 /// split yet (see the GDTF Geometry-tree note in
 /// `docs/research/lighting-console-landscape.md`).
+///
+/// `emit`, when present, registers a point light and a beam-cone glow at
+/// the fixture's resolved anchor point/orientation — computed here rather
+/// than by the caller since this function is already the one place that
+/// knows a fixture's real lens/anchor position after the Bottom/Top anchor
+/// maths below.
 pub fn add_typed_fixture(
     mesh: &mut MeshBuilder,
     pos: Vec3,
@@ -220,6 +239,7 @@ pub fn add_typed_fixture(
     manufacturer: &str,
     model: &str,
     color: [f32; 3],
+    emit: Option<LiveEmission>,
 ) {
     match shape_for(manufacturer, model) {
         Shape::Mesh { mesh: asset, target_size, pre_rotate, anchor } => {
@@ -244,8 +264,30 @@ pub fn add_typed_fixture(
                 Anchor::None | Anchor::HangAware => pos,
             };
             mesh.add_mesh_asset(anchored_pos, draw_rot, scale, asset, color);
+            if let Some(emission) = emit {
+                emit_light_and_beam(mesh, anchored_pos, draw_rot, &emission);
+            }
         }
-        Shape::Bar { length, width, height } => mesh.add_bar(pos, rot, length, width, height, color),
+        Shape::Bar { length, width, height } => {
+            mesh.add_bar(pos, rot, length, width, height, color);
+            if let Some(emission) = emit {
+                emit_light_and_beam(mesh, pos, rot, &emission);
+            }
+        }
         Shape::Generic => mesh.add_fixture(pos, rot, color),
     }
+}
+
+/// A moving head/par's beam travels along its local -Z (this project's own
+/// hang/aim convention — see `venue.rs`). Cone length is a fixed reach into
+/// the room rather than derived from anything in the data (there's no
+/// "throw distance" concept here yet); radius comes from the real
+/// fixture's beam angle when known, so a wide-beam wash reads visibly
+/// wider than a tight-beam spot.
+fn emit_light_and_beam(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, emission: &LiveEmission) {
+    mesh.add_light(pos, emission.color);
+    let length = 2.5f32;
+    let angle_deg = emission.beam_angle_deg.unwrap_or(25.0);
+    let radius = length * (angle_deg.to_radians() * 0.5).tan();
+    mesh.add_glow_cone(pos, rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, 16);
 }

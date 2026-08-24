@@ -1,8 +1,13 @@
 use crate::channel_map::channel_map_for;
 use crate::dmx::DmxUniverses;
-use crate::fixture_profile::add_typed_fixture;
+use crate::fixture_profile::{add_typed_fixture, LiveEmission};
 use crate::mesh::MeshBuilder;
 use crate::venue::Venue;
+
+/// Below this, a fixture reads as blacked out — no point light, no beam
+/// glow. Keeps a dimmer sitting at DMX 1-2 (rounding noise, not an actual
+/// cue) from drawing a visible beam.
+const MIN_VISIBLE_DIMMER: f32 = 0.02;
 
 const ROOM_COLOR: [f32; 3] = [0.42, 0.44, 0.48];
 // Ceiling: black tile, dark grey grid lines (shader.wgsl brightens the
@@ -179,6 +184,7 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool, dmx: Opt
         // falls through to the static defaults below unchanged.
         let mut live_rot = None;
         let mut color = f.kind().color();
+        let mut emit = None;
         if let (Some(universes), Some(addr), Some(map)) =
             (dmx, f.dmx_address(), channel_map_for(manufacturer, model))
         {
@@ -195,9 +201,26 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool, dmx: Opt
                     resolved.color[2] * resolved.dimmer,
                 ];
             }
+            if resolved.dimmer > MIN_VISIBLE_DIMMER {
+                // Fixtures with no colour channel at all (a hazer's plain
+                // Dimmer map) still emit — as a white beam, since a hazer
+                // genuinely does haze up whatever colour light is already
+                // hitting it, and "no beam at all" would read as broken
+                // rather than "hazer with no colour mixing."
+                let emit_color = if resolved.has_color {
+                    [
+                        resolved.color[0] * resolved.dimmer,
+                        resolved.color[1] * resolved.dimmer,
+                        resolved.color[2] * resolved.dimmer,
+                    ]
+                } else {
+                    [resolved.dimmer, resolved.dimmer, resolved.dimmer]
+                };
+                emit = Some(LiveEmission { color: emit_color, beam_angle_deg: f.beam_angle_deg });
+            }
         }
 
-        add_typed_fixture(&mut mesh, f.position.to_glam(), mount_rot, live_rot, manufacturer, model, color);
+        add_typed_fixture(&mut mesh, f.position.to_glam(), mount_rot, live_rot, manufacturer, model, color, emit);
     }
 
     mesh

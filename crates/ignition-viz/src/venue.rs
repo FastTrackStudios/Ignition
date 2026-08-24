@@ -66,6 +66,12 @@ pub struct FixtureRecord {
     /// and isn't needed here.
     #[serde(default)]
     pub address: Option<u16>,
+    /// The real fixture's beam spread, in degrees — sizes the live beam
+    /// cone's radius in `live` mode (`scene.rs`). `None` (no field in the
+    /// source data, or a non-beam fixture like a bar) falls back to a
+    /// generic default.
+    #[serde(default)]
+    pub beam_angle_deg: Option<f32>,
 }
 
 fn default_patched() -> bool {

@@ -14,10 +14,30 @@ pub struct Vertex {
     pub color: [f32; 3],
 }
 
+/// A live-mode-only light source — a lit fixture's contribution to the
+/// scene beyond its own mesh. `live_renderer.rs` uploads these into a
+/// storage buffer the fragment shader reads to illuminate *other* geometry
+/// (walls, floor) the way a real light does; `renderer.rs` (headless
+/// `shot`) never populates or reads this, so regression screenshots are
+/// unaffected. `color` is already dimmer-scaled (see `scene.rs`) — the
+/// shader doesn't do its own intensity math.
+#[derive(Debug, Clone, Copy)]
+pub struct PointLight {
+    pub position: Vec3,
+    pub color: [f32; 3],
+}
+
 #[derive(Default)]
 pub struct MeshBuilder {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
+    /// Additively-blended, unlit geometry — beam cones for lit fixtures.
+    /// Drawn in a second pass in `live_renderer.rs` after the main opaque
+    /// pass, with depth write off so overlapping beams blend rather than
+    /// z-fight; `renderer.rs`'s headless path never draws this list.
+    pub glow_vertices: Vec<Vertex>,
+    pub glow_indices: Vec<u32>,
+    pub lights: Vec<PointLight>,
 }
 
 impl MeshBuilder {
@@ -256,6 +276,55 @@ impl MeshBuilder {
         color: [f32; 3],
         segments: u32,
     ) {
+        build_cone(&mut self.vertices, &mut self.indices, origin, rot, local_axis, length, radius, color, segments);
+    }
+
+    /// A beam-cone light glow — same shape as `add_cone`, but appended to
+    /// the separate additively-blended `glow_vertices`/`glow_indices` list
+    /// instead of the main opaque geometry. See `PointLight` for why this
+    /// list exists.
+    pub fn add_glow_cone(
+        &mut self,
+        origin: Vec3,
+        rot: Quat,
+        local_axis: Vec3,
+        length: f32,
+        radius: f32,
+        color: [f32; 3],
+        segments: u32,
+    ) {
+        build_cone(
+            &mut self.glow_vertices,
+            &mut self.glow_indices,
+            origin,
+            rot,
+            local_axis,
+            length,
+            radius,
+            color,
+            segments,
+        );
+    }
+
+    /// Registers a live light source for `live_renderer.rs`'s point-light
+    /// pass — see `PointLight`.
+    pub fn add_light(&mut self, position: Vec3, color: [f32; 3]) {
+        self.lights.push(PointLight { position, color });
+    }
+}
+
+fn build_cone(
+    vertices: &mut Vec<Vertex>,
+    indices: &mut Vec<u32>,
+    origin: Vec3,
+    rot: Quat,
+    local_axis: Vec3,
+    length: f32,
+    radius: f32,
+    color: [f32; 3],
+    segments: u32,
+) {
+    {
         let tip_local = local_axis.normalize() * length;
         let tip = origin + rot * tip_local;
         let base_center = origin;
@@ -271,21 +340,21 @@ impl MeshBuilder {
         let u = axis.cross(up).normalize();
         let v = axis.cross(u).normalize();
 
-        let base_start = self.vertices.len() as u32;
+        let base_start = vertices.len() as u32;
         for i in 0..segments {
             let theta = (i as f32 / segments as f32) * std::f32::consts::TAU;
             let local = u * theta.cos() * radius + v * theta.sin() * radius;
             let p = origin + rot * local;
             let normal = rot * local.normalize();
-            self.vertices.push(Vertex {
+            vertices.push(Vertex {
                 position: p.into(),
                 normal: normal.into(),
                 color,
             });
         }
         let tip_normal = rot * axis;
-        let tip_idx = self.vertices.len() as u32;
-        self.vertices.push(Vertex {
+        let tip_idx = vertices.len() as u32;
+        vertices.push(Vertex {
             position: tip.into(),
             normal: tip_normal.into(),
             color,
@@ -293,11 +362,11 @@ impl MeshBuilder {
         for i in 0..segments {
             let a = base_start + i;
             let b = base_start + (i + 1) % segments;
-            self.indices.extend_from_slice(&[a, b, tip_idx]);
+            indices.extend_from_slice(&[a, b, tip_idx]);
         }
         let base_normal = rot * (-axis);
-        let base_center_idx = self.vertices.len() as u32;
-        self.vertices.push(Vertex {
+        let base_center_idx = vertices.len() as u32;
+        vertices.push(Vertex {
             position: base_center.into(),
             normal: base_normal.into(),
             color,
@@ -305,10 +374,12 @@ impl MeshBuilder {
         for i in 0..segments {
             let a = base_start + i;
             let b = base_start + (i + 1) % segments;
-            self.indices.extend_from_slice(&[base_center_idx, b, a]);
+            indices.extend_from_slice(&[base_center_idx, b, a]);
         }
     }
+}
 
+impl MeshBuilder {
     /// Bakes an imported mesh (a real fixture shape, see
     /// `assets/qlc-meshes/`) into the scene at `center`, rotated by `rot`
     /// and uniformly scaled by `scale` — the asset's own local space is
