@@ -92,9 +92,21 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         // venue's own tile unit (docs/domain/norco-field-measurements).
         let d = grid_dist(in.world_pos.xy, 0.6096);
         rgb *= mix(0.82, 1.0, smoothstep(0.0, 0.02, d));
+    } else if (an.z > 0.9 && (in.color.r + in.color.g + in.color.b) < 0.3) {
+        // Stage floor — black-painted plywood: coarse 1.22m (4ft) sheet
+        // seams, not the audience's narrow boards. Distinguished from the
+        // audience floor by how dark the base colour already is (both are
+        // flat, near-zero-slope surfaces at similar world height, so the
+        // surface normal/position alone can't tell them apart — see
+        // scene.rs for the two colour constants this threshold sits
+        // between).
+        let d = grid_dist(in.world_pos.xy, 1.2192);
+        rgb *= mix(0.7, 1.0, smoothstep(0.0, 0.01, d));
+        let grain_lines = plank_dist(in.world_pos.xy, 0.15, 2.0);
+        rgb *= mix(0.92, 1.0, smoothstep(0.0, 0.004, grain_lines.x));
     } else if (an.z > 0.9) {
-        // Floor — wood planks, not the ceiling's square tile grid. 0.15m
-        // board width, 2m boards with staggered end-joints.
+        // Audience floor — real wood planks. 0.15m board width, 2m boards
+        // with staggered end-joints.
         let pd = plank_dist(in.world_pos.xy, 0.15, 2.0);
         rgb *= mix(0.78, 1.0, smoothstep(0.0, 0.008, pd.x));
         // Per-board colour variation — real boards aren't uniform.

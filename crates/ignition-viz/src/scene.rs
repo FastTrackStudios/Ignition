@@ -3,15 +3,17 @@ use crate::mesh::MeshBuilder;
 use crate::venue::Venue;
 
 const ROOM_COLOR: [f32; 3] = [0.42, 0.44, 0.48];
-// Audience floor — unchanged, wasn't reported as wrong.
-const FLOOR_COLOR: [f32; 3] = [0.30, 0.31, 0.34];
-// Was the same dark grey as the ceiling ("black tiles" / "the stage floor
-// is black" — both true, they were the same colour). Ceiling: light,
-// matching a real acoustic drop-ceiling tile, not dark. Stage floor: a
-// dark wood tone; the shader gives it a plank pattern instead of the
-// ceiling's square tile grid (see shader.wgsl).
+// Ceiling: light, matching a real acoustic drop-ceiling tile.
 const CEILING_COLOR: [f32; 3] = [0.80, 0.80, 0.78];
-const STAGE_FLOOR_COLOR: [f32; 3] = [0.26, 0.17, 0.11];
+// Audience floor: real wood, plank-textured (shader.wgsl). Was on the
+// stage floor in the first pass — corrected 2026-08-24: the wood belongs
+// to the audience, the stage itself is dark/black plywood.
+const FLOOR_COLOR: [f32; 3] = [0.26, 0.17, 0.11];
+// Stage floor: black-painted plywood — the shader gives this a coarser
+// sheet-seam pattern (4x8ft panels) instead of the audience's narrow
+// board planks. Kept a hair above pure black so the sheet seams and grain
+// stay visible instead of crushing to flat black.
+const STAGE_FLOOR_COLOR: [f32; 3] = [0.055, 0.05, 0.045];
 // A flat-black panel — a TV that's off, which is the right default for a
 // mapping surface with no content assigned yet (see
 // docs/research/projection-mapping-resolume.md).
