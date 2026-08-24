@@ -208,26 +208,50 @@ compared against these numbers rather than blindly overwritten.
 
 ---
 
-## Status
+## Status — superseded 2026-08-24 by a live console pull
 
-- **Applied**: floor-mover X positions (85–88), the two upstage columns
-  (new `room.json` objects). Room-structure numbers (seam/lip/upstage-depth)
-  are recorded above but not written anywhere yet — nothing in `room.json`
-  currently represents the seam/lip as named landmarks the way this doc
-  does; they're implicit in the `Stage - Downstage`/`Stage - Upstage Lift`
-  primitive positions from the raw extraction, which weren't touched.
-- **Turned out to need no write**: the back-mover (80–83) orientation split
-  — already correct in the extracted data, see above.
-- **Still open, needs a channel list before I touch `fixtures.json`**: every
-  par group in the section above (side rail bars, the 3-par tile-line group,
-  the "center 12 pars" and its flanking cans, the back row's 2+4 group, the
-  mid-side-section cans). I'd rather hold these than guess-assign 15+
-  individual channels' positions on a live rig's model.
-- **Left alone, partially cross-checked**: speaker props. The two "Speaker
-  Small" entries in `props.json` are asymmetric (matches "not mirrored" in
-  the dictation) and one (`x = -2.25`) is a near-exact match for "6 tiles
-  from the far side" (12.1 ft computed vs. 12 ft stated); the other
-  (`x = 1.5`) doesn't match "5 tiles from stage left" as cleanly (14.6 ft
-  computed vs. 10 ft stated). Recorded, not overwritten — one good match and
-  one mismatch isn't enough to be confident which of the 6 speaker props the
-  second measurement even refers to.
+Everything below this line was written before `fixtures.json` was rebuilt
+from a live OSC read of the running Nomad on `voyager` (see
+`docs/domain/norco-patch-and-groups.md`). Two things changed as a result:
+
+1. **The floor-mover "2 ft in / 9 ft in" correction below was wrong** — not
+   the measurement, the *wall I measured it against*. I used the full 39 ft
+   room width (half-width 5.944 m), which is only correct for the wide
+   downstage/audience area. Floor movers sit at `y ≈ −1.25`, in the narrower
+   **30 ft-wide upstage portion** (half-width 4.572 m, per the "upstage
+   platform" section above). Redone against the correct wall: outer pair
+   ≈1.88 ft in, center pair ≈10.1 ft in — matches your 2 ft/9 ft within
+   normal tape-measure rounding. The live positions already reflect this
+   (they were never touched by hand for this correction — they're straight
+   off the console); my earlier edit using the wrong wall has been
+   overwritten by the live pull, which is strictly better data.
+2. **Every fixture position in `fixtures.json` is now the live console
+   state**, not the show file's saved-yesterday state — 26 of 71 channels
+   had moved by more than 5cm since the file was last saved (the four
+   downstage pars 1/2 moved ~5m; that's real repositioning, not
+   measurement noise).
+
+## What the live pull resolves from the open items below
+
+- **Full DMX universe/address for all 71 channels** — this was the original
+  ask. See `docs/domain/norco-patch-and-groups.md`.
+- **"The center 12 pars"** — very likely group 94, **`Pars Middle`**,
+  channels 19–30: spatially centred (x from −3.6 to +3.6, unlike any other
+  named par subset) and literally 12 channel numbers. Confidence: high, not
+  certain — no group is named "center" explicitly, this is the best fit
+  among all 112 group names.
+- **"A par angled toward the drum kit on either side"** — confirmed, no
+  change needed: group 20/99, **`Drums`**, is channels `42-46, 50-53`, and
+  42/46 already match `norco-rig-facts.md`'s documented convergence pair
+  exactly.
+- **Still unresolved**: the side-rail bars ("12 lights on 1 bar"), the
+  3-par tile-line group, the exact flanking cans at the edge of `Pars
+  Middle` (channel 31 sits almost exactly where `Pars Middle` ends
+  spatially, which reads as *part of* that group rather than the separate
+  offset flanking pair described — not a confident match), and the back
+  row's "2 and 4" split. None of the 112 group names is an obviously better
+  fit than what's already checked above, and I'd rather leave these open
+  than force a weak match onto a live rig's data.
+- **Speakers**: unaffected — Eos patch is lighting channels only; TVs and
+  speakers aren't DMX-addressed and don't appear in the live pull. The
+  partial cross-check from before still stands, still unresolved.

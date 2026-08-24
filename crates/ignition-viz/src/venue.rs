@@ -45,10 +45,16 @@ pub struct FixtureRecord {
     pub chan: Option<u32>,
     pub name: String,
     pub tags: Vec<String>,
+    #[serde(default = "default_patched")]
+    pub patched: bool,
     pub position: Vec3,
     pub eulers: Vec3,
     pub quat: Quat,
     pub size: Vec3,
+}
+
+fn default_patched() -> bool {
+    true
 }
 
 impl FixtureRecord {

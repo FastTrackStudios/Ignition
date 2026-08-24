@@ -5,28 +5,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 1,
+    "global_address": 1,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": -5.6,
+      "x": -0.4,
       "y": -9.86,
       "z": 3.25
     },
     "eulers": {
-      "x": 65,
-      "y": 0,
-      "z": 0
+      "x": 65.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.84339,
       "x": 0.5373,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3057,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 2,
@@ -34,28 +42,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 1,
+    "global_address": 513,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": 5.6,
+      "x": 0.4,
       "y": -9.86,
       "z": 3.25
     },
     "eulers": {
-      "x": 65,
-      "y": 0,
-      "z": 0
+      "x": 65.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.84339,
       "x": 0.5373,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3057,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 3,
@@ -63,28 +79,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 8,
+    "global_address": 8,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": -5.3,
-      "y": -8.02,
+      "x": -4.75,
+      "y": -1.25,
       "z": 3.25
     },
     "eulers": {
-      "x": 65,
-      "y": 0,
-      "z": -10.0
+      "x": 15.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
-      "w": 0.84018,
-      "x": 0.53526,
-      "y": -0.04683,
-      "z": -0.07351
+      "w": 0.99144,
+      "x": 0.13053,
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.358,
       "y": 0.3548,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 4,
@@ -92,28 +116,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 15,
+    "global_address": 15,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": -4.48,
-      "y": -7.78,
+      "x": -4.4,
+      "y": -1.25,
       "z": 3.25
     },
     "eulers": {
-      "x": 65.0,
+      "x": 15.0,
       "y": 0.0,
-      "z": -6
+      "z": 0.0
     },
     "quat": {
-      "w": 0.84224,
-      "x": 0.53656,
-      "y": -0.02812,
-      "z": -0.04414
+      "w": 0.99144,
+      "x": 0.13053,
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3399,
       "y": 0.3364,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 5,
@@ -121,28 +153,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 8,
+    "global_address": 520,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": 5.3,
-      "y": -8.02,
+      "x": 4.4,
+      "y": -1.25,
       "z": 3.25
     },
     "eulers": {
-      "x": 65,
-      "y": 0,
-      "z": 10
+      "x": 15.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
-      "w": 0.84018,
-      "x": 0.53526,
-      "y": 0.04683,
-      "z": 0.07351
+      "w": 0.99144,
+      "x": 0.13053,
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.358,
       "y": 0.3548,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 6,
@@ -150,28 +190,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 15,
+    "global_address": 527,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": 4.48,
-      "y": -7.78,
+      "x": 4.75,
+      "y": -1.25,
       "z": 3.25
     },
     "eulers": {
-      "x": 65.0,
-      "y": -0.0,
-      "z": 6
+      "x": 15.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
-      "w": 0.84224,
-      "x": 0.53656,
-      "y": 0.02812,
-      "z": 0.04414
+      "w": 0.99144,
+      "x": 0.13053,
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3399,
       "y": 0.3364,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 7,
@@ -179,7 +227,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 22,
+    "global_address": 22,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -5.3,
       "y": -3.76,
@@ -187,20 +241,22 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.88254,
       "x": 0.47024,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3328,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 8,
@@ -208,7 +264,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 29,
+    "global_address": 29,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -4.7,
       "y": -3.76,
@@ -216,20 +278,22 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.88254,
       "x": 0.47024,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3328,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 9,
@@ -237,7 +301,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 22,
+    "global_address": 534,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 4.7,
       "y": -3.76,
@@ -245,20 +315,22 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.88254,
       "x": 0.47024,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3328,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 10,
@@ -266,7 +338,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 29,
+    "global_address": 541,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 5.3,
       "y": -3.76,
@@ -274,20 +352,22 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.88254,
       "x": 0.47024,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3328,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 11,
@@ -295,28 +375,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 36,
+    "global_address": 36,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": -3.66,
-      "y": -7.54,
+      "x": -3.6,
+      "y": -7.82,
       "z": 3.25
     },
     "eulers": {
       "x": 65.0,
       "y": 0.0,
-      "z": -2.0
+      "z": -12.0
     },
     "quat": {
-      "w": 0.84326,
-      "x": 0.53722,
-      "y": -0.00938,
-      "z": -0.01472
+      "w": 0.83877,
+      "x": 0.53436,
+      "y": -0.05616,
+      "z": -0.08816
     },
     "size": {
       "x": 0.3201,
       "y": 0.3163,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 12,
@@ -324,28 +412,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 43,
+    "global_address": 43,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": -2.84,
-      "y": -7.3,
+      "x": -2.8,
+      "y": -7.55,
       "z": 3.25
     },
     "eulers": {
       "x": 65.0,
-      "y": -0.0,
-      "z": 2
+      "y": 0.0,
+      "z": -4.0
     },
     "quat": {
-      "w": 0.84326,
-      "x": 0.53722,
-      "y": 0.00938,
-      "z": 0.01472
+      "w": 0.84288,
+      "x": 0.53697,
+      "y": -0.01875,
+      "z": -0.02943
     },
     "size": {
       "x": 0.3201,
       "y": 0.3163,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 13,
@@ -353,28 +449,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 50,
+    "global_address": 50,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": -2.02,
-      "y": -7.06,
+      "x": -2.0,
+      "y": -7.28,
       "z": 3.25
     },
     "eulers": {
       "x": 65.0,
-      "y": -0.0,
-      "z": 6
+      "y": 0.0,
+      "z": 4.0
     },
     "quat": {
-      "w": 0.84224,
-      "x": 0.53656,
-      "y": 0.02812,
-      "z": 0.04414
+      "w": 0.84288,
+      "x": 0.53697,
+      "y": 0.01875,
+      "z": 0.02943
     },
     "size": {
       "x": 0.3399,
       "y": 0.3364,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 14,
@@ -382,28 +486,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 57,
+    "global_address": 57,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -1.2,
-      "y": -6.82,
+      "y": -7.02,
       "z": 3.25
     },
     "eulers": {
-      "x": 65,
-      "y": 0,
-      "z": 10
+      "x": 65.0,
+      "y": 0.0,
+      "z": 12.0
     },
     "quat": {
-      "w": 0.84018,
-      "x": 0.53526,
-      "y": 0.04683,
-      "z": 0.07351
+      "w": 0.83877,
+      "x": 0.53436,
+      "y": 0.05616,
+      "z": 0.08816
     },
     "size": {
       "x": 0.358,
       "y": 0.3548,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 15,
@@ -411,28 +523,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 36,
+    "global_address": 548,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 1.2,
-      "y": -6.82,
+      "y": -7.02,
       "z": 3.25
     },
     "eulers": {
-      "x": 65,
-      "y": 0,
-      "z": -10.0
+      "x": 65.0,
+      "y": 0.0,
+      "z": -12.0
     },
     "quat": {
-      "w": 0.84018,
-      "x": 0.53526,
-      "y": -0.04683,
-      "z": -0.07351
+      "w": 0.83877,
+      "x": 0.53436,
+      "y": -0.05616,
+      "z": -0.08816
     },
     "size": {
       "x": 0.358,
       "y": 0.3548,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 16,
@@ -440,28 +560,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 43,
+    "global_address": 555,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": 2.02,
-      "y": -7.06,
+      "x": 2.0,
+      "y": -7.28,
       "z": 3.25
     },
     "eulers": {
       "x": 65.0,
       "y": 0.0,
-      "z": -6
+      "z": -4.0
     },
     "quat": {
-      "w": 0.84224,
-      "x": 0.53656,
-      "y": -0.02812,
-      "z": -0.04414
+      "w": 0.84288,
+      "x": 0.53697,
+      "y": -0.01875,
+      "z": -0.02943
     },
     "size": {
       "x": 0.3399,
       "y": 0.3364,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 17,
@@ -469,28 +597,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 50,
+    "global_address": 562,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": 2.84,
-      "y": -7.3,
+      "x": 2.8,
+      "y": -7.55,
       "z": 3.25
     },
     "eulers": {
       "x": 65.0,
       "y": 0.0,
-      "z": -2.0
+      "z": 4.0
     },
     "quat": {
-      "w": 0.84326,
-      "x": 0.53722,
-      "y": -0.00938,
-      "z": -0.01472
+      "w": 0.84288,
+      "x": 0.53697,
+      "y": 0.01875,
+      "z": 0.02943
     },
     "size": {
       "x": 0.3201,
       "y": 0.3163,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 18,
@@ -498,28 +634,71 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 57,
+    "global_address": 569,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": 3.66,
-      "y": -7.54,
+      "x": 3.6,
+      "y": -7.82,
       "z": 3.25
     },
     "eulers": {
       "x": 65.0,
-      "y": -0.0,
-      "z": 2
+      "y": 0.0,
+      "z": 12.0
     },
     "quat": {
-      "w": 0.84326,
-      "x": 0.53722,
-      "y": 0.00938,
-      "z": 0.01472
+      "w": 0.83877,
+      "x": 0.53436,
+      "y": 0.05616,
+      "z": 0.08816
     },
     "size": {
       "x": 0.3201,
       "y": 0.3163,
       "z": 0.3622
-    }
+    },
+    "label": "",
+    "gel": ""
+  },
+  {
+    "chan": 19,
+    "name": "Chan 19",
+    "tags": [],
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": false,
+    "universe": null,
+    "address": null,
+    "global_address": null,
+    "beam_angle_deg": 15.0,
+    "position": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "eulers": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "quat": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.3,
+      "y": 0.3,
+      "z": 0.3
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 20,
@@ -527,7 +706,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 64,
+    "global_address": 64,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -3.6,
       "y": -3.76,
@@ -535,7 +720,7 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
+      "y": 0.0,
       "z": -12.0
     },
     "quat": {
@@ -548,7 +733,9 @@
       "x": 0.3721,
       "y": 0.3899,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 21,
@@ -556,7 +743,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 71,
+    "global_address": 71,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -2.9,
       "y": -3.76,
@@ -564,8 +757,8 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": -4
+      "y": 0.0,
+      "z": -4.0
     },
     "quat": {
       "w": 0.882,
@@ -577,7 +770,9 @@
       "x": 0.3321,
       "y": 0.3536,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 22,
@@ -585,7 +780,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 78,
+    "global_address": 78,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -2.2,
       "y": -3.76,
@@ -593,8 +794,8 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": 4
+      "y": 0.0,
+      "z": 4.0
     },
     "quat": {
       "w": 0.882,
@@ -606,7 +807,9 @@
       "x": 0.3321,
       "y": 0.3536,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 23,
@@ -614,7 +817,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 85,
+    "global_address": 85,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -1.5,
       "y": -3.76,
@@ -622,8 +831,8 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": 12
+      "y": 0.0,
+      "z": 12.0
     },
     "quat": {
       "w": 0.8777,
@@ -635,7 +844,9 @@
       "x": 0.3721,
       "y": 0.3899,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 24,
@@ -643,7 +854,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 92,
+    "global_address": 92,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -1.15,
       "y": -2.7,
@@ -651,8 +868,8 @@
     },
     "eulers": {
       "x": 44.2,
-      "y": 0,
-      "z": -12
+      "y": 0.0,
+      "z": -12.0
     },
     "quat": {
       "w": 0.92145,
@@ -664,7 +881,9 @@
       "x": 0.377,
       "y": 0.4131,
       "z": 0.3542
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 25,
@@ -672,7 +891,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 99,
+    "global_address": 99,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -0.4,
       "y": -2.7,
@@ -680,8 +905,8 @@
     },
     "eulers": {
       "x": 44.2,
-      "y": 0,
-      "z": -4
+      "y": 0.0,
+      "z": -4.0
     },
     "quat": {
       "w": 0.92596,
@@ -693,7 +918,9 @@
       "x": 0.3338,
       "y": 0.3772,
       "z": 0.3542
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 26,
@@ -701,7 +928,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 64,
+    "global_address": 576,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 0.4,
       "y": -2.7,
@@ -709,8 +942,8 @@
     },
     "eulers": {
       "x": 44.2,
-      "y": 0,
-      "z": 4
+      "y": 0.0,
+      "z": 4.0
     },
     "quat": {
       "w": 0.92596,
@@ -722,7 +955,9 @@
       "x": 0.3338,
       "y": 0.3772,
       "z": 0.3542
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 27,
@@ -730,7 +965,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 71,
+    "global_address": 583,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 1.15,
       "y": -2.7,
@@ -738,8 +979,8 @@
     },
     "eulers": {
       "x": 44.2,
-      "y": 0,
-      "z": 12
+      "y": 0.0,
+      "z": 12.0
     },
     "quat": {
       "w": 0.92145,
@@ -751,7 +992,9 @@
       "x": 0.377,
       "y": 0.4131,
       "z": 0.3542
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 28,
@@ -759,7 +1002,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 78,
+    "global_address": 590,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 1.5,
       "y": -3.76,
@@ -767,7 +1016,7 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
+      "y": 0.0,
       "z": -12.0
     },
     "quat": {
@@ -780,7 +1029,9 @@
       "x": 0.3721,
       "y": 0.3899,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 29,
@@ -788,7 +1039,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 85,
+    "global_address": 597,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 2.2,
       "y": -3.76,
@@ -796,8 +1053,8 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": -4
+      "y": 0.0,
+      "z": -4.0
     },
     "quat": {
       "w": 0.882,
@@ -809,7 +1066,9 @@
       "x": 0.3321,
       "y": 0.3536,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 30,
@@ -817,7 +1076,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 92,
+    "global_address": 604,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 2.9,
       "y": -3.76,
@@ -825,8 +1090,8 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": 4
+      "y": 0.0,
+      "z": 4.0
     },
     "quat": {
       "w": 0.882,
@@ -838,7 +1103,9 @@
       "x": 0.3321,
       "y": 0.3536,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 31,
@@ -846,7 +1113,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 99,
+    "global_address": 611,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 3.6,
       "y": -3.76,
@@ -854,8 +1127,8 @@
     },
     "eulers": {
       "x": 56.1,
-      "y": 0,
-      "z": 12
+      "y": 0.0,
+      "z": 12.0
     },
     "quat": {
       "w": 0.8777,
@@ -867,7 +1140,9 @@
       "x": 0.3721,
       "y": 0.3899,
       "z": 0.3646
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 32,
@@ -875,28 +1150,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 106,
+    "global_address": 106,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -4.2,
       "y": -1.01,
       "z": 3.25
     },
     "eulers": {
-      "x": 48.6,
+      "x": 8.6,
       "y": 0.0,
-      "z": -82.4
+      "z": -12.0
     },
     "quat": {
-      "w": 0.68575,
-      "x": 0.30963,
-      "y": -0.27106,
-      "z": -0.60033
+      "w": 0.99172,
+      "x": 0.07457,
+      "y": -0.00784,
+      "z": -0.10423
     },
     "size": {
       "x": 0.3874,
       "y": 0.3532,
       "z": 0.3598
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 33,
@@ -904,28 +1187,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 113,
+    "global_address": 113,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -3.55,
       "y": -1.01,
       "z": 3.25
     },
     "eulers": {
-      "x": 43.9,
+      "x": 8.6,
       "y": 0.0,
-      "z": -81
+      "z": -4.0
     },
     "quat": {
-      "w": 0.70528,
-      "x": 0.28424,
-      "y": -0.24276,
-      "z": -0.60237
+      "w": 0.99658,
+      "x": 0.07493,
+      "y": -0.00262,
+      "z": -0.0348
     },
     "size": {
       "x": 0.4009,
       "y": 0.3617,
       "z": 0.3537
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 34,
@@ -933,28 +1224,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 120,
+    "global_address": 120,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -2.9,
       "y": -1.01,
       "z": 3.25
     },
     "eulers": {
-      "x": 38.3,
-      "y": 0,
-      "z": -79.0
+      "x": 8.6,
+      "y": 0.0,
+      "z": 4.0
     },
     "quat": {
-      "w": 0.72893,
-      "x": 0.25313,
-      "y": -0.20866,
-      "z": -0.60088
+      "w": 0.99658,
+      "x": 0.07493,
+      "y": 0.00262,
+      "z": 0.0348
     },
     "size": {
       "x": 0.415,
       "y": 0.3732,
       "z": 0.3433
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 35,
@@ -962,28 +1261,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 127,
+    "global_address": 127,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -2.25,
       "y": -1.01,
       "z": 3.25
     },
     "eulers": {
-      "x": 31.8,
-      "y": -0.0,
-      "z": -75.9
+      "x": 8.6,
+      "y": 0.0,
+      "z": 12.0
     },
     "quat": {
-      "w": 0.75838,
-      "x": 0.21603,
-      "y": -0.16848,
-      "z": -0.59145
+      "w": 0.99172,
+      "x": 0.07457,
+      "y": 0.00784,
+      "z": 0.10423
     },
     "size": {
       "x": 0.4293,
       "y": 0.3892,
       "z": 0.3271
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 36,
@@ -991,28 +1298,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 106,
+    "global_address": 618,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 2.25,
       "y": -1.01,
       "z": 3.25
     },
     "eulers": {
-      "x": 31.8,
+      "x": 8.6,
       "y": 0.0,
-      "z": 75.9
+      "z": -12.0
     },
     "quat": {
-      "w": 0.75838,
-      "x": 0.21603,
-      "y": 0.16848,
-      "z": 0.59145
+      "w": 0.99172,
+      "x": 0.07457,
+      "y": -0.00784,
+      "z": -0.10423
     },
     "size": {
       "x": 0.4293,
       "y": 0.3892,
       "z": 0.3271
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 37,
@@ -1020,28 +1335,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 113,
+    "global_address": 625,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 2.9,
       "y": -1.01,
       "z": 3.25
     },
     "eulers": {
-      "x": 38.3,
-      "y": 0,
-      "z": 79
+      "x": 8.6,
+      "y": 0.0,
+      "z": -4.0
     },
     "quat": {
-      "w": 0.72893,
-      "x": 0.25313,
-      "y": 0.20866,
-      "z": 0.60088
+      "w": 0.99658,
+      "x": 0.07493,
+      "y": -0.00262,
+      "z": -0.0348
     },
     "size": {
       "x": 0.415,
       "y": 0.3732,
       "z": 0.3433
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 38,
@@ -1049,28 +1372,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 120,
+    "global_address": 632,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 3.55,
       "y": -1.01,
       "z": 3.25
     },
     "eulers": {
-      "x": 43.9,
-      "y": -0.0,
-      "z": 81
+      "x": 8.6,
+      "y": 0.0,
+      "z": 4.0
     },
     "quat": {
-      "w": 0.70528,
-      "x": 0.28424,
-      "y": 0.24276,
-      "z": 0.60237
+      "w": 0.99658,
+      "x": 0.07493,
+      "y": 0.00262,
+      "z": 0.0348
     },
     "size": {
       "x": 0.4009,
       "y": 0.3617,
       "z": 0.3537
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 39,
@@ -1078,28 +1409,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 127,
+    "global_address": 639,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 4.2,
       "y": -1.01,
       "z": 3.25
     },
     "eulers": {
-      "x": 48.6,
-      "y": -0.0,
-      "z": 82.4
+      "x": 8.6,
+      "y": 0.0,
+      "z": 12.0
     },
     "quat": {
-      "w": 0.68575,
-      "x": 0.30963,
-      "y": 0.27106,
-      "z": 0.60033
+      "w": 0.99172,
+      "x": 0.07457,
+      "y": 0.00784,
+      "z": 0.10423
     },
     "size": {
       "x": 0.3874,
       "y": 0.3532,
       "z": 0.3598
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 40,
@@ -1107,7 +1446,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 134,
+    "global_address": 134,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -3.6,
       "y": 1.8,
@@ -1115,20 +1460,22 @@
     },
     "eulers": {
       "x": 50.6,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.90408,
       "x": 0.42736,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3456,
       "z": 0.3617
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 41,
@@ -1136,7 +1483,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 141,
+    "global_address": 141,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -2.9,
       "y": 1.8,
@@ -1144,20 +1497,22 @@
     },
     "eulers": {
       "x": 50.6,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.90408,
       "x": 0.42736,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3456,
       "z": 0.3617
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 42,
@@ -1165,7 +1520,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 148,
+    "global_address": 148,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -2.4,
       "y": 1.2,
@@ -1173,7 +1534,7 @@
     },
     "eulers": {
       "x": 48.3,
-      "y": 0,
+      "y": 0.0,
       "z": -104.0
     },
     "quat": {
@@ -1186,7 +1547,9 @@
       "x": 0.4145,
       "y": 0.3851,
       "z": 0.3595
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 43,
@@ -1194,7 +1557,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 155,
+    "global_address": 155,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": -0.55,
       "y": -1.01,
@@ -1202,20 +1571,22 @@
     },
     "eulers": {
       "x": 8.6,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.99719,
       "x": 0.07498,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.335,
       "z": 0.237
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 44,
@@ -1223,28 +1594,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 134,
+    "global_address": 646,
+    "beam_angle_deg": 15.0,
     "position": {
-      "x": 0,
+      "x": 0.0,
       "y": -1.01,
       "z": 3.25
     },
     "eulers": {
       "x": 8.6,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.99719,
       "x": 0.07498,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.335,
       "z": 0.237
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 45,
@@ -1252,7 +1631,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 141,
+    "global_address": 653,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 0.55,
       "y": -1.01,
@@ -1260,20 +1645,22 @@
     },
     "eulers": {
       "x": 8.6,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.99719,
       "x": 0.07498,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.335,
       "z": 0.237
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 46,
@@ -1281,7 +1668,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 148,
+    "global_address": 660,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 2.4,
       "y": 1.2,
@@ -1289,8 +1682,8 @@
     },
     "eulers": {
       "x": 48.3,
-      "y": 0,
-      "z": 104
+      "y": 0.0,
+      "z": 104.0
     },
     "quat": {
       "w": 0.56178,
@@ -1302,7 +1695,9 @@
       "x": 0.4145,
       "y": 0.3851,
       "z": 0.3595
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 47,
@@ -1310,7 +1705,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 155,
+    "global_address": 667,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 2.9,
       "y": 1.8,
@@ -1318,20 +1719,22 @@
     },
     "eulers": {
       "x": 50.6,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.90408,
       "x": 0.42736,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3456,
       "z": 0.3617
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 48,
@@ -1339,7 +1742,13 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{d6efc595-0d12-408e-81ce-f11f176be2f0}",
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 2,
+    "address": 162,
+    "global_address": 674,
+    "beam_angle_deg": 15.0,
     "position": {
       "x": 3.6,
       "y": 1.8,
@@ -1347,20 +1756,22 @@
     },
     "eulers": {
       "x": 50.6,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.90408,
       "x": 0.42736,
-      "y": 0,
-      "z": 0
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.3097,
       "y": 0.3456,
       "z": 0.3617
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 50,
@@ -1368,28 +1779,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{84cb355d-ef6f-49c0-9fa7-993f6b86ca6b}",
+    "manufacturer": "Chauvet",
+    "model": "SlimPAR Tri 7 IRC 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 162,
+    "global_address": 162,
+    "beam_angle_deg": 20.0,
     "position": {
-      "x": -2,
-      "y": 2.5,
-      "z": 2
+      "x": -2.0,
+      "y": 2.85,
+      "z": 1.9
     },
     "eulers": {
-      "x": 90,
-      "y": 0,
-      "z": -180
+      "x": 90.0,
+      "y": 0.0,
+      "z": 180.0
     },
     "quat": {
-      "w": -0.0,
-      "x": -0.0,
-      "y": -0.70711,
-      "z": -0.70711
+      "w": 0.0,
+      "x": 0.0,
+      "y": 0.70711,
+      "z": 0.70711
     },
     "size": {
       "x": 0.1819,
       "y": 0.1213,
       "z": 0.22
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 51,
@@ -1397,28 +1816,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{84cb355d-ef6f-49c0-9fa7-993f6b86ca6b}",
+    "manufacturer": "Chauvet",
+    "model": "SlimPAR Tri 7 IRC 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 169,
+    "global_address": 169,
+    "beam_angle_deg": 20.0,
     "position": {
-      "x": -2,
-      "y": 2.5,
-      "z": 2.75
+      "x": -2.0,
+      "y": 2.85,
+      "z": 2.4
     },
     "eulers": {
-      "x": 90,
-      "y": 0,
-      "z": -180
+      "x": 90.0,
+      "y": 0.0,
+      "z": 180.0
     },
     "quat": {
-      "w": -0.0,
-      "x": -0.0,
-      "y": -0.70711,
-      "z": -0.70711
+      "w": 0.0,
+      "x": 0.0,
+      "y": 0.70711,
+      "z": 0.70711
     },
     "size": {
       "x": 0.1819,
       "y": 0.1213,
       "z": 0.22
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 52,
@@ -1426,28 +1853,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{84cb355d-ef6f-49c0-9fa7-993f6b86ca6b}",
+    "manufacturer": "Chauvet",
+    "model": "SlimPAR Tri 7 IRC 7ch",
+    "patched": true,
+    "universe": 2,
+    "address": 169,
+    "global_address": 681,
+    "beam_angle_deg": 20.0,
     "position": {
-      "x": 2,
-      "y": 2.4276,
-      "z": 2.75
+      "x": 2.0,
+      "y": 2.85,
+      "z": 2.4
     },
     "eulers": {
-      "x": 90,
-      "y": 0,
-      "z": -180
+      "x": 90.0,
+      "y": 0.0,
+      "z": 180.0
     },
     "quat": {
-      "w": -0.0,
-      "x": -0.0,
-      "y": -0.70711,
-      "z": -0.70711
+      "w": 0.0,
+      "x": 0.0,
+      "y": 0.70711,
+      "z": 0.70711
     },
     "size": {
       "x": 0.1819,
       "y": 0.1213,
       "z": 0.22
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 53,
@@ -1455,28 +1890,36 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{84cb355d-ef6f-49c0-9fa7-993f6b86ca6b}",
+    "manufacturer": "Chauvet",
+    "model": "SlimPAR Tri 7 IRC 7ch",
+    "patched": true,
+    "universe": 2,
+    "address": 176,
+    "global_address": 688,
+    "beam_angle_deg": 20.0,
     "position": {
-      "x": 2,
-      "y": 2.4225,
-      "z": 2
+      "x": 2.0,
+      "y": 2.85,
+      "z": 1.9
     },
     "eulers": {
-      "x": 90,
-      "y": 0,
-      "z": -180
+      "x": 90.0,
+      "y": 0.0,
+      "z": 180.0
     },
     "quat": {
-      "w": -0.0,
-      "x": -0.0,
-      "y": -0.70711,
-      "z": -0.70711
+      "w": 0.0,
+      "x": 0.0,
+      "y": 0.70711,
+      "z": 0.70711
     },
     "size": {
       "x": 0.1819,
       "y": 0.1213,
       "z": 0.22
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 80,
@@ -1485,20 +1928,26 @@
       "Movers All",
       "Luminaire_LED_Yoke_Spot"
     ],
-    "fixture_uid": "{ae0e28a4-66b0-40fc-83bb-7a25e454d7f8}",
+    "manufacturer": "Riukoe",
+    "model": "Mini Gobo Moving Head Light 11ch",
+    "patched": true,
+    "universe": 1,
+    "address": 176,
+    "global_address": 176,
+    "beam_angle_deg": 11.0,
     "position": {
-      "x": -2.3345,
-      "y": 2.4958,
-      "z": 2.5
+      "x": -3.0,
+      "y": 2.2,
+      "z": 3.2
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
-      "w": 0.0,
-      "x": -1,
+      "w": 1.0,
+      "x": 0.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1506,7 +1955,9 @@
       "x": 0.4623,
       "y": 0.2954,
       "z": 0.6744
-    }
+    },
+    "label": "Movers All",
+    "gel": ""
   },
   {
     "chan": 81,
@@ -1515,28 +1966,36 @@
       "Movers All",
       "Luminaire_LED_Yoke_Spot"
     ],
-    "fixture_uid": "{ae0e28a4-66b0-40fc-83bb-7a25e454d7f8}",
+    "manufacturer": "Riukoe",
+    "model": "Mini Gobo Moving Head Light 11ch",
+    "patched": true,
+    "universe": 1,
+    "address": 187,
+    "global_address": 187,
+    "beam_angle_deg": 11.0,
     "position": {
-      "x": -1,
-      "y": 2.75,
-      "z": 3.5
+      "x": -1.0,
+      "y": 2.2,
+      "z": 3.2
     },
     "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
-      "w": 1,
-      "x": 0,
-      "y": 0,
-      "z": 0
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.4623,
       "y": 0.2954,
       "z": 0.6744
-    }
+    },
+    "label": "Movers All",
+    "gel": ""
   },
   {
     "chan": 82,
@@ -1545,28 +2004,36 @@
       "Movers All",
       "Luminaire_LED_Yoke_Spot"
     ],
-    "fixture_uid": "{ae0e28a4-66b0-40fc-83bb-7a25e454d7f8}",
+    "manufacturer": "Riukoe",
+    "model": "Mini Gobo Moving Head Light 11ch",
+    "patched": true,
+    "universe": 2,
+    "address": 183,
+    "global_address": 695,
+    "beam_angle_deg": 11.0,
     "position": {
-      "x": 1,
-      "y": 2.75,
-      "z": 3.5
+      "x": 1.0,
+      "y": 2.2,
+      "z": 3.2
     },
     "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
-      "w": 1,
-      "x": 0,
-      "y": 0,
-      "z": 0
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.4623,
       "y": 0.2954,
       "z": 0.6744
-    }
+    },
+    "label": "Movers All",
+    "gel": ""
   },
   {
     "chan": 83,
@@ -1575,20 +2042,26 @@
       "Movers All",
       "Luminaire_LED_Yoke_Spot"
     ],
-    "fixture_uid": "{ae0e28a4-66b0-40fc-83bb-7a25e454d7f8}",
+    "manufacturer": "Riukoe",
+    "model": "Mini Gobo Moving Head Light 11ch",
+    "patched": true,
+    "universe": 2,
+    "address": 194,
+    "global_address": 706,
+    "beam_angle_deg": 11.0,
     "position": {
-      "x": 2.3337,
-      "y": 2.5,
-      "z": 2.5
+      "x": 3.0,
+      "y": 2.2,
+      "z": 3.2
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
-      "w": 0.0,
-      "x": -1,
+      "w": 1.0,
+      "x": 0.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1596,7 +2069,9 @@
       "x": 0.4623,
       "y": 0.2954,
       "z": 0.6744
-    }
+    },
+    "label": "Movers All",
+    "gel": ""
   },
   {
     "chan": 85,
@@ -1605,28 +2080,36 @@
       "Movers All",
       "Luminaire_LED_Yoke_Spot"
     ],
-    "fixture_uid": "{d6593340-9745-4662-af36-38fbfe19d432}",
+    "manufacturer": "Betopper",
+    "model": "150W LED Beam Moving Head Light",
+    "patched": true,
+    "universe": 2,
+    "address": 358,
+    "global_address": 870,
+    "beam_angle_deg": 1.72,
     "position": {
-      "x": -5.334,
-      "y": -1.3,
-      "z": 0.02
+      "x": -4.0,
+      "y": -1.25,
+      "z": 0.17
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 180.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
-      "y": 0.0,
+      "x": 0.0,
+      "y": 1.0,
       "z": 0.0
     },
     "size": {
       "x": 0.4623,
       "y": 0.2954,
       "z": 0.6744
-    }
+    },
+    "label": "Movers All",
+    "gel": ""
   },
   {
     "chan": 86,
@@ -1635,20 +2118,26 @@
       "Movers All",
       "Luminaire_LED_Yoke_Spot"
     ],
-    "fixture_uid": "{d6593340-9745-4662-af36-38fbfe19d432}",
+    "manufacturer": "Betopper",
+    "model": "150W LED Beam Moving Head Light",
+    "patched": true,
+    "universe": 2,
+    "address": 382,
+    "global_address": 894,
+    "beam_angle_deg": 1.72,
     "position": {
-      "x": -3.201,
-      "y": -1.3,
+      "x": -1.5,
+      "y": -1.25,
       "z": 0.02
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1656,7 +2145,9 @@
       "x": 0.4623,
       "y": 0.2954,
       "z": 0.6744
-    }
+    },
+    "label": "Movers All",
+    "gel": ""
   },
   {
     "chan": 87,
@@ -1665,20 +2156,26 @@
       "Movers All",
       "Luminaire_LED_Yoke_Spot"
     ],
-    "fixture_uid": "{d6593340-9745-4662-af36-38fbfe19d432}",
+    "manufacturer": "Betopper",
+    "model": "150W LED Beam Moving Head Light",
+    "patched": true,
+    "universe": 2,
+    "address": 394,
+    "global_address": 906,
+    "beam_angle_deg": 1.72,
     "position": {
-      "x": 3.201,
-      "y": -1.3,
+      "x": 1.5,
+      "y": -1.25,
       "z": 0.02
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1686,7 +2183,9 @@
       "x": 0.4623,
       "y": 0.2954,
       "z": 0.6744
-    }
+    },
+    "label": "Movers All",
+    "gel": ""
   },
   {
     "chan": 88,
@@ -1695,20 +2194,26 @@
       "Movers All",
       "Luminaire_LED_Yoke_Spot"
     ],
-    "fixture_uid": "{d6593340-9745-4662-af36-38fbfe19d432}",
+    "manufacturer": "Betopper",
+    "model": "150W LED Beam Moving Head Light",
+    "patched": true,
+    "universe": 2,
+    "address": 370,
+    "global_address": 882,
+    "beam_angle_deg": 1.72,
     "position": {
-      "x": 5.334,
-      "y": -1.3,
-      "z": 0.02
+      "x": 4.0,
+      "y": -1.25,
+      "z": 0.0
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1716,7 +2221,9 @@
       "x": 0.4623,
       "y": 0.2954,
       "z": 0.6744
-    }
+    },
+    "label": "Movers All",
+    "gel": ""
   },
   {
     "chan": 90,
@@ -1724,20 +2231,26 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{c38bda53-ce7e-454d-a123-86ecf9005137}",
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 260,
+    "global_address": 260,
+    "beam_angle_deg": 0.0,
     "position": {
       "x": -3.5,
       "y": 2.85,
       "z": 0.2
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1745,7 +2258,9 @@
       "x": 0.3097,
       "y": 0.3097,
       "z": 0.1929
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 91,
@@ -1753,20 +2268,26 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{c38bda53-ce7e-454d-a123-86ecf9005137}",
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 240,
+    "global_address": 240,
+    "beam_angle_deg": 0.0,
     "position": {
-      "x": 0,
+      "x": 0.0,
       "y": 2.85,
       "z": 0.2
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1774,7 +2295,9 @@
       "x": 0.3097,
       "y": 0.3097,
       "z": 0.1929
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 92,
@@ -1782,20 +2305,26 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{c38bda53-ce7e-454d-a123-86ecf9005137}",
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 2,
+    "address": 220,
+    "global_address": 732,
+    "beam_angle_deg": 0.0,
     "position": {
       "x": 3.5,
       "y": 2.85,
       "z": 0.2
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1803,7 +2332,9 @@
       "x": 0.3097,
       "y": 0.3097,
       "z": 0.1929
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 93,
@@ -1811,20 +2342,26 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{c38bda53-ce7e-454d-a123-86ecf9005137}",
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 276,
+    "global_address": 276,
+    "beam_angle_deg": 0.0,
     "position": {
-      "x": -3,
+      "x": -3.0,
       "y": -3.88,
       "z": -0.15
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1832,7 +2369,9 @@
       "x": 0.3097,
       "y": 0.3097,
       "z": 0.1929
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 94,
@@ -1840,20 +2379,26 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{c38bda53-ce7e-454d-a123-86ecf9005137}",
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 2,
+    "address": 283,
+    "global_address": 795,
+    "beam_angle_deg": 0.0,
     "position": {
-      "x": 3,
+      "x": 3.0,
       "y": -3.88,
       "z": -0.15
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1861,7 +2406,9 @@
       "x": 0.3097,
       "y": 0.3097,
       "z": 0.1929
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 95,
@@ -1869,20 +2416,26 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{77aa3725-3c55-4c89-a953-91c2ec748a9d}",
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 3ch",
+    "patched": true,
+    "universe": 2,
+    "address": 260,
+    "global_address": 772,
+    "beam_angle_deg": 0.0,
     "position": {
       "x": -5.2523,
       "y": -1.7676,
       "z": 0.05
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1890,7 +2443,9 @@
       "x": 0.3097,
       "y": 0.3097,
       "z": 0.1929
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 96,
@@ -1898,20 +2453,26 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{77aa3725-3c55-4c89-a953-91c2ec748a9d}",
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 3ch",
+    "patched": true,
+    "universe": 2,
+    "address": 267,
+    "global_address": 779,
+    "beam_angle_deg": 0.0,
     "position": {
       "x": 5.0567,
       "y": -1.6644,
       "z": 0.05
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1919,7 +2480,9 @@
       "x": 0.3097,
       "y": 0.3097,
       "z": 0.1929
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 97,
@@ -1927,20 +2490,26 @@
     "tags": [
       "Luminaire_LED_Wash"
     ],
-    "fixture_uid": "{c38bda53-ce7e-454d-a123-86ecf9005137}",
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 2,
+    "address": 270,
+    "global_address": 782,
+    "beam_angle_deg": 0.0,
     "position": {
-      "x": 0,
+      "x": 0.0,
       "y": -3.88,
       "z": -0.15
     },
     "eulers": {
-      "x": -0.0,
-      "y": -180,
-      "z": -180
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
       "w": 0.0,
-      "x": -1,
+      "x": 1.0,
       "y": 0.0,
       "z": 0.0
     },
@@ -1948,7 +2517,44 @@
       "x": 0.3097,
       "y": 0.3097,
       "z": 0.1929
-    }
+    },
+    "label": "????",
+    "gel": ""
+  },
+  {
+    "chan": 98,
+    "name": "Chan 98",
+    "tags": [],
+    "manufacturer": "Betopper",
+    "model": "150W LED Beam Moving Head Light",
+    "patched": false,
+    "universe": null,
+    "address": null,
+    "global_address": null,
+    "beam_angle_deg": 1.72,
+    "position": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "eulers": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "quat": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.3,
+      "y": 0.3,
+      "z": 0.3
+    },
+    "label": "Movers All",
+    "gel": ""
   },
   {
     "chan": 100,
@@ -1956,28 +2562,36 @@
     "tags": [
       "Other"
     ],
-    "fixture_uid": "{9daceec5-7428-4d8b-ac36-5518ae99ac8e}",
+    "manufacturer": "Chauvet",
+    "model": "Hurricane Haze 1DX",
+    "patched": true,
+    "universe": 1,
+    "address": 303,
+    "global_address": 303,
+    "beam_angle_deg": 0.0,
     "position": {
       "x": -4.2,
       "y": 2.6,
       "z": 0.25
     },
     "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
-      "w": 1,
-      "x": 0,
-      "y": 0,
-      "z": 0
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.1,
       "y": 0.1,
       "z": 0.1
-    }
+    },
+    "label": "",
+    "gel": ""
   },
   {
     "chan": 101,
@@ -1985,27 +2599,35 @@
     "tags": [
       "Other"
     ],
-    "fixture_uid": "{9daceec5-7428-4d8b-ac36-5518ae99ac8e}",
+    "manufacturer": "Chauvet",
+    "model": "Hurricane Haze 1DX",
+    "patched": true,
+    "universe": 2,
+    "address": 302,
+    "global_address": 814,
+    "beam_angle_deg": 0.0,
     "position": {
       "x": 4.2,
       "y": 2.6,
       "z": 0.25
     },
     "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "quat": {
-      "w": 1,
-      "x": 0,
-      "y": 0,
-      "z": 0
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
     },
     "size": {
       "x": 0.1,
       "y": 0.1,
       "z": 0.1
-    }
+    },
+    "label": "",
+    "gel": ""
   }
 ]

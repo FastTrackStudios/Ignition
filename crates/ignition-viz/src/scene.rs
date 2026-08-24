@@ -43,7 +43,11 @@ pub fn build_scene(venue: &Venue, exclude: &[String]) -> MeshBuilder {
     }
 
     for f in &venue.fixtures {
-        if skip(&f.name) {
+        // Unpatched channels (e.g. Norco's phantom 19/98) have no real
+        // position — the live patch reports (0,0,0) for them, which would
+        // otherwise render as a stray fixture marker at the room's origin.
+        // See docs/domain/norco-patch-and-groups.md.
+        if skip(&f.name) || !f.patched {
             continue;
         }
         mesh.add_fixture(f.position.to_glam(), f.orientation(), f.kind().color());

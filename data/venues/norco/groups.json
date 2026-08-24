@@ -1,0 +1,1126 @@
+[
+  {
+    "target": "1",
+    "label": "Washers",
+    "channels": [
+      "1-48",
+      "50-53"
+    ]
+  },
+  {
+    "target": "2",
+    "label": "Pars",
+    "channels": [
+      "1-48"
+    ]
+  },
+  {
+    "target": "3",
+    "label": "Movers",
+    "channels": [
+      "80-83",
+      "85-88"
+    ]
+  },
+  {
+    "target": "4",
+    "label": "Strips",
+    "channels": [
+      "90-97"
+    ]
+  },
+  {
+    "target": "5",
+    "label": "SlimPars",
+    "channels": [
+      "50-53"
+    ]
+  },
+  {
+    "target": "6",
+    "label": "Hazers",
+    "channels": [
+      "100-101"
+    ]
+  },
+  {
+    "target": "7",
+    "label": "OH Movers",
+    "channels": [
+      "80-83"
+    ]
+  },
+  {
+    "target": "8",
+    "label": "Beam Movers",
+    "channels": [
+      "85-88"
+    ]
+  },
+  {
+    "target": "9",
+    "label": "Movers + Strips",
+    "channels": [
+      "80-83",
+      "85-88",
+      "90-97"
+    ]
+  },
+  {
+    "target": "10",
+    "label": "All",
+    "channels": [
+      "1-18",
+      "20-97"
+    ]
+  },
+  {
+    "target": "11",
+    "label": "Left All",
+    "channels": [
+      "3-4",
+      "7-8",
+      "11-14",
+      "20-23",
+      "32-35",
+      "40-42"
+    ]
+  },
+  {
+    "target": "12",
+    "label": "Centre All",
+    "channels": [
+      "1-2",
+      "24-27",
+      "43-45"
+    ]
+  },
+  {
+    "target": "13",
+    "label": "Right All",
+    "channels": [
+      "5-6",
+      "9-10",
+      "15-18",
+      "28-31",
+      "36-39",
+      "46-48"
+    ]
+  },
+  {
+    "target": "14",
+    "label": "Downstage",
+    "channels": [
+      "1-2",
+      "11-18"
+    ]
+  },
+  {
+    "target": "15",
+    "label": "Upstage",
+    "channels": [
+      "40-48"
+    ]
+  },
+  {
+    "target": "16",
+    "label": "Front Wash",
+    "channels": [
+      "1-2",
+      "11-18"
+    ]
+  },
+  {
+    "target": "17",
+    "label": "Mid Wash",
+    "channels": [
+      "3-10",
+      "20-31"
+    ]
+  },
+  {
+    "target": "18",
+    "label": "Wide Wash",
+    "channels": [
+      "32-39"
+    ]
+  },
+  {
+    "target": "19",
+    "label": "Back Wash",
+    "channels": [
+      "40-48"
+    ]
+  },
+  {
+    "target": "20",
+    "label": "Drums",
+    "channels": [
+      "42-46",
+      "50-53"
+    ]
+  },
+  {
+    "target": "21",
+    "label": "Pars Odd",
+    "channels": [
+      1,
+      3,
+      5,
+      7,
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21,
+      23,
+      25,
+      27,
+      29,
+      31,
+      33,
+      35,
+      37,
+      39,
+      41,
+      43,
+      45,
+      47
+    ]
+  },
+  {
+    "target": "22",
+    "label": "Pars Even",
+    "channels": [
+      2,
+      4,
+      6,
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+      26,
+      28,
+      30,
+      32,
+      34,
+      36,
+      38,
+      40,
+      42,
+      44,
+      46,
+      48
+    ]
+  },
+  {
+    "target": "23",
+    "label": "Pars 3rd",
+    "channels": [
+      1,
+      4,
+      7,
+      10,
+      13,
+      16,
+      19,
+      22,
+      25,
+      28,
+      31,
+      34,
+      37,
+      40,
+      43,
+      46
+    ]
+  },
+  {
+    "target": "24",
+    "label": "Pars 4th",
+    "channels": [
+      1,
+      5,
+      9,
+      13,
+      17,
+      21,
+      25,
+      29,
+      33,
+      37,
+      41,
+      45
+    ]
+  },
+  {
+    "target": "25",
+    "label": "Pars Split",
+    "channels": [
+      2,
+      "4-5",
+      11,
+      13,
+      16,
+      18,
+      21,
+      23,
+      25,
+      "27-28",
+      30,
+      32,
+      34,
+      37,
+      39,
+      41,
+      "43-45",
+      47
+    ]
+  },
+  {
+    "target": "26",
+    "label": "Front Left",
+    "channels": [
+      "11-14"
+    ]
+  },
+  {
+    "target": "27",
+    "label": "Front Centre",
+    "channels": [
+      "1-2"
+    ]
+  },
+  {
+    "target": "28",
+    "label": "Front Right",
+    "channels": [
+      "15-18"
+    ]
+  },
+  {
+    "target": "29",
+    "label": "Front L+C",
+    "channels": [
+      "1-2",
+      "11-14"
+    ]
+  },
+  {
+    "target": "30",
+    "label": "Front C+R",
+    "channels": [
+      "1-2",
+      "15-18"
+    ]
+  },
+  {
+    "target": "31",
+    "label": "Mid Left",
+    "channels": [
+      "3-4",
+      "7-8"
+    ]
+  },
+  {
+    "target": "32",
+    "label": "Mid Ctr Left",
+    "channels": [
+      "20-23"
+    ]
+  },
+  {
+    "target": "33",
+    "label": "Mid Centre",
+    "channels": [
+      "24-27"
+    ]
+  },
+  {
+    "target": "34",
+    "label": "Mid Ctr Right",
+    "channels": [
+      "28-31"
+    ]
+  },
+  {
+    "target": "35",
+    "label": "Mid Right",
+    "channels": [
+      "5-6",
+      "9-10"
+    ]
+  },
+  {
+    "target": "36",
+    "label": "Wide Left",
+    "channels": [
+      "32-35"
+    ]
+  },
+  {
+    "target": "37",
+    "label": "Wide Right",
+    "channels": [
+      "36-39"
+    ]
+  },
+  {
+    "target": "38",
+    "label": "Wide Both",
+    "channels": [
+      "32-39"
+    ]
+  },
+  {
+    "target": "39",
+    "label": "Wide + Mid L",
+    "channels": [
+      "3-4",
+      "7-8",
+      "32-35"
+    ]
+  },
+  {
+    "target": "40",
+    "label": "Wide + Mid R",
+    "channels": [
+      "5-6",
+      "9-10",
+      "36-39"
+    ]
+  },
+  {
+    "target": "41",
+    "label": "Back Left",
+    "channels": [
+      "40-42"
+    ]
+  },
+  {
+    "target": "42",
+    "label": "Back Centre",
+    "channels": [
+      "43-45"
+    ]
+  },
+  {
+    "target": "43",
+    "label": "Back Right",
+    "channels": [
+      "46-48"
+    ]
+  },
+  {
+    "target": "44",
+    "label": "Back L+C",
+    "channels": [
+      "40-45"
+    ]
+  },
+  {
+    "target": "45",
+    "label": "Back C+R",
+    "channels": [
+      "43-48"
+    ]
+  },
+  {
+    "target": "46",
+    "label": "Left Deep",
+    "channels": [
+      "3-4",
+      "7-8",
+      "11-14",
+      "32-35",
+      "40-42"
+    ]
+  },
+  {
+    "target": "47",
+    "label": "Right Deep",
+    "channels": [
+      "5-6",
+      "9-10",
+      "15-18",
+      "36-39",
+      "46-48"
+    ]
+  },
+  {
+    "target": "48",
+    "label": "Centre Deep",
+    "channels": [
+      "1-2",
+      "24-27",
+      "43-45"
+    ]
+  },
+  {
+    "target": "49",
+    "label": "Outer Ring",
+    "channels": [
+      "32-42",
+      "46-48"
+    ]
+  },
+  {
+    "target": "50",
+    "label": "Inner Core",
+    "channels": [
+      "1-2",
+      "20-31"
+    ]
+  },
+  {
+    "target": "51",
+    "label": "Movers All",
+    "channels": [
+      "80-83",
+      "85-88"
+    ]
+  },
+  {
+    "target": "52",
+    "label": "Movers OH",
+    "channels": [
+      "80-83"
+    ]
+  },
+  {
+    "target": "53",
+    "label": "Movers Beam",
+    "channels": [
+      "85-88"
+    ]
+  },
+  {
+    "target": "54",
+    "label": "Mvr Left",
+    "channels": [
+      80,
+      85
+    ]
+  },
+  {
+    "target": "55",
+    "label": "Mvr Right",
+    "channels": [
+      83,
+      88
+    ]
+  },
+  {
+    "target": "56",
+    "label": "OH Outer",
+    "channels": [
+      80,
+      83
+    ]
+  },
+  {
+    "target": "57",
+    "label": "OH Inner",
+    "channels": [
+      "81-82"
+    ]
+  },
+  {
+    "target": "58",
+    "label": "OH Left Pair",
+    "channels": [
+      "80-81"
+    ]
+  },
+  {
+    "target": "59",
+    "label": "OH Right Pair",
+    "channels": [
+      "82-83"
+    ]
+  },
+  {
+    "target": "60",
+    "label": "OH Odd",
+    "channels": [
+      80,
+      82
+    ]
+  },
+  {
+    "target": "61",
+    "label": "OH Even",
+    "channels": [
+      81,
+      83
+    ]
+  },
+  {
+    "target": "62",
+    "label": "BM Outer",
+    "channels": [
+      85,
+      88
+    ]
+  },
+  {
+    "target": "63",
+    "label": "BM Inner",
+    "channels": [
+      "86-87"
+    ]
+  },
+  {
+    "target": "64",
+    "label": "BM Left Pair",
+    "channels": [
+      "85-86"
+    ]
+  },
+  {
+    "target": "65",
+    "label": "BM Right Pair",
+    "channels": [
+      "87-88"
+    ]
+  },
+  {
+    "target": "66",
+    "label": "Mvr Outer All",
+    "channels": [
+      80,
+      83,
+      85,
+      88
+    ]
+  },
+  {
+    "target": "67",
+    "label": "Mvr Inner All",
+    "channels": [
+      "81-82",
+      "86-87"
+    ]
+  },
+  {
+    "target": "68",
+    "label": "Mvr Left All",
+    "channels": [
+      "80-81",
+      "85-86"
+    ]
+  },
+  {
+    "target": "69",
+    "label": "Mvr Right All",
+    "channels": [
+      "82-83",
+      "87-88"
+    ]
+  },
+  {
+    "target": "70",
+    "label": "Mvr + Strip",
+    "channels": [
+      "80-83",
+      "85-88",
+      "90-97"
+    ]
+  },
+  {
+    "target": "71",
+    "label": "Strips All",
+    "channels": [
+      "90-97"
+    ]
+  },
+  {
+    "target": "72",
+    "label": "Strips Back",
+    "channels": [
+      "90-94"
+    ]
+  },
+  {
+    "target": "73",
+    "label": "Strips Left",
+    "channels": [
+      90,
+      93,
+      95
+    ]
+  },
+  {
+    "target": "74",
+    "label": "Strips Right",
+    "channels": [
+      92,
+      94,
+      96
+    ]
+  },
+  {
+    "target": "75",
+    "label": "SlimPars All",
+    "channels": [
+      "50-53"
+    ]
+  },
+  {
+    "target": "76",
+    "label": "Pars Odd",
+    "channels": [
+      1,
+      3,
+      5,
+      7,
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21,
+      23,
+      25,
+      27,
+      29,
+      31,
+      33,
+      35,
+      37,
+      39,
+      41,
+      43,
+      45,
+      47
+    ]
+  },
+  {
+    "target": "77",
+    "label": "Pars Even",
+    "channels": [
+      2,
+      4,
+      6,
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+      26,
+      28,
+      30,
+      32,
+      34,
+      36,
+      38,
+      40,
+      42,
+      44,
+      46,
+      48
+    ]
+  },
+  {
+    "target": "78",
+    "label": "Pars 3rd",
+    "channels": [
+      1,
+      4,
+      7,
+      10,
+      13,
+      16,
+      19,
+      22,
+      25,
+      28,
+      31,
+      34,
+      37,
+      40,
+      43,
+      46
+    ]
+  },
+  {
+    "target": "79",
+    "label": "Pars 4th",
+    "channels": [
+      1,
+      5,
+      9,
+      13,
+      17,
+      21,
+      25,
+      29,
+      33,
+      37,
+      41,
+      45
+    ]
+  },
+  {
+    "target": "80",
+    "label": "Pars 5th",
+    "channels": [
+      1,
+      6,
+      11,
+      16,
+      21,
+      26,
+      31,
+      36,
+      41,
+      46
+    ]
+  },
+  {
+    "target": "81",
+    "label": "Pars 6th",
+    "channels": [
+      1,
+      7,
+      13,
+      19,
+      25,
+      31,
+      37,
+      43
+    ]
+  },
+  {
+    "target": "82",
+    "label": "Pars 8th",
+    "channels": [
+      1,
+      9,
+      17,
+      25,
+      33,
+      41
+    ]
+  },
+  {
+    "target": "83",
+    "label": "Pars Split A",
+    "channels": [
+      2,
+      "4-5",
+      11,
+      13,
+      16,
+      18,
+      21,
+      23,
+      25,
+      "27-28",
+      30,
+      32,
+      34,
+      37,
+      39,
+      41,
+      "43-45",
+      47
+    ]
+  },
+  {
+    "target": "84",
+    "label": "Pars Split B",
+    "channels": [
+      1,
+      3,
+      6,
+      12,
+      "14-15",
+      17,
+      20,
+      22,
+      24,
+      26,
+      29,
+      31,
+      33,
+      "35-36",
+      38,
+      40,
+      42,
+      46,
+      48
+    ]
+  },
+  {
+    "target": "85",
+    "label": "Pars 1st Half",
+    "channels": [
+      "1-24"
+    ]
+  },
+  {
+    "target": "86",
+    "label": "Pars 2nd Half",
+    "channels": [
+      "25-48"
+    ]
+  },
+  {
+    "target": "87",
+    "label": "Pars Qtr 1",
+    "channels": [
+      "1-12"
+    ]
+  },
+  {
+    "target": "88",
+    "label": "Pars Qtr 2",
+    "channels": [
+      "13-24"
+    ]
+  },
+  {
+    "target": "89",
+    "label": "Pars Qtr 3",
+    "channels": [
+      "25-36"
+    ]
+  },
+  {
+    "target": "90",
+    "label": "Pars Qtr 4",
+    "channels": [
+      "37-48"
+    ]
+  },
+  {
+    "target": "91",
+    "label": "Pars Qtr 1+3",
+    "channels": [
+      "1-12",
+      "25-36"
+    ]
+  },
+  {
+    "target": "92",
+    "label": "Pars Qtr 2+4",
+    "channels": [
+      "13-24",
+      "37-48"
+    ]
+  },
+  {
+    "target": "93",
+    "label": "Pars Ends",
+    "channels": [
+      "1-6",
+      "43-48"
+    ]
+  },
+  {
+    "target": "94",
+    "label": "Pars Middle",
+    "channels": [
+      "19-30"
+    ]
+  },
+  {
+    "target": "95",
+    "label": "Slim Left",
+    "channels": [
+      "50-51"
+    ]
+  },
+  {
+    "target": "96",
+    "label": "Slim Right",
+    "channels": [
+      "52-53"
+    ]
+  },
+  {
+    "target": "97",
+    "label": "Strips Odd",
+    "channels": [
+      91,
+      93,
+      95,
+      97
+    ]
+  },
+  {
+    "target": "98",
+    "label": "Strips Even",
+    "channels": [
+      90,
+      92,
+      94,
+      96
+    ]
+  },
+  {
+    "target": "99",
+    "label": "Drums",
+    "channels": [
+      "42-46",
+      "50-53"
+    ]
+  },
+  {
+    "target": "100",
+    "label": "Rig No Haze",
+    "channels": [
+      "1-98"
+    ]
+  },
+  {
+    "target": "201",
+    "label": "Chase Odd 6",
+    "channels": [
+      1,
+      3,
+      5,
+      7,
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21,
+      23,
+      25,
+      27,
+      29,
+      31,
+      33,
+      35,
+      37,
+      39,
+      41,
+      43,
+      45,
+      47
+    ]
+  },
+  {
+    "target": "202",
+    "label": "Chase Even 6",
+    "channels": [
+      2,
+      4,
+      6,
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+      26,
+      28,
+      30,
+      32,
+      34,
+      36,
+      38,
+      40,
+      42,
+      44,
+      46,
+      48
+    ]
+  },
+  {
+    "target": "203",
+    "label": "Chase L to R",
+    "channels": [
+      "1-18",
+      "20-48"
+    ]
+  },
+  {
+    "target": "204",
+    "label": "Chase R to L",
+    "channels": [
+      "1-18",
+      "20-48"
+    ]
+  },
+  {
+    "target": "205",
+    "label": "Chase Ctr Out",
+    "channels": [
+      "1-18",
+      "20-48"
+    ]
+  },
+  {
+    "target": "206",
+    "label": "Chase Out In",
+    "channels": [
+      "1-18",
+      "20-48"
+    ]
+  },
+  {
+    "target": "207",
+    "label": "Chase Front Bk",
+    "channels": [
+      "1-18",
+      "20-48"
+    ]
+  },
+  {
+    "target": "208",
+    "label": "Chase Back Frnt",
+    "channels": [
+      "1-18",
+      "20-48"
+    ]
+  },
+  {
+    "target": "209",
+    "label": "Chase Scatter",
+    "channels": [
+      "1-48"
+    ]
+  },
+  {
+    "target": "210",
+    "label": "Chase Quarters",
+    "channels": [
+      "1-48"
+    ]
+  },
+  {
+    "target": "211",
+    "label": "Chase Strips",
+    "channels": [
+      "90-97"
+    ]
+  },
+  {
+    "target": "212",
+    "label": "Chase Movers",
+    "channels": [
+      "80-83",
+      "85-88"
+    ]
+  }
+]

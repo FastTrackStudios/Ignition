@@ -12,8 +12,9 @@ use std::fs;
 
 #[derive(Debug, Deserialize)]
 struct FixtureRecord {
-    chan: Option<u32>,
+    chan: u32,
     tags: Vec<String>,
+    patched: bool,
 }
 
 fn main() {
@@ -33,10 +34,14 @@ fn main() {
         *by_tag.entry(key).or_default() += 1;
     }
 
-    let unpatched: Vec<u32> = fixtures.iter().filter_map(|f| f.chan).filter(|_| false).collect();
-    let _ = unpatched; // fixtures.json only contains patched channels already
+    let unpatched: Vec<u32> = fixtures.iter().filter(|f| !f.patched).map(|f| f.chan).collect();
 
-    println!("Norco venue extract: {} patched fixtures", fixtures.len());
+    println!(
+        "Norco venue extract: {} channels ({} patched, {} unpatched: {unpatched:?})",
+        fixtures.len(),
+        fixtures.len() - unpatched.len(),
+        unpatched.len()
+    );
     for (tag, count) in &by_tag {
         println!("  {count:>3}  {tag}");
     }
