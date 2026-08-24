@@ -55,6 +55,17 @@ pub struct FixtureRecord {
     pub eulers: Vec3,
     pub quat: Quat,
     pub size: Vec3,
+    /// Which sACN/Art-Net universe this fixture is patched to — same field
+    /// the live Eos pull already writes (`docs/domain/norco-patch-and-
+    /// groups.md`). `None` for a fixture with no live-patch data.
+    #[serde(default)]
+    pub universe: Option<u16>,
+    /// 1-based start DMX address within `universe`. Eos's live pull calls
+    /// this `address`; `global_address` (also present in the extracted
+    /// data) is the same value expressed net-wide rather than per-universe
+    /// and isn't needed here.
+    #[serde(default)]
+    pub address: Option<u16>,
 }
 
 fn default_patched() -> bool {
@@ -66,6 +77,12 @@ impl FixtureRecord {
     /// `docs/domain/norco-venue-reference.md`.
     pub fn orientation(&self) -> glam::Quat {
         self.quat.to_glam()
+    }
+
+    /// This fixture's live DMX address, if the venue data has both pieces —
+    /// `None` for anything not DMX-controlled (or missing patch data).
+    pub fn dmx_address(&self) -> Option<ignition_proto::DmxAddress> {
+        Some(ignition_proto::DmxAddress { universe: self.universe?, start_channel: self.address? })
     }
 
     pub fn kind(&self) -> FixtureKind {

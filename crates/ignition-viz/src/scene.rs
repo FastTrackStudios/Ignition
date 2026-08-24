@@ -1,3 +1,5 @@
+use crate::channel_map::channel_map_for;
+use crate::dmx::DmxUniverses;
 use crate::fixture_profile::add_typed_fixture;
 use crate::mesh::MeshBuilder;
 use crate::venue::Venue;
@@ -50,7 +52,14 @@ const PROP_COLOR: [f32; 3] = [0.48, 0.30, 0.62];
 /// geometry, props were cluttering every shot without adding information
 /// worth the visual noise while the fixture layout itself is still being
 /// iterated on. Not deleted — `--show-props` in `shot` brings it back.
-pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshBuilder {
+///
+/// `dmx`, when present, is the live DMX state (`dmx.rs`) — every patched
+/// fixture with a known `ChannelMap` (`channel_map.rs`) gets its dimmer/
+/// colour/pan/tilt resolved from it each call and composed onto its fixed
+/// mount pose; a fixture with no channel map or no live packets yet falls
+/// back to its static default exactly as when `dmx` is `None` (the `shot`
+/// CLI's headless regression-screenshot path, which never reads live data).
+pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool, dmx: Option<&DmxUniverses>) -> MeshBuilder {
     let mut mesh = MeshBuilder::default();
     let skip = |name: &str| exclude.iter().any(|e| name.contains(e.as_str()));
 
@@ -160,14 +169,35 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshB
         }
         let manufacturer = f.manufacturer.as_deref().unwrap_or("");
         let model = f.model.as_deref().unwrap_or("");
-        add_typed_fixture(
-            &mut mesh,
-            f.position.to_glam(),
-            f.orientation(),
-            manufacturer,
-            model,
-            f.kind().color(),
-        );
+        let mount_rot = f.orientation();
+
+        // Live DMX, when available: resolve this fixture's channel map
+        // against the current universe state, then compose pan/tilt onto
+        // the fixed mount rotation and replace the static kind-based colour
+        // with the live one. A fixture with no channel map for its
+        // manufacturer/model, or no `dmx_address` in the venue data, just
+        // falls through to the static defaults below unchanged.
+        let mut live_rot = None;
+        let mut color = f.kind().color();
+        if let (Some(universes), Some(addr), Some(map)) =
+            (dmx, f.dmx_address(), channel_map_for(manufacturer, model))
+        {
+            let resolved = universes.resolve(&addr, &map);
+            if resolved.pan_deg != 0.0 || resolved.tilt_deg != 0.0 {
+                let pan = glam::Quat::from_axis_angle(glam::Vec3::Z, resolved.pan_deg.to_radians());
+                let tilt = glam::Quat::from_axis_angle(glam::Vec3::X, resolved.tilt_deg.to_radians());
+                live_rot = Some(mount_rot * pan * tilt);
+            }
+            if resolved.has_color {
+                color = [
+                    resolved.color[0] * resolved.dimmer,
+                    resolved.color[1] * resolved.dimmer,
+                    resolved.color[2] * resolved.dimmer,
+                ];
+            }
+        }
+
+        add_typed_fixture(&mut mesh, f.position.to_glam(), mount_rot, live_rot, manufacturer, model, color);
     }
 
     mesh

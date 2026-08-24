@@ -73,6 +73,47 @@ pub struct PatchEntry {
     pub chan: ChanId,
     pub fixture_type: String,
     pub placement: Placement,
+    /// Where this fixture actually lives on the wire — absent for a fixture
+    /// that isn't DMX-controlled at all (a static prop/architectural
+    /// object never has this). `None` means "render at its fixed
+    /// placement/colour, there is no live signal to read."
+    #[serde(default)]
+    pub dmx: Option<DmxAddress>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DmxAddress {
+    pub universe: u16,
+    /// 1-based start channel within the universe (1..=512), matching Eos/QLC+
+    /// convention — the fixture's footprint runs from here through
+    /// `start + footprint_len - 1` per its `ChannelMap`.
+    pub start_channel: u16,
+}
+
+/// One fixture *personality*'s channel layout: which byte offset (0-based,
+/// relative to `DmxAddress::start_channel`) resolves to which `Attribute`.
+/// This is deliberately the same shape QLC+'s `.qxf` Channel list and GDTF's
+/// DMXChannel list both use — a fixture-type's real channel count and
+/// function order, not hardcoded per-instance. See
+/// `docs/domain/dmx-channel-maps.md` for where each map in this project came
+/// from (confirmed via DMX-address spacing in the live patch vs. estimated
+/// from typical fixtures of that class) and how confident it is.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChannelMap {
+    /// Total DMX footprint (how many consecutive channels this fixture's
+    /// mode occupies) — must match the real spacing between this fixture
+    /// and the next one patched after it, or two fixtures' live values will
+    /// bleed into each other.
+    pub footprint: u16,
+    pub channels: Vec<(u16, Attribute)>,
+}
+
+impl ChannelMap {
+    /// The 0-based offset of `attr` within this fixture's footprint, if this
+    /// personality has that attribute at all.
+    pub fn offset_of(&self, attr: &Attribute) -> Option<u16> {
+        self.channels.iter().find(|(_, a)| a == attr).map(|(o, _)| *o)
+    }
 }
 
 #[cfg(test)]
@@ -88,6 +129,7 @@ mod tests {
                 position: Vec3 { x: -4.48, y: -7.78, z: 3.25 },
                 orientation: Quat { w: 0.842, x: 0.537, y: -0.028, z: -0.044 },
             },
+            dmx: Some(DmxAddress { universe: 1, start_channel: 1 }),
         };
         let json = serde_json::to_string(&entry).unwrap();
         let back: PatchEntry = serde_json::from_str(&json).unwrap();

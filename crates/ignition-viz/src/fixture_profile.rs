@@ -201,11 +201,31 @@ fn is_mounted_upright(placement_rot: Quat) -> bool {
     (placement_rot * Vec3::NEG_Z).z > 0.0
 }
 
-pub fn add_typed_fixture(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, manufacturer: &str, model: &str, color: [f32; 3]) {
+/// `rot` is always the fixed *mount* rotation — it alone decides the
+/// Bottom/Top anchor (a mechanical fact of how the fixture is rigged, not
+/// something pan/tilt changes) and is what the anchor-point maths below is
+/// computed against. `live_rot`, when present (a live pan/tilt reading
+/// composed onto `rot` — see `scene.rs`'s live-mode fixture loop), replaces
+/// `rot` only for the mesh's actual drawn orientation. Approximation worth
+/// noting: a real moving head's yoke stays put while only the head
+/// assembly tilts: this single-mesh model rotates the whole fixture body
+/// around the anchor point instead, since there's no yoke/head geometry
+/// split yet (see the GDTF Geometry-tree note in
+/// `docs/research/lighting-console-landscape.md`).
+pub fn add_typed_fixture(
+    mesh: &mut MeshBuilder,
+    pos: Vec3,
+    rot: Quat,
+    live_rot: Option<Quat>,
+    manufacturer: &str,
+    model: &str,
+    color: [f32; 3],
+) {
     match shape_for(manufacturer, model) {
         Shape::Mesh { mesh: asset, target_size, pre_rotate, anchor } => {
             let scale = scale_to(asset, target_size);
             let full_rot = rot * pre_rotate;
+            let draw_rot = live_rot.unwrap_or(rot) * pre_rotate;
             let resolved = match anchor {
                 Anchor::HangAware => {
                     if is_mounted_upright(rot) { Anchor::Bottom } else { Anchor::Top }
@@ -223,7 +243,7 @@ pub fn add_typed_fixture(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, manufactu
                 }
                 Anchor::None | Anchor::HangAware => pos,
             };
-            mesh.add_mesh_asset(anchored_pos, full_rot, scale, asset, color);
+            mesh.add_mesh_asset(anchored_pos, draw_rot, scale, asset, color);
         }
         Shape::Bar { length, width, height } => mesh.add_bar(pos, rot, length, width, height, color),
         Shape::Generic => mesh.add_fixture(pos, rot, color),

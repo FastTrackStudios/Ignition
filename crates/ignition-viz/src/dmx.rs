@@ -1,0 +1,267 @@
+//! Live DMX input — sACN (E1.31) and Art-Net, both listened for
+//! concurrently since supporting both is cheap once one exists (see
+//! `docs/research/lighting-console-landscape.md`'s DMX-architecture
+//! research). Each protocol runs on its own OS thread and writes into a
+//! shared per-universe buffer; the render loop only ever reads that buffer,
+//! never touches a socket directly.
+//!
+//! This is Ignition's "actually emulate a live rig" layer: `fixtures.json`
+//! stays the fixture's fixed *mount* pose (see `venue.rs`/
+//! `docs/domain/norco-venue-reference.md`), and this module supplies the
+//! *live* values — dimmer, colour, pan/tilt — that get composed on top of
+//! that mount pose each frame. A fixture with no `ChannelMap`
+//! (`channel_map.rs`) or no live packets yet simply renders at its static
+//! default, exactly as before this module existed.
+
+use ignition_proto::{Attribute, ChannelMap, ColorChannel, DmxAddress};
+use sacn::packet::ACN_SDT_MULTICAST_PORT;
+use sacn::receive::SacnReceiver;
+use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
+
+const UNIVERSE_LEN: usize = 512;
+const ARTNET_PORT: u16 = 6454;
+
+/// Shared live state: one 512-byte frame per universe, last-write-wins
+/// across whichever protocol delivered it. Cheap to clone (`Arc`) — hand a
+/// copy to the render loop and to each listener thread.
+#[derive(Clone, Default)]
+pub struct DmxUniverses {
+    inner: Arc<RwLock<HashMap<u16, [u8; UNIVERSE_LEN]>>>,
+}
+
+impl DmxUniverses {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn write_universe(&self, universe: u16, values: &[u8]) {
+        let mut map = self.inner.write().expect("dmx universes lock poisoned");
+        let frame = map.entry(universe).or_insert([0u8; UNIVERSE_LEN]);
+        let n = values.len().min(UNIVERSE_LEN);
+        frame[..n].copy_from_slice(&values[..n]);
+    }
+
+    /// 0-based byte at `channel` (0..512) in `universe`, or 0 if nothing has
+    /// ever arrived for that universe/channel — the same "unpatched reads
+    /// as zero" behaviour a real DMX receiver has.
+    fn byte(&self, universe: u16, channel: u16) -> u8 {
+        let map = self.inner.read().expect("dmx universes lock poisoned");
+        map.get(&universe).map(|f| f[channel as usize]).unwrap_or(0)
+    }
+
+    /// Resolve one fixture's live attributes given where it's patched and
+    /// its channel layout. Returns `None` only if `dmx`/`map` themselves are
+    /// absent (the caller already has both by the time it calls this) —
+    /// present-but-zero (e.g. blackout, or nothing has ever been sent) still
+    /// resolves, just to zero/default values, matching real desk behaviour.
+    pub fn resolve(&self, dmx: &DmxAddress, map: &ChannelMap) -> ResolvedAttributes {
+        let read = |offset: u16| -> u8 {
+            let chan0 = dmx.start_channel.saturating_sub(1) + offset;
+            self.byte(dmx.universe, chan0)
+        };
+
+        let mut resolved = ResolvedAttributes::default();
+        for (offset, attr) in &map.channels {
+            let v = read(*offset);
+            match attr {
+                Attribute::Dimmer => resolved.dimmer = v as f32 / 255.0,
+                Attribute::Pan => resolved.pan_deg = (v as f32 / 255.0 - 0.5) * 540.0,
+                Attribute::Tilt => resolved.tilt_deg = (v as f32 / 255.0 - 0.5) * 270.0,
+                Attribute::ColorAdd { channel } => {
+                    let f = v as f32 / 255.0;
+                    match channel {
+                        ColorChannel::Red => resolved.color[0] = f,
+                        ColorChannel::Green => resolved.color[1] = f,
+                        ColorChannel::Blue => resolved.color[2] = f,
+                        // White/Amber/UV/Lime add into all three channels as
+                        // a cheap approximation — there's no real colour-
+                        // mixing model here yet, just enough to make a
+                        // white/amber channel visibly lighten the RGB.
+                        ColorChannel::White | ColorChannel::Amber => {
+                            resolved.color[0] = (resolved.color[0] + f * 0.6).min(1.0);
+                            resolved.color[1] = (resolved.color[1] + f * 0.6).min(1.0);
+                            resolved.color[2] = (resolved.color[2] + f * 0.6).min(1.0);
+                        }
+                        _ => {}
+                    }
+                    resolved.has_color = true;
+                }
+                _ => {}
+            }
+        }
+        resolved
+    }
+}
+
+/// A fixture's live-resolved state for one frame, in the visualizer's own
+/// units (0-1 for dimmer/colour, degrees for pan/tilt) — already converted
+/// out of raw DMX bytes so `scene.rs` never touches a byte value.
+#[derive(Debug, Clone, Copy)]
+pub struct ResolvedAttributes {
+    pub dimmer: f32,
+    pub pan_deg: f32,
+    pub tilt_deg: f32,
+    pub color: [f32; 3],
+    pub has_color: bool,
+}
+
+impl Default for ResolvedAttributes {
+    fn default() -> Self {
+        Self { dimmer: 1.0, pan_deg: 0.0, tilt_deg: 0.0, color: [0.0, 0.0, 0.0], has_color: false }
+    }
+}
+
+/// Spawn the sACN receiver thread. Listens on the standard E1.31 multicast
+/// port for every universe 1..=`max_universe` — sACN's own multicast-per-
+/// universe model means we have to subscribe up front rather than just
+/// opening one socket, unlike Art-Net's single broadcast port.
+pub fn spawn_sacn_listener(universes: DmxUniverses, max_universe: u16) {
+    std::thread::spawn(move || {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), ACN_SDT_MULTICAST_PORT);
+        let mut receiver = match SacnReceiver::with_ip(addr, None) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("ignition-viz: sACN receiver failed to start: {e:?} — no live sACN input");
+                return;
+            }
+        };
+        let wanted: Vec<u16> = (1..=max_universe.max(1)).collect();
+        if let Err(e) = receiver.listen_universes(&wanted) {
+            eprintln!("ignition-viz: sACN listen_universes failed: {e:?}");
+            return;
+        }
+        eprintln!("ignition-viz: sACN listening on universes 1..={max_universe}");
+        loop {
+            match receiver.recv(Some(Duration::from_secs(2))) {
+                Ok(packets) => {
+                    for p in packets {
+                        universes.write_universe(p.universe, &p.values);
+                    }
+                }
+                Err(sacn::error::errors::SacnError::Io(e))
+                    if e.kind() == std::io::ErrorKind::WouldBlock
+                        || e.kind() == std::io::ErrorKind::TimedOut =>
+                {
+                    // No data this tick — expected between cues/blackouts.
+                }
+                Err(e) => eprintln!("ignition-viz: sACN recv error: {e:?}"),
+            }
+        }
+    });
+}
+
+/// Spawn the Art-Net receiver thread. Art-Net is a single UDP port carrying
+/// `ArtDmx` packets tagged with a 15-bit port-address (net/sub-net/universe
+/// folded into one number) — unlike sACN there's no per-universe
+/// subscription, every packet that arrives gets decoded and filed.
+pub fn spawn_artnet_listener(universes: DmxUniverses) {
+    std::thread::spawn(move || {
+        let socket = match UdpSocket::bind(("0.0.0.0", ARTNET_PORT)) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("ignition-viz: Art-Net socket bind failed: {e} — no live Art-Net input");
+                return;
+            }
+        };
+        eprintln!("ignition-viz: Art-Net listening on UDP :{ARTNET_PORT}");
+        let mut buf = [0u8; 1024];
+        loop {
+            let (len, _from) = match socket.recv_from(&mut buf) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("ignition-viz: Art-Net recv error: {e}");
+                    continue;
+                }
+            };
+            match artnet_protocol::ArtCommand::from_buffer(&buf[..len]) {
+                Ok(artnet_protocol::ArtCommand::Output(output)) => {
+                    let universe: u16 = output.port_address.into();
+                    let data: &Vec<u8> = output.data.as_ref();
+                    universes.write_universe(universe, data);
+                }
+                Ok(_) => {} // Poll/PollReply/other control traffic — ignore.
+                Err(_) => {} // Non-Art-Net traffic on the port — ignore.
+            }
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn map(channels: Vec<(u16, Attribute)>) -> ChannelMap {
+        ChannelMap { footprint: channels.len() as u16 + 1, channels }
+    }
+
+    #[test]
+    fn resolves_dimmer_and_rgb_from_raw_bytes() {
+        let universes = DmxUniverses::new();
+        universes.write_universe(1, &{
+            let mut u = [0u8; 512];
+            u[9] = 255; // dimmer, offset 0 at start_channel 10
+            u[10] = 128; // red
+            u[11] = 64; // green
+            u[12] = 32; // blue
+            u
+        });
+        let m = map(vec![
+            (0, Attribute::Dimmer),
+            (1, Attribute::ColorAdd { channel: ColorChannel::Red }),
+            (2, Attribute::ColorAdd { channel: ColorChannel::Green }),
+            (3, Attribute::ColorAdd { channel: ColorChannel::Blue }),
+        ]);
+        let addr = DmxAddress { universe: 1, start_channel: 10 };
+
+        let resolved = universes.resolve(&addr, &m);
+        assert!((resolved.dimmer - 1.0).abs() < 0.01);
+        assert!((resolved.color[0] - 128.0 / 255.0).abs() < 0.01);
+        assert!((resolved.color[1] - 64.0 / 255.0).abs() < 0.01);
+        assert!((resolved.color[2] - 32.0 / 255.0).abs() < 0.01);
+        assert!(resolved.has_color);
+    }
+
+    #[test]
+    fn unpatched_universe_resolves_to_zero_not_a_panic() {
+        let universes = DmxUniverses::new();
+        let m = map(vec![(0, Attribute::Dimmer)]);
+        let addr = DmxAddress { universe: 99, start_channel: 1 };
+        let resolved = universes.resolve(&addr, &m);
+        assert_eq!(resolved.dimmer, 0.0);
+    }
+
+    #[test]
+    fn pan_tilt_centre_byte_resolves_to_zero_degrees() {
+        let universes = DmxUniverses::new();
+        universes.write_universe(2, &{
+            let mut u = [0u8; 512];
+            u[0] = 128; // ~centre of 0-255
+            u[1] = 128;
+            u
+        });
+        let m = map(vec![(0, Attribute::Pan), (1, Attribute::Tilt)]);
+        let addr = DmxAddress { universe: 2, start_channel: 1 };
+        let resolved = universes.resolve(&addr, &m);
+        assert!(resolved.pan_deg.abs() < 2.0, "expected ~0deg, got {}", resolved.pan_deg);
+        assert!(resolved.tilt_deg.abs() < 2.0, "expected ~0deg, got {}", resolved.tilt_deg);
+    }
+
+    #[test]
+    fn a_second_fixtures_bytes_dont_bleed_into_the_first() {
+        let universes = DmxUniverses::new();
+        universes.write_universe(1, &{
+            let mut u = [0u8; 512];
+            u[0] = 10; // fixture A's dimmer (start_channel 1, offset 0)
+            u[7] = 200; // fixture B's dimmer (start_channel 8, offset 0)
+            u
+        });
+        let m = map(vec![(0, Attribute::Dimmer)]);
+        let a = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
+        let b = universes.resolve(&DmxAddress { universe: 1, start_channel: 8 }, &m);
+        assert!((a.dimmer - 10.0 / 255.0).abs() < 0.01);
+        assert!((b.dimmer - 200.0 / 255.0).abs() < 0.01);
+    }
+}

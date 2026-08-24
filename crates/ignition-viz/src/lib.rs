@@ -1,11 +1,16 @@
-//! wgpu 3D visualizer. This first pass is deliberately headless — see
-//! `docs/research/lighting-console-landscape.md` §7.1 for the open question
-//! (how a wgpu surface composes with Dioxus/Blitz) that a real window is
-//! blocked on, and `src/bin/shot.rs` for the screenshot CLI this module
-//! exists to serve today: render a venue to a PNG with no display attached.
+//! wgpu 3D visualizer, in two modes: `src/bin/shot.rs` (headless
+//! render-to-PNG, no display, no live data — regression screenshots) and
+//! `src/bin/live.rs` (a real window, redrawn continuously, driven by live
+//! DMX via `dmx.rs` — an actual emulated rig you can program lights
+//! against). `fixtures.json` (`venue.rs`) is the fixture's fixed *mount*
+//! pose in both modes; `dmx.rs` + `channel_map.rs` supply the *live*
+//! dimmer/colour/pan/tilt composed on top of it in `live` mode only.
 
 pub mod camera;
+pub mod channel_map;
+pub mod dmx;
 pub mod fixture_profile;
+pub mod live_renderer;
 pub mod mesh;
 pub mod obj_mesh;
 pub mod renderer;
@@ -13,6 +18,8 @@ pub mod scene;
 pub mod venue;
 
 pub use camera::Camera;
+pub use dmx::{DmxUniverses, ResolvedAttributes};
+pub use live_renderer::LiveRenderer;
 pub use renderer::HeadlessRenderer;
 pub use scene::build_scene;
 pub use venue::Venue;

@@ -108,7 +108,7 @@ fn main() -> anyhow::Result<()> {
         other => anyhow::bail!("unknown --view {other}; use house, stage, top, screens, chans, or points"),
     };
 
-    let mesh = build_scene(&venue, &args.exclude, args.show_props);
+    let mesh = build_scene(&venue, &args.exclude, args.show_props, None);
     println!("scene: {} vertices, {} indices", mesh.vertices.len(), mesh.indices.len());
 
     let renderer = HeadlessRenderer::new()?;
