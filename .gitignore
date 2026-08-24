@@ -1,0 +1,11 @@
+target/
+target-*/
+dist/
+node_modules/
+.DS_Store
+.direnv/
+result
+result-*
+*.esf3d
+*.esf2
+*.a3d

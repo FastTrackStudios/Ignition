@@ -1,0 +1,13 @@
+[package]
+name = "ignition-core"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ignition-proto.workspace = true
+
+[lib]
+name = "ignition_core"
+path = "src/lib.rs"

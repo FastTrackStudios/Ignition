@@ -1,0 +1,16 @@
+[package]
+name = "ignition-proto"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lib]
+name = "ignition_proto"
+path = "src/lib.rs"
