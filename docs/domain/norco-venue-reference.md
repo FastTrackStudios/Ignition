@@ -90,13 +90,27 @@ authors rooms parametrically the way `a3d_room.py` does:
 Five TVs, real positions, the first concrete target for
 [`docs/research/projection-mapping-resolume.md`](../research/projection-mapping-resolume.md):
 
-| Name | Position (x, y, z, metres) | Size (w×h×d) |
-|---|---|---|
-| `TV` (centre) | (0, 2.46, 1.63) | 1.44 × 0.27 × 0.96 |
-| `TV` (stage-left of centre) | (-3.5, 2.46, 1.63) | 1.33 × 0.25 × 0.88 |
-| `TV` (stage-right of centre) | (3.5, 2.46, 1.63) | 1.33 × 0.25 × 0.88 |
-| `TV - Flare SL` | (4.90, -2.06, 1.94) | 1.38 × 1.38 × 1.05 |
-| `TV - Flare SR` | (-4.90, -2.06, 1.94) | 1.38 × 1.38 × 1.05 |
+**Sizes updated 2026-08-24** to real 16:9 TV dimensions per the operator's
+call ("middle TVs are 60, 65, 60; the two outer ones call them 65\""),
+computed from the diagonal rather than kept as the raw extraction's
+AABB-derived (and, for the rotated flare screens, AABB-distorted) values:
+
+| Name | Position (x, y, z, metres) | Diagonal | Size (w×h, metres) |
+|---|---|---|---|
+| `TV` (centre) | (0, 2.46, 1.63) | 65" | 1.439 × 0.809 |
+| `TV` (stage-left of centre) | (-3.5, 2.46, 1.63) | 60" | 1.328 × 0.747 |
+| `TV` (stage-right of centre) | (3.5, 2.46, 1.63) | 60" | 1.328 × 0.747 |
+| `TV - Flare SL` | (4.90, -2.06, 1.94) | 65" | 1.439 × 0.809 |
+| `TV - Flare SR` | (-4.90, -2.06, 1.94) | 65" | 1.439 × 0.809 |
+
+Also corrected: every screen's `eulers.x` had local +Z (the render-facing
+normal) pointing straight up — the raw extraction's rotation didn't account
+for `ignition-viz`'s "+Z is front" quad convention. Added 90° so they face
+horizontally into the room (the existing yaw on the two flare screens was
+left untouched). Rendered as flat black panels (a screen with no content
+assigned is a TV that's off), not the placeholder blue tint from the first
+pass — see `docs/research/projection-mapping-resolume.md` for the mapping
+model this feeds into.
 
 Three screens sit in a row on the upstage wall (the "back wall" the eos-
 toolkit rig docs describe faders 40/41/47/48 as lighting); two more sit on the

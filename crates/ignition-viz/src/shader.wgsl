@@ -30,6 +30,22 @@ fn vs_main(in: VertexIn) -> VertexOut {
     return out;
 }
 
+// Cheap hash for per-fragment grain — no texture sampling, just a
+// deterministic pseudo-random value from world position so flat-shaded
+// surfaces don't read as flat plastic.
+fn hash21(p: vec2<f32>) -> f32 {
+    var p3 = fract(vec3<f32>(p.x, p.y, p.x) * 0.1031);
+    p3 = p3 + dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+// Distance (0 at a line, `cell` at the centre of a cell) to the nearest
+// grid line on both axes of a 2D projection, take the closer axis.
+fn grid_dist(p: vec2<f32>, cell: f32) -> f32 {
+    let g = abs(fract(p / cell) - 0.5) * cell;
+    return min(g.x, g.y);
+}
+
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let n = normalize(in.world_normal);
@@ -47,6 +63,31 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let half = normalize(l + view_dir);
     let spec = pow(max(dot(n, half), 0.0), 24.0) * 0.15;
 
-    let rgb = in.color * lit + vec3<f32>(spec, spec, spec);
+    var rgb = in.color * lit + vec3<f32>(spec, spec, spec);
+
+    // Procedural tile/panel grid — only on near-axis-aligned flat surfaces
+    // (floor, ceiling, walls, box props); curved fixture meshes have
+    // continuously-varying normals that rarely sit this close to a single
+    // world axis, so they fall through untouched. A floor tile is 2ft
+    // (0.6096m) matching the real venue's floor grid this whole model is
+    // measured against (see docs/domain/norco-field-measurements); walls
+    // get a coarser 1.2m panel-seam spacing.
+    let an = abs(n);
+    if (an.z > 0.9) {
+        let d = grid_dist(in.world_pos.xy, 0.6096);
+        rgb *= mix(0.82, 1.0, smoothstep(0.0, 0.02, d));
+    } else if (an.x > 0.9) {
+        let d = grid_dist(in.world_pos.yz, 1.2);
+        rgb *= mix(0.9, 1.0, smoothstep(0.0, 0.015, d));
+    } else if (an.y > 0.9) {
+        let d = grid_dist(in.world_pos.xz, 1.2);
+        rgb *= mix(0.9, 1.0, smoothstep(0.0, 0.015, d));
+    }
+
+    // Subtle per-fragment grain everywhere, independent of the grid above
+    // — breaks up perfectly flat colour on curved surfaces too.
+    let grain = hash21(in.world_pos.xy * 37.0 + in.world_pos.z * 53.0);
+    rgb *= 0.97 + grain * 0.06;
+
     return vec4<f32>(rgb, 1.0);
 }

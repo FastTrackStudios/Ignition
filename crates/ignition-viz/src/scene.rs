@@ -4,7 +4,10 @@ use crate::venue::Venue;
 
 const ROOM_COLOR: [f32; 3] = [0.42, 0.44, 0.48];
 const FLOOR_COLOR: [f32; 3] = [0.30, 0.31, 0.34];
-const SCREEN_COLOR: [f32; 3] = [0.20, 0.45, 0.85];
+// A flat-black panel — a TV that's off, which is the right default for a
+// mapping surface with no content assigned yet (see
+// docs/research/projection-mapping-resolume.md).
+const SCREEN_COLOR: [f32; 3] = [0.02, 0.02, 0.03];
 // Was [0.55, 0.40, 0.28] (orange-brown, read as the same colour as Mover
 // fixtures), then [0.42, 0.38, 0.34] (desaturated grey-brown). Purple —
 // nothing else in the scene (room/floor grey, screens/wash blue, movers

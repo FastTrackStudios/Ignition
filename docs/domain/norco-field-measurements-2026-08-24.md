@@ -109,43 +109,47 @@ below).
 
 ---
 
-## Overhead/back movers — ALREADY CORRECT, no write needed
+## Overhead/back movers — reapplied 2026-08-24, twice
 
-This looked like the highest-priority bug in the set, but checking the
-actual extracted data instead of the old eos-toolkit prose it quotes from
-resolved it immediately: **`fixtures.json` does *not* treat channels 80–83
-uniformly**, and the asymmetry it already has matches this measurement
-exactly.
+First pass (checking the static show-file extraction, before the live
+console pull): confirmed correct, no write needed — `fixtures.json` already
+had 81/82 truss-hung normally at `z=3.5` and 80/83 flipped-upright at
+`z=2.5`, matching "outer ones sit upright, center ones hang normally"
+exactly. See `docs/domain/norco-patch-and-groups.md`.
 
-| Chan | X | Z | Eulers | Reading |
+**Then the live pull overwrote it.** Rebuilding `fixtures.json` from the
+live OSC read (see the "Status — superseded" section above) replaced *all
+four* channels' data with `z=3.2`, `eulers=(0,0,0)` uniformly — the
+center/outer split was gone, because the live console state at pull time
+didn't carry it (or the pull captured a moment before that structure was
+in place). This went unnoticed until the operator re-flagged it directly:
+"you didn't seem to capture the new data that the OH movers are mounted
+2ft down from the ceiling, and then the outside pair is upright instead of
+upside down but around the same height."
+
+**Reapplied, this time keyed to the operator's own numbers rather than the
+old static-file values**:
+
+| Chan | Z (was) | Z (now) | Eulers (now) | Quat (now) |
 |---|---|---|---|---|
-| 80 | −2.33 | **2.50** | (0, −180, −180) | outer, flipped upright |
-| 81 | −1.00 | **3.50** | (0, 0, 0) | center, truss-hung |
-| 82 | +1.00 | **3.50** | (0, 0, 0) | center, truss-hung |
-| 83 | +2.33 | **2.50** | (0, −180, −180) | outer, flipped upright |
+| 80 | 3.2 | **2.8448** | (180, 0, 0) | (w=0, x=1, y=0, z=0) |
+| 81 | 3.2 | **2.8448** | (0, 0, 0) | (w=1, x=0, y=0, z=0) |
+| 82 | 3.2 | **2.8448** | (0, 0, 0) | (w=1, x=0, y=0, z=0) |
+| 83 | 3.2 | **2.8448** | (180, 0, 0) | (w=0, x=1, y=0, z=0) |
 
-81/82 (center, `x = ±1`) are truss-hung at `z = 3.5` — the "2 ft down from the
-ceiling" group. 80/83 (outer, `x = ±2.33`, sitting just outside the columns
-at `x = ±1.524`) already carry a 180° flip on Y and Z — exactly "sitting
-upright instead of mounted upside-down" — at a lower `z = 2.5`, consistent
-with standing on a box rather than hanging from the truss.
+`z = 2.8448` is exactly 2 ft below the ceiling (`3.4544 − 0.6096`, from
+`room.json`'s `Ceiling` object). All four now share that height — "around
+the same height" per the operator's own phrasing, rather than the earlier
+static file's `2.5`/`3.5` split, which put the outer pair a full metre
+lower. **Both `eulers` and `quat` were updated** — `ignition-viz` renders
+from `quat` only; `eulers` is metadata and doesn't affect the picture on
+its own, a trap worth remembering next time a position gets hand-edited.
 
-This means **the console's own model was already corrected** before this
-measurement session — the operator fixed it in Augment3d, and this
-dictation was describing/confirming that fix, not reporting a bug in
-`fixtures.json`. The stale claim ("80-83 eul (0,0,0), hung straight down")
-was in eos-toolkit's older `norco-location.md`, from before that fix — this
-project's own extraction is already ahead of it. No JSON change made here.
-`docs/domain/norco-venue-reference.md`'s fixture table should be read as
-superseded by this table for channels 80/83 specifically.
-
-**What I need before writing this into the JSON**: which of 80/81/82/83 are
-"center" vs. "outer"? The overhead layout table in `norco-rig-facts.md`
-doesn't distinguish them (all four listed identically), and I'm not willing
-to guess a channel-to-role mapping for a live rig's orientation data. My best
-guess by typical numbering convention would be 81/82 = center, 80/83 = outer,
-but that's a guess, not a read-back — flagging per this project's own rule
-rather than writing it silently.
+Lesson for next time: **the live pull is authoritative for position, but a
+full-file rebuild from it silently discards any hand-applied correction
+that isn't also present in the live console state.** Should have
+re-verified this specific channel group immediately after the live-pull
+rebuild instead of trusting it carried forward.
 
 ---
 
