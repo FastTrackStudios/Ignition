@@ -9,6 +9,7 @@ rust-version.workspace = true
 anyhow = "1.0.104"
 artnet_protocol = "0.4.4"
 bytemuck = { version = "1.25.2", features = ["derive"] }
+gdtf = "0.3.0"
 glam = "0.33.5"
 ignition-core.workspace = true
 ignition-proto.workspace = true

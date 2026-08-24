@@ -181,11 +181,61 @@ this whole modelling session has been run against — stays byte-identical
   path blocked by policy) — worth a visual gut-check on Cody's own
   machine before calling this slice fully done.
 
+## Slice 4 — GDTF channel-map import (2026-08-24, same day)
+
+The research flagged `gdtf_parser` (the crate name originally found) as
+pre-release and stuck on GDTF 1.0/1.1. Re-checked before starting this
+slice: a *different*, better crate exists — [`gdtf`
+0.3.0](https://github.com/cpdt/gdtf-rs) (MIT), which targets the current
+GDTF 1.2 (DIN SPEC 15800:2022) and has a real, complete object model
+(`Description` → `FixtureType` → `DmxMode` → `DmxChannel` →
+`LogicalChannel` → `Attribute`). This de-risked the slice considerably —
+worth re-checking crates.io before writing off a whole approach based on
+one crate's maturity.
+
+**What's built** (`gdtf_import.rs`): `import_channel_map(path, mode_name)`
+opens a real `.gdtf` file, picks a `DmxMode`, and walks its `DmxChannel`
+list into this project's own `ChannelMap`/`Attribute` types — the exact
+same shape `channel_map.rs` hand-authors. A GDTF channel with no `Offset`
+(a "virtual" channel — e.g. a dimmer implemented by an RGBW colour mix
+rather than a real DMX byte) is correctly skipped rather than mapped to a
+bogus offset. `map_attribute_name` translates GDTF's standard attribute
+names (`"ColorAdd_R"`, `"Pan"`, ...) to `ignition-proto::Attribute`;
+anything not yet modelled round-trips via `Attribute::Custom` instead of
+silently disappearing.
+
+**Verified against a real file, not synthetic test data**: vendored the
+`gdtf` crate's own MIT-licensed test fixture
+(`assets/gdtf-samples/Generic@RGBW8@test.gdtf`, `LICENSE-NOTICE.txt` has
+the full notice) and asserted the *real* parsed output — footprint 4,
+R/G/B/W at offsets 0/1/2/3, the virtual Dimmer channel correctly absent
+(no offset in the source file). Both tests pass;
+`shot`'s regression PNG stayed byte-identical (this slice touches nothing
+in the render path, only adds a new, unused-by-default import function).
+
+**Not wired up to Norco yet, deliberately**: `channel_map.rs`'s hand-
+authored entries for Norco's 7 fixture types are still what `scene.rs`
+actually uses — none of those manufacturers (Uking, Chauvet, Riukoe,
+Betopper, Rockville) had a real `.gdtf` file available to import in this
+sandbox (no path to gdtf-share.com from here). `import_channel_map` is
+real, tested, working code ready to replace any `channel_map.rs` entry
+the moment a real file for that fixture exists — see
+`docs/domain/dmx-channel-maps.md` for which entries are still estimated.
+
+**Not built**: the fixture's real 3D geometry (GDTF's Geometry tree —
+yoke/head as separate nodes — and the glTF/3DS models each references).
+This is the "biggest value, biggest lift" half of GDTF import — a glTF
+mesh parser plus a yoke/head-aware render path replacing
+`fixture_profile.rs`'s current single-mesh-plus-anchor model — and MVR
+import (still no mature Rust crate; a hand-rolled zip+XML scene reader on
+top of `gdtf_import.rs`'s parsing would be the path, not evaluated
+further this slice). Both are real follow-on work, not started.
+
 ## Deferred
 
-- **GDTF/MVR import** — biggest value, least mature Rust tooling; right
-  thing to defer until the live-DMX core is further proven out at the
-  real rig.
+- **GDTF 3D geometry + MVR scene import** — see Slice 4 above for what's
+  actually left (channel/attribute import is done; geometry/scene import
+  is not).
 - **Per-fixture confirmed channel maps** — every entry in `channel_map.rs`
   has a confirmed *footprint* (real DMX-address spacing from the live
   patch) but an *estimated* per-channel function order. See

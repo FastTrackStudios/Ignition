@@ -37,8 +37,14 @@ mount pose and the live sACN/Art-Net state in `dmx.rs`).
 
 Cycle each fixture type's dimmer/color/pan/tilt from the console one
 channel at a time and watch which physical channel does what — the
-fastest way to convert an "estimated" row above to "confirmed." Or, once
-Ignition has a `.qxf`/GDTF importer (see the GDTF/MVR slice in
-`docs/research/lighting-console-landscape.md`), pull the real manufacturer
-fixture profile for each of these and replace the hand-authored entry in
-`channel_map.rs` outright.
+fastest way to convert an "estimated" row above to "confirmed."
+
+Or — `crates/ignition-viz/src/gdtf_import.rs` now exists and is tested
+against a real GDTF file (see Slice 4 in `docs/research/lighting-console-
+landscape.md`): if a real `.gdtf` file for Uking/Chauvet/Riukoe/Betopper/
+Rockville turns up (gdtf-share.com, or the manufacturer directly),
+`import_channel_map()` will pull its real channel layout straight out —
+no more guessing the per-channel function order for that fixture at all.
+It just hasn't been run against any of these 7 fixtures yet, since none of
+their real GDTF files were reachable from the dev sandbox this was built
+in.
