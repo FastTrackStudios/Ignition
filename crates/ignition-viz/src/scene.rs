@@ -3,8 +3,19 @@ use crate::mesh::MeshBuilder;
 use crate::venue::Venue;
 
 const ROOM_COLOR: [f32; 3] = [0.42, 0.44, 0.48];
-// Ceiling: light, matching a real acoustic drop-ceiling tile.
-const CEILING_COLOR: [f32; 3] = [0.80, 0.80, 0.78];
+// Ceiling: black tile, dark grey grid lines (shader.wgsl brightens the
+// seams instead of darkening them here — multiplying an already-near-
+// black colour darker doesn't show up).
+const CEILING_COLOR: [f32; 3] = [0.045, 0.045, 0.05];
+// Columns: stonemason-style ashlar block texture (shader.wgsl), warm-toned
+// (R > B) so the shader can key stone vs. the cool-toned wall grey without
+// a separate material flag. Black cap added as a second, small box on top
+// — see the room loop below.
+const COLUMN_COLOR: [f32; 3] = [0.58, 0.53, 0.46];
+const COLUMN_CAP_COLOR: [f32; 3] = [0.05, 0.05, 0.05];
+// Pillars ("the smaller pole beam coming out of" each column): black wood,
+// distinct from the stone column and from PROP_COLOR.
+const PILLAR_COLOR: [f32; 3] = [0.09, 0.07, 0.06];
 // Audience floor: real wood, plank-textured (shader.wgsl). Was on the
 // stage floor in the first pass — corrected 2026-08-24: the wood belongs
 // to the audience, the stage itself is dark/black plywood.
@@ -46,6 +57,8 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshB
             STAGE_FLOOR_COLOR
         } else if g.name.starts_with("Floor") {
             FLOOR_COLOR
+        } else if g.name.starts_with("Column") {
+            COLUMN_COLOR
         } else {
             ROOM_COLOR
         };
@@ -70,6 +83,25 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshB
             pos
         };
         mesh.add_box(center, rot, size, color);
+        if g.name.starts_with("Column") {
+            // A black capstone on top of the column — a second box rather
+            // than trying to two-tone a single add_box call (it only takes
+            // one colour for the whole box).
+            let cap_height = 0.06;
+            let cap_center = center + rot * glam::Vec3::Z * (size.z * 0.5 + cap_height * 0.5);
+            let cap_size = glam::Vec3::new(size.x * 1.02, size.y * 1.02, cap_height);
+            mesh.add_box(cap_center, rot, cap_size, COLUMN_CAP_COLOR);
+        }
+    }
+
+    // Pillars ("the smaller pole beam coming out of" each column) are an
+    // architectural detail like the columns themselves, not set-dressing —
+    // rendered unconditionally, unlike the rest of props.json below.
+    for g in venue.props.iter().filter(|g| g.name.starts_with("Pillar")) {
+        if skip(&g.name) {
+            continue;
+        }
+        mesh.add_box(g.position.to_glam(), g.orientation(), g.size.to_glam(), PILLAR_COLOR);
     }
 
     for g in &venue.screens {
@@ -93,15 +125,14 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshB
 
     if show_props {
         for g in &venue.props {
-            // People and pillars have no dedicated shape yet — as plain
-            // AABB boxes they're tall, undifferentiated, and easy to
-            // mistake for fixture markers (a standing person's bounding
-            // box is just a "tall box" with no readable silhouette).
-            // Hidden even when the rest of the props layer is on; bring
-            // back once there's a real human/architectural model to draw
-            // instead.
-            let is_placeholder_only = g.name.starts_with("Person") || g.name.starts_with("Pillar");
-            if skip(&g.name) || is_placeholder_only {
+            // People have no dedicated shape yet — as a plain AABB box a
+            // standing person is just a "tall box" with no readable
+            // silhouette, easy to mistake for a fixture marker. Hidden
+            // even when the rest of the props layer is on; bring back once
+            // there's a real human model to draw instead. Pillars are
+            // rendered unconditionally above, not here — they're an
+            // architectural detail, not set-dressing.
+            if skip(&g.name) || g.name.starts_with("Person") || g.name.starts_with("Pillar") {
                 continue;
             }
             mesh.add_box(g.position.to_glam(), g.orientation(), g.size.to_glam(), PROP_COLOR);

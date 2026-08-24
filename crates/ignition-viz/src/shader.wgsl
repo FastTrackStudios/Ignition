@@ -60,6 +60,19 @@ fn plank_dist(p: vec2<f32>, plank_width: f32, plank_length: f32) -> vec2<f32> {
     return vec2<f32>(d, board_index);
 }
 
+// Ashlar stone-block pattern: rows of blocks, each row offset half a block
+// width from the one below (running bond, like real coursed masonry).
+// Returns (distance to nearest mortar joint, a per-block id for shading).
+fn ashlar_dist(p: vec2<f32>, block_w: f32, block_h: f32) -> vec2<f32> {
+    let row = floor(p.y / block_h);
+    let row_parity = row - 2.0 * floor(row * 0.5);
+    let x = p.x + row_parity * (block_w * 0.5);
+    let across = abs(fract(x / block_w) - 0.5) * block_w;
+    let along = abs(fract(p.y / block_h) - 0.5) * block_h;
+    let block_id = row * 1000.0 + floor(x / block_w);
+    return vec2<f32>(min(across, along), block_id);
+}
+
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let n = normalize(in.world_normal);
@@ -88,10 +101,24 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     // get a coarser 1.2m panel-seam spacing.
     let an = abs(n);
     if (an.z > 0.9 && in.world_pos.z > 2.0) {
-        // Ceiling — a real acoustic-tile grid, 2ft (0.6096m) matching the
-        // venue's own tile unit (docs/domain/norco-field-measurements).
+        // Ceiling — black tile, dark grey grid lines, 2ft (0.6096m)
+        // matching the venue's own tile unit
+        // (docs/domain/norco-field-measurements). The base colour is
+        // already near-black, so multiplying it darker at the seams
+        // (like every other grid in this file) wouldn't show up —
+        // brighten the seams instead, additively.
         let d = grid_dist(in.world_pos.xy, 0.6096);
-        rgb *= mix(0.82, 1.0, smoothstep(0.0, 0.02, d));
+        rgb += vec3<f32>(0.10, 0.10, 0.11) * (1.0 - smoothstep(0.0, 0.02, d));
+    } else if ((an.x > 0.9 || an.y > 0.9) && in.color.r > in.color.b + 0.03) {
+        // Columns — stonemason-style ashlar blocks, warm-toned (see
+        // scene.rs's COLUMN_COLOR) so this branch only catches the
+        // columns, not the cool-grey walls that would otherwise also hit
+        // an.x/an.y > 0.9.
+        let axes = select(in.world_pos.yz, in.world_pos.xz, an.x > 0.9);
+        let ad = ashlar_dist(axes, 0.4, 0.3);
+        rgb *= mix(0.72, 1.0, smoothstep(0.0, 0.012, ad.x));
+        let block_tint = hash21(vec2<f32>(ad.y, 2.0));
+        rgb *= 0.88 + block_tint * 0.24;
     } else if (an.z > 0.9 && (in.color.r + in.color.g + in.color.b) < 0.3) {
         // Stage floor — black-painted plywood: coarse 1.22m (4ft) sheet
         // seams, not the audience's narrow boards. Distinguished from the

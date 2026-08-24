@@ -20,6 +20,7 @@ struct Args {
     view: String,
     exclude: Vec<String>,
     focus_chans: Vec<u32>,
+    focus_points: Vec<glam::Vec3>,
     show_props: bool,
 }
 
@@ -31,6 +32,7 @@ fn parse_args() -> Args {
     let mut view = "house".to_string();
     let mut exclude = Vec::new();
     let mut focus_chans = Vec::new();
+    let mut focus_points = Vec::new();
     let mut show_props = false;
 
     let mut args = std::env::args().skip(1);
@@ -46,10 +48,16 @@ fn parse_args() -> Args {
                 args.next().expect("--focus-chan needs a channel number").parse().unwrap(),
             ),
             "--show-props" => show_props = true,
+            "--focus-point" => {
+                let raw = args.next().expect("--focus-point needs \"x,y,z\"");
+                let parts: Vec<f32> = raw.split(',').map(|s| s.trim().parse().unwrap()).collect();
+                assert_eq!(parts.len(), 3, "--focus-point needs exactly x,y,z");
+                focus_points.push(glam::Vec3::new(parts[0], parts[1], parts[2]));
+            }
             other => eprintln!("ignition-shot: ignoring unknown argument {other}"),
         }
     }
-    Args { venue, out, width, height, view, exclude, focus_chans, show_props }
+    Args { venue, out, width, height, view, exclude, focus_chans, focus_points, show_props }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -93,7 +101,11 @@ fn main() -> anyhow::Result<()> {
             );
             Camera::frame_points(&points, true, 1.5, aspect)
         }
-        other => anyhow::bail!("unknown --view {other}; use house, stage, top, screens, or chans"),
+        "points" => {
+            anyhow::ensure!(!args.focus_points.is_empty(), "--view points needs at least one --focus-point");
+            Camera::frame_points(&args.focus_points, true, 0.5, aspect)
+        }
+        other => anyhow::bail!("unknown --view {other}; use house, stage, top, screens, chans, or points"),
     };
 
     let mesh = build_scene(&venue, &args.exclude, args.show_props);
