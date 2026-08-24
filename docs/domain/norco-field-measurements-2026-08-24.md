@@ -345,9 +345,11 @@ model for this fixture):
    *upstage* of the column/pillar structure (`y = 2.34`). From every
    audience-facing camera angle the solid column occluded them entirely
    — which also directly contradicts "they go in the audience side."
-   Moved to `y = 2.2`, matching the plane the outer OH movers already
-   sit on (in front of the column, not behind it) — this is a placement
-   fix derived from the existing architecture, not a new measurement.
+   Operator's call: `y` should be based directly on the pillar, not a
+   separate plane — set to `y = 2.34`, the pillar's own `y`, so the pars
+   sit at the same depth as the thing they're clamped to. (First pass
+   used `y = 2.2`, matching the outer OH movers' plane instead — closer
+   than the original 2.85, but not what was asked for.)
    `x` also snapped flush against the pillar's outer face
    (`column/pillar x ± half-width(0.09) + half the par mesh's own depth`,
    the same computed-not-guessed approach used for the OH mount box) —
