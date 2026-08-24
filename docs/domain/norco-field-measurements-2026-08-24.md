@@ -405,3 +405,31 @@ pillar's own centreline) — moved to `x` = the pillar's own `x` exactly
 par mesh's own depth(0.08) = 2.17`. `z` rescaled to the same relative
 stacked heights within the pillar's new (shorter, post-ceiling-fix)
 1.2192–2.1336 range that the original two heights held in the old range.
+
+## TVs lowered — clipping the new 9ft ceiling, 2026-08-24
+
+Follow-up to the ceiling correction above: the TVs' Z positions weren't
+touched by that fix (they aren't wall/ceiling-referenced geometry, they
+came from the original show-file extraction), so relative to the new,
+7 in-lower ceiling they now crowded it — the two angled "Flare" TVs
+(eulers `x=98°`) worst of all: top came out to 2.744m, essentially
+exactly at the new 2.7432m ceiling, i.e. clipping through it.
+
+No field measurement exists for intended TV mount height, so this is an
+eyeball call, not a confirmed number like the rest of this doc: lowered
+all 5 so every TV's top sits a consistent 16in (0.4m) below the new
+ceiling, accounting for each screen's own tilt (the two Flare TVs are 8°
+off vertical, so their local "up" axis isn't pure +Z — used the actual
+rotated axis, not size.y directly, so all 5 land on the same real-world
+top height despite different tilts/sizes):
+
+| Screen | Z (was) | Z (now) |
+|---|---|---|
+| TV - Flare SL | 1.9425 | **1.5417** |
+| TV - Flare SR | 1.9425 | **1.5417** |
+| TV (x=3.5) | 1.63 | **1.596** |
+| TV (x=0) | 1.63 | **1.5338** |
+| TV (x=-3.5) | 1.63 | **1.596** |
+
+Worth a real measurement next time the operator's at the rig — 16in is a
+reasonable-looking default, not a dictated number.
