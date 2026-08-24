@@ -166,16 +166,23 @@ anything currently in this show's patch/position data at all.
 - **"The center 12 pars"** — channels 19–30, group 94 **`Pars Middle`**.
   Spatially centred (x from −3.6 to +3.6), 12 channel numbers, no better
   match among all 112 groups.
+- **"3 pars on the tile line above the upstage edge, 13 ft in," pointed at
+  the drum kit** — **channels 43/44/45**, confirmed directly by the
+  operator 2026-08-24. My first pass had guessed 90/91/92 (wrong — those
+  are strips, not pars, and I hadn't separated 43–45 from the drum-kit
+  convergence pair even though they're functionally distinct). The live
+  position proves it exactly: `y = −1.01`, which is **exactly** 13 ft
+  downstage of the back wall (`2.95 − 13ft(3.962m) = −1.01`, no rounding
+  needed at all). Tightly centred (`x = −0.55, 0, 0.55`) with a gentle
+  8.6° forward tilt and *no* pan — unlike 42/46's steep ±104° pan, these
+  three point straight at the kit from directly overhead rather than
+  converging in from the sides. **`norco-rig-facts.md`'s "Drums" group
+  (42-46, 50-53) was correct as a set but flattened two functionally
+  different sub-groups into one** — the wide-angle convergence pair
+  (42/46) and this centred, tile-line trio (43/44/45) — worth noting for
+  anyone building effects/palettes off that group.
 
 **Plausible candidates, not confirmed**:
-- **"3 pars on the tile line above the upstage edge, 13 ft in"** — best
-  candidate is channels **90/91/92** (`x = −3.5, 0, 3.5`, `y = 2.85`,
-  essentially sitting right at the upstage wall). Three fixtures, evenly
-  spaced, right where "above the upstage edge" would put them. The one
-  mismatch: these are Rockstrip *strips*, not pars, and the 13 ft figure
-  doesn't land cleanly on any obvious reference point from their position
-  (closest read: ~11.5 ft from centre, off by 1.5 ft). Close enough to flag
-  as the likely match, not close enough to call confirmed.
 - **"Side rail angled bars... 12 lights on 1 bar"** — best candidate is
   **95/96** (`x = ±5.1–5.25`, nearest the side walls of anything in the
   patch). But their stored rotation is flat (`eulers.z = 0`, no yaw) — the

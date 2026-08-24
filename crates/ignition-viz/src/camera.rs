@@ -90,7 +90,14 @@ impl Camera {
         let center = (min + max) * 0.5;
         let extent = size.length().max(2.0);
         let sign = if view_from_neg_y { -1.0 } else { 1.0 };
-        let eye = center + Vec3::new(0.0, sign * extent * 0.45, extent * 0.08);
+        // Look up at the cluster from slightly below rather than down from
+        // above: most fixtures in a venue are overhead with little ceiling
+        // clearance (a rig hung a few centimetres under a 3.5m ceiling has
+        // no room for an elevated vantage), whereas the floor is generally
+        // clear. A fixed elevation offset (not scaled by `extent`) keeps
+        // this from blowing through the ceiling on a tightly-clustered but
+        // physically large group of points.
+        let eye = center + Vec3::new(0.0, sign * extent * 0.45, -0.6);
         Self {
             eye,
             target: center,

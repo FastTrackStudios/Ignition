@@ -16,6 +16,7 @@ struct Args {
     height: u32,
     view: String,
     exclude: Vec<String>,
+    focus_chans: Vec<u32>,
 }
 
 fn parse_args() -> Args {
@@ -25,6 +26,7 @@ fn parse_args() -> Args {
     let mut height = 1000u32;
     let mut view = "house".to_string();
     let mut exclude = Vec::new();
+    let mut focus_chans = Vec::new();
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -33,12 +35,15 @@ fn parse_args() -> Args {
             "--out" => out = PathBuf::from(args.next().expect("--out needs a path")),
             "--width" => width = args.next().expect("--width needs a number").parse().unwrap(),
             "--height" => height = args.next().expect("--height needs a number").parse().unwrap(),
-            "--view" => view = args.next().expect("--view needs house|stage|top"),
+            "--view" => view = args.next().expect("--view needs house|stage|top|screens|chans"),
             "--exclude" => exclude.push(args.next().expect("--exclude needs a name substring")),
+            "--focus-chan" => focus_chans.push(
+                args.next().expect("--focus-chan needs a channel number").parse().unwrap(),
+            ),
             other => eprintln!("ignition-shot: ignoring unknown argument {other}"),
         }
     }
-    Args { venue, out, width, height, view, exclude }
+    Args { venue, out, width, height, view, exclude, focus_chans }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -65,7 +70,24 @@ fn main() -> anyhow::Result<()> {
             anyhow::ensure!(!points.is_empty(), "venue has no screens to frame");
             Camera::frame_points(&points, true, 1.0, aspect)
         }
-        other => anyhow::bail!("unknown --view {other}; use house, stage, top, or screens"),
+        "chans" => {
+            anyhow::ensure!(!args.focus_chans.is_empty(), "--view chans needs at least one --focus-chan");
+            let points: Vec<_> = venue
+                .fixtures
+                .iter()
+                .filter(|f| f.chan.is_some_and(|c| args.focus_chans.contains(&c)))
+                .map(|f| f.position.to_glam())
+                .collect();
+            anyhow::ensure!(
+                points.len() == args.focus_chans.len(),
+                "found {} of {} requested channels in {:?}",
+                points.len(),
+                args.focus_chans.len(),
+                args.venue
+            );
+            Camera::frame_points(&points, true, 1.5, aspect)
+        }
+        other => anyhow::bail!("unknown --view {other}; use house, stage, top, screens, or chans"),
     };
 
     let mesh = build_scene(&venue, &args.exclude);
