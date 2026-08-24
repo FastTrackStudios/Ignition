@@ -1,0 +1,113 @@
+Washers
+Pars
+Movers
+Strips
+SlimPars
+Hazers
+OH Movers
+Beam Movers
+Movers + Strips
+All
+Left All
+Centre All
+Right All
+Downstage
+Upstage
+Front Wash
+Mid Wash
+Wide Wash
+Back Wash
+Drums
+Pars Odd
+Pars Even
+Pars 3rd
+Pars 4th
+Pars Split
+Front Left
+Front Centre
+Front Right
+Front L+C
+Front C+R
+Mid Left
+Mid Ctr Left
+Mid Centre
+Mid Ctr Right
+Mid Right
+Wide Left
+Wide Right
+Wide Both
+Wide + Mid L
+Wide + Mid R
+Back Left
+Back Centre
+Back Right
+Back L+C
+Back C+R
+Left Deep
+Right Deep
+Centre Deep
+Outer Ring
+Inner Core
+Movers All
+Movers OH
+Movers Beam
+Mvr Left
+Mvr Right
+OH Outer
+OH Inner
+OH Left Pair
+OH Right Pair
+OH Odd
+OH Even
+BM Outer
+BM Inner
+BM Left Pair
+BM Right Pair
+Mvr Outer All
+Mvr Inner All
+Mvr Left All
+Mvr Right All
+Mvr + Strip
+Strips All
+Strips Back
+Strips Left
+Strips Right
+SlimPars All
+Pars Odd
+Pars Even
+Pars 3rd
+Pars 4th
+Pars 5th
+Pars 6th
+Pars 8th
+Pars Split A
+Pars Split B
+Pars 1st Half
+Pars 2nd Half
+Pars Qtr 1
+Pars Qtr 2
+Pars Qtr 3
+Pars Qtr 4
+Pars Qtr 1+3
+Pars Qtr 2+4
+Pars Ends
+Pars Middle
+Slim Left
+Slim Right
+Strips Odd
+Strips Even
+Drums
+Rig No Haze
+Chase Odd 6
+Chase Even 6
+Chase L to R
+Chase R to L
+Chase Ctr Out
+Chase Out In
+Chase Front Bk
+Chase Back Frnt
+Chase Scatter
+Chase Quarters
+Chase Strips
+Chase Movers
+Full Stage
