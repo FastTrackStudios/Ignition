@@ -131,6 +131,19 @@ pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
         // Rockville's spec: 40.16 x 2.64 x 2.56 in.
         return Shape::Bar { length: 1.02, width: 0.067, height: 0.065 };
     }
+    if m == "chauvet" && mo.contains("slimpar") {
+        // Chauvet SlimPAR Tri 7 IRC: ~160x115x115mm — the drum-fill pair
+        // on each side (chan 50/51, 52/53), clamped sideways to the
+        // pillar rather than hung from a truss. Same par mesh as the
+        // Uking pars; the yoke clamp again reads as roughly the mount
+        // point, so no anchor correction.
+        return Shape::Mesh {
+            mesh: par_mesh(),
+            target_size: 0.16,
+            pre_rotate: Quat::IDENTITY,
+            anchor: Anchor::None,
+        };
+    }
     if m == "chauvet" && mo.contains("hurricane") {
         // Chauvet's spec for the Hurricane Haze 1DX: 11 x 6 x 9 in —
         // largest real dimension ~0.28m. Always floor-standing, no hung

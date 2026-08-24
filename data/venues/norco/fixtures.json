@@ -1787,8 +1787,8 @@
     "global_address": 162,
     "beam_angle_deg": 20.0,
     "position": {
-      "x": -2.0,
-      "y": 2.85,
+      "x": -1.694,
+      "y": 2.2,
       "z": 1.9
     },
     "eulers": {
@@ -1824,8 +1824,8 @@
     "global_address": 169,
     "beam_angle_deg": 20.0,
     "position": {
-      "x": -2.0,
-      "y": 2.85,
+      "x": -1.694,
+      "y": 2.2,
       "z": 2.4
     },
     "eulers": {
@@ -1861,8 +1861,8 @@
     "global_address": 681,
     "beam_angle_deg": 20.0,
     "position": {
-      "x": 2.0,
-      "y": 2.85,
+      "x": 1.694,
+      "y": 2.2,
       "z": 2.4
     },
     "eulers": {
@@ -1898,8 +1898,8 @@
     "global_address": 688,
     "beam_angle_deg": 20.0,
     "position": {
-      "x": 2.0,
-      "y": 2.85,
+      "x": 1.694,
+      "y": 2.2,
       "z": 1.9
     },
     "eulers": {

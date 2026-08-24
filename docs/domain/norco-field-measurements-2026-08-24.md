@@ -326,3 +326,34 @@ along — it was just the same colour as the pillar/beam right next to it
 (`PILLAR_COLOR`), so it read as "not there." Gave it its own
 `MOUNT_BOX_COLOR` (medium grey, distinct from both the near-black
 pillar/beam and the cooler wall grey) in `scene.rs`.
+
+## 4 drum-fill pars — attached to the pillars, not floating, 2026-08-24
+
+Chan 50/51/52/53 (Chauvet SlimPAR Tri 7 IRC, the drum-kit-convergence
+pair's overhead fill) weren't in `fixture_profile.rs`'s shape table at
+all — every one of them fell back to the generic floating box+cone
+marker with no mesh and nothing anchoring it to the rig. Two separate
+bugs, both from the same root cause (never having a real shape/mount
+model for this fixture):
+
+1. **No par-can mesh.** Added a `chauvet`/`slimpar` match in
+   `shape_for()` (target size 0.16m, same `par_mesh()` QLC+ asset the
+   Uking pars already use, `Anchor::None` — the yoke-clamp origin already
+   reads as the mount point).
+2. **Sitting behind the column, not in front of it.** The live position
+   had these at `y = 2.85` — 0.1m off the back wall (`y = 2.95`),
+   *upstage* of the column/pillar structure (`y = 2.34`). From every
+   audience-facing camera angle the solid column occluded them entirely
+   — which also directly contradicts "they go in the audience side."
+   Moved to `y = 2.2`, matching the plane the outer OH movers already
+   sit on (in front of the column, not behind it) — this is a placement
+   fix derived from the existing architecture, not a new measurement.
+   `x` also snapped flush against the pillar's outer face
+   (`column/pillar x ± half-width(0.09) + half the par mesh's own depth`,
+   the same computed-not-guessed approach used for the OH mount box) —
+   was floating 0.48m out in open air with nothing bridging the gap.
+
+Not fully confirmed: the real mounting hardware (a clamp/bracket
+connecting the par to the pillar) isn't modelled, and the exact stand-off
+distance is derived from mesh geometry, not a field measurement of this
+specific bracket. Flagged for a look next time the operator's at the rig.
