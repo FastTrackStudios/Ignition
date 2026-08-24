@@ -359,3 +359,49 @@ Not fully confirmed: the real mounting hardware (a clamp/bracket
 connecting the par to the pillar) isn't modelled, and the exact stand-off
 distance is derived from mesh geometry, not a field measurement of this
 specific bracket. Flagged for a look next time the operator's at the rig.
+
+## Ceiling corrected to 9ft — collapses the outer-mover lens-alignment hack, 2026-08-24
+
+The three-attempt saga on the outer OH mover height (this doc, "Outer OH
+mover height — recomputed by lens, not mount") was chasing a symptom, not
+the cause. Operator, after confirming the column (4ft) and mount box
+(22in) heights independently: **"we shouldn't have to move them up to
+match the top ones. That tells me our ceilings are too high."** Confirmed:
+**ceiling is 9ft** (2.7432m), not 11'4" (3.4544m, the number every wall
+height had been cross-checked against and was itself apparently wrong,
+not a bug in the cross-check).
+
+With the real ceiling, the two independently-confirmed measurements
+(4ft column + 22in box) can be **stacked directly** — box bottom = column
+top, no lens-position algebra required — and it *already* produces
+"outer lens slightly lower than center," matching the operator's original
+description, without forcing it:
+
+| Object | Old (11'4" ceiling) | New (9ft ceiling) |
+|---|---|---|
+| Ceiling | 3.4544 | **2.7432** |
+| Every full-height wall | `size.z` s.t. base+height=3.4544 | reduced by 0.7112 (the ceiling drop), base unchanged |
+| Beam - OH Mount (bottom, "2ft below ceiling") | 2.8448 | **2.1336** |
+| Center OH movers (chan 81/82) | 2.8448 | **2.1336** |
+| Pillar (top = beam bottom, bottom = column top, unchanged) | 1.2192–2.8448 (h=1.6256) | **1.2192–2.1336 (h=0.9144)** |
+| Mount Box - OH Outer (bottom = column top, unchanged) | 1.6636–2.2224 | **1.2192–1.7780** |
+| Outer OH movers (chan 80/83) | 2.2224 | **1.7780** |
+
+`Wall - Booth Front` (a partial-height divider, top 1.6256, never reached
+the old ceiling either) is untouched — this only rescales objects whose
+top matched the ceiling to begin with. The annex walls (Closet/Alcove,
+also full-height in the source data) were rescaled the same way for
+consistency, though they sit outside the camera-framing bounds and
+haven't been independently field-checked.
+
+## Drum-fill pars — centred on the pillar face, not offset to its side
+
+Follow-up to the two pars fixes above: **"The pars should be in the
+middle of the wooden beam not to the sides of it."** Chan 50/51/52/53
+had `x` snapped flush against the pillar's *side* face (offset from the
+pillar's own centreline) — moved to `x` = the pillar's own `x` exactly
+(centred, matching "the middle") and `y` moved instead, to the pillar's
+*front* (audience-facing) face: `pillar_y − half_depth(0.09) − half the
+par mesh's own depth(0.08) = 2.17`. `z` rescaled to the same relative
+stacked heights within the pillar's new (shorter, post-ceiling-fix)
+1.2192–2.1336 range that the original two heights held in the old range.
