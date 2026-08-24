@@ -265,3 +265,31 @@ data allows in the **"Par/light groups"** section above (rewritten
 untouched by the live pull (Eos patch is lighting channels only — TVs and
 speakers aren't DMX-addressed) and the partial cross-check from earlier
 still stands, still unresolved.
+
+## The 8 bar lights — repositioned 2026-08-24
+
+The operator flagged these as missing; they weren't — all 8 Rockstrip
+channels (90–97) were already in the patch and already rendering, just
+sitting at their show-file positions rather than where the operator
+described ("one underneath each TV and one underneath both columns").
+Confirmed explicitly: *"the patch data is good we just need them to show
+up in the right spot."* Repositioned, orientation untouched (all 8 already
+shared the same `eulers (180,0,0)`, so nothing to change there):
+
+| Chan | New position | Placement |
+|---|---|---|
+| 90 | (−3.5, 2.4649, 0.20) | under the centre-left TV (60") |
+| 91 | (0, 2.4649, 0.20) | under the centre TV (65") |
+| 92 | (3.5, 2.4649, 0.20) | under the centre-right TV (60") |
+| 96 | (4.8992, −2.0568, 0.05) | under TV – Flare SL (65") |
+| 95 | (−4.8992, −2.0568, 0.05) | under TV – Flare SR (65") |
+| 94 | (1.524, 2.34, 0.05) | under Column – Upstage SL |
+| 93 | (−1.524, 2.34, 0.05) | under Column – Upstage SR |
+| 97 | (0, 2.34, 0.05) | under the centre platform, between the columns |
+
+Two columns don't divide evenly into the 3 remaining bars once the 5 TV
+positions are accounted for — read "one underneath both columns" as
+covering that whole back-platform area rather than literally 1 bar per
+column, and put the third (97) centred between them. Flagging the
+read, not hedging the placement — worth a quick confirm next time the
+operator's in front of the rig.

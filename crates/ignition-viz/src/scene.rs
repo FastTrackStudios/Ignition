@@ -3,7 +3,15 @@ use crate::mesh::MeshBuilder;
 use crate::venue::Venue;
 
 const ROOM_COLOR: [f32; 3] = [0.42, 0.44, 0.48];
+// Audience floor — unchanged, wasn't reported as wrong.
 const FLOOR_COLOR: [f32; 3] = [0.30, 0.31, 0.34];
+// Was the same dark grey as the ceiling ("black tiles" / "the stage floor
+// is black" — both true, they were the same colour). Ceiling: light,
+// matching a real acoustic drop-ceiling tile, not dark. Stage floor: a
+// dark wood tone; the shader gives it a plank pattern instead of the
+// ceiling's square tile grid (see shader.wgsl).
+const CEILING_COLOR: [f32; 3] = [0.80, 0.80, 0.78];
+const STAGE_FLOOR_COLOR: [f32; 3] = [0.26, 0.17, 0.11];
 // A flat-black panel — a TV that's off, which is the right default for a
 // mapping surface with no content assigned yet (see
 // docs/research/projection-mapping-resolume.md).
@@ -30,10 +38,15 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshB
         if skip(&g.name) {
             continue;
         }
-        let is_floor_like = g.name.starts_with("Floor")
-            || g.name.starts_with("Stage")
-            || g.name == "Ceiling";
-        let color = if is_floor_like { FLOOR_COLOR } else { ROOM_COLOR };
+        let color = if g.name == "Ceiling" {
+            CEILING_COLOR
+        } else if g.name.starts_with("Stage") {
+            STAGE_FLOOR_COLOR
+        } else if g.name.starts_with("Floor") {
+            FLOOR_COLOR
+        } else {
+            ROOM_COLOR
+        };
         mesh.add_box(g.position.to_glam(), g.orientation(), g.size.to_glam(), color);
     }
 

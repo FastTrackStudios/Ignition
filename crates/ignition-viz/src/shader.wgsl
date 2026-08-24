@@ -46,6 +46,20 @@ fn grid_dist(p: vec2<f32>, cell: f32) -> f32 {
     return min(g.x, g.y);
 }
 
+// Wood plank pattern: narrow seams every `plank_width` along one axis
+// (the board edges), sparse staggered seams along the other (board ends).
+// Returns (distance to nearest seam, a per-plank id for colour variation).
+fn plank_dist(p: vec2<f32>, plank_width: f32, plank_length: f32) -> vec2<f32> {
+    let board_index = floor(p.x / plank_width);
+    // Stagger each board row's end-joints by a pseudo-random offset so
+    // they don't all line up (real flooring doesn't either).
+    let stagger = hash21(vec2<f32>(board_index, 0.0)) * plank_length;
+    let across = abs(fract(p.x / plank_width) - 0.5) * plank_width;
+    let along = abs(fract((p.y + stagger) / plank_length) - 0.5) * plank_length;
+    let d = min(across, along * 0.3); // end-joints read fainter than edges
+    return vec2<f32>(d, board_index);
+}
+
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let n = normalize(in.world_normal);
@@ -73,9 +87,19 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     // measured against (see docs/domain/norco-field-measurements); walls
     // get a coarser 1.2m panel-seam spacing.
     let an = abs(n);
-    if (an.z > 0.9) {
+    if (an.z > 0.9 && in.world_pos.z > 2.0) {
+        // Ceiling — a real acoustic-tile grid, 2ft (0.6096m) matching the
+        // venue's own tile unit (docs/domain/norco-field-measurements).
         let d = grid_dist(in.world_pos.xy, 0.6096);
         rgb *= mix(0.82, 1.0, smoothstep(0.0, 0.02, d));
+    } else if (an.z > 0.9) {
+        // Floor — wood planks, not the ceiling's square tile grid. 0.15m
+        // board width, 2m boards with staggered end-joints.
+        let pd = plank_dist(in.world_pos.xy, 0.15, 2.0);
+        rgb *= mix(0.78, 1.0, smoothstep(0.0, 0.008, pd.x));
+        // Per-board colour variation — real boards aren't uniform.
+        let board_tint = hash21(vec2<f32>(pd.y, 1.0));
+        rgb *= 0.90 + board_tint * 0.20;
     } else if (an.x > 0.9) {
         let d = grid_dist(in.world_pos.yz, 1.2);
         rgb *= mix(0.9, 1.0, smoothstep(0.0, 0.015, d));
