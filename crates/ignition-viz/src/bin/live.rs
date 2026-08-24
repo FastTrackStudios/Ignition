@@ -14,8 +14,18 @@
 //! its static default (dimmer 1, no live colour/pan/tilt) — this binary
 //! doesn't require a console to be running, it only *responds* to one when
 //! present.
+//!
+//! `--snapshot <path>` renders one frame headlessly (via
+//! `LiveHeadlessRenderer` — the same point-light + beam-cone pipeline as
+//! the real window, no window/display required) and exits, instead of
+//! opening a window. This is what proves the live DMX/lighting work
+//! actually looks like in an environment with no display attached — the
+//! same role `shot` plays for the static venue model, just with live data
+//! behind it. Waits `--warm-up-ms` (default 300) after starting the DMX
+//! listeners before capturing, so a source that's already sending has time
+//! to be received.
 
-use ignition_viz::{build_scene, dmx, Camera, DmxUniverses, LiveRenderer, Venue};
+use ignition_viz::{build_scene, dmx, Camera, DmxUniverses, LiveHeadlessRenderer, LiveRenderer, Venue};
 use std::path::PathBuf;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
@@ -73,6 +83,11 @@ impl ApplicationHandler for App {
 fn main() -> anyhow::Result<()> {
     let mut venue_dir = PathBuf::from("data/venues/norco");
     let mut max_universe = 4u16;
+    let mut snapshot: Option<PathBuf> = None;
+    let mut warm_up_ms = 300u64;
+    let mut view = "house".to_string();
+    let mut width = 1600u32;
+    let mut height = 1000u32;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -80,6 +95,13 @@ fn main() -> anyhow::Result<()> {
             "--max-universe" => {
                 max_universe = args.next().expect("--max-universe needs a number").parse().unwrap()
             }
+            "--snapshot" => snapshot = Some(PathBuf::from(args.next().expect("--snapshot needs a path"))),
+            "--warm-up-ms" => {
+                warm_up_ms = args.next().expect("--warm-up-ms needs a number").parse().unwrap()
+            }
+            "--view" => view = args.next().expect("--view needs house|stage|top"),
+            "--width" => width = args.next().expect("--width needs a number").parse().unwrap(),
+            "--height" => height = args.next().expect("--height needs a number").parse().unwrap(),
             other => eprintln!("ignition-live: ignoring unknown argument {other}"),
         }
     }
@@ -95,6 +117,30 @@ fn main() -> anyhow::Result<()> {
     let dmx = DmxUniverses::new();
     dmx::spawn_sacn_listener(dmx.clone(), max_universe);
     dmx::spawn_artnet_listener(dmx.clone());
+
+    if let Some(out_path) = snapshot {
+        std::thread::sleep(std::time::Duration::from_millis(warm_up_ms));
+        let mesh = build_scene(&venue, &[], false, Some(&dmx));
+        println!(
+            "scene: {} vertices, {} indices, {} glow vertices, {} lights",
+            mesh.vertices.len(),
+            mesh.indices.len(),
+            mesh.glow_vertices.len(),
+            mesh.lights.len()
+        );
+        let (min, max) = venue.bounds();
+        let aspect = width as f32 / height as f32;
+        let camera = match view.as_str() {
+            "stage" => Camera::frame_stage_view(min, max, aspect),
+            "top" => Camera::frame_top_view(min, max, aspect),
+            "house" => Camera::frame_house_view(min, max, aspect),
+            other => anyhow::bail!("unknown --view {other}; use house, stage, or top"),
+        };
+        let renderer = LiveHeadlessRenderer::new()?;
+        renderer.render_to_png(&mesh, &camera, width, height, &out_path)?;
+        println!("wrote {}", out_path.display());
+        return Ok(());
+    }
 
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);

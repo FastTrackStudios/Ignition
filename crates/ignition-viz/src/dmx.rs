@@ -92,6 +92,15 @@ impl DmxUniverses {
                 _ => {}
             }
         }
+        // A fixture whose personality has no Dimmer channel at all (a bare
+        // 3ch RGB par — see `channel_map.rs`) has no byte to read for
+        // brightness; its colour bytes ARE its brightness (all-zero RGB is
+        // off, anything else is on). Only fixtures with a real Dimmer
+        // channel get `resolved.dimmer` from that channel above.
+        let color_is_lit = resolved.color.iter().any(|c| *c > 0.001);
+        if resolved.has_color && color_is_lit && !map.channels.iter().any(|(_, a)| matches!(a, Attribute::Dimmer)) {
+            resolved.dimmer = 1.0;
+        }
         resolved
     }
 }
@@ -110,7 +119,13 @@ pub struct ResolvedAttributes {
 
 impl Default for ResolvedAttributes {
     fn default() -> Self {
-        Self { dimmer: 1.0, pan_deg: 0.0, tilt_deg: 0.0, color: [0.0, 0.0, 0.0], has_color: false }
+        // Defaults to *off*, not full — a fixture with no live data yet
+        // (nothing sent, or no channel map) must not read as lit. The one
+        // exception (a fixture whose real personality has no separate
+        // Dimmer channel at all, e.g. a bare 3ch RGB par) is handled
+        // explicitly in `resolve()` below, not by defaulting every fixture
+        // to "on."
+        Self { dimmer: 0.0, pan_deg: 0.0, tilt_deg: 0.0, color: [0.0, 0.0, 0.0], has_color: false }
     }
 }
 
@@ -263,5 +278,51 @@ mod tests {
         let b = universes.resolve(&DmxAddress { universe: 1, start_channel: 8 }, &m);
         assert!((a.dimmer - 10.0 / 255.0).abs() < 0.01);
         assert!((b.dimmer - 200.0 / 255.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn no_live_data_never_reads_as_lit() {
+        // Regression: ResolvedAttributes::default() used to default dimmer
+        // to 1.0 ("full on"), which meant any fixture with no live packets
+        // ever received — the overwhelming majority of a real rig at any
+        // given moment — still resolved as lit. Every fixture must default
+        // to off.
+        let universes = DmxUniverses::new(); // no universe ever written
+        let m = map(vec![
+            (0, Attribute::Dimmer),
+            (1, Attribute::ColorAdd { channel: ColorChannel::Red }),
+            (2, Attribute::ColorAdd { channel: ColorChannel::Green }),
+            (3, Attribute::ColorAdd { channel: ColorChannel::Blue }),
+        ]);
+        let resolved = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
+        assert_eq!(resolved.dimmer, 0.0);
+    }
+
+    #[test]
+    fn bare_rgb_par_with_no_dimmer_channel_is_governed_by_its_colour() {
+        // A 3ch RGB-only par (Rockville Rockstrip 3ch — see
+        // channel_map.rs) has no separate Dimmer byte at all; its colour
+        // bytes ARE its brightness.
+        let universes = DmxUniverses::new();
+        let m = map(vec![
+            (0, Attribute::ColorAdd { channel: ColorChannel::Red }),
+            (1, Attribute::ColorAdd { channel: ColorChannel::Green }),
+            (2, Attribute::ColorAdd { channel: ColorChannel::Blue }),
+        ]);
+        // All-zero RGB (nothing sent) -> still off, not full-on.
+        let off = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
+        assert_eq!(off.dimmer, 0.0);
+
+        // Non-zero RGB -> on, governed by colour alone (no dimmer channel
+        // to read, so this fixture treats itself as full brightness and
+        // lets the colour bytes carry the actual intensity).
+        universes.write_universe(1, &{
+            let mut u = [0u8; 512];
+            u[0] = 255;
+            u
+        });
+        let on = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
+        assert_eq!(on.dimmer, 1.0);
+        assert!((on.color[0] - 1.0).abs() < 0.01);
     }
 }

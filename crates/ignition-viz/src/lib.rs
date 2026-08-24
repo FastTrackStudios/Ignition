@@ -11,6 +11,7 @@ pub mod channel_map;
 pub mod dmx;
 pub mod fixture_profile;
 pub mod gdtf_import;
+pub mod live_headless_renderer;
 pub mod live_renderer;
 pub mod mesh;
 pub mod obj_mesh;
@@ -20,6 +21,7 @@ pub mod venue;
 
 pub use camera::Camera;
 pub use dmx::{DmxUniverses, ResolvedAttributes};
+pub use live_headless_renderer::LiveHeadlessRenderer;
 pub use live_renderer::LiveRenderer;
 pub use renderer::HeadlessRenderer;
 pub use scene::build_scene;

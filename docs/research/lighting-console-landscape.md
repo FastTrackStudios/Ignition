@@ -178,8 +178,42 @@ this whole modelling session has been run against — stays byte-identical
   exercised every frame, no panics, no wgpu validation errors. Could not
   get a pixel-level screenshot of the actual window in this dev sandbox
   (no working Wayland screen-capture protocol, ImageMagick's X11 `import`
-  path blocked by policy) — worth a visual gut-check on Cody's own
-  machine before calling this slice fully done.
+  path blocked by policy) — resolved below (`--snapshot`).
+
+## Slice 5 — headless live snapshots (2026-08-24, same day)
+
+Follow-up to Slice 2's "couldn't screenshot it" gap: `live_headless_renderer.rs`
+(`LiveHeadlessRenderer`) is `renderer.rs`'s `HeadlessRenderer` pattern
+(render-to-texture, no window/surface, readback to PNG) rebuilt against
+`live_shader.wgsl` instead — same point-light + additive-glow two-pass
+pipeline as the real window (`live_renderer.rs`), just writing to an
+offscreen texture instead of presenting to a surface. `src/bin/live.rs`'s
+new `--snapshot <path>` flag uses it: start the DMX listeners, wait
+`--warm-up-ms` (default 300) for anything already broadcasting to arrive,
+build one frame of the scene, render, write the PNG, exit — no window, no
+display, no `winit` event loop at all in this path.
+
+This is what actually let the live-DMX and beam/light work get visually
+verified: sent real sACN packets (pan/tilt/dimmer on two movers, RGB on
+two pars, across both universes 1 and 2) and captured
+`live --snapshot` output showing real coloured light spill on the
+walls/ceiling and beam-cone glow at each lit fixture — not claimed, seen.
+
+**Bug this surfaced and fixed**: `ResolvedAttributes::default()` defaulted
+`dimmer` to `1.0` ("full on"). Fine for a fixture actively being read (an
+explicit `Dimmer` channel byte of 0 correctly resolves to 0.0), wrong for
+a fixture with *no* live data at all — which is the overwhelming common
+case for most of a rig at any moment, and also every fixture the instant
+`live` starts before any packets arrive. The very first `--snapshot` (no
+DMX sender running yet) showed 2 phantom lights: the two Rockville
+Rockstrip 3ch pars, the one fixture type with no dedicated Dimmer channel
+in its map. Fixed by defaulting to *off* and handling the "no dimmer
+channel, colour bytes ARE the brightness" case explicitly and only when
+the colour is actually non-zero — two new regression tests
+(`no_live_data_never_reads_as_lit`,
+`bare_rgb_par_with_no_dimmer_channel_is_governed_by_its_colour`) lock
+both halves of this in. A real bug this workflow was specifically built
+to catch, caught on its first real use.
 
 ## Slice 4 — GDTF channel-map import (2026-08-24, same day)
 
