@@ -56,7 +56,14 @@ pub enum Shape {
     /// One of QLC+'s generic category meshes, scaled to a real fixture's
     /// approximate overall size. `pre_rotate` is applied before the
     /// fixture's own placement rotation — see `moving_head_pre_rotate`.
-    Mesh { mesh: &'static ObjMesh, target_size: f32, pre_rotate: Quat },
+    /// `floor_anchor`: the placement position is normally the fixture's
+    /// mount/pivot point, which for a mesh authored with its origin
+    /// somewhere in the middle (not at the base) means the model's visual
+    /// bottom can sit below the given Z — invisible for a hung fixture
+    /// with clearance under it, but a floor-standing fixture then visibly
+    /// sinks into the floor. When true, the mesh is shifted up so its
+    /// rotated/scaled bottom lands exactly at the given position instead.
+    Mesh { mesh: &'static ObjMesh, target_size: f32, pre_rotate: Quat, floor_anchor: bool },
     /// An LED bar/batten: one elongated box, no beam (washes along its
     /// length rather than from a point) — no QLC+ mesh fits this shape.
     Bar { length: f32, width: f32, height: f32 },
@@ -74,24 +81,34 @@ pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
 
     if m == "uking" && mo.contains("par") {
         // Open Fixture Library's U`King Par Light B262: 180x180x100mm —
-        // largest real dimension ~0.18m.
-        return Shape::Mesh { mesh: par_mesh(), target_size: 0.20, pre_rotate: Quat::IDENTITY };
+        // largest real dimension ~0.18m. Truss-hung, not floor-anchored.
+        return Shape::Mesh {
+            mesh: par_mesh(),
+            target_size: 0.20,
+            pre_rotate: Quat::IDENTITY,
+            floor_anchor: false,
+        };
     }
     if m == "betopper" {
         // No published dimensions for the LB150; sized from the class of
-        // compact 150W beam movers it belongs to.
+        // compact 150W beam movers it belongs to. Floor-standing (see
+        // norco-field-measurements: "sit on top of a box" / floor movers
+        // at Norco) — floor_anchor stops the mesh sinking into the deck.
         return Shape::Mesh {
             mesh: moving_head_mesh(),
             target_size: 0.35,
             pre_rotate: moving_head_pre_rotate(),
+            floor_anchor: true,
         };
     }
     if (m == "riukoe" || m == "lixada") && mo.contains("gobo") {
         // Lixada's own listing for the same 11ch shell: 14.5 x 17 x 23.5cm.
+        // Truss-hung — see norco-field-measurements' OH movers section.
         return Shape::Mesh {
             mesh: moving_head_mesh(),
             target_size: 0.235,
             pre_rotate: moving_head_pre_rotate(),
+            floor_anchor: false,
         };
     }
     if m == "rockville" && mo.contains("rockstrip") {
@@ -100,8 +117,13 @@ pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
     }
     if m == "chauvet" && mo.contains("hurricane") {
         // Chauvet's spec for the Hurricane Haze 1DX: 11 x 6 x 9 in —
-        // largest real dimension ~0.28m.
-        return Shape::Mesh { mesh: hazer_mesh(), target_size: 0.28, pre_rotate: Quat::IDENTITY };
+        // largest real dimension ~0.28m. Floor-standing hazer unit.
+        return Shape::Mesh {
+            mesh: hazer_mesh(),
+            target_size: 0.28,
+            pre_rotate: Quat::IDENTITY,
+            floor_anchor: true,
+        };
     }
     Shape::Generic
 }
@@ -116,14 +138,34 @@ pub fn generic_shape(kind: &str) -> Shape {
         "strobe" => strobe_mesh(),
         _ => return Shape::Generic,
     };
-    Shape::Mesh { mesh, target_size: 0.30, pre_rotate: Quat::IDENTITY }
+    Shape::Mesh { mesh, target_size: 0.30, pre_rotate: Quat::IDENTITY, floor_anchor: false }
+}
+
+/// The lowest Z any vertex of `mesh` reaches once rotated by `rot` and
+/// scaled by `scale`, relative to the placement origin — i.e. how far
+/// below (negative) or above (positive) the origin the model's actual
+/// bottom sits.
+fn rotated_min_z(mesh: &ObjMesh, rot: Quat, scale: f32) -> f32 {
+    mesh.positions
+        .iter()
+        .map(|p| (rot * (*p * scale)).z)
+        .fold(f32::INFINITY, f32::min)
 }
 
 pub fn add_typed_fixture(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, manufacturer: &str, model: &str, color: [f32; 3]) {
     match shape_for(manufacturer, model) {
-        Shape::Mesh { mesh: asset, target_size, pre_rotate } => {
+        Shape::Mesh { mesh: asset, target_size, pre_rotate, floor_anchor } => {
             let scale = scale_to(asset, target_size);
-            mesh.add_mesh_asset(pos, rot * pre_rotate, scale, asset, color);
+            let full_rot = rot * pre_rotate;
+            let anchored_pos = if floor_anchor {
+                // Shift up so the model's actual bottom lands at `pos`,
+                // instead of `pos` being wherever the mesh's own origin
+                // happens to fall (usually mid-body, not the base).
+                pos - Vec3::new(0.0, 0.0, rotated_min_z(asset, full_rot, scale))
+            } else {
+                pos
+            };
+            mesh.add_mesh_asset(anchored_pos, full_rot, scale, asset, color);
         }
         Shape::Bar { length, width, height } => mesh.add_bar(pos, rot, length, width, height, color),
         Shape::Generic => mesh.add_fixture(pos, rot, color),
