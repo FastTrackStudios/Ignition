@@ -459,3 +459,23 @@ TV's own `size.y` (they aren't all the same height):
 The two Flare TVs are outside the beam's x-span (beam runs x ±1.624,
 Flare TVs sit at x=±4.8992) and don't have this problem — left at their
 ceiling-clearance heights from the prior fix.
+
+## OH mount beam: 1.5ft below ceiling, not 2ft, 2026-08-24
+
+Operator: **"let's have the top across beam by 1.5ft down from ceiling
+instead of 2 feet down."** Cascades the same way the ceiling fix did —
+everything hung off "beam is X below ceiling" moves with it, everything
+independently anchored (column, outer mount box, stacked on the column
+top) does not:
+
+| Object | 2ft-below (previous) | 1.5ft-below (now) |
+|---|---|---|
+| Beam - OH Mount (bottom) | 2.1336 | **2.286** |
+| Center OH movers (chan 81/82) | 2.1336 | **2.286** |
+| Pillar (top = beam bottom, bottom = column top, unchanged) | 1.2192–2.1336 (h=0.9144) | **1.2192–2.286 (h=1.0668)** |
+| Drum-fill pars (chan 50/51 low, 52/53 high) — same relative stack position on the pillar | 1.6021 / 1.8834 | **1.6659 / 1.9941** |
+
+Outer OH movers and their mount box are unaffected — they stack directly
+on the column top (4ft, confirmed), independent of the beam. The
+back-wall TVs' beam-clearance target (1.9836) still clears the new,
+higher beam bottom (2.286), so they didn't need touching either.
