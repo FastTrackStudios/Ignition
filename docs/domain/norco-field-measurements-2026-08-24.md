@@ -433,3 +433,29 @@ top height despite different tilts/sizes):
 
 Worth a real measurement next time the operator's at the rig — 16in is a
 reasonable-looking default, not a dictated number.
+
+## Center back-wall TV lowered again — was hidden behind the beam
+
+The three back-wall TVs (x=−3.5/0/+3.5) sit at `y=2.4649`, upstage of
+the "Beam - OH Mount" arch (`y=2.34`) — so as seen from the audience,
+the beam is the nearer object and anything taller than the beam's
+bottom edge (`2.1336`, per the ceiling-fix section above) reads as
+poking up *behind* it, not clearing underneath it. The center TV's top
+(`2.3432`, from the ceiling-clearance pass) exceeded that, so it visibly
+overlapped the beam.
+
+Operator: **"the middle 3 they are at the same height"** — read as "lower
+all three back-wall TVs together, keep them uniform," not just the one
+that visibly clips. Set all three to the same top height, clear of the
+beam: `beam_bottom(2.1336) − 0.15m clearance = 1.9836`, back-solved per
+TV's own `size.y` (they aren't all the same height):
+
+| Screen | Z (was, ceiling-pass) | Z (now) |
+|---|---|---|
+| TV (x=3.5) | 1.596 | **1.2364** |
+| TV (x=0) | 1.5338 | **1.1742** |
+| TV (x=-3.5) | 1.596 | **1.2364** |
+
+The two Flare TVs are outside the beam's x-span (beam runs x ±1.624,
+Flare TVs sit at x=±4.8992) and don't have this problem — left at their
+ceiling-clearance heights from the prior fix.
