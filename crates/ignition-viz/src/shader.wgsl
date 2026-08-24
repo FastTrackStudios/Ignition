@@ -34,8 +34,13 @@ fn vs_main(in: VertexIn) -> VertexOut {
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let n = normalize(in.world_normal);
     let l = normalize(-camera.light_dir.xyz);
-    let ndotl = max(dot(n, l), 0.0);
-    let ambient = 0.35;
+    // abs(), not max(..., 0.0): several object meshes (screens especially)
+    // are single-sided quads that can face either way depending on the
+    // source data's rotation convention, and a debug visualizer should
+    // never render a correctly-placed object as unlit black just because
+    // its winding faces the "wrong" way.
+    let ndotl = abs(dot(n, l));
+    let ambient = 0.45;
     let lit = ambient + (1.0 - ambient) * ndotl;
 
     let view_dir = normalize(camera.camera_pos.xyz - in.world_pos);

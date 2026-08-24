@@ -60,7 +60,12 @@ fn main() -> anyhow::Result<()> {
         "stage" => Camera::frame_stage_view(min, max, aspect),
         "top" => Camera::frame_top_view(min, max, aspect),
         "house" => Camera::frame_house_view(min, max, aspect),
-        other => anyhow::bail!("unknown --view {other}; use house, stage, or top"),
+        "screens" => {
+            let points: Vec<_> = venue.screens.iter().map(|s| s.position.to_glam()).collect();
+            anyhow::ensure!(!points.is_empty(), "venue has no screens to frame");
+            Camera::frame_points(&points, true, 1.0, aspect)
+        }
+        other => anyhow::bail!("unknown --view {other}; use house, stage, top, or screens"),
     };
 
     let mesh = build_scene(&venue, &args.exclude);

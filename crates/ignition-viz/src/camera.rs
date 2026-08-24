@@ -49,17 +49,20 @@ impl Camera {
         }
     }
 
-    /// Standing on the downstage lip, looking back into the house — the
-    /// operator's-eye view flipped: what the performers/screens face.
+    /// Standing mid-stage, looking back into the house — the performer's-eye
+    /// view. The previous version put `eye` at `max.y - size.y*0.10`, which
+    /// on the Norco data lands inside/against the upstage wall's booth and
+    /// column clutter (a wall a few centimetres from the lens fills the
+    /// frame). Pulled well clear of that wall and raised above prop height.
     pub fn frame_stage_view(min: Vec3, max: Vec3, aspect: f32) -> Self {
         let size = max - min;
         let center = (min + max) * 0.5;
         let eye = Vec3::new(
-            center.x - size.x * 0.10,
-            max.y - size.y * 0.10,
-            min.z + size.z * 0.30,
+            center.x,
+            max.y - size.y * 0.35,
+            min.z + size.z * 0.55,
         );
-        let target = Vec3::new(center.x, min.y + size.y * 0.15, min.z + size.z * 0.35);
+        let target = Vec3::new(center.x, min.y + size.y * 0.15, min.z + size.z * 0.22);
         let extent = size.length().max(4.0);
         Self {
             eye,
@@ -68,6 +71,33 @@ impl Camera {
             fov_y_deg: 65.0,
             aspect,
             z_near: 0.1,
+            z_far: extent * 4.0 + 10.0,
+        }
+    }
+
+    /// A close-up on a specific set of points (e.g. the screens' centres),
+    /// viewed from the audience side so the front face is visible. `points`
+    /// should be world-space centres; `pad` is extra framing margin in
+    /// metres on top of the tight bounding box.
+    pub fn frame_points(points: &[Vec3], view_from_neg_y: bool, pad: f32, aspect: f32) -> Self {
+        let mut min = Vec3::splat(f32::INFINITY);
+        let mut max = Vec3::splat(f32::NEG_INFINITY);
+        for &p in points {
+            min = min.min(p);
+            max = max.max(p);
+        }
+        let size = (max - min) + Vec3::splat(pad * 2.0);
+        let center = (min + max) * 0.5;
+        let extent = size.length().max(2.0);
+        let sign = if view_from_neg_y { -1.0 } else { 1.0 };
+        let eye = center + Vec3::new(0.0, sign * extent * 0.45, extent * 0.08);
+        Self {
+            eye,
+            target: center,
+            up: Vec3::Z,
+            fov_y_deg: 50.0,
+            aspect,
+            z_near: 0.05,
             z_far: extent * 4.0 + 10.0,
         }
     }
