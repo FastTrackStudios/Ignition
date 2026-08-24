@@ -293,3 +293,36 @@ covering that whole back-platform area rather than literally 1 bar per
 column, and put the third (97) centred between them. Flagging the
 read, not hedging the placement — worth a quick confirm next time the
 operator's in front of the rig.
+
+## Outer OH mover height — recomputed by lens, not mount, 2026-08-24
+
+The outer OH pair (chan 80/83) went through three attempts before landing
+right. First: mount box sitting directly on the column's own top
+(1.778m) — operator: "way lower" than expected. Second: outer *mount*
+height offset −6in from the center pair's mount height (2.6924m) — still
+wrong, because the operator's actual complaint was about the visible
+business end (lens), and the 180° hang-vs-upright flip means the lens
+sits at the *opposite end of the mesh* from the mount point for each
+pair: the center pair hangs (lens at the mesh's bottom, mount at top),
+the outer pair stands upright on its mount box (lens at the mesh's top,
+mount at the bottom). Aligning *mount* heights therefore misaligns *lens*
+heights by roughly twice the mesh height.
+
+Recomputed from the operator's own framing ("mounted lower [but] the lens
+just ends up roughly in the same position"):
+
+```
+center_lens  = center_mount(2.8448) − mesh_height(0.235) = 2.6098
+target_outer_lens = center_lens − 6in(0.1524)             = 2.4574
+outer_mount  = target_outer_lens − mesh_height(0.235)      = 2.2224
+```
+
+`fixtures.json` chan 80/83 `position.z` → 2.2224; `room.json`'s two
+"Mount Box - OH Outer" entries repositioned under it (bottom 1.6636,
+centre 1.943, unchanged 0.5588m height).
+
+Separately, the mount box turned out to be rendering correctly all
+along — it was just the same colour as the pillar/beam right next to it
+(`PILLAR_COLOR`), so it read as "not there." Gave it its own
+`MOUNT_BOX_COLOR` (medium grey, distinct from both the near-black
+pillar/beam and the cooler wall grey) in `scene.rs`.

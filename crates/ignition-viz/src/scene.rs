@@ -16,6 +16,11 @@ const COLUMN_CAP_COLOR: [f32; 3] = [0.05, 0.05, 0.05];
 // Pillars ("the smaller pole beam coming out of" each column): black wood,
 // distinct from the stone column and from PROP_COLOR.
 const PILLAR_COLOR: [f32; 3] = [0.09, 0.07, 0.06];
+// The outer-OH-mover mount box: same dark family as the pillar/beam wood,
+// but distinct enough to read as its own object rather than fusing into
+// the pillar visually — this was mistaken for "the box isn't there" when
+// it was rendering, just the same colour as the pillar right next to it.
+const MOUNT_BOX_COLOR: [f32; 3] = [0.30, 0.31, 0.34];
 // Audience floor: real wood, plank-textured (shader.wgsl). Was on the
 // stage floor in the first pass — corrected 2026-08-24: the wood belongs
 // to the audience, the stage itself is dark/black plywood.
@@ -59,8 +64,10 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshB
             FLOOR_COLOR
         } else if g.name.starts_with("Column") {
             COLUMN_COLOR
-        } else if g.name.starts_with("Beam") || g.name.starts_with("Mount Box") {
+        } else if g.name.starts_with("Beam") {
             PILLAR_COLOR
+        } else if g.name.starts_with("Mount Box") {
+            MOUNT_BOX_COLOR
         } else {
             ROOM_COLOR
         };
