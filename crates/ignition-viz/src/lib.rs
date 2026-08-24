@@ -1,5 +1,16 @@
-//! wgpu 3D visualizer + projection-mapping render path. Not started — see
+//! wgpu 3D visualizer. This first pass is deliberately headless — see
 //! `docs/research/lighting-console-landscape.md` §7.1 for the open question
-//! this crate exists to resolve (how a wgpu surface composes with Dioxus/
-//! Blitz vs. a browser `<canvas>`), and
-//! `docs/research/projection-mapping-resolume.md` for the mapping design.
+//! (how a wgpu surface composes with Dioxus/Blitz) that a real window is
+//! blocked on, and `src/bin/shot.rs` for the screenshot CLI this module
+//! exists to serve today: render a venue to a PNG with no display attached.
+
+pub mod camera;
+pub mod mesh;
+pub mod renderer;
+pub mod scene;
+pub mod venue;
+
+pub use camera::Camera;
+pub use renderer::HeadlessRenderer;
+pub use scene::build_scene;
+pub use venue::Venue;
