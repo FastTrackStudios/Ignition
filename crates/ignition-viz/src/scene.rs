@@ -5,11 +5,11 @@ use crate::venue::Venue;
 const ROOM_COLOR: [f32; 3] = [0.42, 0.44, 0.48];
 const FLOOR_COLOR: [f32; 3] = [0.30, 0.31, 0.34];
 const SCREEN_COLOR: [f32; 3] = [0.20, 0.45, 0.85];
-// Was [0.55, 0.40, 0.28] — read as orange next to the fixture markers'
-// own orange (Mover) colour, which is exactly the mix-up reported: props
-// and moving heads were hard to tell apart at a glance. Desaturated and
-// cooled toward neutral grey-brown.
-const PROP_COLOR: [f32; 3] = [0.42, 0.38, 0.34];
+// Was [0.55, 0.40, 0.28] (orange-brown, read as the same colour as Mover
+// fixtures), then [0.42, 0.38, 0.34] (desaturated grey-brown). Purple —
+// nothing else in the scene (room/floor grey, screens/wash blue, movers
+// orange) is anywhere near it, so props are unambiguous at a glance.
+const PROP_COLOR: [f32; 3] = [0.48, 0.30, 0.62];
 
 /// Objects whose `name` contains any of these substrings are left out of the
 /// scene — e.g. `["Ceiling"]` for a top-down plan view that would otherwise
