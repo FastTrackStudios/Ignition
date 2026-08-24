@@ -7,11 +7,13 @@ const ROOM_COLOR: [f32; 3] = [0.42, 0.44, 0.48];
 // seams instead of darkening them here — multiplying an already-near-
 // black colour darker doesn't show up).
 const CEILING_COLOR: [f32; 3] = [0.045, 0.045, 0.05];
-// Columns: stonemason-style ashlar block texture (shader.wgsl), warm-toned
-// (R > B) so the shader can key stone vs. the cool-toned wall grey without
-// a separate material flag. Black cap added as a second, small box on top
-// — see the room loop below.
-const COLUMN_COLOR: [f32; 3] = [0.58, 0.53, 0.46];
+// Columns: stonemason-style ashlar block texture (shader.wgsl). Dark grey
+// stone, per the operator's 2026-08-24 call (was a warm tan/beige) — kept
+// R fractionally above B (0.05 delta) purely so the shader can still key
+// stone vs. the cool-toned wall grey off colour alone; at this magnitude
+// it reads as neutral dark grey, not warm. Black cap added as a second,
+// small box on top — see the room loop below.
+const COLUMN_COLOR: [f32; 3] = [0.24, 0.235, 0.20];
 const COLUMN_CAP_COLOR: [f32; 3] = [0.05, 0.05, 0.05];
 // Pillars ("the smaller pole beam coming out of" each column): black wood,
 // distinct from the stone column and from PROP_COLOR.
