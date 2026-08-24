@@ -144,7 +144,16 @@ impl Venue {
         for f in &self.fixtures {
             visit(f.position.to_glam());
         }
-        for g in self.room.iter().chain(&self.screens).chain(&self.props) {
+        // Side annexes (sound booth, storage closet, alcove) sit far from
+        // the main room — at Norco, ~10m past the audience back wall —
+        // and including them badly distorts every auto-framed camera
+        // (frame_house_view etc.), which assumes `bounds()` describes the
+        // performance space. Excluded from framing; still rendered
+        // normally, just not used to size/aim the default cameras.
+        let is_annex = |name: &str| {
+            name.contains("Alcove") || name.contains("Closet") || name.contains("Booth")
+        };
+        for g in self.room.iter().filter(|g| !is_annex(&g.name)).chain(&self.screens).chain(&self.props) {
             visit(g.position.to_glam());
         }
         (min, max)

@@ -49,18 +49,46 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshB
         } else {
             ROOM_COLOR
         };
-        mesh.add_box(g.position.to_glam(), g.orientation(), g.size.to_glam(), color);
+        let pos = g.position.to_glam();
+        let rot = g.orientation();
+        let size = g.size.to_glam();
+        // Walls and risers ("Face - ...") are pivoted at their BASE in the
+        // source data, not their centre — confirmed by cross-checking
+        // wall heights against the real ceiling height (room.json's
+        // Ceiling object): e.g. Wall - Upstage's base z (0.1524) + its
+        // height (3.302) lands on 3.4544, the ceiling, to four decimal
+        // places, for every wall checked. `add_box` always centres on the
+        // point it's given, so shift up by half the height first — left
+        // uncorrected, every wall/riser floats too low, leaving a gap at
+        // the top (the dark band between wall and ceiling visible in
+        // every render before this fix) and the wrong footprint anywhere
+        // that gap intersects something else (reported: the flare walls
+        // clipping through the TVs mounted on them).
+        let center = if g.name.starts_with("Wall") || g.name.starts_with("Face") {
+            pos + rot * glam::Vec3::Z * (size.z * 0.5)
+        } else {
+            pos
+        };
+        mesh.add_box(center, rot, size, color);
     }
 
     for g in &venue.screens {
         if skip(&g.name) {
             continue;
         }
-        mesh.add_quad(g.position.to_glam(), g.orientation(), g.size.to_glam(), SCREEN_COLOR);
+        let pos = g.position.to_glam();
+        let rot = g.orientation();
+        let size = g.size.to_glam();
+        // Same base-pivot convention as walls (see above) — a TV's
+        // position is its bottom edge, not its centre. The quad's local Y
+        // is its height axis (add_quad), so shift along the rotated local
+        // Y instead of world Z.
+        let center = pos + rot * glam::Vec3::Y * (size.y * 0.5);
+        mesh.add_quad(center, rot, size, SCREEN_COLOR);
         // A thin backing box so the screen reads as an object from any angle,
         // not just face-on.
         let backing_size = glam::Vec3::new(g.size.x, g.size.y, 0.05);
-        mesh.add_box(g.position.to_glam(), g.orientation(), backing_size, [0.08, 0.08, 0.10]);
+        mesh.add_box(center, rot, backing_size, [0.08, 0.08, 0.10]);
     }
 
     if show_props {
