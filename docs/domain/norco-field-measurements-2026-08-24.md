@@ -479,3 +479,32 @@ Outer OH movers and their mount box are unaffected — they stack directly
 on the column top (4ft, confirmed), independent of the beam. The
 back-wall TVs' beam-clearance target (1.9836) still clears the new,
 higher beam bottom (2.286), so they didn't need touching either.
+
+## Drum-fill pars — wider spacing, diagonal convergence pan, 2026-08-24
+
+Operator: **"the pars need to be just slightly farther apart, and then
+the top left and bottom right pars face inward a little towards the
+drums and the opposite corners face away from the drums a little bit."**
+(Corners as seen in the renders sent — camera downstage looking upstage,
+so image-left = world `−x`, image-right = world `+x`.)
+
+- **Spacing**: the two heights per pillar were 1.6659/1.9941 (0.3282m
+  apart); widened by 0.05m each direction to 1.5659/2.0941 (0.5282m
+  apart).
+- **Pan**: added a ±12° yaw (matching this rig's existing convergence-pan
+  convention — several other channels in the patch already use ±12°/±4°
+  offsets for the same kind of slight inward/outward spread) on top of
+  the existing 180° "face the audience" yaw:
+
+| Chan | Position (image) | Pan | `eulers.z` |
+|---|---|---|---|
+| 51 | top-left | inward (toward drums) | 192° |
+| 53 | bottom-right | inward (toward drums) | 168° |
+| 50 | bottom-left | outward (away) | 168° |
+| 52 | top-right | outward (away) | 192° |
+
+Both `eulers` and `quat` were updated together (per the standing note
+above: `ignition-viz` renders off `quat` only, `eulers` alone is inert) —
+`quat` values recomputed from the same `Rz(z)·Ry(0)·Rx(90)` formula the
+rest of this venue's fixtures use, verified by reproducing the
+pre-existing z=180° quat exactly before applying it to 168°/192°.
