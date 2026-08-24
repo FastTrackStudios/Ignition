@@ -1936,9 +1936,9 @@
     "global_address": 176,
     "beam_angle_deg": 11.0,
     "position": {
-      "x": -3.0,
+      "x": -1.774,
       "y": 2.2,
-      "z": 2.8448
+      "z": 1.778
     },
     "eulers": {
       "x": 180.0,
@@ -2050,9 +2050,9 @@
     "global_address": 706,
     "beam_angle_deg": 11.0,
     "position": {
-      "x": 3.0,
+      "x": 1.774,
       "y": 2.2,
-      "z": 2.8448
+      "z": 1.778
     },
     "eulers": {
       "x": 180.0,

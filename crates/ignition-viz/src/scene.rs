@@ -59,7 +59,7 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool) -> MeshB
             FLOOR_COLOR
         } else if g.name.starts_with("Column") {
             COLUMN_COLOR
-        } else if g.name.starts_with("Beam") {
+        } else if g.name.starts_with("Beam") || g.name.starts_with("Mount Box") {
             PILLAR_COLOR
         } else {
             ROOM_COLOR
