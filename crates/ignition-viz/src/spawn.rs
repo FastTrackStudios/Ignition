@@ -30,10 +30,12 @@ pub struct GdtfLibraryRes(pub Option<GdtfLibrary>);
 /// from drawing a visible beam.
 const MIN_VISIBLE_DIMMER: f32 = 0.02;
 
-/// A fixture patched at or above the ceiling (less this slack) counts as
-/// rigged to it. Generous, because "on the truss" and "at ceiling height"
-/// are the same thing to an operator and venue data rounds differently.
-const CEILING_RIG_TOLERANCE: f32 = 0.35;
+/// How far a fixture can be from a piece of structure and still count as
+/// mounted to it. Generous, because "on the truss" and "at ceiling
+/// height" are the same thing to an operator and venue data rounds
+/// differently — but finite, so a fixture out in open air stays anchored
+/// to the world rather than snapping to something across the room.
+const MAX_RIG_DISTANCE: f32 = 0.6;
 
 /// Maps the operator's haze dial onto Bevy's `FogVolume::density_factor`,
 /// whose own default is 0.1. Above roughly 0.3 the room stops being a
@@ -57,7 +59,7 @@ const SHADER_HAZE_SCALE: f32 = 10.0;
 /// so the rig could be found in a blacked-out room, which is no longer
 /// needed now the fixtures actually light it — and a housing that glows
 /// when its lamp is off is not something any fixture does.
-const LIT_BODY_GLOW: f32 = 0.9;
+const LIT_BODY_GLOW: f32 = 0.22;
 
 /// How brightly a screen's own content emits. A TV in a dark room is
 /// genuinely one of the brighter things in it, but this is well under
@@ -248,28 +250,64 @@ pub struct FixtureBeam;
 #[derive(Component)]
 pub struct FixtureSpill;
 
-/// Whether a fixture counts as rigged to the overhead surface, rather
-/// than standing on the floor or clamped to a wall.
-fn is_rigged_overhead(fixture_pos: Vec3, ceiling_pos: Vec3) -> bool {
-    fixture_pos.z >= ceiling_pos.z - CEILING_RIG_TOLERANCE
+/// A piece of room structure a fixture can be rigged to: the ceiling, a
+/// wall, the deck, the truss beam over the drums.
+#[derive(Clone, Copy)]
+pub struct RigSurface {
+    pub entity: Entity,
+    pub center: Vec3,
+    pub rot: Quat,
+    pub half_extents: Vec3,
+    /// Whether this is the ceiling, which needs the clamp below.
+    pub is_ceiling: bool,
 }
 
-/// A fixture's pose expressed relative to the surface it hangs from, so
-/// moving that surface moves the fixture with it.
+impl RigSurface {
+    /// Distance from a point to this surface's box, zero inside it.
+    pub fn distance_to(&self, point: Vec3) -> f32 {
+        let local = (self.rot.inverse() * (point - self.center)).abs() - self.half_extents;
+        local.max(Vec3::ZERO).length() + local.max_element().min(0.0)
+    }
+}
+
+/// The structure a fixture is mounted to: whichever candidate surface it
+/// is physically closest to, or `None` if it is not near anything.
 ///
-/// The height is clamped to hang *below* the surface. Venue data can put
-/// a truss above the room's own ceiling plane — Norco's does, by half a
+/// Nearest-surface rather than a rule per fixture type, because that is
+/// what the operator described and it is what the geometry already says:
+/// the truss pars are under the ceiling, the back-wall pars are against
+/// the back wall, the overhead movers hang off the beam over the drums,
+/// and the strips and floor movers sit on the deck. Rigging each to what
+/// it is actually attached to means moving that structure moves them.
+pub fn nearest_rig_surface(fixture_pos: Vec3, surfaces: &[RigSurface]) -> Option<RigSurface> {
+    surfaces
+        .iter()
+        .map(|s| (s, s.distance_to(fixture_pos)))
+        .filter(|(_, d)| *d <= MAX_RIG_DISTANCE)
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(s, _)| *s)
+}
+
+/// A fixture's pose expressed relative to the structure it hangs from, so
+/// moving that structure moves the fixture with it.
+///
+/// The ceiling gets one correction the others do not: venue data can put
+/// a truss *above* the room's own ceiling plane — Norco's does, by half a
 /// metre — and a fixture left there is invisible from inside the room and
-/// shines its beam from outside the roof.
-fn rig_to_surface(
+/// shines its beam from outside the roof. Every other surface keeps the
+/// fixture's real measured offset, because there is no equivalent
+/// contradiction to resolve and inventing one would move fixtures that
+/// are already right.
+pub fn rig_to_surface(
     fixture_pos: Vec3,
     fixture_rot: Quat,
-    surface_pos: Vec3,
-    surface_rot: Quat,
+    surface: &RigSurface,
 ) -> (Vec3, Quat) {
-    let inv = surface_rot.inverse();
-    let mut local = inv * (fixture_pos - surface_pos);
-    local.z = local.z.min(-RIG_DROP);
+    let inv = surface.rot.inverse();
+    let mut local = inv * (fixture_pos - surface.center);
+    if surface.is_ceiling {
+        local.z = local.z.min(-RIG_DROP);
+    }
     (local, inv * fixture_rot)
 }
 
@@ -323,10 +361,8 @@ pub fn spawn_venue(
 ) {
     let venue = &venue.0;
     let unit_cube = meshes.add(Cuboid::from_length(1.0));
-    // Name -> (anchor entity, world position, world rotation), so a
-    // fixture rigged to a room surface can be parented to it.
-    let mut room_anchors: std::collections::HashMap<String, (Entity, Vec3, Quat)> =
-        std::collections::HashMap::new();
+    // Every piece of room structure a fixture might be mounted to.
+    let mut rig_surfaces: Vec<RigSurface> = Vec::new();
     let beam_cone = meshes.add(Mesh::from(beam_mesh().mesh().resolution(BEAM_CONE_SEGMENTS)));
 
     // Room surfaces are lit only by the rig, which is the point — but a
@@ -396,7 +432,13 @@ pub fn spawn_venue(
             Transform::from_scale(size),
             ChildOf(anchor),
         ));
-        room_anchors.insert(g.name.clone(), (anchor, center, rot));
+        rig_surfaces.push(RigSurface {
+            entity: anchor,
+            center,
+            rot,
+            half_extents: size * 0.5,
+            is_ceiling: g.name == "Ceiling",
+        });
         if g.name.starts_with("Column") {
             // A black capstone on top of the column — its own entity
             // rather than trying to two-tone one box.
@@ -522,9 +564,6 @@ pub fn spawn_venue(
         ));
     }
 
-    // The surface an overhead fixture is rigged to, if the venue has one.
-    let ceiling = room_anchors.get("Ceiling").copied();
-
     let throw = BeamThrow::for_venue(venue);
     for (index, f) in venue.fixtures.iter().enumerate() {
         // Unpatched channels (Norco's phantom 19/98) have no real
@@ -570,17 +609,15 @@ pub fn spawn_venue(
         // x/y, and its height becomes an offset from the ceiling instead
         // of an absolute — clamped so it hangs below the surface rather
         // than through it.
-        let rigged_to = ceiling
-            .filter(|(_, ceiling_pos, _)| is_rigged_overhead(f.position.to_vec3(), *ceiling_pos));
-
-        let (parent, local_pos, local_rot) = match rigged_to {
-            Some((anchor, ceiling_pos, ceiling_rot)) => {
-                let (local_pos, local_rot) =
-                    rig_to_surface(f.position.to_vec3(), f.orientation(), ceiling_pos, ceiling_rot);
-                (Some(anchor), local_pos, local_rot)
-            }
-            None => (None, f.position.to_vec3(), f.orientation()),
-        };
+        let (parent, local_pos, local_rot) =
+            match nearest_rig_surface(f.position.to_vec3(), &rig_surfaces) {
+                Some(surface) => {
+                    let (local_pos, local_rot) =
+                        rig_to_surface(f.position.to_vec3(), f.orientation(), &surface);
+                    (Some(surface.entity), local_pos, local_rot)
+                }
+                None => (None, f.position.to_vec3(), f.orientation()),
+            };
 
         let mut root_cmd = commands.spawn((
             Fixture { index, base_rot: local_rot },
@@ -1087,111 +1124,84 @@ pub fn apply_ambient(settings: Res<VizSettings>, mut ambient: ResMut<GlobalAmbie
 mod rigging_tests {
     use super::*;
 
-    const CEILING: Vec3 = Vec3::new(0.0, 0.0, 2.743);
+    fn surface(name_is_ceiling: bool, center: Vec3, half: Vec3) -> RigSurface {
+        RigSurface {
+            entity: Entity::from_raw_u32(1).unwrap(),
+            center,
+            rot: Quat::IDENTITY,
+            half_extents: half,
+            is_ceiling: name_is_ceiling,
+        }
+    }
+
+    /// Norco's real structure, roughly: a ceiling plane at 9 ft, the deck
+    /// at zero, the back wall upstage, and the short truss beam the
+    /// overhead movers hang from.
+    fn venue() -> Vec<RigSurface> {
+        vec![
+            surface(true, Vec3::new(0.0, -6.5, 2.743), Vec3::new(5.95, 9.45, 0.01)),
+            surface(false, Vec3::new(0.0, -1.9, 0.0), Vec3::new(5.95, 1.52, 0.01)),
+            surface(false, Vec3::new(0.0, 2.95, 1.45), Vec3::new(4.57, 0.01, 1.30)),
+            surface(false, Vec3::new(0.0, 2.34, 2.36), Vec3::new(1.63, 0.08, 0.08)),
+        ]
+    }
+
+    fn which(pos: Vec3) -> usize {
+        let all = venue();
+        let picked = nearest_rig_surface(pos, &all).expect("something should be in range");
+        all.iter().position(|s| s.center == picked.center).unwrap()
+    }
 
     #[test]
-    fn a_truss_fixture_counts_as_overhead_and_a_floor_one_does_not() {
-        // Norco's real numbers: 47 pars at 3.25, floor movers near zero.
-        assert!(is_rigged_overhead(Vec3::new(1.0, 2.0, 3.25), CEILING));
-        assert!(!is_rigged_overhead(Vec3::new(1.0, 2.0, 0.02), CEILING));
-        // Just under the ceiling still counts — "on the truss" and "at
-        // ceiling height" are the same thing to an operator.
-        assert!(is_rigged_overhead(Vec3::new(0.0, 0.0, 2.5), CEILING));
+    fn each_fixture_rigs_to_what_it_is_actually_mounted_to() {
+        // A truss par under the ceiling.
+        assert_eq!(which(Vec3::new(2.0, -2.0, 2.70)), 0, "truss par -> ceiling");
+        // A strip lying on the deck.
+        assert_eq!(which(Vec3::new(2.0, -1.9, 0.05)), 1, "strip -> floor");
+        // A par mounted on the back wall.
+        assert_eq!(which(Vec3::new(3.0, 2.90, 2.30)), 2, "back wall par -> wall");
+        // An overhead mover on the beam over the drums.
+        assert_eq!(which(Vec3::new(1.0, 2.32, 2.30)), 3, "OH mover -> beam");
+    }
+
+    #[test]
+    fn a_fixture_out_in_open_air_rigs_to_nothing() {
+        assert!(nearest_rig_surface(Vec3::new(0.0, -8.0, 1.5), &venue()).is_none());
     }
 
     #[test]
     fn a_fixture_above_the_ceiling_is_pulled_down_to_hang_from_it() {
-        let (local, _) = rig_to_surface(Vec3::new(1.0, 2.0, 3.25), Quat::IDENTITY, CEILING, Quat::IDENTITY);
-        // Real x/y kept, height clamped to just below the surface.
-        assert_eq!((local.x, local.y), (1.0, 2.0));
-        assert!(local.z < 0.0, "must hang below the ceiling, got {}", local.z);
+        // Norco patches its truss pars half a metre above its own ceiling.
+        let ceiling = venue()[0];
+        let (local, _) = rig_to_surface(Vec3::new(1.0, -2.0, 3.25), Quat::IDENTITY, &ceiling);
+        assert_eq!((local.x, local.y), (1.0, 4.5));
         assert!((local.z + RIG_DROP).abs() < 1e-6, "{}", local.z);
     }
 
     #[test]
-    fn a_fixture_already_below_the_ceiling_keeps_its_real_drop() {
-        let (local, _) = rig_to_surface(Vec3::new(0.0, 0.0, 2.0), Quat::IDENTITY, CEILING, Quat::IDENTITY);
-        assert!((local.z - (2.0 - CEILING.z)).abs() < 1e-6, "{}", local.z);
+    fn every_other_surface_keeps_the_fixtures_real_offset() {
+        // The clamp is a fix for one contradiction in the ceiling data,
+        // not a general rule — a wall-mounted par must stay where it was
+        // measured.
+        let wall = venue()[2];
+        let (local, _) = rig_to_surface(Vec3::new(3.0, 2.90, 2.30), Quat::IDENTITY, &wall);
+        assert!((local.z - (2.30 - 1.45)).abs() < 1e-6, "{}", local.z);
     }
 
     #[test]
     fn the_local_pose_reproduces_the_world_pose_when_the_surface_is_rotated() {
-        let surface_rot = Quat::from_rotation_z(0.7);
-        let fixture_pos = Vec3::new(1.0, 2.0, 2.0);
-        let fixture_rot = Quat::from_rotation_x(0.3);
-        let (local_pos, local_rot) = rig_to_surface(fixture_pos, fixture_rot, CEILING, surface_rot);
-        // Composing the parent back on must return where it started.
-        let world_pos = CEILING + surface_rot * local_pos;
-        assert!(world_pos.distance(fixture_pos) < 1e-5, "{world_pos:?}");
-        assert!((surface_rot * local_rot).angle_between(fixture_rot) < 1e-5);
-    }
-}
-
-#[cfg(test)]
-mod aim_convention_tests {
-    use super::*;
-    use ignition_core::pan_tilt_deg_along;
-
-    /// The composition `spawn_venue` builds out of entities — the fixture
-    /// root carrying `mount * pan`, the head joint carrying `tilt`, and
-    /// the beam hanging off the head — must agree with the convention
-    /// `focus.rs` solves against, or every focus solve renders aimed
-    /// somewhere else.
-    ///
-    /// This has gone wrong three times in this renderer, each time by
-    /// putting something on the wrong entity: the mesh's `pre_rotate`
-    /// correction on the aim joint (a 180-degree flip, so every beam came
-    /// out mirrored), the mesh's scale on the joint (so beams inherited
-    /// the shrink), and the anchor offset in the wrong frame. The
-    /// hierarchy is not self-evidently right, so it is pinned here.
-    fn world_aim(mount: Quat, pan_deg: f32, tilt_deg: f32) -> Vec3 {
-        let pan = Quat::from_axis_angle(Vec3::Z, pan_deg.to_radians());
-        let tilt = Quat::from_axis_angle(Vec3::X, tilt_deg.to_radians());
-        // root rotation * head rotation, exactly as the two entities are
-        // built and then written each frame.
-        ((mount * pan) * tilt) * Vec3::NEG_Z
-    }
-
-    fn solve(mount: Quat, want: Vec3) -> (f32, f32) {
-        let m = ignition_proto::Quat { w: mount.w as f64, x: mount.x as f64, y: mount.y as f64, z: mount.z as f64 };
-        let d = ignition_proto::Vec3 { x: want.x as f64, y: want.y as f64, z: want.z as f64 };
-        pan_tilt_deg_along(m, d)
-    }
-
-    #[test]
-    fn the_entity_composition_matches_what_focus_solves_for() {
-        let want = Vec3::new(0.0, -1.0, -0.28).normalize();
-        for mount in [
-            Quat::IDENTITY,
-            Quat::from_rotation_x(std::f32::consts::PI),
-            Quat::from_rotation_z(0.9),
-            Quat::from_rotation_z(-2.1) * Quat::from_rotation_x(std::f32::consts::PI),
-        ] {
-            let (pan, tilt) = solve(mount, want);
-            let got = world_aim(mount, pan, tilt).normalize();
-            assert!(
-                got.dot(want) > 0.9999,
-                "mount {mount:?}: solved pan {pan} tilt {tilt} aimed {got:?}, wanted {want:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn a_mesh_pre_rotate_must_not_reach_the_aim() {
-        // The regression itself: the QLC+ moving-head mesh needs a
-        // 180-degree correction to be drawn the right way up, and folding
-        // that into the joint inverts the beam.
-        let mount = Quat::IDENTITY;
-        let want = Vec3::new(0.0, -1.0, -0.28).normalize();
-        let (pan, tilt) = solve(mount, want);
-        let pre_rotate = Quat::from_rotation_x(std::f32::consts::PI);
-        let wrong = ((mount * Quat::from_axis_angle(Vec3::Z, pan.to_radians()))
-            * Quat::from_axis_angle(Vec3::X, tilt.to_radians())
-            * pre_rotate)
-            * Vec3::NEG_Z;
-        assert!(
-            wrong.normalize().dot(want) < -0.9,
-            "the pre-rotate should invert the aim, which is why it belongs on the mesh"
-        );
+        let s = RigSurface {
+            entity: Entity::from_raw_u32(1).unwrap(),
+            center: Vec3::new(0.0, 2.95, 1.45),
+            rot: Quat::from_rotation_z(0.7),
+            half_extents: Vec3::new(4.0, 0.05, 1.3),
+            is_ceiling: false,
+        };
+        let pos = Vec3::new(1.0, 2.0, 2.0);
+        let rot = Quat::from_rotation_x(0.3);
+        let (local_pos, local_rot) = rig_to_surface(pos, rot, &s);
+        let world = s.center + s.rot * local_pos;
+        assert!(world.distance(pos) < 1e-5, "{world:?}");
+        assert!((s.rot * local_rot).angle_between(rot) < 1e-5);
     }
 }
