@@ -32,6 +32,9 @@ name = "gencues"
 name = "authorshow"
 
 [[bin]]
+name = "lyrics"
+
+[[bin]]
 name = "playsong"
 required-features = ["play"]
 
@@ -39,6 +42,11 @@ required-features = ["play"]
 ignition-core.workspace = true
 daw.workspace = true
 daw-proto = { path = "../../../FastTrackStudio/crates/daw/proto", optional = true }
+# The `.lrc` parser. keyflow-proto rather than keyflow-sync: sync is the
+# alignment crate and pulls audio decoding with it, which reading a text
+# file has no business costing. Syllable timing will come from sync
+# later and can pay for itself then.
+keyflow-proto = { path = "../../../FastTrackStudio/crates/keyflow/keyflow-proto" }
 anyhow = "1"
 serde.workspace = true
 serde_json.workspace = true
