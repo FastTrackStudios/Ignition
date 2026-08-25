@@ -380,3 +380,69 @@ pass; `shot`'s regression PNG stayed byte-identical (MD5). A `--snapshot`
 close-up (`--view stage`) shows soft-edged, properly cone-shaped colour
 spill on the ceiling instead of the old flat omnidirectional glow — a
 real, visible quality jump, not just more shader code.
+
+## Slice 8 — the "ASLS file format" question: it's just Open Fixture Library
+
+The operator asked directly whether ASLS's own file format is worth
+adopting. Answer, from reading their actual source (`show.model.js`,
+`fixture.model.js`):
+
+**Project files (`.asls`)**: a plain flat JSON — `{name, bpm, fixtures[],
+universes[], groups[], visualizer{}, outputs{}}`, each fixture entry
+`{id, model, manufacturer, name, universe, chStart, mode, position,
+rotation}`. Nothing to adopt here — comparing it directly against
+`fixtures.json`'s own schema, this project's venue data already
+independently converged on essentially the same shape (manufacturer/
+model/universe/address/position/orientation per fixture). Good sanity
+check, not a design change.
+
+**Fixture definitions**: this is the real finding. ASLS has *no* fixture
+format of its own at all — `show.model.js`'s `prepareFixtures()` fetches
+`fixtures/{manufacturer}/{model}.json` and stores it as `fixtureData.
+OFLData`, and `public/fixtures/` in their repo is a literal, unmodified
+mirror of the **Open Fixture Library** (OFL,
+`github.com/OpenLightingProject/open-fixture-library`, MIT) — every file
+has OFL's own `$schema` URL at the top. So "should Ignition use ASLS's
+format" resolves to "should Ignition use OFL," which turned out to be a
+clearly *better* answer than the GDTF path (Slice 4) for the specific gap
+this project has (confirming channel-function-order, not importing 3D
+geometry):
+
+- **Plain JSON, not zip+XML** — `ofl_import.rs` is ~90 lines using
+  `serde_json::Value` directly, no zip crate, no XML parser, versus
+  GDTF's zip-of-XML-plus-assets pipeline.
+- **Real coverage for this venue's actual budget/no-name fixtures** —
+  checked directly against Norco's 7 fixture types: Uking (a `uking/`
+  manufacturer directory exists, with the exact Par Light B262 already
+  guessed at in `fixture_profile.rs`'s shape code) and Chauvet Hurricane
+  Haze 1DX both have real, current OFL profiles. Riukoe and Betopper have
+  **no manufacturer entry in OFL at all** (checked, not just unsearched)
+  — expected for genuinely obscure brands, but also true of GDTF, so
+  neither path helps those two.
+- **Immediately paid off**: fetched both real files, and one revealed an
+  actual bug — the Uking Par's estimated layout (in `channel_map.rs`,
+  written before this slice) had guessed a White channel that doesn't
+  exist on the real fixture, at the position Strobe actually occupies.
+  Uking Par is 47 of Norco's 71 fixtures. Also corrected: Chauvet
+  Hurricane Haze's real footprint is 1 channel (just Haze), not the
+  estimated 2ch dimmer+fan.
+- **`ofl_import.rs`** (mirrors `gdtf_import.rs`'s shape) now exists,
+  tested against the two real files that produced those corrections
+  (vendored MIT under `assets/ofl-samples/`, same `LICENSE-NOTICE.txt`
+  pattern as `assets/qlc-meshes/` and `assets/gdtf-samples/`) — running
+  it reproduces the by-hand fix exactly, so it's ready to check any
+  future fixture the moment a real OFL profile exists for it, not a
+  one-off manual correction.
+- Also revisited the Rockville Rockstrip 252 7ch entry, which used the
+  *same* "generic 7ch par" template the Uking Par entry did before being
+  corrected — flagged as suspect in `channel_map.rs`/`docs/domain/
+  dmx-channel-maps.md` rather than left looking equally confident, since
+  OFL has no profile for this specific Rockville model to check it
+  against (only a different one, "rockpar50").
+
+Net effect on the GDTF-vs-OFL question from Slice 4's original research:
+not either/or. GDTF is still the right (eventual) path to real 3D
+fixture geometry (yoke/head Geometry tree, actual manufacturer models) —
+OFL doesn't carry geometry at all. For the channel-map-only need this
+project actually had unresolved, OFL was faster to reach for and covered
+more of Norco's real, obscure fixtures than GDTF did.

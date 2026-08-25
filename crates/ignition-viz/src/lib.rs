@@ -16,6 +16,7 @@ pub mod live_pipeline;
 pub mod live_renderer;
 pub mod mesh;
 pub mod obj_mesh;
+pub mod ofl_import;
 pub mod renderer;
 pub mod scene;
 pub mod venue;

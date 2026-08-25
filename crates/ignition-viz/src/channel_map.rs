@@ -8,13 +8,17 @@
 //! `footprint` (the real channel count) is confirmed for every fixture here
 //! by checking the live patch's own DMX-address spacing between consecutive
 //! fixtures of that type (`docs/domain/norco-patch-and-groups.md`'s
-//! `global_address` data); the *per-channel function order* is the
-//! estimated part, taken from the class of fixture (RGB(W) par, cheap
-//! moving head, LED batten, hazer) since Ignition has no real `.qxf`/GDTF
-//! file for any of these specific models yet. Treat as a working default,
-//! not ground truth — swap for a real fixture profile import
-//! (`docs/research/lighting-console-landscape.md`'s GDTF/MVR slice) once
-//! one exists for these models.
+//! `global_address` data). *Per-channel function order* is a mix: two
+//! entries (Uking Par, Chauvet Hurricane Haze) are now CONFIRMED against
+//! the fixture's own real published profile in the Open Fixture Library
+//! (openlighting.org/ofl — plain JSON, no zip/XML pipeline needed, unlike
+//! GDTF; see `docs/research/lighting-console-landscape.md`'s Slice 8 for
+//! why OFL turned out to be the more directly usable channel-map source
+//! for this project's remaining unconfirmed fixtures than GDTF). The rest
+//! are still estimated from the general class of fixture (RGB(W) par,
+//! cheap moving head, LED batten) since neither OFL nor GDTF has a profile
+//! for those specific budget/no-name models (checked — see below). Treat
+//! unconfirmed entries as a working default, not ground truth.
 
 use ignition_proto::{Attribute, ChannelMap, ColorChannel};
 
@@ -37,13 +41,20 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
     let mo = model.to_ascii_lowercase();
 
     if m == "uking" && mo.contains("par") {
-        // Footprint confirmed: chan 1 -> chan 3 is 7 DMX addresses apart in
-        // the live patch (both 2 channel-numbers apart, so 1 fixture's worth
-        // of addresses = 7). Layout estimated as the common budget-par 7ch
-        // convention: Master Dimmer, R, G, B, White, Strobe, Program.
+        // CONFIRMED against the real fixture's own published profile:
+        // github.com/OpenLightingProject/open-fixture-library
+        // fixtures/uking/par-light-b262.json (180x180x100mm — the exact
+        // dimensions fixture_profile.rs's shape_for() already used for
+        // this fixture, independently confirming this is the right model
+        // match). Its real "7-channel" mode: Master Dimmer, Red, Green,
+        // Blue, Strobe, Mode, Hue Selection/Speed — no White channel at
+        // all (the earlier estimated layout guessed one at offset 4 and
+        // put Strobe at 5; the real fixture has Strobe at 4). Mode/Hue
+        // Selection have no modelled Attribute yet, so this fixture's
+        // real footprint is 7 but only 4 of its channels resolve to
+        // anything the visualizer reads.
         let mut cm = rgb_par(7, Some(0), 1);
-        cm.channels.push((4, Attribute::ColorAdd { channel: ColorChannel::White }));
-        cm.channels.push((5, Attribute::Strobe));
+        cm.channels.push((4, Attribute::Strobe));
         return Some(cm);
     }
     if m == "chauvet" && mo.contains("slimpar") {
@@ -98,7 +109,15 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
     if m == "rockville" && mo.contains("rockstrip") {
         if mo.contains("7ch") {
             // Confirmed by name. Layout estimated: Dimmer, R, G, B, White,
-            // Strobe, Program — same convention as the Uking par.
+            // Strobe, Program — same "generic budget-par 7ch" convention
+            // originally used for the Uking par below, which turned out to
+            // be wrong when checked against that fixture's real published
+            // profile (no White channel at all — see the Uking Par entry
+            // above). Rockville has no fixture in the Open Fixture Library
+            // to check this one against (only "rockpar50" exists there,
+            // not this "Rockstrip 252" model), so this guess is now flagged
+            // as suspect rather than treated as a safe default — the same
+            // wrong assumption may well be baked in here too.
             let mut cm = rgb_par(7, Some(0), 1);
             cm.channels.push((4, Attribute::ColorAdd { channel: ColorChannel::White }));
             cm.channels.push((5, Attribute::Strobe));
@@ -110,11 +129,44 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         }
     }
     if m == "chauvet" && mo.contains("hurricane") {
-        // Not confirmed by address spacing (only 2 units, on different
-        // universes) — estimated from Chauvet's documented Hurricane Haze
-        // 1DX 2ch mode: Haze output, Fan speed. `Dimmer` stands in for the
-        // haze-output channel — there's no dedicated haze `Attribute` yet.
-        return Some(ChannelMap { footprint: 2, channels: vec![(0, Attribute::Dimmer)] });
+        // CONFIRMED against the real fixture's own published profile:
+        // open-fixture-library fixtures/chauvet-dj/hurricane-haze-1dx.json
+        // — the real fixture has exactly one mode, "1 Channel": a single
+        // Haze (Fog) channel, no separate fan-speed channel at all. The
+        // earlier estimate guessed a 2ch dimmer+fan mode that doesn't
+        // exist for this fixture. `Dimmer` stands in for the haze-output
+        // channel — there's no dedicated haze `Attribute` yet.
+        return Some(ChannelMap { footprint: 1, channels: vec![(0, Attribute::Dimmer)] });
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Locks in the correction from the Open Fixture Library's real
+    /// uking/par-light-b262.json profile: no White channel, Strobe at
+    /// offset 4 (not the originally-guessed offset 5).
+    #[test]
+    fn uking_par_matches_the_real_ofl_profile() {
+        let cm = channel_map_for("Uking", "Par").expect("Uking Par has a channel map");
+        assert_eq!(cm.footprint, 7);
+        assert_eq!(cm.offset_of(&Attribute::Dimmer), Some(0));
+        assert_eq!(cm.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Red }), Some(1));
+        assert_eq!(cm.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Green }), Some(2));
+        assert_eq!(cm.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Blue }), Some(3));
+        assert_eq!(cm.offset_of(&Attribute::Strobe), Some(4));
+        assert_eq!(cm.offset_of(&Attribute::ColorAdd { channel: ColorChannel::White }), None);
+    }
+
+    /// Locks in the correction from the real chauvet-dj/hurricane-haze-1dx.json
+    /// profile: the fixture's only mode is 1 channel, not the originally-
+    /// guessed 2ch (dimmer + fan).
+    #[test]
+    fn hurricane_haze_matches_the_real_ofl_profile() {
+        let cm = channel_map_for("Chauvet", "Hurricane Haze 1DX").expect("Hurricane Haze has a channel map");
+        assert_eq!(cm.footprint, 1);
+        assert_eq!(cm.offset_of(&Attribute::Dimmer), Some(0));
+    }
 }

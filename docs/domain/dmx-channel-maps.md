@@ -25,26 +25,28 @@ mount pose and the live sACN/Art-Net state in `dmx.rs`).
 
 | Manufacturer/model | Footprint | Confidence | Notes |
 |---|---|---|---|
-| Uking Par | 7ch | Footprint confirmed (chan 1→3 spacing) | Layout estimated: Dimmer, R, G, B, White, Strobe, Program |
-| Chauvet SlimPAR Tri 7 IRC 7ch | 7ch | Footprint confirmed (name + chan 50→51 spacing) | Layout estimated: Dimmer, R, G, B, Strobe (macro/speed channels not modelled) |
-| Riukoe Mini Gobo Moving Head 11ch | 11ch | Footprint confirmed (name + chan 80→81 spacing) | Layout estimated: Pan, Tilt, Colour wheel, Gobo wheel, Shutter, Dimmer (fine-resolution pan/tilt bytes reserved in the footprint but not read) |
-| Betopper 150W LED Beam Moving Head | 12ch | Footprint confirmed (sorted-address spacing) | Layout estimated: Pan, Tilt, Dimmer, Strobe, Colour wheel, Gobo wheel |
-| Rockville Rockstrip 252 7ch | 7ch | Footprint confirmed (name) | Layout estimated: Dimmer, R, G, B, White, Strobe, Program |
+| Uking Par | 7ch | **Fully confirmed** — Open Fixture Library `uking/par-light-b262.json` | Real layout: Dimmer, R, G, B, Strobe, Mode, Hue Selection/Speed — **no White channel** (an earlier estimate had guessed one; corrected 2026-08-24, see Slice 8) |
+| Chauvet SlimPAR Tri 7 IRC 7ch | 7ch | Footprint confirmed (name + chan 50→51 spacing) | Layout estimated: Dimmer, R, G, B, Strobe (macro/speed channels not modelled). No OFL/GDTF profile found for this exact model. |
+| Riukoe Mini Gobo Moving Head 11ch | 11ch | Footprint confirmed (name + chan 80→81 spacing) | Layout estimated: Pan, Tilt, Colour wheel, Gobo wheel, Shutter, Dimmer. **Riukoe has no manufacturer entry in OFL at all** — checked directly, not just unsearched. |
+| Betopper 150W LED Beam Moving Head | 12ch | Footprint confirmed (sorted-address spacing) | Layout estimated: Pan, Tilt, Dimmer, Strobe, Colour wheel, Gobo wheel. **Betopper has no manufacturer entry in OFL at all** — checked directly. |
+| Rockville Rockstrip 252 7ch | 7ch | Footprint confirmed (name) | Layout estimated, **flagged suspect**: used the same "generic 7ch par = Dimmer/R/G/B/White/Strobe/Program" template the Uking Par entry did — and that template turned out wrong when checked against a real profile. OFL only has "rockpar50" for Rockville, not this model, so this one can't be checked the same way. |
 | Rockville Rockstrip 252 3ch | 3ch | Footprint confirmed (name) | Layout estimated: bare R, G, B, no dimmer channel |
-| Chauvet Hurricane Haze 1DX | 2ch | Not confirmed (only 2 units, different universes, no spacing to check) | Estimated from Chauvet's documented 2ch mode: Haze output (mapped to `Attribute::Dimmer`), Fan speed |
+| Chauvet Hurricane Haze 1DX | 1ch | **Fully confirmed** — OFL `chauvet-dj/hurricane-haze-1dx.json` | Real layout: a single Haze channel, no separate fan-speed channel. Corrected 2026-08-24 from an earlier 2ch guess (see Slice 8). |
 
 ## What to do next time at the rig
 
 Cycle each fixture type's dimmer/color/pan/tilt from the console one
 channel at a time and watch which physical channel does what — the
-fastest way to convert an "estimated" row above to "confirmed."
+fastest way to convert an "estimated" row above to "confirmed," and the
+only real option left for Riukoe/Betopper (no-name brands with no entry
+in either OFL or GDTF-land) and Rockville's actual Rockstrip 252 (OFL only
+has a different Rockville model).
 
-Or — `crates/ignition-viz/src/gdtf_import.rs` now exists and is tested
-against a real GDTF file (see Slice 4 in `docs/research/lighting-console-
-landscape.md`): if a real `.gdtf` file for Uking/Chauvet/Riukoe/Betopper/
-Rockville turns up (gdtf-share.com, or the manufacturer directly),
-`import_channel_map()` will pull its real channel layout straight out —
-no more guessing the per-channel function order for that fixture at all.
-It just hasn't been run against any of these 7 fixtures yet, since none of
-their real GDTF files were reachable from the dev sandbox this was built
-in.
+For Chauvet SlimPAR: worth one more direct check — gdtf-share.com or
+Chauvet's own site might have a real GDTF/OFL profile for the exact
+"Tri 7 IRC" variant even though the generic search here didn't find one;
+`gdtf_import.rs` (Slice 4) is ready to pull it in the moment a `.gdtf`
+file for it turns up. The Open Fixture Library route (Slice 8) is
+generally the faster path to try first — plain JSON via `serde_json`,
+no zip/XML pipeline, and it's what actually resolved the Uking Par and
+Hurricane Haze corrections above.
