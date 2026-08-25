@@ -4,3 +4,6 @@
 //! being retrofitted once `ignition-ui` has already reached into internals.
 
 pub use ignition_proto::{Attribute, ChanId, PatchEntry, Placement, Quat, Vec3};
+
+pub mod cue;
+pub use cue::{Cue, CueList, CuePlayer, CueValue};

@@ -44,6 +44,23 @@ impl DmxUniverses {
         frame[..n].copy_from_slice(&values[..n]);
     }
 
+    /// Sets one byte directly — used by `show.rs`'s cue-playback bridge to
+    /// inject its own computed output into the same shared state real
+    /// sACN/Art-Net packets land in, so a programmed show renders through
+    /// exactly the same `resolve()` path as a real console's output, no
+    /// separate code path in `scene.rs`. 0-based channel, matching
+    /// `write_universe`'s convention. Marking a universe as "seen" this way
+    /// (even a single byte) means `resolve()` no longer treats it as
+    /// never-received — correct for a cue engine actually driving that
+    /// universe, same as a real packet arriving would.
+    pub fn set_channel(&self, universe: u16, channel0: u16, value: u8) {
+        let mut map = self.inner.write().expect("dmx universes lock poisoned");
+        let frame = map.entry(universe).or_insert([0u8; UNIVERSE_LEN]);
+        if let Some(slot) = frame.get_mut(channel0 as usize) {
+            *slot = value;
+        }
+    }
+
     /// 0-based byte at `channel` (0..512) in `universe`, or 0 if nothing has
     /// ever arrived for that universe/channel — the same "unpatched reads
     /// as zero" behaviour a real DMX receiver has.

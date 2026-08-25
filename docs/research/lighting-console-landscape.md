@@ -735,3 +735,95 @@ Verified: `cargo test --workspace` — 27 tests, all green (17 in
 same hash as Slice 10 through 12's baseline) after adding the `--gdtf`
 branch to `main()` — the new code path never executes on the existing
 `--venue` invocations `shot`'s other callers use.
+
+## Slice 14 — a cue-list engine: programming actual light shows (2026-08-24, same day)
+
+Operator: "let's get the shaders and visualizer and cue list going so we
+can program light shows." Everything through Slice 13 could only
+*receive* live DMX from an external console (`dmx.rs`'s sACN/Art-Net
+listeners) — nothing in this project could originate a show of its own.
+This slice adds that: a real cue-list engine, wired all the way through
+to the live 3D view.
+
+**Split across the domain boundary the project already has** (`proto` =
+wire types, `core` = fixture-agnostic domain logic, `viz` = rendering +
+I/O), matching `ignition-core`'s own stated aspiration
+("`no_std`-compatible core... a placeholder crate boundary... rather
+than being retrofitted"): this is the first real logic to land in that
+boundary.
+
+- **`ignition_core::cue`** (new): `CueValue { chan, attr, value }`, `Cue
+  { name, fade_secs, values }`, `CueList { name, cues }`, and
+  `CuePlayer` — a **tracking** cue-list playback state machine (Eos/
+  grandMA's default cue-list behaviour: a cue only needs to list what
+  *changes*; any `(chan, attr)` it doesn't mention holds wherever the
+  previous cue left it, rather than snapping to a default — what makes
+  programming a real multi-cue show practical). Deliberately has zero
+  I/O, no DMX byte encoding, no fixture/channel-map knowledge, and no
+  wall-clock access — `tick(dt_secs)` is handed elapsed time as data,
+  the same convention `daw-audio-graph`-style processing crates in the
+  sibling FastTrackStudio repo use for anything that must stay testable
+  without a real clock. `go()` snapshots the *actual* current
+  interpolated output as the next fade's start (not the previous cue's
+  resting value) so re-firing GO mid-fade chains smoothly instead of
+  jumping — confirmed by a dedicated test
+  (`refiring_go_mid_fade_chains_from_the_actual_current_position`).
+  `jump_to_end_of(index)` resolves every cue up to and including
+  `index` instantly, for headless/automated testing without stepping
+  through real elapsed time. 7 tests cover tracking, zero/non-zero
+  fades, re-fire-mid-fade, end-of-list no-op, and the jump helper.
+  Required adding `Hash` to `ignition_proto::Attribute`/`ColorChannel`
+  (additive, nothing existing broke) so `(ChanId, Attribute)` pairs can
+  key a `HashMap`.
+
+- **`ignition_viz::show`** (new): the bridge — encodes a `CuePlayer`
+  output frame into real DMX bytes and writes them into the same
+  `DmxUniverses` shared state real sACN/Art-Net packets land in
+  (`DmxUniverses::set_channel`, a new public one-byte setter next to
+  the existing whole-universe `write_universe`), by resolving each
+  `(chan, attr)` through the venue's own patch (`FixtureRecord::
+  dmx_address()`) and `channel_map.rs`'s `ChannelMap::offset_of`. Byte
+  encoding is the literal inverse of `dmx.rs::resolve()`'s
+  byte-to-value formulas for `Pan`/`Tilt` (the only two with a
+  non-linear/offset range); everything else is a plain linear 0-1
+  fraction of the byte range. A cue targeting an unpatched channel or a
+  fixture with no known `ChannelMap` is silently skipped, matching
+  `scene.rs`'s existing tolerance for the same case. One test proves
+  the actual round trip, not just internal self-consistency: a cue's
+  Dimmer/Red values, after `apply_cue_output`, resolve back out through
+  `dmx.rs::resolve()` — the exact path `scene.rs` reads — to
+  approximately the original cue values.
+
+- **Wired into `live`** (additive — no existing flag or behaviour
+  touched): `--cuelist <path>` loads a JSON `CueList`. In the windowed
+  mode, **Space = GO** (matching a real console's own convention),
+  advancing to the next cue and fading into it over real elapsed time
+  each redraw (`show::tick_and_apply`, called from `RedrawRequested`
+  with `Instant`-measured `dt`). With `--snapshot`, `--cue N` jumps
+  straight to the end of cue N's fade and captures that moment
+  headlessly — proving a show without a window or a stopwatch.
+
+Demo cue list at `data/shows/demo-wash.json` (3 cues: Blackout, Red
+Wash, Blue Wash on Norco's 4 first-patched Uking pars, real
+manufacturer/model/chan/universe/address straight from
+`fixtures.json`) rendered via `--snapshot --cue 1` and `--cue 2`: both
+show 4 real par fixtures lit and beaming through the actual DMX-encode
+path, and Blue Wash — which never re-states Dimmer — correctly holds
+full brightness while only the colour crosses over, proving tracking
+semantics survive the full round trip through real bytes, not just the
+in-memory engine.
+
+**Not yet built**: no group/preset authoring convenience (cues target
+raw `chan` numbers today, not the venue's own `groups.json`/
+`group-names.txt`); no actual DMX *output* onto the network (this only
+drives the in-process visualizer's shared state, not real sACN/Art-Net
+transmission to a real console or rig — `docs/research/lighting-
+console-landscape.md`'s own DMX-architecture research would guide that
+if/when it's wanted); no chase/effect generators (a cue list is still
+hand-authored JSON, one cue at a time).
+
+Verified: `cargo test --workspace` — 35 tests, all green (7 new in
+`ignition-core`, 3 new in `ignition-viz::show`, everything else
+unchanged). `shot`'s regression PNG stayed byte-identical (MD5
+`d4c0f1b2...`, unchanged) — this slice only adds new modules and an
+additive `live` flag, nothing in the static venue-render path changed.

@@ -20,6 +20,7 @@ pub mod obj_mesh;
 pub mod ofl_import;
 pub mod renderer;
 pub mod scene;
+pub mod show;
 pub mod venue;
 
 pub use camera::Camera;

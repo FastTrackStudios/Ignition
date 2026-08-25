@@ -39,7 +39,7 @@ pub struct Placement {
 /// GDTF-style attribute identity, not a raw DMX channel offset. The patch
 /// resolves an attribute to bytes at output time; everything upstream
 /// (presets, effects, the visualizer) programs against this instead.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Attribute {
     Dimmer,
     Pan,
@@ -57,7 +57,7 @@ pub enum Attribute {
     Custom(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ColorChannel {
     Red,
     Green,

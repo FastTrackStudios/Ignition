@@ -653,6 +653,7 @@ name = "ignition-core"
 version = "0.1.0"
 dependencies = [
  "ignition-proto",
+ "serde",
 ]
 
 [[package]]

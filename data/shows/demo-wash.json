@@ -1,0 +1,38 @@
+{
+  "name": "Demo Wash",
+  "cues": [
+    {
+      "name": "Blackout",
+      "fade_secs": 0,
+      "values": []
+    },
+    {
+      "name": "Red Wash",
+      "fade_secs": 3,
+      "values": [
+        { "chan": 1, "attr": "Dimmer", "value": 1.0 },
+        { "chan": 1, "attr": { "ColorAdd": { "channel": "Red" } }, "value": 1.0 },
+        { "chan": 2, "attr": "Dimmer", "value": 1.0 },
+        { "chan": 2, "attr": { "ColorAdd": { "channel": "Red" } }, "value": 1.0 },
+        { "chan": 3, "attr": "Dimmer", "value": 1.0 },
+        { "chan": 3, "attr": { "ColorAdd": { "channel": "Red" } }, "value": 1.0 },
+        { "chan": 4, "attr": "Dimmer", "value": 1.0 },
+        { "chan": 4, "attr": { "ColorAdd": { "channel": "Red" } }, "value": 1.0 }
+      ]
+    },
+    {
+      "name": "Blue Wash",
+      "fade_secs": 3,
+      "values": [
+        { "chan": 1, "attr": { "ColorAdd": { "channel": "Red" } }, "value": 0.0 },
+        { "chan": 1, "attr": { "ColorAdd": { "channel": "Blue" } }, "value": 1.0 },
+        { "chan": 2, "attr": { "ColorAdd": { "channel": "Red" } }, "value": 0.0 },
+        { "chan": 2, "attr": { "ColorAdd": { "channel": "Blue" } }, "value": 1.0 },
+        { "chan": 3, "attr": { "ColorAdd": { "channel": "Red" } }, "value": 0.0 },
+        { "chan": 3, "attr": { "ColorAdd": { "channel": "Blue" } }, "value": 1.0 },
+        { "chan": 4, "attr": { "ColorAdd": { "channel": "Red" } }, "value": 0.0 },
+        { "chan": 4, "attr": { "ColorAdd": { "channel": "Blue" } }, "value": 1.0 }
+      ]
+    }
+  ]
+}

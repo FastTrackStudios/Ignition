@@ -25,13 +25,17 @@
 //! listeners before capturing, so a source that's already sending has time
 //! to be received.
 
+use ignition_core::{CueList, CuePlayer};
 use ignition_viz::live_renderer::{DEFAULT_AMBIENT, DEFAULT_HAZE};
+use ignition_viz::show::tick_and_apply;
 use ignition_viz::{build_scene, dmx, Camera, DmxUniverses, LiveHeadlessRenderer, LiveRenderer, Venue};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
+use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
 struct App {
@@ -41,6 +45,14 @@ struct App {
     renderer: Option<LiveRenderer>,
     ambient: f32,
     haze: f32,
+    /// A loaded cue list (`--cuelist`) being programmed/played back — press
+    /// Space to GO to the next cue, same convention as a real console. Ticks
+    /// forward every redraw via `tick_and_apply` so fades render smoothly;
+    /// `None` when no `--cuelist` was passed, in which case this binary
+    /// behaves exactly as before this feature existed (purely a passive
+    /// sACN/Art-Net receiver).
+    cue_player: Option<CuePlayer>,
+    last_tick: Instant,
 }
 
 impl ApplicationHandler for App {
@@ -57,6 +69,7 @@ impl ApplicationHandler for App {
         window.request_redraw();
         self.window = Some(window);
         self.renderer = Some(renderer);
+        self.last_tick = Instant::now();
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
@@ -67,7 +80,29 @@ impl ApplicationHandler for App {
                     r.resize(size.width, size.height);
                 }
             }
+            // Space = GO, matching a real lighting console's convention —
+            // advances the loaded cue list one step, fading into it over
+            // that cue's own `fade_secs` rather than snapping.
+            WindowEvent::KeyboardInput { event, .. } => {
+                if event.state == ElementState::Pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::Space) {
+                    if let Some(player) = &mut self.cue_player {
+                        player.go();
+                        println!(
+                            "GO -> cue {} {:?}",
+                            player.current_index().map(|i| i + 1).unwrap_or(0),
+                            player.current_name()
+                        );
+                    }
+                }
+            }
             WindowEvent::RedrawRequested => {
+                let now = Instant::now();
+                let dt = now.duration_since(self.last_tick).as_secs_f32();
+                self.last_tick = now;
+                if let Some(player) = &mut self.cue_player {
+                    tick_and_apply(&self.dmx, &self.venue, player, dt);
+                }
+
                 let Some(renderer) = &self.renderer else { return };
                 let mesh = build_scene(&self.venue, &[], false, Some(&self.dmx));
                 let (min, max) = self.venue.bounds();
@@ -84,6 +119,11 @@ impl ApplicationHandler for App {
     }
 }
 
+fn load_cue_list(path: &PathBuf) -> anyhow::Result<CueList> {
+    let raw = std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
+    serde_json::from_str(&raw).map_err(|e| anyhow::anyhow!("parsing {} as a cue list: {e}", path.display()))
+}
+
 fn main() -> anyhow::Result<()> {
     let mut venue_dir = PathBuf::from("data/venues/norco");
     let mut max_universe = 4u16;
@@ -95,6 +135,8 @@ fn main() -> anyhow::Result<()> {
     let mut ambient = DEFAULT_AMBIENT;
     let mut haze = DEFAULT_HAZE;
     let mut snapshot_time: Option<f32> = None;
+    let mut cuelist_path: Option<PathBuf> = None;
+    let mut cue_index: Option<usize> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -122,6 +164,13 @@ fn main() -> anyhow::Result<()> {
             // moment other than t=0). Defaults to the real wall-clock time
             // of day so repeated snapshots aren't all identical.
             "--time" => snapshot_time = Some(args.next().expect("--time needs seconds, e.g. 12.5").parse().unwrap()),
+            // A programmed show: `--cuelist` loads a JSON `CueList`
+            // (`ignition_core::cue`) — in the windowed mode, press Space to
+            // GO through it live; with `--snapshot`, pass `--cue N` to jump
+            // straight to the end of cue N's fade and capture that moment
+            // headlessly (no keyboard/window needed to test a show).
+            "--cuelist" => cuelist_path = Some(PathBuf::from(args.next().expect("--cuelist needs a path"))),
+            "--cue" => cue_index = Some(args.next().expect("--cue needs a 0-based cue index").parse().unwrap()),
             other => eprintln!("ignition-live: ignoring unknown argument {other}"),
         }
     }
@@ -138,7 +187,22 @@ fn main() -> anyhow::Result<()> {
     dmx::spawn_sacn_listener(dmx.clone(), max_universe);
     dmx::spawn_artnet_listener(dmx.clone());
 
+    let mut cue_player = match &cuelist_path {
+        Some(path) => {
+            let list = load_cue_list(path)?;
+            println!("loaded cue list {:?}: {} cues", list.name, list.cues.len());
+            Some(CuePlayer::new(list.cues))
+        }
+        None => None,
+    };
+
     if let Some(out_path) = snapshot {
+        if let Some(player) = &mut cue_player {
+            let index = cue_index.unwrap_or(0);
+            player.jump_to_end_of(index);
+            println!("cue -> {} {:?}", index + 1, player.current_name());
+            ignition_viz::show::apply_cue_output(&dmx, &venue, &player.output());
+        }
         std::thread::sleep(std::time::Duration::from_millis(warm_up_ms));
         let mesh = build_scene(&venue, &[], false, Some(&dmx));
         println!(
@@ -168,9 +232,14 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    if cue_player.is_some() {
+        println!("cue list loaded — press Space in the window to GO to the next cue");
+    }
+
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = App { venue, dmx, window: None, renderer: None, ambient, haze };
+    let mut app =
+        App { venue, dmx, window: None, renderer: None, ambient, haze, cue_player, last_tick: Instant::now() };
     event_loop.run_app(&mut app)?;
     Ok(())
 }
