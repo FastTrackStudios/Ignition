@@ -553,6 +553,22 @@ fn Viewport() -> Element {
             exclude: Vec::new(),
             exposure: 2500.0,
             screen_content: Some("screens/rockstars-logo.webp".to_string()),
+            // The three back-wall TVs share one canvas, so this single
+            // image spans all of them and each takes the slice matching
+            // its real width — the whole point of canvases. The two side
+            // TVs are their own canvases and play independently; they are
+            // where lyrics will go, over a bed like this one.
+            //
+            // Stills for now: nothing here decodes video yet, and the
+            // slicing is the part worth looking at.
+            canvas_content: [
+                ("main", "screens/clip-particles.png"),
+                ("side-left", "screens/clip-astronaut.png"),
+                ("side-right", "screens/clip-astronaut.png"),
+            ]
+            .into_iter()
+            .map(|(canvas, path)| (canvas.to_string(), path.to_string()))
+            .collect(),
             assets_dir: concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/../../crates/ignition-viz/assets"
