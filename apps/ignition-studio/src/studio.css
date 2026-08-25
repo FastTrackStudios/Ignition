@@ -1,8 +1,14 @@
-/* Sized for fingers, not cursors. Every control is at least 44px on its
-   short edge — the smallest thing a thumb hits reliably — and nothing
-   depends on :hover, because a touchscreen has no hover state to give.
-   Blitz implements a real subset of CSS, so this leans on flexbox and
-   explicit values rather than anything clever. */
+/* Sized for fingers *and* driven by a mouse. Every control is at least
+   44px on its short edge — the smallest thing a thumb hits reliably —
+   and every control also has a hover state, because a touchscreen
+   simply never triggers one. Hover is additive here: it never carries
+   information that is not already visible, so nothing is lost on
+   a panel that cannot hover.
+
+   This file is on its way out — see `tailwind.css`. It stays flexbox
+   and explicit values not because Blitz is limited (its style engine is
+   stylo, the same one Firefox uses, so the cascade is real) but because
+   layout is Taffy, and flexbox is the part of Taffy with no surprises. */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 13px; }
@@ -19,11 +25,13 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .cues ol { list-style: none; margin: 0; padding: 0; }
 .cue { display: flex; gap: 10px; align-items: center; padding: 14px;
        cursor: pointer; border-bottom: 1px solid #1c1c22; }
+.cue:hover { background: #1b1b21; }
 .cue.on { background: #23233a; color: #fff; }
 .num { width: 22px; color: #6f6f7d; text-align: right; }
 .go { background: #2c4a2c; color: #cfe8cf; border: 1px solid #3d663d;
       border-radius: 5px; padding: 8px 18px; font-size: 11px; font-weight: bold;
       letter-spacing: 0.08em; cursor: pointer; }
+.go:hover { background: #386038; }
 
 /* ── Stage: visualizer over the busking surface ───────────────────── */
 .stage { flex: 1; height: 100%; display: flex; flex-direction: column; }
@@ -47,13 +55,25 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .surface header { font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;
                   font-size: 10px; color: #8d8d99; margin-bottom: 10px; }
 
-/* Groups — console tiles. */
-.tiles, .row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Pools — Groups and Focus share one uniform grid. Fixed-size cells
+   rather than pills that size to their label: a pool you find things in
+   by position has to keep the same shape every time you look at it,
+   which is how every console lays a pool out. */
+.pool { display: flex; flex-wrap: wrap; gap: 8px; }
+.pad { background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
+       border-radius: 6px; width: 84px; height: 64px; font-size: 11px;
+       padding: 4px; cursor: pointer; }
+.pad:hover { background: #24242e; border-color: #3d3d4a; }
+.pad.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+
+/* Loose buttons that are not pool entries — Release, Clear. */
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
 .tile { background: #1e1e26; color: #d6d6e0; border: 1px solid #2c2c36;
         border-radius: 6px; padding: 0 12px; height: 44px; min-width: 74px;
         font-size: 12px; cursor: pointer; }
-.tile.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.tile:hover { background: #272733; }
 .tile.warn { background: #2a1a1a; border-color: #4a2a2a; color: #e0b0b0; }
+.tile.warn:hover { background: #3a2222; }
 
 /* Colour — the pool shows its colours. A ring rather than a filled
    square so a white gel still reads as a swatch against a dark panel. */
@@ -63,13 +83,11 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
           align-items: center; gap: 4px; }
 .disc { width: 46px; height: 46px; border-radius: 23px;
         border: 2px solid rgba(255, 255, 255, 0.18); }
+/* Brighten the ring rather than the disc: the disc is the gel and must
+   not lie about what it will do. */
+.swatch:hover .disc { border-color: rgba(255, 255, 255, 0.65); }
+.swatch:hover .swatch-label { color: #e6e6e6; }
 .swatch-label { font-size: 10px; color: #9a9aa6; text-align: center; }
-
-/* Focus — a grid of places, which is what a position pool is. */
-.grid { display: flex; flex-wrap: wrap; gap: 8px; }
-.cell { background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
-        border-radius: 6px; width: 96px; height: 52px; font-size: 11px;
-        cursor: pointer; }
 
 /* Intensity — presets beside the fader, the way a console puts its
    dimmer pool next to the wheel. */

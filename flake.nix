@@ -111,6 +111,11 @@
               # the visualizer is composited through Blitz's wgpu
               # device, which a webview does not have.
               (dxFor pkgs.stdenv.hostPlatform.system)
+              # Tailwind, for `dx serve`'s built-in pipeline. It would
+              # otherwise download a standalone binary into ~/.cache,
+              # which will not run on NixOS — `NO_DOWNLOADS=1` sends it
+              # to `which tailwindcss` instead. See the Justfile.
+              pkgs.tailwindcss_4
               # The operator overlay's font. Bevy's built-in default is a
               # small subset with no box-drawing or symbol glyphs, so a
               # cue sheet drawn with it renders a column of tofu where

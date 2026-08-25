@@ -23,6 +23,12 @@ use command::{Command, Sender};
 
 use viz_widget::VizWidget;
 
+/// Compiled by `dx serve` from `tailwind.css` at the crate root — it
+/// watches that file and writes here. Built by hand with `just tailwind`
+/// when not serving, because a plain `cargo run` does not know about any
+/// of this.
+const TAILWIND: Asset = asset!("/assets/tailwind.css");
+
 const VENUE: &str = "data/venues/norco";
 const SHOW: &str = "data/shows/effects-demo.json";
 
@@ -251,7 +257,17 @@ fn app(surface: Surface) -> Element {
     });
 
     rsx! {
+        // Both, on purpose, and only for as long as the migration takes.
+        // `studio.css` is the working stylesheet; Tailwind is proved out
+        // one column at a time, Groups first. Blitz's style engine is
+        // stylo — Firefox's — so `@layer`, `@property` and `color-mix()`
+        // in Tailwind v4's output should all resolve, but nobody in this
+        // tree has run them through it yet and a wholesale conversion
+        // that turned out not to render would take the entire surface
+        // with it. If the Groups pool comes up right, the rest follows
+        // and `studio.css` goes.
         style { {include_str!("studio.css")} }
+        document::Stylesheet { href: TAILWIND }
         div { class: "studio",
             CueList { cues: surface.cues.clone() }
             main { class: "stage",
@@ -316,11 +332,26 @@ fn Busking(surface: Surface) -> Element {
         section { class: "surface",
             div { class: "col groups",
                 header { "Groups" }
-                div { class: "tiles",
+                // Same uniform pool grid as Focus. Fixed-size cells
+                // rather than pills that size to their label, so the
+                // pool stays a predictable grid an operator can learn
+                // the shape of — position is how you find a group on a
+                // console, not reading.
+                div { class: "flex flex-wrap gap-2",
                     for name in surface.groups.iter().cloned() {
                         button {
                             key: "{name}",
-                            class: if selected() == Some(name.clone()) { "tile on" } else { "tile" },
+                            // Tailwind, as the migration probe. Same
+                            // shape as `.pad` in studio.css so the two
+                            // pools can be compared side by side.
+                            class: if selected() == Some(name.clone()) {
+                                "w-21 h-16 p-1 text-[11px] rounded-md cursor-pointer \
+                                 bg-sel border border-sel-line text-white"
+                            } else {
+                                "w-21 h-16 p-1 text-[11px] rounded-md cursor-pointer \
+                                 bg-pad border border-pad-line text-ink \
+                                 hover:bg-pad-hover hover:border-[#3d3d4a]"
+                            },
                             onclick: {
                                 let name = name.clone();
                                 move |_| {
@@ -357,11 +388,11 @@ fn Busking(surface: Surface) -> Element {
 
             div { class: "col focus",
                 header { "Focus" }
-                div { class: "grid",
+                div { class: "pool",
                     for name in surface.focus.iter().cloned() {
                         button {
                             key: "{name}",
-                            class: "cell",
+                            class: "pad",
                             onclick: {
                                 let name = name.clone();
                                 move |_| send(Command::Focus(name.clone()))

@@ -11,10 +11,20 @@ studio_monitor := env_var_or_default("IGNITION_MONITOR", "right")
 # is composited through Blitz's own wgpu device, which a webview does
 # not have — `--renderer webview` builds and runs, but the viewport is
 # empty. The first serve is a cold build into dx's own target dir.
+#
+# `NO_DOWNLOADS=1` is load-bearing: dx's Tailwind step otherwise fetches
+# a standalone binary into ~/.cache, which will not run on NixOS. With
+# it set, dx uses `which tailwindcss` — supplied by the flake.
 studio *ARGS:
-    IGNITION_MONITOR={{studio_monitor}} \
+    IGNITION_MONITOR={{studio_monitor}} NO_DOWNLOADS=1 \
         dx serve -p ignition-studio --platform desktop --renderer native \
         --hot-patch false {{ARGS}}
+
+# Compile the stylesheet once, for a plain `cargo run` — which knows
+# nothing about dx's Tailwind pipeline.
+tailwind:
+    tailwindcss -i apps/ignition-studio/tailwind.css \
+        -o apps/ignition-studio/assets/tailwind.css
 
 # Windowed, for when fullscreen is in the way.
 studio-windowed *ARGS:
