@@ -585,3 +585,93 @@ untouched — this is entirely inside `live_shader.wgsl`/`live_pipeline.rs`.
 Verified: 14/14 tests pass, `shot`'s PNG byte-identical (MD5); a
 `--snapshot` of the same lit scene as Slice 2's shows visibly smoother
 ceiling-grid lines and cone silhouettes.
+
+## Slice 12 — real GDTF 3D geometry import, forking `gdtf` (2026-08-24, same day)
+
+Operator: "let's go ahead and get the GDTF working even if we need to
+fork and expand the existing crates." Slice 4 only imported GDTF's
+*channel map* (which DMX byte drives Pan/Tilt/Dimmer/Colour); this slice
+imports the actual `<Geometries>` tree — the yoke/head/beam hierarchy and
+each node's real position/rotation/dimensions, per DIN SPEC 15800.
+
+**Blocker: `gdtf` 0.3.0's `Matrix` type has no public accessor at all.**
+Every `<Geometry>` node's placement is a `Position="{...}"` attribute
+parsed into `Matrix([[f64; 4]; 4])`, but the inner array is a private
+field with zero getters — only `identity()` and (de)serialize impls.
+There is no way to read a parsed geometry node's real transform through
+the crate's public API. Confirmed by reading
+`gdtf-0.3.0/src/description/values.rs` directly rather than guessing from
+docs.rs (which doesn't show private fields either, but confirms the same
+absence of accessor methods).
+
+Per the operator's pre-authorization, vendored the crate rather than
+working around it: `crates/gdtf-vendored/` (copied from
+`~/.cargo/registry/src/.../gdtf-0.3.0/`, MIT-licensed, added as a
+workspace member), redirected via root `Cargo.toml`'s
+`[patch.crates-io] gdtf = { path = "crates/gdtf-vendored" }` — the same
+mechanism this project's parent repo (FastTrackStudio) documents for
+cross-repo co-development, here used for a single-crate API gap. Three
+patches, all logged in `crates/gdtf-vendored/PATCH-NOTES.md`:
+
+1. `impl Matrix` gained `pub const fn rows(&self) -> [[f64; 4]; 4]` — the
+   actual fix, a one-method accessor.
+2. Vendoring pulled the crate's own test suite into `cargo test
+   --workspace` for the first time; its `geometry.rs` tests used
+   `std::assert_matches!`, an unstable nightly-only macro that doesn't
+   compile on stable — replaced 4 call sites with `assert!(matches!(...))`,
+   the stable equivalent. Not a functional change, just made the vendored
+   copy buildable on this project's toolchain.
+3. The crate-doc example in `lib.rs` opens a fixture file
+   (`Generic@RGBW8@test.gdtf`) that lived at the upstream repo's root and
+   wasn't vendored (only `src/` was copied) — changed the fence from
+   ```` ```rust ```` to ```` ```no_run ```` so the doctest still compiles
+   without needing that file at runtime.
+
+**The importer**: `crates/ignition-viz/src/gdtf_geometry.rs`,
+`import_geometry(path, mode_name) -> GdtfFixture`. Walks the fixture
+type's `<Geometries>` tree recursively (`build_node`), producing a
+`GdtfNode` tree with real local position/rotation (decomposed from each
+node's `Matrix` via the new `rows()` accessor — translation is column 3
+of rows 0–2, rotation via `glam::Mat3::from_cols` → `Quat::from_mat3`)
+and a `GdtfShape` (`Box`/`Cylinder`/`None`, from the node's referenced
+`<Model>` primitive dimensions, Width→X/Length→Y/Height→Z to match this
+project's Z-up convention; `Beam` nodes always resolve to `None` — a
+light-exit marker, not a drawn mesh). Separately scans the DMX mode's
+channels for which geometry names Pan/Tilt actually target
+(`is_pan`/`is_tilt` flags on the matching node), confirming the crate's
+own `AnyGeometry` trait doesn't expose `.position()` — needed an
+exhaustive match over all 18 `Geometry` enum variants
+(`geometry_position()`) to get at it uniformly.
+
+**Real-mesh import (parsing `ResourceMap::read_model_mesh`'s raw
+GLB/3DS bytes into actual triangle data) is explicitly out of scope** —
+deferred as a later slice; this one only gets primitive-shape fallbacks
+(Box/Cylinder), which is what the overwhelming majority of
+community-contributed GDTF files actually ship (most don't reference a
+real 3D model file at all).
+
+**No real manufacturer `.gdtf` file was available to test against** —
+GDTF Share (gdtf-share.com), the real fixture database, requires a
+registered account this session doesn't have. Instead, hand-authored
+`crates/ignition-viz/assets/gdtf-samples/basic-moving-head.gdtf`, whose
+`<Geometries>`/`<DMXChannels>` structure (Base → Yoke(Axis) → Head(Axis)
+→ Beam, with the exact Position matrices) is copied verbatim from the
+GDTF spec's own official reference example
+(`mvrdevelopment/spec/examples/geometry.md`, MIT-licensed spec repo) —
+schema-accurate real GDTF structure, just not manufacturer-sourced.
+Provenance logged in `gdtf-samples/LICENSE-NOTICE.txt`. Two new tests in
+`gdtf_geometry.rs` verify against it: the full Base/Yoke/Head/Beam
+hierarchy with `is_pan`/`is_tilt` on the right nodes and the exact
+Z-translations from the spec example, and that primitive-shape fallback
+dimensions resolve to positive values.
+
+Verified: `cargo test --workspace` — 27 tests total across all crates
+(16 in `ignition-viz` incl. the 2 new ones, 6 in the vendored `gdtf`
+crate itself, 1 doctest, rest 0/trivial) — all pass. `shot`'s regression
+PNG stayed byte-identical (MD5 `d4c0f1b2...`, matching Slice 10/11's
+baseline) — expected, since this slice only adds an importer module with
+no caller yet; nothing in the render path changed. **Not yet wired to
+rendering** — `GdtfNode` trees aren't drawn anywhere (`fixture_profile.rs`/
+`scene.rs`/`mesh.rs` untouched this slice); recursively drawing the tree
+with pan/tilt rotation applied at the flagged nodes is the natural next
+slice.

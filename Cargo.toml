@@ -3,6 +3,7 @@
 resolver = "3"
 
 members = [
+    "crates/gdtf-vendored",
     "crates/ignition-proto",
     "crates/ignition-core",
     "crates/ignition-viz",
@@ -22,6 +23,12 @@ ignition-viz = { path = "crates/ignition-viz" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Vendored fork — see crates/gdtf-vendored/PATCH-NOTES.md. Redirects every
+# `gdtf = "0.3.0"` dependency (currently just ignition-viz) to the local
+# patched copy without touching any import paths.
+[patch.crates-io]
+gdtf = { path = "crates/gdtf-vendored" }
 
 [profile.dev]
 debug = "line-tables-only"

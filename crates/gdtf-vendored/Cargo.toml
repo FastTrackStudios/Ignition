@@ -1,0 +1,18 @@
+[package]
+name = "gdtf"
+version = "0.3.0"
+edition = "2024"
+license = "MIT"
+description = "Vendored, patched fork of gdtf 0.3.0 (https://github.com/cpdt/gdtf-rs) — see PATCH-NOTES.md"
+
+[lib]
+name = "gdtf"
+path = "src/lib.rs"
+
+[dependencies]
+quick-xml = { version = "0.41", features = ["serialize", "overlapped-lists"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_path_to_error = "0.1"
+thiserror = "2.0"
+uuid = { version = "1.10", features = ["serde"] }
+zip = { version = "8.6", features = ["deflate"], default-features = false }

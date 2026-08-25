@@ -516,8 +516,6 @@ dependencies = [
 [[package]]
 name = "gdtf"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b2e57ee0756c8ddeb1bce03f4ce3fdb1b7b81efddd31e96fe92278acd147b7c"
 dependencies = [
  "quick-xml",
  "serde",

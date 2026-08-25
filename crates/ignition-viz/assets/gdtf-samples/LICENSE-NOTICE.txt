@@ -26,3 +26,18 @@ Vendored here purely as a real GDTF sample to test
 `crates/ignition-viz/src/gdtf_import.rs` against actual GDTF XML, not
 hand-authored test data — it is not a fixture used by any real venue in
 this project.
+
+---
+
+basic-moving-head.gdtf is original content written for this project
+(GPL-3.0-or-later, same as the rest of Ignition) — not a manufacturer
+fixture. Its `<Geometries>`/`<DMXChannels>` structure follows the GDTF
+spec's own "Basic Moving Head" reference example verbatim
+(mvrdevelopment/spec, `examples/geometry.md`, MIT-licensed spec repo) —
+Base(Geometry) -> Yoke(Axis) -> Head(Axis) -> Beam, with the same real
+Position matrices from that example — so it's schema-accurate, real
+GDTF structure, just authored by hand rather than downloaded (GDTF Share,
+the real fixture database, requires a registered account — see
+`docs/research/lighting-console-landscape.md`'s GDTF-geometry slice).
+Used to test `crates/ignition-viz/src/gdtf_geometry.rs`'s Geometry-tree
+import against a real yoke/head/beam hierarchy.
