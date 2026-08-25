@@ -82,51 +82,96 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Where the window opens.
-///
-/// There is no `dioxus.toml` option for this — that file configures the
-/// build and the bundle, not window placement, and nothing in it reaches
-/// winit. `WindowAttributes` is the only lever, which means the choice
-/// has to be made *before* an event loop exists, and therefore before
-/// any monitor can be enumerated. So the monitor is named by position
-/// rather than picked by index:
-///
-/// ```text
-/// IGNITION_WINDOW_POS=6560,0   # top-left corner of the target monitor
-/// IGNITION_FULLSCREEN=1        # borderless fullscreen on whichever
-///                              # monitor that corner lands in
-/// ```
-///
-/// Environment rather than a constant because a monitor layout is a
-/// property of the machine, not of the program — see the `studio`
-/// recipe in the Justfile for this rig's values.
+/// The window's initial size. Placement happens later — see
+/// [`place_window`].
 fn window_attributes() -> dioxus_native::winit::window::WindowAttributes {
-    use dioxus_native::winit::dpi::{LogicalSize, PhysicalPosition};
-    // `Fullscreen` lives in `monitor`, not `window`, even though the
-    // only thing that takes one is `WindowAttributes::with_fullscreen`.
-    use dioxus_native::winit::monitor::Fullscreen;
+    use dioxus_native::winit::dpi::LogicalSize;
     use dioxus_native::winit::window::WindowAttributes;
 
-    let mut attrs = WindowAttributes::default()
+    WindowAttributes::default()
         .with_title("Ignition Studio")
-        .with_surface_size(LogicalSize::new(1600, 950));
+        .with_surface_size(LogicalSize::new(1600, 950))
+}
 
-    if let Some((x, y)) = std::env::var("IGNITION_WINDOW_POS").ok().and_then(|v| {
-        let (x, y) = v.split_once(',')?;
-        Some((x.trim().parse::<i32>().ok()?, y.trim().parse::<i32>().ok()?))
-    }) {
-        attrs = attrs.with_position(PhysicalPosition::new(x, y));
+/// Puts the window borderless-fullscreen on a chosen monitor.
+///
+/// Done *after* startup rather than in `WindowAttributes`, and that is
+/// forced rather than stylistic. Under Wayland a client cannot place
+/// itself — `with_position` is silently ignored and the compositor puts
+/// the window wherever it likes, which is how the first attempt ended up
+/// fullscreen on the middle monitor. The only reliable route is to wait
+/// until there *is* a window, ask it what monitors exist, and pick one.
+/// That also works on X11, so there is one code path rather than two.
+///
+/// (There is no `dioxus.toml` option for any of this. That file
+/// configures the build and the bundle; nothing in it reaches winit.)
+///
+/// `IGNITION_MONITOR` accepts, in order of preference:
+///
+/// ```text
+/// DP-3        an output name, as `xrandr --listmonitors` prints it
+/// 6560,0      a monitor's top-left corner
+/// right|left  the outermost monitor by position — machine-independent
+/// primary     whatever the compositor calls primary
+/// ```
+///
+/// `IGNITION_FULLSCREEN=0` opts out entirely.
+fn place_window() {
+    use dioxus_native::winit::monitor::{Fullscreen, MonitorHandle};
+
+    let window = dioxus_native::use_window();
+    use_effect(move || {
+        if std::env::var("IGNITION_FULLSCREEN").is_ok_and(|v| v == "0") {
+            return;
+        }
+        let want = std::env::var("IGNITION_MONITOR").unwrap_or_default();
+        let monitors: Vec<MonitorHandle> = window.available_monitors().collect();
+        let chosen = pick_monitor(&monitors, &want).or_else(|| window.primary_monitor());
+        tracing::info!(
+            monitor = ?chosen.as_ref().and_then(|m| m.name().map(|n| n.to_string())),
+            of = monitors.len(),
+            "studio: going fullscreen"
+        );
+        // `Borderless(None)` would mean "wherever this window already
+        // is", which on Wayland is the compositor's guess.
+        window.set_fullscreen(Some(Fullscreen::Borderless(chosen)));
+    });
+}
+
+fn pick_monitor(
+    monitors: &[dioxus_native::winit::monitor::MonitorHandle],
+    want: &str,
+) -> Option<dioxus_native::winit::monitor::MonitorHandle> {
+    use dioxus_native::winit::monitor::MonitorHandle;
+
+    if want.is_empty() || monitors.is_empty() {
+        return None;
     }
-
-    // `Borderless(None)` means "the monitor this window is on", which is
-    // why the position above is set first — together they are how you
-    // say "fullscreen over there" without being able to ask what
-    // monitors exist.
-    if std::env::var("IGNITION_FULLSCREEN").is_ok_and(|v| v != "0") {
-        attrs = attrs.with_fullscreen(Some(Fullscreen::Borderless(None)));
+    let by_name = monitors
+        .iter()
+        .find(|m| m.name().is_some_and(|n| n.eq_ignore_ascii_case(want)));
+    if by_name.is_some() {
+        return by_name.cloned();
     }
-
-    attrs
+    if let Some((x, y)) = want
+        .split_once(',')
+        .and_then(|(x, y)| Some((x.trim().parse::<i32>().ok()?, y.trim().parse::<i32>().ok()?)))
+    {
+        let by_corner = monitors
+            .iter()
+            .find(|m| m.position().is_some_and(|p| p.x == x && p.y == y));
+        if by_corner.is_some() {
+            return by_corner.cloned();
+        }
+    }
+    // A monitor with no reported position sorts as if it were at the
+    // far left, so "right" never accidentally picks an unknown one.
+    let x_of = |m: &MonitorHandle| m.position().map(|p| p.x).unwrap_or(i32::MIN);
+    match want {
+        "right" => monitors.iter().max_by_key(|m| x_of(m)).cloned(),
+        "left" => monitors.iter().min_by_key(|m| x_of(m)).cloned(),
+        _ => None,
+    }
 }
 
 /// The named things the surface offers, resolved once from the venue.
@@ -165,6 +210,8 @@ fn busking_groups(venue: &Venue) -> Vec<String> {
 }
 
 fn app(surface: Surface) -> Element {
+    place_window();
+
     rsx! {
         style { {include_str!("studio.css")} }
         div { class: "studio",
