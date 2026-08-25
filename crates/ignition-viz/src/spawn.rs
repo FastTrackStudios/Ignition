@@ -10,9 +10,18 @@
 use crate::beam::{beam_mesh, beam_transform, BeamMaterial};
 use crate::channel_map::channel_map_for;
 use crate::dmx::DmxUniverses;
-use crate::fixture_profile::{resolve_fixture, BeamThrow, BeamVisual, BodyVisual, LiveEmission, BEAM_CONE_SEGMENTS};
+use crate::fixture_profile::{
+    beam_half_angle_deg, resolve_fixture, BeamThrow, BodyVisual, BEAM_CONE_SEGMENTS,
+};
+use crate::gdtf_geometry::{self, GdtfLibrary, PanJoint, TiltJoint};
 use crate::venue::Venue;
 use bevy::prelude::*;
+
+/// The loaded `.gdtf` profiles, if `--gdtf-dir` was given. Absent means
+/// every fixture falls back to its QLC+ category shape, which is what
+/// happened before GDTF geometry existed.
+#[derive(Resource, Default)]
+pub struct GdtfLibraryRes(pub Option<GdtfLibrary>);
 
 /// Below this, a fixture reads as blacked out — no spill light, no beam.
 /// Keeps a dimmer sitting at DMX 1-2 (rounding noise, not an actual cue)
@@ -71,20 +80,53 @@ pub struct Fixture {
 /// The part of a moving head that tilts — a child of the fixture root, so
 /// tilting it is one `Transform` write and the base stays put.
 #[derive(Component)]
-pub struct FixtureHead;
+pub struct FixtureHead {
+    /// The QLC+ mesh's own convention correction (see
+    /// `fixture_profile`'s `moving_head_pre_rotate`). The live update
+    /// rewrites this entity's rotation every frame, so it has to compose
+    /// the tilt *onto* this rather than replacing it — otherwise the head
+    /// and its beam end up aimed along the mesh's unrotated axis, which
+    /// is 180 degrees out.
+    pub pre_rotate: Quat,
+}
 
-/// A fixture's beam cone.
+/// An entity whose pose *is* the lens: its `GlobalTransform` translation
+/// is where the beam starts and its local -Z is the aim.
+///
+/// This is the seam that lets both fixture paths share one beam
+/// implementation. For a QLC+ profile it sits on the head (or the body,
+/// for something that does not tilt); for a real GDTF profile it is the
+/// file's own `<Beam>` node, several joints deep. Either way the beam and
+/// spill hang off it as children and the transform hierarchy has already
+/// worked out where they are by the time they are read — no code
+/// recomposes a world matrix by hand.
 #[derive(Component)]
-pub struct FixtureBeam {
+pub struct BeamEmitter {
     pub fixture: usize,
 }
+
+/// What the live resolve decided this emitter should be doing, written by
+/// `update_live_fixtures` and read after transforms propagate. Separated
+/// because the beam's world pose is not known until propagation has run,
+/// but its colour is known before.
+#[derive(Component, Default)]
+pub struct EmitterState {
+    /// `None` when the fixture is dark.
+    pub color: Option<[f32; 3]>,
+    pub half_angle_deg: f32,
+}
+
+/// A fixture's beam cone — a child of its `BeamEmitter`.
+#[derive(Component)]
+pub struct FixtureBeam;
 
 /// A fixture's spill: the light it actually throws onto the room, as
-/// distinct from the visible shaft of haze the beam cone draws.
+/// distinct from the visible shaft of haze the beam cone draws. Also a
+/// child of the emitter, with an identity local transform — a Bevy spot
+/// light shines along its entity's -Z, which is already this project's
+/// beam-axis convention, so it needs no aiming code at all.
 #[derive(Component)]
-pub struct FixtureSpill {
-    pub fixture: usize,
-}
+pub struct FixtureSpill;
 
 /// Spawns the room, its screens and props, and one entity per patched
 /// fixture (plus that fixture's beam and spill, initially hidden).
@@ -95,18 +137,32 @@ pub fn spawn_venue(
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard: ResMut<Assets<StandardMaterial>>,
     mut beams: ResMut<Assets<BeamMaterial>>,
+    gdtf_library: Res<GdtfLibraryRes>,
 ) {
     let venue = &venue.0;
     let unit_cube = meshes.add(Cuboid::from_length(1.0));
     let beam_cone = meshes.add(Mesh::from(beam_mesh().mesh().resolution(BEAM_CONE_SEGMENTS)));
 
-    let mut solid = |color: Color| {
+    // Room surfaces are lit only by the rig, which is the point — but a
+    // fixture that is switched off would then be invisible in a dark
+    // room, and an operator needs to see where the rig physically *is*
+    // whether or not it is currently doing anything. Fixture bodies get a
+    // small emissive term so they read as their own objects: enough for
+    // bloom to give them a soft presence, far below anything a lit beam
+    // puts out.
+    let mut solid = |color: Color, emissive: f32| {
+        let base = LinearRgba::from(color);
         standard.add(StandardMaterial {
             base_color: color,
+            emissive: LinearRgba::rgb(base.red * emissive, base.green * emissive, base.blue * emissive),
             perceptual_roughness: 0.9,
             ..default()
         })
     };
+    /// Room geometry emits nothing; only the rig lights it.
+    const UNLIT: f32 = 0.0;
+    /// A fixture's own housing, so the rig is visible in the dark.
+    const FIXTURE_GLOW: f32 = 1.6;
 
     for g in &venue.room {
         let color = if g.name == "Ceiling" {
@@ -141,7 +197,7 @@ pub fn spawn_venue(
         };
         commands.spawn((
             Mesh3d(unit_cube.clone()),
-            MeshMaterial3d(solid(color)),
+            MeshMaterial3d(solid(color, UNLIT)),
             Transform { translation: center, rotation: rot, scale: size },
             Name::new(g.name.clone()),
         ));
@@ -151,7 +207,7 @@ pub fn spawn_venue(
             let cap_height = 0.06;
             commands.spawn((
                 Mesh3d(unit_cube.clone()),
-                MeshMaterial3d(solid(COLUMN_CAP_COLOR)),
+                MeshMaterial3d(solid(COLUMN_CAP_COLOR, UNLIT)),
                 Transform {
                     translation: center + rot * Vec3::Z * (size.z * 0.5 + cap_height * 0.5),
                     rotation: rot,
@@ -167,7 +223,7 @@ pub fn spawn_venue(
     for g in venue.props.iter().filter(|g| g.name.starts_with("Pillar")) {
         commands.spawn((
             Mesh3d(unit_cube.clone()),
-            MeshMaterial3d(solid(PILLAR_COLOR)),
+            MeshMaterial3d(solid(PILLAR_COLOR, UNLIT)),
             Transform {
                 translation: g.position.to_vec3(),
                 rotation: g.orientation(),
@@ -188,7 +244,7 @@ pub fn spawn_venue(
             }
             commands.spawn((
                 Mesh3d(unit_cube.clone()),
-                MeshMaterial3d(solid(PROP_COLOR)),
+                MeshMaterial3d(solid(PROP_COLOR, UNLIT)),
                 Transform {
                     translation: g.position.to_vec3(),
                     rotation: g.orientation(),
@@ -207,7 +263,7 @@ pub fn spawn_venue(
         let center = g.position.to_vec3() + rot * Vec3::Y * (size.y * 0.5);
         commands.spawn((
             Mesh3d(unit_cube.clone()),
-            MeshMaterial3d(solid(SCREEN_COLOR)),
+            MeshMaterial3d(solid(SCREEN_COLOR, UNLIT)),
             Transform {
                 translation: center,
                 rotation: rot,
@@ -240,14 +296,21 @@ pub fn spawn_venue(
             let c = f.kind().color();
             Color::srgb(c[0], c[1], c[2])
         };
-        let body_material = solid(body_color);
+        let body_material = solid(body_color, FIXTURE_GLOW);
+
+        // A real GDTF profile, when the library has one for this
+        // manufacturer/model, replaces the QLC+ category mesh entirely:
+        // real nested geometry with the manufacturer's own dimensions,
+        // and joints the file itself identifies rather than a Z-split
+        // guessed from a placeholder mesh's vertex histogram.
+        let gdtf = gdtf_library.0.as_ref().and_then(|lib| lib.find(manufacturer, model));
 
         let root = commands
             .spawn((
                 Fixture { index },
                 Transform {
-                    translation: visual.position,
-                    rotation: visual.body_rot,
+                    translation: if gdtf.is_some() { f.position.to_vec3() } else { visual.position },
+                    rotation: f.orientation(),
                     scale: Vec3::ONE,
                 },
                 Visibility::default(),
@@ -255,133 +318,168 @@ pub fn spawn_venue(
             ))
             .id();
 
-        match &visual.body {
-            BodyVisual::Mesh { asset, scale, pre_rotate, split_z } => {
-                // With a split, the yoke is drawn on the root and the head
-                // becomes a child that tilts about the split point. With
-                // none, the whole mesh is the body.
-                let (yoke_split, head_split) = match split_z {
-                    Some(z) => (Some((*z, false)), Some((*z, true))),
-                    None => (None, None),
-                };
-                commands.spawn((
-                    Mesh3d(meshes.add(asset.to_bevy_mesh(yoke_split))),
-                    MeshMaterial3d(body_material.clone()),
-                    Transform {
-                        rotation: *pre_rotate,
-                        scale: Vec3::splat(*scale),
-                        ..default()
-                    },
-                    ChildOf(root),
-                ));
-                if head_split.is_some() {
-                    let pivot = visual.head_pivot.unwrap_or(Vec3::ZERO);
+        // Where the beam comes from. The GDTF path gets it from the
+        // file's own `<Beam>` node; otherwise it is the head if the
+        // fixture has one, and the body if it does not.
+        let mut emitters: Vec<Entity> = Vec::new();
+
+        if let Some(gdtf) = gdtf {
+            gdtf_geometry::spawn_gdtf_tree(
+                &mut commands,
+                root,
+                &gdtf.root,
+                &mut meshes,
+                &body_material,
+                &mut emitters,
+            );
+        } else {
+            match &visual.body {
+                BodyVisual::Mesh { asset, scale, pre_rotate, split_z } => {
+                    // With a split, the yoke is drawn on the root and the
+                    // head becomes a child that tilts about the split
+                    // point. With none, the whole mesh is the body.
+                    let (yoke_split, head_split) = match split_z {
+                        Some(z) => (Some((*z, false)), Some((*z, true))),
+                        None => (None, None),
+                    };
+                    // The QLC+ path's anchor correction is a body offset,
+                    // not a mount move, so it goes on the drawn mesh
+                    // rather than the fixture root — the root stays at
+                    // the real patched position for both paths.
+                    let anchor = visual.position - f.position.to_vec3();
                     commands.spawn((
-                        FixtureHead,
-                        Mesh3d(meshes.add(asset.to_bevy_mesh(head_split))),
+                        Mesh3d(meshes.add(asset.to_bevy_mesh(yoke_split))),
                         MeshMaterial3d(body_material.clone()),
                         Transform {
-                            translation: pivot,
+                            translation: anchor,
                             rotation: *pre_rotate,
                             scale: Vec3::splat(*scale),
                         },
                         ChildOf(root),
                     ));
+                    match head_split {
+                        Some(_) => {
+                            // The joint carries position and rotation and
+                            // nothing else. The mesh's scale goes on a
+                            // child, because the beam hangs off the joint
+                            // too and would otherwise inherit the shrink
+                            // that fits a 1-unit mesh into a 24cm fixture
+                            // — a metres-long beam rendered a few
+                            // centimetres long.
+                            let pivot = anchor + visual.head_pivot.unwrap_or(Vec3::ZERO);
+                            let head = commands
+                                .spawn((
+                                    FixtureHead { pre_rotate: *pre_rotate },
+                                    Transform {
+                                        translation: pivot,
+                                        rotation: *pre_rotate,
+                                        scale: Vec3::ONE,
+                                    },
+                                    Visibility::default(),
+                                    ChildOf(root),
+                                ))
+                                .id();
+                            commands.spawn((
+                                Mesh3d(meshes.add(asset.to_bevy_mesh(head_split))),
+                                MeshMaterial3d(body_material.clone()),
+                                Transform::from_scale(Vec3::splat(*scale)),
+                                ChildOf(head),
+                            ));
+                            emitters.push(head);
+                        }
+                        None => emitters.push(root),
+                    }
                 }
-            }
-            BodyVisual::Bar { length, width, height } => {
-                commands.spawn((
-                    Mesh3d(unit_cube.clone()),
-                    MeshMaterial3d(body_material.clone()),
-                    Transform::from_scale(Vec3::new(*length, *width, *height)),
-                    ChildOf(root),
-                ));
-            }
-            BodyVisual::Generic => {
-                commands.spawn((
-                    Mesh3d(unit_cube.clone()),
-                    MeshMaterial3d(body_material.clone()),
-                    Transform::from_scale(Vec3::splat(0.15)),
-                    ChildOf(root),
-                ));
+                BodyVisual::Bar { length, width, height } => {
+                    commands.spawn((
+                        Mesh3d(unit_cube.clone()),
+                        MeshMaterial3d(body_material.clone()),
+                        Transform::from_scale(Vec3::new(*length, *width, *height)),
+                        ChildOf(root),
+                    ));
+                    emitters.push(root);
+                }
+                BodyVisual::Generic => {
+                    commands.spawn((
+                        Mesh3d(unit_cube.clone()),
+                        MeshMaterial3d(body_material.clone()),
+                        Transform::from_scale(Vec3::splat(0.15)),
+                        ChildOf(root),
+                    ));
+                }
             }
         }
 
         // Beam and spill exist from the start and are simply hidden while
         // the fixture is dark — cheaper and steadier than spawning and
         // despawning entities as cues fade in and out.
-        commands.spawn((
-            FixtureBeam { fixture: index },
-            Mesh3d(beam_cone.clone()),
-            MeshMaterial3d(beams.add(BeamMaterial::new(
-                LinearRgba::BLACK,
-                visual.position,
-                Vec3::NEG_Z,
-                12.5,
-                1.0,
-                settings.haze,
-            ))),
-            Transform::default(),
-            Visibility::Hidden,
-            Name::new(format!("{} beam", f.name)),
-        ));
-        commands.spawn((
-            FixtureSpill { fixture: index },
-            SpotLight {
-                intensity: 0.0,
-                range: 40.0,
-                shadow_maps_enabled: false,
-                ..default()
-            },
-            Transform::default(),
-            Visibility::Hidden,
-            Name::new(format!("{} spill", f.name)),
-        ));
+        for emitter in emitters {
+            commands.entity(emitter).insert((BeamEmitter { fixture: index }, EmitterState::default()));
+            commands.spawn((
+                FixtureBeam,
+                Mesh3d(beam_cone.clone()),
+                MeshMaterial3d(beams.add(BeamMaterial::new(
+                    LinearRgba::BLACK,
+                    Vec3::ZERO,
+                    Vec3::NEG_Z,
+                    12.5,
+                    1.0,
+                    settings.haze,
+                ))),
+                Transform::default(),
+                Visibility::Hidden,
+                Name::new(format!("{} beam", f.name)),
+                ChildOf(emitter),
+            ));
+            commands.spawn((
+                FixtureSpill,
+                SpotLight {
+                    intensity: 0.0,
+                    range: 40.0,
+                    shadow_maps_enabled: false,
+                    ..default()
+                },
+                Transform::default(),
+                Visibility::Hidden,
+                Name::new(format!("{} spill", f.name)),
+                ChildOf(emitter),
+            ));
+        }
     }
 }
 
 /// Resolves every patched fixture against the current DMX state and
-/// writes the result into the entities `spawn_venue` already made: body
-/// pan, head tilt, beam colour/aim/visibility, spill colour/intensity.
-// A Bevy system's "arguments" are its data dependencies, which the
-// scheduler reads to decide what can run in parallel — splitting this one
-// up to satisfy an argument count would hide that, not simplify it.
+/// writes what changed onto the entities: the body's pan, the head's or
+/// the GDTF joint's tilt, and each emitter's colour.
+///
+/// Deliberately does *not* touch the beam or the spill. Where a beam
+/// starts and which way it points is a consequence of the joints this
+/// system just moved, and that is not known until Bevy has propagated
+/// transforms — `update_beams` runs after that and reads the answer
+/// rather than recomputing it.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn update_live_fixtures(
-    time: Res<Time>,
     venue: Res<VenueRes>,
     dmx: Option<Res<DmxRes>>,
-    settings: Res<VizSettings>,
-    mut beam_materials: ResMut<Assets<BeamMaterial>>,
-    // All four touch `Transform`, so Bevy needs them provably disjoint or
-    // it refuses to run the system (B0001). Every fixture-shaped entity
-    // carries exactly one of these four marker components, so excluding
-    // the other three is both true and the cheapest thing to state.
-    mut fixtures: Query<
-        (Entity, &Fixture, &mut Transform),
-        (Without<FixtureHead>, Without<FixtureBeam>, Without<FixtureSpill>),
-    >,
-    mut heads: Query<
+    mut fixtures: Query<(Entity, &Fixture, &mut Transform), Without<FixtureHead>>,
+    mut heads: Query<(&FixtureHead, &ChildOf, &mut Transform), Without<Fixture>>,
+    mut pan_joints: Query<
         (&ChildOf, &mut Transform),
-        (With<FixtureHead>, Without<Fixture>, Without<FixtureBeam>, Without<FixtureSpill>),
+        (With<PanJoint>, Without<Fixture>, Without<FixtureHead>, Without<TiltJoint>),
     >,
-    mut beam_q: Query<
-        (&FixtureBeam, &mut Transform, &mut Visibility, &MeshMaterial3d<BeamMaterial>),
-        (Without<Fixture>, Without<FixtureHead>, Without<FixtureSpill>),
+    mut tilt_joints: Query<
+        (&ChildOf, &mut Transform),
+        (With<TiltJoint>, Without<Fixture>, Without<FixtureHead>, Without<PanJoint>),
     >,
-    mut spill_q: Query<
-        (&FixtureSpill, &mut Transform, &mut Visibility, &mut SpotLight),
-        (Without<Fixture>, Without<FixtureHead>, Without<FixtureBeam>),
-    >,
+    mut emitters: Query<(&BeamEmitter, &mut EmitterState)>,
+    child_of: Query<&ChildOf>,
 ) {
     let Some(dmx) = dmx else { return };
     let venue = &venue.0;
-    let throw = BeamThrow::for_venue(venue);
-    let seconds = time.elapsed_secs();
 
-    // One pass to resolve, so the three entity families below all agree
-    // on the same frame's DMX rather than re-resolving it each.
-    let mut resolved: Vec<Option<Resolved>> = vec![None; venue.fixtures.len()];
+    // Resolve once, so every entity family below agrees on the same
+    // frame's DMX rather than each re-reading it.
+    let mut resolved: Vec<Option<Live>> = (0..venue.fixtures.len()).map(|_| None).collect();
     for (index, f) in venue.fixtures.iter().enumerate() {
         if !f.patched {
             continue;
@@ -393,19 +491,12 @@ pub fn update_live_fixtures(
         };
         let live = dmx.0.resolve(&addr, &map);
 
-        let pan_tilt = (live.pan_deg != 0.0 || live.tilt_deg != 0.0).then(|| {
-            (
-                Quat::from_axis_angle(Vec3::Z, live.pan_deg.to_radians()),
-                Quat::from_axis_angle(Vec3::X, live.tilt_deg.to_radians()),
-            )
-        });
-
         // A fixture with no colour channel at all (a hazer's plain Dimmer
         // map) still emits — as white, since a hazer genuinely does haze
         // up whatever light is already in the air, and no beam at all
         // would read as broken.
-        let emit = (live.dimmer > MIN_VISIBLE_DIMMER).then(|| {
-            let color = if live.has_color {
+        let color = (live.dimmer > MIN_VISIBLE_DIMMER).then(|| {
+            if live.has_color {
                 [
                     live.color[0] * live.dimmer,
                     live.color[1] * live.dimmer,
@@ -413,110 +504,164 @@ pub fn update_live_fixtures(
                 ]
             } else {
                 [live.dimmer; 3]
-            };
-            LiveEmission { color, beam_angle_deg: f.beam_angle_deg }
+            }
         });
 
-        let visual = resolve_fixture(
-            f.position.to_vec3(),
-            f.orientation(),
-            pan_tilt,
-            manufacturer,
-            model,
-            emit,
-            &throw,
-        );
-        resolved[index] = Some(Resolved {
-            position: visual.position,
-            body_rot: visual.body_rot,
-            head_tilt: visual.head_tilt,
-            head_pivot: visual.head_pivot,
-            beam: visual.beam,
+        resolved[index] = Some(Live {
+            pan: Quat::from_axis_angle(Vec3::Z, live.pan_deg.to_radians()),
+            tilt: Quat::from_axis_angle(Vec3::X, live.tilt_deg.to_radians()),
+            color,
+            half_angle_deg: beam_half_angle_deg(f.beam_angle_deg),
         });
     }
 
-    // Which venue record each fixture root came from, so the head pass
-    // below can resolve its parent without querying `fixtures` again
-    // while that query is still borrowed.
+    // Which venue record each fixture root came from, so the joint passes
+    // can resolve their own fixture by walking up to it.
     let mut index_of_root: std::collections::HashMap<Entity, usize> = std::collections::HashMap::new();
     for (entity, fixture, mut transform) in &mut fixtures {
         index_of_root.insert(entity, fixture.index);
-        let Some(Some(r)) = resolved.get(fixture.index) else { continue };
-        transform.translation = r.position;
-        transform.rotation = r.body_rot;
+        let Some(Some(live)) = resolved.get(fixture.index) else { continue };
+        let Some(record) = venue.fixtures.get(fixture.index) else { continue };
+        // Pan turns the whole fixture on its mount, which is what a real
+        // yoke does. A GDTF file that declares its own pan joint gets
+        // that applied there instead, below.
+        transform.rotation = record.orientation() * live.pan;
     }
 
-    for (parent, mut transform) in &mut heads {
-        let Some(r) = index_of_root
-            .get(&parent.parent())
-            .and_then(|i| resolved.get(*i))
+    // Root of the fixture this entity belongs to, however deep it sits —
+    // a GDTF joint can be several nodes down.
+    let fixture_index_of = |entity: Entity| -> Option<usize> {
+        let mut current = entity;
+        for _ in 0..16 {
+            if let Some(index) = index_of_root.get(&current) {
+                return Some(*index);
+            }
+            current = child_of.get(current).ok()?.parent();
+        }
+        None
+    };
+
+    for (head, parent, mut transform) in &mut heads {
+        let Some(live) = fixture_index_of(parent.parent())
+            .and_then(|i| resolved.get(i))
             .and_then(|o| o.as_ref())
         else {
             continue;
         };
-        // Tilt is relative to the body, which already carries pan, so the
-        // head's own rotation is the tilt composed onto the mesh's
-        // pre-rotate — the same product the body uses, minus pan.
-        transform.translation = r.head_pivot.unwrap_or(Vec3::ZERO);
-        if let Some(tilt) = r.head_tilt {
-            transform.rotation = tilt;
-        }
+        transform.rotation = live.tilt * head.pre_rotate;
     }
 
-    for (beam, mut transform, mut visibility, material) in &mut beam_q {
-        let lit = resolved.get(beam.fixture).and_then(|o| o.as_ref()).and_then(|r| r.beam.as_ref());
-        match lit {
-            Some(b) => {
-                *visibility = Visibility::Visible;
-                *transform = beam_transform(b.origin, b.direction, b.length, b.far_radius);
-                if let Some(mut m) = beam_materials.get_mut(&material.0) {
-                    m.color = LinearRgba::rgb(b.color[0], b.color[1], b.color[2]);
-                    m.direction_angle =
-                        Vec4::new(b.direction.x, b.direction.y, b.direction.z, b.half_angle_deg);
-                    m.origin_length = Vec4::new(b.origin.x, b.origin.y, b.origin.z, b.length);
-                    m.params = Vec4::new(settings.haze, seconds, 0.0, 0.0);
-                }
-            }
-            None => *visibility = Visibility::Hidden,
-        }
+    // GDTF joints: the file itself said which node each attribute drives,
+    // so a live reading rotates the manufacturer's own axis. Everything
+    // below the joint follows because Bevy propagates transforms.
+    for (parent, mut transform) in &mut pan_joints {
+        let Some(live) = fixture_index_of(parent.parent()).and_then(|i| resolved.get(i)).and_then(|o| o.as_ref())
+        else {
+            continue;
+        };
+        transform.rotation = live.pan;
+    }
+    for (parent, mut transform) in &mut tilt_joints {
+        let Some(live) = fixture_index_of(parent.parent()).and_then(|i| resolved.get(i)).and_then(|o| o.as_ref())
+        else {
+            continue;
+        };
+        transform.rotation = live.tilt;
     }
 
-    for (spill, mut transform, mut visibility, mut light) in &mut spill_q {
-        let lit = resolved.get(spill.fixture).and_then(|o| o.as_ref()).and_then(|r| r.beam.as_ref());
-        match lit {
-            Some(b) => {
-                *visibility = Visibility::Visible;
-                // A Bevy spot light shines along its entity's -Z, which is
-                // exactly this project's own beam axis convention, so the
-                // aim is a plain look-along.
-                transform.translation = b.origin;
-                transform.rotation = Quat::from_rotation_arc(Vec3::NEG_Z, b.direction);
-                let outer = b.half_angle_deg.to_radians();
-                light.outer_angle = outer;
-                light.inner_angle = outer * 0.8;
-                light.range = b.length * 1.2;
-                light.color = Color::srgb(b.color[0], b.color[1], b.color[2]);
-                // Lumens. Scaled by the fixture's own resolved brightness,
-                // which is already baked into `color`, so this is only the
-                // headroom that makes a lit surface read at all against an
-                // otherwise black room.
-                light.intensity = 60_000.0;
+    for (emitter, mut state) in &mut emitters {
+        match resolved.get(emitter.fixture).and_then(|o| o.as_ref()) {
+            Some(live) => {
+                state.color = live.color;
+                state.half_angle_deg = live.half_angle_deg;
             }
-            None => {
-                *visibility = Visibility::Hidden;
-                light.intensity = 0.0;
-            }
+            None => state.color = None,
         }
     }
 }
 
-#[derive(Clone)]
-struct Resolved {
-    position: Vec3,
-    body_rot: Quat,
-    head_tilt: Option<Quat>,
-    head_pivot: Option<Vec3>,
-    beam: Option<BeamVisual>,
+struct Live {
+    pan: Quat,
+    tilt: Quat,
+    color: Option<[f32; 3]>,
+    half_angle_deg: f32,
+}
+
+/// Sizes, aims and colours every beam and spill from where its emitter
+/// actually ended up.
+///
+/// Runs in `PostUpdate` after transform propagation, which is the whole
+/// point: the emitter's `GlobalTransform` already accounts for the mount
+/// pose, the pan, the tilt and — for a GDTF fixture — every joint and
+/// offset in the manufacturer's own geometry tree. Nothing here knows or
+/// cares which of those applied.
+#[allow(clippy::type_complexity)]
+pub fn update_beams(
+    time: Res<Time>,
+    venue: Res<VenueRes>,
+    settings: Res<VizSettings>,
+    mut beam_materials: ResMut<Assets<BeamMaterial>>,
+    emitters: Query<(&EmitterState, &GlobalTransform, Option<&Children>)>,
+    mut beam_q: Query<
+        (&mut Transform, &mut Visibility, &MeshMaterial3d<BeamMaterial>),
+        (With<FixtureBeam>, Without<FixtureSpill>),
+    >,
+    mut spill_q: Query<(&mut Visibility, &mut SpotLight), (With<FixtureSpill>, Without<FixtureBeam>)>,
+) {
+    let throw = BeamThrow::for_venue(&venue.0);
+    let seconds = time.elapsed_secs();
+
+    for (state, global, children) in &emitters {
+        let Some(children) = children else { continue };
+        let origin = global.translation();
+        // This project's aim convention: a fixture emits along its own
+        // local -Z, which is also the axis a Bevy spot light shines down.
+        let direction = (global.rotation() * Vec3::NEG_Z).normalize_or_zero();
+        let length = throw.reach(origin, direction);
+        let far_radius = (length * state.half_angle_deg.to_radians().tan()).max(0.05);
+
+        for child in children.iter() {
+            if let Ok((mut transform, mut visibility, material)) = beam_q.get_mut(child) {
+                match state.color {
+                    Some(color) => {
+                        *visibility = Visibility::Visible;
+                        // Local to the emitter, so it inherits the aim.
+                        *transform = beam_transform(Vec3::ZERO, Vec3::NEG_Z, length, far_radius);
+                        if let Some(mut m) = beam_materials.get_mut(&material.0) {
+                            m.color = LinearRgba::rgb(color[0], color[1], color[2]);
+                            // The shader works in world space, so these
+                            // stay world even though the mesh is local.
+                            m.direction_angle =
+                                Vec4::new(direction.x, direction.y, direction.z, state.half_angle_deg);
+                            m.origin_length = Vec4::new(origin.x, origin.y, origin.z, length);
+                            m.params = Vec4::new(settings.haze, seconds, 0.0, 0.0);
+                        }
+                    }
+                    None => *visibility = Visibility::Hidden,
+                }
+            }
+            if let Ok((mut visibility, mut light)) = spill_q.get_mut(child) {
+                match state.color {
+                    Some(color) => {
+                        *visibility = Visibility::Visible;
+                        let outer = state.half_angle_deg.to_radians();
+                        light.outer_angle = outer;
+                        light.inner_angle = outer * 0.8;
+                        light.range = length * 1.2;
+                        light.color = Color::srgb(color[0], color[1], color[2]);
+                        // Lumens. The fixture's own brightness is already
+                        // in `color`, so this is only the headroom that
+                        // makes a lit surface read against a dark room.
+                        light.intensity = 60_000.0;
+                    }
+                    None => {
+                        *visibility = Visibility::Hidden;
+                        light.intensity = 0.0;
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Applies the ambient dial to Bevy's global ambient light.

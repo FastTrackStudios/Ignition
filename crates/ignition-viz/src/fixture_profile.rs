@@ -469,7 +469,7 @@ impl BeamThrow {
     /// face — the standard slab test, one axis at a time, keeping the
     /// nearest positive hit. An axis the beam runs parallel to simply
     /// contributes nothing.
-    fn reach(&self, origin: Vec3, direction: Vec3) -> f32 {
+    pub fn reach(&self, origin: Vec3, direction: Vec3) -> f32 {
         let mut nearest = self.max_reach;
         for axis in 0..3 {
             let d = direction[axis];

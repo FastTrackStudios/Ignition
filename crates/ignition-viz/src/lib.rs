@@ -18,6 +18,7 @@ pub mod beam;
 pub mod channel_map;
 pub mod dmx;
 pub mod fixture_profile;
+pub mod gdtf_geometry;
 pub mod gdtf_import;
 pub mod obj_mesh;
 pub mod ofl_import;

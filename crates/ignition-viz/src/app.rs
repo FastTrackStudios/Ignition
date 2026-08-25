@@ -16,7 +16,11 @@
 
 use crate::beam::BeamPlugin;
 use crate::playback::{go_on_space, tick_playback, Playback};
-use crate::spawn::{apply_ambient, spawn_venue, update_live_fixtures, DmxRes, VenueRes, VizSettings};
+use crate::spawn::{
+    apply_ambient, spawn_venue, update_beams, update_live_fixtures, DmxRes, GdtfLibraryRes, VenueRes,
+    VizSettings,
+};
+use crate::gdtf_geometry::GdtfLibrary;
 use crate::view::ViewPreset;
 use crate::{dmx, DmxUniverses, Venue};
 use bevy::app::SubApps;
@@ -33,6 +37,7 @@ use bevy::render::RenderPlugin;
 use bevy::window::ExitCondition;
 use bevy::winit::WinitPlugin;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 /// Everything the CLI can set. A plain struct, so `bin/viz.rs` stays
 /// argument parsing and nothing else.
@@ -67,6 +72,10 @@ pub struct VizConfig {
 pub struct VizPlugin {
     pub config: VizConfig,
     pub dmx: DmxUniverses,
+    /// Taken on `build`, since `Plugin::build` only gets `&self` and a
+    /// parsed GDTF library is neither cloneable nor cheap. A `Mutex`
+    /// rather than a `Cell` because a `Plugin` must be `Sync`.
+    pub gdtf: Mutex<Option<GdtfLibrary>>,
 }
 
 impl Plugin for VizPlugin {
@@ -79,6 +88,7 @@ impl Plugin for VizPlugin {
                 ambient: self.config.ambient,
                 show_props: self.config.show_props,
             })
+            .insert_resource(GdtfLibraryRes(self.gdtf.lock().expect("gdtf library lock").take()))
             .add_plugins(BeamPlugin)
             .add_systems(Startup, spawn_venue)
             // Playback runs before the fixture update so a beam reflects
@@ -86,6 +96,13 @@ impl Plugin for VizPlugin {
             .add_systems(
                 Update,
                 (apply_ambient, go_on_space, tick_playback, update_live_fixtures).chain(),
+            )
+            // After transform propagation, because a beam's world pose is
+            // whatever the joints `update_live_fixtures` just moved ended
+            // up producing — see `update_beams`.
+            .add_systems(
+                PostUpdate,
+                update_beams.after(bevy::transform::TransformSystems::Propagate),
             );
     }
 }
@@ -93,18 +110,18 @@ impl Plugin for VizPlugin {
 /// `playback` is inserted as a resource rather than carried on the plugin
 /// because `Plugin::build` only gets `&self`, and the players are not
 /// cloneable — they hold live fade state.
-pub fn run(config: VizConfig, playback: Playback) {
+pub fn run(config: VizConfig, playback: Playback, gdtf: Option<GdtfLibrary>) {
     let dmx = DmxUniverses::new();
     dmx::spawn_sacn_listener(dmx.clone(), config.max_universe);
     dmx::spawn_artnet_listener(dmx.clone());
 
     match config.snapshot.clone() {
-        Some(path) => run_snapshot(config, dmx, playback, &path),
-        None => run_windowed(config, dmx, playback),
+        Some(path) => run_snapshot(config, dmx, playback, gdtf, &path),
+        None => run_windowed(config, dmx, playback, gdtf),
     }
 }
 
-fn run_windowed(config: VizConfig, dmx: DmxUniverses, playback: Playback) {
+fn run_windowed(config: VizConfig, dmx: DmxUniverses, playback: Playback, gdtf: Option<GdtfLibrary>) {
     let (min, max) = config.venue.bounds();
     let view = config.view;
     let (width, height) = (config.width, config.height);
@@ -118,7 +135,7 @@ fn run_windowed(config: VizConfig, dmx: DmxUniverses, playback: Playback) {
             }),
             ..default()
         }))
-        .add_plugins(VizPlugin { config, dmx })
+        .add_plugins(VizPlugin { config, dmx, gdtf: Mutex::new(gdtf) })
         .insert_resource(playback)
         .add_systems(Startup, move |mut commands: Commands| {
             commands.spawn(camera_bundle(view, min, max));
@@ -128,7 +145,13 @@ fn run_windowed(config: VizConfig, dmx: DmxUniverses, playback: Playback) {
 
 /// No window, no winit — an offscreen image target, the loop pumped by
 /// hand, and the GPU polled between frames.
-fn run_snapshot(config: VizConfig, dmx: DmxUniverses, playback: Playback, path: &Path) {
+fn run_snapshot(
+    config: VizConfig,
+    dmx: DmxUniverses,
+    playback: Playback,
+    gdtf: Option<GdtfLibrary>,
+    path: &Path,
+) {
     let (min, max) = config.venue.bounds();
     let view = config.view;
     let (width, height) = (config.width, config.height);
@@ -153,7 +176,7 @@ fn run_snapshot(config: VizConfig, dmx: DmxUniverses, playback: Playback, path: 
             })
             .disable::<WinitPlugin>(),
     )
-    .add_plugins(VizPlugin { config, dmx })
+    .add_plugins(VizPlugin { config, dmx, gdtf: Mutex::new(gdtf) })
     .insert_resource(playback);
 
     let mut target = Image::new_uninit(

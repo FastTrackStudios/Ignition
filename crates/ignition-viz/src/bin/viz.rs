@@ -8,6 +8,7 @@
 //! With no console on the network every fixture just renders dark — this
 //! binary responds to sACN/Art-Net when it is there and never requires it.
 
+use ignition_viz::gdtf_geometry::GdtfLibrary;
 use ignition_viz::playback::Playback;
 use ignition_viz::{run, Venue, ViewPreset, VizConfig};
 use std::path::PathBuf;
@@ -27,7 +28,12 @@ fn main() -> anyhow::Result<()> {
     // go through Bevy's tonemapper and bloom rather than being added
     // straight onto an already-tonemapped image.
     let mut haze = 10.0f32;
-    let mut ambient = 0.0f32;
+    // Not zero. A real dark venue genuinely has no ambient fill, but a
+    // visualizer the operator is *working* in is not a photograph: with
+    // nothing lit you need to still see the stage, the truss and where
+    // the fixtures are pointing. Low enough that a lit beam still reads
+    // as by far the brightest thing in frame.
+    let mut ambient = 0.15f32;
     let mut max_universe = 4u16;
     let mut snapshot: Option<PathBuf> = None;
     let mut settle_frames = 20u32;
@@ -37,6 +43,7 @@ fn main() -> anyhow::Result<()> {
     let mut effects: Option<PathBuf> = None;
     let mut cue: Option<usize> = None;
     let mut effect_time: Option<f32> = None;
+    let mut gdtf_dir: Option<PathBuf> = None;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -65,6 +72,13 @@ fn main() -> anyhow::Result<()> {
             // snapshot.
             "--effects" => effects = Some(PathBuf::from(next("a path"))),
             "--effect-time" => effect_time = Some(next("seconds, e.g. 2.5").parse()?),
+            // A directory of real `.gdtf` fixture profiles. A patched
+            // fixture whose manufacturer/model matches one is drawn from
+            // the manufacturer's own geometry tree — real nested
+            // yoke/head/beam nodes with real dimensions, and pan/tilt on
+            // the joints the file itself names — instead of the generic
+            // QLC+ category mesh it otherwise falls back to.
+            "--gdtf-dir" => gdtf_dir = Some(PathBuf::from(next("a path"))),
             other => eprintln!("viz: ignoring unknown argument {other}"),
         }
     }
@@ -78,6 +92,17 @@ fn main() -> anyhow::Result<()> {
         venue.fixtures.len(),
         venue.room.len()
     );
+
+    let gdtf = match &gdtf_dir {
+        Some(dir) => {
+            let library = GdtfLibrary::load_dir(dir)?;
+            if library.is_empty() {
+                eprintln!("viz: no usable .gdtf files in {}", dir.display());
+            }
+            Some(library)
+        }
+        None => None,
+    };
 
     let playback = Playback::load(
         &venue,
@@ -102,6 +127,7 @@ fn main() -> anyhow::Result<()> {
             show_props,
         },
         playback,
+        gdtf,
     );
     Ok(())
 }
