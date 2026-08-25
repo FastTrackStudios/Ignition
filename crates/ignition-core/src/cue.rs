@@ -84,7 +84,14 @@ pub struct CuePlayer {
 
 impl CuePlayer {
     pub fn new(cues: Vec<Cue>) -> Self {
-        Self { cues, current: None, from: HashMap::new(), target: HashMap::new(), elapsed: 0.0, fade_secs: 0.0 }
+        Self {
+            cues,
+            current: None,
+            from: HashMap::new(),
+            target: HashMap::new(),
+            elapsed: 0.0,
+            fade_secs: 0.0,
+        }
     }
 
     /// Advances playback into the next cue, if there is one. No-op at the
@@ -92,7 +99,9 @@ impl CuePlayer {
     /// nothing to advance into, stays put).
     pub fn go(&mut self) {
         let next = self.current.map_or(0, |i| i + 1);
-        let Some(cue) = self.cues.get(next) else { return };
+        let Some(cue) = self.cues.get(next) else {
+            return;
+        };
         self.from = self.output_at(self.elapsed);
         for v in &cue.values {
             self.target.insert((v.chan, v.attr.clone()), v.value);
@@ -127,7 +136,9 @@ impl CuePlayer {
     }
 
     pub fn current_name(&self) -> Option<&str> {
-        self.current.and_then(|i| self.cues.get(i)).map(|c| c.name.as_str())
+        self.current
+            .and_then(|i| self.cues.get(i))
+            .map(|c| c.name.as_str())
     }
 
     /// The interpolated `(chan, attr) -> value` output right now (at
@@ -137,7 +148,11 @@ impl CuePlayer {
     }
 
     fn output_at(&self, elapsed: f32) -> HashMap<(ChanId, Attribute), f32> {
-        let t = if self.fade_secs > 0.0 { (elapsed / self.fade_secs).clamp(0.0, 1.0) } else { 1.0 };
+        let t = if self.fade_secs > 0.0 {
+            (elapsed / self.fade_secs).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
         let mut out = HashMap::with_capacity(self.target.len());
         for (key, &target_v) in &self.target {
             // A key with no prior value (first time this (chan, attr) has
@@ -159,7 +174,10 @@ mod tests {
         Cue {
             name: name.to_string(),
             fade_secs,
-            values: values.into_iter().map(|(chan, attr, value)| CueValue { chan, attr, value }).collect(),
+            values: values
+                .into_iter()
+                .map(|(chan, attr, value)| CueValue { chan, attr, value })
+                .collect(),
         }
     }
 
@@ -183,7 +201,10 @@ mod tests {
         player.go();
         player.tick(1.0); // halfway through a 2s fade
         let v = *player.output().get(&(1, Attribute::Dimmer)).unwrap();
-        assert!((v - 0.5).abs() < 0.001, "expected ~0.5 halfway through the fade, got {v}");
+        assert!(
+            (v - 0.5).abs() < 0.001,
+            "expected ~0.5 halfway through the fade, got {v}"
+        );
         player.tick(1.0); // now fully elapsed
         assert!((player.output().get(&(1, Attribute::Dimmer)).unwrap() - 1.0).abs() < 0.001);
     }
@@ -191,7 +212,11 @@ mod tests {
     #[test]
     fn a_channel_not_mentioned_in_the_next_cue_holds_its_value_tracking() {
         let mut player = CuePlayer::new(vec![
-            cue("Cue 1", 0.0, vec![(1, Attribute::Dimmer, 1.0), (2, Attribute::Dimmer, 0.5)]),
+            cue(
+                "Cue 1",
+                0.0,
+                vec![(1, Attribute::Dimmer, 1.0), (2, Attribute::Dimmer, 0.5)],
+            ),
             // Cue 2 only touches channel 1 — channel 2 should still read 0.5.
             cue("Cue 2", 0.0, vec![(1, Attribute::Dimmer, 0.2)]),
         ]);
@@ -207,7 +232,11 @@ mod tests {
 
     #[test]
     fn go_on_the_last_cue_is_a_no_op() {
-        let mut player = CuePlayer::new(vec![cue("Only Cue", 0.0, vec![(1, Attribute::Dimmer, 1.0)])]);
+        let mut player = CuePlayer::new(vec![cue(
+            "Only Cue",
+            0.0,
+            vec![(1, Attribute::Dimmer, 1.0)],
+        )]);
         player.go();
         assert_eq!(player.current_index(), Some(0));
         player.go(); // no cue 1 to advance into
@@ -225,7 +254,10 @@ mod tests {
         player.tick(2.0); // halfway into Cue 1's fade -> dimmer at ~0.5
         player.go(); // fire Cue 2 before Cue 1 finished
         let v = *player.output().get(&(1, Attribute::Dimmer)).unwrap();
-        assert!((v - 0.5).abs() < 0.01, "should start Cue 2's fade from the actual mid-fade value, got {v}");
+        assert!(
+            (v - 0.5).abs() < 0.01,
+            "should start Cue 2's fade from the actual mid-fade value, got {v}"
+        );
     }
 
     #[test]
@@ -238,7 +270,15 @@ mod tests {
         player.jump_to_end_of(1);
         assert_eq!(player.current_index(), Some(1));
         let out = player.output();
-        assert_eq!(out.get(&(1, Attribute::Dimmer)), Some(&1.0), "Cue 1's value should have fully resolved");
-        assert_eq!(out.get(&(2, Attribute::Dimmer)), Some(&1.0), "Cue 2's own value should have fully resolved");
+        assert_eq!(
+            out.get(&(1, Attribute::Dimmer)),
+            Some(&1.0),
+            "Cue 1's value should have fully resolved"
+        );
+        assert_eq!(
+            out.get(&(2, Attribute::Dimmer)),
+            Some(&1.0),
+            "Cue 2's own value should have fully resolved"
+        );
     }
 }

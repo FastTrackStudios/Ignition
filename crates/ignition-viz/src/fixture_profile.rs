@@ -20,7 +20,9 @@ macro_rules! qlc_mesh {
     ($name:ident, $file:literal) => {
         fn $name() -> &'static ObjMesh {
             static CELL: OnceLock<ObjMesh> = OnceLock::new();
-            CELL.get_or_init(|| ObjMesh::parse(include_str!(concat!("../assets/qlc-meshes/", $file))))
+            CELL.get_or_init(|| {
+                ObjMesh::parse(include_str!(concat!("../assets/qlc-meshes/", $file)))
+            })
         }
     };
 }
@@ -91,10 +93,20 @@ pub enum Shape {
     /// anchor. `None` for fixtures that don't tilt (pars, hazers), where
     /// there's nothing to split. See `add_typed_fixture` and
     /// `mesh::add_mesh_asset_split`.
-    Mesh { mesh: &'static ObjMesh, target_size: f32, pre_rotate: Quat, anchor: Anchor, split_z: Option<f32> },
+    Mesh {
+        mesh: &'static ObjMesh,
+        target_size: f32,
+        pre_rotate: Quat,
+        anchor: Anchor,
+        split_z: Option<f32>,
+    },
     /// An LED bar/batten: one elongated box, no beam (washes along its
     /// length rather than from a point) — no QLC+ mesh fits this shape.
-    Bar { length: f32, width: f32, height: f32 },
+    Bar {
+        length: f32,
+        width: f32,
+        height: f32,
+    },
     /// No dedicated profile — falls back to the generic marker.
     Generic,
 }
@@ -139,7 +151,11 @@ pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
     }
     if m == "rockville" && mo.contains("rockstrip") {
         // Rockville's spec: 40.16 x 2.64 x 2.56 in.
-        return Shape::Bar { length: 1.02, width: 0.067, height: 0.065 };
+        return Shape::Bar {
+            length: 1.02,
+            width: 0.067,
+            height: 0.065,
+        };
     }
     if m == "chauvet" && mo.contains("slimpar") {
         // Chauvet SlimPAR Tri 7 IRC: ~160x115x115mm — the drum-fill pair
@@ -172,7 +188,6 @@ pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
     Shape::Generic
 }
 
-
 /// Where the moving-head mesh's yoke/base ends and its head begins, in the
 /// mesh's own raw local Z (`assets/qlc-meshes/moving_head.obj`, unscaled,
 /// pre-`pre_rotate`) — derived from the mesh's own vertex distribution: a
@@ -193,7 +208,13 @@ pub fn generic_shape(kind: &str) -> Shape {
         "strobe" => strobe_mesh(),
         _ => return Shape::Generic,
     };
-    Shape::Mesh { mesh, target_size: 0.30, pre_rotate: Quat::IDENTITY, anchor: Anchor::None, split_z: None }
+    Shape::Mesh {
+        mesh,
+        target_size: 0.30,
+        pre_rotate: Quat::IDENTITY,
+        anchor: Anchor::None,
+        split_z: None,
+    }
 }
 
 /// The lowest/highest Z any vertex of `mesh` reaches once rotated by `rot`
@@ -288,10 +309,19 @@ pub enum BodyVisual {
     /// real fixture's size. `pre_rotate` is baked into the body/head
     /// rotations already; `split_z` is the head/yoke divide in the mesh's
     /// own local Z, `None` when the shape has no moving head.
-    Mesh { asset: &'static ObjMesh, scale: f32, pre_rotate: Quat, split_z: Option<f32> },
+    Mesh {
+        asset: &'static ObjMesh,
+        scale: f32,
+        pre_rotate: Quat,
+        split_z: Option<f32>,
+    },
     /// An LED bar/batten: one elongated box, no beam (it washes along its
     /// length rather than from a point).
-    Bar { length: f32, width: f32, height: f32 },
+    Bar {
+        length: f32,
+        width: f32,
+        height: f32,
+    },
     /// No dedicated profile — the generic marker.
     Generic,
 }
@@ -332,7 +362,13 @@ pub fn resolve_fixture(
     let (pan, tilt) = live_pan_tilt.unwrap_or((Quat::IDENTITY, Quat::IDENTITY));
 
     match shape_for(manufacturer, model) {
-        Shape::Mesh { mesh: asset, target_size, pre_rotate, anchor, split_z } => {
+        Shape::Mesh {
+            mesh: asset,
+            target_size,
+            pre_rotate,
+            anchor,
+            split_z,
+        } => {
             let scale = scale_to(asset, target_size);
             let full_rot = rot * pre_rotate;
             // The head's full orientation (pan + tilt) — what the beam is
@@ -340,7 +376,11 @@ pub fn resolve_fixture(
             let head_full_rot = rot * pan * tilt * pre_rotate;
             let resolved = match anchor {
                 Anchor::HangAware => {
-                    if is_mounted_upright(rot) { Anchor::Bottom } else { Anchor::Top }
+                    if is_mounted_upright(rot) {
+                        Anchor::Bottom
+                    } else {
+                        Anchor::Top
+                    }
                 }
                 other => other,
             };
@@ -356,7 +396,12 @@ pub fn resolve_fixture(
                 Anchor::None | Anchor::HangAware => pos,
             };
             FixtureVisual {
-                body: BodyVisual::Mesh { asset, scale, pre_rotate, split_z },
+                body: BodyVisual::Mesh {
+                    asset,
+                    scale,
+                    pre_rotate,
+                    split_z,
+                },
                 position: anchored_pos,
                 body_rot: rot * pan,
                 head_tilt: split_z.map(|_| tilt),
@@ -364,8 +409,16 @@ pub fn resolve_fixture(
                 beam: emit.map(|e| beam_visual(anchored_pos, head_full_rot, &e, throw)),
             }
         }
-        Shape::Bar { length, width, height } => FixtureVisual {
-            body: BodyVisual::Bar { length, width, height },
+        Shape::Bar {
+            length,
+            width,
+            height,
+        } => FixtureVisual {
+            body: BodyVisual::Bar {
+                length,
+                width,
+                height,
+            },
             position: pos,
             body_rot: rot,
             head_tilt: None,
@@ -437,7 +490,11 @@ impl BeamThrow {
         // a beam is occluded by the ceiling it runs into whether or not
         // its geometry was clipped there first. The box test below is
         // just a cheap way to not build cone geometry nobody can see.
-        Self { min, max, max_reach: room_diag.max(5.0) }
+        Self {
+            min,
+            max,
+            max_reach: room_diag.max(5.0),
+        }
     }
 
     /// Distance from `origin` along `direction` to the first bounding-box
@@ -451,7 +508,11 @@ impl BeamThrow {
             if d.abs() < 1e-3 {
                 continue;
             }
-            let plane = if d < 0.0 { self.min[axis] } else { self.max[axis] };
+            let plane = if d < 0.0 {
+                self.min[axis]
+            } else {
+                self.max[axis]
+            };
             let t = (plane - origin[axis]) / d;
             if t > 0.0 && t < nearest {
                 nearest = t;
@@ -469,7 +530,11 @@ mod beam_throw_tests {
     use super::*;
 
     fn throw() -> BeamThrow {
-        BeamThrow { min: Vec3::new(-5.0, -10.0, 0.0), max: Vec3::new(5.0, 10.0, 6.0), max_reach: 10.0 }
+        BeamThrow {
+            min: Vec3::new(-5.0, -10.0, 0.0),
+            max: Vec3::new(5.0, 10.0, 6.0),
+            max_reach: 10.0,
+        }
     }
 
     #[test]
@@ -494,7 +559,10 @@ mod beam_throw_tests {
 
     #[test]
     fn a_long_diagonal_is_still_capped() {
-        let r = throw().reach(Vec3::new(-4.0, -9.0, 5.5), Vec3::new(1.0, 2.0, -0.2).normalize());
+        let r = throw().reach(
+            Vec3::new(-4.0, -9.0, 5.5),
+            Vec3::new(1.0, 2.0, -0.2).normalize(),
+        );
         assert!(r <= 10.0, "{r}");
     }
 }

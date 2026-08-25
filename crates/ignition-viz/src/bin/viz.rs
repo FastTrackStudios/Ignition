@@ -8,10 +8,11 @@
 //! With no console on the network every fixture just renders dark — this
 //! binary responds to sACN/Art-Net when it is there and never requires it.
 
+use bevy::math::Vec3;
 use ignition_viz::gdtf_geometry::GdtfLibrary;
 use ignition_viz::playback::Playback;
 use ignition_viz::spawn::BeamStyle;
-use ignition_viz::{run, Venue, ViewPreset, VizConfig};
+use ignition_viz::{Venue, ViewPreset, VizConfig, run};
 use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
@@ -44,7 +45,10 @@ fn main() -> anyhow::Result<()> {
     let mut max_universe = 4u16;
     let mut snapshot: Option<PathBuf> = None;
     let mut settle_frames = 20u32;
-    let mut show_props = false;
+    // On by default now that the people and mic stands have real shapes
+    // rather than being placeholder boxes; `--hide-props` for a clean
+    // plot of just the rig.
+    let mut show_props = true;
     let mut cuelist: Option<PathBuf> = None;
     let mut recipes: Option<PathBuf> = None;
     let mut effects: Option<PathBuf> = None;
@@ -57,6 +61,8 @@ fn main() -> anyhow::Result<()> {
     // Packaging this properly is a later problem.
     let mut assets_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string();
     let mut screen_content: Option<String> = Some("screens/rockstars-logo.webp".to_string());
+    let mut eye: Option<Vec3> = None;
+    let mut look: Option<Vec3> = None;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -67,12 +73,19 @@ fn main() -> anyhow::Result<()> {
             "--width" => width = next("a number").parse()?,
             "--height" => height = next("a number").parse()?,
             "--haze" => haze = next("a number, 0..2, 1.0 = normally hazed").parse()?,
-            "--exposure" => exposure = next("a multiplier on real fixture output, e.g. 60").parse()?,
+            "--exposure" => {
+                exposure = next("a multiplier on real fixture output, e.g. 60").parse()?
+            }
             "--ambient" => ambient = next("a number 0..1").parse()?,
             "--max-universe" => max_universe = next("a number").parse()?,
             "--snapshot" => snapshot = Some(PathBuf::from(next("a path"))),
             "--settle-frames" => settle_frames = next("a number").parse()?,
             "--show-props" => show_props = true,
+            "--hide-props" => show_props = false,
+            // An arbitrary camera, for looking at one thing rather than
+            // at the room. Both are needed; either alone is ignored.
+            "--eye" => eye = Some(parse_point(&next("x,y,z in metres"))?),
+            "--look" => look = Some(parse_point(&next("x,y,z in metres"))?),
             // A programmed show. `--cuelist` is the flat compiled form,
             // `--recipes` the authoring form compiled against this
             // venue's own groups; press Space to GO through either. With
@@ -160,6 +173,7 @@ fn main() -> anyhow::Result<()> {
             snapshot,
             settle_frames,
             show_props,
+            camera: eye.zip(look),
             exclude,
             beam_style,
             exposure,
@@ -170,4 +184,17 @@ fn main() -> anyhow::Result<()> {
         gdtf,
     );
     Ok(())
+}
+
+/// Parses an `x,y,z` point in metres, for `--eye` / `--look`.
+fn parse_point(text: &str) -> anyhow::Result<Vec3> {
+    let parts: Vec<&str> = text.split(',').collect();
+    let [x, y, z] = parts[..] else {
+        anyhow::bail!("expected x,y,z but got {text}");
+    };
+    Ok(Vec3::new(
+        x.trim().parse()?,
+        y.trim().parse()?,
+        z.trim().parse()?,
+    ))
 }

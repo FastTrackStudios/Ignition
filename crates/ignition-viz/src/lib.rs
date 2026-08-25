@@ -23,12 +23,13 @@ pub mod gdtf_import;
 pub mod obj_mesh;
 pub mod ofl_import;
 pub mod playback;
+pub mod props;
 pub mod show;
 pub mod spawn;
 pub mod venue;
 pub mod view;
 
-pub use app::{run, VizConfig};
+pub use app::{VizConfig, run};
 pub use dmx::{DmxUniverses, ResolvedAttributes};
 pub use venue::Venue;
 pub use view::ViewPreset;

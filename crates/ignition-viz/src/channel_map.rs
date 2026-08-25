@@ -27,10 +27,28 @@ fn rgb_par(footprint: u16, dimmer_channel: Option<u16>, rgb_start: u16) -> Chann
     if let Some(d) = dimmer_channel {
         channels.push((d, Attribute::Dimmer));
     }
-    channels.push((rgb_start, Attribute::ColorAdd { channel: ColorChannel::Red }));
-    channels.push((rgb_start + 1, Attribute::ColorAdd { channel: ColorChannel::Green }));
-    channels.push((rgb_start + 2, Attribute::ColorAdd { channel: ColorChannel::Blue }));
-    ChannelMap { footprint, channels }
+    channels.push((
+        rgb_start,
+        Attribute::ColorAdd {
+            channel: ColorChannel::Red,
+        },
+    ));
+    channels.push((
+        rgb_start + 1,
+        Attribute::ColorAdd {
+            channel: ColorChannel::Green,
+        },
+    ));
+    channels.push((
+        rgb_start + 2,
+        Attribute::ColorAdd {
+            channel: ColorChannel::Blue,
+        },
+    ));
+    ChannelMap {
+        footprint,
+        channels,
+    }
 }
 
 /// `manufacturer`/`model` match the same way `fixture_profile::shape_for`
@@ -119,7 +137,12 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
             // as suspect rather than treated as a safe default — the same
             // wrong assumption may well be baked in here too.
             let mut cm = rgb_par(7, Some(0), 1);
-            cm.channels.push((4, Attribute::ColorAdd { channel: ColorChannel::White }));
+            cm.channels.push((
+                4,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::White,
+                },
+            ));
             cm.channels.push((5, Attribute::Strobe));
             return Some(cm);
         }
@@ -136,7 +159,10 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         // earlier estimate guessed a 2ch dimmer+fan mode that doesn't
         // exist for this fixture. `Dimmer` stands in for the haze-output
         // channel — there's no dedicated haze `Attribute` yet.
-        return Some(ChannelMap { footprint: 1, channels: vec![(0, Attribute::Dimmer)] });
+        return Some(ChannelMap {
+            footprint: 1,
+            channels: vec![(0, Attribute::Dimmer)],
+        });
     }
     None
 }
@@ -153,11 +179,31 @@ mod tests {
         let cm = channel_map_for("Uking", "Par").expect("Uking Par has a channel map");
         assert_eq!(cm.footprint, 7);
         assert_eq!(cm.offset_of(&Attribute::Dimmer), Some(0));
-        assert_eq!(cm.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Red }), Some(1));
-        assert_eq!(cm.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Green }), Some(2));
-        assert_eq!(cm.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Blue }), Some(3));
+        assert_eq!(
+            cm.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::Red
+            }),
+            Some(1)
+        );
+        assert_eq!(
+            cm.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::Green
+            }),
+            Some(2)
+        );
+        assert_eq!(
+            cm.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::Blue
+            }),
+            Some(3)
+        );
         assert_eq!(cm.offset_of(&Attribute::Strobe), Some(4));
-        assert_eq!(cm.offset_of(&Attribute::ColorAdd { channel: ColorChannel::White }), None);
+        assert_eq!(
+            cm.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::White
+            }),
+            None
+        );
     }
 
     /// Locks in the correction from the real chauvet-dj/hurricane-haze-1dx.json
@@ -165,7 +211,8 @@ mod tests {
     /// guessed 2ch (dimmer + fan).
     #[test]
     fn hurricane_haze_matches_the_real_ofl_profile() {
-        let cm = channel_map_for("Chauvet", "Hurricane Haze 1DX").expect("Hurricane Haze has a channel map");
+        let cm = channel_map_for("Chauvet", "Hurricane Haze 1DX")
+            .expect("Hurricane Haze has a channel map");
         assert_eq!(cm.footprint, 1);
         assert_eq!(cm.offset_of(&Attribute::Dimmer), Some(0));
     }

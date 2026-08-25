@@ -40,15 +40,31 @@ fn encode_attribute_byte(attr: &Attribute, value: f32) -> u8 {
 /// unrecognized-fixture channel is silently skipped, the same "falls back
 /// to static default" tolerance `scene.rs` already has for a fixture with
 /// no channel map.
-pub fn apply_cue_output(dmx: &DmxUniverses, venue: &Venue, output: &HashMap<(ChanId, Attribute), f32>) {
-    let by_chan: HashMap<u32, &FixtureRecord> = venue.fixtures.iter().filter_map(|f| f.chan.map(|c| (c, f))).collect();
+pub fn apply_cue_output(
+    dmx: &DmxUniverses,
+    venue: &Venue,
+    output: &HashMap<(ChanId, Attribute), f32>,
+) {
+    let by_chan: HashMap<u32, &FixtureRecord> = venue
+        .fixtures
+        .iter()
+        .filter_map(|f| f.chan.map(|c| (c, f)))
+        .collect();
     for ((chan, attr), &value) in output {
-        let Some(fixture) = by_chan.get(chan) else { continue };
-        let Some(addr) = fixture.dmx_address() else { continue };
+        let Some(fixture) = by_chan.get(chan) else {
+            continue;
+        };
+        let Some(addr) = fixture.dmx_address() else {
+            continue;
+        };
         let manufacturer = fixture.manufacturer.as_deref().unwrap_or("");
         let model = fixture.model.as_deref().unwrap_or("");
-        let Some(map) = channel_map_for(manufacturer, model) else { continue };
-        let Some(offset) = map.offset_of(attr) else { continue };
+        let Some(map) = channel_map_for(manufacturer, model) else {
+            continue;
+        };
+        let Some(offset) = map.offset_of(attr) else {
+            continue;
+        };
         let channel0 = addr.start_channel.saturating_sub(1) + offset;
         dmx.set_channel(addr.universe, channel0, encode_attribute_byte(attr, value));
     }
@@ -70,7 +86,12 @@ pub fn tick_and_apply(dmx: &DmxUniverses, venue: &Venue, player: &mut CuePlayer,
 /// of the cue" behaviour a real console has, though without true relative/
 /// HTP blending (this is a flat last-write-wins per `(chan, attr)` byte,
 /// same as everywhere else in this project's DMX write path).
-pub fn tick_and_apply_effects(dmx: &DmxUniverses, venue: &Venue, player: &mut ignition_core::EffectPlayer, dt_secs: f32) {
+pub fn tick_and_apply_effects(
+    dmx: &DmxUniverses,
+    venue: &Venue,
+    player: &mut ignition_core::EffectPlayer,
+    dt_secs: f32,
+) {
     player.tick(dt_secs);
     let groups = venue.groups();
     apply_cue_output(dmx, venue, &player.output(&groups));
@@ -97,7 +118,13 @@ mod tests {
             "address": start_channel,
         }))
         .expect("valid fixture record");
-        Venue { fixtures: vec![record], room: vec![], screens: vec![], props: vec![], group_records: vec![] }
+        Venue {
+            fixtures: vec![record],
+            room: vec![],
+            screens: vec![],
+            props: vec![],
+            group_records: vec![],
+        }
     }
 
     /// End-to-end round trip: a cue targeting a real patched fixture's
@@ -114,8 +141,18 @@ mod tests {
             name: "Cue 1".into(),
             fade_secs: 0.0,
             values: vec![
-                CueValue { chan: 5, attr: Attribute::Dimmer, value: 1.0 },
-                CueValue { chan: 5, attr: Attribute::ColorAdd { channel: ColorChannel::Red }, value: 0.5 },
+                CueValue {
+                    chan: 5,
+                    attr: Attribute::Dimmer,
+                    value: 1.0,
+                },
+                CueValue {
+                    chan: 5,
+                    attr: Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                    value: 0.5,
+                },
             ],
         }]);
         player.go();
@@ -133,7 +170,13 @@ mod tests {
     /// same tolerance the read-side (`scene.rs`) already has.
     #[test]
     fn a_cue_targeting_an_unpatched_channel_is_silently_skipped() {
-        let venue = Venue { fixtures: vec![], room: vec![], screens: vec![], props: vec![], group_records: vec![] };
+        let venue = Venue {
+            fixtures: vec![],
+            room: vec![],
+            screens: vec![],
+            props: vec![],
+            group_records: vec![],
+        };
         let dmx = DmxUniverses::new();
         let mut output = HashMap::new();
         output.insert((99, Attribute::Dimmer), 1.0);

@@ -18,7 +18,7 @@
 //! rule as `cue.rs`: `tick(dt_secs)` takes elapsed time as data.
 
 use crate::group::Group;
-use crate::recipe::{resolve_target, RecipeTarget};
+use crate::recipe::{RecipeTarget, resolve_target};
 use ignition_proto::{Attribute, ChanId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -45,7 +45,13 @@ impl Waveform {
         let frac = t - t.floor(); // always in [0, 1), regardless of t's sign
         match self {
             Waveform::Sine => (frac * std::f32::consts::TAU).sin(),
-            Waveform::Square => if frac < 0.5 { 1.0 } else { -1.0 },
+            Waveform::Square => {
+                if frac < 0.5 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }
             Waveform::RampUp => frac * 2.0 - 1.0,
             Waveform::RampDown => 1.0 - frac * 2.0,
             Waveform::Triangle => {
@@ -106,12 +112,17 @@ pub struct EffectRecipe {
 
 impl EffectRecipe {
     fn value_at(&self, fixture_index: usize, fixture_count: usize, elapsed_secs: f32) -> f32 {
-        let spread_frac = if fixture_count > 1 { fixture_index as f32 / fixture_count as f32 } else { 0.0 };
+        let spread_frac = if fixture_count > 1 {
+            fixture_index as f32 / fixture_count as f32
+        } else {
+            0.0
+        };
         let spread_frac = match self.direction {
             EffectDirection::Forward => spread_frac,
             EffectDirection::Backward => 1.0 - spread_frac,
         };
-        let t = elapsed_secs * self.rate_hz + spread_frac * (self.phase_spread_deg / 360.0)
+        let t = elapsed_secs * self.rate_hz
+            + spread_frac * (self.phase_spread_deg / 360.0)
             + self.phase_offset_deg / 360.0;
         self.base + self.waveform.sample(t) * self.size
     }
@@ -141,7 +152,10 @@ pub struct EffectPlayer {
 
 impl EffectPlayer {
     pub fn new(effects: Vec<EffectRecipe>) -> Self {
-        Self { effects, elapsed: 0.0 }
+        Self {
+            effects,
+            elapsed: 0.0,
+        }
     }
 
     pub fn tick(&mut self, dt_secs: f32) {
@@ -192,7 +206,10 @@ mod tests {
     }
 
     fn groups() -> Vec<Group> {
-        vec![Group { name: "Pars".to_string(), chans: vec![1, 2, 3, 4] }]
+        vec![Group {
+            name: "Pars".to_string(),
+            chans: vec![1, 2, 3, 4],
+        }]
     }
 
     #[test]
@@ -213,7 +230,10 @@ mod tests {
         let v1 = *out.get(&(1, Attribute::Dimmer)).unwrap();
         let v2 = *out.get(&(2, Attribute::Dimmer)).unwrap();
         let v3 = *out.get(&(3, Attribute::Dimmer)).unwrap();
-        assert!(v1 != v2 && v2 != v3, "a full-spread chase should offset every fixture's phase");
+        assert!(
+            v1 != v2 && v2 != v3,
+            "a full-spread chase should offset every fixture's phase"
+        );
     }
 
     #[test]
@@ -233,7 +253,10 @@ mod tests {
         let out = player.output(&groups());
         let v1 = *out.get(&(1, Attribute::Dimmer)).unwrap();
         let v4 = *out.get(&(4, Attribute::Dimmer)).unwrap();
-        assert!((v1 - v4).abs() < 0.0001, "zero spread should keep every fixture in lockstep");
+        assert!(
+            (v1 - v4).abs() < 0.0001,
+            "zero spread should keep every fixture in lockstep"
+        );
     }
 
     #[test]
@@ -253,7 +276,10 @@ mod tests {
         let before = *player.output(&[]).get(&(1, Attribute::Dimmer)).unwrap();
         player.tick(0.25); // a quarter cycle at 1Hz
         let after = *player.output(&[]).get(&(1, Attribute::Dimmer)).unwrap();
-        assert!(after > before, "a ramp should have risen after ticking forward");
+        assert!(
+            after > before,
+            "a ramp should have risen after ticking forward"
+        );
     }
 
     #[test]
@@ -289,12 +315,21 @@ mod tests {
         let pan_v = *pan.output(&[]).get(&(1, Attribute::Pan)).unwrap();
         let tilt_v = *tilt.output(&[]).get(&(1, Attribute::Tilt)).unwrap();
         assert!(pan_v.abs() < 0.5, "pan should start near its base");
-        assert!((tilt_v - 30.0).abs() < 0.5, "tilt should start near its peak, 90deg ahead of pan");
+        assert!(
+            (tilt_v - 30.0).abs() < 0.5,
+            "tilt should start near its peak, 90deg ahead of pan"
+        );
         pan.tick(0.25);
         tilt.tick(0.25);
         let pan_v2 = *pan.output(&[]).get(&(1, Attribute::Pan)).unwrap();
         let tilt_v2 = *tilt.output(&[]).get(&(1, Attribute::Tilt)).unwrap();
-        assert!((pan_v2 - 30.0).abs() < 0.5, "a quarter cycle later, pan should be at its own peak");
-        assert!(tilt_v2.abs() < 0.5, "...and tilt should have come back down to its base");
+        assert!(
+            (pan_v2 - 30.0).abs() < 0.5,
+            "a quarter cycle later, pan should be at its own peak"
+        );
+        assert!(
+            tilt_v2.abs() < 0.5,
+            "...and tilt should have come back down to its base"
+        );
     }
 }

@@ -42,8 +42,8 @@ use gdtf::model::PrimitiveType;
 // `Name` is aliased because Bevy's prelude has one too, and this module
 // uses both — the GDTF one to read a node's declared name, Bevy's to
 // label the entity spawned for it.
-use gdtf::values::{Matrix, Name as GdtfName};
 use gdtf::GdtfFile;
+use gdtf::values::{Matrix, Name as GdtfName};
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
@@ -70,8 +70,13 @@ pub struct GdtfNode {
 }
 
 pub enum GdtfShape {
-    Box { size: Vec3 },
-    Cylinder { height: f32, radius: f32 },
+    Box {
+        size: Vec3,
+    },
+    Cylinder {
+        height: f32,
+        radius: f32,
+    },
     /// A `<Beam>` node (the light-exit point) or any geometry with no
     /// resolvable primitive (an `Undefined`/real-mesh-only model this
     /// slice doesn't import) — present in the tree for its transform and
@@ -90,7 +95,8 @@ pub struct GdtfFixture {
 /// convention as `gdtf_import::import_channel_map`.
 pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<GdtfFixture> {
     let file = File::open(path)?;
-    let gdtf = GdtfFile::new(file).map_err(|e| anyhow::anyhow!("failed to parse GDTF file: {e}"))?;
+    let gdtf =
+        GdtfFile::new(file).map_err(|e| anyhow::anyhow!("failed to parse GDTF file: {e}"))?;
 
     let fixture_type = gdtf
         .description
@@ -117,7 +123,9 @@ pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<G
     let mut pan_targets = Vec::new();
     let mut tilt_targets = Vec::new();
     for ch in &mode.dmx_channels {
-        let Some(logical) = ch.logical_channels.first() else { continue };
+        let Some(logical) = ch.logical_channels.first() else {
+            continue;
+        };
         let attr_name = logical.attribute.to_string();
         let geometry_name = ch.geometry.to_string();
         match attr_name.as_str() {
@@ -144,9 +152,17 @@ pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<G
     };
 
     let root = build_node(root_geometry, fixture_type, &pan_targets, &tilt_targets);
-    let fixture_type_name = fixture_type.name.as_deref().unwrap_or(&fixture_type.short_name).to_string();
+    let fixture_type_name = fixture_type
+        .name
+        .as_deref()
+        .unwrap_or(&fixture_type.short_name)
+        .to_string();
     let dmx_mode_name = mode.name.as_deref().unwrap_or("").to_string();
-    Ok(GdtfFixture { fixture_type_name, dmx_mode_name, root })
+    Ok(GdtfFixture {
+        fixture_type_name,
+        dmx_mode_name,
+        root,
+    })
 }
 
 fn build_node(
@@ -160,8 +176,20 @@ fn build_node(
     let shape = geometry_shape(g, fixture_type);
     let is_pan = pan_targets.iter().any(|t| t == &name);
     let is_tilt = tilt_targets.iter().any(|t| t == &name);
-    let children = g.children().iter().map(|c| build_node(c, fixture_type, pan_targets, tilt_targets)).collect();
-    GdtfNode { name, shape, local_pos, local_rot, is_pan, is_tilt, children }
+    let children = g
+        .children()
+        .iter()
+        .map(|c| build_node(c, fixture_type, pan_targets, tilt_targets))
+        .collect();
+    GdtfNode {
+        name,
+        shape,
+        local_pos,
+        local_rot,
+        is_pan,
+        is_tilt,
+        children,
+    }
 }
 
 /// `Geometry::position` isn't part of the `AnyGeometry` trait (each of
@@ -200,14 +228,19 @@ fn geometry_shape(g: &Geometry, fixture_type: &gdtf::fixture_type::FixtureType) 
     if matches!(g, Geometry::Beam(_)) {
         return GdtfShape::None;
     }
-    let Some(model) = g.model(fixture_type) else { return GdtfShape::None };
+    let Some(model) = g.model(fixture_type) else {
+        return GdtfShape::None;
+    };
     // Width/Length/Height -> X/Y/Z: matches this project's own Z-up
     // convention (height = vertical), consistent with how `fixture_profile
     // .rs`'s other real-world dimension comments (e.g. the Uking Par's
     // 180x180x100mm) already read real spec sheets.
     let size = Vec3::new(model.width as f32, model.length as f32, model.height as f32);
     match model.primitive_type {
-        PrimitiveType::Cylinder => GdtfShape::Cylinder { height: size.z, radius: size.x * 0.5 },
+        PrimitiveType::Cylinder => GdtfShape::Cylinder {
+            height: size.z,
+            radius: size.x * 0.5,
+        },
         PrimitiveType::Undefined if model.file.is_none() => GdtfShape::None,
         // Undefined-with-a-file means a real 3D model is referenced —
         // not imported this slice (see module doc); fall back to a box
@@ -250,7 +283,8 @@ impl GdtfLibrary {
     /// download should not stop the visualizer opening.
     pub fn load_dir(dir: &Path) -> anyhow::Result<Self> {
         let mut by_type = HashMap::new();
-        let entries = std::fs::read_dir(dir).map_err(|e| anyhow::anyhow!("reading {}: {e}", dir.display()))?;
+        let entries = std::fs::read_dir(dir)
+            .map_err(|e| anyhow::anyhow!("reading {}: {e}", dir.display()))?;
         for entry in entries {
             let path = entry?.path();
             if path.extension().and_then(|e| e.to_str()) != Some("gdtf") {
@@ -297,7 +331,10 @@ impl GdtfLibrary {
 /// Lowercased, with everything that is not alphanumeric removed — so
 /// "Mac Aura XB", "mac-aura-xb" and "MAC_AuraXB" all compare equal.
 fn normalize(s: &str) -> String {
-    s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+    s.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 /// Spawns `fixture`'s real Geometry tree as an entity hierarchy under
@@ -392,12 +429,15 @@ mod tests {
     /// to the same schema the real `gdtf` parser validates against, with
     /// added DMXChannel Pan/Tilt entries pointing at Yoke/Head so the
     /// pan/tilt-association logic has something real to resolve.
-    const MOVING_HEAD: &str =
-        concat!(env!("CARGO_MANIFEST_DIR"), "/assets/gdtf-samples/basic-moving-head.gdtf");
+    const MOVING_HEAD: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/gdtf-samples/basic-moving-head.gdtf"
+    );
 
     #[test]
     fn imports_the_real_yoke_head_beam_hierarchy() {
-        let fixture = import_geometry(Path::new(MOVING_HEAD), None).expect("parses the sample file");
+        let fixture =
+            import_geometry(Path::new(MOVING_HEAD), None).expect("parses the sample file");
         assert_eq!(fixture.root.name, "Base");
         assert_eq!(fixture.root.children.len(), 1);
 
@@ -416,7 +456,10 @@ mod tests {
 
         let beam = &head.children[0];
         assert_eq!(beam.name, "Beam");
-        assert!(matches!(beam.shape, GdtfShape::None), "a Beam node has no drawable primitive");
+        assert!(
+            matches!(beam.shape, GdtfShape::None),
+            "a Beam node has no drawable primitive"
+        );
         assert!((beam.local_pos.z - (-0.150)).abs() < 0.001);
     }
 
@@ -439,13 +482,14 @@ mod tests {
     /// transform propagation is the kinematic chain.
     #[test]
     fn tilting_the_files_own_joint_moves_the_beam_and_not_the_base() {
-        use bevy::app::App;
         use bevy::MinimalPlugins;
+        use bevy::app::App;
 
         let fixture = import_geometry(Path::new(MOVING_HEAD), None).unwrap();
 
         let mut app = App::new();
-        app.add_plugins(MinimalPlugins).add_plugins(bevy::transform::TransformPlugin);
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::transform::TransformPlugin);
 
         // No `AssetPlugin`: this test is about the transform hierarchy,
         // so the mesh store and the material handle are throwaway locals
@@ -453,19 +497,37 @@ mod tests {
         let material = Handle::<StandardMaterial>::default();
         let (root, emitters, base) = {
             let world = app.world_mut();
-            let root = world.spawn((Transform::default(), Visibility::default())).id();
+            let root = world
+                .spawn((Transform::default(), Visibility::default()))
+                .id();
             let mut emitters = Vec::new();
             let mut queue = bevy::ecs::world::CommandQueue::default();
             {
                 let mut commands = Commands::new(&mut queue, world);
                 let mut meshes = Assets::<Mesh>::default();
-                spawn_gdtf_tree(&mut commands, root, &fixture.root, &mut meshes, &material, &mut emitters);
+                spawn_gdtf_tree(
+                    &mut commands,
+                    root,
+                    &fixture.root,
+                    &mut meshes,
+                    &material,
+                    &mut emitters,
+                );
             }
             queue.apply(world);
-            let base = *world.entity(root).get::<Children>().unwrap().first().unwrap();
+            let base = *world
+                .entity(root)
+                .get::<Children>()
+                .unwrap()
+                .first()
+                .unwrap();
             (root, emitters, base)
         };
-        assert_eq!(emitters.len(), 1, "the sample file declares exactly one Beam node");
+        assert_eq!(
+            emitters.len(),
+            1,
+            "the sample file declares exactly one Beam node"
+        );
         {
             // The tree really is drawn, not just transformed: Base, Yoke
             // and Head each resolve to a primitive and get a mesh child,
@@ -473,16 +535,34 @@ mod tests {
             let world = app.world_mut();
             let drawn = world.query::<&Mesh3d>().iter(world).count();
             assert_eq!(drawn, 3, "Base, Yoke and Head should each draw a primitive");
-            let pans = world.query_filtered::<Entity, With<PanJoint>>().iter(world).count();
-            let tilts = world.query_filtered::<Entity, With<TiltJoint>>().iter(world).count();
-            assert_eq!((pans, tilts), (1, 1), "the file names one pan joint and one tilt joint");
+            let pans = world
+                .query_filtered::<Entity, With<PanJoint>>()
+                .iter(world)
+                .count();
+            let tilts = world
+                .query_filtered::<Entity, With<TiltJoint>>()
+                .iter(world)
+                .count();
+            assert_eq!(
+                (pans, tilts),
+                (1, 1),
+                "the file names one pan joint and one tilt joint"
+            );
         }
         let beam = emitters[0];
 
         app.update();
         let world = app.world();
-        let idle_beam = world.entity(beam).get::<GlobalTransform>().unwrap().translation();
-        let idle_base = world.entity(base).get::<GlobalTransform>().unwrap().translation();
+        let idle_beam = world
+            .entity(beam)
+            .get::<GlobalTransform>()
+            .unwrap()
+            .translation();
+        let idle_base = world
+            .entity(base)
+            .get::<GlobalTransform>()
+            .unwrap()
+            .translation();
         // Base -> Yoke(-0.225) -> Head(-0.100) -> Beam(-0.150), all on Z.
         assert!((idle_beam.z - (-0.475)).abs() < 0.001, "{idle_beam:?}");
 
@@ -501,8 +581,16 @@ mod tests {
         app.update();
 
         let world = app.world();
-        let tilted_beam = world.entity(beam).get::<GlobalTransform>().unwrap().translation();
-        let tilted_base = world.entity(base).get::<GlobalTransform>().unwrap().translation();
+        let tilted_beam = world
+            .entity(beam)
+            .get::<GlobalTransform>()
+            .unwrap()
+            .translation();
+        let tilted_base = world
+            .entity(base)
+            .get::<GlobalTransform>()
+            .unwrap()
+            .translation();
         assert!(
             idle_beam.distance(tilted_beam) > 0.01,
             "a 90 degree tilt should move the beam: {idle_beam:?} -> {tilted_beam:?}"

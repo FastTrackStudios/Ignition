@@ -66,7 +66,14 @@ impl Material for BeamMaterial {
 }
 
 impl BeamMaterial {
-    pub fn new(color: LinearRgba, origin: Vec3, direction: Vec3, half_angle_deg: f32, length: f32, haze: f32) -> Self {
+    pub fn new(
+        color: LinearRgba,
+        origin: Vec3,
+        direction: Vec3,
+        half_angle_deg: f32,
+        length: f32,
+        haze: f32,
+    ) -> Self {
         let d = direction.normalize_or_zero();
         Self {
             color,

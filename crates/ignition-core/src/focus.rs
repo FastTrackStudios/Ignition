@@ -23,7 +23,11 @@
 use ignition_proto::{Quat, Vec3};
 
 fn v_sub(a: Vec3, b: Vec3) -> Vec3 {
-    Vec3 { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }
+    Vec3 {
+        x: a.x - b.x,
+        y: a.y - b.y,
+        z: a.z - b.z,
+    }
 }
 
 fn v_len(a: Vec3) -> f64 {
@@ -33,25 +37,41 @@ fn v_len(a: Vec3) -> f64 {
 fn v_normalize(a: Vec3) -> Vec3 {
     let len = v_len(a);
     if len > 1e-9 {
-        Vec3 { x: a.x / len, y: a.y / len, z: a.z / len }
+        Vec3 {
+            x: a.x / len,
+            y: a.y / len,
+            z: a.z / len,
+        }
     } else {
         a
     }
 }
 
 fn q_conjugate(q: Quat) -> Quat {
-    Quat { w: q.w, x: -q.x, y: -q.y, z: -q.z }
+    Quat {
+        w: q.w,
+        x: -q.x,
+        y: -q.y,
+        z: -q.z,
+    }
 }
 
 /// Rotates `v` by unit quaternion `q` — the standard `2*dot(u,v)*u +
 /// (s^2 - dot(u,u))*v + 2*s*cross(u,v)` expansion of `q * v * q^-1`.
 fn q_rotate(q: Quat, v: Vec3) -> Vec3 {
-    let u = Vec3 { x: q.x, y: q.y, z: q.z };
+    let u = Vec3 {
+        x: q.x,
+        y: q.y,
+        z: q.z,
+    };
     let s = q.w;
     let dot_uv = u.x * v.x + u.y * v.y + u.z * v.z;
     let dot_uu = u.x * u.x + u.y * u.y + u.z * u.z;
-    let cross_uv =
-        Vec3 { x: u.y * v.z - u.z * v.y, y: u.z * v.x - u.x * v.z, z: u.x * v.y - u.y * v.x };
+    let cross_uv = Vec3 {
+        x: u.y * v.z - u.z * v.y,
+        y: u.z * v.x - u.x * v.z,
+        z: u.x * v.y - u.y * v.x,
+    };
     Vec3 {
         x: 2.0 * dot_uv * u.x + (s * s - dot_uu) * v.x + 2.0 * s * cross_uv.x,
         y: 2.0 * dot_uv * u.y + (s * s - dot_uu) * v.y + 2.0 * s * cross_uv.y,
@@ -101,7 +121,12 @@ mod direction_tests {
 
     fn rot_z(deg: f64) -> Quat {
         let h = deg.to_radians() / 2.0;
-        Quat { w: h.cos(), x: 0.0, y: 0.0, z: h.sin() }
+        Quat {
+            w: h.cos(),
+            x: 0.0,
+            y: 0.0,
+            z: h.sin(),
+        }
     }
 
     /// The point of the direction form: fixtures hung in different places
@@ -109,7 +134,11 @@ mod direction_tests {
     /// which aiming them at any shared point cannot achieve.
     #[test]
     fn fixtures_with_different_mounts_end_up_beam_parallel() {
-        let want = Vec3 { x: 0.0, y: -1.0, z: -0.3 };
+        let want = Vec3 {
+            x: 0.0,
+            y: -1.0,
+            z: -0.3,
+        };
         let mut aimed = Vec::new();
         for yaw in [0.0, 35.0, -70.0, 180.0] {
             let mount = rot_z(yaw);
@@ -122,9 +151,18 @@ mod direction_tests {
                     q_rotate(
                         {
                             let h = (tilt as f64).to_radians() / 2.0;
-                            Quat { w: h.cos(), x: h.sin(), y: 0.0, z: 0.0 }
+                            Quat {
+                                w: h.cos(),
+                                x: h.sin(),
+                                y: 0.0,
+                                z: 0.0,
+                            }
                         },
-                        Vec3 { x: 0.0, y: 0.0, z: -1.0 },
+                        Vec3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: -1.0,
+                        },
                     ),
                 ),
             );
@@ -141,15 +179,39 @@ mod direction_tests {
     /// is exact. Worth pinning so nobody replaces one with the other.
     #[test]
     fn a_focus_point_fans_where_a_direction_does_not() {
-        let mount = Quat { w: 1.0, x: 0.0, y: 0.0, z: 0.0 };
-        let target = Vec3 { x: 0.0, y: -10.0, z: 0.0 };
-        let left = Vec3 { x: -3.0, y: 0.0, z: 3.0 };
-        let right = Vec3 { x: 3.0, y: 0.0, z: 3.0 };
+        let mount = Quat {
+            w: 1.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        let target = Vec3 {
+            x: 0.0,
+            y: -10.0,
+            z: 0.0,
+        };
+        let left = Vec3 {
+            x: -3.0,
+            y: 0.0,
+            z: 3.0,
+        };
+        let right = Vec3 {
+            x: 3.0,
+            y: 0.0,
+            z: 3.0,
+        };
         let (pan_l, _) = pan_tilt_deg_to_point(left, mount, target);
         let (pan_r, _) = pan_tilt_deg_to_point(right, mount, target);
-        assert!((pan_l - pan_r).abs() > 20.0, "a shared point should fan them");
+        assert!(
+            (pan_l - pan_r).abs() > 20.0,
+            "a shared point should fan them"
+        );
 
-        let dir = Vec3 { x: 0.0, y: -1.0, z: -0.3 };
+        let dir = Vec3 {
+            x: 0.0,
+            y: -1.0,
+            z: -0.3,
+        };
         let (dpan_l, dtilt_l) = pan_tilt_deg_along(mount, dir);
         let (dpan_r, dtilt_r) = pan_tilt_deg_along(mount, dir);
         assert_eq!((dpan_l, dtilt_l), (dpan_r, dtilt_r));
@@ -160,7 +222,12 @@ mod direction_tests {
 mod tests {
     use super::*;
 
-    const IDENTITY: Quat = Quat { w: 1.0, x: 0.0, y: 0.0, z: 0.0 };
+    const IDENTITY: Quat = Quat {
+        w: 1.0,
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
 
     fn forward_direction(mount_rot: Quat, pan_deg: f64, tilt_deg: f64) -> Vec3 {
         // Mirrors scene.rs/fixture_profile.rs's real composition order:
@@ -178,7 +245,14 @@ mod tests {
             z: 0.0,
         };
         let combined = q_mul(q_mul(mount_rot, pan_q), tilt_q);
-        q_rotate(combined, Vec3 { x: 0.0, y: 0.0, z: -1.0 })
+        q_rotate(
+            combined,
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: -1.0,
+            },
+        )
     }
 
     fn q_mul(a: Quat, b: Quat) -> Quat {
@@ -193,9 +267,17 @@ mod tests {
     #[test]
     fn a_target_straight_below_a_hung_fixture_needs_no_pan_or_tilt() {
         let (pan, tilt) = pan_tilt_deg_to_point(
-            Vec3 { x: 0.0, y: 0.0, z: 5.0 },
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 5.0,
+            },
             IDENTITY,
-            Vec3 { x: 0.0, y: 0.0, z: -5.0 },
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: -5.0,
+            },
         );
         assert!(pan.abs() < 0.5, "expected ~0 pan, got {pan}");
         assert!(tilt.abs() < 0.5, "expected ~0 tilt, got {tilt}");
@@ -204,11 +286,22 @@ mod tests {
     #[test]
     fn a_target_level_and_in_front_needs_a_90_degree_tilt() {
         let (_, tilt) = pan_tilt_deg_to_point(
-            Vec3 { x: 0.0, y: 0.0, z: 5.0 },
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 5.0,
+            },
             IDENTITY,
-            Vec3 { x: 0.0, y: 10.0, z: 5.0 },
+            Vec3 {
+                x: 0.0,
+                y: 10.0,
+                z: 5.0,
+            },
         );
-        assert!((tilt - 90.0).abs() < 0.5, "expected ~90deg tilt, got {tilt}");
+        assert!(
+            (tilt - 90.0).abs() < 0.5,
+            "expected ~90deg tilt, got {tilt}"
+        );
     }
 
     /// The real proof: pick arbitrary pan/tilt, compute where that beam
@@ -226,7 +319,11 @@ mod tests {
             y: (25f64.to_radians() * 0.5).sin(),
             z: 0.0,
         };
-        let fixture_pos = Vec3 { x: 1.0, y: 2.0, z: 3.0 };
+        let fixture_pos = Vec3 {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        };
         let (pan0, tilt0) = (37.0f64, 52.0f64);
         let dir = forward_direction(mount_rot, pan0, tilt0);
         let target = Vec3 {
@@ -235,7 +332,13 @@ mod tests {
             z: fixture_pos.z + dir.z * 10.0,
         };
         let (pan, tilt) = pan_tilt_deg_to_point(fixture_pos, mount_rot, target);
-        assert!((pan as f64 - pan0).abs() < 0.5, "expected pan ~{pan0}, got {pan}");
-        assert!((tilt as f64 - tilt0).abs() < 0.5, "expected tilt ~{tilt0}, got {tilt}");
+        assert!(
+            (pan as f64 - pan0).abs() < 0.5,
+            "expected pan ~{pan0}, got {pan}"
+        );
+        assert!(
+            (tilt as f64 - tilt0).abs() < 0.5,
+            "expected tilt ~{tilt0}, got {tilt}"
+        );
     }
 }

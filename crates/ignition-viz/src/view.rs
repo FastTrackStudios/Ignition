@@ -53,7 +53,11 @@ impl ViewPreset {
         let center = (min + max) * 0.5;
         let (eye, target, up) = match self {
             Self::House => (
-                Vec3::new(center.x + size.x * 0.15, min.y + size.y * 0.06, min.z + size.z * 0.28),
+                Vec3::new(
+                    center.x + size.x * 0.15,
+                    min.y + size.y * 0.06,
+                    min.z + size.z * 0.28,
+                ),
                 Vec3::new(center.x, center.y, min.z + size.z * 0.55),
                 Vec3::Z,
             ),
@@ -74,6 +78,16 @@ impl ViewPreset {
             }
         };
         Transform::from_translation(eye).looking_at(target, up)
+    }
+
+    /// Frames an arbitrary eye/target pair instead of a preset.
+    ///
+    /// Presets answer "how does the room read"; this answers "what does
+    /// *that* look like", which is what checking a piece of set dressing
+    /// or one fixture's aim actually needs. Same up vector and the same
+    /// room-sized far plane, so it composes with everything else.
+    pub fn free_transform(eye: Vec3, target: Vec3) -> Transform {
+        Transform::from_translation(eye).looking_at(target, Vec3::Z)
     }
 
     /// Far plane, sized to the room so a large venue does not clip.
@@ -102,7 +116,11 @@ mod tests {
     fn the_house_camera_stands_in_the_room_and_faces_the_stage() {
         let (min, max) = bounds();
         let t = ViewPreset::House.transform(min, max);
-        assert!(t.translation.z > min.z && t.translation.z < max.z, "{}", t.translation.z);
+        assert!(
+            t.translation.z > min.z && t.translation.z < max.z,
+            "{}",
+            t.translation.z
+        );
         // Stage is +y in this data, and the house camera sits at -y, so
         // it must be looking that way.
         assert!(t.forward().y > 0.0, "{:?}", t.forward());

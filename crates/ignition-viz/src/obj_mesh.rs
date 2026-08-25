@@ -31,7 +31,11 @@ impl ObjMesh {
 
         for tri in &self.triangles {
             if let Some((split_z, keep_above)) = split {
-                let centroid_z = tri.iter().map(|&i| self.positions[i as usize].z).sum::<f32>() / 3.0;
+                let centroid_z = tri
+                    .iter()
+                    .map(|&i| self.positions[i as usize].z)
+                    .sum::<f32>()
+                    / 3.0;
                 if (centroid_z >= split_z) != keep_above {
                     continue;
                 }
@@ -47,10 +51,13 @@ impl ObjMesh {
             }
         }
 
-        Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_indices(Indices::U32(indices))
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_indices(Indices::U32(indices))
     }
 }
 
@@ -85,7 +92,11 @@ impl ObjMesh {
             }
         }
 
-        Self { positions, normals, triangles }
+        Self {
+            positions,
+            normals,
+            triangles,
+        }
     }
 
     /// Bounding-box half-extent along the largest axis — used to derive a

@@ -37,18 +37,25 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
     let doc: Value = serde_json::from_str(&text)?;
 
     let fixture_name = doc["name"].as_str().unwrap_or("").to_string();
-    let available_channels =
-        doc["availableChannels"].as_object().ok_or_else(|| anyhow::anyhow!("no availableChannels in fixture"))?;
-    let modes = doc["modes"].as_array().ok_or_else(|| anyhow::anyhow!("no modes in fixture"))?;
+    let available_channels = doc["availableChannels"]
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("no availableChannels in fixture"))?;
+    let modes = doc["modes"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("no modes in fixture"))?;
 
     let mode = match mode_name {
         Some(name) => modes
             .iter()
             .find(|m| m["name"].as_str() == Some(name))
             .ok_or_else(|| anyhow::anyhow!("fixture has no mode named {name:?}"))?,
-        None => modes.first().ok_or_else(|| anyhow::anyhow!("fixture defines no modes"))?,
+        None => modes
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("fixture defines no modes"))?,
     };
-    let mode_channels = mode["channels"].as_array().ok_or_else(|| anyhow::anyhow!("mode has no channel list"))?;
+    let mode_channels = mode["channels"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("mode has no channel list"))?;
     let resolved_mode_name = mode["name"].as_str().unwrap_or("").to_string();
 
     let mut channels = Vec::new();
@@ -57,8 +64,12 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
         // object = a templated/matrix channel reference (e.g. per-pixel
         // channels) — not modelled here, skipped like a GDTF virtual
         // channel with no offset.
-        let Some(channel_name) = entry.as_str() else { continue };
-        let Some(channel_def) = available_channels.get(channel_name) else { continue };
+        let Some(channel_name) = entry.as_str() else {
+            continue;
+        };
+        let Some(channel_def) = available_channels.get(channel_name) else {
+            continue;
+        };
         if let Some(attr) = map_capability(channel_def) {
             channels.push((offset as u16, attr));
         }
@@ -68,7 +79,10 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
     Ok(OflChannelMap {
         fixture_name,
         mode_name: resolved_mode_name,
-        channel_map: ChannelMap { footprint, channels },
+        channel_map: ChannelMap {
+            footprint,
+            channels,
+        },
     })
 }
 
@@ -123,21 +137,47 @@ mod tests {
     /// github.com/OpenLightingProject/open-fixture-library (MIT-licensed,
     /// same as the rest of OFL) and vendored under
     /// `assets/ofl-samples/LICENSE-NOTICE.txt`.
-    const UKING_PAR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/ofl-samples/uking-par-light-b262.json");
-    const HURRICANE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/ofl-samples/chauvet-dj-hurricane-haze-1dx.json");
+    const UKING_PAR: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/ofl-samples/uking-par-light-b262.json"
+    );
+    const HURRICANE: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/ofl-samples/chauvet-dj-hurricane-haze-1dx.json"
+    );
 
     #[test]
     fn imports_the_real_uking_par_channel_layout() {
         let result = import_channel_map(Path::new(UKING_PAR), Some("7-channel")).unwrap();
         assert_eq!(result.channel_map.footprint, 7);
         assert_eq!(result.channel_map.offset_of(&Attribute::Dimmer), Some(0));
-        assert_eq!(result.channel_map.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Red }), Some(1));
-        assert_eq!(result.channel_map.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Green }), Some(2));
-        assert_eq!(result.channel_map.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Blue }), Some(3));
+        assert_eq!(
+            result.channel_map.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::Red
+            }),
+            Some(1)
+        );
+        assert_eq!(
+            result.channel_map.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::Green
+            }),
+            Some(2)
+        );
+        assert_eq!(
+            result.channel_map.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::Blue
+            }),
+            Some(3)
+        );
         assert_eq!(result.channel_map.offset_of(&Attribute::Strobe), Some(4));
         // Confirms the bug this file's own corrections in channel_map.rs
         // fixed: no White channel exists on the real fixture.
-        assert_eq!(result.channel_map.offset_of(&Attribute::ColorAdd { channel: ColorChannel::White }), None);
+        assert_eq!(
+            result.channel_map.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::White
+            }),
+            None
+        );
     }
 
     #[test]

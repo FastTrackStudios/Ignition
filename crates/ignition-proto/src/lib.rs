@@ -44,9 +44,15 @@ pub enum Attribute {
     Dimmer,
     Pan,
     Tilt,
-    ColorAdd { channel: ColorChannel },
-    ColorWheel { slot: u16 },
-    GoboWheel { slot: u16 },
+    ColorAdd {
+        channel: ColorChannel,
+    },
+    ColorWheel {
+        slot: u16,
+    },
+    GoboWheel {
+        slot: u16,
+    },
     Zoom,
     Focus,
     Iris,
@@ -112,7 +118,10 @@ impl ChannelMap {
     /// The 0-based offset of `attr` within this fixture's footprint, if this
     /// personality has that attribute at all.
     pub fn offset_of(&self, attr: &Attribute) -> Option<u16> {
-        self.channels.iter().find(|(_, a)| a == attr).map(|(o, _)| *o)
+        self.channels
+            .iter()
+            .find(|(_, a)| a == attr)
+            .map(|(o, _)| *o)
     }
 }
 
@@ -126,10 +135,22 @@ mod tests {
             chan: 4,
             fixture_type: "generic/led-wash".into(),
             placement: Placement {
-                position: Vec3 { x: -4.48, y: -7.78, z: 3.25 },
-                orientation: Quat { w: 0.842, x: 0.537, y: -0.028, z: -0.044 },
+                position: Vec3 {
+                    x: -4.48,
+                    y: -7.78,
+                    z: 3.25,
+                },
+                orientation: Quat {
+                    w: 0.842,
+                    x: 0.537,
+                    y: -0.028,
+                    z: -0.044,
+                },
             },
-            dmx: Some(DmxAddress { universe: 1, start_channel: 1 }),
+            dmx: Some(DmxAddress {
+                universe: 1,
+                start_channel: 1,
+            }),
         };
         let json = serde_json::to_string(&entry).unwrap();
         let back: PatchEntry = serde_json::from_str(&json).unwrap();

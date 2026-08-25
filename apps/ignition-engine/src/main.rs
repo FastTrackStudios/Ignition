@@ -34,7 +34,11 @@ fn main() {
         *by_tag.entry(key).or_default() += 1;
     }
 
-    let unpatched: Vec<u32> = fixtures.iter().filter(|f| !f.patched).map(|f| f.chan).collect();
+    let unpatched: Vec<u32> = fixtures
+        .iter()
+        .filter(|f| !f.patched)
+        .map(|f| f.chan)
+        .collect();
 
     println!(
         "Norco venue extract: {} channels ({} patched, {} unpatched: {unpatched:?})",

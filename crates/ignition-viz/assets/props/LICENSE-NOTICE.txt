@@ -1,0 +1,18 @@
+drum-kit.glb is "Full Drum Kit" by Batoski, obtained from Poly Pizza
+(https://poly.pizza/m/1HvDgRF7fX) and released under Creative Commons
+Attribution 3.0:
+
+    https://creativecommons.org/licenses/by/3.0/
+
+CC-BY *does* impose a condition — attribution — unlike the CC0
+characters in ../people. This file is that attribution, and it has to
+travel with any build that ships the model. CC-BY 3.0 is compatible with
+this repo's GPL-3.0-or-later: the licence stays on the asset, the
+attribution stays with it, and neither is ours to change.
+
+The file is the unmodified glTF binary as published.
+
+Note on scale and orientation: the kit is authored in arbitrary units,
+facing its own -Z, with its footprint off-origin. `props.rs` scales it
+so its kick drum is a real 22" (0.559 m) rather than trusting the
+bounding box, recentres it, and turns it to face the audience.

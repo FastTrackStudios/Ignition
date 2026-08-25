@@ -86,7 +86,12 @@ impl DmxUniverses {
         // neutral) purely because nothing had ever been received — the
         // same class of bug the dimmer default-to-off fix addressed, one
         // level up: universe-level rather than per-attribute.
-        if !self.inner.read().expect("dmx universes lock poisoned").contains_key(&dmx.universe) {
+        if !self
+            .inner
+            .read()
+            .expect("dmx universes lock poisoned")
+            .contains_key(&dmx.universe)
+        {
             return ResolvedAttributes::default();
         }
 
@@ -130,7 +135,13 @@ impl DmxUniverses {
         // off, anything else is on). Only fixtures with a real Dimmer
         // channel get `resolved.dimmer` from that channel above.
         let color_is_lit = resolved.color.iter().any(|c| *c > 0.001);
-        if resolved.has_color && color_is_lit && !map.channels.iter().any(|(_, a)| matches!(a, Attribute::Dimmer)) {
+        if resolved.has_color
+            && color_is_lit
+            && !map
+                .channels
+                .iter()
+                .any(|(_, a)| matches!(a, Attribute::Dimmer))
+        {
             resolved.dimmer = 1.0;
         }
         resolved
@@ -157,7 +168,13 @@ impl Default for ResolvedAttributes {
         // Dimmer channel at all, e.g. a bare 3ch RGB par) is handled
         // explicitly in `resolve()` below, not by defaulting every fixture
         // to "on."
-        Self { dimmer: 0.0, pan_deg: 0.0, tilt_deg: 0.0, color: [0.0, 0.0, 0.0], has_color: false }
+        Self {
+            dimmer: 0.0,
+            pan_deg: 0.0,
+            tilt_deg: 0.0,
+            color: [0.0, 0.0, 0.0],
+            has_color: false,
+        }
     }
 }
 
@@ -171,7 +188,9 @@ pub fn spawn_sacn_listener(universes: DmxUniverses, max_universe: u16) {
         let mut receiver = match SacnReceiver::with_ip(addr, None) {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("ignition-viz: sACN receiver failed to start: {e:?} — no live sACN input");
+                eprintln!(
+                    "ignition-viz: sACN receiver failed to start: {e:?} — no live sACN input"
+                );
                 return;
             }
         };
@@ -229,7 +248,7 @@ pub fn spawn_artnet_listener(universes: DmxUniverses) {
                     let data: &Vec<u8> = output.data.as_ref();
                     universes.write_universe(universe, data);
                 }
-                Ok(_) => {} // Poll/PollReply/other control traffic — ignore.
+                Ok(_) => {}  // Poll/PollReply/other control traffic — ignore.
                 Err(_) => {} // Non-Art-Net traffic on the port — ignore.
             }
         }
@@ -241,7 +260,10 @@ mod tests {
     use super::*;
 
     fn map(channels: Vec<(u16, Attribute)>) -> ChannelMap {
-        ChannelMap { footprint: channels.len() as u16 + 1, channels }
+        ChannelMap {
+            footprint: channels.len() as u16 + 1,
+            channels,
+        }
     }
 
     #[test]
@@ -257,11 +279,29 @@ mod tests {
         });
         let m = map(vec![
             (0, Attribute::Dimmer),
-            (1, Attribute::ColorAdd { channel: ColorChannel::Red }),
-            (2, Attribute::ColorAdd { channel: ColorChannel::Green }),
-            (3, Attribute::ColorAdd { channel: ColorChannel::Blue }),
+            (
+                1,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Red,
+                },
+            ),
+            (
+                2,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Green,
+                },
+            ),
+            (
+                3,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Blue,
+                },
+            ),
         ]);
-        let addr = DmxAddress { universe: 1, start_channel: 10 };
+        let addr = DmxAddress {
+            universe: 1,
+            start_channel: 10,
+        };
 
         let resolved = universes.resolve(&addr, &m);
         assert!((resolved.dimmer - 1.0).abs() < 0.01);
@@ -275,7 +315,10 @@ mod tests {
     fn unpatched_universe_resolves_to_zero_not_a_panic() {
         let universes = DmxUniverses::new();
         let m = map(vec![(0, Attribute::Dimmer)]);
-        let addr = DmxAddress { universe: 99, start_channel: 1 };
+        let addr = DmxAddress {
+            universe: 99,
+            start_channel: 1,
+        };
         let resolved = universes.resolve(&addr, &m);
         assert_eq!(resolved.dimmer, 0.0);
     }
@@ -290,10 +333,21 @@ mod tests {
             u
         });
         let m = map(vec![(0, Attribute::Pan), (1, Attribute::Tilt)]);
-        let addr = DmxAddress { universe: 2, start_channel: 1 };
+        let addr = DmxAddress {
+            universe: 2,
+            start_channel: 1,
+        };
         let resolved = universes.resolve(&addr, &m);
-        assert!(resolved.pan_deg.abs() < 2.0, "expected ~0deg, got {}", resolved.pan_deg);
-        assert!(resolved.tilt_deg.abs() < 2.0, "expected ~0deg, got {}", resolved.tilt_deg);
+        assert!(
+            resolved.pan_deg.abs() < 2.0,
+            "expected ~0deg, got {}",
+            resolved.pan_deg
+        );
+        assert!(
+            resolved.tilt_deg.abs() < 2.0,
+            "expected ~0deg, got {}",
+            resolved.tilt_deg
+        );
     }
 
     #[test]
@@ -306,8 +360,20 @@ mod tests {
             u
         });
         let m = map(vec![(0, Attribute::Dimmer)]);
-        let a = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
-        let b = universes.resolve(&DmxAddress { universe: 1, start_channel: 8 }, &m);
+        let a = universes.resolve(
+            &DmxAddress {
+                universe: 1,
+                start_channel: 1,
+            },
+            &m,
+        );
+        let b = universes.resolve(
+            &DmxAddress {
+                universe: 1,
+                start_channel: 8,
+            },
+            &m,
+        );
         assert!((a.dimmer - 10.0 / 255.0).abs() < 0.01);
         assert!((b.dimmer - 200.0 / 255.0).abs() < 0.01);
     }
@@ -322,11 +388,32 @@ mod tests {
         let universes = DmxUniverses::new(); // no universe ever written
         let m = map(vec![
             (0, Attribute::Dimmer),
-            (1, Attribute::ColorAdd { channel: ColorChannel::Red }),
-            (2, Attribute::ColorAdd { channel: ColorChannel::Green }),
-            (3, Attribute::ColorAdd { channel: ColorChannel::Blue }),
+            (
+                1,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Red,
+                },
+            ),
+            (
+                2,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Green,
+                },
+            ),
+            (
+                3,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Blue,
+                },
+            ),
         ]);
-        let resolved = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
+        let resolved = universes.resolve(
+            &DmxAddress {
+                universe: 1,
+                start_channel: 1,
+            },
+            &m,
+        );
         assert_eq!(resolved.dimmer, 0.0);
     }
 
@@ -342,7 +429,13 @@ mod tests {
         // no DMX source running.
         let universes = DmxUniverses::new(); // universe 1 never written at all
         let m = map(vec![(0, Attribute::Pan), (1, Attribute::Tilt)]);
-        let resolved = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
+        let resolved = universes.resolve(
+            &DmxAddress {
+                universe: 1,
+                start_channel: 1,
+            },
+            &m,
+        );
         assert_eq!(resolved.pan_deg, 0.0);
         assert_eq!(resolved.tilt_deg, 0.0);
     }
@@ -354,12 +447,33 @@ mod tests {
         // bytes ARE its brightness.
         let universes = DmxUniverses::new();
         let m = map(vec![
-            (0, Attribute::ColorAdd { channel: ColorChannel::Red }),
-            (1, Attribute::ColorAdd { channel: ColorChannel::Green }),
-            (2, Attribute::ColorAdd { channel: ColorChannel::Blue }),
+            (
+                0,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Red,
+                },
+            ),
+            (
+                1,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Green,
+                },
+            ),
+            (
+                2,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Blue,
+                },
+            ),
         ]);
         // All-zero RGB (nothing sent) -> still off, not full-on.
-        let off = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
+        let off = universes.resolve(
+            &DmxAddress {
+                universe: 1,
+                start_channel: 1,
+            },
+            &m,
+        );
         assert_eq!(off.dimmer, 0.0);
 
         // Non-zero RGB -> on, governed by colour alone (no dimmer channel
@@ -370,7 +484,13 @@ mod tests {
             u[0] = 255;
             u
         });
-        let on = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
+        let on = universes.resolve(
+            &DmxAddress {
+                universe: 1,
+                start_channel: 1,
+            },
+            &m,
+        );
         assert_eq!(on.dimmer, 1.0);
         assert!((on.color[0] - 1.0).abs() < 0.01);
     }

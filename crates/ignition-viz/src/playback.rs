@@ -57,7 +57,9 @@ impl Playback {
         } else if let Some(path) = recipes {
             let list: RecipeCueList = read_json(path, "a recipe cue list")?;
             let groups = venue.groups();
-            let cues = ignition_core::expand_cue_list(&list.cues, &groups, &|chan| venue.placement_of(chan));
+            let cues = ignition_core::expand_cue_list(&list.cues, &groups, &|chan| {
+                venue.placement_of(chan)
+            });
             println!(
                 "loaded recipe cue list {:?}: {} cues, compiled against {} real venue groups",
                 list.name,
@@ -72,7 +74,11 @@ impl Playback {
         let effects = match effects {
             Some(path) => {
                 let list: EffectList = read_json(path, "an effect list")?;
-                println!("loaded effect list {:?}: {} effects", list.name, list.effects.len());
+                println!(
+                    "loaded effect list {:?}: {} effects",
+                    list.name,
+                    list.effects.len()
+                );
                 Some(EffectPlayer::new(list.effects))
             }
             None => None,
@@ -92,8 +98,10 @@ impl Playback {
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path, what: &str) -> anyhow::Result<T> {
-    let raw = std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
-    serde_json::from_str(&raw).map_err(|e| anyhow::anyhow!("parsing {} as {what}: {e}", path.display()))
+    let raw = std::fs::read_to_string(path)
+        .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
+    serde_json::from_str(&raw)
+        .map_err(|e| anyhow::anyhow!("parsing {} as {what}: {e}", path.display()))
 }
 
 /// Advances whatever is loaded and writes the result into the universes.
@@ -115,7 +123,12 @@ pub fn tick_playback(
 }
 
 /// Space is GO, the way it is on every console an operator has used.
-pub fn go_on_space(keys: Res<ButtonInput<KeyCode>>, venue: Res<VenueRes>, dmx: Res<DmxRes>, mut playback: ResMut<Playback>) {
+pub fn go_on_space(
+    keys: Res<ButtonInput<KeyCode>>,
+    venue: Res<VenueRes>,
+    dmx: Res<DmxRes>,
+    mut playback: ResMut<Playback>,
+) {
     if !keys.just_pressed(KeyCode::Space) {
         return;
     }

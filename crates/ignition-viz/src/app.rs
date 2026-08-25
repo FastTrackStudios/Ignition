@@ -15,14 +15,14 @@
 //! actually happened before the next one is asked for.
 
 use crate::beam::BeamPlugin;
-use crate::playback::{go_on_space, tick_playback, Playback};
-use crate::spawn::{
-    apply_ambient, spawn_venue, update_beams, update_fixture_bodies, update_live_fixtures,
-    BeamStyle, DmxRes, GdtfLibraryRes, VenueRes, VizSettings,
-};
 use crate::gdtf_geometry::GdtfLibrary;
+use crate::playback::{Playback, go_on_space, tick_playback};
+use crate::spawn::{
+    BeamStyle, DmxRes, GdtfLibraryRes, VenueRes, VizSettings, apply_ambient, spawn_venue,
+    update_beams, update_fixture_bodies, update_live_fixtures,
+};
 use crate::view::ViewPreset;
-use crate::{dmx, DmxUniverses, Venue};
+use crate::{DmxUniverses, Venue, dmx};
 use bevy::app::SubApps;
 use bevy::asset::{AssetPlugin, RenderAssetUsages};
 use bevy::camera::{Hdr, RenderTarget};
@@ -31,10 +31,12 @@ use bevy::image::Image;
 use bevy::light::VolumetricFog;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
-use bevy::render::render_resource::{Extent3d, PollType, TextureDimension, TextureFormat, TextureUsages};
-use bevy::render::renderer::RenderDevice;
-use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 use bevy::render::RenderPlugin;
+use bevy::render::render_resource::{
+    Extent3d, PollType, TextureDimension, TextureFormat, TextureUsages,
+};
+use bevy::render::renderer::RenderDevice;
+use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::ExitCondition;
 use bevy::winit::WinitPlugin;
 use std::path::{Path, PathBuf};
@@ -50,10 +52,14 @@ pub struct VizConfig {
     pub height: u32,
     pub haze: f32,
     pub ambient: f32,
-    /// Whether to draw the props layer (drum kit, speakers, mics). Off by
-    /// default: as placeholder boxes they clutter every shot without
-    /// adding information worth the noise.
+    /// Whether to draw the props layer (people, drum kit, speakers,
+    /// mics). On by default now that the people and the kit are real
+    /// models rather than the placeholder boxes that used to clutter
+    /// every shot without adding information worth the noise.
     pub show_props: bool,
+    /// An explicit eye/target pair, overriding `view`'s framing. What
+    /// `--eye`/`--look` set, for inspecting one corner of the room.
+    pub camera: Option<(Vec3, Vec3)>,
     /// Room objects to leave out — see `VizSettings::exclude`.
     pub exclude: Vec<String>,
     /// Global exposure — see `VizSettings::exposure`.
@@ -104,7 +110,9 @@ impl Plugin for VizPlugin {
                 exposure: self.config.exposure,
                 screen_content: self.config.screen_content.clone(),
             })
-            .insert_resource(GdtfLibraryRes(self.gdtf.lock().expect("gdtf library lock").take()))
+            .insert_resource(GdtfLibraryRes(
+                self.gdtf.lock().expect("gdtf library lock").take(),
+            ))
             .add_plugins(BeamPlugin)
             .add_systems(Startup, spawn_venue)
             // Playback runs before the fixture update so a beam reflects
@@ -120,6 +128,7 @@ impl Plugin for VizPlugin {
                 )
                     .chain(),
             )
+            .add_systems(Update, crate::props::pose_new_characters)
             // After transform propagation, because a beam's world pose is
             // whatever the joints `update_live_fixtures` just moved ended
             // up producing — see `update_beams`.
@@ -144,28 +153,42 @@ pub fn run(config: VizConfig, playback: Playback, gdtf: Option<GdtfLibrary>) {
     }
 }
 
-fn run_windowed(config: VizConfig, dmx: DmxUniverses, playback: Playback, gdtf: Option<GdtfLibrary>) {
+fn run_windowed(
+    config: VizConfig,
+    dmx: DmxUniverses,
+    playback: Playback,
+    gdtf: Option<GdtfLibrary>,
+) {
     let (min, max) = config.venue.bounds();
     let view = config.view;
+    let free_camera = config.camera;
     let (width, height) = (config.width, config.height);
     let assets_dir = config.assets_dir.clone();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            file_path: assets_dir.clone(),
-            ..default()
-        }).set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Ignition — visualizer".into(),
-                resolution: (width, height).into(),
-                ..default()
-            }),
-            ..default()
-        }))
-        .add_plugins(VizPlugin { config, dmx, gdtf: Mutex::new(gdtf) })
+        .add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    file_path: assets_dir.clone(),
+                    ..default()
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Ignition — visualizer".into(),
+                        resolution: (width, height).into(),
+                        ..default()
+                    }),
+                    ..default()
+                }),
+        )
+        .add_plugins(VizPlugin {
+            config,
+            dmx,
+            gdtf: Mutex::new(gdtf),
+        })
         .insert_resource(playback)
         .add_systems(Startup, move |mut commands: Commands| {
-            commands.spawn(camera_bundle(view, min, max));
+            commands.spawn(camera_bundle(view, free_camera, min, max));
         })
         .run();
 }
@@ -181,6 +204,7 @@ fn run_snapshot(
 ) {
     let (min, max) = config.venue.bounds();
     let view = config.view;
+    let free_camera = config.camera;
     let (width, height) = (config.width, config.height);
     let settle_frames = config.settle_frames.max(1);
 
@@ -188,7 +212,10 @@ fn run_snapshot(
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
-            .set(AssetPlugin { file_path: assets_dir, ..default() })
+            .set(AssetPlugin {
+                file_path: assets_dir,
+                ..default()
+            })
             .set(WindowPlugin {
                 // A lot of Bevy still expects the plugin to be present,
                 // just with nothing to show.
@@ -205,23 +232,38 @@ fn run_snapshot(
             })
             .disable::<WinitPlugin>(),
     )
-    .add_plugins(VizPlugin { config, dmx, gdtf: Mutex::new(gdtf) })
+    .add_plugins(VizPlugin {
+        config,
+        dmx,
+        gdtf: Mutex::new(gdtf),
+    })
     .insert_resource(playback);
 
     let mut target = Image::new_uninit(
-        Extent3d { width, height, depth_or_array_layers: 1 },
+        Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
         TextureDimension::D2,
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
     );
     target.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
-    let target: RenderTarget = app.world_mut().resource_mut::<Assets<Image>>().add(target).into();
+    let target: RenderTarget = app
+        .world_mut()
+        .resource_mut::<Assets<Image>>()
+        .add(target)
+        .into();
 
     let camera_target = target.clone();
     app.add_systems(Startup, move |mut commands: Commands| {
         // `RenderTarget` is its own component — adding it to the camera
         // is what points it at the offscreen image instead of a window.
-        commands.spawn((camera_bundle(view, min, max), camera_target.clone()));
+        commands.spawn((
+            camera_bundle(view, free_camera, min, max),
+            camera_target.clone(),
+        ));
     });
 
     // No `run()`: the schedule runner is replaced by the loop below, so
@@ -239,7 +281,10 @@ fn run_snapshot(
             .world()
             .resource::<RenderDevice>()
             .wgpu_device()
-            .poll(PollType::Wait { submission_index: None, timeout: None })
+            .poll(PollType::Wait {
+                submission_index: None,
+                timeout: None,
+            })
             .expect("polling the render device");
     };
 
@@ -250,7 +295,12 @@ fn run_snapshot(
     subapps
         .main
         .world_mut()
-        .spawn(Screenshot::image(target.as_image().expect("snapshot target is an image").clone()))
+        .spawn(Screenshot::image(
+            target
+                .as_image()
+                .expect("snapshot target is an image")
+                .clone(),
+        ))
         .observe(save_to_disk(out));
     // The capture is queued on the render world and the PNG encode runs
     // on a task pool thread, so the app has to keep stepping for a few
@@ -272,7 +322,12 @@ fn run_snapshot(
 /// The camera every mode uses: HDR so bloom has something above white to
 /// work with, a tonemapper that desaturates as it clips, and the preset's
 /// own framing.
-fn camera_bundle(view: ViewPreset, min: Vec3, max: Vec3) -> impl Bundle {
+fn camera_bundle(
+    view: ViewPreset,
+    free: Option<(Vec3, Vec3)>,
+    min: Vec3,
+    max: Vec3,
+) -> impl Bundle {
     (
         Camera3d::default(),
         // Without HDR the additive beam material clips at 1.0 and there
@@ -290,7 +345,10 @@ fn camera_bundle(view: ViewPreset, min: Vec3, max: Vec3) -> impl Bundle {
         // exact failure the hand-written ACES pass produced.
         Tonemapping::TonyMcMapface,
         Bloom::NATURAL,
-        view.transform(min, max),
+        match free {
+            Some((eye, target)) => ViewPreset::free_transform(eye, target),
+            None => view.transform(min, max),
+        },
         // Only does anything when there is a `FogVolume` in the scene,
         // so it costs nothing in `BeamStyle::Shader` and there is no
         // reason to make the camera's shape depend on the beam style.

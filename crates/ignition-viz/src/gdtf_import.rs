@@ -39,7 +39,8 @@ pub struct GdtfChannelMap {
 /// first.
 pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Result<GdtfChannelMap> {
     let file = File::open(path)?;
-    let gdtf = GdtfFile::new(file).map_err(|e| anyhow::anyhow!("failed to parse GDTF file: {e}"))?;
+    let gdtf =
+        GdtfFile::new(file).map_err(|e| anyhow::anyhow!("failed to parse GDTF file: {e}"))?;
 
     let fixture_type = gdtf
         .description
@@ -67,24 +68,39 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
         // function actually implements). Nothing to map to a byte offset,
         // skip it.
         let Some(offsets) = &ch.offset else { continue };
-        let Some(&coarse) = offsets.first() else { continue };
+        let Some(&coarse) = offsets.first() else {
+            continue;
+        };
         if coarse < 1 {
             continue; // malformed/non-standard — 1-based per the GDTF spec.
         }
         let offset0 = (coarse - 1) as u16;
         footprint = footprint.max(offset0 + 1);
 
-        let Some(logical) = ch.logical_channels.first() else { continue };
+        let Some(logical) = ch.logical_channels.first() else {
+            continue;
+        };
         let attr_name = logical.attribute.to_string();
         if let Some(attr) = map_attribute_name(&attr_name) {
             channels.push((offset0, attr));
         }
     }
 
-    let fixture_type_name = fixture_type.name.as_deref().unwrap_or(&fixture_type.short_name).to_string();
+    let fixture_type_name = fixture_type
+        .name
+        .as_deref()
+        .unwrap_or(&fixture_type.short_name)
+        .to_string();
     let dmx_mode_name = mode.name.as_deref().unwrap_or("").to_string();
 
-    Ok(GdtfChannelMap { fixture_type_name, dmx_mode_name, channel_map: ChannelMap { footprint, channels } })
+    Ok(GdtfChannelMap {
+        fixture_type_name,
+        dmx_mode_name,
+        channel_map: ChannelMap {
+            footprint,
+            channels,
+        },
+    })
 }
 
 /// Maps a GDTF standard-attribute name (the `Attribute` XML value on a
@@ -101,20 +117,36 @@ fn map_attribute_name(name: &str) -> Option<Attribute> {
         "Dimmer" => Some(Attribute::Dimmer),
         "Pan" => Some(Attribute::Pan),
         "Tilt" => Some(Attribute::Tilt),
-        "ColorAdd_R" => Some(Attribute::ColorAdd { channel: ColorChannel::Red }),
-        "ColorAdd_G" => Some(Attribute::ColorAdd { channel: ColorChannel::Green }),
-        "ColorAdd_B" => Some(Attribute::ColorAdd { channel: ColorChannel::Blue }),
-        "ColorAdd_W" => Some(Attribute::ColorAdd { channel: ColorChannel::White }),
-        "ColorAdd_A" | "ColorAdd_Am" => Some(Attribute::ColorAdd { channel: ColorChannel::Amber }),
-        "ColorAdd_UV" => Some(Attribute::ColorAdd { channel: ColorChannel::Uv }),
-        "ColorAdd_L" | "ColorAdd_Lime" => Some(Attribute::ColorAdd { channel: ColorChannel::Lime }),
+        "ColorAdd_R" => Some(Attribute::ColorAdd {
+            channel: ColorChannel::Red,
+        }),
+        "ColorAdd_G" => Some(Attribute::ColorAdd {
+            channel: ColorChannel::Green,
+        }),
+        "ColorAdd_B" => Some(Attribute::ColorAdd {
+            channel: ColorChannel::Blue,
+        }),
+        "ColorAdd_W" => Some(Attribute::ColorAdd {
+            channel: ColorChannel::White,
+        }),
+        "ColorAdd_A" | "ColorAdd_Am" => Some(Attribute::ColorAdd {
+            channel: ColorChannel::Amber,
+        }),
+        "ColorAdd_UV" => Some(Attribute::ColorAdd {
+            channel: ColorChannel::Uv,
+        }),
+        "ColorAdd_L" | "ColorAdd_Lime" => Some(Attribute::ColorAdd {
+            channel: ColorChannel::Lime,
+        }),
         "Zoom" => Some(Attribute::Zoom),
         "Focus" | "Focus1" => Some(Attribute::Focus),
         "Iris" => Some(Attribute::Iris),
         s if s.starts_with("Gobo") && !s.contains("Pos") && !s.contains("Rotate") => {
             Some(Attribute::GoboWheel { slot: 0 })
         }
-        s if s.starts_with("Color") && s.starts_with("Color1") => Some(Attribute::ColorWheel { slot: 0 }),
+        s if s.starts_with("Color") && s.starts_with("Color1") => {
+            Some(Attribute::ColorWheel { slot: 0 })
+        }
         s if s.starts_with("Shutter") || s.starts_with("Strobe") => Some(Attribute::Strobe),
         "" => None, // Virtual/placeholder logical channel, not a real attribute.
         other => Some(Attribute::Custom(other.to_string())),
@@ -127,27 +159,39 @@ mod tests {
 
     /// Real GDTF file, not hand-authored test data — see
     /// `assets/gdtf-samples/LICENSE-NOTICE.txt`.
-    const SAMPLE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/gdtf-samples/Generic@RGBW8@test.gdtf");
+    const SAMPLE: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/gdtf-samples/Generic@RGBW8@test.gdtf"
+    );
 
     #[test]
     fn imports_real_channel_layout_from_a_gdtf_file() {
-        let result = import_channel_map(Path::new(SAMPLE), None).expect("parses the sample GDTF file");
+        let result =
+            import_channel_map(Path::new(SAMPLE), None).expect("parses the sample GDTF file");
         assert_eq!(result.dmx_mode_name, "Default");
         assert_eq!(result.channel_map.footprint, 4);
         assert_eq!(
-            result.channel_map.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Red }),
+            result.channel_map.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::Red
+            }),
             Some(0)
         );
         assert_eq!(
-            result.channel_map.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Green }),
+            result.channel_map.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::Green
+            }),
             Some(1)
         );
         assert_eq!(
-            result.channel_map.offset_of(&Attribute::ColorAdd { channel: ColorChannel::Blue }),
+            result.channel_map.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::Blue
+            }),
             Some(2)
         );
         assert_eq!(
-            result.channel_map.offset_of(&Attribute::ColorAdd { channel: ColorChannel::White }),
+            result.channel_map.offset_of(&Attribute::ColorAdd {
+                channel: ColorChannel::White
+            }),
             Some(3)
         );
         // The file's virtual Dimmer channel has no DMX offset at all (it's

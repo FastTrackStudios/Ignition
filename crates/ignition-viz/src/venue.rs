@@ -94,7 +94,10 @@ impl FixtureRecord {
     /// This fixture's live DMX address, if the venue data has both pieces —
     /// `None` for anything not DMX-controlled (or missing patch data).
     pub fn dmx_address(&self) -> Option<ignition_proto::DmxAddress> {
-        Some(ignition_proto::DmxAddress { universe: self.universe?, start_channel: self.address? })
+        Some(ignition_proto::DmxAddress {
+            universe: self.universe?,
+            start_channel: self.address?,
+        })
     }
 
     /// This fixture's real hung position and mount orientation, in
@@ -139,7 +142,11 @@ impl FixtureRecord {
     }
 
     pub fn kind(&self) -> FixtureKind {
-        if self.tags.iter().any(|t| t.contains("Yoke") || t.contains("Mover")) {
+        if self
+            .tags
+            .iter()
+            .any(|t| t.contains("Yoke") || t.contains("Mover"))
+        {
             FixtureKind::Mover
         } else if self.tags.iter().any(|t| t.contains("Wash")) {
             FixtureKind::Wash
@@ -266,7 +273,10 @@ impl Venue {
     pub fn groups(&self) -> Vec<ignition_core::Group> {
         self.group_records
             .iter()
-            .map(|g| ignition_core::Group { name: g.label.clone(), chans: parse_channel_ranges(&g.channels) })
+            .map(|g| ignition_core::Group {
+                name: g.label.clone(),
+                chans: parse_channel_ranges(&g.channels),
+            })
             .collect()
     }
 
@@ -274,7 +284,10 @@ impl Venue {
     /// Focus Point expansion — `None` for a channel with no matching
     /// fixture (an unpatched or out-of-range `chan`).
     pub fn placement_of(&self, chan: u32) -> Option<ignition_proto::Placement> {
-        self.fixtures.iter().find(|f| f.chan == Some(chan)).map(|f| f.placement())
+        self.fixtures
+            .iter()
+            .find(|f| f.chan == Some(chan))
+            .map(|f| f.placement())
     }
 
     /// Axis-aligned bounds over every object's centre — used to auto-frame
@@ -298,7 +311,13 @@ impl Venue {
         let is_annex = |name: &str| {
             name.contains("Alcove") || name.contains("Closet") || name.contains("Booth")
         };
-        for g in self.room.iter().filter(|g| !is_annex(&g.name)).chain(&self.screens).chain(&self.props) {
+        for g in self
+            .room
+            .iter()
+            .filter(|g| !is_annex(&g.name))
+            .chain(&self.screens)
+            .chain(&self.props)
+        {
             visit(g.position.to_vec3());
         }
         (min, max)
@@ -321,7 +340,10 @@ mod tests {
             ChannelListEntry::Chan(7),
             ChannelListEntry::Range("80-82".to_string()),
         ];
-        assert_eq!(parse_channel_ranges(&entries), vec![1, 2, 3, 50, 7, 80, 81, 82]);
+        assert_eq!(
+            parse_channel_ranges(&entries),
+            vec![1, 2, 3, 50, 7, 80, 81, 82]
+        );
     }
 
     #[test]
@@ -363,12 +385,21 @@ mod tests {
             "size": {"x": 0.2, "y": 0.2, "z": 0.2},
         }))
         .expect("valid fixture record");
-        let venue = Venue { fixtures: vec![record], room: vec![], screens: vec![], props: vec![], group_records: vec![] };
+        let venue = Venue {
+            fixtures: vec![record],
+            room: vec![],
+            screens: vec![],
+            props: vec![],
+            group_records: vec![],
+        };
 
         let placement = venue.placement_of(7).expect("fixture on channel 7 exists");
         assert!((placement.position.x - 1.5).abs() < 0.001);
         assert!((placement.position.y - (-2.0)).abs() < 0.001);
         assert!((placement.position.z - 3.25).abs() < 0.001);
-        assert!(venue.placement_of(999).is_none(), "no fixture on channel 999");
+        assert!(
+            venue.placement_of(999).is_none(),
+            "no fixture on channel 999"
+        );
     }
 }

@@ -7,12 +7,12 @@
 //! per-frame work is writing a handful of numbers into its own material
 //! and light: no geometry is rebuilt to move a mover.
 
-use crate::beam::{beam_mesh, beam_transform, BeamMaterial};
+use crate::beam::{BeamMaterial, beam_mesh, beam_transform};
 use crate::channel_map::channel_map_for;
 use crate::dmx::DmxUniverses;
 use crate::fixture_profile::{
-    beam_half_angle_deg, peak_candela, power_watts, resolve_fixture, BeamThrow, BodyVisual,
-    BEAM_CONE_SEGMENTS, LUMENS_PER_WATT, SHAFT_CANDELA_THRESHOLD,
+    BEAM_CONE_SEGMENTS, BeamThrow, BodyVisual, LUMENS_PER_WATT, SHAFT_CANDELA_THRESHOLD,
+    beam_half_angle_deg, peak_candela, power_watts, resolve_fixture,
 };
 use crate::gdtf_geometry::{self, GdtfLibrary, PanJoint, TiltJoint};
 use crate::venue::Venue;
@@ -298,11 +298,7 @@ pub fn nearest_rig_surface(fixture_pos: Vec3, surfaces: &[RigSurface]) -> Option
 /// fixture's real measured offset, because there is no equivalent
 /// contradiction to resolve and inventing one would move fixtures that
 /// are already right.
-pub fn rig_to_surface(
-    fixture_pos: Vec3,
-    fixture_rot: Quat,
-    surface: &RigSurface,
-) -> (Vec3, Quat) {
+pub fn rig_to_surface(fixture_pos: Vec3, fixture_rot: Quat, surface: &RigSurface) -> (Vec3, Quat) {
     let inv = surface.rot.inverse();
     let mut local = inv * (fixture_pos - surface.center);
     if surface.is_ceiling {
@@ -322,7 +318,11 @@ fn solid(
     let base = LinearRgba::from(color);
     materials.add(StandardMaterial {
         base_color: color,
-        emissive: LinearRgba::rgb(base.red * emissive, base.green * emissive, base.blue * emissive),
+        emissive: LinearRgba::rgb(
+            base.red * emissive,
+            base.green * emissive,
+            base.blue * emissive,
+        ),
         perceptual_roughness: 0.9,
         ..default()
     })
@@ -363,7 +363,9 @@ pub fn spawn_venue(
     let unit_cube = meshes.add(Cuboid::from_length(1.0));
     // Every piece of room structure a fixture might be mounted to.
     let mut rig_surfaces: Vec<RigSurface> = Vec::new();
-    let beam_cone = meshes.add(Mesh::from(beam_mesh().mesh().resolution(BEAM_CONE_SEGMENTS)));
+    let beam_cone = meshes.add(Mesh::from(
+        beam_mesh().mesh().resolution(BEAM_CONE_SEGMENTS),
+    ));
 
     // Room surfaces are lit only by the rig, which is the point — but a
     // fixture that is switched off would then be invisible in a dark
@@ -421,7 +423,11 @@ pub fn spawn_venue(
         // paper-thin. See `RoomAnchors`.
         let anchor = commands
             .spawn((
-                Transform { translation: center, rotation: rot, scale: Vec3::ONE },
+                Transform {
+                    translation: center,
+                    rotation: rot,
+                    scale: Vec3::ONE,
+                },
                 Visibility::default(),
                 Name::new(g.name.clone()),
             ))
@@ -458,7 +464,11 @@ pub fn spawn_venue(
 
     // Pillars are an architectural detail like the columns, not
     // set-dressing — always drawn, unlike the rest of props.json.
-    for g in venue.props.iter().filter(|g| g.name.starts_with("Pillar") && !settings.skip(&g.name)) {
+    for g in venue
+        .props
+        .iter()
+        .filter(|g| g.name.starts_with("Pillar") && !settings.skip(&g.name))
+    {
         commands.spawn((
             Mesh3d(unit_cube.clone()),
             MeshMaterial3d(solid(&mut standard, PILLAR_COLOR, UNLIT)),
@@ -472,24 +482,42 @@ pub fn spawn_venue(
     }
 
     if settings.show_props {
+        let mut person_index = 0usize;
         for g in &venue.props {
-            // People have no dedicated shape yet: as a plain box a
-            // standing person is just a tall box with no readable
-            // silhouette, easy to mistake for a fixture. Pillars are
-            // drawn unconditionally above — architecture, not dressing.
-            if g.name.starts_with("Person") || g.name.starts_with("Pillar") || settings.skip(&g.name) {
+            // Pillars are drawn unconditionally above — architecture, not
+            // dressing.
+            if g.name.starts_with("Pillar") || settings.skip(&g.name) {
                 continue;
             }
-            commands.spawn((
-                Mesh3d(unit_cube.clone()),
-                MeshMaterial3d(solid(&mut standard, PROP_COLOR, UNLIT)),
-                Transform {
-                    translation: g.position.to_vec3(),
-                    rotation: g.orientation(),
-                    scale: g.size.to_vec3().max(Vec3::splat(0.02)),
-                },
-                Name::new(g.name.clone()),
-            ));
+            // People and mic stands have real shapes now (see `props.rs`);
+            // everything else is still a labelled box, which is honest
+            // about how much is known about it.
+            if g.name.starts_with("Person") {
+                // The drummer is the one person whose pose is dictated
+                // by the furniture; everyone else just stands.
+                let pose = if g.name.contains("Drummer") {
+                    crate::props::Pose::SittingAtDrums
+                } else {
+                    crate::props::Pose::Standing
+                };
+                crate::props::spawn_person(&mut commands, &asset_server, g, person_index, pose);
+                person_index += 1;
+            } else if g.name.starts_with("Drum Kit") {
+                crate::props::spawn_drum_kit(&mut commands, &asset_server, g);
+            } else if g.name.starts_with("Mic") {
+                crate::props::spawn_mic_stand(&mut commands, &mut meshes, &mut standard, g);
+            } else {
+                commands.spawn((
+                    Mesh3d(unit_cube.clone()),
+                    MeshMaterial3d(solid(&mut standard, PROP_COLOR, UNLIT)),
+                    Transform {
+                        translation: g.position.to_vec3(),
+                        rotation: g.orientation(),
+                        scale: g.size.to_vec3().max(Vec3::splat(0.02)),
+                    },
+                    Name::new(g.name.clone()),
+                ));
+            }
         }
     }
 
@@ -513,7 +541,11 @@ pub fn spawn_venue(
         let depth = 0.05_f32.max(size.z);
         let body = commands
             .spawn((
-                Transform { translation: center, rotation: rot, scale: Vec3::ONE },
+                Transform {
+                    translation: center,
+                    rotation: rot,
+                    scale: Vec3::ONE,
+                },
                 Visibility::default(),
                 Name::new(g.name.clone()),
             ))
@@ -559,7 +591,11 @@ pub fn spawn_venue(
                 absorption: 0.05,
                 ..default()
             },
-            Transform { translation: center, scale: size, ..default() },
+            Transform {
+                translation: center,
+                scale: size,
+                ..default()
+            },
             Name::new("Haze"),
         ));
     }
@@ -594,7 +630,10 @@ pub fn spawn_venue(
         // real nested geometry with the manufacturer's own dimensions,
         // and joints the file itself identifies rather than a Z-split
         // guessed from a placeholder mesh's vertex histogram.
-        let gdtf = gdtf_library.0.as_ref().and_then(|lib| lib.find(manufacturer, model));
+        let gdtf = gdtf_library
+            .0
+            .as_ref()
+            .and_then(|lib| lib.find(manufacturer, model));
 
         // Rig a fixture to the surface it hangs from, rather than
         // leaving it floating at an absolute height: move the ceiling and
@@ -620,8 +659,13 @@ pub fn spawn_venue(
             };
 
         let mut root_cmd = commands.spawn((
-            Fixture { index, base_rot: local_rot },
-            FixtureBody { material: body_material.clone() },
+            Fixture {
+                index,
+                base_rot: local_rot,
+            },
+            FixtureBody {
+                material: body_material.clone(),
+            },
             Transform {
                 // The QLC+ anchor correction is a body offset applied to
                 // the mesh child below — putting it here as well is what
@@ -655,7 +699,12 @@ pub fn spawn_venue(
             );
         } else {
             match &visual.body {
-                BodyVisual::Mesh { asset, scale, pre_rotate, split_z } => {
+                BodyVisual::Mesh {
+                    asset,
+                    scale,
+                    pre_rotate,
+                    split_z,
+                } => {
                     // With a split, the yoke is drawn on the root and the
                     // head becomes a child that tilts about the split
                     // point. With none, the whole mesh is the body.
@@ -676,7 +725,8 @@ pub fn spawn_venue(
                     // mount: the floor movers are patched with a 180
                     // degree flip, which turned "up" into "down" and sank
                     // them through the stage by twice the correction.
-                    let anchor = f.orientation().inverse() * (visual.position - f.position.to_vec3());
+                    let anchor =
+                        f.orientation().inverse() * (visual.position - f.position.to_vec3());
                     commands.spawn((
                         Mesh3d(meshes.add(asset.to_bevy_mesh(yoke_split))),
                         MeshMaterial3d(body_material.clone()),
@@ -734,7 +784,11 @@ pub fn spawn_venue(
                         None => emitters.push(root),
                     }
                 }
-                BodyVisual::Bar { length, width, height } => {
+                BodyVisual::Bar {
+                    length,
+                    width,
+                    height,
+                } => {
                     commands.spawn((
                         Mesh3d(unit_cube.clone()),
                         MeshMaterial3d(body_material.clone()),
@@ -758,7 +812,9 @@ pub fn spawn_venue(
         // the fixture is dark — cheaper and steadier than spawning and
         // despawning entities as cues fade in and out.
         for emitter in emitters {
-            commands.entity(emitter).insert((BeamEmitter { fixture: index }, EmitterState::default()));
+            commands
+                .entity(emitter)
+                .insert((BeamEmitter { fixture: index }, EmitterState::default()));
             if settings.beam_style == BeamStyle::Shader {
                 commands.spawn((
                     FixtureBeam,
@@ -828,11 +884,21 @@ pub fn update_live_fixtures(
     mut heads: Query<(&ChildOf, &mut Transform), (With<FixtureHead>, Without<Fixture>)>,
     mut pan_joints: Query<
         (&ChildOf, &mut Transform),
-        (With<PanJoint>, Without<Fixture>, Without<FixtureHead>, Without<TiltJoint>),
+        (
+            With<PanJoint>,
+            Without<Fixture>,
+            Without<FixtureHead>,
+            Without<TiltJoint>,
+        ),
     >,
     mut tilt_joints: Query<
         (&ChildOf, &mut Transform),
-        (With<TiltJoint>, Without<Fixture>, Without<FixtureHead>, Without<PanJoint>),
+        (
+            With<TiltJoint>,
+            Without<Fixture>,
+            Without<FixtureHead>,
+            Without<PanJoint>,
+        ),
     >,
     mut emitters: Query<(&BeamEmitter, &mut EmitterState)>,
     child_of: Query<&ChildOf>,
@@ -849,7 +915,8 @@ pub fn update_live_fixtures(
         }
         let manufacturer = f.manufacturer.as_deref().unwrap_or("");
         let model = f.model.as_deref().unwrap_or("");
-        let (Some(addr), Some(map)) = (f.dmx_address(), channel_map_for(manufacturer, model)) else {
+        let (Some(addr), Some(map)) = (f.dmx_address(), channel_map_for(manufacturer, model))
+        else {
             continue;
         };
         let live = dmx.0.resolve(&addr, &map);
@@ -882,10 +949,13 @@ pub fn update_live_fixtures(
 
     // Which venue record each fixture root came from, so the joint passes
     // can resolve their own fixture by walking up to it.
-    let mut index_of_root: std::collections::HashMap<Entity, usize> = std::collections::HashMap::new();
+    let mut index_of_root: std::collections::HashMap<Entity, usize> =
+        std::collections::HashMap::new();
     for (entity, fixture, mut transform) in &mut fixtures {
         index_of_root.insert(entity, fixture.index);
-        let Some(Some(live)) = resolved.get(fixture.index) else { continue };
+        let Some(Some(live)) = resolved.get(fixture.index) else {
+            continue;
+        };
         // Pan turns the whole fixture on its mount, which is what a real
         // yoke does. A GDTF file that declares its own pan joint gets
         // that applied there instead, below. `base_rot`, not the venue
@@ -922,14 +992,18 @@ pub fn update_live_fixtures(
     // so a live reading rotates the manufacturer's own axis. Everything
     // below the joint follows because Bevy propagates transforms.
     for (parent, mut transform) in &mut pan_joints {
-        let Some(live) = fixture_index_of(parent.parent()).and_then(|i| resolved.get(i)).and_then(|o| o.as_ref())
+        let Some(live) = fixture_index_of(parent.parent())
+            .and_then(|i| resolved.get(i))
+            .and_then(|o| o.as_ref())
         else {
             continue;
         };
         transform.rotation = live.pan;
     }
     for (parent, mut transform) in &mut tilt_joints {
-        let Some(live) = fixture_index_of(parent.parent()).and_then(|i| resolved.get(i)).and_then(|o| o.as_ref())
+        let Some(live) = fixture_index_of(parent.parent())
+            .and_then(|i| resolved.get(i))
+            .and_then(|o| o.as_ref())
         else {
             continue;
         };
@@ -990,10 +1064,17 @@ pub fn update_beams(
     mut beam_materials: ResMut<Assets<BeamMaterial>>,
     emitters: Query<(&EmitterState, &GlobalTransform, Option<&Children>)>,
     mut beam_q: Query<
-        (&mut Transform, &mut Visibility, &MeshMaterial3d<BeamMaterial>),
+        (
+            &mut Transform,
+            &mut Visibility,
+            &MeshMaterial3d<BeamMaterial>,
+        ),
         (With<FixtureBeam>, Without<FixtureSpill>),
     >,
-    mut spill_q: Query<(&mut Visibility, &mut SpotLight), (With<FixtureSpill>, Without<FixtureBeam>)>,
+    mut spill_q: Query<
+        (&mut Visibility, &mut SpotLight),
+        (With<FixtureSpill>, Without<FixtureBeam>),
+    >,
 ) {
     let throw = BeamThrow::for_venue(&venue.0);
     let seconds = time.elapsed_secs();
@@ -1018,10 +1099,15 @@ pub fn update_beams(
                             m.color = LinearRgba::rgb(color[0], color[1], color[2]);
                             // The shader works in world space, so these
                             // stay world even though the mesh is local.
-                            m.direction_angle =
-                                Vec4::new(direction.x, direction.y, direction.z, state.half_angle_deg);
+                            m.direction_angle = Vec4::new(
+                                direction.x,
+                                direction.y,
+                                direction.z,
+                                state.half_angle_deg,
+                            );
                             m.origin_length = Vec4::new(origin.x, origin.y, origin.z, length);
-                            m.params = Vec4::new(settings.haze * SHADER_HAZE_SCALE, seconds, 0.0, 0.0);
+                            m.params =
+                                Vec4::new(settings.haze * SHADER_HAZE_SCALE, seconds, 0.0, 0.0);
                         }
                     }
                     None => *visibility = Visibility::Hidden,
@@ -1084,7 +1170,9 @@ pub fn update_fixture_bodies(
     let venue = &venue.0;
 
     for (fixture, body) in &bodies {
-        let Some(record) = venue.fixtures.get(fixture.index) else { continue };
+        let Some(record) = venue.fixtures.get(fixture.index) else {
+            continue;
+        };
         let manufacturer = record.manufacturer.as_deref().unwrap_or("");
         let model = record.model.as_deref().unwrap_or("");
 
@@ -1139,10 +1227,26 @@ mod rigging_tests {
     /// overhead movers hang from.
     fn venue() -> Vec<RigSurface> {
         vec![
-            surface(true, Vec3::new(0.0, -6.5, 2.743), Vec3::new(5.95, 9.45, 0.01)),
-            surface(false, Vec3::new(0.0, -1.9, 0.0), Vec3::new(5.95, 1.52, 0.01)),
-            surface(false, Vec3::new(0.0, 2.95, 1.45), Vec3::new(4.57, 0.01, 1.30)),
-            surface(false, Vec3::new(0.0, 2.34, 2.36), Vec3::new(1.63, 0.08, 0.08)),
+            surface(
+                true,
+                Vec3::new(0.0, -6.5, 2.743),
+                Vec3::new(5.95, 9.45, 0.01),
+            ),
+            surface(
+                false,
+                Vec3::new(0.0, -1.9, 0.0),
+                Vec3::new(5.95, 1.52, 0.01),
+            ),
+            surface(
+                false,
+                Vec3::new(0.0, 2.95, 1.45),
+                Vec3::new(4.57, 0.01, 1.30),
+            ),
+            surface(
+                false,
+                Vec3::new(0.0, 2.34, 2.36),
+                Vec3::new(1.63, 0.08, 0.08),
+            ),
         ]
     }
 
@@ -1159,7 +1263,11 @@ mod rigging_tests {
         // A strip lying on the deck.
         assert_eq!(which(Vec3::new(2.0, -1.9, 0.05)), 1, "strip -> floor");
         // A par mounted on the back wall.
-        assert_eq!(which(Vec3::new(3.0, 2.90, 2.30)), 2, "back wall par -> wall");
+        assert_eq!(
+            which(Vec3::new(3.0, 2.90, 2.30)),
+            2,
+            "back wall par -> wall"
+        );
         // An overhead mover on the beam over the drums.
         assert_eq!(which(Vec3::new(1.0, 2.32, 2.30)), 3, "OH mover -> beam");
     }

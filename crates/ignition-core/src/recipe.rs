@@ -96,7 +96,9 @@ pub struct RecipeCueList {
 pub(crate) fn resolve_target(target: &RecipeTarget, groups: &[Group]) -> Vec<ChanId> {
     match target {
         RecipeTarget::Chans(chans) => chans.clone(),
-        RecipeTarget::Group(name) => group::find(groups, name).map(|g| g.chans.clone()).unwrap_or_default(),
+        RecipeTarget::Group(name) => group::find(groups, name)
+            .map(|g| g.chans.clone())
+            .unwrap_or_default(),
     }
 }
 
@@ -116,33 +118,71 @@ pub fn expand_recipe(
     let mut out = Vec::new();
     for chan in chans {
         match &recipe.apply {
-            RecipeApply::Dimmer(value) => out.push(CueValue { chan, attr: Attribute::Dimmer, value: *value }),
+            RecipeApply::Dimmer(value) => out.push(CueValue {
+                chan,
+                attr: Attribute::Dimmer,
+                value: *value,
+            }),
             RecipeApply::Color(c) => {
-                out.push(CueValue { chan, attr: Attribute::ColorAdd { channel: ColorChannel::Red }, value: c.red });
                 out.push(CueValue {
                     chan,
-                    attr: Attribute::ColorAdd { channel: ColorChannel::Green },
+                    attr: Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                    value: c.red,
+                });
+                out.push(CueValue {
+                    chan,
+                    attr: Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
                     value: c.green,
                 });
-                out.push(CueValue { chan, attr: Attribute::ColorAdd { channel: ColorChannel::Blue }, value: c.blue });
+                out.push(CueValue {
+                    chan,
+                    attr: Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                    value: c.blue,
+                });
             }
             RecipeApply::FocusPoint(target) => {
                 if let Some(p) = placement(chan) {
                     let (pan, tilt) = pan_tilt_deg_to_point(p.position, p.orientation, *target);
-                    out.push(CueValue { chan, attr: Attribute::Pan, value: pan });
-                    out.push(CueValue { chan, attr: Attribute::Tilt, value: tilt });
+                    out.push(CueValue {
+                        chan,
+                        attr: Attribute::Pan,
+                        value: pan,
+                    });
+                    out.push(CueValue {
+                        chan,
+                        attr: Attribute::Tilt,
+                        value: tilt,
+                    });
                 }
             }
             RecipeApply::FocusDirection(dir) => {
                 if let Some(p) = placement(chan) {
                     let (pan, tilt) = pan_tilt_deg_along(p.orientation, *dir);
-                    out.push(CueValue { chan, attr: Attribute::Pan, value: pan });
-                    out.push(CueValue { chan, attr: Attribute::Tilt, value: tilt });
+                    out.push(CueValue {
+                        chan,
+                        attr: Attribute::Pan,
+                        value: pan,
+                    });
+                    out.push(CueValue {
+                        chan,
+                        attr: Attribute::Tilt,
+                        value: tilt,
+                    });
                 }
             }
             RecipeApply::Raw(values) => {
                 for (attr, value) in values {
-                    out.push(CueValue { chan, attr: attr.clone(), value: *value });
+                    out.push(CueValue {
+                        chan,
+                        attr: attr.clone(),
+                        value: *value,
+                    });
                 }
             }
         }
@@ -155,16 +195,30 @@ pub fn expand_recipe(
 /// the same `(chan, attr)` as an earlier one in the same cue wins — the
 /// same last-write convention `CuePlayer::go()` already uses when folding
 /// a cue's values into its tracked state.
-pub fn expand_cue(raw: &RecipeCue, groups: &[Group], placement: &dyn Fn(ChanId) -> Option<Placement>) -> Cue {
+pub fn expand_cue(
+    raw: &RecipeCue,
+    groups: &[Group],
+    placement: &dyn Fn(ChanId) -> Option<Placement>,
+) -> Cue {
     let mut values = Vec::new();
     for recipe in &raw.recipes {
         values.extend(expand_recipe(recipe, groups, placement));
     }
-    Cue { name: raw.name.clone(), fade_secs: raw.fade_secs, values }
+    Cue {
+        name: raw.name.clone(),
+        fade_secs: raw.fade_secs,
+        values,
+    }
 }
 
-pub fn expand_cue_list(raw: &[RecipeCue], groups: &[Group], placement: &dyn Fn(ChanId) -> Option<Placement>) -> Vec<Cue> {
-    raw.iter().map(|c| expand_cue(c, groups, placement)).collect()
+pub fn expand_cue_list(
+    raw: &[RecipeCue],
+    groups: &[Group],
+    placement: &dyn Fn(ChanId) -> Option<Placement>,
+) -> Vec<Cue> {
+    raw.iter()
+        .map(|c| expand_cue(c, groups, placement))
+        .collect()
 }
 
 #[cfg(test)]
@@ -173,16 +227,25 @@ mod tests {
     use ignition_proto::{Quat, Vec3};
 
     fn groups() -> Vec<Group> {
-        vec![Group { name: "Pars".to_string(), chans: vec![1, 2, 3] }]
+        vec![Group {
+            name: "Pars".to_string(),
+            chans: vec![1, 2, 3],
+        }]
     }
 
     #[test]
     fn a_group_target_resolves_to_its_real_channels() {
-        let recipe =
-            Recipe { target: RecipeTarget::Group("Pars".to_string()), apply: RecipeApply::Dimmer(0.8) };
+        let recipe = Recipe {
+            target: RecipeTarget::Group("Pars".to_string()),
+            apply: RecipeApply::Dimmer(0.8),
+        };
         let values = expand_recipe(&recipe, &groups(), &|_| None);
         assert_eq!(values.len(), 3);
-        assert!(values.iter().all(|v| v.attr == Attribute::Dimmer && (v.value - 0.8).abs() < 0.001));
+        assert!(
+            values
+                .iter()
+                .all(|v| v.attr == Attribute::Dimmer && (v.value - 0.8).abs() < 0.001)
+        );
         let mut chans: Vec<_> = values.iter().map(|v| v.chan).collect();
         chans.sort();
         assert_eq!(chans, vec![1, 2, 3]);
@@ -190,7 +253,10 @@ mod tests {
 
     #[test]
     fn an_unknown_group_name_resolves_to_no_fixtures_not_an_error() {
-        let recipe = Recipe { target: RecipeTarget::Group("Nonexistent".to_string()), apply: RecipeApply::Dimmer(1.0) };
+        let recipe = Recipe {
+            target: RecipeTarget::Group("Nonexistent".to_string()),
+            apply: RecipeApply::Dimmer(1.0),
+        };
         assert!(expand_recipe(&recipe, &groups(), &|_| None).is_empty());
     }
 
@@ -198,28 +264,62 @@ mod tests {
     fn a_color_recipe_emits_red_green_blue_per_channel() {
         let recipe = Recipe {
             target: RecipeTarget::Chans(vec![5]),
-            apply: RecipeApply::Color(ColorPreset { name: "Amber".to_string(), red: 1.0, green: 0.5, blue: 0.0 }),
+            apply: RecipeApply::Color(ColorPreset {
+                name: "Amber".to_string(),
+                red: 1.0,
+                green: 0.5,
+                blue: 0.0,
+            }),
         };
         let values = expand_recipe(&recipe, &[], &|_| None);
         assert_eq!(values.len(), 3);
-        assert!(values.iter().any(|v| v.attr == Attribute::ColorAdd { channel: ColorChannel::Red } && v.value == 1.0));
-        assert!(
-            values.iter().any(|v| v.attr == Attribute::ColorAdd { channel: ColorChannel::Green } && v.value == 0.5)
-        );
-        assert!(values.iter().any(|v| v.attr == Attribute::ColorAdd { channel: ColorChannel::Blue } && v.value == 0.0));
+        assert!(values.iter().any(|v| v.attr
+            == Attribute::ColorAdd {
+                channel: ColorChannel::Red
+            }
+            && v.value == 1.0));
+        assert!(values.iter().any(|v| v.attr
+            == Attribute::ColorAdd {
+                channel: ColorChannel::Green
+            }
+            && v.value == 0.5));
+        assert!(values.iter().any(|v| v.attr
+            == Attribute::ColorAdd {
+                channel: ColorChannel::Blue
+            }
+            && v.value == 0.0));
     }
 
     #[test]
     fn a_focus_point_recipe_resolves_real_pan_tilt_from_the_fixtures_placement() {
         let placement = Placement {
-            position: Vec3 { x: 0.0, y: 0.0, z: 5.0 },
-            orientation: Quat { w: 1.0, x: 0.0, y: 0.0, z: 0.0 },
+            position: Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 5.0,
+            },
+            orientation: Quat {
+                w: 1.0,
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
         };
         let recipe = Recipe {
             target: RecipeTarget::Chans(vec![7]),
-            apply: RecipeApply::FocusPoint(Vec3 { x: 0.0, y: 0.0, z: -5.0 }), // straight below
+            apply: RecipeApply::FocusPoint(Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: -5.0,
+            }), // straight below
         };
-        let values = expand_recipe(&recipe, &[], &|chan| if chan == 7 { Some(placement.clone()) } else { None });
+        let values = expand_recipe(&recipe, &[], &|chan| {
+            if chan == 7 {
+                Some(placement.clone())
+            } else {
+                None
+            }
+        });
         let pan = values.iter().find(|v| v.attr == Attribute::Pan).unwrap();
         let tilt = values.iter().find(|v| v.attr == Attribute::Tilt).unwrap();
         assert!(pan.value.abs() < 0.5);
@@ -228,8 +328,14 @@ mod tests {
 
     #[test]
     fn a_focus_point_recipe_skips_a_channel_with_no_known_placement() {
-        let recipe =
-            Recipe { target: RecipeTarget::Chans(vec![99]), apply: RecipeApply::FocusPoint(Vec3 { x: 0.0, y: 0.0, z: 0.0 }) };
+        let recipe = Recipe {
+            target: RecipeTarget::Chans(vec![99]),
+            apply: RecipeApply::FocusPoint(Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            }),
+        };
         assert!(expand_recipe(&recipe, &[], &|_| None).is_empty());
     }
 
@@ -239,10 +345,18 @@ mod tests {
             name: "Wash On".to_string(),
             fade_secs: 2.0,
             recipes: vec![
-                Recipe { target: RecipeTarget::Group("Pars".to_string()), apply: RecipeApply::Dimmer(1.0) },
                 Recipe {
                     target: RecipeTarget::Group("Pars".to_string()),
-                    apply: RecipeApply::Color(ColorPreset { name: "Red".to_string(), red: 1.0, green: 0.0, blue: 0.0 }),
+                    apply: RecipeApply::Dimmer(1.0),
+                },
+                Recipe {
+                    target: RecipeTarget::Group("Pars".to_string()),
+                    apply: RecipeApply::Color(ColorPreset {
+                        name: "Red".to_string(),
+                        red: 1.0,
+                        green: 0.0,
+                        blue: 0.0,
+                    }),
                 },
             ],
         };
