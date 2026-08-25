@@ -95,6 +95,11 @@ pub struct VizSettings {
     pub ambient: f32,
     /// Whether to draw the props layer — see `VizConfig::show_props`.
     pub show_props: bool,
+    /// Spot-light output in lumens, at full dimmer. The fixture's own
+    /// level is already folded into its colour, so this is the headroom
+    /// that decides how a lit surface and its shaft read against a dark
+    /// room.
+    pub intensity: f32,
     /// How beams are drawn — see `BeamStyle`.
     pub beam_style: BeamStyle,
     /// Room/screen/prop objects whose name contains any of these are not
@@ -181,6 +186,9 @@ pub struct EmitterState {
     /// `None` when the fixture is dark.
     pub color: Option<[f32; 3]>,
     pub half_angle_deg: f32,
+    /// Inner cone angle as a fraction of the outer one. 0 is fully soft
+    /// (ASLS's unfocused default); nearer 1 is a hard-edged beam.
+    pub penumbra_inner: f32,
 }
 
 /// A fixture's beam cone — a child of its `BeamEmitter`.
@@ -693,6 +701,7 @@ pub fn update_live_fixtures(
             tilt: Quat::from_axis_angle(Vec3::X, live.tilt_deg.to_radians()),
             color,
             half_angle_deg: beam_half_angle_deg(f.beam_angle_deg),
+            penumbra_inner: penumbra_inner_for(f.kind()),
         });
     }
 
@@ -756,6 +765,7 @@ pub fn update_live_fixtures(
             Some(live) => {
                 state.color = live.color;
                 state.half_angle_deg = live.half_angle_deg;
+                state.penumbra_inner = live.penumbra_inner;
             }
             None => state.color = None,
         }
@@ -767,6 +777,23 @@ struct Live {
     tilt: Quat,
     color: Option<[f32; 3]>,
     half_angle_deg: f32,
+    penumbra_inner: f32,
+}
+
+/// How hard a fixture's cone edge is, as a fraction of its outer angle.
+///
+/// A par or wash throws a soft-edged pool with no defined edge at all; a
+/// beam-type moving head throws a shaft you can see the sides of. Both
+/// are the same `SpotLight` with a different penumbra, which is how ASLS
+/// models it too — see `update_beams`.
+fn penumbra_inner_for(kind: crate::venue::FixtureKind) -> f32 {
+    match kind {
+        // Fully soft, ASLS's unfocused default.
+        crate::venue::FixtureKind::Wash | crate::venue::FixtureKind::Other => 0.0,
+        // Movers here are beam/gobo fixtures with a real optic; keep
+        // enough of an inner cone that the shaft has visible sides.
+        crate::venue::FixtureKind::Mover => 0.55,
+    }
 }
 
 /// Sizes, aims and colours every beam and spill from where its emitter
@@ -828,13 +855,26 @@ pub fn update_beams(
                         *visibility = Visibility::Visible;
                         let outer = state.half_angle_deg.to_radians();
                         light.outer_angle = outer;
-                        light.inner_angle = outer * 0.8;
+                        // A fully soft cone, not a hard-edged one. This
+                        // is ASLS's default: their focus channel drives
+                        // `SpotLight.penumbra` as `1.2 - 1.2*(focus/100)`
+                        // clamped to at least 0.3, so an unfocused
+                        // fixture is entirely penumbra. Three.js's
+                        // penumbra is the fraction of the cone that
+                        // falls off, and Bevy spells the same thing as
+                        // the gap between inner and outer angle — so
+                        // penumbra 1.0 is `inner_angle = 0`.
+                        //
+                        // This is most of what separates a par from a
+                        // beam fixture. Reported as "they don't have the
+                        // kind of direct beam lights that they are
+                        // showing right now": a hard inner cone made
+                        // every par read as a tight defined shaft
+                        // instead of a wash.
+                        light.inner_angle = outer * state.penumbra_inner;
                         light.range = length * 1.2;
                         light.color = Color::srgb(color[0], color[1], color[2]);
-                        // Lumens. The fixture's own brightness is already
-                        // in `color`, so this is only the headroom that
-                        // makes a lit surface read against a dark room.
-                        light.intensity = 60_000.0;
+                        light.intensity = settings.intensity;
                     }
                     None => {
                         *visibility = Visibility::Hidden;
