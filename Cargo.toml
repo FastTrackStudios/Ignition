@@ -6,6 +6,7 @@ members = [
     "crates/gdtf-vendored",
     "crates/ignition-proto",
     "crates/ignition-core",
+    "crates/ignition-song",
     "crates/ignition-viz",
     "apps/ignition-engine",
     "apps/ignition-studio",
@@ -22,7 +23,25 @@ repository = "https://github.com/FastTrackStudios/Ignition"
 [workspace.dependencies]
 ignition-proto = { path = "crates/ignition-proto" }
 ignition-core = { path = "crates/ignition-core" }
+ignition-song = { path = "crates/ignition-song" }
 ignition-viz = { path = "crates/ignition-viz" }
+
+# The DAW domain, from the sibling FastTrackStudio checkout.
+#
+# A **path** dependency, deliberately, and unusually for a cross-repo
+# link — FTS's own rule is tagged git deps between repos. The two are
+# coupled on purpose here: the end goal is lighting as a sub-project
+# *inside* a DAW project, which is not a relationship a version pin
+# describes well, and both trees are edited together. The cost is that
+# this line is machine-specific: Ignition and FastTrackStudio have to be
+# siblings on disk.
+#
+# `file` is the only feature on: it brings `daw::file` (the RPP/`.daw`
+# parser) and nothing else. Transport and playback arrive with
+# `standalone-*` when there is a clock to drive.
+daw = { path = "../FastTrackStudio/crates/daw/daw", default-features = false, features = [
+    "file",
+] }
 
 serde = { version = "1", features = ["derive"] }
 

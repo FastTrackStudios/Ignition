@@ -17,6 +17,9 @@ pub use preset::{ColorPreset, FocusPointPreset, Palettes, Ref};
 pub mod focus;
 pub use focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 
+pub mod music;
+pub use music::{Bars, Section, SongMap, TempoMap, TempoPoint, TimeSignature};
+
 pub mod programmer;
 pub use programmer::{FADERS, Fader, Programmer};
 
