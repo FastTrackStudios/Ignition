@@ -39,6 +39,11 @@ serde_json = "1"
 # FastTrackStudio toolchain is 1.94). Build through `nix develop`.
 bevy = { version = "0.19.1", default-features = false, features = [
     "3d",
+    # The CDN serves this venue's screen content as WebP regardless of the
+    # extension it is requested under, and neither WebP nor JPEG is in the
+    # default image set.
+    "webp",
+    "jpeg",
     "bevy_camera_controller",
     "free_camera",
     "pan_camera",

@@ -1221,5 +1221,12 @@
     "channels": [
       "7-8"
     ]
+  },
+  {
+    "target": "227",
+    "label": "Floor Movers",
+    "channels": [
+      "85-88"
+    ]
   }
 ]

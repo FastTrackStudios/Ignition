@@ -59,6 +59,12 @@ const SHADER_HAZE_SCALE: f32 = 10.0;
 /// when its lamp is off is not something any fixture does.
 const LIT_BODY_GLOW: f32 = 0.9;
 
+/// How brightly a screen's own content emits. A TV in a dark room is
+/// genuinely one of the brighter things in it, but this is well under
+/// what a lit fixture puts out so the rig still reads as the light
+/// source.
+const SCREEN_GLOW: f32 = 2.2;
+
 /// How far below the surface a rigged fixture hangs — clearance for the
 /// clamp and yoke, and what keeps a fixture from being coplanar with the
 /// ceiling it hangs from.
@@ -121,6 +127,11 @@ pub struct VizSettings {
     pub exposure: f32,
     /// How beams are drawn — see `BeamStyle`.
     pub beam_style: BeamStyle,
+    /// Asset path of what every screen displays, or `None` for screens
+    /// that are off. One image for all of them is the placeholder; real
+    /// projection mapping needs per-surface content and its own
+    /// addressing, which this is the first piece of.
+    pub screen_content: Option<String>,
     /// Room/screen/prop objects whose name contains any of these are not
     /// drawn — `--exclude Ceiling` for a plan view that would otherwise
     /// just render the roof, and the escape hatch for a venue whose
@@ -212,6 +223,13 @@ pub struct EmitterState {
     pub lumens: f32,
 }
 
+/// A surface that displays content — a TV, and in time any mapped
+/// projection surface. Its own emissive texture is what it shows, so it
+/// reads as a lit display in a dark room rather than as a panel that
+/// happens to be lit by the rig.
+#[derive(Component)]
+pub struct ScreenSurface;
+
 /// A fixture's housing material, so its body can show what it is
 /// currently doing.
 ///
@@ -266,6 +284,38 @@ fn rig_to_surface(
     (local, inv * fixture_rot)
 }
 
+/// A plain matte surface. `emissive` scales the base colour into an
+/// emissive term, so a fixture's own housing can glow with what it is
+/// putting out while room geometry stays lit only by the rig.
+fn solid(
+    materials: &mut Assets<StandardMaterial>,
+    color: Color,
+    emissive: f32,
+) -> Handle<StandardMaterial> {
+    let base = LinearRgba::from(color);
+    materials.add(StandardMaterial {
+        base_color: color,
+        emissive: LinearRgba::rgb(base.red * emissive, base.green * emissive, base.blue * emissive),
+        perceptual_roughness: 0.9,
+        ..default()
+    })
+}
+
+/// A screen showing content: emitting its own image rather than merely
+/// reflecting the room's light.
+fn display(
+    materials: &mut Assets<StandardMaterial>,
+    content: Handle<Image>,
+) -> Handle<StandardMaterial> {
+    materials.add(StandardMaterial {
+        base_color: Color::BLACK,
+        base_color_texture: Some(content.clone()),
+        emissive: LinearRgba::rgb(SCREEN_GLOW, SCREEN_GLOW, SCREEN_GLOW),
+        emissive_texture: Some(content),
+        ..default()
+    })
+}
+
 /// Spawns the room, its screens and props, and one entity per patched
 /// fixture (plus that fixture's beam and spill, initially hidden).
 pub fn spawn_venue(
@@ -276,6 +326,7 @@ pub fn spawn_venue(
     mut standard: ResMut<Assets<StandardMaterial>>,
     mut beams: ResMut<Assets<BeamMaterial>>,
     gdtf_library: Res<GdtfLibraryRes>,
+    asset_server: Res<AssetServer>,
 ) {
     let venue = &venue.0;
     let unit_cube = meshes.add(Cuboid::from_length(1.0));
@@ -292,15 +343,7 @@ pub fn spawn_venue(
     // small emissive term so they read as their own objects: enough for
     // bloom to give them a soft presence, far below anything a lit beam
     // puts out.
-    let mut solid = |color: Color, emissive: f32| {
-        let base = LinearRgba::from(color);
-        standard.add(StandardMaterial {
-            base_color: color,
-            emissive: LinearRgba::rgb(base.red * emissive, base.green * emissive, base.blue * emissive),
-            perceptual_roughness: 0.9,
-            ..default()
-        })
-    };
+
     /// Room geometry emits nothing; only the rig lights it.
     const UNLIT: f32 = 0.0;
     /// Fixtures start dark; `update_fixture_bodies` lights a housing
@@ -356,7 +399,7 @@ pub fn spawn_venue(
             .id();
         commands.spawn((
             Mesh3d(unit_cube.clone()),
-            MeshMaterial3d(solid(color, UNLIT)),
+            MeshMaterial3d(solid(&mut standard, color, UNLIT)),
             Transform::from_scale(size),
             ChildOf(anchor),
         ));
@@ -367,7 +410,7 @@ pub fn spawn_venue(
             let cap_height = 0.06;
             commands.spawn((
                 Mesh3d(unit_cube.clone()),
-                MeshMaterial3d(solid(COLUMN_CAP_COLOR, UNLIT)),
+                MeshMaterial3d(solid(&mut standard, COLUMN_CAP_COLOR, UNLIT)),
                 Transform {
                     translation: Vec3::Z * (size.z * 0.5 + cap_height * 0.5),
                     scale: Vec3::new(size.x * 1.02, size.y * 1.02, cap_height),
@@ -383,7 +426,7 @@ pub fn spawn_venue(
     for g in venue.props.iter().filter(|g| g.name.starts_with("Pillar") && !settings.skip(&g.name)) {
         commands.spawn((
             Mesh3d(unit_cube.clone()),
-            MeshMaterial3d(solid(PILLAR_COLOR, UNLIT)),
+            MeshMaterial3d(solid(&mut standard, PILLAR_COLOR, UNLIT)),
             Transform {
                 translation: g.position.to_vec3(),
                 rotation: g.orientation(),
@@ -404,7 +447,7 @@ pub fn spawn_venue(
             }
             commands.spawn((
                 Mesh3d(unit_cube.clone()),
-                MeshMaterial3d(solid(PROP_COLOR, UNLIT)),
+                MeshMaterial3d(solid(&mut standard, PROP_COLOR, UNLIT)),
                 Transform {
                     translation: g.position.to_vec3(),
                     rotation: g.orientation(),
@@ -415,6 +458,12 @@ pub fn spawn_venue(
         }
     }
 
+    let screen_content: Option<Handle<Image>> = settings
+        .screen_content
+        .as_ref()
+        .map(|path| asset_server.load(path.clone()));
+    let screen_quad = meshes.add(Rectangle::new(1.0, 1.0));
+
     for g in &venue.screens {
         if settings.skip(&g.name) {
             continue;
@@ -422,18 +471,39 @@ pub fn spawn_venue(
         let rot = g.orientation();
         let size = g.size.to_vec3();
         // Same base-pivot convention as walls: a TV's position is its
-        // bottom edge. The panel's local Y is its height axis.
+        // bottom edge. The panel's local Y is its height axis, and its
+        // local +Z is the face — which the venue's own euler angles
+        // already point at the audience.
         let center = g.position.to_vec3() + rot * Vec3::Y * (size.y * 0.5);
+        let depth = 0.05_f32.max(size.z);
+        let body = commands
+            .spawn((
+                Transform { translation: center, rotation: rot, scale: Vec3::ONE },
+                Visibility::default(),
+                Name::new(g.name.clone()),
+            ))
+            .id();
         commands.spawn((
             Mesh3d(unit_cube.clone()),
-            MeshMaterial3d(solid(SCREEN_COLOR, UNLIT)),
-            Transform {
-                translation: center,
-                rotation: rot,
-                scale: Vec3::new(size.x, size.y, 0.05_f32.max(size.z)),
-            },
-            Name::new(g.name.clone()),
+            MeshMaterial3d(solid(&mut standard, SCREEN_COLOR, UNLIT)),
+            Transform::from_scale(Vec3::new(size.x, size.y, depth)),
+            ChildOf(body),
         ));
+        if let Some(content) = &screen_content {
+            // The display itself: a quad just proud of the bezel, lit by
+            // its own content rather than by the room.
+            commands.spawn((
+                ScreenSurface,
+                Mesh3d(screen_quad.clone()),
+                MeshMaterial3d(display(&mut standard, content.clone())),
+                Transform {
+                    translation: Vec3::Z * (depth * 0.5 + 0.005),
+                    scale: Vec3::new(size.x * 0.94, size.y * 0.94, 1.0),
+                    ..default()
+                },
+                ChildOf(body),
+            ));
+        }
     }
 
     if settings.beam_style == BeamStyle::Volumetric {
@@ -485,7 +555,7 @@ pub fn spawn_venue(
             let c = f.kind().color();
             Color::srgb(c[0], c[1], c[2])
         };
-        let body_material = solid(body_color, FIXTURE_GLOW);
+        let body_material = solid(&mut standard, body_color, FIXTURE_GLOW);
 
         // A real GDTF profile, when the library has one for this
         // manufacturer/model, replaces the QLC+ category mesh entirely:

@@ -53,6 +53,10 @@ fn main() -> anyhow::Result<()> {
     let mut gdtf_dir: Option<PathBuf> = None;
     let mut exclude: Vec<String> = Vec::new();
     let mut beam_style = BeamStyle::Volumetric;
+    // Ships with the crate, so the visualizer runs from any directory.
+    // Packaging this properly is a later problem.
+    let mut assets_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string();
+    let mut screen_content: Option<String> = Some("screens/rockstars-logo.webp".to_string());
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -94,6 +98,11 @@ fn main() -> anyhow::Result<()> {
             // only the roof, and at Norco the ceiling plane sits below
             // the truss the pars hang from, so it hides the whole rig.
             "--exclude" => exclude.push(next("a name substring")),
+            // What the venue's screens display, relative to --assets.
+            // `--screens-off` blanks them.
+            "--screen-content" => screen_content = Some(next("an asset path")),
+            "--screens-off" => screen_content = None,
+            "--assets" => assets_dir = next("a directory"),
             // How beams in the air are produced: Bevy's own volumetric
             // fog (haze is a property of the room, shafts fall out of
             // the lighting), or the hand-drawn additive cone ported from
@@ -154,6 +163,8 @@ fn main() -> anyhow::Result<()> {
             exclude,
             beam_style,
             exposure,
+            screen_content,
+            assets_dir,
         },
         playback,
         gdtf,

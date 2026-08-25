@@ -348,13 +348,25 @@
         },
         {
           "target": {
-            "Group": "Movers"
+            "Group": "OH Movers"
           },
           "apply": {
             "FocusDirection": {
               "x": 0.0,
               "y": -1.0,
-              "z": -0.32
+              "z": -0.28
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "FocusDirection": {
+              "x": 0.0,
+              "y": -1.0,
+              "z": 0.12
             }
           }
         }

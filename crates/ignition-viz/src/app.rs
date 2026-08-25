@@ -24,7 +24,7 @@ use crate::gdtf_geometry::GdtfLibrary;
 use crate::view::ViewPreset;
 use crate::{dmx, DmxUniverses, Venue};
 use bevy::app::SubApps;
-use bevy::asset::RenderAssetUsages;
+use bevy::asset::{AssetPlugin, RenderAssetUsages};
 use bevy::camera::{Hdr, RenderTarget};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::image::Image;
@@ -58,6 +58,11 @@ pub struct VizConfig {
     pub exclude: Vec<String>,
     /// Global exposure — see `VizSettings::exposure`.
     pub exposure: f32,
+    /// What the venue's screens display — see
+    /// `VizSettings::screen_content`.
+    pub screen_content: Option<String>,
+    /// Root directory the asset server loads from.
+    pub assets_dir: String,
     /// How beams are drawn — see `BeamStyle`.
     pub beam_style: BeamStyle,
     /// Highest sACN/Art-Net universe to listen on.
@@ -97,6 +102,7 @@ impl Plugin for VizPlugin {
                 exclude: self.config.exclude.clone(),
                 beam_style: self.config.beam_style,
                 exposure: self.config.exposure,
+                screen_content: self.config.screen_content.clone(),
             })
             .insert_resource(GdtfLibraryRes(self.gdtf.lock().expect("gdtf library lock").take()))
             .add_plugins(BeamPlugin)
@@ -142,9 +148,13 @@ fn run_windowed(config: VizConfig, dmx: DmxUniverses, playback: Playback, gdtf: 
     let (min, max) = config.venue.bounds();
     let view = config.view;
     let (width, height) = (config.width, config.height);
+    let assets_dir = config.assets_dir.clone();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            file_path: assets_dir.clone(),
+            ..default()
+        }).set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Ignition — visualizer".into(),
                 resolution: (width, height).into(),
@@ -174,9 +184,11 @@ fn run_snapshot(
     let (width, height) = (config.width, config.height);
     let settle_frames = config.settle_frames.max(1);
 
+    let assets_dir = config.assets_dir.clone();
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
+            .set(AssetPlugin { file_path: assets_dir, ..default() })
             .set(WindowPlugin {
                 // A lot of Bevy still expects the plugin to be present,
                 // just with nothing to show.
