@@ -81,6 +81,8 @@ impl VizWidget {
                 Some(std::path::Path::new(path)),
                 Some(*cue),
                 None,
+                None,
+                None,
             )
             .unwrap_or_default(),
             None => Playback::default(),

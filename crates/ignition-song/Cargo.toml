@@ -19,6 +19,22 @@ default = []
 # wants the section list should pay for.
 play = ["dep:daw-proto", "dep:tracing-subscriber", "dep:tokio", "daw/standalone-rpp"]
 
+# Declared so `playsong` can carry `required-features`. Cargo builds
+# every `src/bin/*.rs` regardless of features otherwise, and a plain
+# `cargo check` would then fail on the one that needs the backend.
+[[bin]]
+name = "songmap"
+
+[[bin]]
+name = "gencues"
+
+[[bin]]
+name = "authorshow"
+
+[[bin]]
+name = "playsong"
+required-features = ["play"]
+
 [dependencies]
 ignition-core.workspace = true
 daw.workspace = true

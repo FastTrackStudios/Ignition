@@ -71,6 +71,8 @@ impl Playback {
         recipes: Option<&Path>,
         jump_to_cue: Option<usize>,
         effect_time: Option<f32>,
+        bar: Option<u32>,
+        song_bpm: Option<f32>,
     ) -> anyhow::Result<Self> {
         anyhow::ensure!(
             cuelist.is_none() || recipes.is_none(),
@@ -79,7 +81,13 @@ impl Playback {
 
         let groups = venue.groups();
         let rig = venue.rig();
-        let speeds = default_speeds();
+        let mut speeds = default_speeds();
+        // Without a transport there is nothing driving the song's tempo,
+        // so a chase written against it holds still. `--bpm` is how a
+        // still frame of a synced show gets its effects moving.
+        if let Some(bpm) = song_bpm {
+            speeds.insert("Song".to_string(), bpm);
+        }
         let show = Show {
             groups: &groups,
             palettes: &venue.palettes,
@@ -133,9 +141,20 @@ impl Playback {
 
         let mut cues = cues;
         if let Some(player) = cues.as_mut() {
-            let index = jump_to_cue.unwrap_or(0);
-            player.jump_to_end_of(index, &show);
-            println!("cue -> {index} {:?}", player.current_name());
+            // `--bar` addresses the show the way it is written; `--cue`
+            // addresses the list. Both end in the same place, which is
+            // the point of positioned cues.
+            match bar {
+                Some(bar) => {
+                    player.seek(ignition_core::Bars::bar(bar), &show);
+                    println!("bar {bar} -> {:?}", player.current_name());
+                }
+                None => {
+                    let index = jump_to_cue.unwrap_or(0);
+                    player.jump_to_end_of(index, &show);
+                    println!("cue -> {index} {:?}", player.current_name());
+                }
+            }
         }
         // `show` borrows `groups`, which the struct below takes
         // ownership of; nothing reads it past here.

@@ -52,6 +52,8 @@ fn main() -> anyhow::Result<()> {
     let mut cuelist: Option<PathBuf> = None;
     let mut recipes: Option<PathBuf> = None;
     let mut cue: Option<usize> = None;
+    let mut bar: Option<u32> = None;
+    let mut song_bpm: Option<f32> = None;
     let mut effect_time: Option<f32> = None;
     let mut gdtf_dir: Option<PathBuf> = None;
     let mut exclude: Vec<String> = Vec::new();
@@ -101,6 +103,11 @@ fn main() -> anyhow::Result<()> {
             "--cuelist" => cuelist = Some(PathBuf::from(next("a path"))),
             "--recipes" => recipes = Some(PathBuf::from(next("a path"))),
             "--cue" => cue = Some(next("a 0-based cue index").parse()?),
+            // Address the show musically rather than by list index.
+            "--bar" => bar = Some(next("a bar number, 1-based").parse()?),
+            // Seeds the `Song` speed master, so effects slaved to the
+            // song move in a still frame.
+            "--bpm" => song_bpm = Some(next("beats per minute").parse()?),
             // Advances the show clock without advancing the current
             // fade — freezes a running phaser at a chosen moment for a
             // snapshot.
@@ -165,6 +172,8 @@ fn main() -> anyhow::Result<()> {
         recipes.as_deref(),
         cue,
         effect_time,
+        bar,
+        song_bpm,
     )?;
 
     run(
