@@ -7,10 +7,12 @@
 //! copy — the 3D view is a `<div>` as far as the rest of the UI is
 //! concerned, and HTML can sit above or below it.
 
+use crate::command::{Command, Receiver};
 use anyrender::{PaintRef, PaintScene, RenderContext, ResourceId, Scene};
 use blitz_dom::Widget;
 use blitz_dom::node::ComputedStyles;
 use dioxus_native::DeviceHandle;
+use ignition_core::preset::Ref;
 use ignition_viz::VizConfig;
 use ignition_viz::embedded::{EmbeddedViz, HostGpu};
 use ignition_viz::playback::Playback;
@@ -23,6 +25,7 @@ use peniko::{Fill, ImageBrush, ImageSampler};
 /// hand out a device until `can_create_surfaces` — so the config waits
 /// here and the Bevy app is built at that moment, not before.
 pub struct VizWidget {
+    commands: Receiver,
     pending: Option<Box<VizConfig>>,
     /// The cue to sit on once the visualizer exists. Loading the show
     /// needs the venue, which lives inside `pending` until then.
@@ -81,8 +84,9 @@ impl VizWidget {
         self.state = State::Active(Box::new(viz));
     }
 
-    pub fn new(config: VizConfig, show: Option<(String, usize)>) -> Self {
+    pub fn new(config: VizConfig, show: Option<(String, usize)>, commands: Receiver) -> Self {
         Self {
+            commands,
             pending: Some(Box::new(config)),
             show,
             state: State::Waiting,
@@ -149,6 +153,7 @@ impl Widget for VizWidget {
             tracing::debug!(width, height, "viz.embed: paint with no active viz");
             return scene;
         };
+        drain(&self.commands, viz);
         let Some(texture) = viz.render(width, height) else {
             tracing::debug!(width, height, "viz.embed: no target texture yet");
             return scene;
@@ -189,4 +194,104 @@ impl Widget for VizWidget {
         );
         scene
     }
+}
+
+/// Applies everything the UI has said since the last frame.
+///
+/// Drained rather than blocked on: a dropped frame's worth of messages
+/// is better than a stalled frame, and the sender will send again.
+fn drain(commands: &Receiver, viz: &mut EmbeddedViz) {
+    use ignition_core::{RecipeApply, Show};
+    use ignition_viz::spawn::VenueRes;
+
+    let world = viz.app_mut().world_mut();
+    let Some(mut playback) = world.remove_resource::<Playback>() else {
+        return;
+    };
+    {
+        let Playback {
+            cues,
+            groups,
+            rig,
+            palettes,
+            speeds,
+            programmer,
+            ..
+        } = &mut playback;
+        while let Ok(command) = commands.try_recv() {
+            // Rebuilt per command because `Rate` mutates `speeds`, which
+            // the `Show` borrows. Cheap — it is four references.
+            match command {
+                Command::Select(selection) => programmer.select(selection),
+                Command::Deselect => programmer.deselect(),
+                Command::ClearValues => programmer.clear_values(),
+                Command::Level(index, level) => programmer.set_level(index, level),
+                Command::Fader(index, fader) => programmer.set_fader(index, *fader),
+                Command::Rate(bpm) => {
+                    speeds.insert("Rate".to_string(), bpm);
+                }
+                Command::Color(name) => {
+                    let show = Show {
+                        groups,
+                        palettes,
+                        rig,
+                        speeds,
+                    };
+                    programmer.apply(RecipeApply::Color(Ref::Named(name)), &show);
+                }
+                Command::Focus(name) => {
+                    let show = Show {
+                        groups,
+                        palettes,
+                        rig,
+                        speeds,
+                    };
+                    programmer.apply(RecipeApply::FocusPoint(Ref::Named(name)), &show);
+                }
+                Command::Dimmer(level) => {
+                    let show = Show {
+                        groups,
+                        palettes,
+                        rig,
+                        speeds,
+                    };
+                    programmer.apply(RecipeApply::Dimmer(level), &show);
+                }
+                Command::Release => {
+                    let show = Show {
+                        groups,
+                        palettes,
+                        rig,
+                        speeds,
+                    };
+                    programmer.release(&show);
+                }
+                Command::Go => {
+                    if let Some(player) = cues.as_mut() {
+                        let show = Show {
+                            groups,
+                            palettes,
+                            rig,
+                            speeds,
+                        };
+                        player.go(&show);
+                    }
+                }
+                Command::Cue(index) => {
+                    if let Some(player) = cues.as_mut() {
+                        let show = Show {
+                            groups,
+                            palettes,
+                            rig,
+                            speeds,
+                        };
+                        player.jump_to_end_of(index, &show);
+                    }
+                }
+            }
+        }
+    }
+    let _ = viz;
+    viz.app_mut().world_mut().insert_resource(playback);
+    let _ = std::marker::PhantomData::<VenueRes>;
 }

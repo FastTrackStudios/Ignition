@@ -8,11 +8,11 @@
 //! through the same path, so the visualizer cannot accidentally look
 //! right for a local show and wrong for a real one.
 
-use crate::show::{apply_cue_output, tick_and_apply};
+use crate::show::apply_cue_output;
 use crate::spawn::{DmxRes, VenueRes};
 use crate::venue::Venue;
 use bevy::prelude::*;
-use ignition_core::{CueList, CuePlayer, Group, Rig, Show, SpeedMasters};
+use ignition_core::{CueList, CuePlayer, Group, Palettes, Programmer, Rig, Show, SpeedMasters};
 use std::path::Path;
 
 /// A loaded show, if the CLI was given one.
@@ -28,6 +28,11 @@ pub struct Playback {
     /// The patched rig, likewise resolved once — `Selection::Tag` and the
     /// spatial filters resolve against this every frame.
     pub rig: Rig,
+    /// The venue's palettes, cached here for the same reason `groups`
+    /// and `rig` are: everything that resolves a recipe needs them, and
+    /// a host driving this from outside the ECS should not have to go
+    /// find the venue to build a `Show`.
+    pub palettes: Palettes,
     /// Named tempo sources every phaser can slave to. Empty until
     /// something drives them — a tap-tempo key, or the session tempo map
     /// from the FastTrackStudio side.
@@ -37,6 +42,13 @@ pub struct Playback {
     /// really is slaved to something outside itself, and the same seam
     /// the session tempo map will arrive through.
     taps: Vec<f32>,
+    /// The live layer. Busking is the primary way this desk is played;
+    /// the cue player underneath fills in whatever the operator is not
+    /// currently holding.
+    pub programmer: Programmer,
+    /// Show clock for the programmer's own faders, which run whether or
+    /// not a cue stack is loaded.
+    clock: f32,
 }
 
 impl Playback {
@@ -136,8 +148,11 @@ impl Playback {
             cues,
             groups,
             rig,
+            palettes: venue.palettes.clone(),
             speeds: default_speeds(),
             taps: Vec::new(),
+            programmer: Programmer::new(),
+            clock: 0.0,
         })
     }
 }
@@ -175,18 +190,31 @@ pub fn tick_playback(
         groups,
         rig,
         speeds,
+        palettes,
+        programmer,
+        clock,
         ..
     } = &mut *playback;
+    *clock += dt;
     let venue = &venue.0;
     let show = Show {
         groups,
-        palettes: &venue.palettes,
+        palettes,
         rig,
         speeds,
     };
-    if let Some(player) = cues.as_mut() {
-        tick_and_apply(&dmx.0, venue, player, dt, &show);
-    }
+    // The cue stack renders first and the programmer folds on top, which
+    // is the whole point of the layer order: busking overrides playback,
+    // never the other way round.
+    let mut out = match cues.as_mut() {
+        Some(player) => {
+            player.tick(dt);
+            player.output(&show)
+        }
+        None => Default::default(),
+    };
+    programmer.apply_to(&mut out, &show, *clock);
+    apply_cue_output(&dmx.0, venue, &out);
 }
 
 /// How long a gap before a tap-tempo run is treated as a fresh start
@@ -214,6 +242,7 @@ pub fn operator_keys(
         rig,
         speeds,
         taps,
+        ..
     } = &mut *playback;
     let Some(player) = cues.as_mut() else {
         return;

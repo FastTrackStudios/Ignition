@@ -1,26 +1,39 @@
-/* Blitz supports a real subset of CSS, not all of it — this is written
-   with explicit values rather than shorthand-heavy Tailwind for now, so
-   the spike is not also a bet on Blitz's CSS coverage. */
+/* Blitz implements a real subset of CSS, not all of it, so this is
+   written with explicit values rather than leaning on shorthands the
+   engine may not have — the surface working matters more than the
+   stylesheet being clever. */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { background: #0b0b0d; color: #e6e6e6;
-       font-family: sans-serif; font-size: 14px; }
+body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 13px; }
+
 .studio { display: flex; width: 100%; height: 100vh; }
-.cues { width: 280px; min-width: 280px; height: 100%;
-        background: #131317; border-right: 1px solid #26262c; overflow-y: auto; }
-.cues header { padding: 12px 14px; font-weight: bold; letter-spacing: 0.06em;
-               text-transform: uppercase; font-size: 11px; color: #8d8d99;
-               border-bottom: 1px solid #26262c; }
-.cues ol { list-style: none; margin: 0; padding: 0; }
-.cue { display: flex; gap: 10px; padding: 8px 14px; cursor: pointer;
-       border-bottom: 1px solid #1c1c22; }
-.cue:hover { background: #1b1b21; }
-.cue.selected { background: #23233a; color: #fff; }
-.num { width: 24px; color: #6f6f7d; text-align: right; }
+
+.surface { width: 340px; min-width: 340px; height: 100%; background: #131317;
+           border-right: 1px solid #26262c; overflow-y: auto; }
+.surface section { border-bottom: 1px solid #1f1f26; padding: 10px 12px; }
+.surface header { font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;
+                  font-size: 10px; color: #8d8d99; margin-bottom: 8px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: #1e1e26; color: #d6d6e0; border: 1px solid #2c2c36;
+        border-radius: 4px; padding: 5px 9px; font-size: 12px; cursor: pointer; }
+.chip:hover { background: #272733; }
+.chip.on { background: #3a3a6b; border-color: #5252a0; color: #fff; }
+.chip.warn { background: #2a1a1a; border-color: #4a2a2a; color: #e0b0b0; }
+
+.faders .fader-row { display: flex; gap: 10px; align-items: flex-end; }
+.fader { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+/* A vertical range is what a fader is; Blitz honours the appearance
+   property here, and a horizontal row of horizontal sliders would be
+   unreadable at this width. */
+.fader input { writing-mode: vertical-lr; direction: rtl; width: 20px; height: 120px; }
+.fader-label { font-size: 11px; color: #8d8d99; }
+.fader.master input { accent-color: #c08a3e; }
+.fader.master .fader-label { color: #c08a3e; }
+
 .viewport { flex: 1; height: 100%; }
 /* An <object> is a replaced element with no intrinsic size, so it lays
    out 0x0 inside a plain block and never paints. Making the container a
-   grid stretches its single item to fill — the same trick the upstream
-   wgpu-texture example uses, and the reason the viewport was blank. */
+   grid stretches its single item to fill. */
 .viz { display: grid; width: 100%; height: 100%; }
 .viz > object { width: 100%; height: 100%; }

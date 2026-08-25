@@ -17,6 +17,9 @@ pub use preset::{ColorPreset, FocusPointPreset, Palettes, Ref};
 pub mod focus;
 pub use focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 
+pub mod programmer;
+pub use programmer::{FADERS, Fader, Programmer};
+
 pub mod recipe;
 pub mod step;
 pub use step::{Direction, Ease, Speed, SpeedMasters, Step, Timing, Waveform};
