@@ -149,6 +149,23 @@
             # pkg-config noise, so it reads as a PipeWire problem and is
             # not.
             LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+
+            # ...and finding libclang is only half of it. bindgen drives
+            # libclang *directly*, not through the `clang` wrapper script
+            # that normally injects the include paths, so it starts with
+            # an empty system include path. There is no `/usr/include` on
+            # NixOS to fall back to.
+            #
+            # The symptom is bizarre enough to be worth naming: clang
+            # reports that its own `inttypes.h` cannot find `inttypes.h`.
+            # It is not confused — that header ends in `#include_next`,
+            # handing off to libc's copy of the same name, and it is the
+            # handoff that fails. Both halves have to be on the path: the
+            # compiler's own resource-dir headers, then libc's.
+            BINDGEN_EXTRA_CLANG_ARGS = builtins.concatStringsSep " " [
+              "-isystem ${pkgs.llvmPackages.libclang.lib}/lib/clang/${lib.versions.major pkgs.llvmPackages.libclang.version}/include"
+              "-isystem ${pkgs.stdenv.cc.libc.dev}/include"
+            ];
           };
         });
     };
