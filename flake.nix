@@ -126,6 +126,19 @@
               # cue sheet drawn with it renders a column of tofu where
               # the cooked-status markers should be.
               pkgs.dejavu_fonts
+              # Everything bindgen needs to find headers, done by
+              # nixpkgs rather than by hand. bindgen drives libclang
+              # directly instead of through the `clang` wrapper that
+              # normally injects include paths, so it starts with an
+              # empty system include path and no /usr/include to fall
+              # back to. This hook sets LIBCLANG_PATH *and* the clang
+              # args, deriving the resource-dir path from the LLVM in
+              # use — so an LLVM bump cannot leave a stale hardcoded
+              # `/lib/clang/21/include` behind.
+              #
+              # `libspa-sys` is what needs it: PipeWire's SPA headers
+              # are compiled against, not dlopened.
+              pkgs.rustPlatform.bindgenHook
             ] ++ lib.optionals stdenv.hostPlatform.isLinux linuxBuildInputs;
 
             # Read by `crates/ignition-viz/build.rs`, which copies the
@@ -139,33 +152,17 @@
             # wgpu dlopen's the Vulkan loader and winit dlopen's the
             # Wayland/xkb clients, so they must be findable at run time,
             # not just at link time.
-            LD_LIBRARY_PATH = lib.optionalString stdenv.hostPlatform.isLinux
-              (lib.makeLibraryPath linuxBuildInputs);
-
-            # `libspa-sys` generates its bindings with bindgen, which
-            # dlopens libclang and finds it *only* through this variable
-            # on NixOS — there is no system path to fall back to. The
-            # failure is a build-script panic several hundred lines into
-            # pkg-config noise, so it reads as a PipeWire problem and is
-            # not.
-            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-
-            # ...and finding libclang is only half of it. bindgen drives
-            # libclang *directly*, not through the `clang` wrapper script
-            # that normally injects the include paths, so it starts with
-            # an empty system include path. There is no `/usr/include` on
-            # NixOS to fall back to.
             #
-            # The symptom is bizarre enough to be worth naming: clang
-            # reports that its own `inttypes.h` cannot find `inttypes.h`.
-            # It is not confused — that header ends in `#include_next`,
-            # handing off to libc's copy of the same name, and it is the
-            # handoff that fails. Both halves have to be on the path: the
-            # compiler's own resource-dir headers, then libc's.
-            BINDGEN_EXTRA_CLANG_ARGS = builtins.concatStringsSep " " [
-              "-isystem ${pkgs.llvmPackages.libclang.lib}/lib/clang/${lib.versions.major pkgs.llvmPackages.libclang.version}/include"
-              "-isystem ${pkgs.stdenv.cc.libc.dev}/include"
-            ];
+            # Appended, not assigned. A plain `LD_LIBRARY_PATH = ...`
+            # replaces whatever the surrounding environment already set
+            # — someone else's CUDA stack, a wrapper script, a nested
+            # shell — and the breakage shows up somewhere unrelated to
+            # this file. Same trap as `target.<triple>.rustflags`
+            # replacing `build.rustflags` rather than merging with it.
+            shellHook = lib.optionalString stdenv.hostPlatform.isLinux ''
+              export LD_LIBRARY_PATH="${lib.makeLibraryPath linuxBuildInputs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            '';
+
           };
         });
     };
