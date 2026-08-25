@@ -1153,3 +1153,60 @@ beam rendering (would remove the near/far double-counting at its root
 instead of just keeping headroom below it); a real occlusion raycast
 for throw distance; ASLS's remaining unported techniques from Slice 7's
 own list.
+
+## Slice 19 — Focus Point aim was off by the mover mesh's own flip (2026-08-24, same day)
+
+Operator: "The cone is still positioned wrong, it's like behind the
+fixture. And check the eos file they should be pointed at the stage."
+Checked the real Eos-exported data directly rather than guessing:
+Norco's `fixtures.json` `quat` for every Riukoe/Betopper mover checked
+is a 180°-class rotation (`{w:0, x:1, y:0, z:0}` and similar) — the real
+mount data itself encodes these fixtures as physically flipped relative
+to this project's naive baseline, the exact same fact
+`fixture_profile.rs::moving_head_pre_rotate`'s own doc comment already
+described for the *mesh* ("confirmed backwards... the truss-hung centre
+OH movers rendered upright... exactly inverted").
+
+`add_typed_fixture` already accounts for this when actually drawing a
+beam: `head_full_rot = rot * pan * tilt * pre_rotate`
+(`emit_light_and_beam`). Slice 15's `ignition_core::focus::
+pan_tilt_deg_to_point` — deliberately, per its own doc comment at the
+time — excluded `pre_rotate`, reasoned as "a QLC+-placeholder-mesh-
+authoring correction specific to one rendering asset, not a statement
+about the real physical/DMX convention." That reasoning was wrong: since
+the venue's own `quat` data for movers is *itself* encoded in the same
+flipped convention the mesh needs `pre_rotate` to correct, the
+correction isn't mesh-specific at all — it's needed by anything that
+computes an aim direction from a mover's `quat`, mesh or not. A Focus
+Point solved without it was off by exactly that flip, landing roughly
+opposite of intended — "behind the fixture."
+
+Fixed at the architecture boundary rather than by threading fixture-
+shape knowledge into `ignition-core`: `ignition_viz::venue::
+FixtureRecord::placement()` now composes `self.quat` with a new
+`fixture_profile::beam_pre_rotate(manufacturer, model)` (the same
+`pre_rotate` `shape_for` already carries for `Shape::Mesh`, `Identity`
+for `Shape::Bar`/`Shape::Generic`) before converting to the
+`ignition_proto::Placement` the Focus Point closure receives.
+`ignition_core::focus` itself is untouched — still fixture-agnostic,
+still has no idea `pre_rotate` exists; the correction happens entirely
+in the one place (`ignition-viz`) that already has both the real venue
+data and the real fixture-shape table.
+
+Verified visually: re-rendered `demo-recipes.json`'s Focus-Point cue
+(the "OH Movers" aimed at the real drum-kit position) from a house-view
+angle — the mover beams (rendered white, unlike the red pars) now
+visibly converge downward toward a common point below-centre, matching
+a real "aimed at the drum kit" look, instead of whatever the pre-fix
+direction was. `cargo test --workspace`: 53/53 unchanged (the fix is a
+one-method change in `venue.rs`, no new branches to test beyond what
+`focus.rs`'s existing round-trip test already covers for the underlying
+math). `shot`'s regression PNG byte-identical (MD5 `d4c0f1b2...`) —
+this only touches `FixtureRecord::placement()`, reached solely through
+the recipe Focus Point path.
+
+The operator's other ask this turn — "we should just implement ASLS
+visualizer directly" — is a substantially larger scope than this fix
+(their real `THREE.SpotLight` + shadow-mapped cone approach vs. this
+project's hand-rolled additive-cone approximation) and was not started;
+flagged for an explicit scoping conversation rather than assumed.

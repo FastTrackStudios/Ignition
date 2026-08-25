@@ -91,14 +91,37 @@ impl FixtureRecord {
         Some(ignition_proto::DmxAddress { universe: self.universe?, start_channel: self.address? })
     }
 
-    /// This fixture's real hung position/orientation, in `ignition_core`'s
-    /// f64 `Placement` shape — what `ignition_core::focus`'s Focus Point
-    /// math needs to solve for real Pan/Tilt values. A plain unit cast
-    /// (this crate's own `Vec3`/`Quat` are `f32`, matching wgpu/glam
-    /// convention; `ignition_proto`'s are `f64`, matching the rest of the
-    /// wire-contract types) — no coordinate remap, same convention both
-    /// sides already agree on (`to_glam()`'s own doc comments).
+    /// This fixture's real hung position, and its *effective beam-aim*
+    /// orientation, in `ignition_core`'s f64 `Placement` shape — what
+    /// `ignition_core::focus`'s Focus Point math needs to solve for real
+    /// Pan/Tilt values that will actually land where intended once drawn.
+    ///
+    /// `orientation` is `self.quat` composed with
+    /// `fixture_profile::beam_pre_rotate` — NOT the raw mount quaternion
+    /// alone. `add_typed_fixture` composes a fixture's real drawn beam
+    /// direction as `rot * pan * tilt * pre_rotate` (see
+    /// `emit_light_and_beam`); a Focus Point solved against `rot` (this
+    /// fixture's raw `quat`) alone ignores that `pre_rotate` term and is
+    /// off by it — for every real mover in this venue, `pre_rotate` is a
+    /// 180°-class rotation (`moving_head_pre_rotate`), so the resulting
+    /// beam lands roughly opposite of intended: reported directly as a
+    /// beam "behind the fixture" instead of at its real target. Folding
+    /// the same correction in here means the recipe math and the renderer
+    /// agree on what "aim at this point" actually means, without
+    /// `ignition_core` (fixture-shape-agnostic by design — see
+    /// `focus.rs`'s own module doc) needing to know `pre_rotate` exists.
+    ///
+    /// A plain unit cast for both fields (this crate's own `Vec3`/`Quat`
+    /// are `f32`, matching wgpu/glam convention; `ignition_proto`'s are
+    /// `f64`, matching the rest of the wire-contract types) — no
+    /// coordinate remap, same convention both sides already agree on
+    /// (`to_glam()`'s own doc comments).
     pub fn placement(&self) -> ignition_proto::Placement {
+        let pre_rotate = crate::fixture_profile::beam_pre_rotate(
+            self.manufacturer.as_deref().unwrap_or(""),
+            self.model.as_deref().unwrap_or(""),
+        );
+        let effective_rot = self.orientation() * pre_rotate;
         ignition_proto::Placement {
             position: ignition_proto::Vec3 {
                 x: self.position.x as f64,
@@ -106,10 +129,10 @@ impl FixtureRecord {
                 z: self.position.z as f64,
             },
             orientation: ignition_proto::Quat {
-                w: self.quat.w as f64,
-                x: self.quat.x as f64,
-                y: self.quat.y as f64,
-                z: self.quat.z as f64,
+                w: effective_rot.w as f64,
+                x: effective_rot.x as f64,
+                y: effective_rot.y as f64,
+                z: effective_rot.z as f64,
             },
         }
     }
