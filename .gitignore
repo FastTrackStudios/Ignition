@@ -9,3 +9,4 @@ result-*
 *.esf3d
 *.esf2
 *.a3d
+/.direnv/

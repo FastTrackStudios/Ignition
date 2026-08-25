@@ -13,7 +13,9 @@ members = [
 [workspace.package]
 license = "GPL-3.0-or-later"
 edition = "2024"
-rust-version = "1.87"
+# Bevy 0.19's own MSRV — see `flake.nix`, which is where a toolchain
+# that new comes from.
+rust-version = "1.95"
 repository = "https://github.com/FastTrackStudios/Ignition"
 
 [workspace.dependencies]
@@ -23,6 +25,27 @@ ignition-viz = { path = "crates/ignition-viz" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# The visualizer's engine. `default-features = false` drops the 2D and
+# audio stacks; `3d` pulls the render / PBR / post-process / picking set,
+# and the camera-controller features are the operator's fly-around.
+#
+# Bevy re-exports `glam` as `bevy::math`, which is the tree's only glam —
+# crates here take their vector types from Bevy rather than depending on
+# glam directly, so there is never a second incompatible copy of `Vec3`
+# to convert across.
+#
+# 0.19 needs Rust 1.95; `flake.nix` is what supplies it (the ambient
+# FastTrackStudio toolchain is 1.94). Build through `nix develop`.
+bevy = { version = "0.19.1", default-features = false, features = [
+    "3d",
+    "bevy_camera_controller",
+    "free_camera",
+    "pan_camera",
+    "multi_threaded",
+    "x11",
+    "wayland",
+] }
 
 # Vendored fork — see crates/gdtf-vendored/PATCH-NOTES.md. Redirects every
 # `gdtf = "0.3.0"` dependency (currently just ignition-viz) to the local

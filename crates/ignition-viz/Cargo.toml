@@ -8,25 +8,20 @@ rust-version.workspace = true
 [dependencies]
 anyhow = "1.0.104"
 artnet_protocol = "0.4.4"
-bytemuck = { version = "1.25.2", features = ["derive"] }
+bevy.workspace = true
 gdtf = "0.3.0"
-glam = "0.33.5"
 ignition-core.workspace = true
 ignition-proto.workspace = true
 image = { version = "0.25.9", default-features = false, features = ["png"] }
-pollster = "1.0.1"
-raw-window-handle = "0.6.2"
 sacn = "0.11.1"
 serde.workspace = true
 serde_json.workspace = true
 thiserror = "2.0.20"
-wgpu = "30.0.1"
-winit = "0.30.13"
 
+# The one visualizer binary — windowed by default, `--snapshot <path>` to
+# render a single frame headlessly. Replaces the pre-Bevy pair of `shot`
+# (static venue) and `live` (live DMX), which were two binaries only
+# because they were two hand-written wgpu pipelines.
 [[bin]]
-name = "shot"
-path = "src/bin/shot.rs"
-
-[[bin]]
-name = "live"
-path = "src/bin/live.rs"
+name = "viz"
+path = "src/bin/viz.rs"

@@ -12,9 +12,8 @@
 //! file for sources). Not exact to the millimetre, but a real par can no
 //! longer looks the same size and shape as a real bar or a real hazer.
 
-use crate::mesh::MeshBuilder;
 use crate::obj_mesh::ObjMesh;
-use glam::{Quat, Vec3};
+use bevy::math::{Quat, Vec3};
 use std::sync::OnceLock;
 
 macro_rules! qlc_mesh {
@@ -283,26 +282,86 @@ pub struct LiveEmission {
 /// this function is already the one place that knows a fixture's real
 /// lens/anchor position after the Bottom/Top anchor maths below). `throw`
 /// is the real-world reach that beam-cone should have — see `BeamThrow`.
+/// What one fixture actually looks like once its profile, its mount pose
+/// and any live pan/tilt have all been resolved — a plain description,
+/// with no renderer types in it.
+///
+/// This used to be a function that pushed triangles into a mesh builder.
+/// Separating the decisions from the drawing is what lets `spawn.rs` turn
+/// a fixture into an entity hierarchy (body, and a head child that tilts
+/// under it) instead of into a flat vertex buffer, and it makes every
+/// rule below — the anchor maths especially — testable without a GPU.
+pub struct FixtureVisual {
+    pub body: BodyVisual,
+    /// Where the body is drawn, after the Bottom/Top anchor correction.
+    pub position: Vec3,
+    /// The body's own rotation: mount pose plus live pan. A real yoke
+    /// rotates on its mount when panning, so pan belongs here.
+    pub body_rot: Quat,
+    /// The head's rotation *relative to the body* — live tilt, and
+    /// nothing else. `None` for a fixture with nothing that tilts (a par,
+    /// a hazer), where the whole body is the head.
+    pub head_tilt: Option<Quat>,
+    /// Where the head pivots, in the body's own local space — a real
+    /// moving head's base stays put while only the head assembly tilts.
+    pub head_pivot: Option<Vec3>,
+    pub beam: Option<BeamVisual>,
+}
+
+pub enum BodyVisual {
+    /// A QLC+ category mesh and the uniform scale that brings it to the
+    /// real fixture's size. `pre_rotate` is baked into the body/head
+    /// rotations already; `split_z` is the head/yoke divide in the mesh's
+    /// own local Z, `None` when the shape has no moving head.
+    Mesh { asset: &'static ObjMesh, scale: f32, pre_rotate: Quat, split_z: Option<f32> },
+    /// An LED bar/batten: one elongated box, no beam (it washes along its
+    /// length rather than from a point).
+    Bar { length: f32, width: f32, height: f32 },
+    /// No dedicated profile — the generic marker.
+    Generic,
+}
+
+/// A beam ready to draw: where it starts, where it goes, how far it gets
+/// and how wide it is by the time it arrives.
+#[derive(Clone, Copy, Debug)]
+pub struct BeamVisual {
+    /// World position of the lens.
+    pub origin: Vec3,
+    /// Normalized world aim direction.
+    pub direction: Vec3,
+    /// Real throw distance for this aim (see `BeamThrow`).
+    pub length: f32,
+    /// Cone radius at that distance.
+    pub far_radius: f32,
+    /// Beam **half** angle in degrees — see `beam_half_angle_deg`.
+    pub half_angle_deg: f32,
+    /// Already dimmer-scaled.
+    pub color: [f32; 3],
+}
+
+/// `rot` is always the fixed *mount* rotation — it alone decides the
+/// Bottom/Top anchor (a mechanical fact of how the fixture is rigged, not
+/// something pan/tilt changes). `live_pan_tilt`, when present, is a live
+/// reading split into pan and tilt separately, because they act on
+/// different parts of the fixture (see `FixtureVisual`).
 #[allow(clippy::too_many_arguments)]
-pub fn add_typed_fixture(
-    mesh: &mut MeshBuilder,
+pub fn resolve_fixture(
     pos: Vec3,
     rot: Quat,
     live_pan_tilt: Option<(Quat, Quat)>,
     manufacturer: &str,
     model: &str,
-    color: [f32; 3],
     emit: Option<LiveEmission>,
     throw: &BeamThrow,
-) {
+) -> FixtureVisual {
+    let (pan, tilt) = live_pan_tilt.unwrap_or((Quat::IDENTITY, Quat::IDENTITY));
+
     match shape_for(manufacturer, model) {
         Shape::Mesh { mesh: asset, target_size, pre_rotate, anchor, split_z } => {
             let scale = scale_to(asset, target_size);
             let full_rot = rot * pre_rotate;
-            let (pan, tilt) = live_pan_tilt.unwrap_or((Quat::IDENTITY, Quat::IDENTITY));
-            // The head's full orientation (pan+tilt) — used for the beam
-            // and, when there's no split_z to divide the mesh, for the
-            // whole body's drawn rotation too.
+            // The head's full orientation (pan + tilt) — what the beam is
+            // aimed along.
             let head_full_rot = rot * pan * tilt * pre_rotate;
             let resolved = match anchor {
                 Anchor::HangAware => {
@@ -321,34 +380,31 @@ pub fn add_typed_fixture(
                 }
                 Anchor::None | Anchor::HangAware => pos,
             };
-            match (split_z, live_pan_tilt) {
-                // Only pay for the vertex-duplicating split draw when
-                // there's an actual live tilt reading to apply — with no
-                // live data (`shot`'s headless path, or a live fixture
-                // that's simply idle at zero) this must produce the exact
-                // same vertex/index buffer as the plain `add_mesh_asset`
-                // path below, or `shot`'s regression screenshots stop
-                // being byte-identical for no visual reason.
-                (Some(split), Some((pan, tilt))) => {
-                    let outer_rot = rot * pan;
-                    mesh.add_mesh_asset_split(anchored_pos, outer_rot, tilt, pre_rotate, scale, asset, split, color);
-                }
-                _ => {
-                    let draw_rot = rot * pan * pre_rotate;
-                    mesh.add_mesh_asset(anchored_pos, draw_rot, scale, asset, color);
-                }
-            }
-            if let Some(emission) = emit {
-                emit_light_and_beam(mesh, anchored_pos, head_full_rot, &emission, throw);
+            FixtureVisual {
+                body: BodyVisual::Mesh { asset, scale, pre_rotate, split_z },
+                position: anchored_pos,
+                body_rot: rot * pan,
+                head_tilt: split_z.map(|_| tilt),
+                head_pivot: split_z.map(|z| Vec3::new(0.0, 0.0, z * scale)),
+                beam: emit.map(|e| beam_visual(anchored_pos, head_full_rot, &e, throw)),
             }
         }
-        Shape::Bar { length, width, height } => {
-            mesh.add_bar(pos, rot, length, width, height, color);
-            if let Some(emission) = emit {
-                emit_light_and_beam(mesh, pos, rot, &emission, throw);
-            }
-        }
-        Shape::Generic => mesh.add_fixture(pos, rot, color),
+        Shape::Bar { length, width, height } => FixtureVisual {
+            body: BodyVisual::Bar { length, width, height },
+            position: pos,
+            body_rot: rot,
+            head_tilt: None,
+            head_pivot: None,
+            beam: emit.map(|e| beam_visual(pos, rot, &e, throw)),
+        },
+        Shape::Generic => FixtureVisual {
+            body: BodyVisual::Generic,
+            position: pos,
+            body_rot: rot,
+            head_tilt: None,
+            head_pivot: None,
+            beam: None,
+        },
     }
 }
 
@@ -474,13 +530,18 @@ mod beam_throw_tests {
 /// comes from the real fixture's beam angle when known, so a wide-beam
 /// wash reads visibly wider than a tight-beam spot, scaled by the now
 /// much more realistic length.
-fn emit_light_and_beam(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, emission: &LiveEmission, throw: &BeamThrow) {
-    let direction = rot * Vec3::NEG_Z;
+fn beam_visual(pos: Vec3, rot: Quat, emission: &LiveEmission, throw: &BeamThrow) -> BeamVisual {
+    let direction = (rot * Vec3::NEG_Z).normalize_or_zero();
     let length = throw.reach(pos, direction);
     let half_angle_deg = beam_half_angle_deg(emission.beam_angle_deg);
-    let radius = length * half_angle_deg.to_radians().tan();
-    mesh.add_light(pos, emission.color, direction, half_angle_deg);
-    mesh.add_glow_cone(pos, rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, half_angle_deg, GLOW_CONE_SEGMENTS);
+    BeamVisual {
+        origin: pos,
+        direction,
+        length,
+        far_radius: (length * half_angle_deg.to_radians().tan()).max(0.05),
+        half_angle_deg,
+        color: emission.color,
+    }
 }
 
 /// The beam **half** angle in degrees, which is what everything
@@ -537,10 +598,9 @@ mod beam_angle_tests {
     }
 }
 
-/// Radial segments per beam cone. Sixteen left a visibly faceted
-/// silhouette once beams got large enough to fill much of the frame;
-/// beams are now two rings deep instead of seven (see
-/// `mesh::GLOW_CONE_RING_STEPS`), so this is cheaper in total vertices
-/// than the faceted version was. ASLS uses 100 on a single instanced
-/// cylinder, which is free for them and would not be here.
-pub(crate) const GLOW_CONE_SEGMENTS: u32 = 48;
+/// Radial segments per beam cone — Bevy's `ConicalFrustum` mesher calls
+/// them "resolution". Sixteen left a visibly faceted silhouette once
+/// beams got large enough to fill much of the frame. ASLS uses 100 on
+/// their one instanced cylinder; here every distinct (radius, length)
+/// pair is its own mesh asset, so it is not quite free.
+pub const BEAM_CONE_SEGMENTS: u32 = 48;

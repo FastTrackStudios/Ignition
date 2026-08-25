@@ -1,6 +1,12 @@
 //! Loads the extracted venue JSON (`data/venues/<name>/*.json`) — see
 //! `docs/domain/norco-venue-reference.md` for what each file contains.
 
+// The maths types come from Bevy's re-export rather than a direct `glam`
+// dependency, so the tree only ever has one `Vec3` — see the `bevy` entry
+// in the root Cargo.toml. These local `Vec3`/`Quat` structs stay, because
+// they are the JSON's field layout (`{x, y, z}`, `{w, x, y, z}`) and
+// Deserialize impls, not a maths type.
+use bevy::math::{EulerRot, Quat as Rotation, Vec3 as Point};
 use serde::Deserialize;
 use std::path::Path;
 
@@ -12,8 +18,8 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-    pub fn to_glam(self) -> glam::Vec3 {
-        glam::Vec3::new(self.x, self.y, self.z)
+    pub fn to_vec3(self) -> Point {
+        Point::new(self.x, self.y, self.z)
     }
 }
 
@@ -26,14 +32,14 @@ pub struct Quat {
 }
 
 impl Quat {
-    pub fn to_glam(self) -> glam::Quat {
-        glam::Quat::from_xyzw(self.x, self.y, self.z, self.w).normalize()
+    pub fn to_quat(self) -> Rotation {
+        Rotation::from_xyzw(self.x, self.y, self.z, self.w).normalize()
     }
 }
 
-fn euler_to_glam(e: Vec3) -> glam::Quat {
-    glam::Quat::from_euler(
-        glam::EulerRot::ZYX,
+fn euler_to_quat(e: Vec3) -> Rotation {
+    Rotation::from_euler(
+        EulerRot::ZYX,
         e.z.to_radians(),
         e.y.to_radians(),
         e.x.to_radians(),
@@ -81,8 +87,8 @@ fn default_patched() -> bool {
 impl FixtureRecord {
     /// The mounting orientation — the *hang*, never the aim. See
     /// `docs/domain/norco-venue-reference.md`.
-    pub fn orientation(&self) -> glam::Quat {
-        self.quat.to_glam()
+    pub fn orientation(&self) -> Rotation {
+        self.quat.to_quat()
     }
 
     /// This fixture's live DMX address, if the venue data has both pieces —
@@ -112,10 +118,10 @@ impl FixtureRecord {
     /// `focus.rs`'s own module doc) needing to know `pre_rotate` exists.
     ///
     /// A plain unit cast for both fields (this crate's own `Vec3`/`Quat`
-    /// are `f32`, matching wgpu/glam convention; `ignition_proto`'s are
+    /// are `f32`, matching Bevy's maths types; `ignition_proto`'s are
     /// `f64`, matching the rest of the wire-contract types) — no
     /// coordinate remap, same convention both sides already agree on
-    /// (`to_glam()`'s own doc comments).
+    /// (`to_vec3()`/`to_quat()`'s own doc comments).
     pub fn placement(&self) -> ignition_proto::Placement {
         let pre_rotate = crate::fixture_profile::beam_pre_rotate(
             self.manufacturer.as_deref().unwrap_or(""),
@@ -174,8 +180,8 @@ pub struct GeometryRecord {
 }
 
 impl GeometryRecord {
-    pub fn orientation(&self) -> glam::Quat {
-        euler_to_glam(self.eulers)
+    pub fn orientation(&self) -> Rotation {
+        euler_to_quat(self.eulers)
     }
 }
 
@@ -224,6 +230,7 @@ fn parse_channel_ranges(entries: &[ChannelListEntry]) -> Vec<u32> {
     out
 }
 
+#[derive(Clone)]
 pub struct Venue {
     pub fixtures: Vec<FixtureRecord>,
     pub room: Vec<GeometryRecord>,
@@ -277,15 +284,15 @@ impl Venue {
 
     /// Axis-aligned bounds over every object's centre — used to auto-frame
     /// the default camera regardless of which venue is loaded.
-    pub fn bounds(&self) -> (glam::Vec3, glam::Vec3) {
-        let mut min = glam::Vec3::splat(f32::INFINITY);
-        let mut max = glam::Vec3::splat(f32::NEG_INFINITY);
-        let mut visit = |p: glam::Vec3| {
+    pub fn bounds(&self) -> (Point, Point) {
+        let mut min = Point::splat(f32::INFINITY);
+        let mut max = Point::splat(f32::NEG_INFINITY);
+        let mut visit = |p: Point| {
             min = min.min(p);
             max = max.max(p);
         };
         for f in &self.fixtures {
-            visit(f.position.to_glam());
+            visit(f.position.to_vec3());
         }
         // Side annexes (sound booth, storage closet, alcove) sit far from
         // the main room — at Norco, ~10m past the audience back wall —
@@ -297,7 +304,7 @@ impl Venue {
             name.contains("Alcove") || name.contains("Closet") || name.contains("Booth")
         };
         for g in self.room.iter().filter(|g| !is_annex(&g.name)).chain(&self.screens).chain(&self.props) {
-            visit(g.position.to_glam());
+            visit(g.position.to_vec3());
         }
         (min, max)
     }
