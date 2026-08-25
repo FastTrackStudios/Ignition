@@ -345,6 +345,18 @@
               "blue": 0.1
             }
           }
+        },
+        {
+          "target": {
+            "Group": "Movers"
+          },
+          "apply": {
+            "FocusDirection": {
+              "x": 0.0,
+              "y": -1.0,
+              "z": -0.32
+            }
+          }
         }
       ]
     }

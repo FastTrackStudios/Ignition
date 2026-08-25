@@ -15,7 +15,7 @@ pub mod preset;
 pub use preset::{ColorPreset, FocusPointPreset};
 
 pub mod focus;
-pub use focus::pan_tilt_deg_to_point;
+pub use focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 
 pub mod recipe;
 pub use recipe::{expand_cue, expand_cue_list, expand_recipe, Recipe, RecipeApply, RecipeCue, RecipeCueList, RecipeTarget};

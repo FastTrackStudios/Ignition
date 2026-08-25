@@ -45,14 +45,19 @@ const VOLUMETRIC_HAZE_SCALE: f32 = 0.11;
 const SHADER_HAZE_SCALE: f32 = 10.0;
 
 /// How brightly a lit fixture's housing glows in the colour it is
-/// emitting, at full dimmer. Well above 1 so bloom haloes the lens the
-/// way a real one does.
+/// emitting, at full dimmer.
+///
+/// Deliberately dull — just enough to pick every fixture out and read
+/// what colour it is in, and nowhere near enough to compete with what it
+/// is actually throwing. It was 14, which haloed every lens hard enough
+/// that the rig read as a wall of glowing dots rather than as light in a
+/// room. The light coming out should speak for itself.
 ///
 /// A *dark* fixture emits nothing. It briefly had a faint always-on glow
 /// so the rig could be found in a blacked-out room, which is no longer
 /// needed now the fixtures actually light it — and a housing that glows
 /// when its lamp is off is not something any fixture does.
-const LIT_BODY_GLOW: f32 = 14.0;
+const LIT_BODY_GLOW: f32 = 0.9;
 
 /// How far below the surface a rigged fixture hangs — clearance for the
 /// clamp and yoke, and what keeps a fixture from being coplanar with the

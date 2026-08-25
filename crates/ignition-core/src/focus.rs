@@ -70,11 +70,90 @@ fn q_rotate(q: Quat, v: Vec3) -> Vec3 {
 /// the byte-encoding step (`ignition_viz::show`), the same as a live
 /// operator asking for an out-of-range focus.
 pub fn pan_tilt_deg_to_point(fixture_pos: Vec3, mount_rot: Quat, target: Vec3) -> (f32, f32) {
-    let world_dir = v_normalize(v_sub(target, fixture_pos));
-    let local = q_rotate(q_conjugate(mount_rot), world_dir);
+    pan_tilt_deg_along(mount_rot, v_sub(target, fixture_pos))
+}
+
+/// Solves for `(pan_deg, tilt_deg)` such that the fixture's beam points
+/// along `world_dir`, regardless of where the fixture is hung.
+///
+/// The difference from `pan_tilt_deg_to_point` is the difference between
+/// a group of fixtures converging on one spot and a group of fixtures
+/// pointing the *same way*. Aiming a row of movers at a shared point
+/// fans them; aiming them along a shared direction makes their beams
+/// parallel, which is a distinct and very common look and cannot be
+/// expressed as a focus point at any finite distance.
+///
+/// `world_dir` need not be normalized. A zero vector leaves the fixture
+/// at its mount pose rather than producing garbage angles.
+pub fn pan_tilt_deg_along(mount_rot: Quat, world_dir: Vec3) -> (f32, f32) {
+    if v_len(world_dir) < 1e-9 {
+        return (0.0, 0.0);
+    }
+    let local = q_rotate(q_conjugate(mount_rot), v_normalize(world_dir));
     let tilt = local.x.hypot(local.y).atan2(-local.z);
     let pan = (-local.x).atan2(local.y);
     (pan.to_degrees() as f32, tilt.to_degrees() as f32)
+}
+
+#[cfg(test)]
+mod direction_tests {
+    use super::*;
+
+    fn rot_z(deg: f64) -> Quat {
+        let h = deg.to_radians() / 2.0;
+        Quat { w: h.cos(), x: 0.0, y: 0.0, z: h.sin() }
+    }
+
+    /// The point of the direction form: fixtures hung in different places
+    /// and at different mount angles all end up pointing the same way,
+    /// which aiming them at any shared point cannot achieve.
+    #[test]
+    fn fixtures_with_different_mounts_end_up_beam_parallel() {
+        let want = Vec3 { x: 0.0, y: -1.0, z: -0.3 };
+        let mut aimed = Vec::new();
+        for yaw in [0.0, 35.0, -70.0, 180.0] {
+            let mount = rot_z(yaw);
+            let (pan, tilt) = pan_tilt_deg_along(mount, want);
+            // Recompose what the fixture would actually point along.
+            let dir = q_rotate(
+                mount,
+                q_rotate(
+                    rot_z(pan as f64),
+                    q_rotate(
+                        {
+                            let h = (tilt as f64).to_radians() / 2.0;
+                            Quat { w: h.cos(), x: h.sin(), y: 0.0, z: 0.0 }
+                        },
+                        Vec3 { x: 0.0, y: 0.0, z: -1.0 },
+                    ),
+                ),
+            );
+            aimed.push(v_normalize(dir));
+        }
+        let want = v_normalize(want);
+        for a in &aimed {
+            let dot = a.x * want.x + a.y * want.y + a.z * want.z;
+            assert!(dot > 0.9999, "aimed {a:?}, wanted {want:?} (dot {dot})");
+        }
+    }
+
+    /// A far-away focus point approximates parallel; the direction form
+    /// is exact. Worth pinning so nobody replaces one with the other.
+    #[test]
+    fn a_focus_point_fans_where_a_direction_does_not() {
+        let mount = Quat { w: 1.0, x: 0.0, y: 0.0, z: 0.0 };
+        let target = Vec3 { x: 0.0, y: -10.0, z: 0.0 };
+        let left = Vec3 { x: -3.0, y: 0.0, z: 3.0 };
+        let right = Vec3 { x: 3.0, y: 0.0, z: 3.0 };
+        let (pan_l, _) = pan_tilt_deg_to_point(left, mount, target);
+        let (pan_r, _) = pan_tilt_deg_to_point(right, mount, target);
+        assert!((pan_l - pan_r).abs() > 20.0, "a shared point should fan them");
+
+        let dir = Vec3 { x: 0.0, y: -1.0, z: -0.3 };
+        let (dpan_l, dtilt_l) = pan_tilt_deg_along(mount, dir);
+        let (dpan_r, dtilt_r) = pan_tilt_deg_along(mount, dir);
+        assert_eq!((dpan_l, dtilt_l), (dpan_r, dtilt_r));
+    }
 }
 
 #[cfg(test)]

@@ -19,7 +19,7 @@
 //! Phasers are the deliberately deferred next slice.
 
 use crate::cue::{Cue, CueValue};
-use crate::focus::pan_tilt_deg_to_point;
+use crate::focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 use crate::group::{self, Group};
 use crate::preset::ColorPreset;
 use ignition_proto::{Attribute, ChanId, ColorChannel, Placement};
@@ -51,6 +51,12 @@ pub enum RecipeApply {
     /// unrecognized channel) are silently skipped, same tolerance as the
     /// rest of this module.
     FocusPoint(ignition_proto::Vec3),
+    /// A shared world-space *direction* rather than a shared point, so
+    /// every fixture in the group ends up beam-parallel with the others
+    /// instead of converging. Not expressible as a `FocusPoint` at any
+    /// finite distance. Fixtures with no known `Placement` are skipped,
+    /// same as `FocusPoint`.
+    FocusDirection(ignition_proto::Vec3),
     /// Escape hatch for anything not modelled as its own `RecipeApply`
     /// variant yet — the same role `Attribute::Custom` plays one level
     /// down.
@@ -123,6 +129,13 @@ pub fn expand_recipe(
             RecipeApply::FocusPoint(target) => {
                 if let Some(p) = placement(chan) {
                     let (pan, tilt) = pan_tilt_deg_to_point(p.position, p.orientation, *target);
+                    out.push(CueValue { chan, attr: Attribute::Pan, value: pan });
+                    out.push(CueValue { chan, attr: Attribute::Tilt, value: tilt });
+                }
+            }
+            RecipeApply::FocusDirection(dir) => {
+                if let Some(p) = placement(chan) {
+                    let (pan, tilt) = pan_tilt_deg_along(p.orientation, *dir);
                     out.push(CueValue { chan, attr: Attribute::Pan, value: pan });
                     out.push(CueValue { chan, attr: Attribute::Tilt, value: tilt });
                 }
