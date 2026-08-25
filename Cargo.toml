@@ -8,6 +8,7 @@ members = [
     "crates/ignition-core",
     "crates/ignition-viz",
     "apps/ignition-engine",
+    "apps/ignition-studio",
 ]
 
 [workspace.package]
@@ -24,6 +25,12 @@ ignition-core = { path = "crates/ignition-core" }
 ignition-viz = { path = "crates/ignition-viz" }
 
 serde = { version = "1", features = ["derive"] }
+
+# Shared with Bevy 0.19.1 (which pins ^29.0.3) and with the Dioxus 0.8
+# line's Blitz renderer. That they agree is what makes embedding the
+# visualizer in a Dioxus window possible at all — one `Device` type, one
+# texture, no cross-device copy. See crates/ignition-viz/src/embedded.rs.
+wgpu = "29"
 serde_json = "1"
 
 # The visualizer's engine. `default-features = false` drops the 2D and

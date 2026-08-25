@@ -341,7 +341,7 @@ fn run_snapshot(
 /// The camera every mode uses: HDR so bloom has something above white to
 /// work with, a tonemapper that desaturates as it clips, and the preset's
 /// own framing.
-fn camera_bundle(
+pub(crate) fn camera_bundle(
     view: ViewPreset,
     free: Option<(Vec3, Vec3)>,
     min: Vec3,

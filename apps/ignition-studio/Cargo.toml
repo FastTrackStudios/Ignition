@@ -1,0 +1,37 @@
+[package]
+name = "ignition-studio"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+# The operator application: Dioxus owns the window, the layout and every
+# control; the Bevy visualizer is a texture composited into one DOM
+# element. See `crates/ignition-viz/src/embedded.rs` for why that is
+# possible at all.
+[dependencies]
+ignition-core.workspace = true
+ignition-viz.workspace = true
+bevy.workspace = true
+wgpu.workspace = true
+anyhow = "1"
+tracing = "0.1"
+tokio = { version = "1", features = ["time"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde_json.workspace = true
+
+# Pinned to the same Dioxus rev the FastTrackStudio tree uses, because
+# both trees have to agree on wgpu for the embedding to work and that
+# rev already resolves to wgpu 29.0.4 — the same one Bevy 0.19.1 picks.
+# Bump this rev deliberately and in lockstep with FTS.
+dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false, features = ["lib"] }
+dioxus-native = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", features = ["prelude", "system-fonts", "svg", "vello"] }
+dioxus-native-dom = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc" }
+
+# Versions matched to that rev's own pins — a mismatch here is a second
+# copy of Blitz's types, not a compile error you can reason about.
+blitz-dom = "=0.3.0-beta.1"
+blitz-traits = "=0.3.0-beta.1"
+anyrender = "0.11.0"
+peniko = "0.6.1"

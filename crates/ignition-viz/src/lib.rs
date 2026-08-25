@@ -17,6 +17,7 @@ pub mod app;
 pub mod beam;
 pub mod channel_map;
 pub mod dmx;
+pub mod embedded;
 pub mod fixture_profile;
 pub mod gdtf_geometry;
 pub mod gdtf_import;

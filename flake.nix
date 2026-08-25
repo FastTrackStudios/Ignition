@@ -51,6 +51,12 @@
             libxcursor
             libxi
             libxrandr
+            # Blitz's text stack (yeslogic-fontconfig-sys) links
+            # fontconfig, and fontconfig wants freetype. Only the studio
+            # app needs these — the visualizer alone does not — but the
+            # dev shell is shared.
+            fontconfig
+            freetype
           ];
         in
         {

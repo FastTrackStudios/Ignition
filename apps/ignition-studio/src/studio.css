@@ -1,0 +1,26 @@
+/* Blitz supports a real subset of CSS, not all of it — this is written
+   with explicit values rather than shorthand-heavy Tailwind for now, so
+   the spike is not also a bet on Blitz's CSS coverage. */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: #0b0b0d; color: #e6e6e6;
+       font-family: sans-serif; font-size: 14px; }
+.studio { display: flex; width: 100%; height: 100vh; }
+.cues { width: 280px; min-width: 280px; height: 100%;
+        background: #131317; border-right: 1px solid #26262c; overflow-y: auto; }
+.cues header { padding: 12px 14px; font-weight: bold; letter-spacing: 0.06em;
+               text-transform: uppercase; font-size: 11px; color: #8d8d99;
+               border-bottom: 1px solid #26262c; }
+.cues ol { list-style: none; margin: 0; padding: 0; }
+.cue { display: flex; gap: 10px; padding: 8px 14px; cursor: pointer;
+       border-bottom: 1px solid #1c1c22; }
+.cue:hover { background: #1b1b21; }
+.cue.selected { background: #23233a; color: #fff; }
+.num { width: 24px; color: #6f6f7d; text-align: right; }
+.viewport { flex: 1; height: 100%; }
+/* An <object> is a replaced element with no intrinsic size, so it lays
+   out 0x0 inside a plain block and never paints. Making the container a
+   grid stretches its single item to fill — the same trick the upstream
+   wgpu-texture example uses, and the reason the viewport was blank. */
+.viz { display: grid; width: 100%; height: 100%; }
+.viz > object { width: 100%; height: 100%; }
