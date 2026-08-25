@@ -255,7 +255,9 @@ pub struct LiveEmission {
 /// the fixture's resolved anchor point, aimed along the *head's* full
 /// pan+tilt orientation (computed here rather than by the caller since
 /// this function is already the one place that knows a fixture's real
-/// lens/anchor position after the Bottom/Top anchor maths below).
+/// lens/anchor position after the Bottom/Top anchor maths below). `throw`
+/// is the real-world reach that beam-cone should have — see `BeamThrow`.
+#[allow(clippy::too_many_arguments)]
 pub fn add_typed_fixture(
     mesh: &mut MeshBuilder,
     pos: Vec3,
@@ -265,6 +267,7 @@ pub fn add_typed_fixture(
     model: &str,
     color: [f32; 3],
     emit: Option<LiveEmission>,
+    throw: &BeamThrow,
 ) {
     match shape_for(manufacturer, model) {
         Shape::Mesh { mesh: asset, target_size, pre_rotate, anchor, split_z } => {
@@ -310,30 +313,85 @@ pub fn add_typed_fixture(
                 }
             }
             if let Some(emission) = emit {
-                emit_light_and_beam(mesh, anchored_pos, head_full_rot, &emission);
+                emit_light_and_beam(mesh, anchored_pos, head_full_rot, &emission, throw);
             }
         }
         Shape::Bar { length, width, height } => {
             mesh.add_bar(pos, rot, length, width, height, color);
             if let Some(emission) = emit {
-                emit_light_and_beam(mesh, pos, rot, &emission);
+                emit_light_and_beam(mesh, pos, rot, &emission, throw);
             }
         }
         Shape::Generic => mesh.add_fixture(pos, rot, color),
     }
 }
 
+/// How far a live beam-cone's glow actually reaches — replaces what used
+/// to be a flat `2.5` metres regardless of the room's real size
+/// ("there's no throw distance concept here yet"). Reported directly:
+/// with Norco's real ~3.4m truss height, a fixed 2.5m beam visibly
+/// stopped mid-air well short of the floor — "cones that just stop
+/// within a few feet." Computed once per `build_scene` call from the
+/// venue's own real bounds (`BeamThrow::for_venue`), not per-fixture —
+/// the room's geometry doesn't change fixture to fixture. Not a real
+/// raycast against the room's actual mesh (walls, risers, screens) —
+/// just the flat floor plane, which is the case that mattered here
+/// (every downward-aimed beam in this venue) — a real occlusion raycast
+/// is a further improvement, not attempted this pass.
+#[derive(Clone, Copy)]
+pub struct BeamThrow {
+    /// The room's real floor height — a beam aimed downward reaches
+    /// exactly this far, the same way a real beam stops at the surface it
+    /// hits instead of passing through it.
+    floor_z: f32,
+    /// How far a beam aimed level or upward reaches — there's no floor
+    /// intersection to compute for those, so this is the room's own
+    /// horizontal diagonal (generous enough to visibly cross the room)
+    /// rather than an arbitrary small constant.
+    max_reach: f32,
+}
+
+impl BeamThrow {
+    pub fn for_venue(venue: &crate::venue::Venue) -> Self {
+        let (min, max) = venue.bounds();
+        let room_diag = ((max.x - min.x).powi(2) + (max.y - min.y).powi(2)).sqrt();
+        // Capped at a realistic stage-lighting throw distance regardless
+        // of the room's raw size — an uncapped room diagonal (Norco's is
+        // ~22m) produced beams so large on near-horizontal aims (a
+        // fixture with a FocusPoint recipe pointed across the room, not
+        // straight down) that their additive glow blew the whole render
+        // out to solid white. This clamp applies to the floor-intersection
+        // case too (a near-horizontal *downward* aim has the same runaway
+        // problem — dividing by a `direction.z` near zero), not just the
+        // level/upward fallback.
+        Self { floor_z: min.z, max_reach: room_diag.max(5.0).min(10.0) }
+    }
+
+    fn reach(&self, origin: Vec3, direction: Vec3) -> f32 {
+        // A beam with any real downward component (`direction.z` clearly
+        // negative) hits the floor plane at a well-defined distance;
+        // anything level or aimed upward has no floor to hit within this
+        // simple model, so it just gets the room's generous fallback reach.
+        if direction.z < -1e-3 {
+            let t = (self.floor_z - origin.z) / direction.z;
+            t.clamp(0.3, self.max_reach)
+        } else {
+            self.max_reach
+        }
+    }
+}
+
 /// A moving head/par's beam travels along its local -Z (this project's own
-/// hang/aim convention — see `venue.rs`). Cone length is a fixed reach into
-/// the room rather than derived from anything in the data (there's no
-/// "throw distance" concept here yet); radius comes from the real
-/// fixture's beam angle when known, so a wide-beam wash reads visibly
-/// wider than a tight-beam spot.
-fn emit_light_and_beam(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, emission: &LiveEmission) {
-    let length = 2.5f32;
+/// hang/aim convention — see `venue.rs`). Cone length is `throw`'s real
+/// reach for this beam's actual aim direction (see `BeamThrow`); radius
+/// comes from the real fixture's beam angle when known, so a wide-beam
+/// wash reads visibly wider than a tight-beam spot, scaled by the now
+/// much more realistic length.
+fn emit_light_and_beam(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, emission: &LiveEmission, throw: &BeamThrow) {
+    let direction = rot * Vec3::NEG_Z;
+    let length = throw.reach(pos, direction);
     let angle_deg = emission.beam_angle_deg.unwrap_or(25.0);
     let radius = length * (angle_deg.to_radians() * 0.5).tan();
-    let direction = rot * Vec3::NEG_Z;
     mesh.add_light(pos, emission.color, direction, angle_deg * 0.5);
     mesh.add_glow_cone(pos, rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, 16);
 }

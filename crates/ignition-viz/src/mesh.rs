@@ -292,10 +292,21 @@ impl MeshBuilder {
         build_cone(&mut self.vertices, &mut self.indices, origin, rot, local_axis, length, radius, color, segments);
     }
 
-    /// A beam-cone light glow — same shape as `add_cone`, but appended to
-    /// the separate additively-blended `glow_vertices`/`glow_indices` list
-    /// instead of the main opaque geometry. See `PointLight` for why this
-    /// list exists.
+    /// A beam-cone light glow — appended to the separate
+    /// additively-blended `glow_vertices`/`glow_indices` list instead of
+    /// the main opaque geometry (see `PointLight` for why that list
+    /// exists). Unlike `add_cone`'s decorative housing-stub shape (base at
+    /// `origin`, tapering to a point — fine for a small fixed-length
+    /// ~0.15m stub, never really scrutinised), this is a real frustum:
+    /// narrow and full-brightness where the beam exits the fixture,
+    /// flaring out to `radius` at the far end and dimming as it goes —
+    /// both the correct physical shape for a spotlight beam (it spreads
+    /// and its intensity per unit area falls off with distance/throw) and
+    /// what stops beams from blowing out to solid white once `length` got
+    /// realistic (`fixture_profile.rs::BeamThrow`): the old shape was
+    /// full-brightness across its *entire* body, so a long, wide,
+    /// uniformly-bright cone from every one of dozens of overlapping
+    /// fixtures saturated the additive glow pass completely.
     pub fn add_glow_cone(
         &mut self,
         origin: Vec3,
@@ -306,17 +317,7 @@ impl MeshBuilder {
         color: [f32; 3],
         segments: u32,
     ) {
-        build_cone(
-            &mut self.glow_vertices,
-            &mut self.glow_indices,
-            origin,
-            rot,
-            local_axis,
-            length,
-            radius,
-            color,
-            segments,
-        );
+        build_glow_cone(&mut self.glow_vertices, &mut self.glow_indices, origin, rot, local_axis, length, radius, color, segments);
     }
 
     /// Registers a live light source for `live_renderer.rs`'s point-light
@@ -389,6 +390,84 @@ fn build_cone(
             let b = base_start + (i + 1) % segments;
             indices.extend_from_slice(&[base_center_idx, b, a]);
         }
+    }
+}
+
+/// A beam-glow frustum — narrow+bright near ring at `origin`, flaring to
+/// `radius` at the far end (`length` away along `local_axis`), dimmed
+/// there — see `MeshBuilder::add_glow_cone`'s doc for why this shape
+/// (rather than `build_cone`'s point-tapered one) is what a light beam
+/// actually needs.
+#[allow(clippy::too_many_arguments)]
+fn build_glow_cone(
+    vertices: &mut Vec<Vertex>,
+    indices: &mut Vec<u32>,
+    origin: Vec3,
+    rot: Quat,
+    local_axis: Vec3,
+    length: f32,
+    radius: f32,
+    color: [f32; 3],
+    segments: u32,
+) {
+    let axis = local_axis.normalize();
+    let up = if axis.abs_diff_eq(Vec3::Y, 1e-3) { Vec3::X } else { Vec3::Y };
+    let u = axis.cross(up).normalize();
+    let v = axis.cross(u).normalize();
+
+    // A small non-zero near radius (rather than a true point) so the near
+    // end still reads as a lens-sized glow up close, not a degenerate
+    // vertex fan. Both ends are scaled well below the raw emission colour
+    // (near to ~55%, far to ~10%) — `fs_glow` tonemaps *before* additive
+    // blending (a known approximation, see that function's own comment),
+    // so several already-bright fragments from overlapping beams can sum
+    // straight past white; baking in headroom here, on top of dimming
+    // toward the far end for the real reason a beam's intensity per unit
+    // area falls off as it spreads over distance, keeps a dense rig's
+    // many overlapping beams (`fixture_profile.rs::BeamThrow` made them
+    // both long and wide) from blowing the whole glow pass out solid.
+    let near_radius = (radius * 0.08).max(0.02);
+    let near_color = [color[0] * 0.55, color[1] * 0.55, color[2] * 0.55];
+    let far_color = [color[0] * 0.10, color[1] * 0.10, color[2] * 0.10];
+
+    let mut ring = |dist: f32, ring_radius: f32, c: [f32; 3]| -> u32 {
+        let start = vertices.len() as u32;
+        let offset = axis * dist;
+        for i in 0..segments {
+            let theta = (i as f32 / segments as f32) * std::f32::consts::TAU;
+            let local = offset + u * theta.cos() * ring_radius + v * theta.sin() * ring_radius;
+            let normal_local = (u * theta.cos() + v * theta.sin()).normalize();
+            vertices.push(Vertex {
+                position: (origin + rot * local).into(),
+                normal: (rot * normal_local).into(),
+                color: c,
+            });
+        }
+        start
+    };
+
+    let near_ring = ring(0.0, near_radius, near_color);
+    let far_ring = ring(length, radius, far_color);
+    for i in 0..segments {
+        let j = (i + 1) % segments;
+        let a = near_ring + i;
+        let b = near_ring + j;
+        let c = far_ring + j;
+        let d = far_ring + i;
+        indices.extend_from_slice(&[a, b, c, a, c, d]);
+    }
+
+    // A far cap so the beam's tip doesn't look hollow viewed near
+    // head-on (matches `build_cone`'s own base cap treatment).
+    let far_center = vertices.len() as u32;
+    vertices.push(Vertex {
+        position: (origin + rot * (axis * length)).into(),
+        normal: (rot * axis).into(),
+        color: far_color,
+    });
+    for i in 0..segments {
+        let j = (i + 1) % segments;
+        indices.extend_from_slice(&[far_center, far_ring + j, far_ring + i]);
     }
 }
 

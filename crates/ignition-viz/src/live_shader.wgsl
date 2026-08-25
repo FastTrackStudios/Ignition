@@ -325,7 +325,15 @@ fn fs_glow(in: VertexOut) -> @location(0) vec4<f32> {
     // that makes additively-blended cone geometry read as a volumetric
     // shaft instead of a flat-lit solid.
     let edge = 1.0 - abs(dot(view_dir, n));
-    let alignment = mix(0.55, 1.4, edge);
+    // Was mix(0.55, 1.4, edge) — the >1x boost on top of this pass's
+    // per-fragment tonemap (below) was fine while beams were short and
+    // rarely overlapped on screen; once BeamThrow (fixture_profile.rs)
+    // made beams reach the real floor, many long/wide beams from a dense
+    // rig overlap on the same pixels far more, and since this pass
+    // tonemaps *before* additive blending (an approximation — see this
+    // function's own tonemap comment below), several already-near-1.0
+    // fragments summed straight past white. Capped at 1.0 instead.
+    let alignment = mix(0.4, 1.0, edge);
     // Drift through the noise field's Z axis over time — the haze's
     // turbulence pattern moves without the beam geometry itself moving,
     // the same "sample a moving slice of 3D noise" trick ASLS's own

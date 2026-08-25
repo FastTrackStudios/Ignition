@@ -995,3 +995,90 @@ Verified: `cargo test --workspace` — 53 tests, all green (22 in
 `ignition-core`, up from 16 — 6 new `effect` tests). `shot`'s
 regression PNG stayed byte-identical (MD5 `d4c0f1b2...`, unchanged) —
 purely additive, same as every slice since Slice 12.
+
+## Slice 17 — real throw distance and beam-cone shape (2026-08-24, same day)
+
+Operator, after seeing the all-lights-on renders: "the lighting columns
+look really bad, like they are cones that just stop within a few feet
+and stuff so our visualizer needs a lot of updating to have stuff like
+ASLS to be more like that." Root cause, in `fixture_profile.rs`'s
+`emit_light_and_beam`: `let length = 2.5f32;` — a flat constant
+regardless of the room's real size, unchanged since it was first written
+("there's no throw distance concept here yet," flagged in that comment
+from day one). Norco's real truss height is ~3.4m; a 2.5m beam from a
+downward-aimed ceiling fixture stops well short of the floor — exactly
+"cones that stop within a few feet."
+
+**Real throw distance**: new `BeamThrow` (`fixture_profile.rs`),
+computed once per `build_scene` call from the venue's own real bounds
+(`Venue::bounds()`), not per-fixture. `reach(origin, direction)`
+intersects the beam's real aim direction against the floor plane
+(`floor_z = venue.bounds().0.z`) for any beam with a real downward
+component, so a beam now travels exactly as far as it would in reality
+before hitting the floor — not a guess. Beams aimed level/upward (no
+floor to hit within this simple model) fall back to a capped reach.
+That cap needed real tuning: an uncapped room diagonal (Norco's is
+~22m) produced beams so large on near-horizontal aims that their
+additive glow blew the entire render out to solid white — capped at
+`min(room_diagonal, 10m)`, a realistic stage-throw distance, applied to
+both the floor-intersection and fallback cases (a near-horizontal
+*downward* aim has the same runaway-division problem).
+
+**The beam-cone shape itself was backwards.** `mesh::build_cone` (used
+for both `add_cone`'s tiny opaque decorative fixture-body stub *and*,
+until now, `add_glow_cone`'s actual light-beam glow) puts its wide
+circular base at the fixture and tapers to a single point at the far
+end — fine for a ~0.15m decorative stub, exactly backwards for a real
+light beam, which should be narrow near the lens and flare *wider* as
+it travels (and dim as it does, since intensity per unit area falls off
+over the growing spread). This was always wrong but invisible while
+beams were a fixed short 2.5m; once they got long enough to matter, it
+became the dominant visual bug — long, uniformly-bright, wide-at-the-
+top icicle shapes instead of soft light shafts.
+
+New `mesh::build_glow_cone` (a real frustum, not shared with
+`build_cone`'s decorative-stub use, which is left untouched): narrow
+near ring at the fixture (~55% of the emission colour), flaring to the
+beam's real spread at the far end (~10% of emission colour, dimming with
+distance/throw — the physically correct direction). This alone mostly
+fixed the "icicle" look, but surfaced a second, deeper bug.
+
+**`fs_glow` tonemaps *before* additive blending** (a known approximation
+flagged back in Slice 11: "an approximation, not physically identical to
+[a] single-buffer tonemap"). While beams were short and rarely overlapped
+on screen, several already-tonemapped-toward-1.0 fragments summing past
+white in the frame buffer was a rare, minor artifact. Once beams got
+long *and* correctly wide, a dense rig's beams overlap on far more
+pixels, and summing many near-1.0 fragments reliably clips solid white —
+reproduced directly with the "all lights on" look's tightly-clustered
+OH movers viewed nearly straight up the beam column. Not fixed at the
+root (a real fix needs an HDR intermediate target and one final tonemap
+pass over the composited result, not per-fragment) — that is a real,
+scoped follow-on, not attempted this pass. Mitigated by cutting the
+glow pass's own headroom: `fs_glow`'s view-alignment term capped at
+`mix(0.4, 1.0, edge)` (was `mix(0.55, 1.4, edge)` — the >1x boost on
+top of an already-bright fragment was the most direct contributor), plus
+the near/far colour cuts above.
+
+Verified visually, not just by absence of a regression failure (`shot`'s
+static path never touches this code — `dmx: None` means `emit` is
+always `None`, `shot`'s MD5 stayed unchanged as expected): a moderate,
+realistic cue (`demo-recipes.json`'s 4 movers + 47 pars) now shows real
+flared, floor-reaching beams; the extreme `all-lights-on.json` look
+(69 fixtures at once) still saturates in a top-down/house view aimed
+squarely into the packed OH-mover cluster (the additive-blending root
+cause above), but its **top-down view** — a much more representative
+camera angle for evaluating a look, not staring straight up a beam
+column — shows correctly flared, soft, haze-lit beams reaching the
+floor with visible individual pools of light, a real, substantial step
+toward ASLS's own look. `cargo test --workspace`: 53/53 (unchanged —
+this slice is shader/geometry tuning, no new testable logic). `shot`'s
+regression PNG byte-identical (MD5 `d4c0f1b2...`).
+
+**Not done this pass, flagged honestly**: the HDR-intermediate +
+single-final-tonemap fix for the additive-overlap saturation root
+cause; a real occlusion raycast for throw distance (currently floor-
+plane only — a beam aimed at a wall or riser still reaches the capped
+fallback distance rather than stopping at that surface); ASLS's other
+still-unported techniques (GPU instancing, animated-not-just-drifting
+fog turbulence, from Slice 7's own "not ported" list).

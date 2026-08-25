@@ -1,6 +1,6 @@
 use crate::channel_map::channel_map_for;
 use crate::dmx::DmxUniverses;
-use crate::fixture_profile::{add_typed_fixture, LiveEmission};
+use crate::fixture_profile::{add_typed_fixture, BeamThrow, LiveEmission};
 use crate::mesh::MeshBuilder;
 use crate::venue::Venue;
 
@@ -67,6 +67,7 @@ const PROP_COLOR: [f32; 3] = [0.48, 0.30, 0.62];
 pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool, dmx: Option<&DmxUniverses>) -> MeshBuilder {
     let mut mesh = MeshBuilder::default();
     let skip = |name: &str| exclude.iter().any(|e| name.contains(e.as_str()));
+    let throw = BeamThrow::for_venue(venue);
 
     for g in &venue.room {
         if skip(&g.name) {
@@ -224,7 +225,17 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool, dmx: Opt
             }
         }
 
-        add_typed_fixture(&mut mesh, f.position.to_glam(), mount_rot, live_pan_tilt, manufacturer, model, color, emit);
+        add_typed_fixture(
+            &mut mesh,
+            f.position.to_glam(),
+            mount_rot,
+            live_pan_tilt,
+            manufacturer,
+            model,
+            color,
+            emit,
+            &throw,
+        );
     }
 
     mesh
