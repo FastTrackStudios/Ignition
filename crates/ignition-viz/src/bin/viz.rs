@@ -62,6 +62,7 @@ fn main() -> anyhow::Result<()> {
     // Packaging this properly is a later problem.
     let mut assets_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string();
     let mut screen_content: Option<String> = Some("screens/rockstars-logo.webp".to_string());
+    let mut canvas_content: std::collections::HashMap<String, String> = Default::default();
     // On in a window, off in a snapshot unless asked for.
     let mut overlay: Option<bool> = None;
     let mut eye: Option<Vec3> = None;
@@ -127,6 +128,17 @@ fn main() -> anyhow::Result<()> {
             // What the venue's screens display, relative to --assets.
             // `--screens-off` blanks them.
             "--screen-content" => screen_content = Some(next("an asset path")),
+            // One canvas's source. Panels sharing a canvas each show
+            // the slice of it matching where they physically are.
+            "--canvas" => {
+                let spec = next("name=asset/path");
+                match spec.split_once('=') {
+                    Some((name, path)) => {
+                        canvas_content.insert(name.to_string(), path.to_string());
+                    }
+                    None => anyhow::bail!("--canvas wants name=path, got {spec}"),
+                }
+            }
             "--screens-off" => screen_content = None,
             "--assets" => assets_dir = next("a directory"),
             // How beams in the air are produced: Bevy's own volumetric
@@ -194,6 +206,7 @@ fn main() -> anyhow::Result<()> {
             beam_style,
             exposure,
             screen_content,
+            canvas_content,
             assets_dir,
         },
         playback,

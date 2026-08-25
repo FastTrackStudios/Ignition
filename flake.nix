@@ -141,6 +141,14 @@
             # not just at link time.
             LD_LIBRARY_PATH = lib.optionalString stdenv.hostPlatform.isLinux
               (lib.makeLibraryPath linuxBuildInputs);
+
+            # `libspa-sys` generates its bindings with bindgen, which
+            # dlopens libclang and finds it *only* through this variable
+            # on NixOS — there is no system path to fall back to. The
+            # failure is a build-script panic several hundred lines into
+            # pkg-config noise, so it reads as a PipeWire problem and is
+            # not.
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           };
         });
     };

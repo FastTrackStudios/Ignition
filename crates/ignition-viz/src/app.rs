@@ -72,6 +72,9 @@ pub struct VizConfig {
     /// What the venue's screens display — see
     /// `VizSettings::screen_content`.
     pub screen_content: Option<String>,
+    /// Per-canvas sources — `--canvas main=clips/city.png`. A canvas
+    /// with no entry falls back to `screen_content`.
+    pub canvas_content: std::collections::HashMap<String, String>,
     /// Root directory the asset server loads from.
     pub assets_dir: String,
     /// How beams are drawn — see `BeamStyle`.
@@ -115,6 +118,7 @@ impl Plugin for VizPlugin {
                 beam_style: self.config.beam_style,
                 exposure: self.config.exposure,
                 screen_content: self.config.screen_content.clone(),
+                canvas_content: self.config.canvas_content.clone(),
             })
             .insert_resource(GdtfLibraryRes(
                 self.gdtf.lock().expect("gdtf library lock").take(),

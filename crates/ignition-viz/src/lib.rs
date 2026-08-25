@@ -15,6 +15,7 @@
 
 pub mod app;
 pub mod beam;
+pub mod canvas;
 pub mod channel_map;
 pub mod dmx;
 pub mod embedded;

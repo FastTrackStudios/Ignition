@@ -136,6 +136,10 @@ pub struct VizSettings {
     /// projection mapping needs per-surface content and its own
     /// addressing, which this is the first piece of.
     pub screen_content: Option<String>,
+    /// Per-canvas sources, by canvas name. A canvas with no entry here
+    /// falls back to `screen_content`, which is what makes the flag
+    /// optional rather than a new requirement.
+    pub canvas_content: std::collections::HashMap<String, String>,
     /// Room/screen/prop objects whose name contains any of these are not
     /// drawn — `--exclude Ceiling` for a plan view that would otherwise
     /// just render the roof, and the escape hatch for a venue whose
@@ -523,11 +527,26 @@ pub fn spawn_venue(
         }
     }
 
-    let screen_content: Option<Handle<Image>> = settings
-        .screen_content
-        .as_ref()
-        .map(|path| asset_server.load(path.clone()));
-    let screen_quad = meshes.add(Rectangle::new(1.0, 1.0));
+    // One texture per canvas, and one slice per panel. Panels sharing a
+    // canvas therefore share a texture and show different parts of it —
+    // the difference between three screens playing one video and three
+    // screens each playing their own copy.
+    let slices = crate::canvas::slices(&venue.screens);
+    let mut canvas_content: std::collections::HashMap<String, Handle<Image>> =
+        std::collections::HashMap::new();
+    for screen in &venue.screens {
+        let canvas = screen.canvas_name().to_string();
+        if canvas_content.contains_key(&canvas) {
+            continue;
+        }
+        let path = settings
+            .canvas_content
+            .get(&canvas)
+            .or(settings.screen_content.as_ref());
+        if let Some(path) = path {
+            canvas_content.insert(canvas, asset_server.load(path.clone()));
+        }
+    }
 
     for g in &venue.screens {
         if settings.skip(&g.name) {
@@ -558,12 +577,19 @@ pub fn spawn_venue(
             Transform::from_scale(Vec3::new(size.x, size.y, depth)),
             ChildOf(body),
         ));
-        if let Some(content) = &screen_content {
+        if let Some(content) = canvas_content.get(g.canvas_name()) {
             // The display itself: a quad just proud of the bezel, lit by
             // its own content rather than by the room.
             commands.spawn((
                 ScreenSurface,
-                Mesh3d(screen_quad.clone()),
+                Mesh3d(
+                    meshes.add(crate::canvas::sliced_quad(
+                        slices
+                            .get(&g.name)
+                            .copied()
+                            .unwrap_or(crate::canvas::Slice::FULL),
+                    )),
+                ),
                 MeshMaterial3d(display(&mut standard, content.clone())),
                 Transform {
                     translation: Vec3::Z * (depth * 0.5 + 0.005),

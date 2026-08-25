@@ -179,11 +179,26 @@ pub struct GeometryRecord {
     pub position: Vec3,
     pub eulers: Vec3,
     pub size: Vec3,
+    /// Which canvas a screen shows a piece of.
+    ///
+    /// Screens sharing a canvas each show the slice matching where they
+    /// physically are, so one image spans several panels. `None` means
+    /// the screen is its own canvas and shows the whole source — which
+    /// is what every screen did before this existed. Ignored for
+    /// anything that is not a screen.
+    #[serde(default)]
+    pub canvas: Option<String>,
 }
 
 impl GeometryRecord {
     pub fn orientation(&self) -> Rotation {
         euler_to_quat(self.eulers)
+    }
+
+    /// The canvas this screen belongs to — its own name when it is not
+    /// part of a group.
+    pub fn canvas_name(&self) -> &str {
+        self.canvas.as_deref().unwrap_or(&self.name)
     }
 }
 
