@@ -182,7 +182,11 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool, dmx: Opt
         // with the live one. A fixture with no channel map for its
         // manufacturer/model, or no `dmx_address` in the venue data, just
         // falls through to the static defaults below unchanged.
-        let mut live_rot = None;
+        // Pan and tilt travelled separately (not pre-combined into one
+        // quaternion) so `fixture_profile.rs` can apply pan to the whole
+        // fixture but tilt to only the head — see `Shape::Mesh`'s
+        // `split_z` field and `add_mesh_asset_split`.
+        let mut live_pan_tilt = None;
         let mut color = f.kind().color();
         let mut emit = None;
         if let (Some(universes), Some(addr), Some(map)) =
@@ -192,7 +196,7 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool, dmx: Opt
             if resolved.pan_deg != 0.0 || resolved.tilt_deg != 0.0 {
                 let pan = glam::Quat::from_axis_angle(glam::Vec3::Z, resolved.pan_deg.to_radians());
                 let tilt = glam::Quat::from_axis_angle(glam::Vec3::X, resolved.tilt_deg.to_radians());
-                live_rot = Some(mount_rot * pan * tilt);
+                live_pan_tilt = Some((pan, tilt));
             }
             if resolved.has_color {
                 color = [
@@ -220,7 +224,7 @@ pub fn build_scene(venue: &Venue, exclude: &[String], show_props: bool, dmx: Opt
             }
         }
 
-        add_typed_fixture(&mut mesh, f.position.to_glam(), mount_rot, live_rot, manufacturer, model, color, emit);
+        add_typed_fixture(&mut mesh, f.position.to_glam(), mount_rot, live_pan_tilt, manufacturer, model, color, emit);
     }
 
     mesh

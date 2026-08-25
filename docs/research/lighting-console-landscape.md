@@ -473,3 +473,63 @@ produce different PNGs (different MD5) — the haze pattern actually
 changed, not just the fixture state. 13/13 tests still pass, `shot`'s
 regression PNG byte-identical (MD5) — this only touches the live shader's
 glow pass.
+
+## Slice 10 — yoke/head geometry split for moving heads (2026-08-24, same day)
+
+The most-repeated deferred item (flagged in Slices 1, 2, and 7): a live
+tilt reading rotated the fixture's *whole mesh* around its mount anchor,
+base bracket included, instead of leaving the base fixed and tilting only
+the head — a real moving head's yoke stays bolted to its mount; only the
+head assembly moves.
+
+**The split point**: `assets/qlc-meshes/moving_head.obj` has no named
+sub-parts to split by, so it's a geometric heuristic instead — histogrammed
+the mesh's own vertex Z distribution and found a real "waist" (28 vertices,
+far fewer than the ~150-230 in every neighbouring bucket) around z≈0,
+separating a wider cluster from z=-0.49 to -0.1 (yoke arms + base) from
+another from z=0.1 to 0.33 (head/lens housing). `MOVING_HEAD_SPLIT_Z =
+-0.02` in `fixture_profile.rs`, a new `split_z: Option<f32>` field on
+`Shape::Mesh` (`None` for pars/hazers — nothing to split, they don't tilt).
+
+**The pivot bug caught before it shipped**: the first implementation
+rotated head-side triangles around the mesh's own local origin (same as
+the base), which — since the origin isn't where the head actually
+attaches to the yoke — would have made the head swing through a wide arc
+from a pivot point far below itself, a worse artifact than the whole-body
+rotation it was meant to fix. Corrected: `mesh::add_mesh_asset_split`
+pivots head vertices around `split_z` transformed into `pre_rotate`'s
+frame (`pivot_pre = pre_rotate * (0,0,split_z) * scale`), not the mesh
+origin — `p_final = pivot_pre + tilt * (p_pre - pivot_pre)` for head
+vertices, matching how a real hinge works. Pan still applies to
+everything uniformly (a real yoke rotates on its mount when panning, base
+included) via `scene.rs` now passing pan and tilt to `fixture_profile.rs`
+*separately* instead of pre-combined into one quaternion.
+
+**A second real bug this surfaced**: the very first `--snapshot` with the
+split active showed a moving head's vertex count changed *even with no
+DMX source running at all* — tracing it back: `dmx.rs`'s pan/tilt
+resolution ran the raw byte-0 "nothing received yet" state through the
+same degrees-per-byte formula real data uses, landing on -270°/-135°
+(nowhere near neutral) purely from never having heard from a console.
+Same class of bug as Slice 5's dimmer default-to-off fix, one level up:
+`DmxUniverses::resolve()` now checks whether a universe has *ever* been
+received at all (not just whether this particular byte is zero) and
+returns fully neutral defaults if not — a universe that's genuinely
+receiving all-zero bytes from a real, connected console (a legitimate
+DMX state) still resolves normally.
+
+**Also fixed a real regression before it landed**: gating the split path
+on `split_z` alone (a shape property) meant `shot`'s headless path — which
+never has live data — started taking the vertex-duplicating split-draw
+code path too, breaking the byte-identical regression PNG invariant this
+whole slice sequence has maintained. Fixed by gating on `(split_z,
+live_pan_tilt)` together — the split draw only runs when there's an
+actual live tilt reading to apply; idle/no-data fixtures use the exact
+same `add_mesh_asset` path as before this slice existed.
+
+Verified: 14/14 tests pass (two new regressions: universe-never-received
+neutrality, and the existing suite); `shot`'s regression PNG byte-identical
+(MD5) both before and after the gating fix; a `--snapshot` with a real
+sACN packet driving a large tilt swing shows the head visibly displaced
+from its neighbours while staying attached at its mount point, not
+detached or floating.

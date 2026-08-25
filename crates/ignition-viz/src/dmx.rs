@@ -58,6 +58,21 @@ impl DmxUniverses {
     /// present-but-zero (e.g. blackout, or nothing has ever been sent) still
     /// resolves, just to zero/default values, matching real desk behaviour.
     pub fn resolve(&self, dmx: &DmxAddress, map: &ChannelMap) -> ResolvedAttributes {
+        // A universe no packet has EVER arrived for is a different state
+        // from "a packet arrived and every byte in it happens to be zero" —
+        // the latter is a real, meaningful DMX state (e.g. an intentional
+        // blackout, or a console that genuinely means pan-hard-left at
+        // byte 0); the former just means nothing is connected yet. Without
+        // this check, a fixture with a Pan/Tilt channel would resolve a
+        // byte-0 "no signal" state through the same degrees-per-byte
+        // formula real data uses, landing on -270°/-135° (nowhere near
+        // neutral) purely because nothing had ever been received — the
+        // same class of bug the dimmer default-to-off fix addressed, one
+        // level up: universe-level rather than per-attribute.
+        if !self.inner.read().expect("dmx universes lock poisoned").contains_key(&dmx.universe) {
+            return ResolvedAttributes::default();
+        }
+
         let read = |offset: u16| -> u8 {
             let chan0 = dmx.start_channel.saturating_sub(1) + offset;
             self.byte(dmx.universe, chan0)
@@ -296,6 +311,23 @@ mod tests {
         ]);
         let resolved = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
         assert_eq!(resolved.dimmer, 0.0);
+    }
+
+    #[test]
+    fn never_received_universe_resolves_pan_tilt_to_neutral_not_the_raw_zero_byte() {
+        // Regression: a Pan/Tilt channel run through the raw-byte formula
+        // treats byte 0 as a real value (-270deg/-135deg, nowhere near
+        // centre) — correct when a console genuinely sent that. But a
+        // universe nothing has EVER been received on isn't "byte 0", it's
+        // "no signal at all", and was resolving to that same skewed
+        // pan/tilt purely from having never heard from the console yet —
+        // caught via a moving head visibly deforming in a --snapshot with
+        // no DMX source running.
+        let universes = DmxUniverses::new(); // universe 1 never written at all
+        let m = map(vec![(0, Attribute::Pan), (1, Attribute::Tilt)]);
+        let resolved = universes.resolve(&DmxAddress { universe: 1, start_channel: 1 }, &m);
+        assert_eq!(resolved.pan_deg, 0.0);
+        assert_eq!(resolved.tilt_deg, 0.0);
     }
 
     #[test]

@@ -84,7 +84,15 @@ pub enum Shape {
     /// One of QLC+'s generic category meshes, scaled to a real fixture's
     /// approximate overall size. `pre_rotate` is applied before the
     /// fixture's own placement rotation — see `moving_head_pre_rotate`.
-    Mesh { mesh: &'static ObjMesh, target_size: f32, pre_rotate: Quat, anchor: Anchor },
+    ///
+    /// `split_z`, when `Some`, is a yoke/head split point in the mesh's own
+    /// raw local Z (pre-scale, pre-`pre_rotate`) — a live tilt reading
+    /// rotates only the geometry above this point (the head) around it,
+    /// instead of the whole mesh rotating around the fixture's mount
+    /// anchor. `None` for fixtures that don't tilt (pars, hazers), where
+    /// there's nothing to split. See `add_typed_fixture` and
+    /// `mesh::add_mesh_asset_split`.
+    Mesh { mesh: &'static ObjMesh, target_size: f32, pre_rotate: Quat, anchor: Anchor, split_z: Option<f32> },
     /// An LED bar/batten: one elongated box, no beam (washes along its
     /// length rather than from a point) — no QLC+ mesh fits this shape.
     Bar { length: f32, width: f32, height: f32 },
@@ -104,12 +112,14 @@ pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
         // Open Fixture Library's U`King Par Light B262: 180x180x100mm —
         // largest real dimension ~0.18m. Truss-hung; the yoke clamp (the
         // par can's own mesh origin) already reads as roughly the mount
-        // point, so no anchor correction needed.
+        // point, so no anchor correction needed. No tilt attribute exists
+        // for a par, so no yoke/head split either.
         return Shape::Mesh {
             mesh: par_mesh(),
             target_size: 0.20,
             pre_rotate: Quat::IDENTITY,
             anchor: Anchor::None,
+            split_z: None,
         };
     }
     if m == "betopper" || ((m == "riukoe" || m == "lixada") && mo.contains("gobo")) {
@@ -125,6 +135,7 @@ pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
             target_size,
             pre_rotate: moving_head_pre_rotate(),
             anchor: Anchor::HangAware,
+            split_z: Some(MOVING_HEAD_SPLIT_Z),
         };
     }
     if m == "rockville" && mo.contains("rockstrip") {
@@ -136,28 +147,41 @@ pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
         // on each side (chan 50/51, 52/53), clamped sideways to the
         // pillar rather than hung from a truss. Same par mesh as the
         // Uking pars; the yoke clamp again reads as roughly the mount
-        // point, so no anchor correction.
+        // point, so no anchor correction. No tilt channel, no split.
         return Shape::Mesh {
             mesh: par_mesh(),
             target_size: 0.16,
             pre_rotate: Quat::IDENTITY,
             anchor: Anchor::None,
+            split_z: None,
         };
     }
     if m == "chauvet" && mo.contains("hurricane") {
         // Chauvet's spec for the Hurricane Haze 1DX: 11 x 6 x 9 in —
         // largest real dimension ~0.28m. Always floor-standing, no hung
         // installation exists for this fixture, so a fixed Bottom anchor
-        // (not HangAware — nothing in the data ever "flips" a hazer).
+        // (not HangAware — nothing in the data ever "flips" a hazer). No
+        // pan/tilt channel, no split.
         return Shape::Mesh {
             mesh: hazer_mesh(),
             target_size: 0.28,
             pre_rotate: Quat::IDENTITY,
             anchor: Anchor::Bottom,
+            split_z: None,
         };
     }
     Shape::Generic
 }
+
+/// Where the moving-head mesh's yoke/base ends and its head begins, in the
+/// mesh's own raw local Z (`assets/qlc-meshes/moving_head.obj`, unscaled,
+/// pre-`pre_rotate`) — derived from the mesh's own vertex distribution: a
+/// visible "waist" (far fewer vertices) around z≈0 separates a wider
+/// cluster from z=-0.49 to -0.1 (yoke arms + base) from a wider cluster
+/// from z=0.1 to 0.33 (head/lens housing). Used to decide, per-triangle,
+/// whether a live tilt reading should move that geometry — see
+/// `Shape::Mesh::split_z`.
+const MOVING_HEAD_SPLIT_Z: f32 = -0.02;
 
 /// Not matched by any patched Norco fixture today, but available for the
 /// next venue: scanner/smoke/strobe meshes at a generic ~0.3m size.
@@ -169,7 +193,7 @@ pub fn generic_shape(kind: &str) -> Shape {
         "strobe" => strobe_mesh(),
         _ => return Shape::Generic,
     };
-    Shape::Mesh { mesh, target_size: 0.30, pre_rotate: Quat::IDENTITY, anchor: Anchor::None }
+    Shape::Mesh { mesh, target_size: 0.30, pre_rotate: Quat::IDENTITY, anchor: Anchor::None, split_z: None }
 }
 
 /// The lowest/highest Z any vertex of `mesh` reaches once rotated by `rot`
@@ -218,34 +242,39 @@ pub struct LiveEmission {
 /// Bottom/Top anchor (a mechanical fact of how the fixture is rigged, not
 /// something pan/tilt changes) and is what the anchor-point maths below is
 /// computed against. `live_rot`, when present (a live pan/tilt reading
-/// composed onto `rot` — see `scene.rs`'s live-mode fixture loop), replaces
-/// `rot` only for the mesh's actual drawn orientation. Approximation worth
-/// noting: a real moving head's yoke stays put while only the head
-/// assembly tilts: this single-mesh model rotates the whole fixture body
-/// around the anchor point instead, since there's no yoke/head geometry
-/// split yet (see the GDTF Geometry-tree note in
-/// `docs/research/lighting-console-landscape.md`).
+/// composed onto `rot` — see `scene.rs`'s live-mode fixture loop) is split
+/// into pan and tilt separately: pan rotates the whole fixture (base
+/// included — a real yoke rotates on its mount when panning), tilt rotates
+/// only the head, pivoting at the shape's own `split_z` (see
+/// `mesh::add_mesh_asset_split`) — a real moving head's base stays put
+/// while only the head assembly tilts. Shapes with `split_z: None` (pars,
+/// hazers — nothing tilts) just get pan folded into the whole mesh's
+/// rotation, same as before this split existed.
 ///
 /// `emit`, when present, registers a point light and a beam-cone glow at
-/// the fixture's resolved anchor point/orientation — computed here rather
-/// than by the caller since this function is already the one place that
-/// knows a fixture's real lens/anchor position after the Bottom/Top anchor
-/// maths below.
+/// the fixture's resolved anchor point, aimed along the *head's* full
+/// pan+tilt orientation (computed here rather than by the caller since
+/// this function is already the one place that knows a fixture's real
+/// lens/anchor position after the Bottom/Top anchor maths below).
 pub fn add_typed_fixture(
     mesh: &mut MeshBuilder,
     pos: Vec3,
     rot: Quat,
-    live_rot: Option<Quat>,
+    live_pan_tilt: Option<(Quat, Quat)>,
     manufacturer: &str,
     model: &str,
     color: [f32; 3],
     emit: Option<LiveEmission>,
 ) {
     match shape_for(manufacturer, model) {
-        Shape::Mesh { mesh: asset, target_size, pre_rotate, anchor } => {
+        Shape::Mesh { mesh: asset, target_size, pre_rotate, anchor, split_z } => {
             let scale = scale_to(asset, target_size);
             let full_rot = rot * pre_rotate;
-            let draw_rot = live_rot.unwrap_or(rot) * pre_rotate;
+            let (pan, tilt) = live_pan_tilt.unwrap_or((Quat::IDENTITY, Quat::IDENTITY));
+            // The head's full orientation (pan+tilt) — used for the beam
+            // and, when there's no split_z to divide the mesh, for the
+            // whole body's drawn rotation too.
+            let head_full_rot = rot * pan * tilt * pre_rotate;
             let resolved = match anchor {
                 Anchor::HangAware => {
                     if is_mounted_upright(rot) { Anchor::Bottom } else { Anchor::Top }
@@ -263,9 +292,25 @@ pub fn add_typed_fixture(
                 }
                 Anchor::None | Anchor::HangAware => pos,
             };
-            mesh.add_mesh_asset(anchored_pos, draw_rot, scale, asset, color);
+            match (split_z, live_pan_tilt) {
+                // Only pay for the vertex-duplicating split draw when
+                // there's an actual live tilt reading to apply — with no
+                // live data (`shot`'s headless path, or a live fixture
+                // that's simply idle at zero) this must produce the exact
+                // same vertex/index buffer as the plain `add_mesh_asset`
+                // path below, or `shot`'s regression screenshots stop
+                // being byte-identical for no visual reason.
+                (Some(split), Some((pan, tilt))) => {
+                    let outer_rot = rot * pan;
+                    mesh.add_mesh_asset_split(anchored_pos, outer_rot, tilt, pre_rotate, scale, asset, split, color);
+                }
+                _ => {
+                    let draw_rot = rot * pan * pre_rotate;
+                    mesh.add_mesh_asset(anchored_pos, draw_rot, scale, asset, color);
+                }
+            }
             if let Some(emission) = emit {
-                emit_light_and_beam(mesh, anchored_pos, draw_rot, &emission);
+                emit_light_and_beam(mesh, anchored_pos, head_full_rot, &emission);
             }
         }
         Shape::Bar { length, width, height } => {

@@ -413,4 +413,65 @@ impl MeshBuilder {
                 .extend_from_slice(&[base + tri[0], base + tri[1], base + tri[2]]);
         }
     }
+
+    /// Like `add_mesh_asset`, but each triangle is rotated by `base_rot` or
+    /// `head_rot` depending on which side of `split_z` (the mesh's own
+    /// local, unscaled Z — see `ObjMesh`) its centroid falls on — a
+    /// yoke/head split for moving-head fixtures so a live tilt reading
+    /// only rotates the head, not the whole fixture body (see
+    /// `fixture_profile.rs`'s `Shape::Mesh::split_z` and
+    /// `docs/research/lighting-console-landscape.md`'s Slice 10). Emits
+    /// fresh vertices per triangle instead of reusing `obj`'s shared
+    /// position/normal indices — a vertex straddling the split boundary
+    /// would otherwise need two different rotated positions depending on
+    /// which triangle it's part of, which shared indexing can't express.
+    /// This mesh is small (~1000 vertices) so the duplication cost is
+    /// negligible.
+    /// `outer_rot` (mount + live pan) applies to every vertex, base and
+    /// head alike — a real yoke rotates on its mount when panning. `tilt`
+    /// applies only to head-side vertices, and pivots around `split_z`
+    /// (transformed into `pre_rotate`'s frame) instead of the mesh's own
+    /// local origin — the neck the head actually tilts from, not the
+    /// fixture's base anchor point far below it. `pre_rotate` is the same
+    /// mesh-convention fix `add_mesh_asset` folds into its caller's `rot`;
+    /// it has to be applied explicitly here (before the pivot subtraction)
+    /// since the pivot itself needs to live in the same rotated space as
+    /// the vertices it's offsetting.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_mesh_asset_split(
+        &mut self,
+        center: Vec3,
+        outer_rot: Quat,
+        tilt: Quat,
+        pre_rotate: Quat,
+        scale: f32,
+        obj: &ObjMesh,
+        split_z: f32,
+        color: [f32; 3],
+    ) {
+        let pivot_pre = pre_rotate * (Vec3::new(0.0, 0.0, split_z) * scale);
+        for tri in &obj.triangles {
+            let centroid_z = (obj.positions[tri[0] as usize].z
+                + obj.positions[tri[1] as usize].z
+                + obj.positions[tri[2] as usize].z)
+                / 3.0;
+            let is_head = centroid_z >= split_z;
+            let base_idx = self.vertices.len() as u32;
+            for &vi in tri {
+                let p_pre = pre_rotate * (obj.positions[vi as usize] * scale);
+                let n_pre = pre_rotate * obj.normals[vi as usize];
+                let (p_final, n_final) = if is_head {
+                    (pivot_pre + tilt * (p_pre - pivot_pre), tilt * n_pre)
+                } else {
+                    (p_pre, n_pre)
+                };
+                self.vertices.push(Vertex {
+                    position: (center + outer_rot * p_final).into(),
+                    normal: (outer_rot * n_final).into(),
+                    color,
+                });
+            }
+            self.indices.extend_from_slice(&[base_idx, base_idx + 1, base_idx + 2]);
+        }
+    }
 }
