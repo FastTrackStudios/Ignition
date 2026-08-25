@@ -29,6 +29,11 @@ pub enum Command {
     Rate(f32),
     Go,
     Cue(usize),
+    /// Transport. The song is loaded once at startup; these move it.
+    Play,
+    Stop,
+    /// Locate to a section by name — how a rehearsal loops one part.
+    Section(String),
 }
 
 pub type Sender = std::sync::mpsc::Sender<Command>;

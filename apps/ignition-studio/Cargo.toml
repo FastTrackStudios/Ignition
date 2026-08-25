@@ -13,6 +13,7 @@ repository.workspace = true
 [dependencies]
 ignition-core.workspace = true
 ignition-viz.workspace = true
+ignition-song = { workspace = true, features = ["play"] }
 bevy.workspace = true
 wgpu.workspace = true
 anyhow = "1"

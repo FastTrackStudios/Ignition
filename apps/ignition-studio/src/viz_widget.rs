@@ -13,6 +13,7 @@ use blitz_dom::Widget;
 use blitz_dom::node::ComputedStyles;
 use dioxus_native::DeviceHandle;
 use ignition_core::preset::Ref;
+use ignition_song::SongTransport;
 use ignition_viz::VizConfig;
 use ignition_viz::embedded::{EmbeddedViz, HostGpu};
 use ignition_viz::playback::Playback;
@@ -35,6 +36,11 @@ pub struct VizWidget {
     /// across frames: registering a new resource every frame would leak
     /// one per frame.
     registered: Option<(ResourceId, u32, u32)>,
+    /// The song, if one was opened. Lives here rather than in a
+    /// component because the position has to be read on the same frame
+    /// the visualizer renders — a transport polled from the UI would be
+    /// a frame behind, and a frame late on a downbeat is visible.
+    transport: Option<SongTransport>,
 }
 
 enum State {
@@ -84,13 +90,29 @@ impl VizWidget {
         self.state = State::Active(Box::new(viz));
     }
 
-    pub fn new(config: VizConfig, show: Option<(String, usize)>, commands: Receiver) -> Self {
+    pub fn new(
+        config: VizConfig,
+        show: Option<(String, usize)>,
+        project: Option<&str>,
+        commands: Receiver,
+    ) -> Self {
+        // A project that will not open is not fatal — the surface still
+        // busks and the cue list still steps on GO, which is the point
+        // of keeping the transport optional.
+        let transport = project.and_then(|path| match SongTransport::open(path) {
+            Ok(t) => Some(t),
+            Err(e) => {
+                tracing::warn!(path, error = %e, "studio: no song loaded");
+                None
+            }
+        });
         Self {
             commands,
             pending: Some(Box::new(config)),
             show,
             state: State::Waiting,
             registered: None,
+            transport,
         }
     }
 }
@@ -153,7 +175,8 @@ impl Widget for VizWidget {
             tracing::debug!(width, height, "viz.embed: paint with no active viz");
             return scene;
         };
-        drain(&self.commands, viz);
+        drain(&self.commands, viz, self.transport.as_ref());
+        follow_song(self.transport.as_ref(), viz);
         let Some(texture) = viz.render(width, height) else {
             tracing::debug!(width, height, "viz.embed: no target texture yet");
             return scene;
@@ -200,9 +223,8 @@ impl Widget for VizWidget {
 ///
 /// Drained rather than blocked on: a dropped frame's worth of messages
 /// is better than a stalled frame, and the sender will send again.
-fn drain(commands: &Receiver, viz: &mut EmbeddedViz) {
+fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTransport>) {
     use ignition_core::{RecipeApply, Show};
-    use ignition_viz::spawn::VenueRes;
 
     let world = viz.app_mut().world_mut();
     let Some(mut playback) = world.remove_resource::<Playback>() else {
@@ -288,10 +310,69 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz) {
                         player.jump_to_end_of(index, &show);
                     }
                 }
+                // Transport. Nothing here touches the cue player: the
+                // song moves, and `follow_song` notices on the next
+                // frame. Keeping the two apart is what lets the same
+                // list run with no transport at all.
+                Command::Play => {
+                    if let Some(transport) = transport {
+                        transport.play();
+                    }
+                }
+                Command::Stop => {
+                    if let Some(transport) = transport {
+                        transport.stop();
+                    }
+                }
+                Command::Section(name) => {
+                    if let Some(transport) = transport
+                        && !transport.locate_section(&name)
+                    {
+                        tracing::warn!(name, "studio: no such section");
+                    }
+                }
             }
         }
     }
-    let _ = viz;
     viz.app_mut().world_mut().insert_resource(playback);
-    let _ = std::marker::PhantomData::<VenueRes>;
+}
+
+/// Points the cue player at wherever the song is.
+///
+/// Every frame, and cheap when nothing moved — `seek` returns
+/// immediately unless the position implies a different cue. The song's
+/// tempo also drives the `Song` speed master, so a chase written as
+/// "one cycle per bar" is one cycle per bar of *this* song rather than
+/// a rate somebody dialled in.
+fn follow_song(transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
+    use ignition_core::Show;
+    let Some(transport) = transport else { return };
+    let position = transport.position();
+    let bpm = transport.song().tempo.at(position).bpm as f32;
+
+    let world = viz.app_mut().world_mut();
+    let Some(mut playback) = world.remove_resource::<Playback>() else {
+        return;
+    };
+    {
+        let Playback {
+            cues,
+            groups,
+            rig,
+            palettes,
+            speeds,
+            ..
+        } = &mut playback;
+        speeds.insert("Song".to_string(), bpm);
+        if let Some(player) = cues.as_mut() {
+            let show = Show {
+                groups,
+                palettes,
+                rig,
+                speeds,
+            };
+            player.seek(position, &show);
+        }
+    }
+    viz.app_mut().world_mut().insert_resource(playback);
 }

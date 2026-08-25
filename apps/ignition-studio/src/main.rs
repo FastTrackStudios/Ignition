@@ -30,7 +30,11 @@ use viz_widget::VizWidget;
 const TAILWIND: Asset = asset!("/assets/tailwind.css");
 
 const VENUE: &str = "data/venues/norco";
-const SHOW: &str = "data/shows/effects-demo.json";
+const SHOW: &str = "data/songs/bye-bye-bye.json";
+
+/// The project the show is synced to. Optional at runtime — if it will
+/// not open, the surface still busks and the cue list still steps on GO.
+const PROJECT: &str = "/home/cody/Downloads/Bye Bye Bye/Bye Bye Bye.RPP";
 
 /// The one UI-to-visualizer channel.
 ///
@@ -297,14 +301,30 @@ fn CueList(cues: Vec<String>) -> Element {
                     "GO"
                 }
             }
+            // Transport. Separate from GO on purpose: GO steps the list
+            // by hand, PLAY hands it to the song. Either drives the same
+            // cues, which is the point.
+            div { class: "transport",
+                button { class: "play", onclick: move |_| send(Command::Play), "▶ Play" }
+                button { class: "tile", onclick: move |_| send(Command::Stop), "■ Stop" }
+            }
             ol {
                 for (i, name) in cues.iter().enumerate() {
                     li {
                         key: "{i}",
                         class: if current() == Some(i) { "cue on" } else { "cue" },
-                        onclick: move |_| {
-                            current.set(Some(i));
-                            send(Command::Cue(i));
+                        onclick: {
+                            let name = name.clone();
+                            move |_| {
+                                current.set(Some(i));
+                                // Locate the song too. A cue in a
+                                // generated show *is* a section, so
+                                // clicking one is how a rehearsal says
+                                // "from the last chorus" — and if there
+                                // is no transport, the cue still fires.
+                                send(Command::Section(name.clone()));
+                                send(Command::Cue(i));
+                            }
                         },
                         span { class: "num", "{i}" }
                         span { class: "name", "{name}" }
@@ -550,7 +570,12 @@ fn Viewport() -> Element {
             .expect("fresh mutex")
             .take()
             .expect("one viewport");
-        CustomWidgetAttr::new(VizWidget::new(config, Some((SHOW.to_string(), 0)), rx))
+        CustomWidgetAttr::new(VizWidget::new(
+            config,
+            Some((SHOW.to_string(), 0)),
+            Some(PROJECT),
+            rx,
+        ))
     });
 
     // Blitz repaints on demand and a `Widget` has no way to ask for a

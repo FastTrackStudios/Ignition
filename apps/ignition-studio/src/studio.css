@@ -32,6 +32,14 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
       border-radius: 5px; padding: 8px 18px; font-size: 11px; font-weight: bold;
       letter-spacing: 0.08em; cursor: pointer; }
 .go:hover { background: #386038; }
+/* Transport, under the cue-list header. PLAY hands the list to the
+   song; GO steps it by hand. Both drive the same cues. */
+.transport { display: flex; gap: 8px; padding: 10px 12px;
+             border-bottom: 1px solid #26262c; }
+.transport button { flex: 1; height: 44px; border-radius: 6px; cursor: pointer;
+                    font-size: 12px; }
+.play { background: #2c3f5a; color: #cfe0f0; border: 1px solid #3d5a80; }
+.play:hover { background: #365070; }
 
 /* ── Stage: visualizer over the busking surface ───────────────────── */
 .stage { flex: 1; height: 100%; display: flex; flex-direction: column; }
