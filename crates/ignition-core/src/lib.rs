@@ -25,7 +25,7 @@ pub use programmer::{FADERS, Fader, Programmer};
 
 pub mod recipe;
 pub mod step;
-pub use step::{Direction, Ease, Speed, SpeedMasters, Step, Timing, Waveform};
+pub use step::{Direction, Ease, Play, Speed, SpeedMasters, Step, Timing, Waveform};
 
 pub mod selection;
 pub use selection::{Axis, Cmp, Dir, FixtureInfo, Order, Rig, Selection, Where};

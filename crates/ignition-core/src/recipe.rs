@@ -25,9 +25,10 @@ use crate::focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 use crate::group::Group;
 use crate::preset::{ColorPreset, Palettes, Ref};
 use crate::selection::{Rig, Selection, resolve, unresolved_names};
-use crate::step::{Speed, SpeedMasters, Step, Timing, Waveform, locate};
+use crate::step::{Play, Speed, SpeedMasters, Step, Timing, Waveform, locate};
 use ignition_proto::{Attribute, ChanId, ColorChannel};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// What to apply to the target.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -309,12 +310,34 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Vec<Emit> {
     let count = chans.len();
     let phaser = recipe.is_phaser();
 
+    // `Negative` inverts each attribute about its own swing, so the
+    // extremes have to be known before any fixture is resolved. Computed
+    // once rather than per fixture — the step table is the same for all
+    // of them.
+    let swing = (recipe.timing.direction == Play::Negative).then(|| swing_of(recipe, show));
+
     for (index, chan) in chans.into_iter().enumerate() {
-        let (prev, cur, blend) = if phaser {
+        let (prev, cur, blend) = if !phaser {
+            (0, 0, 1.0)
+        } else if recipe.timing.direction == Play::Build {
+            // Build is not a phase shift of a shared waveform: a fixture
+            // arrives when the cycle passes it and *stays* until the
+            // wrap, so the selection fills up and then resets. That is a
+            // threshold against the fixture's own position in the
+            // selection, not a position in the step list — which is why
+            // it is a mode rather than something a step table can say.
+            let cycles = recipe.timing.cycles(secs, show.speeds);
+            let u = cycles - cycles.floor();
+            let arrived = u >= recipe.timing.spread_fraction(index, count);
+            let last = recipe.steps.len() - 1;
+            if arrived {
+                (last, last, 1.0)
+            } else {
+                (0, 0, 1.0)
+            }
+        } else {
             let cycles = recipe.timing.cycles_at(secs, index, count, show.speeds);
             locate(&recipe.steps, cycles)
-        } else {
-            (0, 0, 1.0)
         };
 
         let to = step_values(&recipe.steps[cur], chan, show);
@@ -332,6 +355,16 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Vec<Emit> {
                 Some(start) => start + (target - start) * blend,
                 None => *target,
             };
+            let value = match &swing {
+                // Reflect about the middle of this attribute's own
+                // range: the fixture that would have been brightest is
+                // now the dark one travelling across the rig.
+                Some(swing) => match swing.get(&key.0) {
+                    Some((lo, hi)) => lo + hi - value,
+                    None => value,
+                },
+                None => value,
+            };
             out.push(Emit {
                 value: CueValue {
                     chan,
@@ -343,6 +376,28 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Vec<Emit> {
         }
     }
     out
+}
+
+/// The lowest and highest value each attribute takes across the step
+/// table, which is what `Play::Negative` reflects about.
+///
+/// Resolved against the first channel of the selection: the values that
+/// vary per fixture are focus points, and inverting a *position* is not
+/// what negative means to anyone.
+fn swing_of(recipe: &Recipe, show: &Show<'_>) -> HashMap<Attribute, (f32, f32)> {
+    let chan = resolve(&recipe.target, show.groups, show.rig)
+        .first()
+        .copied()
+        .unwrap_or(0);
+    let mut swing: HashMap<Attribute, (f32, f32)> = HashMap::new();
+    for step in &recipe.steps {
+        for ((attr, _), value) in step_values(step, chan, show) {
+            let entry = swing.entry(attr).or_insert((value, value));
+            entry.0 = entry.0.min(value);
+            entry.1 = entry.1.max(value);
+        }
+    }
+    swing
 }
 
 /// Every name in `cues` that this venue cannot resolve, as readable
@@ -961,5 +1016,150 @@ mod tests {
         // A failure beats everything else — an operator needs to see the
         // broken one, not an average.
         assert_eq!(with(vec![good(), bad()], vec![direct()]), Status::Failed);
+    }
+
+    // -----------------------------------------------------------------
+    // How a step list is played — Eos's effect "attributes"
+    // -----------------------------------------------------------------
+
+    /// A snapping two-step chase over four fixtures, one cycle per
+    /// second, spread right around the selection.
+    fn spread_chase(play: Play) -> Recipe {
+        let at = |v: f32| Step::new(vec![RecipeApply::Raw(vec![(Attribute::Dimmer, v)])]);
+        Recipe {
+            target: Selection::Chans(vec![1, 2, 3, 4]),
+            steps: vec![at(0.0), at(1.0)],
+            timing: Timing {
+                speed: Speed::Hz(1.0),
+                phase_spread_deg: 360.0,
+                direction: play,
+                ..Default::default()
+            },
+        }
+    }
+
+    fn levels(recipe: &Recipe, secs: f32) -> Vec<f32> {
+        let show = bare(&[]);
+        let emits = expand_recipe(recipe, &show, secs);
+        (1..=4)
+            .map(|chan| dimmer_of(&emits, chan).unwrap_or(f32::NAN))
+            .collect()
+    }
+
+    /// Reverse runs the wave the other way along the selection.
+    ///
+    /// Not a plain list reversal, and the reason is worth stating:
+    /// reverse gives fixture `i` the phase `1 - i/N`, which is `-i/N`
+    /// once it wraps — so it matches *forward* fixture `(N - i) % N`.
+    /// Fixture 0 maps to itself, because a whole cycle of offset is no
+    /// offset.
+    #[test]
+    fn reverse_mirrors_the_selection() {
+        let forward = levels(&spread_chase(Play::Forward), 0.1);
+        let reversed = levels(&spread_chase(Play::Reverse), 0.1);
+        let n = forward.len();
+        for i in 0..n {
+            assert_eq!(reversed[i], forward[(n - i) % n], "at {i}: {reversed:?}");
+        }
+    }
+
+    /// A chase with a narrow active step: one fixture lit, travelling.
+    /// The 50/50 two-step above has no gap to invert — half on, half
+    /// off, inverted is still half and half.
+    fn gap_chase(play: Play) -> Recipe {
+        let at = |v: f32| Step::new(vec![RecipeApply::Raw(vec![(Attribute::Dimmer, v)])]);
+        Recipe {
+            target: Selection::Chans(vec![1, 2, 3, 4]),
+            steps: vec![at(1.0), at(0.0), at(0.0), at(0.0)],
+            timing: Timing {
+                speed: Speed::Hz(1.0),
+                phase_spread_deg: 360.0,
+                direction: play,
+                ..Default::default()
+            },
+        }
+    }
+
+    /// The one Eos's own docs single out — "the one most people never
+    /// build": fixtures sit at the top of the swing and the travelling
+    /// point is the one that drops out.
+    #[test]
+    fn negative_is_a_dark_gap_travelling_across_the_rig() {
+        for t in [0.1f32, 0.4, 0.7] {
+            let forward = levels(&gap_chase(Play::Forward), t);
+            let negative = levels(&gap_chase(Play::Negative), t);
+            for (f, n) in forward.iter().zip(&negative) {
+                assert!((f + n - 1.0).abs() < 1e-5, "{forward:?} vs {negative:?}");
+            }
+            // One lit point travelling becomes one dark point
+            // travelling — not simply "everything dimmer".
+            assert_eq!(
+                forward.iter().filter(|v| **v > 0.5).count(),
+                1,
+                "{forward:?}"
+            );
+            assert_eq!(
+                negative.iter().filter(|v| **v > 0.5).count(),
+                3,
+                "{negative:?}"
+            );
+        }
+    }
+
+    /// Build fills the selection up and resets, rather than moving one
+    /// point along it.
+    #[test]
+    fn build_accumulates_then_resets() {
+        let recipe = spread_chase(Play::Build);
+        // A quarter into the cycle only the leading fixture has arrived;
+        // by the end they all have.
+        let early = levels(&recipe, 0.05);
+        assert_eq!(early.iter().filter(|v| **v > 0.5).count(), 1, "{early:?}");
+        let late = levels(&recipe, 0.95);
+        assert_eq!(late.iter().filter(|v| **v > 0.5).count(), 4, "{late:?}");
+        // ...and the wrap starts over rather than staying full.
+        let wrapped = levels(&recipe, 1.05);
+        assert_eq!(
+            wrapped.iter().filter(|v| **v > 0.5).count(),
+            1,
+            "{wrapped:?}"
+        );
+    }
+
+    /// Bounce runs the list out and back inside one cycle, so the value
+    /// at three-quarters matches the value at a quarter.
+    #[test]
+    fn bounce_runs_out_and_back() {
+        let mut recipe = spread_chase(Play::Bounce);
+        recipe.timing.phase_spread_deg = 0.0;
+        for step in &mut recipe.steps {
+            step.transition = 1.0;
+        }
+        let quarter = levels(&recipe, 0.25)[0];
+        let three_quarters = levels(&recipe, 0.75)[0];
+        assert!(
+            (quarter - three_quarters).abs() < 1e-5,
+            "{quarter} vs {three_quarters}"
+        );
+    }
+
+    /// Every mode has to stay position-addressed: the same clock reading
+    /// gives the same output, or seeking would not land where playing
+    /// did. Build in particular is a threshold, and a threshold that
+    /// drifted would be invisible until a rehearsal.
+    #[test]
+    fn every_play_mode_is_a_pure_function_of_the_clock() {
+        for play in [
+            Play::Forward,
+            Play::Reverse,
+            Play::Bounce,
+            Play::Build,
+            Play::Negative,
+        ] {
+            let recipe = spread_chase(play);
+            for t in [0.13f32, 0.5, 0.87, 2.31] {
+                assert_eq!(levels(&recipe, t), levels(&recipe, t), "{play:?} at {t}");
+            }
+        }
     }
 }

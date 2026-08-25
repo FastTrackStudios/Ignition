@@ -119,19 +119,41 @@ impl Speed {
     }
 }
 
-/// Which end of the selection leads the wave.
+/// How a step list is played across the selection.
 ///
-/// Note that `Selection::Order` (see `selection.rs`) is usually the
-/// better tool: it reorders by *real position*, so "left to right" is a
-/// fact about the room. This just runs whatever order the selection
-/// produced backwards, which is still the right answer when the
-/// selection order is already the one you meant.
+/// Eos gets six visibly different effects out of one step table this
+/// way, and it is the cheapest expressiveness in the whole engine —
+/// their own docs call `Negative` "the one most people never build",
+/// which on a full wash gives a dark gap travelling across the stage,
+/// "something no amount of forward chasing does".
+///
+/// Note that `Selection::Order` (see `selection.rs`) is the better tool
+/// for *direction*: it reorders by real position, so "left to right" is
+/// a fact about the room rather than about how a group was recorded.
+/// Eos cannot do that — its channel order comes from group storage
+/// order, which it admits is not even readable back over OSC. `Reverse`
+/// here is for when the selection order is already the one you meant.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Direction {
+pub enum Play {
     #[default]
     Forward,
-    Backward,
+    /// The other end of the selection leads.
+    #[serde(alias = "Backward")]
+    Reverse,
+    /// Runs the list out and back — 1,2,3,4,3,2,1 — so the wave washes
+    /// rather than snapping back at the wrap.
+    Bounce,
+    /// Each fixture arrives and stays until the cycle wraps, so the
+    /// selection fills up and resets. Not a phase shift of a shared
+    /// waveform, which is why it is a mode rather than a step table.
+    Build,
+    /// Inverted: fixtures sit at the top of the swing and the travelling
+    /// point is the one that drops out.
+    Negative,
 }
+
+/// Kept as the old name so existing show files keep parsing.
+pub type Direction = Play;
 
 /// The phaser-level layers — shared across every step, which is what
 /// makes "eight fixtures phase-offset around one definition" cheap
@@ -171,25 +193,47 @@ impl Default for Timing {
 }
 
 impl Timing {
-    /// Cycles elapsed after `secs`, for one fixture at `index` of
-    /// `count` in the selection.
-    pub fn cycles_at(&self, secs: f32, index: usize, count: usize, masters: &SpeedMasters) -> f32 {
+    /// Cycles elapsed after `secs`, before any per-fixture spread.
+    pub fn cycles(&self, secs: f32, masters: &SpeedMasters) -> f32 {
         let measure = if self.measure > 0.0 {
             self.measure
         } else {
             1.0
         };
-        let cycles = secs * self.speed.beats_per_second(masters) / measure;
-        let spread = if count > 1 {
+        secs * self.speed.beats_per_second(masters) / measure
+    }
+
+    /// Where a fixture sits in the selection, 0 at the leading end.
+    pub fn spread_fraction(&self, index: usize, count: usize) -> f32 {
+        let f = if count > 1 {
             index as f32 / count as f32
         } else {
             0.0
         };
-        let spread = match self.direction {
-            Direction::Forward => spread,
-            Direction::Backward => 1.0 - spread,
-        };
-        cycles + spread * (self.phase_spread_deg / 360.0) + self.phase_offset_deg / 360.0
+        match self.direction {
+            Play::Reverse => 1.0 - f,
+            _ => f,
+        }
+    }
+
+    /// Cycles elapsed after `secs`, for one fixture at `index` of
+    /// `count` in the selection.
+    ///
+    /// `Bounce` warps the result rather than the step table: one cycle
+    /// runs the list out and back, so the wave washes instead of
+    /// snapping at the wrap.
+    pub fn cycles_at(&self, secs: f32, index: usize, count: usize, masters: &SpeedMasters) -> f32 {
+        let spread = self.spread_fraction(index, count);
+        let raw = self.cycles(secs, masters)
+            + spread * (self.phase_spread_deg / 360.0)
+            + self.phase_offset_deg / 360.0;
+        match self.direction {
+            Play::Bounce => {
+                let u = raw - raw.floor();
+                if u < 0.5 { u * 2.0 } else { 2.0 - u * 2.0 }
+            }
+            _ => raw,
+        }
     }
 }
 
