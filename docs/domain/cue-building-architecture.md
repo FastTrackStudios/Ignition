@@ -1,6 +1,7 @@
 # Cue-building architecture — decisions needed
 
-**Status**: decision input. Feeds `DOMAIN.md`'s Recipes / Effects sections.
+**Status**: **decided** 2026-08-25 — see "Decisions taken" at the foot.
+Feeds `DOMAIN.md`'s Recipes / Effects sections.
 **Date**: 2026-08-25.
 **Reading order**: [`grandma3-recipes-and-phasers.md`](../research/grandma3-recipes-and-phasers.md)
 first — this doc assumes it and only argues about what to build.
@@ -41,7 +42,17 @@ cooked values are what plays, and re-cooking is an explicit operation.
 **C. Resolve every frame from the recipe, store nothing.** The cue holds
 only templates. Output is a pure function of (recipe, selection, time).
 
-**Recommendation: C, plus an explicit override layer.**
+**Decided: C for now, but the model must not foreclose B** — Ignition is
+not targeting lightweight console hardware forever, and caching is the
+answer at a rig an order of magnitude larger than Norco. Resolve every
+frame today because it is simpler and this rig is small; keep resolution
+behind a single call so a cache can be introduced later without the
+callers knowing. Concretely: nothing outside the resolver may hold a
+resolved value across frames, and resolution must be a pure function of
+(layers, selection, time) so a memo table is a legal optimisation rather
+than a rewrite.
+
+The reasoning for C over B *today*:
 
 C is what "content that regenerates rather than gets baked" actually
 means, and it is *simpler* than B — no cached-output invalidation, no
@@ -99,7 +110,7 @@ Today they are two types, two players, two authoring formats, and an
 effect cannot live inside a cue at all — it runs in a parallel stream
 that a cue cannot start, stop, or fade.
 
-**Recommendation: unify.**
+**Decided: unify.**
 
 ```rust
 pub struct Recipe {
@@ -168,13 +179,58 @@ pub enum Selection {
 }
 ```
 
-**Recommendation: all of the above except MA3's `<From Value>`**, which
-is a programmer-workflow affordance that only makes sense with MA3's
-command line and would be modelled speculatively here.
+**Decided: all of the above except MA3's `<From Value>`** (a
+programmer-workflow affordance that only makes sense with MA3's command
+line), **plus spatial selection — filtering and, more importantly,
+*ordering* by real position.**
 
-`Tag` is the cheapest real win in this document: the venue's fixtures are
-already tagged, so `Tag("mover")` needs no new data and immediately gives
-recipes that survive a re-patch.
+`Tag` is the cheapest win here: the venue's fixtures are already tagged,
+so `Tag("mover")` needs no new data and gives recipes that survive a
+re-patch.
+
+Spatial is the one no other console in this class can do, because it is
+the one thing Ignition uniquely has: every fixture's real hung XYZ. A
+left-to-right chase on a real console means knowing, by hand, which
+channel numbers happen to run left to right, and re-doing that knowledge
+every time the rig moves. Here it is a property of the room:
+
+```rust
+pub enum Axis { X, Y, Z }
+
+/// Which fixtures — a predicate on real position.
+pub enum Where {
+    /// Half-space: keep fixtures on one side of a plane. "Stage left
+    /// half" is `Half { axis: X, cmp: Gt, at: 0.0 }`.
+    Half { axis: Axis, cmp: Cmp, at: f32 },
+    /// Inside an axis-aligned box — a zone of the room.
+    Within { min: Vec3, max: Vec3 },
+    /// Within a radius of a point.
+    Near { at: Vec3, radius: f32 },
+}
+
+/// What order — the half that makes effects spatial rather than
+/// patch-order accidents.
+pub enum Order {
+    /// However the underlying selection produced them (group order,
+    /// which `DOMAIN.md` already says is meaningful).
+    Native,
+    /// Sorted along an axis. `Axis(X, Asc)` is a left-to-right chase;
+    /// `Axis(Y, Desc)` sweeps downstage to upstage.
+    Axis(Axis, Dir),
+    /// Sorted by distance from a point — a centre-out bloom, or a
+    /// ripple away from wherever the singer is standing.
+    Distance { from: Vec3, dir: Dir },
+    Reverse,
+}
+```
+
+Both are nodes in the expression tree rather than fields beside it, so
+they compose: `Order::Axis(X, Asc)` applied to
+`Where::Half { Z, Gt, 2.0 }` applied to `Group("Washers")` is "the
+ceiling washers, left to right". Ordering matters because phase spread
+(Decision 3) is defined by position *in the selection* — which is
+precisely why sorting the selection by real position is what turns a
+generic chase into a directional one.
 
 ## Decision 5 — where time comes from
 
@@ -192,10 +248,20 @@ pub enum Speed {
 }
 ```
 
-**Recommendation: build all four now.** The first three are unit
-conversions and cost nothing. `Master` is the seam that makes
-"cues that follow the song" possible without a redesign, and leaving it
-out is how a `rate_hz` field becomes load-bearing again.
+**Decided: build all four now.** The first three are unit conversions
+and cost nothing. `Master` is the seam that makes "cues that follow the
+song" possible without a redesign, and leaving it out is how a
+`rate_hz` field becomes load-bearing again.
+
+**And this is where we deliberately go past MA3.** On grandMA3 a speed
+master can drive a *phaser*, but a recipe-driven effect cannot be
+slaved to one — the two systems only partly meet. Because Decision 3
+makes a phaser *be* a recipe rather than a neighbouring object type,
+`Speed::Master` applies to every recipe uniformly, with no special case
+and no second code path. One tap-tempo source drives every effect in
+the show, whether it was authored as a step table or generated from a
+group. That is not a coincidence of the design; it is the main reason
+to prefer one type over two.
 
 ## Decision 6 — what tracking means once cues hold recipes
 
@@ -207,7 +273,7 @@ If cues hold recipes that are live functions of time, the tracked thing
 can no longer be a number — a phaser left running from three cues ago
 must keep moving.
 
-**Recommendation: track the layer stack, not the values.** `CuePlayer`
+**Decided: track the layer stack, not the values.** `CuePlayer`
 holds the set of currently-active layers (direct values and recipes),
 carried forward by the same tracking rule; each frame it resolves that
 stack through the cascade to get output. A cue that does not mention a
@@ -252,3 +318,14 @@ precondition for the phase-spread semantics in 3 being meaningful.
   `Value` once `Selection` is ordered.
 - **Stomp.** Needs a programmer to stomp into, which needs Decision 2 to
   exist first.
+
+## Decisions taken (2026-08-25)
+
+| # | Decision |
+|---|---|
+| 1 | Resolve per frame **for now**; keep resolution a pure function behind one call so caching can land later without touching callers. Ignition is not a lightweight-hardware target long-term. |
+| 2 | MA3's four-layer cascade verbatim; `Cue` gains `recipes` and `block`. |
+| 3 | `Recipe` and `EffectRecipe` unify; `Waveform` demoted to a step-table constructor; `Value::Relative` added. |
+| 4 | Full selection algebra **plus spatial filter and spatial ordering**. No `<From Value>`. |
+| 5 | `Speed::{Hz,Bpm,Secs,Master}` — and unlike MA3, a speed master drives **every** recipe, not only hand-authored phasers. |
+| 6 | Tracking carries the layer stack, not resolved values; both sides of a fade resolve every frame. |
