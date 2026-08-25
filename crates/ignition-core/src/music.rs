@@ -242,8 +242,8 @@ impl SongMap {
     pub fn section_at(&self, position: Bars) -> Option<&Section> {
         self.sections
             .iter()
-            .filter(|s| s.start <= position)
-            .next_back()
+            .rev()
+            .find(|s| s.start <= position)
             .filter(|s| position < s.end(&self.tempo))
     }
 
