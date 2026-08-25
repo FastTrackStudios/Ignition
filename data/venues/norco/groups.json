@@ -1125,52 +1125,101 @@
   },
   {
     "target": "213",
-    "label": "Upstage L Wash",
+    "label": "Upstage L Washers",
     "channels": [
       "36-39"
     ]
   },
   {
     "target": "214",
-    "label": "Upstage R Wash",
+    "label": "Upstage R Washers",
     "channels": [
       "32-35"
     ]
   },
   {
     "target": "215",
-    "label": "Downstage L Wash",
+    "label": "Downstage L Washers",
     "channels": [
       "28-31"
     ]
   },
   {
     "target": "216",
-    "label": "Center Wash",
+    "label": "Center Washers",
     "channels": [
       "24-27"
     ]
   },
   {
     "target": "217",
-    "label": "Downstage R Wash",
+    "label": "Downstage R Washers",
     "channels": [
       "20-23"
     ]
   },
   {
     "target": "218",
-    "label": "Drummer Wash",
+    "label": "Drummer Washers",
     "channels": [
-      "42-46"
+      "43-45"
     ]
   },
   {
     "target": "219",
-    "label": "Back Wall Wash",
+    "label": "Drum Highlight L",
+    "channels": [
+      "46"
+    ]
+  },
+  {
+    "target": "220",
+    "label": "Drum Highlight R",
+    "channels": [
+      "42"
+    ]
+  },
+  {
+    "target": "221",
+    "label": "Back Wall Pars",
     "channels": [
       "40-41",
       "47-48"
+    ]
+  },
+  {
+    "target": "222",
+    "label": "House Outer L",
+    "channels": [
+      "9-10"
+    ]
+  },
+  {
+    "target": "223",
+    "label": "House Mid L",
+    "channels": [
+      "15-18"
+    ]
+  },
+  {
+    "target": "224",
+    "label": "House Center",
+    "channels": [
+      "1-2"
+    ]
+  },
+  {
+    "target": "225",
+    "label": "House Mid R",
+    "channels": [
+      "11-14"
+    ]
+  },
+  {
+    "target": "226",
+    "label": "House Outer R",
+    "channels": [
+      "7-8"
     ]
   }
 ]

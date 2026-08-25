@@ -12,7 +12,7 @@
       "recipes": [
         {
           "target": {
-            "Group": "Upstage L Wash"
+            "Group": "Upstage L Washers"
           },
           "apply": {
             "Dimmer": 1.0
@@ -20,7 +20,7 @@
         },
         {
           "target": {
-            "Group": "Upstage L Wash"
+            "Group": "Upstage L Washers"
           },
           "apply": {
             "Color": {
@@ -33,7 +33,7 @@
         },
         {
           "target": {
-            "Group": "Upstage R Wash"
+            "Group": "Upstage R Washers"
           },
           "apply": {
             "Dimmer": 1.0
@@ -41,7 +41,7 @@
         },
         {
           "target": {
-            "Group": "Upstage R Wash"
+            "Group": "Upstage R Washers"
           },
           "apply": {
             "Color": {
@@ -54,7 +54,7 @@
         },
         {
           "target": {
-            "Group": "Downstage L Wash"
+            "Group": "Downstage L Washers"
           },
           "apply": {
             "Dimmer": 1.0
@@ -62,7 +62,7 @@
         },
         {
           "target": {
-            "Group": "Downstage L Wash"
+            "Group": "Downstage L Washers"
           },
           "apply": {
             "Color": {
@@ -75,7 +75,7 @@
         },
         {
           "target": {
-            "Group": "Center Wash"
+            "Group": "Center Washers"
           },
           "apply": {
             "Dimmer": 1.0
@@ -83,7 +83,7 @@
         },
         {
           "target": {
-            "Group": "Center Wash"
+            "Group": "Center Washers"
           },
           "apply": {
             "Color": {
@@ -96,7 +96,7 @@
         },
         {
           "target": {
-            "Group": "Downstage R Wash"
+            "Group": "Downstage R Washers"
           },
           "apply": {
             "Dimmer": 1.0
@@ -104,7 +104,7 @@
         },
         {
           "target": {
-            "Group": "Downstage R Wash"
+            "Group": "Downstage R Washers"
           },
           "apply": {
             "Color": {
@@ -117,7 +117,7 @@
         },
         {
           "target": {
-            "Group": "Drummer Wash"
+            "Group": "Drummer Washers"
           },
           "apply": {
             "Dimmer": 1.0
@@ -125,7 +125,7 @@
         },
         {
           "target": {
-            "Group": "Drummer Wash"
+            "Group": "Drummer Washers"
           },
           "apply": {
             "Color": {
@@ -138,7 +138,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Wash"
+            "Group": "Drum Highlight L"
           },
           "apply": {
             "Dimmer": 1.0
@@ -146,7 +146,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Wash"
+            "Group": "Drum Highlight L"
           },
           "apply": {
             "Color": {
@@ -154,6 +154,195 @@
               "red": 1.0,
               "green": 1.0,
               "blue": 1.0
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Color": {
+              "name": "White",
+              "red": 1.0,
+              "green": 1.0,
+              "blue": 1.0
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": {
+              "name": "Warm",
+              "red": 1.0,
+              "green": 0.7,
+              "blue": 0.35
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Color": {
+              "name": "Violet",
+              "red": 0.55,
+              "green": 0.2,
+              "blue": 1.0
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Color": {
+              "name": "Teal",
+              "red": 0.0,
+              "green": 1.0,
+              "blue": 0.65
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Color": {
+              "name": "Yellow",
+              "red": 1.0,
+              "green": 0.95,
+              "blue": 0.1
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Color": {
+              "name": "Orange",
+              "red": 1.0,
+              "green": 0.35,
+              "blue": 0.05
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Color": {
+              "name": "Pink",
+              "red": 1.0,
+              "green": 0.35,
+              "blue": 0.7
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips"
+          },
+          "apply": {
+            "Color": {
+              "name": "Ice",
+              "red": 0.55,
+              "green": 0.85,
+              "blue": 1.0
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Movers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Movers"
+          },
+          "apply": {
+            "Color": {
+              "name": "Lime",
+              "red": 0.7,
+              "green": 1.0,
+              "blue": 0.1
             }
           }
         }
