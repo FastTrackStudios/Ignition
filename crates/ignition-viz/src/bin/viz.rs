@@ -28,9 +28,11 @@ fn main() -> anyhow::Result<()> {
     // hazed room. Each beam style scales it to whatever its own renderer
     // wants — see `VizSettings::haze`.
     let mut haze = 1.6f32;
-    // Lumens at full. Well above a physically-plausible LED par, because
-    // the room has no other light in it and the shafts are the subject.
-    let mut intensity = 900_000.0f32;
+    // Multiplier on each fixture's real luminous output. Above 1 because
+    // the room has no other light in it and the shafts are the subject;
+    // the *relative* brightness between fixtures comes from their own
+    // wattage and beam angle now, not from this.
+    let mut exposure = 60.0f32;
     // Not zero. A real dark venue genuinely has no ambient fill, but a
     // visualizer the operator is *working* in is not a photograph: with
     // nothing lit you need to still see the stage, the truss and where
@@ -59,7 +61,7 @@ fn main() -> anyhow::Result<()> {
             "--width" => width = next("a number").parse()?,
             "--height" => height = next("a number").parse()?,
             "--haze" => haze = next("a number, 0..2, 1.0 = normally hazed").parse()?,
-            "--intensity" => intensity = next("lumens at full, e.g. 250000").parse()?,
+            "--exposure" => exposure = next("a multiplier on real fixture output, e.g. 60").parse()?,
             "--ambient" => ambient = next("a number 0..1").parse()?,
             "--max-universe" => max_universe = next("a number").parse()?,
             "--snapshot" => snapshot = Some(PathBuf::from(next("a path"))),
@@ -149,7 +151,7 @@ fn main() -> anyhow::Result<()> {
             show_props,
             exclude,
             beam_style,
-            intensity,
+            exposure,
         },
         playback,
         gdtf,

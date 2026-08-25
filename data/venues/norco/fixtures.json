@@ -11,7 +11,7 @@
     "universe": 1,
     "address": 1,
     "global_address": 1,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -0.4,
       "y": -9.86,
@@ -48,7 +48,7 @@
     "universe": 2,
     "address": 1,
     "global_address": 513,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 0.4,
       "y": -9.86,
@@ -85,7 +85,7 @@
     "universe": 1,
     "address": 8,
     "global_address": 8,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -4.75,
       "y": -1.25,
@@ -122,7 +122,7 @@
     "universe": 1,
     "address": 15,
     "global_address": 15,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -4.4,
       "y": -1.25,
@@ -159,7 +159,7 @@
     "universe": 2,
     "address": 8,
     "global_address": 520,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 4.4,
       "y": -1.25,
@@ -196,7 +196,7 @@
     "universe": 2,
     "address": 15,
     "global_address": 527,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 4.75,
       "y": -1.25,
@@ -233,7 +233,7 @@
     "universe": 1,
     "address": 22,
     "global_address": 22,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -5.3,
       "y": -3.76,
@@ -270,7 +270,7 @@
     "universe": 1,
     "address": 29,
     "global_address": 29,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -4.7,
       "y": -3.76,
@@ -307,7 +307,7 @@
     "universe": 2,
     "address": 22,
     "global_address": 534,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 4.7,
       "y": -3.76,
@@ -344,7 +344,7 @@
     "universe": 2,
     "address": 29,
     "global_address": 541,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 5.3,
       "y": -3.76,
@@ -381,7 +381,7 @@
     "universe": 1,
     "address": 36,
     "global_address": 36,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -3.6,
       "y": -7.82,
@@ -418,7 +418,7 @@
     "universe": 1,
     "address": 43,
     "global_address": 43,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -2.8,
       "y": -7.55,
@@ -455,7 +455,7 @@
     "universe": 1,
     "address": 50,
     "global_address": 50,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -2.0,
       "y": -7.28,
@@ -492,7 +492,7 @@
     "universe": 1,
     "address": 57,
     "global_address": 57,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -1.2,
       "y": -7.02,
@@ -529,7 +529,7 @@
     "universe": 2,
     "address": 36,
     "global_address": 548,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 1.2,
       "y": -7.02,
@@ -566,7 +566,7 @@
     "universe": 2,
     "address": 43,
     "global_address": 555,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 2.0,
       "y": -7.28,
@@ -603,7 +603,7 @@
     "universe": 2,
     "address": 50,
     "global_address": 562,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 2.8,
       "y": -7.55,
@@ -640,7 +640,7 @@
     "universe": 2,
     "address": 57,
     "global_address": 569,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 3.6,
       "y": -7.82,
@@ -675,7 +675,7 @@
     "universe": null,
     "address": null,
     "global_address": null,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 0.0,
       "y": 0.0,
@@ -712,7 +712,7 @@
     "universe": 1,
     "address": 64,
     "global_address": 64,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -3.6,
       "y": -3.76,
@@ -749,7 +749,7 @@
     "universe": 1,
     "address": 71,
     "global_address": 71,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -2.9,
       "y": -3.76,
@@ -786,7 +786,7 @@
     "universe": 1,
     "address": 78,
     "global_address": 78,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -2.2,
       "y": -3.76,
@@ -823,7 +823,7 @@
     "universe": 1,
     "address": 85,
     "global_address": 85,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -1.5,
       "y": -3.76,
@@ -860,7 +860,7 @@
     "universe": 1,
     "address": 92,
     "global_address": 92,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -1.15,
       "y": -2.7,
@@ -897,7 +897,7 @@
     "universe": 1,
     "address": 99,
     "global_address": 99,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -0.4,
       "y": -2.7,
@@ -934,7 +934,7 @@
     "universe": 2,
     "address": 64,
     "global_address": 576,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 0.4,
       "y": -2.7,
@@ -971,7 +971,7 @@
     "universe": 2,
     "address": 71,
     "global_address": 583,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 1.15,
       "y": -2.7,
@@ -1008,7 +1008,7 @@
     "universe": 2,
     "address": 78,
     "global_address": 590,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 1.5,
       "y": -3.76,
@@ -1045,7 +1045,7 @@
     "universe": 2,
     "address": 85,
     "global_address": 597,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 2.2,
       "y": -3.76,
@@ -1082,7 +1082,7 @@
     "universe": 2,
     "address": 92,
     "global_address": 604,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 2.9,
       "y": -3.76,
@@ -1119,7 +1119,7 @@
     "universe": 2,
     "address": 99,
     "global_address": 611,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 3.6,
       "y": -3.76,
@@ -1156,7 +1156,7 @@
     "universe": 1,
     "address": 106,
     "global_address": 106,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -4.2,
       "y": -1.01,
@@ -1193,7 +1193,7 @@
     "universe": 1,
     "address": 113,
     "global_address": 113,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -3.55,
       "y": -1.01,
@@ -1230,7 +1230,7 @@
     "universe": 1,
     "address": 120,
     "global_address": 120,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -2.9,
       "y": -1.01,
@@ -1267,7 +1267,7 @@
     "universe": 1,
     "address": 127,
     "global_address": 127,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -2.25,
       "y": -1.01,
@@ -1304,7 +1304,7 @@
     "universe": 2,
     "address": 106,
     "global_address": 618,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 2.25,
       "y": -1.01,
@@ -1341,7 +1341,7 @@
     "universe": 2,
     "address": 113,
     "global_address": 625,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 2.9,
       "y": -1.01,
@@ -1378,7 +1378,7 @@
     "universe": 2,
     "address": 120,
     "global_address": 632,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 3.55,
       "y": -1.01,
@@ -1415,7 +1415,7 @@
     "universe": 2,
     "address": 127,
     "global_address": 639,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 4.2,
       "y": -1.01,
@@ -1452,7 +1452,7 @@
     "universe": 1,
     "address": 134,
     "global_address": 134,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -3.6,
       "y": 1.8,
@@ -1489,7 +1489,7 @@
     "universe": 1,
     "address": 141,
     "global_address": 141,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -2.9,
       "y": 1.8,
@@ -1526,7 +1526,7 @@
     "universe": 1,
     "address": 148,
     "global_address": 148,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -2.4,
       "y": 1.2,
@@ -1563,7 +1563,7 @@
     "universe": 1,
     "address": 155,
     "global_address": 155,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": -0.55,
       "y": -1.01,
@@ -1600,7 +1600,7 @@
     "universe": 2,
     "address": 134,
     "global_address": 646,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 0.0,
       "y": -1.01,
@@ -1637,7 +1637,7 @@
     "universe": 2,
     "address": 141,
     "global_address": 653,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 0.55,
       "y": -1.01,
@@ -1674,7 +1674,7 @@
     "universe": 2,
     "address": 148,
     "global_address": 660,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 2.4,
       "y": 1.2,
@@ -1711,7 +1711,7 @@
     "universe": 2,
     "address": 155,
     "global_address": 667,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 2.9,
       "y": 1.8,
@@ -1748,7 +1748,7 @@
     "universe": 2,
     "address": 162,
     "global_address": 674,
-    "beam_angle_deg": 15.0,
+    "beam_angle_deg": 30.0,
     "position": {
       "x": 3.6,
       "y": 1.8,

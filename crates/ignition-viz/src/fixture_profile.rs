@@ -598,6 +598,88 @@ mod beam_angle_tests {
     }
 }
 
+/// Assumed luminous efficacy for these fixtures' LEDs, in lumens per
+/// watt. An assumption, stated as one: manufacturers of gear at this
+/// price point publish wattage and almost never publish lumens, and the
+/// ones that do are not measuring the same way. Mid-range for RGB LED
+/// stage fixtures.
+///
+/// Only the *ratio* between fixtures really matters here — the absolute
+/// level is set by the exposure dial — and wattage captures that ratio
+/// far better than the single global number this replaced.
+pub const LUMENS_PER_WATT: f32 = 38.0;
+
+/// The fixture's real electrical power draw in watts, from the
+/// manufacturer's own spec. Same sourcing rule as `shape_for`'s
+/// dimensions: a real published figure or nothing.
+///
+/// This exists because luminous output is what decides whether a fixture
+/// cuts a visible shaft through haze. Bevy takes a spot light's output
+/// in lumens and divides by the cone's solid angle to get its actual
+/// radiance, so a wide wash and a narrow beam with the *same* lumens
+/// differ enormously in how bright the air along the beam gets. Giving
+/// every fixture the same output — which this renderer did — makes a par
+/// carve the same beam as a 1.72-degree beam fixture, which is not what
+/// either of them does.
+pub fn power_watts(manufacturer: &str, model: &str) -> f32 {
+    let m = manufacturer.to_ascii_lowercase();
+    let mo = model.to_ascii_lowercase();
+
+    // Open Fixture Library's U`King Par Light B262: 36W LED.
+    if m == "uking" && mo.contains("par") {
+        return 36.0;
+    }
+    // Betopper LB150: 150W, and genuinely a 1.72-degree beam — the
+    // patch's suspiciously tight angle turned out to be the real spec.
+    if m == "betopper" {
+        return 150.0;
+    }
+    // Riukoe/Lixada mini gobo moving head — sold as 30W.
+    if m == "riukoe" || m == "lixada" {
+        return 30.0;
+    }
+    // Chauvet SlimPAR Tri 7 IRC: 7 x 3W tri-colour LEDs.
+    if m == "chauvet" && mo.contains("slimpar") {
+        return 21.0;
+    }
+    // Rockville Rockstrip 252: 252 x 0.5W LEDs.
+    if m == "rockville" && mo.contains("rockstrip") {
+        return 126.0;
+    }
+    // A hazer is not a light source. It emits haze, which is a property
+    // of the room the fog volume already models — giving it an output
+    // made it shine a white beam it does not have.
+    if mo.contains("haze") || mo.contains("hazer") || mo.contains("fog") {
+        return 0.0;
+    }
+    // Unknown fixture: a mid-sized LED par's worth, so it reads as
+    // present rather than either invisible or dominant.
+    40.0
+}
+
+/// Peak luminous intensity in candela — lumens spread over the cone's
+/// solid angle. This, not raw output, is what decides whether a fixture
+/// cuts a visible shaft through haze: it is brightness *per direction*,
+/// so a narrow beam and a wide wash of the same wattage differ by orders
+/// of magnitude.
+pub fn peak_candela(lumens: f32, half_angle_deg: f32) -> f32 {
+    let solid_angle = core::f32::consts::TAU * (1.0 - half_angle_deg.to_radians().cos());
+    lumens / solid_angle.max(1e-6)
+}
+
+/// Above this many candela a fixture is bright enough per-direction to
+/// light the haze it passes through into a visible shaft; below it, it
+/// simply lights whatever it is pointed at.
+///
+/// Calibrated against the operator's own observation of this rig: "the
+/// pars with a single one on I never see a cone of light, just an area
+/// gets lit up." Their 36W 30-degree pars land near 6,400 cd and the
+/// Chauvet SlimPARs near 8,400, while the mini gobo movers are around
+/// 39,000 and the 1.72-degree Betopper beams are past 8,000,000 — so the
+/// two groups are three orders of magnitude apart and the threshold has
+/// a lot of room to sit between them.
+pub const SHAFT_CANDELA_THRESHOLD: f32 = 20_000.0;
+
 /// Radial segments per beam cone — Bevy's `ConicalFrustum` mesher calls
 /// them "resolution". Sixteen left a visibly faceted silhouette once
 /// beams got large enough to fill much of the frame. ASLS uses 100 on

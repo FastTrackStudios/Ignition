@@ -11,7 +11,8 @@ use crate::beam::{beam_mesh, beam_transform, BeamMaterial};
 use crate::channel_map::channel_map_for;
 use crate::dmx::DmxUniverses;
 use crate::fixture_profile::{
-    beam_half_angle_deg, resolve_fixture, BeamThrow, BodyVisual, BEAM_CONE_SEGMENTS,
+    beam_half_angle_deg, peak_candela, power_watts, resolve_fixture, BeamThrow, BodyVisual,
+    BEAM_CONE_SEGMENTS, LUMENS_PER_WATT, SHAFT_CANDELA_THRESHOLD,
 };
 use crate::gdtf_geometry::{self, GdtfLibrary, PanJoint, TiltJoint};
 use crate::venue::Venue;
@@ -95,11 +96,14 @@ pub struct VizSettings {
     pub ambient: f32,
     /// Whether to draw the props layer — see `VizConfig::show_props`.
     pub show_props: bool,
-    /// Spot-light output in lumens, at full dimmer. The fixture's own
-    /// level is already folded into its colour, so this is the headroom
-    /// that decides how a lit surface and its shaft read against a dark
-    /// room.
-    pub intensity: f32,
+    /// Global exposure: a multiplier on every fixture's *real* luminous
+    /// output (`fixture_profile::power_watts` x `LUMENS_PER_WATT`).
+    ///
+    /// This replaced a single absolute lumen figure applied to every
+    /// fixture alike, which meant a 36W par and a 150W beam fixture were
+    /// equally bright and therefore cut equally visible shafts. Relative
+    /// output is now the fixture's own; this only sets the overall level.
+    pub exposure: f32,
     /// How beams are drawn — see `BeamStyle`.
     pub beam_style: BeamStyle,
     /// Room/screen/prop objects whose name contains any of these are not
@@ -189,6 +193,8 @@ pub struct EmitterState {
     /// Inner cone angle as a fraction of the outer one. 0 is fully soft
     /// (ASLS's unfocused default); nearer 1 is a hard-edged beam.
     pub penumbra_inner: f32,
+    /// The fixture's own luminous output at full, before exposure.
+    pub lumens: f32,
 }
 
 /// A fixture's beam cone — a child of its `BeamEmitter`.
@@ -614,15 +620,26 @@ pub fn spawn_venue(
                     ChildOf(emitter),
                 ));
             }
+            // Whether this fixture is bright enough per-direction to
+            // light the air into a visible shaft, or only bright enough
+            // to light what it points at. See `SHAFT_CANDELA_THRESHOLD`.
+            let candela = peak_candela(
+                power_watts(manufacturer, model) * LUMENS_PER_WATT,
+                beam_half_angle_deg(f.beam_angle_deg),
+            );
+            let cuts_a_shaft =
+                settings.beam_style == BeamStyle::Volumetric && candela >= SHAFT_CANDELA_THRESHOLD;
+
             let mut spill = commands.spawn((
                 FixtureSpill,
                 SpotLight {
                     intensity: 0.0,
                     range: 40.0,
-                    // Volumetric light shafts are raymarched against the
-                    // light's shadow map, so a light with no shadows
-                    // casts no shaft.
-                    shadow_maps_enabled: settings.beam_style == BeamStyle::Volumetric,
+                    // Shadow maps are what volumetric shafts are
+                    // raymarched against, and they are the expensive
+                    // part — so only the fixtures that actually cast a
+                    // shaft pay for them.
+                    shadow_maps_enabled: cuts_a_shaft,
                     ..default()
                 },
                 Transform::default(),
@@ -630,7 +647,7 @@ pub fn spawn_venue(
                 Name::new(format!("{} spill", f.name)),
                 ChildOf(emitter),
             ));
-            if settings.beam_style == BeamStyle::Volumetric {
+            if cuts_a_shaft {
                 spill.insert(VolumetricLight);
             }
         }
@@ -702,6 +719,7 @@ pub fn update_live_fixtures(
             color,
             half_angle_deg: beam_half_angle_deg(f.beam_angle_deg),
             penumbra_inner: penumbra_inner_for(f.kind()),
+            lumens: power_watts(manufacturer, model) * LUMENS_PER_WATT,
         });
     }
 
@@ -766,6 +784,7 @@ pub fn update_live_fixtures(
                 state.color = live.color;
                 state.half_angle_deg = live.half_angle_deg;
                 state.penumbra_inner = live.penumbra_inner;
+                state.lumens = live.lumens;
             }
             None => state.color = None,
         }
@@ -778,6 +797,7 @@ struct Live {
     color: Option<[f32; 3]>,
     half_angle_deg: f32,
     penumbra_inner: f32,
+    lumens: f32,
 }
 
 /// How hard a fixture's cone edge is, as a fraction of its outer angle.
@@ -874,7 +894,14 @@ pub fn update_beams(
                         light.inner_angle = outer * state.penumbra_inner;
                         light.range = length * 1.2;
                         light.color = Color::srgb(color[0], color[1], color[2]);
-                        light.intensity = settings.intensity;
+                        // The fixture's own output, scaled only by the
+                        // global exposure. Bevy divides lumens by the
+                        // cone's solid angle to get radiance, so this is
+                        // what makes a narrow beam fixture cut a shaft
+                        // through the haze while a wide par of similar
+                        // wattage just lights what it points at — which
+                        // is what they actually do.
+                        light.intensity = state.lumens * settings.exposure;
                     }
                     None => {
                         *visibility = Visibility::Hidden;

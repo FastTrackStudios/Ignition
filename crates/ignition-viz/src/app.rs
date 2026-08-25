@@ -56,8 +56,8 @@ pub struct VizConfig {
     pub show_props: bool,
     /// Room objects to leave out — see `VizSettings::exclude`.
     pub exclude: Vec<String>,
-    /// Spot-light output in lumens — see `VizSettings::intensity`.
-    pub intensity: f32,
+    /// Global exposure — see `VizSettings::exposure`.
+    pub exposure: f32,
     /// How beams are drawn — see `BeamStyle`.
     pub beam_style: BeamStyle,
     /// Highest sACN/Art-Net universe to listen on.
@@ -96,7 +96,7 @@ impl Plugin for VizPlugin {
                 show_props: self.config.show_props,
                 exclude: self.config.exclude.clone(),
                 beam_style: self.config.beam_style,
-                intensity: self.config.intensity,
+                exposure: self.config.exposure,
             })
             .insert_resource(GdtfLibraryRes(self.gdtf.lock().expect("gdtf library lock").take()))
             .add_plugins(BeamPlugin)
