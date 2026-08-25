@@ -35,6 +35,8 @@
 //! separate, larger follow-on (a glTF parser, `zip`-embedded-resource
 //! reading via `ResourceMap::read_model_mesh`) not started here.
 
+use crate::fixture_profile::LiveEmission;
+use crate::mesh::MeshBuilder;
 use gdtf::geometry::{AnyGeometry, Geometry};
 use gdtf::model::PrimitiveType;
 use gdtf::values::{Matrix, Name};
@@ -227,6 +229,78 @@ fn decompose_matrix(m: Matrix) -> (Vec3, Quat) {
     (translation, rotation)
 }
 
+/// Draws `fixture`'s real Geometry tree into `mesh` — the counterpart to
+/// `fixture_profile.rs::add_typed_fixture`'s QLC+-mesh path, for when a
+/// real GDTF file is available for a fixture instead of only a hand-tuned
+/// generic-category approximation. `pos`/`mount_rot` are the fixed mount
+/// pose (same meaning as `add_typed_fixture`'s `pos`/`rot`); `pan`/`tilt`
+/// are live DMX readings, applied at whichever node(s) the file's own
+/// `<DMXChannel>` associations marked `is_pan`/`is_tilt` — the real joint,
+/// not a guessed split point. `emission`, when present, lights and glows
+/// from every `Beam` node found (a file can have more than one beam exit,
+/// e.g. a multi-lens fixture) rather than one fixed anchor point.
+pub fn draw_gdtf_fixture(
+    fixture: &GdtfFixture,
+    mesh: &mut MeshBuilder,
+    pos: Vec3,
+    mount_rot: Quat,
+    pan: Quat,
+    tilt: Quat,
+    color: [f32; 3],
+    emission: Option<&LiveEmission>,
+) {
+    draw_node(&fixture.root, mesh, pos, mount_rot, pan, tilt, color, emission);
+}
+
+/// A node's own live-rotated orientation is fed straight to its children
+/// as their new base — the standard kinematic-chain convention (a real
+/// yoke rotating on pan carries its head, and the head's own housing,
+/// along with it). `local_pos` is offset in the *parent's* orientation,
+/// before this node's own joint rotation is folded in — a joint's live
+/// rotation moves what's downstream of it, not its own mount point.
+#[allow(clippy::too_many_arguments)]
+fn draw_node(
+    node: &GdtfNode,
+    mesh: &mut MeshBuilder,
+    parent_pos: Vec3,
+    parent_rot: Quat,
+    pan: Quat,
+    tilt: Quat,
+    color: [f32; 3],
+    emission: Option<&LiveEmission>,
+) {
+    let world_pos = parent_pos + parent_rot * node.local_pos;
+    let base_rot = parent_rot * node.local_rot;
+    let world_rot = if node.is_pan {
+        base_rot * pan
+    } else if node.is_tilt {
+        base_rot * tilt
+    } else {
+        base_rot
+    };
+
+    match node.shape {
+        GdtfShape::Box { size } => mesh.add_box(world_pos, world_rot, size, color),
+        GdtfShape::Cylinder { height, radius } => {
+            mesh.add_cylinder(world_pos, world_rot, height, radius, color, 16)
+        }
+        GdtfShape::None => {
+            if let Some(emission) = emission {
+                let length = 2.5f32;
+                let angle_deg = emission.beam_angle_deg.unwrap_or(25.0);
+                let radius = length * (angle_deg.to_radians() * 0.5).tan();
+                let direction = world_rot * Vec3::NEG_Z;
+                mesh.add_light(world_pos, emission.color, direction, angle_deg * 0.5);
+                mesh.add_glow_cone(world_pos, world_rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, 16);
+            }
+        }
+    }
+
+    for child in &node.children {
+        draw_node(child, mesh, world_pos, world_rot, pan, tilt, color, emission);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,6 +350,63 @@ mod tests {
                 assert!(size.x > 0.0 && size.y > 0.0 && size.z > 0.0);
             }
             _ => panic!("expected Base to resolve to a Box primitive"),
+        }
+    }
+
+    /// `draw_gdtf_fixture` should bake real triangles for Base and Yoke
+    /// (both real primitives) and register a light+glow at the Beam node —
+    /// and a live tilt reading should move the Beam's world position (it
+    /// sits under Head, the tilt target) without moving the Base's.
+    #[test]
+    fn draws_real_geometry_and_a_tilted_beam_moves_only_the_head_chain() {
+        use crate::mesh::MeshBuilder;
+
+        let fixture = import_geometry(Path::new(MOVING_HEAD), None).unwrap();
+        let color = [1.0, 1.0, 1.0];
+
+        let mut idle = MeshBuilder::default();
+        draw_gdtf_fixture(&fixture, &mut idle, Vec3::ZERO, Quat::IDENTITY, Quat::IDENTITY, Quat::IDENTITY, color, None);
+        assert!(!idle.vertices.is_empty(), "Base/Yoke primitives should have baked triangles");
+        assert!(idle.lights.is_empty(), "no LiveEmission passed, no light should register");
+
+        let mut lit = MeshBuilder::default();
+        let emission = LiveEmission { color: [1.0, 0.5, 0.2], beam_angle_deg: Some(20.0) };
+        draw_gdtf_fixture(
+            &fixture,
+            &mut lit,
+            Vec3::ZERO,
+            Quat::IDENTITY,
+            Quat::IDENTITY,
+            Quat::IDENTITY,
+            color,
+            Some(&emission),
+        );
+        assert_eq!(lit.lights.len(), 1, "the Beam node should register exactly one light");
+        // Beam sits at Base(0) -> Yoke(z=-0.225) -> Head(z=-0.100) -> Beam(z=-0.150).
+        let idle_beam_z = -0.225 - 0.100 - 0.150;
+        assert!((lit.lights[0].position.z - idle_beam_z).abs() < 0.001);
+
+        let tilt = Quat::from_axis_angle(Vec3::X, std::f32::consts::FRAC_PI_2);
+        let mut tilted = MeshBuilder::default();
+        draw_gdtf_fixture(
+            &fixture,
+            &mut tilted,
+            Vec3::ZERO,
+            Quat::IDENTITY,
+            Quat::IDENTITY,
+            tilt,
+            color,
+            Some(&emission),
+        );
+        assert!(
+            (tilted.lights[0].position.z - idle_beam_z).abs() > 0.01,
+            "a 90 degree tilt should move the beam's world position"
+        );
+        // Base is above the tilt joint (Head) in the chain — a live tilt
+        // must not move Base's own baked vertices at all.
+        assert_eq!(idle.vertices.len(), tilted.vertices.len());
+        for (a, b) in idle.vertices.iter().zip(&tilted.vertices).take(24) {
+            assert_eq!(a.position, b.position, "Base's vertices must be unaffected by a Head-joint tilt");
         }
     }
 }

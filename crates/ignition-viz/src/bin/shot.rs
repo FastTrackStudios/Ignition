@@ -9,6 +9,7 @@
 //! Props (drum kit, speakers, mics, ...) are hidden by default — pass
 //! `--show-props` to bring them back.
 
+use ignition_viz::gdtf_geometry::draw_gdtf_fixture;
 use ignition_viz::{build_scene, Camera, HeadlessRenderer, Venue};
 use std::path::PathBuf;
 
@@ -22,6 +23,12 @@ struct Args {
     focus_chans: Vec<u32>,
     focus_points: Vec<glam::Vec3>,
     show_props: bool,
+    /// When set, skips the venue entirely and instead renders one fixture's
+    /// real GDTF Geometry tree standalone — see `render_gdtf_fixture`.
+    gdtf: Option<PathBuf>,
+    gdtf_mode: Option<String>,
+    pan_deg: f32,
+    tilt_deg: f32,
 }
 
 fn parse_args() -> Args {
@@ -34,6 +41,10 @@ fn parse_args() -> Args {
     let mut focus_chans = Vec::new();
     let mut focus_points = Vec::new();
     let mut show_props = false;
+    let mut gdtf = None;
+    let mut gdtf_mode = None;
+    let mut pan_deg = 0.0f32;
+    let mut tilt_deg = 0.0f32;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -54,14 +65,64 @@ fn parse_args() -> Args {
                 assert_eq!(parts.len(), 3, "--focus-point needs exactly x,y,z");
                 focus_points.push(glam::Vec3::new(parts[0], parts[1], parts[2]));
             }
+            "--gdtf" => gdtf = Some(PathBuf::from(args.next().expect("--gdtf needs a .gdtf file path"))),
+            "--gdtf-mode" => gdtf_mode = Some(args.next().expect("--gdtf-mode needs a DMX mode name")),
+            "--pan" => pan_deg = args.next().expect("--pan needs degrees").parse().unwrap(),
+            "--tilt" => tilt_deg = args.next().expect("--tilt needs degrees").parse().unwrap(),
             other => eprintln!("ignition-shot: ignoring unknown argument {other}"),
         }
     }
-    Args { venue, out, width, height, view, exclude, focus_chans, focus_points, show_props }
+    Args {
+        venue,
+        out,
+        width,
+        height,
+        view,
+        exclude,
+        focus_chans,
+        focus_points,
+        show_props,
+        gdtf,
+        gdtf_mode,
+        pan_deg,
+        tilt_deg,
+    }
+}
+
+/// Renders one fixture's real GDTF Geometry tree, standalone (no venue) —
+/// proves the importer against actual drawn geometry rather than just
+/// asserting on parsed field values. Fixture stands at the origin, mount
+/// rotation identity (hung, this project's convention — see
+/// `fixture_profile.rs::moving_head_pre_rotate`'s doc comment); `--pan`/
+/// `--tilt` (degrees) exercise the real Pan/Tilt-targeted joints found in
+/// the file, not a guessed split point.
+fn render_gdtf_fixture(args: &Args, gdtf_path: &PathBuf) -> anyhow::Result<()> {
+    let fixture = ignition_viz::gdtf_geometry::import_geometry(gdtf_path, args.gdtf_mode.as_deref())?;
+    println!("gdtf fixture {:?}, DMX mode {:?}", fixture.fixture_type_name, fixture.dmx_mode_name);
+
+    let pan = glam::Quat::from_axis_angle(glam::Vec3::Z, args.pan_deg.to_radians());
+    let tilt = glam::Quat::from_axis_angle(glam::Vec3::X, args.tilt_deg.to_radians());
+    let mut mesh = ignition_viz::mesh::MeshBuilder::default();
+    draw_gdtf_fixture(&fixture, &mut mesh, glam::Vec3::ZERO, glam::Quat::IDENTITY, pan, tilt, [0.82, 0.83, 0.88], None);
+    println!("scene: {} vertices, {} indices", mesh.vertices.len(), mesh.indices.len());
+    anyhow::ensure!(!mesh.vertices.is_empty(), "GDTF file's geometry tree produced no drawable primitives");
+
+    let points: Vec<_> = mesh.vertices.iter().map(|v| glam::Vec3::from(v.position)).collect();
+    let aspect = args.width as f32 / args.height as f32;
+    let camera = Camera::frame_points(&points, true, 0.4, aspect);
+
+    let renderer = HeadlessRenderer::new()?;
+    renderer.render_to_png(&mesh, &camera, args.width, args.height, &args.out)?;
+    println!("wrote {}", args.out.display());
+    Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
     let args = parse_args();
+
+    if let Some(gdtf_path) = args.gdtf.clone() {
+        return render_gdtf_fixture(&args, &gdtf_path);
+    }
 
     let venue = Venue::load(&args.venue)?;
     println!(

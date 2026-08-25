@@ -675,3 +675,63 @@ rendering** — `GdtfNode` trees aren't drawn anywhere (`fixture_profile.rs`/
 `scene.rs`/`mesh.rs` untouched this slice); recursively drawing the tree
 with pan/tilt rotation applied at the flagged nodes is the natural next
 slice.
+
+## Slice 13 — drawing the real Geometry tree (2026-08-24, same day)
+
+Operator: "keep going so that we get the actual fixtures." Slice 12
+built the importer but drew nothing — this slice adds the drawing side:
+`gdtf_geometry.rs::draw_gdtf_fixture` walks a `GdtfFixture`'s tree and
+bakes real triangles via `mesh.rs`'s existing `add_box`/`add_cylinder`
+primitives (already exactly what `GdtfShape::Box`/`Cylinder` need — no
+new mesh-builder primitives required), following the standard
+kinematic-chain convention: each node's world position offsets from its
+*parent's* orientation (a joint's own live rotation moves what's
+downstream of it, not its own mount point), and a node's live pan/tilt
+(applied only when the file's own `is_pan`/`is_tilt` flag says so — the
+real manufacturer-declared joint, not a guessed split point) becomes the
+rotation basis fed to its children, so the whole sub-tree under a
+rotating joint carries with it, matching a real fixture. A `Beam` node
+(always `GdtfShape::None` — nothing to draw) registers a light + glow
+cone there instead, when a `LiveEmission` is passed, reusing
+`mesh.rs`'s existing `add_light`/`add_glow_cone` rather than adding a
+GDTF-specific light path — a fixture can have more than one beam exit
+(a multi-lens unit), so this lights every `Beam` node found, not one
+fixed anchor the way `fixture_profile.rs::emit_light_and_beam` does for
+the QLC+-mesh path.
+
+New test `draws_real_geometry_and_a_tilted_beam_moves_only_the_head_chain`
+confirms both directions of the kinematic-chain claim against the same
+sample file as Slice 12: an idle (pan=tilt=identity) draw bakes real
+triangles and registers no light with no `LiveEmission` passed; a 90°
+tilt moves the Beam node's world position (it sits under Head, the real
+tilt target per the file's `<DMXChannel>`) while leaving Base's own
+baked vertices byte-identical — a live tilt must never move geometry
+above the joint it targets.
+
+Wired into `shot` as a new standalone mode (additive, no existing flag
+touched): `--gdtf <path> [--gdtf-mode <name>] [--pan <deg>] [--tilt
+<deg>]` skips venue loading entirely and renders one fixture's real
+Geometry tree alone, camera auto-framed to its own baked geometry
+(`Camera::frame_points`) — so the imported shape can actually be looked
+at, not just asserted on. Rendered
+`assets/gdtf-samples/basic-moving-head.gdtf` idle and at `--tilt 45`:
+both show real Base/Yoke/Head box primitives at their real relative
+sizes and positions (the spec example's own dimensions), the head
+box visibly rotated in the tilted render. `--venue`'s existing path is
+untouched — `main()` branches to the new `render_gdtf_fixture` before
+`Venue::load` only when `--gdtf` is passed.
+
+Still not wired into `scene.rs`'s real venue rendering — no Norco
+fixture has a real (or even schema-sample) GDTF file behind it in
+`fixture_profile.rs::shape_for`, so nothing changed there this slice;
+adding a `Shape::Gdtf` variant that plugs a `GdtfFixture` into
+`add_typed_fixture` alongside `Shape::Mesh`/`Shape::Bar` is the
+mechanical next step once a real manufacturer file exists to hang it
+on (GDTF Share access is still the blocker — see Slice 12).
+
+Verified: `cargo test --workspace` — 27 tests, all green (17 in
+`ignition-viz`, one more than Slice 12's 16 — the new draw test).
+`shot`'s regression PNG re-confirmed byte-identical (MD5 `d4c0f1b2...`,
+same hash as Slice 10 through 12's baseline) after adding the `--gdtf`
+branch to `main()` — the new code path never executes on the existing
+`--venue` invocations `shot`'s other callers use.
