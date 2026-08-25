@@ -15,16 +15,29 @@ pub struct Vertex {
 }
 
 /// A live-mode-only light source — a lit fixture's contribution to the
-/// scene beyond its own mesh. `live_renderer.rs` uploads these into a
+/// scene beyond its own mesh. `live_pipeline.rs` uploads these into a
 /// storage buffer the fragment shader reads to illuminate *other* geometry
 /// (walls, floor) the way a real light does; `renderer.rs` (headless
 /// `shot`) never populates or reads this, so regression screenshots are
 /// unaffected. `color` is already dimmer-scaled (see `scene.rs`) — the
 /// shader doesn't do its own intensity math.
+///
+/// Modelled as a real cone-angled spotlight, not an omnidirectional point
+/// light — confirmed against ASLS Studio's own visualizer source
+/// (`docs/research/lighting-console-landscape.md`'s Slice 7): a real
+/// fixture's spill only falls within roughly its own beam angle, and an
+/// omnidirectional light was lighting surfaces a real fixture never would
+/// (e.g. the wall directly behind a fixture aimed the other way).
 #[derive(Debug, Clone, Copy)]
 pub struct PointLight {
     pub position: Vec3,
     pub color: [f32; 3],
+    /// Normalized aim direction — world space, matching the beam cone's
+    /// own axis (`fixture_profile.rs::emit_light_and_beam`).
+    pub direction: Vec3,
+    /// Half-angle of the light's cone, in degrees (the real fixture's beam
+    /// angle) — matches the beam cone geometry's own spread.
+    pub cone_half_angle_deg: f32,
 }
 
 #[derive(Default)]
@@ -308,8 +321,8 @@ impl MeshBuilder {
 
     /// Registers a live light source for `live_renderer.rs`'s point-light
     /// pass — see `PointLight`.
-    pub fn add_light(&mut self, position: Vec3, color: [f32; 3]) {
-        self.lights.push(PointLight { position, color });
+    pub fn add_light(&mut self, position: Vec3, color: [f32; 3], direction: Vec3, cone_half_angle_deg: f32) {
+        self.lights.push(PointLight { position, color, direction: direction.normalize(), cone_half_angle_deg });
     }
 }
 

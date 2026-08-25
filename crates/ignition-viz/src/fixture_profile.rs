@@ -285,9 +285,10 @@ pub fn add_typed_fixture(
 /// fixture's beam angle when known, so a wide-beam wash reads visibly
 /// wider than a tight-beam spot.
 fn emit_light_and_beam(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, emission: &LiveEmission) {
-    mesh.add_light(pos, emission.color);
     let length = 2.5f32;
     let angle_deg = emission.beam_angle_deg.unwrap_or(25.0);
     let radius = length * (angle_deg.to_radians() * 0.5).tan();
+    let direction = rot * Vec3::NEG_Z;
+    mesh.add_light(pos, emission.color, direction, angle_deg * 0.5);
     mesh.add_glow_cone(pos, rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, 16);
 }

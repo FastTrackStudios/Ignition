@@ -33,6 +33,10 @@ pub const DEFAULT_HAZE: f32 = 1.6;
 struct GpuPointLight {
     position: [f32; 4],
     color: [f32; 4],
+    /// xyz = normalized aim direction, w = cos(cone half-angle) — precomputed
+    /// on the CPU side so the shader does a plain `dot()` comparison instead
+    /// of a `cos()` call per light per fragment.
+    direction_cos_angle: [f32; 4],
 }
 
 #[repr(C)]
@@ -266,10 +270,20 @@ impl LivePipeline {
             .map(|l: &PointLight| GpuPointLight {
                 position: [l.position.x, l.position.y, l.position.z, 1.0],
                 color: [l.color[0], l.color[1], l.color[2], 1.0],
+                direction_cos_angle: [
+                    l.direction.x,
+                    l.direction.y,
+                    l.direction.z,
+                    l.cone_half_angle_deg.to_radians().cos(),
+                ],
             })
             .collect();
         while gpu_lights.len() < MIN_LIGHTS {
-            gpu_lights.push(GpuPointLight { position: [0.0, 0.0, -1000.0, 1.0], color: [0.0, 0.0, 0.0, 0.0] });
+            gpu_lights.push(GpuPointLight {
+                position: [0.0, 0.0, -1000.0, 1.0],
+                color: [0.0, 0.0, 0.0, 0.0],
+                direction_cos_angle: [0.0, 0.0, -1.0, -1.0],
+            });
         }
         let lights_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("live-lights"),

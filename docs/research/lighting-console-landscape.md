@@ -324,3 +324,59 @@ PNG). A new setting is now one change, not two. `shot`'s regression PNG
 stayed byte-identical through this refactor (MD5-verified, as with every
 prior slice) — `renderer.rs`/`HeadlessRenderer` were never part of this
 duplication and weren't touched.
+
+## Slice 7 — cloned ASLS Studio's actual visualizer source (2026-08-24, same day)
+
+Prior research on ASLS Studio (top of this doc) was web-search-only —
+"in-process DMX state, Vue3+Three.js, gobos/multi-bulb not emulated." The
+operator asked to actually clone it and look. Cloned
+`github.com/ASLS-org/studio` (GPL-3.0, fully compatible) to a scratch
+directory (not vendored into this repo — only two techniques were ported,
+both individually attributed below, not the codebase itself). Concretely,
+their beam rendering (`src/plugins/visualizer/shaders/beam.{vertex,fragment}.glsl`,
+`moving_head.js`) does three things Ignition's beam cones didn't:
+
+1. **Real cone-angled spotlights, not omnidirectional point lights** —
+   `moving_head.js` attaches an actual `THREE.SpotLight` (angle = the
+   fixture's real beam angle) to a yoke→head→beam `Object3D` chain. Also
+   reconfirms the Geometry-tree gap already flagged as deferred: they
+   tilt only the head node, this project still rotates the whole fixture
+   body around its anchor point.
+2. **Layered 3D simplex noise for beam haze density** (`fogging()` in
+   `beam.fragment.glsl`) — real spatially-varying turbulence, not a flat
+   brightness multiplier.
+3. **View-alignment brightening** — their `alignmentFactor` term makes a
+   beam read brighter viewed across its length (grazing angle) than
+   straight down the barrel, the standard cheap trick for making
+   additively-blended cone geometry read as a volumetric shaft.
+
+**Ported into `live_shader.wgsl`** (mechanical GLSL→WGSL translation,
+same MIT terms as the source — Ashima Arts/`webgl-noise`, see the
+translated functions' own header comment):
+
+- `mesh::PointLight` gained `direction`/`cone_half_angle_deg`;
+  `fixture_profile.rs::emit_light_and_beam` now passes the fixture's real
+  aim direction and beam angle through to it. The point-light loop in
+  `fs_main` gates contribution by a soft-edged `smoothstep` cone check
+  (`direction_cos_angle` in the uploaded `GpuPointLight`/WGSL
+  `PointLight`) — a wall a fixture isn't aimed at no longer gets lit.
+- `fs_glow` gained a WGSL port of `snoise`/`fogging` (4-octave turbulence,
+  same weights as the original) and a view-alignment term computed from
+  the beam cone's own surface normal vs. camera direction (their
+  per-instance-attribute approach doesn't map directly onto this
+  project's baked-geometry beams, so this uses what's already
+  available — the vertex normal — instead of adding new vertex
+  attributes for it).
+
+Not ported (deliberately, scope cuts for this pass): GPU instancing for
+beam geometry (ASLS uses `THREE.InstancedMesh`; Ignition bakes triangles
+into one shared buffer — fine at this fixture count, would matter at much
+larger rig sizes) and time-animated fog turbulence (needs a `time`
+uniform threaded through, the current fog is spatially-varying but static
+per frame).
+
+Verified: WGSL passes wgpu's runtime shader validation; 8/8 tests still
+pass; `shot`'s regression PNG stayed byte-identical (MD5). A `--snapshot`
+close-up (`--view stage`) shows soft-edged, properly cone-shaped colour
+spill on the ceiling instead of the old flat omnidirectional glow — a
+real, visible quality jump, not just more shader code.

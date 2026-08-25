@@ -36,14 +36,20 @@ struct Settings {
 @group(0) @binding(1)
 var<uniform> settings: Settings;
 
-// One entry per live-lit fixture (`mesh.rs::PointLight`) — `position.w`
-// and `color.a` are unused, kept as vec4 for storage-buffer alignment.
-// `color` is already dimmer-scaled by the time it lands here (see
-// `scene.rs`), so this shader does no separate intensity math beyond
-// distance falloff.
+// One entry per live-lit fixture (`mesh.rs::PointLight`) — a real cone-
+// angled spotlight, not an omnidirectional point light (see that type's
+// own doc comment — confirmed against ASLS Studio's actual visualizer
+// source, `docs/research/lighting-console-landscape.md`'s Slice 7).
+// `position.w`/`color.a` are unused, kept as vec4 for storage-buffer
+// alignment. `color` is already dimmer-scaled by the time it lands here
+// (see `scene.rs`), so this shader does no separate intensity math beyond
+// distance + cone falloff.
 struct PointLight {
     position: vec4<f32>,
     color: vec4<f32>,
+    // xyz = normalized aim direction, w = cos(cone half-angle) —
+    // precomputed CPU-side (live_pipeline.rs) so this is a plain compare.
+    direction_cos_angle: vec4<f32>,
 }
 
 @group(1) @binding(0)
@@ -170,7 +176,16 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let light_dir = to_light / max(dist, 0.001);
         let light_ndotl = max(dot(n, light_dir), 0.0);
         let atten = 1.0 / (1.0 + dist * dist * 0.35);
-        rgb += light.color.rgb * light_ndotl * atten;
+        // Cone falloff — a real fixture only lights within roughly its own
+        // beam angle, not every direction. `-light_dir` is the direction
+        // FROM the light TO this fragment (light_dir points the other
+        // way); soft-edged like the beam cone itself (smoothstep between
+        // the cone edge and a bit inside it), not a hard cutoff.
+        let light_aim = light.direction_cos_angle.xyz;
+        let cos_outer = light.direction_cos_angle.w;
+        let cos_to_frag = dot(light_aim, -light_dir);
+        let cone = smoothstep(cos_outer, mix(cos_outer, 1.0, 0.3), cos_to_frag);
+        rgb += light.color.rgb * light_ndotl * atten * cone;
     }
 
     return vec4<f32>(rgb, 1.0);
@@ -184,8 +199,110 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 // scatter a beam into something visible at all. At haze 0 a beam is inert
 // (no haze to catch the light, matching how it'd genuinely look in clean
 // air), higher values make the beam read brighter/more solid, the same
-// knob a real haze machine's fluid-output dial is.
+// knob a real haze machine's fluid-output dial is. Beyond that flat
+// scale, two techniques ported from ASLS Studio's own beam shader
+// (docs/research/lighting-console-landscape.md's Slice 7 — their
+// beam.fragment.glsl) make the cone actually read as a light shaft
+// instead of a flat-shaded cone: layered 3D simplex noise for turbulent
+// haze density (`fogging`, below — the noise function itself is Ashima
+// Arts' public-domain/MIT `webgl-noise`, mechanically translated from
+// GLSL to WGSL, same license terms as the original), and a view-alignment
+// term that brightens the beam when looking across it (grazing angle)
+// versus down its length, the way a real haze-lit beam does.
+
+fn mod289_3(x: vec3<f32>) -> vec3<f32> {
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+fn mod289_4(x: vec4<f32>) -> vec4<f32> {
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+fn permute4(x: vec4<f32>) -> vec4<f32> {
+    return mod289_4(((x * 34.0) + 10.0) * x);
+}
+fn taylor_inv_sqrt4(r: vec4<f32>) -> vec4<f32> {
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+// Ashima Arts / webgl-noise 3D simplex noise (MIT) — see file header above.
+fn snoise(v: vec3<f32>) -> f32 {
+    let c = vec2<f32>(1.0 / 6.0, 1.0 / 3.0);
+    let d = vec4<f32>(0.0, 0.5, 1.0, 2.0);
+
+    var i = floor(v + dot(v, c.yyy));
+    let x0 = v - i + dot(i, c.xxx);
+
+    let g = step(x0.yzx, x0.xyz);
+    let l = 1.0 - g;
+    let i1 = min(g.xyz, l.zxy);
+    let i2 = max(g.xyz, l.zxy);
+
+    let x1 = x0 - i1 + c.xxx;
+    let x2 = x0 - i2 + c.yyy;
+    let x3 = x0 - d.yyy;
+
+    i = mod289_3(i);
+    let p = permute4(permute4(permute4(i.z + vec4<f32>(0.0, i1.z, i2.z, 1.0)) + i.y + vec4<f32>(0.0, i1.y, i2.y, 1.0)) + i.x + vec4<f32>(0.0, i1.x, i2.x, 1.0));
+
+    let n_ = 0.142857142857;
+    let ns = n_ * d.wyz - d.xzx;
+
+    let j = p - 49.0 * floor(p * ns.z * ns.z);
+
+    let x_ = floor(j * ns.z);
+    let y_ = floor(j - 7.0 * x_);
+
+    let x = x_ * ns.x + ns.yyyy;
+    let y = y_ * ns.x + ns.yyyy;
+    let h = 1.0 - abs(x) - abs(y);
+
+    let b0 = vec4<f32>(x.xy, y.xy);
+    let b1 = vec4<f32>(x.zw, y.zw);
+
+    let s0 = floor(b0) * 2.0 + 1.0;
+    let s1 = floor(b1) * 2.0 + 1.0;
+    let sh = -step(h, vec4<f32>(0.0));
+
+    let a0 = b0.xzyw + s0.xzyw * sh.xxyy;
+    let a1 = b1.xzyw + s1.xzyw * sh.zzww;
+
+    var p0 = vec3<f32>(a0.xy, h.x);
+    var p1 = vec3<f32>(a0.zw, h.y);
+    var p2 = vec3<f32>(a1.xy, h.z);
+    var p3 = vec3<f32>(a1.zw, h.w);
+
+    let norm = taylor_inv_sqrt4(vec4<f32>(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
+    p0 *= norm.x;
+    p1 *= norm.y;
+    p2 *= norm.z;
+    p3 *= norm.w;
+
+    var m = max(0.5 - vec4<f32>(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), vec4<f32>(0.0));
+    m = m * m;
+    return 105.0 * dot(m * m, vec4<f32>(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
+}
+
+// Four-octave turbulence, same weighting ASLS uses — a static (not
+// time-animated, no `time` uniform threaded through yet — a reasonable
+// v1 scope cut) but spatially-varying density field, so a beam reads as
+// mottled haze rather than a flat-shaded cone.
+fn fogging(coord: vec3<f32>) -> f32 {
+    var fog = abs(snoise(coord)) * 1.0;
+    fog += abs(snoise(coord * 2.0)) * 0.5;
+    fog += abs(snoise(coord * 4.0)) * 0.25;
+    fog += abs(snoise(coord * 8.0)) * 0.125;
+    return fog;
+}
+
 @fragment
 fn fs_glow(in: VertexOut) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.color * settings.haze, 1.0);
+    let n = normalize(in.world_normal);
+    let view_dir = normalize(camera.camera_pos.xyz - in.world_pos);
+    // Brighter viewed across the beam (grazing angle against the cone's
+    // own surface normal) than straight down its length — the cheap trick
+    // that makes additively-blended cone geometry read as a volumetric
+    // shaft instead of a flat-lit solid.
+    let edge = 1.0 - abs(dot(view_dir, n));
+    let alignment = mix(0.55, 1.4, edge);
+    let density = clamp(fogging(in.world_pos * 1.5) * 0.6 + 0.55, 0.0, 1.6);
+    return vec4<f32>(in.color * settings.haze * alignment * density, 1.0);
 }
