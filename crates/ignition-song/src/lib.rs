@@ -15,6 +15,9 @@
 //! Today the format is REAPER's. The `.daw` format is the target, and
 //! it goes through the same crate.
 
+pub mod generate;
+pub use generate::{Kind, Roles, generate};
+
 use anyhow::{Context, Result};
 use daw::file::{ReaperProject, parse_rpp_file};
 use ignition_core::{Bars, Section, SongMap, TempoMap, TempoPoint, TimeSignature};

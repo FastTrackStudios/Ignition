@@ -1,0 +1,1588 @@
+{
+  "name": "Bye Bye Bye",
+  "cues": [
+    {
+      "name": "Count-In",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.25
+                },
+                {
+                  "Color": "Deep Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 1,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "IN A",
+      "fade_secs": 2.7816412,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.35
+                },
+                {
+                  "Color": "Cool White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "House Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Deep Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 3,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "IN B",
+      "fade_secs": 2.7816412,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.35
+                },
+                {
+                  "Color": "Cool White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "House Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Deep Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 7,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "VS 1",
+      "fade_secs": 2.7816412,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "Lavender"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Warm White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.45
+                },
+                {
+                  "Color": "Deep Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.25
+                },
+                {
+                  "Color": "Purple"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 11,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "PRE",
+      "fade_secs": 1.3908206,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "Cool White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Magenta"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "Magenta"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Cyan"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "FocusPoint": "Stage Wide"
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 19,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "CH 1",
+      "fade_secs": 0.17385258,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Warm White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Gold"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Amber"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "FocusPoint": "Audience Front"
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 1.0,
+              "ease": "Sine"
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.7
+                    ]
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 1.0,
+              "ease": "Sine"
+            }
+          ],
+          "timing": {
+            "speed": {
+              "Master": "Song"
+            },
+            "measure": 4.0,
+            "phase_spread_deg": 360.0,
+            "phase_offset_deg": 0.0,
+            "direction": "Forward"
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 23,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "Break",
+      "fade_secs": 0.17385258,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Congo"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 31,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "VS 2",
+      "fade_secs": 2.7816412,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "Lavender"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Warm White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.45
+                },
+                {
+                  "Color": "Deep Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.25
+                },
+                {
+                  "Color": "Purple"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 32,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "PRE",
+      "fade_secs": 1.3908206,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "Cool White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Magenta"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "Magenta"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Cyan"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "FocusPoint": "Stage Wide"
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 40,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "CH 2",
+      "fade_secs": 0.17385258,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Warm White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Gold"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Amber"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "FocusPoint": "Audience Front"
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 1.0,
+              "ease": "Sine"
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.7
+                    ]
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 1.0,
+              "ease": "Sine"
+            }
+          ],
+          "timing": {
+            "speed": {
+              "Master": "Song"
+            },
+            "measure": 4.0,
+            "phase_spread_deg": 360.0,
+            "phase_offset_deg": 0.0,
+            "direction": "Forward"
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 44,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "BR",
+      "fade_secs": 1.3908206,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.45
+                },
+                {
+                  "Color": "Purple"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "Congo"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Magenta"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "Cyan"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "FocusPoint": "Drums"
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 52,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "Breakdown",
+      "fade_secs": 2.7816412,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "Cool White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.35
+                },
+                {
+                  "Color": "Deep Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 57,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "CH 3",
+      "fade_secs": 0.17385258,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Warm White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Gold"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Amber"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "FocusPoint": "Audience Front"
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 1.0,
+              "ease": "Sine"
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.7
+                    ]
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 1.0,
+              "ease": "Sine"
+            }
+          ],
+          "timing": {
+            "speed": {
+              "Master": "Song"
+            },
+            "measure": 4.0,
+            "phase_spread_deg": 360.0,
+            "phase_offset_deg": 0.0,
+            "direction": "Forward"
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 61,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "Outro",
+      "fade_secs": 2.7816412,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Cool White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "House Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Deep Blue"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ],
+      "block": true,
+      "at": {
+        "bar": 73,
+        "beat": 1.0
+      }
+    }
+  ]
+}
