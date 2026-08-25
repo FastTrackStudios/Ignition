@@ -44,6 +44,14 @@ const VOLUMETRIC_HAZE_SCALE: f32 = 0.11;
 /// multiplier on an additive material rather than a density.
 const SHADER_HAZE_SCALE: f32 = 10.0;
 
+/// How brightly a dark fixture's housing glows in its own kind colour —
+/// enough to find it in a blacked-out room, not enough to look lit.
+const DARK_BODY_GLOW: f32 = 1.6;
+
+/// How brightly a lit fixture's housing glows in the colour it is
+/// emitting, at full dimmer. Well above 1 so bloom haloes the lens.
+const LIT_BODY_GLOW: f32 = 14.0;
+
 /// How far below the surface a rigged fixture hangs — clearance for the
 /// clamp and yoke, and what keeps a fixture from being coplanar with the
 /// ceiling it hangs from.
@@ -197,6 +205,21 @@ pub struct EmitterState {
     pub lumens: f32,
 }
 
+/// A fixture's housing material, so its body can show what it is
+/// currently doing.
+///
+/// A dark fixture glows faintly in its own kind colour just to be
+/// findable in a blacked-out room; a lit one glows in the colour it is
+/// actually putting out. Without this the rig looks identical whether it
+/// is on or off, which was reported as "I don't really see all the
+/// ceiling pars on" — the light was there, but nothing about the
+/// fixtures said which of them were producing it.
+#[derive(Component)]
+pub struct FixtureBody {
+    pub material: Handle<StandardMaterial>,
+    pub kind_color: Color,
+}
+
 /// A fixture's beam cone — a child of its `BeamEmitter`.
 #[derive(Component)]
 pub struct FixtureBeam;
@@ -271,8 +294,10 @@ pub fn spawn_venue(
     };
     /// Room geometry emits nothing; only the rig lights it.
     const UNLIT: f32 = 0.0;
-    /// A fixture's own housing, so the rig is visible in the dark.
-    const FIXTURE_GLOW: f32 = 1.6;
+    /// A fixture's own housing, so the rig is visible in the dark. This
+    /// is only the spawn-time value; `update_fixture_bodies` takes over
+    /// once there is live data.
+    const FIXTURE_GLOW: f32 = DARK_BODY_GLOW;
 
     for g in &venue.room {
         if settings.skip(&g.name) {
@@ -488,6 +513,7 @@ pub fn spawn_venue(
 
         let mut root_cmd = commands.spawn((
             Fixture { index, base_rot: local_rot },
+            FixtureBody { material: body_material.clone(), kind_color: body_color },
             Transform {
                 // The QLC+ anchor correction is a body offset applied to
                 // the mesh child below — putting it here as well is what
@@ -533,7 +559,16 @@ pub fn spawn_venue(
                     // not a mount move, so it goes on the drawn mesh
                     // rather than the fixture root — the root stays at
                     // the real patched position for both paths.
-                    let anchor = visual.position - f.position.to_vec3();
+                    //
+                    // It is computed in *world* space ("shift the body up
+                    // until its base lands on the mount point") but is
+                    // being applied as a child's local translation, so it
+                    // has to be brought into the root's frame first.
+                    // Without this it is rotated by the fixture's own
+                    // mount: the floor movers are patched with a 180
+                    // degree flip, which turned "up" into "down" and sank
+                    // them through the stage by twice the correction.
+                    let anchor = f.orientation().inverse() * (visual.position - f.position.to_vec3());
                     commands.spawn((
                         Mesh3d(meshes.add(asset.to_bevy_mesh(yoke_split))),
                         MeshMaterial3d(body_material.clone()),
@@ -909,6 +944,53 @@ pub fn update_beams(
                     }
                 }
             }
+        }
+    }
+}
+
+/// Lights each fixture's own housing with the colour it is emitting, so
+/// the rig reads as a rig at a glance — which fixtures are up, in what
+/// colour — rather than as a static model.
+pub fn update_fixture_bodies(
+    venue: Res<VenueRes>,
+    dmx: Option<Res<DmxRes>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    bodies: Query<(&Fixture, &FixtureBody)>,
+) {
+    let Some(dmx) = dmx else { return };
+    let venue = &venue.0;
+
+    for (fixture, body) in &bodies {
+        let Some(record) = venue.fixtures.get(fixture.index) else { continue };
+        let manufacturer = record.manufacturer.as_deref().unwrap_or("");
+        let model = record.model.as_deref().unwrap_or("");
+
+        let live = record
+            .dmx_address()
+            .zip(channel_map_for(manufacturer, model))
+            .map(|(addr, map)| dmx.0.resolve(&addr, &map));
+
+        let emissive = match live {
+            Some(live) if live.dimmer > MIN_VISIBLE_DIMMER => {
+                let c = if live.has_color { live.color } else { [1.0; 3] };
+                // Scaled by the dimmer so a fixture at 20% reads as at
+                // 20%, and hot enough at full for bloom to halo it the
+                // way a real lit lens does.
+                let gain = live.dimmer * LIT_BODY_GLOW;
+                LinearRgba::rgb(c[0] * gain, c[1] * gain, c[2] * gain)
+            }
+            _ => {
+                let base = LinearRgba::from(body.kind_color);
+                LinearRgba::rgb(
+                    base.red * DARK_BODY_GLOW,
+                    base.green * DARK_BODY_GLOW,
+                    base.blue * DARK_BODY_GLOW,
+                )
+            }
+        };
+
+        if let Some(mut material) = materials.get_mut(&body.material) {
+            material.emissive = emissive;
         }
     }
 }

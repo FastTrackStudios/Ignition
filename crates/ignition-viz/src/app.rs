@@ -17,8 +17,8 @@
 use crate::beam::BeamPlugin;
 use crate::playback::{go_on_space, tick_playback, Playback};
 use crate::spawn::{
-    apply_ambient, spawn_venue, update_beams, update_live_fixtures, BeamStyle, DmxRes,
-    GdtfLibraryRes, VenueRes, VizSettings,
+    apply_ambient, spawn_venue, update_beams, update_fixture_bodies, update_live_fixtures,
+    BeamStyle, DmxRes, GdtfLibraryRes, VenueRes, VizSettings,
 };
 use crate::gdtf_geometry::GdtfLibrary;
 use crate::view::ViewPreset;
@@ -105,7 +105,14 @@ impl Plugin for VizPlugin {
             // this frame's cue state, not last frame's.
             .add_systems(
                 Update,
-                (apply_ambient, go_on_space, tick_playback, update_live_fixtures).chain(),
+                (
+                    apply_ambient,
+                    go_on_space,
+                    tick_playback,
+                    update_live_fixtures,
+                    update_fixture_bodies,
+                )
+                    .chain(),
             )
             // After transform propagation, because a beam's world pose is
             // whatever the joints `update_live_fixtures` just moved ended
