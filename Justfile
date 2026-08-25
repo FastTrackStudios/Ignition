@@ -15,7 +15,21 @@ studio_monitor := env_var_or_default("IGNITION_MONITOR", "right")
 # `NO_DOWNLOADS=1` is load-bearing: dx's Tailwind step otherwise fetches
 # a standalone binary into ~/.cache, which will not run on NixOS. With
 # it set, dx uses `which tailwindcss` — supplied by the flake.
+#
+# `--release` because the visualizer has to hold 120 fps. A debug Bevy
+# is not a slightly slower Bevy: the transform/visibility/render-extract
+# passes are all generic-heavy code that optimises away to very little
+# and, unoptimised, dominate the frame. The cost is rebuild time — rsx
+# hot-reload still applies without a rebuild, but a Rust change is now a
+# release compile. `just studio-dev` is the fast-iteration escape hatch.
 studio *ARGS:
+    IGNITION_MONITOR={{studio_monitor}} NO_DOWNLOADS=1 \
+        dx serve -p ignition-studio --platform desktop --renderer native \
+        --hot-patch false --release {{ARGS}}
+
+# The studio unoptimised, for when the Rust edit loop matters more than
+# the frame rate. Expect the viewport to be visibly slower.
+studio-dev *ARGS:
     IGNITION_MONITOR={{studio_monitor}} NO_DOWNLOADS=1 \
         dx serve -p ignition-studio --platform desktop --renderer native \
         --hot-patch false {{ARGS}}

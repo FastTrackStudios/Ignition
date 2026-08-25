@@ -48,9 +48,29 @@ static TX: std::sync::OnceLock<Sender> = std::sync::OnceLock::new();
 static RX: std::sync::Mutex<Option<command::Receiver>> = std::sync::Mutex::new(None);
 
 fn main() -> anyhow::Result<()> {
+    // `from_default_env()` alone defaults to ERROR when RUST_LOG is
+    // unset, which silently discards every line this app logs about
+    // whether the song loaded — including the warning that says it
+    // didn't. The failure then looks like a dead audio device. Default
+    // to info for our own crates and let RUST_LOG override; Bevy and wgpu
+    // stay quiet because at info they are not.
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                tracing_subscriber::EnvFilter::new("warn,ignition_studio=info,ignition_song=info,ignition_viz=info")
+            }),
+        )
         .try_init();
+
+    // The DAW backend's service layer spawns tasks through architect,
+    // which panics rather than erroring if no runtime is current — see
+    // `SongTransport::open`. The guard has to outlive the transport, not
+    // just the call that opens it, and the transport is built during the
+    // first render of the viewport, so it is held here across `launch`
+    // for the lifetime of the app. `playsong` does the same thing, and
+    // that it plays audio while the studio did not was the difference.
+    let runtime = tokio::runtime::Runtime::new()?;
+    let _guard = runtime.enter();
 
     let (tx, rx) = command::channel();
     let _ = TX.set(tx);
