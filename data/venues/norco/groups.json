@@ -1122,5 +1122,55 @@
       "80-83",
       "85-88"
     ]
+  },
+  {
+    "target": "213",
+    "label": "Upstage L Wash",
+    "channels": [
+      "36-39"
+    ]
+  },
+  {
+    "target": "214",
+    "label": "Upstage R Wash",
+    "channels": [
+      "32-35"
+    ]
+  },
+  {
+    "target": "215",
+    "label": "Downstage L Wash",
+    "channels": [
+      "28-31"
+    ]
+  },
+  {
+    "target": "216",
+    "label": "Center Wash",
+    "channels": [
+      "24-27"
+    ]
+  },
+  {
+    "target": "217",
+    "label": "Downstage R Wash",
+    "channels": [
+      "20-23"
+    ]
+  },
+  {
+    "target": "218",
+    "label": "Drummer Wash",
+    "channels": [
+      "42-46"
+    ]
+  },
+  {
+    "target": "219",
+    "label": "Back Wall Wash",
+    "channels": [
+      "40-41",
+      "47-48"
+    ]
   }
 ]

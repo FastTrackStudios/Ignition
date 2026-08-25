@@ -1,0 +1,163 @@
+{
+  "name": "Group Check",
+  "cues": [
+    {
+      "name": "Blackout",
+      "fade_secs": 0,
+      "recipes": []
+    },
+    {
+      "name": "Groups by colour",
+      "fade_secs": 0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Upstage L Wash"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Wash"
+          },
+          "apply": {
+            "Color": {
+              "name": "Magenta",
+              "red": 1.0,
+              "green": 0.0,
+              "blue": 0.9
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Wash"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Wash"
+          },
+          "apply": {
+            "Color": {
+              "name": "Cyan",
+              "red": 0.0,
+              "green": 0.9,
+              "blue": 1.0
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Wash"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Wash"
+          },
+          "apply": {
+            "Color": {
+              "name": "Amber",
+              "red": 1.0,
+              "green": 0.55,
+              "blue": 0.0
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Wash"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Wash"
+          },
+          "apply": {
+            "Color": {
+              "name": "Green",
+              "red": 0.1,
+              "green": 1.0,
+              "blue": 0.2
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Wash"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Wash"
+          },
+          "apply": {
+            "Color": {
+              "name": "Blue",
+              "red": 0.15,
+              "green": 0.3,
+              "blue": 1.0
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Wash"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Wash"
+          },
+          "apply": {
+            "Color": {
+              "name": "Red",
+              "red": 1.0,
+              "green": 0.05,
+              "blue": 0.05
+            }
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Wash"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Wash"
+          },
+          "apply": {
+            "Color": {
+              "name": "White",
+              "red": 1.0,
+              "green": 1.0,
+              "blue": 1.0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
