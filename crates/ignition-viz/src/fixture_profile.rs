@@ -419,5 +419,13 @@ fn emit_light_and_beam(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, emission: &
     let angle_deg = emission.beam_angle_deg.unwrap_or(25.0);
     let radius = length * (angle_deg.to_radians() * 0.5).tan();
     mesh.add_light(pos, emission.color, direction, angle_deg * 0.5);
-    mesh.add_glow_cone(pos, rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, 16);
+    mesh.add_glow_cone(pos, rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, angle_deg, GLOW_CONE_SEGMENTS);
 }
+
+/// Radial segments per beam cone. Sixteen left a visibly faceted
+/// silhouette once beams got large enough to fill much of the frame;
+/// beams are now two rings deep instead of seven (see
+/// `mesh::GLOW_CONE_RING_STEPS`), so this is cheaper in total vertices
+/// than the faceted version was. ASLS uses 100 on a single instanced
+/// cylinder, which is free for them and would not be here.
+pub(crate) const GLOW_CONE_SEGMENTS: u32 = 48;

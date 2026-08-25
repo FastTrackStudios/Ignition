@@ -7,8 +7,14 @@ we want the actual visualization like in ASLS, so we don't want our
 version theirs looks way better."**
 
 This doc scopes the real rewrite instead of continuing to tune the
-approximation. Not started — this is the plan, to be picked up as its
-own piece of work.
+approximation.
+
+> **Status (2026-08-24): Phases 1 and 3 are done**, along with a term
+> this doc missed entirely — read **"What this doc got wrong"** at the
+> bottom before acting on anything above it. Phase 2 (GPU instancing)
+> and Phase 4 (the lighting model) are not done, and neither is blocking
+> anything visual. Slice 21 in `lighting-console-landscape.md` is the
+> record of what landed.
 
 ## What Ignition does today
 
@@ -213,3 +219,56 @@ smaller once Phase 2 lands (mostly shader math, informed directly by
 this doc's already-quoted ASLS formula). Total: several sessions'
 worth of focused work, not a single sitting — this is why it's being
 scoped and handed off rather than started inline.
+
+## What this doc got wrong
+
+Written after the work above was actually done, because the gap between
+this plan and what the problem turned out to be is the useful part to
+keep.
+
+1. **It named the wrong biggest gap.** "Glow isn't decoupled from the
+   shared tonemap... very likely the single biggest remaining visual
+   gap." It was worth doing and it is done, but on its own it changed
+   very little. The term that mattered is `anglePower`:
+
+   ```glsl
+   float anglePower = pow(dot(normalize(vWorldPosition.xyz), normal), 4.0 * alignmentFactor);
+   float intensity = attenuation * anglePower;
+   ```
+
+   A brightness gradient *across* a beam — bright where the cone wall
+   faces the camera, dark at the silhouette. This doc quotes
+   `attenuation` (the falloff *along* the beam) as "the real intensity
+   formula" and never mentions the factor it is multiplied by. That
+   omission is why four slices of tuning kept producing flat-shaded
+   slabs: a per-vertex intensity curve can shape a beam along its
+   length, and cannot ever shade across it.
+
+   The lesson isn't "read the source" — Slice 20 did read the source.
+   It's that summarising a shader into prose drops terms, and the
+   summary then gets treated as the source by whoever picks the work up.
+   Both this doc and Slice 20 quote one line out of a two-line
+   expression.
+
+2. **It over-estimated Phase 1's difficulty and mis-stated the
+   blocker.** "This requires either resolving a second MSAA target or
+   restructuring so glow's depth-test against opaque geometry still
+   works without sharing the same depth attachment across passes."
+   Neither is needed: a second colour target shares the first pass's
+   depth attachment read-only (`LoadOp::Load` + `depth_write_enabled:
+   false`), which is what the glow pass already did. The whole change is
+   one extra target pair and a two-texture composite shader.
+
+3. **It treated Phase 3 as blocked on Phase 2.** "Doing this for real
+   needs either a dedicated glow-only vertex format... or a separate
+   glow shader path" — correct, and then it filed both under "once
+   beams are instanced." A glow-only vertex format is independent of
+   instancing and is the smaller change: a separate `GlowVertex` struct
+   costs the static-geometry path nothing, which was the stated worry.
+   Phase 3 landed without Phase 2 and Phase 2 is now purely a
+   performance question.
+
+4. **What it got right**: keeping `BeamThrow` over ASLS's fixed
+   100-unit-plus-fade beam; ruling shadow mapping out of scope; the
+   acceptance criteria, which are the two renders the work was actually
+   judged against.

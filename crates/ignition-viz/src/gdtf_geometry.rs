@@ -291,7 +291,16 @@ fn draw_node(
                 let radius = length * (angle_deg.to_radians() * 0.5).tan();
                 let direction = world_rot * Vec3::NEG_Z;
                 mesh.add_light(world_pos, emission.color, direction, angle_deg * 0.5);
-                mesh.add_glow_cone(world_pos, world_rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, 16);
+                mesh.add_glow_cone(
+                    world_pos,
+                    world_rot,
+                    Vec3::NEG_Z,
+                    length,
+                    radius.max(0.05),
+                    emission.color,
+                    angle_deg,
+                    crate::fixture_profile::GLOW_CONE_SEGMENTS,
+                );
             }
         }
     }

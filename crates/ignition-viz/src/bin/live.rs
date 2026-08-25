@@ -179,7 +179,7 @@ fn main() -> anyhow::Result<()> {
             // room only shows what its fixtures actually light, the way
             // the real stage looks in the dark.
             "--ambient" => ambient = args.next().expect("--ambient needs a number 0..1").parse().unwrap(),
-            "--haze" => haze = args.next().expect("--haze needs a number, e.g. 1.6").parse().unwrap(),
+            "--haze" => haze = args.next().expect("--haze needs a number, e.g. 0.35").parse().unwrap(),
             // Phase of the beam haze's drifting turbulence to render, for
             // --snapshot (a single frame has no "next frame" to animate
             // through, so this is the only way to see the effect at a

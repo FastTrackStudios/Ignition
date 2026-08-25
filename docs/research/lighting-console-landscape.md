@@ -1286,3 +1286,79 @@ saturated — an inherent property of that specific extreme angle, not
 something this formula change was expected to fix on its own.
 `cargo test --workspace`: 53/53 unchanged. `shot`'s regression PNG
 byte-identical (MD5 `d4c0f1b2...`).
+
+## Slice 21 — the ASLS beam shader, ported for real (2026-08-24, same day)
+
+Slice 20 ported the *shape* of ASLS's falloff curve into baked vertex
+colours and explicitly deferred three things as "real architecture
+changes": the `toneMapped: false` separation, per-fragment local-space
+distance, and the terms that need a beam's own parameters at the
+fragment. This slice did all three. `docs/research/asls-parity-render-
+rewrite.md` is the scoping doc it works from; the ASLS source was
+re-read line by line rather than worked from that doc's summary, which
+turned out to matter (below).
+
+**What the scoping doc got wrong.** It named the shared tonemap as "very
+likely the single biggest remaining visual gap." It wasn't. The term
+that mattered is one the doc never mentions, because Slice 20's read of
+`beam.fragment.glsl` skipped past it:
+
+```glsl
+float anglePower = pow(dot(normalize(vWorldPosition.xyz), normal), 4.0 * alignmentFactor);
+float intensity = attenuation * anglePower;
+```
+
+`attenuation` is the inverse-quadratic decay *along* the beam — the part
+Slice 20 ported. `anglePower` is a gradient *across* it: bright where the
+cone wall faces the camera, dark at the silhouette, and the harder the
+more across-the-beam the view is. No amount of tuning a per-vertex
+intensity curve could ever have produced it, which is why four slices of
+tuning kept landing on flat-shaded slabs. It is also implicitly
+one-sided — `pow` of a negative base kills the beam's far wall — so a
+single beam is not double-counted, the problem Slice 17/18 kept cutting
+peak brightness to work around.
+
+**What landed:**
+
+- **A glow-only vertex format** (`mesh::GlowVertex`) carrying the beam's
+  own parameters — beam-local position, aim direction, lens origin, beam
+  angle, unattenuated colour. This is the thing Slice 20 declined to do
+  by extending the shared `Vertex`; a *separate* struct costs the static
+  path nothing, which is the obvious answer in hindsight. ASLS ships the
+  same five values as per-instance attributes; Ignition bakes real
+  world-space cones on the CPU, so they ride per-vertex instead.
+- **`fs_glow` rewritten as a direct port** of their fragment shader:
+  `alignmentFactor` from the beam origin, `attenuation` per-fragment in
+  real metres, `anglePower` (one-sided against the wall's real outward
+  normal, rather than the sign of a screen-space derived normal — same
+  result without depending on which way the rasteriser's Y axis runs),
+  and `computeFog`'s `max(fog, intensity)` combination. Haze is sampled
+  in world space rather than their clip space, so it sits in the room
+  instead of being screen-locked.
+- **Two HDR targets instead of one** (`FrameTargets`), composited by
+  `fs_composite` as `aces_tonemap(scene) + glow` — `toneMapped: false`,
+  structurally. The depth-buffer problem Slice 20 called non-trivial
+  turned out not to exist: a second colour target can share the first
+  pass's depth attachment read-only, no multisampled-depth resolve
+  needed.
+- Cone geometry went from 7 rings x 16 segments to 2 rings x 48 — fewer
+  vertices per beam *and* a smooth silhouette, because rings existed
+  only to approximate the curve that is now analytic. `all-lights-on`
+  went 7797 -> 6624 glow vertices.
+- `DEFAULT_HAZE` 1.6 -> 0.35. The old number compensated for a curve
+  deliberately capped at 0.22 peak; the real one peaks near 2.0 at the
+  lens.
+
+Verified visually against the two cases the scoping doc named. The
+moderate cue (`demo-recipes.json`, house view) reads as soft translucent
+shafts with a bright core at each lens and visible haze structure inside
+the beam, instead of flat saturated slabs. `all-lights-on.json` — 69
+fixtures lit, the case that has blown out to a solid blob since Slice
+17 — now resolves into individually distinguishable beams. `cargo test
+--workspace` 54/54 green; `shot`'s static path untouched (it shares
+neither the shader nor the vertex format).
+
+Still unported, and now genuinely the whole remaining list: GPU
+instancing (a perf/architecture item, not a visual one — see the scoping
+doc's own reasoning) and a real per-material lighting system for room
+illumination.

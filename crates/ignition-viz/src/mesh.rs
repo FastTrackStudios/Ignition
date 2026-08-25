@@ -14,6 +14,59 @@ pub struct Vertex {
     pub color: [f32; 3],
 }
 
+/// The beam-glow pass's own vertex format — deliberately *not* `Vertex`.
+///
+/// `Vertex` carries a pre-shaded colour, which is all opaque geometry
+/// needs; a beam needs the shader to evaluate its brightness per-fragment
+/// from where the fragment sits inside the beam, which means shipping the
+/// beam's own parameters down with every vertex. These are exactly ASLS
+/// Studio's five per-instance beam attributes (`beam.vertex.glsl`'s
+/// `wpos`/`direction`/`color`/`intensity`/`angle`) plus the beam-local
+/// position their vertex shader derives from the un-transformed cylinder
+/// (`vPosition`) — the difference being that Ignition bakes real
+/// world-space cone geometry on the CPU (see this module's header) rather
+/// than widening one shared cylinder per instance on the GPU, so the
+/// per-beam values ride per-vertex instead of per-instance. Same values
+/// reach the fragment shader either way.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct GlowVertex {
+    /// World-space position of this vertex on the cone's surface.
+    pub position: [f32; 3],
+    /// Outward radial normal of the cone wall, world space. The glow
+    /// shader's `anglePower` term uses it one-sided (`max(dot(v, n), 0)`),
+    /// which is what makes a beam's *near* wall draw and its far wall
+    /// contribute nothing — ASLS gets the same one-sidedness out of the
+    /// sign of a screen-space derived normal; doing it from a real
+    /// outward normal is the same result without depending on which way
+    /// the rasteriser's Y axis runs.
+    pub normal: [f32; 3],
+    /// Position relative to the beam's origin (the fixture's lens), in
+    /// world *scale* but beam-local *origin* — so `length()` of it is the
+    /// real distance travelled down the beam, which is what the falloff
+    /// curve is a function of. ASLS's `vPosition`.
+    pub beam_local: [f32; 3],
+    /// The beam's colour, already dimmer-scaled by `scene.rs`, and NOT
+    /// pre-attenuated: all falloff happens per-fragment now. (ASLS keeps
+    /// colour and dimmer as separate attributes and multiplies them in
+    /// the shader; multiplying on the CPU is the same product.)
+    pub color: [f32; 3],
+    /// World-space beam aim direction, normalized. ASLS's `direction`.
+    pub direction: [f32; 3],
+    /// World-space position of the fixture's lens — where the beam starts.
+    /// ASLS's `wpos`/`beamPos`; used for the view-alignment term, which is
+    /// per-beam (not per-fragment), so it must come from the beam's origin
+    /// rather than this vertex's own position.
+    pub origin: [f32; 3],
+    /// The real fixture's beam angle in degrees. ASLS's `angle.x` — it is
+    /// the quadratic term of the falloff curve, so a wide wash genuinely
+    /// dies off over a shorter distance than a tight spot.
+    pub angle_deg: f32,
+    /// Keeps the struct 16-byte aligned so `bytemuck::cast_slice` and the
+    /// vertex layout agree on stride without an implicit tail pad.
+    pub _pad: f32,
+}
+
 /// A live-mode-only light source — a lit fixture's contribution to the
 /// scene beyond its own mesh. `live_pipeline.rs` uploads these into a
 /// storage buffer the fragment shader reads to illuminate *other* geometry
@@ -48,7 +101,7 @@ pub struct MeshBuilder {
     /// Drawn in a second pass in `live_renderer.rs` after the main opaque
     /// pass, with depth write off so overlapping beams blend rather than
     /// z-fight; `renderer.rs`'s headless path never draws this list.
-    pub glow_vertices: Vec<Vertex>,
+    pub glow_vertices: Vec<GlowVertex>,
     pub glow_indices: Vec<u32>,
     pub lights: Vec<PointLight>,
 }
@@ -298,15 +351,17 @@ impl MeshBuilder {
     /// exists). Unlike `add_cone`'s decorative housing-stub shape (base at
     /// `origin`, tapering to a point — fine for a small fixed-length
     /// ~0.15m stub, never really scrutinised), this is a real frustum:
-    /// narrow and full-brightness where the beam exits the fixture,
-    /// flaring out to `radius` at the far end and dimming as it goes —
-    /// both the correct physical shape for a spotlight beam (it spreads
-    /// and its intensity per unit area falls off with distance/throw) and
-    /// what stops beams from blowing out to solid white once `length` got
-    /// realistic (`fixture_profile.rs::BeamThrow`): the old shape was
-    /// full-brightness across its *entire* body, so a long, wide,
-    /// uniformly-bright cone from every one of dozens of overlapping
-    /// fixtures saturated the additive glow pass completely.
+    /// narrow where the beam exits the fixture, flaring out to `radius` at
+    /// the far end — the correct physical shape for a spotlight beam.
+    ///
+    /// This carries *no* baked brightness: the geometry is the beam's
+    /// envelope and nothing more. Every falloff term — down-the-beam
+    /// distance, view alignment, the soft silhouette edge, haze density —
+    /// is evaluated per-fragment by `live_shader.wgsl`'s `fs_glow`, a
+    /// direct port of ASLS Studio's `beam.fragment.glsl`. `angle_deg` is
+    /// the real fixture's beam angle, which that curve needs as its
+    /// quadratic term.
+    #[allow(clippy::too_many_arguments)]
     pub fn add_glow_cone(
         &mut self,
         origin: Vec3,
@@ -315,9 +370,21 @@ impl MeshBuilder {
         length: f32,
         radius: f32,
         color: [f32; 3],
+        angle_deg: f32,
         segments: u32,
     ) {
-        build_glow_cone(&mut self.glow_vertices, &mut self.glow_indices, origin, rot, local_axis, length, radius, color, segments);
+        build_glow_cone(
+            &mut self.glow_vertices,
+            &mut self.glow_indices,
+            origin,
+            rot,
+            local_axis,
+            length,
+            radius,
+            color,
+            angle_deg,
+            segments,
+        );
     }
 
     /// Registers a live light source for `live_renderer.rs`'s point-light
@@ -393,40 +460,26 @@ fn build_cone(
     }
 }
 
-/// How many rings of vertices to lay down along a glow-cone's length —
-/// `RING_STEPS + 1` rings total, `RING_STEPS` quad-strips between them.
-/// More than the old 2-ring (near/far) version so `intensity_at`'s curve
-/// reads as a smooth analytic falloff instead of one straight linear
-/// lerp — see that function's doc.
-const GLOW_CONE_RING_STEPS: u32 = 6;
+/// How many rings of vertices a glow cone gets along its length. Two —
+/// the near ring at the lens and the far ring where the beam lands — is
+/// all the *shape* needs, because a frustum's wall is planar between
+/// them and `GlowVertex::beam_local` interpolates exactly across it. The
+/// six rings this used to have existed only to approximate a falloff
+/// curve in baked vertex colours; the curve is evaluated per-fragment
+/// now, so the extra rings bought nothing. (ASLS's own beam cylinder is
+/// `BEAM_SEGMENTS = 1`, i.e. the same two rings, for the same reason.)
+const GLOW_CONE_RING_STEPS: u32 = 1;
 
-/// The real intensity-falloff shape this project's beam glow was missing
-/// until this — ported from ASLS Studio's actual beam fragment shader
-/// (`beam.fragment.glsl`'s `attenuation = 2.0 / (1.0 + alignmentFactor *
-/// distance + radians(angle) * distance * distance)`, read directly from
-/// their source, not re-derived from a screenshot): a real inverse-
-/// quadratic decay along the beam's length, not a single straight lerp
-/// between two baked colours. `t` is distance along the beam normalized
-/// to `[0, 1]` (0 = at the fixture, 1 = the beam's real far end — already
-/// the true floor-hit distance via `fixture_profile.rs::BeamThrow`, a
-/// more precise stop than ASLS's own shader-side world-Z fade). `k`
-/// controls how sharply it falls off; chosen so the far end lands at
-/// roughly 1/5 the near end's brightness, matching this project's own
-/// prior (Slice 18) near/far ratio but as a continuous curve instead of
-/// a hard 2-stop gradient.
-fn glow_intensity_at(t: f32) -> f32 {
-    const K: f32 = 4.5;
-    1.0 / (1.0 + K * t * t)
-}
-
-/// A beam-glow frustum — narrow+bright near ring at `origin`, flaring to
-/// `radius` at the far end (`length` away along `local_axis`), dimmed
-/// smoothly along the way per `glow_intensity_at` — see
-/// `MeshBuilder::add_glow_cone`'s doc for why this shape (rather than
-/// `build_cone`'s point-tapered one) is what a light beam actually needs.
+/// A beam-glow frustum — a narrow ring at `origin` flaring to `radius`
+/// at the far end, `length` away along `local_axis`.
+///
+/// Pure envelope geometry: no brightness is baked anywhere in here. Each
+/// vertex carries the beam's own parameters (see `GlowVertex`) and
+/// `fs_glow` does all the shading per-fragment. `angle_deg` is the real
+/// fixture's beam angle, which that shader's falloff curve needs.
 #[allow(clippy::too_many_arguments)]
 fn build_glow_cone(
-    vertices: &mut Vec<Vertex>,
+    vertices: &mut Vec<GlowVertex>,
     indices: &mut Vec<u32>,
     origin: Vec3,
     rot: Quat,
@@ -434,6 +487,7 @@ fn build_glow_cone(
     length: f32,
     radius: f32,
     color: [f32; 3],
+    angle_deg: f32,
     segments: u32,
 ) {
     let axis = local_axis.normalize();
@@ -442,31 +496,34 @@ fn build_glow_cone(
     let v = axis.cross(u).normalize();
 
     // A small non-zero near radius (rather than a true point) so the near
-    // end still reads as a lens-sized glow up close, not a degenerate
-    // vertex fan. `live_pipeline.rs` tonemaps once over the true combined
-    // HDR result rather than per-fragment — but this cone is a *closed*
-    // shape with `cull_mode: None` (see `live_pipeline.rs`'s glow
-    // pipeline), so at most oblique viewing angles a single beam's near
-    // AND far walls both rasterize additively onto the same screen pixel,
-    // roughly doubling what one wall alone would contribute. Without real
-    // per-fragment depth sorting, `glow_intensity_at`'s own peak (at
-    // t=0) staying well below 1.0 is what keeps a doubled single beam
-    // from clipping — the same headroom Slice 18 cut for, now shaped as
-    // a real curve instead of the flat colour that was cut.
+    // end reads as a lens-sized aperture up close instead of a degenerate
+    // vertex fan — ASLS does the same thing with a fixed 9cm
+    // `BEAM_TOP_RADIUS` on their cylinder's top cap.
     let near_radius = (radius * 0.08).max(0.02);
-    const PEAK: f32 = 0.22;
 
-    let mut ring = |dist: f32, ring_radius: f32, c: [f32; 3]| -> u32 {
+    let world_direction = (rot * axis).normalize();
+
+    let mut ring = |dist: f32, ring_radius: f32| -> u32 {
         let start = vertices.len() as u32;
         let offset = axis * dist;
         for i in 0..segments {
             let theta = (i as f32 / segments as f32) * std::f32::consts::TAU;
             let local = offset + u * theta.cos() * ring_radius + v * theta.sin() * ring_radius;
             let normal_local = (u * theta.cos() + v * theta.sin()).normalize();
-            vertices.push(Vertex {
-                position: (origin + rot * local).into(),
+            // `beam_local` is the vertex offset from the lens in world
+            // *scale* (rotated, not translated) — so its length is the
+            // real metres travelled down the beam, whatever the fixture's
+            // orientation.
+            let beam_local = rot * local;
+            vertices.push(GlowVertex {
+                position: (origin + beam_local).into(),
                 normal: (rot * normal_local).into(),
-                color: c,
+                beam_local: beam_local.into(),
+                color,
+                direction: world_direction.into(),
+                origin: origin.into(),
+                angle_deg,
+                _pad: 0.0,
             });
         }
         start
@@ -477,9 +534,7 @@ fn build_glow_cone(
         let t = step as f32 / GLOW_CONE_RING_STEPS as f32;
         let dist = t * length;
         let ring_radius = near_radius + (radius - near_radius) * t;
-        let intensity = PEAK * glow_intensity_at(t);
-        let ring_color = [color[0] * intensity, color[1] * intensity, color[2] * intensity];
-        let this_ring = ring(dist, ring_radius, ring_color);
+        let this_ring = ring(dist, ring_radius);
         if let Some(prev) = prev_ring {
             for i in 0..segments {
                 let j = (i + 1) % segments;
@@ -492,25 +547,13 @@ fn build_glow_cone(
         }
         prev_ring = Some(this_ring);
     }
-    let far_ring = prev_ring.expect("at least one ring always gets built");
-    let far_color = [
-        color[0] * PEAK * glow_intensity_at(1.0),
-        color[1] * PEAK * glow_intensity_at(1.0),
-        color[2] * PEAK * glow_intensity_at(1.0),
-    ];
 
-    // A far cap so the beam's tip doesn't look hollow viewed near
-    // head-on (matches `build_cone`'s own base cap treatment).
-    let far_center = vertices.len() as u32;
-    vertices.push(Vertex {
-        position: (origin + rot * (axis * length)).into(),
-        normal: (rot * axis).into(),
-        color: far_color,
-    });
-    for i in 0..segments {
-        let j = (i + 1) % segments;
-        indices.extend_from_slice(&[far_center, far_ring + j, far_ring + i]);
-    }
+    // No end caps. `fs_glow` shades one-sided off the wall's outward
+    // normal, and a cap's normal points down the beam — it would only
+    // ever contribute when staring straight into the fixture, where it
+    // reads as a flat disc rather than light. The wall alone covers the
+    // beam's whole silhouette.
+    let _ = prev_ring;
 }
 
 impl MeshBuilder {

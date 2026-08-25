@@ -20,7 +20,7 @@ var<uniform> camera: Camera;
 // Visualizer settings — the live-mode equivalent of a console viz app's
 // "ambient light"/"haze level" sliders (QLC+, grandMA3's 3D view, WYSIWYG
 // etc. all expose something like this). Defaults live in `live_pipeline.rs`
-// (ambient 0.0, haze 1.6) and are overridable from `bin/live.rs`'s
+// (ambient 0.0, haze 0.35) and are overridable from `bin/live.rs`'s
 // `--ambient`/`--haze` flags — deliberately NOT the same 0.45 ambient
 // `shader.wgsl` hardcodes, since that shader exists to give `shot` a flat,
 // always-readable layout view, not a realistic stage look. `_pad1` keeps
@@ -223,24 +223,21 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     return vec4<f32>(rgb, 1.0);
 }
 
-// The beam-cone pass: pure emissive colour, no lighting model, additively
-// blended onto whatever's already in the framebuffer (see
-// `live_renderer.rs`'s glow pipeline). `in.color` already carries
-// dimmer/colour baked in per-vertex (`scene.rs`) — `settings.haze` is the
-// one thing still applied here: how much particulate is in the air to
-// scatter a beam into something visible at all. At haze 0 a beam is inert
-// (no haze to catch the light, matching how it'd genuinely look in clean
-// air), higher values make the beam read brighter/more solid, the same
-// knob a real haze machine's fluid-output dial is. Beyond that flat
-// scale, two techniques ported from ASLS Studio's own beam shader
-// (docs/research/lighting-console-landscape.md's Slice 7 — their
-// beam.fragment.glsl) make the cone actually read as a light shaft
-// instead of a flat-shaded cone: layered 3D simplex noise for turbulent
-// haze density (`fogging`, below — the noise function itself is Ashima
-// Arts' public-domain/MIT `webgl-noise`, mechanically translated from
-// GLSL to WGSL, same license terms as the original), and a view-alignment
-// term that brightens the beam when looking across it (grazing angle)
-// versus down its length, the way a real haze-lit beam does.
+// The beam-cone pass: a direct port of ASLS Studio's own beam shader
+// (`src/plugins/visualizer/shaders/beam.{vertex,fragment}.glsl`, GPL-3.0,
+// same licence as this repo), read from their source rather than
+// approximated. Every term below is theirs; see `fs_glow` for the
+// line-by-line mapping. The geometry differs — Ignition bakes real
+// world-space cones on the CPU where ASLS widens one instanced cylinder
+// in the vertex shader — but the shading maths a fragment sees is the
+// same, which is the part that decides how a beam looks.
+//
+// The one term that is *not* ASLS's is the haze coordinate: they sample
+// their noise field in clip space, which makes the mottling screen-locked;
+// this samples it in world space, so the haze sits in the room and beams
+// sweep through it. The noise function itself is Ashima Arts'
+// public-domain/MIT `webgl-noise`, mechanically translated GLSL -> WGSL,
+// same licence terms as the original (ASLS vendors the identical file).
 
 fn mod289_3(x: vec3<f32>) -> vec3<f32> {
     return x - floor(x * (1.0 / 289.0)) * 289.0;
@@ -313,10 +310,9 @@ fn snoise(v: vec3<f32>) -> f32 {
     return 105.0 * dot(m * m, vec4<f32>(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
 }
 
-// Four-octave turbulence, same weighting ASLS uses — a static (not
-// time-animated, no `time` uniform threaded through yet — a reasonable
-// v1 scope cut) but spatially-varying density field, so a beam reads as
-// mottled haze rather than a flat-shaded cone.
+// Four-octave turbulence, same weighting ASLS uses (`fogging` in their
+// beam.fragment.glsl) — a spatially-varying density field, so a beam
+// reads as mottled haze rather than a flat-shaded cone.
 fn fogging(coord: vec3<f32>) -> f32 {
     var fog = abs(snoise(coord)) * 1.0;
     fog += abs(snoise(coord * 2.0)) * 0.5;
@@ -325,49 +321,116 @@ fn fogging(coord: vec3<f32>) -> f32 {
     return fog;
 }
 
+// `mesh.rs::GlowVertex`, in the same field order — the beam's own
+// parameters ride with every vertex so the fragment shader can evaluate
+// the falloff curve at the fragment's real place inside the beam.
+struct GlowVertexIn {
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) beam_local: vec3<f32>,
+    @location(3) color: vec3<f32>,
+    @location(4) direction: vec3<f32>,
+    @location(5) origin: vec3<f32>,
+    @location(6) angle_deg: f32,
+}
+
+struct GlowOut {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) world_pos: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) beam_local: vec3<f32>,
+    @location(3) color: vec3<f32>,
+    @location(4) direction: vec3<f32>,
+    @location(5) origin: vec3<f32>,
+    // Constant across a beam, so there is nothing to interpolate.
+    @location(6) @interpolate(flat) angle_deg: f32,
+}
+
+@vertex
+fn vs_glow(in: GlowVertexIn) -> GlowOut {
+    var out: GlowOut;
+    out.clip_position = camera.view_proj * vec4<f32>(in.position, 1.0);
+    out.world_pos = in.position;
+    out.normal = in.normal;
+    out.beam_local = in.beam_local;
+    out.color = in.color;
+    out.direction = in.direction;
+    out.origin = in.origin;
+    out.angle_deg = in.angle_deg;
+    return out;
+}
+
 @fragment
-fn fs_glow(in: VertexOut) -> @location(0) vec4<f32> {
-    let n = normalize(in.world_normal);
+fn fs_glow(in: GlowOut) -> @location(0) vec4<f32> {
+    let n = normalize(in.normal);
     let view_dir = normalize(camera.camera_pos.xyz - in.world_pos);
-    // Brighter viewed across the beam (grazing angle against the cone's
-    // own surface normal) than straight down its length — the cheap trick
-    // that makes additively-blended cone geometry read as a volumetric
-    // shaft instead of a flat-lit solid.
-    let edge = 1.0 - abs(dot(view_dir, n));
-    // Was mix(0.55, 1.4, edge) — the >1x boost on top of this pass's
-    // per-fragment tonemap (below) was fine while beams were short and
-    // rarely overlapped on screen; once BeamThrow (fixture_profile.rs)
-    // made beams reach the real floor, many long/wide beams from a dense
-    // rig overlap on the same pixels far more, and since this pass
-    // tonemaps *before* additive blending (an approximation — see this
-    // function's own tonemap comment below), several already-near-1.0
-    // fragments summed straight past white. Capped at 1.0 instead.
-    let alignment = mix(0.4, 1.0, edge);
-    // Drift through the noise field's Z axis over time — the haze's
-    // turbulence pattern moves without the beam geometry itself moving,
-    // the same "sample a moving slice of 3D noise" trick ASLS's own
-    // fogTime does.
+
+    // --- ASLS's `alignmentFactor` ---
+    // How across-the-beam the camera is: 0 looking straight down the
+    // beam's axis, 1 looking square across it. Computed from the beam's
+    // *origin*, not this fragment's position, because it is a property of
+    // the beam as a whole (their `dirCamToLight` uses `beamPos`).
+    let cam_to_beam = normalize(camera.camera_pos.xyz - in.origin);
+    let alignment = 1.0 - abs(dot(normalize(in.direction), cam_to_beam));
+
+    // --- ASLS's `attenuation` ---
+    // `2.0 / (1.0 + alignmentFactor * distance + radians(angle) *
+    // distance * distance)` — a real inverse-quadratic decay in the
+    // metres this fragment sits down the beam, evaluated per-fragment
+    // rather than interpolated between baked vertex colours (what this
+    // used to do). The angle term is why a wide wash dies off over a
+    // shorter distance than a tight spot: the same flux spread over a
+    // fast-growing cone section.
+    let dist = length(in.beam_local);
+    let attenuation = 2.0 / (1.0 + alignment * dist + radians(in.angle_deg) * dist * dist);
+
+    // --- ASLS's `anglePower` ---
+    // `pow(dot(view, normal), 4.0 * alignmentFactor)`: bright where the
+    // cone wall faces the camera (the beam's middle), falling to nothing
+    // at its silhouette, and the harder the more across-the-beam the view
+    // is. This is the term that makes a beam read as a soft shaft of
+    // light instead of a flat-shaded solid, and it was the one missing
+    // piece — no amount of tuning the old per-vertex intensity curve
+    // could produce a gradient *across* a beam, only along it.
+    //
+    // One-sided (`max(..., 0)` against an outward wall normal) so a
+    // beam's far wall contributes nothing and a single beam is not
+    // double-counted. ASLS gets the same one-sidedness out of the sign of
+    // a screen-space derived normal (`recomputeVertexNormal`); taking it
+    // from the real outward normal `mesh.rs` already computes is the same
+    // result without depending on which way the rasteriser's Y axis runs.
+    let facing = max(dot(view_dir, n), 0.0);
+    let angle_power = pow(facing, 4.0 * alignment);
+
+    let intensity = attenuation * angle_power;
+
+    // --- ASLS's `computeFog` ---
+    // `max(fogging(...), intensity)`: haze modulates the beam but never
+    // dims it below what the falloff curve alone says, so turbulence
+    // mottles a beam without punching holes in it. Sampled in world space
+    // (see this section's header) with a slow drift along the noise
+    // field's third axis, so the haze churns without the beam moving.
     let fog_coord = vec3<f32>(in.world_pos.xy * 1.5, in.world_pos.z * 1.5 + settings.time * 0.15);
-    let density = clamp(fogging(fog_coord) * 0.6 + 0.55, 0.0, 1.6);
-    // Raw linear HDR, additively blended into the same HDR target
-    // `fs_main` writes — see that function's comment on why tonemapping
-    // per-pass (this used to) let overlapping beams sum straight past
-    // white even after each fragment was individually compressed toward
-    // 1.0. `fs_tonemap` compresses the real combined result once, after
-    // every beam has actually summed together.
-    return vec4<f32>(in.color * settings.haze * alignment * density, 1.0);
+    let density = max(fogging(fog_coord), intensity);
+
+    // `settings.haze` stands in for ASLS's per-instance `intensity`
+    // attribute as the one global brightness trim — how much particulate
+    // is in the air to scatter the beam into something visible at all. At
+    // 0 a beam is inert, the way it would genuinely look in clean air.
+    // `in.color` already carries the fixture's dimmer and colour
+    // (`scene.rs`).
+    //
+    // Raw linear HDR: this pass renders into its own HDR target which is
+    // composited on top of the *already tonemapped* opaque scene, never
+    // through the scene's tonemap — ASLS's `toneMapped: false`. See
+    // `fs_composite`.
+    return vec4<f32>(in.color * intensity * density * settings.haze, 1.0);
 }
 
 // A fullscreen triangle (3 vertices, no vertex buffer — the classic
 // oversized-triangle trick: covers the full clip-space quad without
-// needing 4 vertices + an index buffer) that samples the resolved HDR
-// target and applies ACES tonemap exactly once, on the real combined
-// brightness after both `fs_main`'s opaque pass and `fs_glow`'s additive
-// pass have actually summed together — the fix for per-pass tonemapping
-// letting overlapping bright fragments clip straight to white even
-// though each one individually looked fine (see both functions' own
-// comments, and `docs/research/lighting-console-landscape.md`'s Slice 17
-// for the "all lights on" render that first exposed it).
+// needing 4 vertices + an index buffer) that combines the two resolved
+// HDR targets into the final image — see `fs_composite`.
 struct FullscreenOut {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
@@ -392,9 +455,27 @@ fn vs_fullscreen(@builtin(vertex_index) idx: u32) -> FullscreenOut {
 var hdr_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var hdr_sampler: sampler;
+@group(0) @binding(2)
+var glow_texture: texture_2d<f32>;
 
+// Tonemap the room, then add the beams on top *untouched*.
+//
+// This is ASLS's `toneMapped: false` on the beam material, structurally.
+// In Three.js that flag means a material's output skips the renderer's
+// tonemapping chunk and lands in the framebuffer as-is, while everything
+// else in the scene gets ACES applied — so a beam's own falloff curve
+// decides how bright it looks, and it never competes with the room's
+// geometry for the same limited tonemapped range.
+//
+// Ignition used to run both through one shared HDR target and one shared
+// ACES pass, which is why a bright beam and a bright wall fought over the
+// same headroom, and why a dense rig's overlapping beams flattened into
+// one saturated blob. The two now render into separate HDR targets and
+// only meet here. The hardware's own clamp on the sRGB output is the only
+// ceiling the beams see, exactly as in Three.js.
 @fragment
-fn fs_tonemap(in: FullscreenOut) -> @location(0) vec4<f32> {
-    let hdr = textureSample(hdr_texture, hdr_sampler, in.uv).rgb;
-    return vec4<f32>(aces_tonemap(hdr), 1.0);
+fn fs_composite(in: FullscreenOut) -> @location(0) vec4<f32> {
+    let scene = textureSample(hdr_texture, hdr_sampler, in.uv).rgb;
+    let glow = textureSample(glow_texture, hdr_sampler, in.uv).rgb;
+    return vec4<f32>(aces_tonemap(scene) + glow, 1.0);
 }
