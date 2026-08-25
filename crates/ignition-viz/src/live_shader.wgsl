@@ -82,6 +82,25 @@ fn vs_main(in: VertexIn) -> VertexOut {
     return out;
 }
 
+// ACES filmic tone mapping (Narkowicz 2015 fit) — the other big piece of
+// ASLS Studio's renderer setup this project was missing (their
+// `renderer.toneMapping = THREE.ACESFilmicToneMapping`, alongside
+// `antialias: true` — see `SAMPLE_COUNT` in `live_pipeline.rs`). Applied
+// to the final linear colour right before output; both this shader's
+// colour targets are sRGB formats, so the hardware still does the
+// linear->sRGB encode on write — this only replaces the naive clamp with
+// a filmic shoulder/toe curve, avoiding the flat, blown-out highlights a
+// straight clamp produces on anything bright (which a lit fixture's
+// point-light spill and beam glow both routinely are).
+fn aces_tonemap(x: vec3<f32>) -> vec3<f32> {
+    let a = 2.51;
+    let b = 0.03;
+    let c = 2.43;
+    let d = 0.59;
+    let e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
 fn hash21(p: vec2<f32>) -> f32 {
     var p3 = fract(vec3<f32>(p.x, p.y, p.x) * 0.1031);
     p3 = p3 + dot(p3, p3.yzx + 33.33);
@@ -192,7 +211,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         rgb += light.color.rgb * light_ndotl * atten * cone;
     }
 
-    return vec4<f32>(rgb, 1.0);
+    return vec4<f32>(aces_tonemap(rgb), 1.0);
 }
 
 // The beam-cone pass: pure emissive colour, no lighting model, additively
@@ -313,5 +332,9 @@ fn fs_glow(in: VertexOut) -> @location(0) vec4<f32> {
     // fogTime does.
     let fog_coord = vec3<f32>(in.world_pos.xy * 1.5, in.world_pos.z * 1.5 + settings.time * 0.15);
     let density = clamp(fogging(fog_coord) * 0.6 + 0.55, 0.0, 1.6);
-    return vec4<f32>(in.color * settings.haze * alignment * density, 1.0);
+    // Tonemapped per-pass rather than once on a combined HDR buffer (no
+    // separate post-process pass exists to do that) — an approximation,
+    // but a soft filmic rolloff on the glow's own brightness still beats
+    // a hard clamp for a beam that's meant to read as intensely bright.
+    return vec4<f32>(aces_tonemap(in.color * settings.haze * alignment * density), 1.0);
 }

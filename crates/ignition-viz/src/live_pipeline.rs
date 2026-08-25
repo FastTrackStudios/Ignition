@@ -14,6 +14,16 @@ use wgpu::util::DeviceExt;
 
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
+/// 4x MSAA — the single biggest "why does this look worse than ASLS"
+/// fix found by actually reading their renderer setup: `antialias: true`
+/// is a one-line default in `THREE.WebGLRenderer`, but wgpu doesn't
+/// antialias by default at all, so every straight edge is aliased/blocky.
+/// Both `live_renderer.rs` and `live_headless_renderer.rs` render into a
+/// multisampled colour target at this sample count and resolve to the
+/// caller's final (single-sample) target — see `render_frame`'s
+/// `resolve_view` parameter.
+pub const SAMPLE_COUNT: u32 = 4;
+
 /// Storage buffers can't be zero-sized on every backend — pad an empty
 /// light list to one dummy (position far away, black) entry rather than
 /// special-casing "no lights" at the call site.
@@ -155,7 +165,7 @@ impl LivePipeline {
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
-            multisample: wgpu::MultisampleState::default(),
+            multisample: wgpu::MultisampleState { count: SAMPLE_COUNT, ..Default::default() },
             multiview_mask: None,
             cache: None,
         });
@@ -202,7 +212,7 @@ impl LivePipeline {
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
-            multisample: wgpu::MultisampleState::default(),
+            multisample: wgpu::MultisampleState { count: SAMPLE_COUNT, ..Default::default() },
             multiview_mask: None,
             cache: None,
         });
@@ -210,12 +220,15 @@ impl LivePipeline {
         Self { device, queue, pipeline, glow_pipeline, camera_bind_group_layout, lights_bind_group_layout, ambient, haze }
     }
 
+    /// Depth attachment's `sample_count` must match the pipeline's own
+    /// (`SAMPLE_COUNT`) — wgpu requires every attachment in a render pass
+    /// to agree on multisampling.
     pub fn make_depth_view(&self, width: u32, height: u32) -> wgpu::TextureView {
         let depth_texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("live-depth-target"),
             size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
             mip_level_count: 1,
-            sample_count: 1,
+            sample_count: SAMPLE_COUNT,
             dimension: wgpu::TextureDimension::D2,
             format: DEPTH_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -224,16 +237,44 @@ impl LivePipeline {
         depth_texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    /// Builds and submits the full two-pass frame (opaque + additive glow)
-    /// into `color_view`/`depth_view`. Callers own acquiring those views
-    /// and whatever happens to the result after submission (present vs.
-    /// readback) — this is everything in between that's identical either
-    /// way.
+    /// A multisampled colour target to render into — the counterpart to
+    /// `make_depth_view`, same `SAMPLE_COUNT`. Callers resolve this down to
+    /// their real final target (a surface texture, or an offscreen texture
+    /// for PNG readback) via `render_frame`'s `resolve_view` parameter —
+    /// wgpu resolves MSAA automatically as part of ending a render pass
+    /// that names a `resolve_target`, no separate blit needed.
+    pub fn make_msaa_color_view(&self, width: u32, height: u32, format: wgpu::TextureFormat) -> wgpu::TextureView {
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("live-msaa-color-target"),
+            size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: SAMPLE_COUNT,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        texture.create_view(&wgpu::TextureViewDescriptor::default())
+    }
+
+    /// Builds and submits the full two-pass frame (opaque + additive glow).
+    /// Callers own acquiring the views and whatever happens to the result
+    /// after submission (present vs. readback) — this is everything in
+    /// between that's identical either way.
+    ///
+    /// `msaa_view` (from `make_msaa_color_view`) is what both passes
+    /// actually render into; `resolve_view` is the caller's real final
+    /// target (a surface texture, or an offscreen texture for PNG
+    /// readback) — resolved into on whichever pass runs last (the glow
+    /// pass when there's glow geometry, the opaque pass otherwise), since
+    /// resolving mid-sequence would discard the following pass's additive
+    /// blending against the multisampled buffer.
     pub fn render_frame(
         &self,
         mesh: &MeshBuilder,
         camera: &Camera,
-        color_view: &wgpu::TextureView,
+        msaa_view: &wgpu::TextureView,
+        resolve_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
         time_secs: f32,
     ) {
@@ -303,14 +344,20 @@ impl LivePipeline {
             entries: &[wgpu::BindGroupEntry { binding: 0, resource: lights_buffer.as_entire_binding() }],
         });
 
+        let has_glow = !mesh.glow_indices.is_empty();
+
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ignition-live-encoder") });
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("ignition-live-pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: color_view,
-                    resolve_target: None,
+                    view: msaa_view,
+                    // Resolve now only if there's no glow pass to follow —
+                    // resolving mid-sequence would throw away the
+                    // multisampled buffer the glow pass needs to blend
+                    // into. See `render_frame`'s doc comment.
+                    resolve_target: if has_glow { None } else { Some(resolve_view) },
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.04, g: 0.045, b: 0.06, a: 1.0 }),
                         store: wgpu::StoreOp::Store,
@@ -334,7 +381,7 @@ impl LivePipeline {
             pass.draw_indexed(0..mesh.indices.len() as u32, 0, 0..1);
         }
 
-        if !mesh.glow_indices.is_empty() {
+        if has_glow {
             let glow_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("live-glow-vertices"),
                 contents: bytemuck::cast_slice(&mesh.glow_vertices),
@@ -348,8 +395,8 @@ impl LivePipeline {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("ignition-live-glow-pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: color_view,
-                    resolve_target: None,
+                    view: msaa_view,
+                    resolve_target: Some(resolve_view),
                     ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
                     depth_slice: None,
                 })],

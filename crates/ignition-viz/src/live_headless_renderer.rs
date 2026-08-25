@@ -75,8 +75,9 @@ impl LiveHeadlessRenderer {
         });
         let color_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let depth_view = self.pipeline.make_depth_view(width, height);
+        let msaa_view = self.pipeline.make_msaa_color_view(width, height, COLOR_FORMAT);
 
-        self.pipeline.render_frame(mesh, camera, &color_view, &depth_view, time_secs);
+        self.pipeline.render_frame(mesh, camera, &msaa_view, &color_view, &depth_view, time_secs);
 
         // Readback: rows must be padded to a 256-byte alignment.
         let bytes_per_pixel = 4u32;

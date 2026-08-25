@@ -17,6 +17,7 @@ pub struct LiveRenderer {
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
     depth_view: wgpu::TextureView,
+    msaa_view: wgpu::TextureView,
     width: u32,
     height: u32,
     start: std::time::Instant,
@@ -57,12 +58,14 @@ impl LiveRenderer {
 
         let pipeline = LivePipeline::new(device, queue, surface_format, ambient, haze);
         let depth_view = pipeline.make_depth_view(width, height);
+        let msaa_view = pipeline.make_msaa_color_view(width, height, surface_format);
         let mut renderer = Self {
             pipeline,
             adapter,
             surface,
             surface_format,
             depth_view,
+            msaa_view,
             width,
             height,
             start: std::time::Instant::now(),
@@ -97,6 +100,7 @@ impl LiveRenderer {
         self.height = height;
         self.configure_surface(width, height);
         self.depth_view = self.pipeline.make_depth_view(width, height);
+        self.msaa_view = self.pipeline.make_msaa_color_view(width, height, self.surface_format);
     }
 
     pub fn aspect(&self) -> f32 {
@@ -123,7 +127,7 @@ impl LiveRenderer {
         };
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let time_secs = self.start.elapsed().as_secs_f32();
-        self.pipeline.render_frame(mesh, camera, &view, &self.depth_view, time_secs);
+        self.pipeline.render_frame(mesh, camera, &self.msaa_view, &view, &self.depth_view, time_secs);
         self.pipeline.queue.present(frame);
         Ok(())
     }

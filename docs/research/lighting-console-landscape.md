@@ -533,3 +533,55 @@ neutrality, and the existing suite); `shot`'s regression PNG byte-identical
 sACN packet driving a large tilt swing shows the head visibly displaced
 from its neighbours while staying attached at its mount point, not
 detached or floating.
+
+## Slice 11 — closing the "still looks worse than ASLS" gap: AA + tone mapping (2026-08-24, same day)
+
+Operator, after seeing several rounds of `--snapshot` renders: the
+visualizer still looked noticeably worse than ASLS's own. Re-checked
+ASLS's actual renderer setup (`visualizer.js::prepareRenderer()`) rather
+than guessing what "worse" meant — it does three things this project's
+live pipeline didn't:
+
+```js
+this.renderer = new THREE.WebGLRenderer({ canvas: this.domElement, antialias: true });
+this.renderer.physicallyCorrectLights = true;
+this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+```
+
+No bloom pipeline in use despite a `finalComposer` field existing (dead
+code, never wired up) — so the gap wasn't missing bloom, it was these two
+much cheaper things:
+
+- **No anti-aliasing at all.** `antialias: true` is a one-line default in
+  `THREE.WebGLRenderer`; wgpu has no such default, so every straight edge
+  (walls, ceiling grid, beam cone silhouettes) was fully aliased. Added
+  `SAMPLE_COUNT = 4` (4x MSAA) to both `live_pipeline.rs` render
+  pipelines. Both callers (`live_renderer.rs`'s window,
+  `live_headless_renderer.rs`'s `--snapshot`) now render into a
+  multisampled colour target (`LivePipeline::make_msaa_color_view`) and
+  resolve to their real final target — resolving on whichever of the two
+  passes runs last (the glow pass when there's glow geometry, the opaque
+  pass otherwise), since resolving mid-sequence would discard the
+  following pass's additive blending against the multisampled buffer.
+  Depth attachments needed the same sample count (`make_depth_view`
+  updated) — wgpu requires every attachment in a pass to agree.
+- **Naive clamp instead of a filmic tone curve.** Added an ACES filmic
+  tonemap (Narkowicz 2015 fit) to both `fs_main` and `fs_glow`'s final
+  output — a bright point-light spill or beam glow (routinely >1.0 before
+  this) no longer just clips flat-white, it rolls off with a proper
+  shoulder. Applied per-pass rather than once on a combined HDR buffer
+  (no separate post-process pass exists to do that yet) — a known
+  approximation, not physically identical to ASLS's single-buffer
+  tonemap, but a real improvement over the flat clamp it replaced.
+  `physicallyCorrectLights`/proper inverse-square units wasn't chased
+  further this slice — the point-light falloff formula already existing
+  (Slice 2) is a cheap approximation, not physically calibrated, and
+  redoing its units is a separate, smaller task from what actually
+  explained the "looks worse" gap.
+
+`shader.wgsl`/`renderer.rs` (the headless `shot` regression path)
+untouched — this is entirely inside `live_shader.wgsl`/`live_pipeline.rs`.
+Verified: 14/14 tests pass, `shot`'s PNG byte-identical (MD5); a
+`--snapshot` of the same lit scene as Slice 2's shows visibly smoother
+ceiling-grid lines and cone silhouettes.
