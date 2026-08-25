@@ -17,6 +17,25 @@ struct Camera {
 @group(0) @binding(0)
 var<uniform> camera: Camera;
 
+// Visualizer settings — the live-mode equivalent of a console viz app's
+// "ambient light"/"haze level" sliders (QLC+, grandMA3's 3D view, WYSIWYG
+// etc. all expose something like this). Defaults live in `live_renderer.rs`
+// / `live_headless_renderer.rs` (ambient 0.0, haze 1.6) and are overridable
+// from `bin/live.rs`'s `--ambient`/`--haze` flags — deliberately NOT the
+// same 0.45 ambient `shader.wgsl` hardcodes, since that shader exists to
+// give `shot` a flat, always-readable layout view, not a realistic stage
+// look. `_pad0`/`_pad1` keep the struct's WGSL uniform alignment (16-byte
+// rounded) matching its Rust-side `#[repr(C)]` twin.
+struct Settings {
+    ambient: f32,
+    haze: f32,
+    _pad0: f32,
+    _pad1: f32,
+}
+
+@group(0) @binding(1)
+var<uniform> settings: Settings;
+
 // One entry per live-lit fixture (`mesh.rs::PointLight`) — `position.w`
 // and `color.a` are unused, kept as vec4 for storage-buffer alignment.
 // `color` is already dimmer-scaled by the time it lands here (see
@@ -88,12 +107,19 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let n = normalize(in.world_normal);
     let l = normalize(-camera.light_dir.xyz);
     let ndotl = abs(dot(n, l));
-    let ambient = 0.45;
-    let lit = ambient + (1.0 - ambient) * ndotl;
+    // `settings.ambient` scales the room's *entire* non-fixture lighting
+    // (this directional key light, standing in for house/work lights, and
+    // its specular highlight below) — not just a fixed floor added under
+    // it. At ambient 0 (the default) a surface with no fixture light
+    // falling on it is genuinely black, the way an unlit venue actually
+    // looks; ambient only exists as a dial back toward a fully-lit room
+    // for whoever wants a brighter, easier-to-read view instead.
+    let ambient = settings.ambient;
+    let lit = ambient * mix(0.35, 1.0, ndotl);
 
     let view_dir = normalize(camera.camera_pos.xyz - in.world_pos);
     let half = normalize(l + view_dir);
-    let spec = pow(max(dot(n, half), 0.0), 24.0) * 0.15;
+    let spec = pow(max(dot(n, half), 0.0), 24.0) * 0.15 * ambient;
 
     var rgb = in.color * lit + vec3<f32>(spec, spec, spec);
 
@@ -153,9 +179,13 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 // The beam-cone pass: pure emissive colour, no lighting model, additively
 // blended onto whatever's already in the framebuffer (see
 // `live_renderer.rs`'s glow pipeline). `in.color` already carries
-// dimmer/colour baked in per-vertex (`scene.rs`), so there's nothing left
-// to compute here.
+// dimmer/colour baked in per-vertex (`scene.rs`) — `settings.haze` is the
+// one thing still applied here: how much particulate is in the air to
+// scatter a beam into something visible at all. At haze 0 a beam is inert
+// (no haze to catch the light, matching how it'd genuinely look in clean
+// air), higher values make the beam read brighter/more solid, the same
+// knob a real haze machine's fluid-output dial is.
 @fragment
 fn fs_glow(in: VertexOut) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.color, 1.0);
+    return vec4<f32>(in.color * settings.haze, 1.0);
 }

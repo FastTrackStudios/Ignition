@@ -25,6 +25,7 @@
 //! listeners before capturing, so a source that's already sending has time
 //! to be received.
 
+use ignition_viz::live_renderer::{DEFAULT_AMBIENT, DEFAULT_HAZE};
 use ignition_viz::{build_scene, dmx, Camera, DmxUniverses, LiveHeadlessRenderer, LiveRenderer, Venue};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -38,6 +39,8 @@ struct App {
     dmx: DmxUniverses,
     window: Option<Arc<Window>>,
     renderer: Option<LiveRenderer>,
+    ambient: f32,
+    haze: f32,
 }
 
 impl ApplicationHandler for App {
@@ -49,7 +52,8 @@ impl ApplicationHandler for App {
             .with_title("Ignition — live rig")
             .with_inner_size(winit::dpi::LogicalSize::new(1600.0, 1000.0));
         let window = Arc::new(event_loop.create_window(attrs).expect("failed to create window"));
-        let renderer = LiveRenderer::new(window.clone()).expect("failed to init live renderer");
+        let renderer =
+            LiveRenderer::new(window.clone(), self.ambient, self.haze).expect("failed to init live renderer");
         window.request_redraw();
         self.window = Some(window);
         self.renderer = Some(renderer);
@@ -88,6 +92,8 @@ fn main() -> anyhow::Result<()> {
     let mut view = "house".to_string();
     let mut width = 1600u32;
     let mut height = 1000u32;
+    let mut ambient = DEFAULT_AMBIENT;
+    let mut haze = DEFAULT_HAZE;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -102,6 +108,13 @@ fn main() -> anyhow::Result<()> {
             "--view" => view = args.next().expect("--view needs house|stage|top"),
             "--width" => width = args.next().expect("--width needs a number").parse().unwrap(),
             "--height" => height = args.next().expect("--height needs a number").parse().unwrap(),
+            // Visualizer settings, same idea as QLC+/grandMA3's 3D-view
+            // ambient/haze sliders — 0 ambient + real haze is the default
+            // (see live_renderer::{DEFAULT_AMBIENT, DEFAULT_HAZE}) so the
+            // room only shows what its fixtures actually light, the way
+            // the real stage looks in the dark.
+            "--ambient" => ambient = args.next().expect("--ambient needs a number 0..1").parse().unwrap(),
+            "--haze" => haze = args.next().expect("--haze needs a number, e.g. 1.6").parse().unwrap(),
             other => eprintln!("ignition-live: ignoring unknown argument {other}"),
         }
     }
@@ -136,7 +149,7 @@ fn main() -> anyhow::Result<()> {
             "house" => Camera::frame_house_view(min, max, aspect),
             other => anyhow::bail!("unknown --view {other}; use house, stage, or top"),
         };
-        let renderer = LiveHeadlessRenderer::new()?;
+        let renderer = LiveHeadlessRenderer::new(ambient, haze)?;
         renderer.render_to_png(&mesh, &camera, width, height, &out_path)?;
         println!("wrote {}", out_path.display());
         return Ok(());
@@ -144,7 +157,7 @@ fn main() -> anyhow::Result<()> {
 
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = App { venue, dmx, window: None, renderer: None };
+    let mut app = App { venue, dmx, window: None, renderer: None, ambient, haze };
     event_loop.run_app(&mut app)?;
     Ok(())
 }

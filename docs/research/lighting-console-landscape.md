@@ -281,3 +281,46 @@ further this slice). Both are real follow-on work, not started.
 - **Haze/fog volumetrics** — the beam cones are solid additive geometry,
   not a scattering/haze simulation. Matches where ASLS Studio's own docs
   say their fog support stops (a toggle, no real volumetric technique).
+
+## Slice 6 — ambient/haze settings + de-duplicating the two live renderers (2026-08-24, same day)
+
+Two things prompted by the operator, back to back:
+
+**Ambient/haze controls.** The same idea every viz app in this research
+exposes (QLC+, grandMA3's 3D view, WYSIWYG) — a `Settings` uniform
+(`ambient: f32, haze: f32`) in `live_shader.wgsl`, `--ambient`/`--haze`
+flags on `bin/live.rs`. First implementation only zeroed the flat
+"ambient floor" term and left the directional key light's diffuse+
+specular contribution untouched — at `ambient=0` the room still rendered
+almost fully lit, because that key light (standing in for a generic house
+light) was never gated by the ambient setting, only added on top of it.
+Fixed: `ambient` now scales the *entire* non-fixture lighting contribution
+(key light diffuse and its specular highlight both), so at the default
+`ambient=0` a surface with no fixture light on it renders genuinely black
+— live point lights (`dmx.rs`-resolved, added after) are the only thing
+that lights anything, matching a real dark venue. `haze` scales the beam-
+cone pass's brightness (`fs_glow`) — 0 = beams invisible (no haze to
+scatter them), the default 1.6 makes them read as solid visible shafts.
+Verified visually via `--snapshot`: before the fix, floor/walls stayed
+bright at `ambient=0`; after, only the pillars/walls near actual lit
+fixtures show anything, everything else fades to black/haze exactly like
+a real unlit rig.
+
+**De-duplicating `LiveRenderer`/`LiveHeadlessRenderer`.** Flagged directly
+by the operator ("did we just have to wire it in like 5 places? it should
+all be the same code path") — fair: adding the settings uniform meant
+touching the shader, pipeline layout, bind group, and buffer-upload code
+in *two* nearly-identical ~450-line files, because the windowed and
+headless renderers each had their own full copy of the shader-compile +
+pipeline + two-pass-draw setup. Refactored into `live_pipeline.rs`
+(`LivePipeline`): owns the shader, both render pipelines, both bind group
+layouts, and `render_frame()` (the full two-pass opaque+glow draw) — the
+one thing that's identical either way. `live_renderer.rs` and
+`live_headless_renderer.rs` are now thin wrappers (~110 and ~140 lines)
+holding only what's genuinely different: acquiring a device/queue
+(windowed needs a surface-compatible adapter; headless doesn't) and the
+final target (present a surface vs. read back an offscreen texture to a
+PNG). A new setting is now one change, not two. `shot`'s regression PNG
+stayed byte-identical through this refactor (MD5-verified, as with every
+prior slice) — `renderer.rs`/`HeadlessRenderer` were never part of this
+duplication and weren't touched.

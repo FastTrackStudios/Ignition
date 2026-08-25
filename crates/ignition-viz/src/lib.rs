@@ -12,6 +12,7 @@ pub mod dmx;
 pub mod fixture_profile;
 pub mod gdtf_import;
 pub mod live_headless_renderer;
+pub mod live_pipeline;
 pub mod live_renderer;
 pub mod mesh;
 pub mod obj_mesh;
