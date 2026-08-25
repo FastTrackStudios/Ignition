@@ -12,3 +12,6 @@ serde.workspace = true
 [lib]
 name = "ignition_core"
 path = "src/lib.rs"
+
+[dev-dependencies]
+serde_json.workspace = true

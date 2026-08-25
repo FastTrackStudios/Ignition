@@ -242,6 +242,11 @@ pub struct Venue {
     /// (not every extracted venue will have one). Use `groups()` for the
     /// resolved `ignition_core::Group` form recipes actually target.
     pub group_records: Vec<GroupRecord>,
+    /// The venue's colour and focus palettes — empty for a venue with no
+    /// `palettes.json`. Palettes belong to the room rather than to a
+    /// show, so every show loaded against this venue means the same thing
+    /// by "House Blue".
+    pub palettes: ignition_core::Palettes,
 }
 
 impl Venue {
@@ -258,7 +263,14 @@ impl Venue {
             Ok(raw) => serde_json::from_str(&raw)?,
             Err(_) => Vec::new(),
         };
+        // palettes.json is optional for the same reason groups.json is —
+        // a show can always write its colours and points out inline.
+        let palettes = match std::fs::read_to_string(dir.join("palettes.json")) {
+            Ok(raw) => serde_json::from_str(&raw)?,
+            Err(_) => ignition_core::Palettes::default(),
+        };
         Ok(Self {
+            palettes,
             fixtures: serde_json::from_str(&read("fixtures.json")?)?,
             room: serde_json::from_str(&read("room.json")?)?,
             screens: serde_json::from_str(&read("screens.json")?)?,
@@ -361,6 +373,7 @@ mod tests {
             room: vec![],
             screens: vec![],
             props: vec![],
+            palettes: Default::default(),
             group_records: vec![GroupRecord {
                 target: "1".to_string(),
                 label: "Pars".to_string(),
@@ -390,6 +403,7 @@ mod tests {
             room: vec![],
             screens: vec![],
             props: vec![],
+            palettes: Default::default(),
             group_records: vec![],
         };
 

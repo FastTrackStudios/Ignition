@@ -21,7 +21,7 @@
 use crate::cue::{Cue, CueValue};
 use crate::focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 use crate::group::{self, Group};
-use crate::preset::ColorPreset;
+use crate::preset::{ColorPreset, Palettes, Ref};
 use ignition_proto::{Attribute, ChanId, ColorChannel, Placement};
 use serde::{Deserialize, Serialize};
 
@@ -44,13 +44,16 @@ pub enum RecipeTarget {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RecipeApply {
     Dimmer(f32),
-    Color(ColorPreset),
+    /// A pooled colour by name (`"House Blue"`), or one written inline.
+    /// A name the venue's palette does not carry resolves to nothing and
+    /// the recipe is skipped, same tolerance as an unknown group.
+    Color(Ref<ColorPreset>),
     /// A real XYZ room location — resolved per-fixture via each target
     /// fixture's actual `Placement` (see `focus.rs`), not a single shared
     /// pan/tilt value. Fixtures with no known `Placement` (an unpatched or
     /// unrecognized channel) are silently skipped, same tolerance as the
     /// rest of this module.
-    FocusPoint(ignition_proto::Vec3),
+    FocusPoint(Ref<ignition_proto::Vec3>),
     /// A shared world-space *direction* rather than a shared point, so
     /// every fixture in the group ends up beam-parallel with the others
     /// instead of converging. Not expressible as a `FocusPoint` at any
@@ -90,6 +93,33 @@ pub struct RecipeCueList {
     pub cues: Vec<RecipeCue>,
 }
 
+/// Everything expanding a recipe needs to know about the room: who the
+/// groups are, what the palettes mean, and where each fixture is hung.
+///
+/// Bundled into one struct rather than passed as three parallel
+/// arguments because every one of them is a property of the *venue*, they
+/// are always supplied together, and effects will want the same set.
+/// `placement` stays a function rather than a table so `ignition-core`
+/// keeps its no-I/O rule — `ignition_viz` supplies the real one, backed
+/// by `Venue::fixtures`.
+pub struct Show<'a> {
+    pub groups: &'a [Group],
+    pub palettes: &'a Palettes,
+    pub placement: &'a dyn Fn(ChanId) -> Option<Placement>,
+}
+
+impl<'a> Show<'a> {
+    /// A show with no palettes — for tests and for a venue that has not
+    /// been given a palette file yet.
+    pub fn new(groups: &'a [Group], placement: &'a dyn Fn(ChanId) -> Option<Placement>) -> Self {
+        Self {
+            groups,
+            palettes: Palettes::EMPTY,
+            placement,
+        }
+    }
+}
+
 /// Resolves a target to its real channel list — `pub(crate)` so
 /// `phaser.rs` can share the exact same Group/Chans resolution a static
 /// `Recipe` uses, rather than re-implementing it.
@@ -109,12 +139,8 @@ pub(crate) fn resolve_target(target: &RecipeTarget, groups: &[Group]) -> Vec<Cha
 /// venue-loading/I-O knowledge (`ignition-core`'s own "no I/O" rule — see
 /// `cue.rs`'s module doc); `ignition_viz` supplies the real one, backed by
 /// `Venue::fixtures`.
-pub fn expand_recipe(
-    recipe: &Recipe,
-    groups: &[Group],
-    placement: &dyn Fn(ChanId) -> Option<Placement>,
-) -> Vec<CueValue> {
-    let chans = resolve_target(&recipe.target, groups);
+pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>) -> Vec<CueValue> {
+    let chans = resolve_target(&recipe.target, show.groups);
     let mut out = Vec::new();
     for chan in chans {
         match &recipe.apply {
@@ -123,7 +149,10 @@ pub fn expand_recipe(
                 attr: Attribute::Dimmer,
                 value: *value,
             }),
-            RecipeApply::Color(c) => {
+            RecipeApply::Color(reference) => {
+                let Some(c) = show.palettes.resolve_color(reference) else {
+                    continue;
+                };
                 out.push(CueValue {
                     chan,
                     attr: Attribute::ColorAdd {
@@ -146,9 +175,12 @@ pub fn expand_recipe(
                     value: c.blue,
                 });
             }
-            RecipeApply::FocusPoint(target) => {
-                if let Some(p) = placement(chan) {
-                    let (pan, tilt) = pan_tilt_deg_to_point(p.position, p.orientation, *target);
+            RecipeApply::FocusPoint(reference) => {
+                let Some(target) = show.palettes.resolve_focus(reference) else {
+                    continue;
+                };
+                if let Some(p) = (show.placement)(chan) {
+                    let (pan, tilt) = pan_tilt_deg_to_point(p.position, p.orientation, target);
                     out.push(CueValue {
                         chan,
                         attr: Attribute::Pan,
@@ -162,7 +194,7 @@ pub fn expand_recipe(
                 }
             }
             RecipeApply::FocusDirection(dir) => {
-                if let Some(p) = placement(chan) {
+                if let Some(p) = (show.placement)(chan) {
                     let (pan, tilt) = pan_tilt_deg_along(p.orientation, *dir);
                     out.push(CueValue {
                         chan,
@@ -195,14 +227,10 @@ pub fn expand_recipe(
 /// the same `(chan, attr)` as an earlier one in the same cue wins — the
 /// same last-write convention `CuePlayer::go()` already uses when folding
 /// a cue's values into its tracked state.
-pub fn expand_cue(
-    raw: &RecipeCue,
-    groups: &[Group],
-    placement: &dyn Fn(ChanId) -> Option<Placement>,
-) -> Cue {
+pub fn expand_cue(raw: &RecipeCue, show: &Show<'_>) -> Cue {
     let mut values = Vec::new();
     for recipe in &raw.recipes {
-        values.extend(expand_recipe(recipe, groups, placement));
+        values.extend(expand_recipe(recipe, show));
     }
     Cue {
         name: raw.name.clone(),
@@ -211,14 +239,45 @@ pub fn expand_cue(
     }
 }
 
-pub fn expand_cue_list(
-    raw: &[RecipeCue],
-    groups: &[Group],
-    placement: &dyn Fn(ChanId) -> Option<Placement>,
-) -> Vec<Cue> {
-    raw.iter()
-        .map(|c| expand_cue(c, groups, placement))
-        .collect()
+pub fn expand_cue_list(raw: &[RecipeCue], show: &Show<'_>) -> Vec<Cue> {
+    raw.iter().map(|c| expand_cue(c, show)).collect()
+}
+
+/// Every name in `cues` that this venue cannot resolve, as readable
+/// one-liners.
+///
+/// Expansion deliberately treats an unknown group or palette entry as
+/// "no fixtures" rather than an error, which is the right runtime
+/// behaviour — a show should not go dark because one cue names a group
+/// this room does not have. But it is a miserable *authoring* behaviour:
+/// a typo'd group name is a cue that silently does nothing, and the only
+/// symptom is lights that never come on. So the tolerance stays and the
+/// diagnosis is reported separately, for the loader to print.
+pub fn unresolved(cues: &[RecipeCue], show: &Show<'_>) -> Vec<String> {
+    let mut out = Vec::new();
+    for cue in cues {
+        for recipe in &cue.recipes {
+            if let RecipeTarget::Group(name) = &recipe.target
+                && group::find(show.groups, name).is_none()
+            {
+                out.push(format!("cue {:?}: no group named {:?}", cue.name, name));
+            }
+            match &recipe.apply {
+                RecipeApply::Color(Ref::Named(name)) if show.palettes.color(name).is_none() => {
+                    out.push(format!("cue {:?}: no colour palette {:?}", cue.name, name));
+                }
+                RecipeApply::FocusPoint(Ref::Named(name))
+                    if show.palettes.focus(name).is_none() =>
+                {
+                    out.push(format!("cue {:?}: no focus palette {:?}", cue.name, name));
+                }
+                _ => {}
+            }
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
 }
 
 #[cfg(test)]
@@ -239,7 +298,7 @@ mod tests {
             target: RecipeTarget::Group("Pars".to_string()),
             apply: RecipeApply::Dimmer(0.8),
         };
-        let values = expand_recipe(&recipe, &groups(), &|_| None);
+        let values = expand_recipe(&recipe, &Show::new(&groups(), &|_| None));
         assert_eq!(values.len(), 3);
         assert!(
             values
@@ -257,21 +316,21 @@ mod tests {
             target: RecipeTarget::Group("Nonexistent".to_string()),
             apply: RecipeApply::Dimmer(1.0),
         };
-        assert!(expand_recipe(&recipe, &groups(), &|_| None).is_empty());
+        assert!(expand_recipe(&recipe, &Show::new(&groups(), &|_| None)).is_empty());
     }
 
     #[test]
     fn a_color_recipe_emits_red_green_blue_per_channel() {
         let recipe = Recipe {
             target: RecipeTarget::Chans(vec![5]),
-            apply: RecipeApply::Color(ColorPreset {
+            apply: RecipeApply::Color(Ref::Inline(ColorPreset {
                 name: "Amber".to_string(),
                 red: 1.0,
                 green: 0.5,
                 blue: 0.0,
-            }),
+            })),
         };
-        let values = expand_recipe(&recipe, &[], &|_| None);
+        let values = expand_recipe(&recipe, &Show::new(&[], &|_| None));
         assert_eq!(values.len(), 3);
         assert!(values.iter().any(|v| v.attr
             == Attribute::ColorAdd {
@@ -307,19 +366,22 @@ mod tests {
         };
         let recipe = Recipe {
             target: RecipeTarget::Chans(vec![7]),
-            apply: RecipeApply::FocusPoint(Vec3 {
+            apply: RecipeApply::FocusPoint(Ref::Inline(Vec3 {
                 x: 0.0,
                 y: 0.0,
                 z: -5.0,
-            }), // straight below
+            })), // straight below
         };
-        let values = expand_recipe(&recipe, &[], &|chan| {
-            if chan == 7 {
-                Some(placement.clone())
-            } else {
-                None
-            }
-        });
+        let values = expand_recipe(
+            &recipe,
+            &Show::new(&[], &|chan| {
+                if chan == 7 {
+                    Some(placement.clone())
+                } else {
+                    None
+                }
+            }),
+        );
         let pan = values.iter().find(|v| v.attr == Attribute::Pan).unwrap();
         let tilt = values.iter().find(|v| v.attr == Attribute::Tilt).unwrap();
         assert!(pan.value.abs() < 0.5);
@@ -330,13 +392,88 @@ mod tests {
     fn a_focus_point_recipe_skips_a_channel_with_no_known_placement() {
         let recipe = Recipe {
             target: RecipeTarget::Chans(vec![99]),
-            apply: RecipeApply::FocusPoint(Vec3 {
+            apply: RecipeApply::FocusPoint(Ref::Inline(Vec3 {
                 x: 0.0,
                 y: 0.0,
                 z: 0.0,
-            }),
+            })),
         };
-        assert!(expand_recipe(&recipe, &[], &|_| None).is_empty());
+        assert!(expand_recipe(&recipe, &Show::new(&[], &|_| None)).is_empty());
+    }
+
+    fn palettes() -> Palettes {
+        Palettes {
+            colors: vec![ColorPreset {
+                name: "House Blue".to_string(),
+                red: 0.1,
+                green: 0.2,
+                blue: 1.0,
+            }],
+            focus: vec![crate::preset::FocusPointPreset {
+                name: "Drums".to_string(),
+                target: Vec3 {
+                    x: 1.0,
+                    y: 2.0,
+                    z: 3.0,
+                },
+            }],
+        }
+    }
+
+    #[test]
+    fn a_named_colour_resolves_against_the_venues_palette() {
+        let recipe = Recipe {
+            target: RecipeTarget::Chans(vec![5]),
+            apply: RecipeApply::Color(Ref::Named("House Blue".to_string())),
+        };
+        let pool = palettes();
+        let show = Show {
+            groups: &[],
+            palettes: &pool,
+            placement: &|_| None,
+        };
+        let values = expand_recipe(&recipe, &show);
+        assert_eq!(values.len(), 3);
+        assert!(values.iter().any(|v| v.attr
+            == Attribute::ColorAdd {
+                channel: ColorChannel::Blue
+            }
+            && v.value == 1.0));
+    }
+
+    /// The runtime must not go dark over a typo, but the loader has to be
+    /// able to say so — the split `unresolved` exists for.
+    #[test]
+    fn an_unknown_palette_name_is_skipped_but_reported() {
+        let cue = RecipeCue {
+            name: "Oops".to_string(),
+            fade_secs: 0.0,
+            recipes: vec![Recipe {
+                target: RecipeTarget::Chans(vec![5]),
+                apply: RecipeApply::Color(Ref::Named("Chartreuse".to_string())),
+            }],
+        };
+        let pool = palettes();
+        let show = Show {
+            groups: &[],
+            palettes: &pool,
+            placement: &|_| None,
+        };
+        assert!(expand_cue(&cue, &show).values.is_empty());
+        let problems = unresolved(std::slice::from_ref(&cue), &show);
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("Chartreuse"), "{problems:?}");
+    }
+
+    /// A show file written before palettes existed inlines its colours as
+    /// objects; `Ref`'s untagged encoding has to keep parsing those.
+    #[test]
+    fn an_inline_colour_still_parses_from_the_pre_palette_shape() {
+        let json = r#"{"name":"Red","red":1.0,"green":0.0,"blue":0.0}"#;
+        let parsed: Ref<ColorPreset> = serde_json::from_str(json).unwrap();
+        assert!(matches!(parsed, Ref::Inline(c) if c.red == 1.0));
+        let named: Ref<ColorPreset> = serde_json::from_str(r#""Red""#).unwrap();
+        assert!(matches!(named, Ref::Named(n) if n == "Red"));
     }
 
     #[test]
@@ -351,16 +488,16 @@ mod tests {
                 },
                 Recipe {
                     target: RecipeTarget::Group("Pars".to_string()),
-                    apply: RecipeApply::Color(ColorPreset {
+                    apply: RecipeApply::Color(Ref::Inline(ColorPreset {
                         name: "Red".to_string(),
                         red: 1.0,
                         green: 0.0,
                         blue: 0.0,
-                    }),
+                    })),
                 },
             ],
         };
-        let cue = expand_cue(&raw, &groups(), &|_| None);
+        let cue = expand_cue(&raw, &Show::new(&groups(), &|_| None));
         assert_eq!(cue.name, "Wash On");
         assert_eq!(cue.fade_secs, 2.0);
         // 3 fixtures x (1 dimmer + 3 colour) = 12 values.

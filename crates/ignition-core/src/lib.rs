@@ -12,15 +12,15 @@ pub mod group;
 pub use group::Group;
 
 pub mod preset;
-pub use preset::{ColorPreset, FocusPointPreset};
+pub use preset::{ColorPreset, FocusPointPreset, Palettes, Ref};
 
 pub mod focus;
 pub use focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 
 pub mod recipe;
 pub use recipe::{
-    Recipe, RecipeApply, RecipeCue, RecipeCueList, RecipeTarget, expand_cue, expand_cue_list,
-    expand_recipe,
+    Recipe, RecipeApply, RecipeCue, RecipeCueList, RecipeTarget, Show, expand_cue, expand_cue_list,
+    expand_recipe, unresolved,
 };
 
 pub mod effect;

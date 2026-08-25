@@ -1,0 +1,34 @@
+{
+  "colors": [
+    { "name": "Open White",  "red": 1.00, "green": 1.00, "blue": 1.00 },
+    { "name": "Warm White",  "red": 1.00, "green": 0.82, "blue": 0.62 },
+    { "name": "Cool White",  "red": 0.82, "green": 0.90, "blue": 1.00 },
+    { "name": "House Blue",  "red": 0.08, "green": 0.25, "blue": 1.00 },
+    { "name": "Deep Blue",   "red": 0.02, "green": 0.06, "blue": 1.00 },
+    { "name": "Congo",       "red": 0.25, "green": 0.00, "blue": 1.00 },
+    { "name": "Cyan",        "red": 0.00, "green": 0.75, "blue": 1.00 },
+    { "name": "Teal",        "red": 0.00, "green": 0.80, "blue": 0.70 },
+    { "name": "Green",       "red": 0.05, "green": 1.00, "blue": 0.15 },
+    { "name": "Amber",       "red": 1.00, "green": 0.55, "blue": 0.08 },
+    { "name": "Gold",        "red": 1.00, "green": 0.72, "blue": 0.20 },
+    { "name": "Deep Red",    "red": 1.00, "green": 0.02, "blue": 0.02 },
+    { "name": "Magenta",     "red": 1.00, "green": 0.05, "blue": 0.70 },
+    { "name": "Pink",        "red": 1.00, "green": 0.35, "blue": 0.60 },
+    { "name": "Purple",      "red": 0.45, "green": 0.05, "blue": 1.00 },
+    { "name": "Lavender",    "red": 0.62, "green": 0.45, "blue": 1.00 }
+  ],
+  "focus": [
+    { "name": "Drums",             "target": { "x":  0.00, "y":  0.50, "z": 1.20 } },
+    { "name": "Vocal Centre",      "target": { "x":  0.00, "y": -3.44, "z": 1.55 } },
+    { "name": "Vocal Stage Left",  "target": { "x":  3.39, "y": -4.03, "z": 1.55 } },
+    { "name": "Vocal Stage Right", "target": { "x": -3.32, "y": -3.44, "z": 1.55 } },
+    { "name": "Upstage Left",      "target": { "x":  2.74, "y":  1.27, "z": 1.50 } },
+    { "name": "Upstage Right",     "target": { "x": -2.74, "y":  1.27, "z": 1.50 } },
+    { "name": "Upstage Centre",    "target": { "x":  0.00, "y":  1.27, "z": 1.50 } },
+    { "name": "Downstage Centre",  "target": { "x":  0.00, "y": -3.00, "z": 1.20 } },
+    { "name": "Stage Wide",        "target": { "x":  0.00, "y": -1.90, "z": 1.00 } },
+    { "name": "Back Wall",         "target": { "x":  0.00, "y":  2.90, "z": 1.60 } },
+    { "name": "Audience Front",    "target": { "x":  0.00, "y": -6.00, "z": 1.50 } },
+    { "name": "Audience Back",     "target": { "x":  0.00, "y": -12.00, "z": 1.60 } }
+  ]
+}

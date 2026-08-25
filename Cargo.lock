@@ -3021,6 +3021,7 @@ version = "0.1.0"
 dependencies = [
  "ignition-proto",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

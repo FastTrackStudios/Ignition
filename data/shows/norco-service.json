@@ -1,0 +1,2583 @@
+{
+  "name": "Norco Sunday Service",
+  "cues": [
+    {
+      "name": "Blackout",
+      "fade_secs": 0.0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "SlimPars All"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pre-Service",
+      "fade_secs": 4.0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Dimmer": 0.55
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Dimmer": 0.55
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Dimmer": 0.55
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Dimmer": 0.55
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Dimmer": 0.55
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "Deep Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "House Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "House Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "House Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Color": "House Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Color": "House Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Color": "House Blue"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Countdown",
+      "fade_secs": 3.0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Dimmer": 0.2
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Dimmer": 0.2
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Dimmer": 0.2
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Dimmer": 0.2
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Dimmer": 0.2
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.9
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "Magenta"
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.7
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Color": "Purple"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 0.5
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Color": "Congo"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "FocusPoint": "Audience Back"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Dimmer": 0.5
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Color": "Congo"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "FocusPoint": "Audience Back"
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.1
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Deep Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.1
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "Deep Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.1
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "Deep Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.1
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Color": "Deep Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.1
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Color": "Deep Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 0.1
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Color": "Deep Blue"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Worship Open",
+      "fade_secs": 3.0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.85
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.85
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.85
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.85
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.85
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 0.85
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.6
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "House Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 0.8
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "FocusPoint": "Vocal Centre"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "FocusPoint": "Stage Wide"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Dimmer": 0.5
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Dimmer": 0.5
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Verse",
+      "fade_secs": 5.0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.6
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.45
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "Deep Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.25
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 0.55
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "FocusPoint": "Vocal Centre"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Dimmer": 0.25
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "fade_secs": 1.5,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "Gold"
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Color": "Amber"
+          }
+        },
+        {
+          "target": {
+            "Group": "SlimPars All"
+          },
+          "apply": {
+            "Dimmer": 0.9
+          }
+        },
+        {
+          "target": {
+            "Group": "SlimPars All"
+          },
+          "apply": {
+            "Color": "Gold"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "FocusPoint": "Audience Front"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "FocusPoint": "Audience Back"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Dimmer": 0.9
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Dimmer": 0.9
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bridge",
+      "fade_secs": 4.0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.45
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Purple"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.45
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "Purple"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.45
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "Purple"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.45
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Color": "Purple"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.45
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Color": "Purple"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 0.45
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Color": "Purple"
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.8
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "Congo"
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.6
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Color": "Magenta"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 0.85
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Color": "Cyan"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "FocusPoint": "Drums"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Dimmer": 0.7
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Color": "Cyan"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "FocusPoint": "Back Wall"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Big Moment",
+      "fade_secs": 0.8,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "SlimPars All"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "SlimPars All"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "FocusPoint": "Audience Back"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "FocusPoint": "Audience Back"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Dimmer": 0.3
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Dimmer": 0.3
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Dimmer": 0.3
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Dimmer": 0.3
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Dimmer": 0.3
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Color": "Cool White"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Message",
+      "fade_secs": 3.0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "SlimPars All"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.95
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.6
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.6
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.25
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "House Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        }
+      ]
+    },
+    {
+      "name": "Response",
+      "fade_secs": 6.0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.55
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.5
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "Deep Blue"
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.3
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Color": "Lavender"
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "FocusPoint": "Stage Wide"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Dimmer": 0.15
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        }
+      ]
+    },
+    {
+      "name": "House Up",
+      "fade_secs": 3.0,
+      "recipes": [
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Center"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid L"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Mid R"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer L"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "House Outer R"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Dimmer": 0.7
+          }
+        },
+        {
+          "target": {
+            "Group": "Center Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.7
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage L Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.7
+          }
+        },
+        {
+          "target": {
+            "Group": "Downstage R Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Dimmer": 0.7
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage L Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Dimmer": 0.7
+          }
+        },
+        {
+          "target": {
+            "Group": "Upstage R Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Dimmer": 0.7
+          }
+        },
+        {
+          "target": {
+            "Group": "Drummer Washers"
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "SlimPars All"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Floor Movers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight L"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Drum Highlight R"
+          },
+          "apply": {
+            "Dimmer": 0.0
+          }
+        }
+      ]
+    }
+  ]
+}

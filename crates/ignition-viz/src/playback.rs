@@ -57,14 +57,23 @@ impl Playback {
         } else if let Some(path) = recipes {
             let list: RecipeCueList = read_json(path, "a recipe cue list")?;
             let groups = venue.groups();
-            let cues = ignition_core::expand_cue_list(&list.cues, &groups, &|chan| {
-                venue.placement_of(chan)
-            });
+            let show = ignition_core::Show {
+                groups: &groups,
+                palettes: &venue.palettes,
+                placement: &|chan| venue.placement_of(chan),
+            };
+            for problem in ignition_core::unresolved(&list.cues, &show) {
+                eprintln!("warning: {problem}");
+            }
+            let cues = ignition_core::expand_cue_list(&list.cues, &show);
             println!(
-                "loaded recipe cue list {:?}: {} cues, compiled against {} real venue groups",
+                "loaded recipe cue list {:?}: {} cues, compiled against {} real venue groups \
+                 and {} colour / {} focus palettes",
                 list.name,
                 cues.len(),
-                groups.len()
+                groups.len(),
+                venue.palettes.colors.len(),
+                venue.palettes.focus.len()
             );
             Some(CuePlayer::new(cues))
         } else {

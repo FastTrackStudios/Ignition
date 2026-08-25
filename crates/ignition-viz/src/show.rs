@@ -124,6 +124,7 @@ mod tests {
             screens: vec![],
             props: vec![],
             group_records: vec![],
+            palettes: Default::default(),
         }
     }
 
@@ -176,6 +177,7 @@ mod tests {
             screens: vec![],
             props: vec![],
             group_records: vec![],
+            palettes: Default::default(),
         };
         let dmx = DmxUniverses::new();
         let mut output = HashMap::new();
