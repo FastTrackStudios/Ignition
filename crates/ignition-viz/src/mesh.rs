@@ -393,11 +393,37 @@ fn build_cone(
     }
 }
 
+/// How many rings of vertices to lay down along a glow-cone's length —
+/// `RING_STEPS + 1` rings total, `RING_STEPS` quad-strips between them.
+/// More than the old 2-ring (near/far) version so `intensity_at`'s curve
+/// reads as a smooth analytic falloff instead of one straight linear
+/// lerp — see that function's doc.
+const GLOW_CONE_RING_STEPS: u32 = 6;
+
+/// The real intensity-falloff shape this project's beam glow was missing
+/// until this — ported from ASLS Studio's actual beam fragment shader
+/// (`beam.fragment.glsl`'s `attenuation = 2.0 / (1.0 + alignmentFactor *
+/// distance + radians(angle) * distance * distance)`, read directly from
+/// their source, not re-derived from a screenshot): a real inverse-
+/// quadratic decay along the beam's length, not a single straight lerp
+/// between two baked colours. `t` is distance along the beam normalized
+/// to `[0, 1]` (0 = at the fixture, 1 = the beam's real far end — already
+/// the true floor-hit distance via `fixture_profile.rs::BeamThrow`, a
+/// more precise stop than ASLS's own shader-side world-Z fade). `k`
+/// controls how sharply it falls off; chosen so the far end lands at
+/// roughly 1/5 the near end's brightness, matching this project's own
+/// prior (Slice 18) near/far ratio but as a continuous curve instead of
+/// a hard 2-stop gradient.
+fn glow_intensity_at(t: f32) -> f32 {
+    const K: f32 = 4.5;
+    1.0 / (1.0 + K * t * t)
+}
+
 /// A beam-glow frustum — narrow+bright near ring at `origin`, flaring to
 /// `radius` at the far end (`length` away along `local_axis`), dimmed
-/// there — see `MeshBuilder::add_glow_cone`'s doc for why this shape
-/// (rather than `build_cone`'s point-tapered one) is what a light beam
-/// actually needs.
+/// smoothly along the way per `glow_intensity_at` — see
+/// `MeshBuilder::add_glow_cone`'s doc for why this shape (rather than
+/// `build_cone`'s point-tapered one) is what a light beam actually needs.
 #[allow(clippy::too_many_arguments)]
 fn build_glow_cone(
     vertices: &mut Vec<Vertex>,
@@ -417,23 +443,18 @@ fn build_glow_cone(
 
     // A small non-zero near radius (rather than a true point) so the near
     // end still reads as a lens-sized glow up close, not a degenerate
-    // vertex fan. Both ends are scaled well below the raw emission colour
-    // (near to ~22%, far to ~4%). `live_pipeline.rs` now tonemaps once
-    // over the true combined HDR result rather than per-fragment, so a
-    // single beam summing past 1.0 is no longer catastrophic on its
-    // own — but this cone is a *closed* frustum with `cull_mode: None`
-    // (see `live_pipeline.rs`'s glow pipeline), so at most oblique
-    // viewing angles a single beam's near AND far walls both rasterize
-    // additively at the same screen pixel, roughly doubling what one
-    // wall alone would contribute. Without real per-fragment depth
-    // sorting (well beyond what a baked-triangle beam-cone approximation
-    // does anywhere in this project), staying low enough that a doubled
-    // single beam is still nowhere near clipping is what keeps the shape
-    // reading as translucent haze instead of solid colour — the
-    // complaint that sent this scale down twice now.
+    // vertex fan. `live_pipeline.rs` tonemaps once over the true combined
+    // HDR result rather than per-fragment — but this cone is a *closed*
+    // shape with `cull_mode: None` (see `live_pipeline.rs`'s glow
+    // pipeline), so at most oblique viewing angles a single beam's near
+    // AND far walls both rasterize additively onto the same screen pixel,
+    // roughly doubling what one wall alone would contribute. Without real
+    // per-fragment depth sorting, `glow_intensity_at`'s own peak (at
+    // t=0) staying well below 1.0 is what keeps a doubled single beam
+    // from clipping — the same headroom Slice 18 cut for, now shaped as
+    // a real curve instead of the flat colour that was cut.
     let near_radius = (radius * 0.08).max(0.02);
-    let near_color = [color[0] * 0.22, color[1] * 0.22, color[2] * 0.22];
-    let far_color = [color[0] * 0.04, color[1] * 0.04, color[2] * 0.04];
+    const PEAK: f32 = 0.22;
 
     let mut ring = |dist: f32, ring_radius: f32, c: [f32; 3]| -> u32 {
         let start = vertices.len() as u32;
@@ -451,16 +472,32 @@ fn build_glow_cone(
         start
     };
 
-    let near_ring = ring(0.0, near_radius, near_color);
-    let far_ring = ring(length, radius, far_color);
-    for i in 0..segments {
-        let j = (i + 1) % segments;
-        let a = near_ring + i;
-        let b = near_ring + j;
-        let c = far_ring + j;
-        let d = far_ring + i;
-        indices.extend_from_slice(&[a, b, c, a, c, d]);
+    let mut prev_ring: Option<u32> = None;
+    for step in 0..=GLOW_CONE_RING_STEPS {
+        let t = step as f32 / GLOW_CONE_RING_STEPS as f32;
+        let dist = t * length;
+        let ring_radius = near_radius + (radius - near_radius) * t;
+        let intensity = PEAK * glow_intensity_at(t);
+        let ring_color = [color[0] * intensity, color[1] * intensity, color[2] * intensity];
+        let this_ring = ring(dist, ring_radius, ring_color);
+        if let Some(prev) = prev_ring {
+            for i in 0..segments {
+                let j = (i + 1) % segments;
+                let a = prev + i;
+                let b = prev + j;
+                let c = this_ring + j;
+                let d = this_ring + i;
+                indices.extend_from_slice(&[a, b, c, a, c, d]);
+            }
+        }
+        prev_ring = Some(this_ring);
     }
+    let far_ring = prev_ring.expect("at least one ring always gets built");
+    let far_color = [
+        color[0] * PEAK * glow_intensity_at(1.0),
+        color[1] * PEAK * glow_intensity_at(1.0),
+        color[2] * PEAK * glow_intensity_at(1.0),
+    ];
 
     // A far cap so the beam's tip doesn't look hollow viewed near
     // head-on (matches `build_cone`'s own base cap treatment).

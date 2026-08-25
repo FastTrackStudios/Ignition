@@ -1210,3 +1210,79 @@ visualizer directly" — is a substantially larger scope than this fix
 (their real `THREE.SpotLight` + shadow-mapped cone approach vs. this
 project's hand-rolled additive-cone approximation) and was not started;
 flagged for an explicit scoping conversation rather than assumed.
+
+## Slice 20 — reading ASLS's actual beam shader source, for real this time (2026-08-24, same day)
+
+Operator: "we don't want the approximation we want the actual
+visualization like in ASLS... theirs looks way better." Slice 7 (much
+earlier) only skimmed ASLS's beam shader for two techniques to port;
+this slice re-cloned `github.com/ASLS-org/studio` and read
+`visualizer.js`, `moving_head.js`, `beam.vertex.glsl`, and
+`beam.fragment.glsl` in full to find what's actually different, rather
+than continuing to guess-and-tune this project's own approximation.
+
+**What their beam rendering actually does** (concrete, from their real
+source, not re-derived from a screenshot):
+
+- Beam geometry is one `THREE.CylinderGeometry` per fixture — constant
+  radius, fixed `BEAM_LENGTH = 100` (always absurdly long relative to
+  any real room) — widened into a cone shape by the *vertex shader*
+  (`computeRadiusVertexScaleFactor`), not by different CPU geometry per
+  fixture. `GPU.InstancedMesh` across all fixtures, one draw call.
+- The beam material sets `toneMapped: false` — it explicitly opts *out*
+  of the renderer's `ACESFilmicToneMapping` for beam fragments. Its own
+  attenuation formula is tuned to self-regulate into a reasonable range
+  rather than leaning on a global tonemap to save it.
+- **The real intensity formula**
+  (`attenuation = 2.0 / (1.0 + alignmentFactor * distance + radians(angle)
+  * distance * distance)`) is a genuine inverse-quadratic decay computed
+  continuously per-fragment along the beam's length — not a small number
+  of discrete baked colour stops.
+- "Reaching the floor" is a per-fragment world-Z fade in the shader
+  (`floorFade`, fades to 0 below `z≈0.01`) applied to the always-100-
+  unit-long cylinder — not a raycast, and cruder than this project's own
+  `BeamThrow` floor-plane intersection (kept as-is; it's more precise).
+- Room illumination is a real per-fixture `THREE.SpotLight`
+  (`physicallyCorrectLights`, `decay: 1.0` — linear, not inverse-square)
+  automatically lighting every material in the scene via Three.js's
+  built-in lighting system — conceptually the same role this project's
+  custom `PointLight` WGSL loop already plays, just via a real
+  engine-level light instead of a hand-rolled one. No shadow mapping
+  anywhere (`castShadow` is never set true, including the one ambient
+  directional light) — confirms this project isn't missing shadows, ASLS
+  doesn't have them either.
+
+**Ported this slice**: the real intensity formula's *shape* — the
+single most directly responsible difference for "why theirs reads as
+soft light and ours reads as a solid shape." `mesh::build_glow_cone`
+went from 2 baked rings (a flat linear lerp between a near and far
+colour, Slice 17/18) to `GLOW_CONE_RING_STEPS = 6` rings, each coloured
+by a new `glow_intensity_at(t) = 1.0 / (1.0 + 4.5*t²)` — the same
+inverse-quadratic *shape* as ASLS's real formula (constants
+re-tuned for this project's own beam-length scale — `BeamThrow`'s real
+floor-distance throw, not ASLS's fixed always-overshooting 100 units).
+
+**Not ported this slice, and why**: `toneMapped: false`'s separation
+(beams skip the shared tonemap entirely) would need glow rendered in
+its own post-tonemap pass, which — given this project's shared MSAA
+depth buffer that both the opaque and glow passes depth-test against —
+isn't a small change without either losing glow's depth-occlusion
+against walls or resolving a multisampled depth buffer (non-trivial in
+wgpu); real per-vertex distance in local beam-space (their formula
+reads *local*, not world, position) would need extending the shared
+`Vertex` struct, which every static-geometry consumer in this crate
+(including `shot`'s regression path) also uses — baking the falloff
+into world-space vertex colours at CPU build time, as this slice did,
+gets the same visual *curve* without that risk. GPU instancing, a real
+per-material lighting system, and the vertex-shader-side cone widening
+remain unported — all flagged as real architecture changes, not small
+tunes, the same distinction Slice 7 already drew.
+
+Verified visually: `demo-recipes.json`'s top-down view now shows a
+visibly smoother, more organic bright-core-with-soft-tail gradient per
+beam instead of the previous flat 2-stop look. The same cue's tight
+close-up house view (camera nearly inside the beam cluster) still reads
+saturated — an inherent property of that specific extreme angle, not
+something this formula change was expected to fix on its own.
+`cargo test --workspace`: 53/53 unchanged. `shot`'s regression PNG
+byte-identical (MD5 `d4c0f1b2...`).
