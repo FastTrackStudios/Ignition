@@ -1,0 +1,36 @@
+{
+  "name": "All Lights On",
+  "cues": [
+    {
+      "name": "Blackout",
+      "fade_secs": 0,
+      "recipes": []
+    },
+    {
+      "name": "All Lights On",
+      "fade_secs": 3,
+      "recipes": [
+        {
+          "target": { "Group": "All" },
+          "apply": { "Dimmer": 1.0 }
+        },
+        {
+          "target": { "Group": "All" },
+          "apply": { "Color": { "name": "Warm White", "red": 1.0, "green": 0.85, "blue": 0.65 } }
+        },
+        {
+          "target": { "Chans": [100, 101] },
+          "apply": { "Dimmer": 1.0 }
+        },
+        {
+          "target": { "Group": "Movers OH" },
+          "apply": { "FocusPoint": { "x": 0.0, "y": 0.3, "z": 1.0 } }
+        },
+        {
+          "target": { "Group": "Movers Beam" },
+          "apply": { "FocusPoint": { "x": 0.0, "y": 3.0, "z": 0.2 } }
+        }
+      ]
+    }
+  ]
+}

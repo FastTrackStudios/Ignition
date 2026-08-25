@@ -25,9 +25,9 @@
 //! listeners before capturing, so a source that's already sending has time
 //! to be received.
 
-use ignition_core::{CueList, CuePlayer};
+use ignition_core::{CueList, CuePlayer, EffectPlayer};
 use ignition_viz::live_renderer::{DEFAULT_AMBIENT, DEFAULT_HAZE};
-use ignition_viz::show::tick_and_apply;
+use ignition_viz::show::{tick_and_apply, tick_and_apply_effects};
 use ignition_viz::{build_scene, dmx, Camera, DmxUniverses, LiveHeadlessRenderer, LiveRenderer, Venue};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -52,6 +52,12 @@ struct App {
     /// behaves exactly as before this feature existed (purely a passive
     /// sACN/Art-Net receiver).
     cue_player: Option<CuePlayer>,
+    /// A loaded effect list (`--effects`) — runs continuously from the
+    /// moment it's loaded, no GO needed (an `EffectRecipe` is a function
+    /// of time, not a stepped state — see `ignition_core::effect`'s module
+    /// doc). Ticked and applied *after* `cue_player` each redraw, so a
+    /// running effect layers on top of whatever the current cue set.
+    effect_player: Option<EffectPlayer>,
     last_tick: Instant,
 }
 
@@ -102,6 +108,9 @@ impl ApplicationHandler for App {
                 if let Some(player) = &mut self.cue_player {
                     tick_and_apply(&self.dmx, &self.venue, player, dt);
                 }
+                if let Some(player) = &mut self.effect_player {
+                    tick_and_apply_effects(&self.dmx, &self.venue, player, dt);
+                }
 
                 let Some(renderer) = &self.renderer else { return };
                 let mesh = build_scene(&self.venue, &[], false, Some(&self.dmx));
@@ -129,6 +138,11 @@ fn load_recipe_cue_list(path: &PathBuf) -> anyhow::Result<ignition_core::RecipeC
     serde_json::from_str(&raw).map_err(|e| anyhow::anyhow!("parsing {} as a recipe cue list: {e}", path.display()))
 }
 
+fn load_effect_list(path: &PathBuf) -> anyhow::Result<ignition_core::EffectList> {
+    let raw = std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
+    serde_json::from_str(&raw).map_err(|e| anyhow::anyhow!("parsing {} as an effect list: {e}", path.display()))
+}
+
 fn main() -> anyhow::Result<()> {
     let mut venue_dir = PathBuf::from("data/venues/norco");
     let mut max_universe = 4u16;
@@ -142,7 +156,9 @@ fn main() -> anyhow::Result<()> {
     let mut snapshot_time: Option<f32> = None;
     let mut cuelist_path: Option<PathBuf> = None;
     let mut recipes_path: Option<PathBuf> = None;
+    let mut effects_path: Option<PathBuf> = None;
     let mut cue_index: Option<usize> = None;
+    let mut effect_time: Option<f32> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -184,6 +200,16 @@ fn main() -> anyhow::Result<()> {
             // exclusive with `--cuelist`.
             "--recipes" => recipes_path = Some(PathBuf::from(args.next().expect("--recipes needs a path"))),
             "--cue" => cue_index = Some(args.next().expect("--cue needs a 0-based cue index").parse().unwrap()),
+            // Effects: a continuously-running waveform (`ignition_core::
+            // effect`) rather than a stepped cue — runs from the moment
+            // it's loaded, no GO needed, layered on top of any loaded
+            // cue/recipe list. `--effect-time` (only meaningful with
+            // `--snapshot`, same idea as `--time` for haze phase) freezes
+            // the effect at a specific elapsed-seconds moment to capture.
+            "--effects" => effects_path = Some(PathBuf::from(args.next().expect("--effects needs a path"))),
+            "--effect-time" => {
+                effect_time = Some(args.next().expect("--effect-time needs seconds, e.g. 2.5").parse().unwrap())
+            }
             other => eprintln!("ignition-live: ignoring unknown argument {other}"),
         }
     }
@@ -223,12 +249,25 @@ fn main() -> anyhow::Result<()> {
         None
     };
 
+    let mut effect_player = match &effects_path {
+        Some(path) => {
+            let list = load_effect_list(path)?;
+            println!("loaded effect list {:?}: {} effects", list.name, list.effects.len());
+            Some(EffectPlayer::new(list.effects))
+        }
+        None => None,
+    };
+
     if let Some(out_path) = snapshot {
         if let Some(player) = &mut cue_player {
             let index = cue_index.unwrap_or(0);
             player.jump_to_end_of(index);
             println!("cue -> {} {:?}", index + 1, player.current_name());
             ignition_viz::show::apply_cue_output(&dmx, &venue, &player.output());
+        }
+        if let Some(player) = &mut effect_player {
+            player.tick(effect_time.unwrap_or(0.0));
+            ignition_viz::show::apply_cue_output(&dmx, &venue, &player.output(&venue.groups()));
         }
         std::thread::sleep(std::time::Duration::from_millis(warm_up_ms));
         let mesh = build_scene(&venue, &[], false, Some(&dmx));
@@ -265,8 +304,17 @@ fn main() -> anyhow::Result<()> {
 
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app =
-        App { venue, dmx, window: None, renderer: None, ambient, haze, cue_player, last_tick: Instant::now() };
+    let mut app = App {
+        venue,
+        dmx,
+        window: None,
+        renderer: None,
+        ambient,
+        haze,
+        cue_player,
+        effect_player,
+        last_tick: Instant::now(),
+    };
     event_loop.run_app(&mut app)?;
     Ok(())
 }

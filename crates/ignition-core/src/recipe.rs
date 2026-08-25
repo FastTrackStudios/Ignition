@@ -84,7 +84,10 @@ pub struct RecipeCueList {
     pub cues: Vec<RecipeCue>,
 }
 
-fn resolve_target(target: &RecipeTarget, groups: &[Group]) -> Vec<ChanId> {
+/// Resolves a target to its real channel list — `pub(crate)` so
+/// `phaser.rs` can share the exact same Group/Chans resolution a static
+/// `Recipe` uses, rather than re-implementing it.
+pub(crate) fn resolve_target(target: &RecipeTarget, groups: &[Group]) -> Vec<ChanId> {
     match target {
         RecipeTarget::Chans(chans) => chans.clone(),
         RecipeTarget::Group(name) => group::find(groups, name).map(|g| g.chans.clone()).unwrap_or_default(),

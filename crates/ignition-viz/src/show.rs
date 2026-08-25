@@ -62,6 +62,20 @@ pub fn tick_and_apply(dmx: &DmxUniverses, venue: &Venue, player: &mut CuePlayer,
     apply_cue_output(dmx, venue, &player.output());
 }
 
+/// The `EffectPlayer` counterpart to `tick_and_apply` — advances `player`
+/// and writes its continuous output into `dmx` against `venue`'s real
+/// groups. `live.rs` ticks/applies a loaded `CuePlayer` first and this
+/// second each redraw, so a running effect layers on top of (and can
+/// override) whatever a cue set — the same HTP-ish "effect rides on top
+/// of the cue" behaviour a real console has, though without true relative/
+/// HTP blending (this is a flat last-write-wins per `(chan, attr)` byte,
+/// same as everywhere else in this project's DMX write path).
+pub fn tick_and_apply_effects(dmx: &DmxUniverses, venue: &Venue, player: &mut ignition_core::EffectPlayer, dt_secs: f32) {
+    player.tick(dt_secs);
+    let groups = venue.groups();
+    apply_cue_output(dmx, venue, &player.output(&groups));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

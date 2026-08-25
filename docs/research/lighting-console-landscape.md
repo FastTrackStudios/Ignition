@@ -926,3 +926,72 @@ Verified: `cargo test --workspace` — 47 tests, all green (16 in
 tests in `venue.rs` for the real-groups-file parsing, including the
 two-different-`channels`-shapes case). `shot`'s regression PNG stayed
 byte-identical (MD5 `d4c0f1b2...`, unchanged).
+
+## Slice 16 — Effect Recipes (grandMA3's "Phasers"), and a full-rig look (2026-08-24, same day)
+
+Operator: "let's build that out and then I want to see a look that has
+all the lights on." Mid-build, on naming: grandMA3 calls this engine
+"Phasers," but that's grandMA3-specific jargon — asked which name to
+use (`Effect`/`Chase`/`Wave`/keep `Phaser`), operator picked **Effect**,
+the term Eos/QLC+/most other consoles actually use. Every type is named
+accordingly (`EffectRecipe`, not `PhaserRecipe`) rather than shipping
+the grandMA3 name and renaming later.
+
+**`ignition_core::effect`** (new): the genuinely different kind of thing
+Slice 15's static `Recipe`s aren't — a **continuous function of time**
+rather than a fixed target state. `Waveform` (`Sine`/`Square`/`RampUp`/
+`RampDown`/`Triangle`, all sampled in `[-1, 1]` over one cycle so a
+`Dimmer` effect and a `Pan` effect share the same waveform code despite
+totally different value ranges), `EffectRecipe { target, attr, waveform,
+rate_hz, size, base, phase_spread_deg, phase_offset_deg, direction }`,
+and `EffectPlayer` (no `go()`/stepping — every loaded effect evaluates
+fresh every `tick()`, forever, unlike `CuePlayer`). Reuses
+`recipe::RecipeTarget`/the same `resolve_target` a static `Recipe`
+uses (exposed `pub(crate)`), so `Group`/`Chans` targeting stays
+identical between the two authoring formats. `phase_spread_deg` spreads
+one full cycle evenly across the target group's fixtures (360 = a
+classic chase, each fixture visibly offset from its neighbour; 0 = every
+fixture in lockstep, a pulse); `phase_offset_deg` is a *fixed* shift
+applied equally to every fixture — the trick for building a circle/
+figure-8 without a dedicated "Position effect" type: two `EffectRecipe`s,
+one on `Pan` one on `Tilt`, same rate, 90 degrees of `phase_offset_deg`
+apart, is a circle. Proven with a dedicated test doing exactly that
+(`a_90_degree_offset_pair_traces_a_circle_on_two_attributes`) — at t=0
+pan sits at its base while tilt sits at its own peak, a quarter-cycle
+later they've swapped, exactly what two sine waves 90° apart should do.
+
+**Bridged into `ignition_viz::show`**: `tick_and_apply_effects`, the
+`EffectPlayer` counterpart to Slice 14's `tick_and_apply`. **Wired into
+`live`**: `--effects <path>` loads an `EffectList` and runs it
+continuously from the moment it's loaded (no GO — effects aren't
+stepped); ticked/applied *after* the cue player each redraw, so a
+running effect layers on top of whatever a cue set (last-write-wins
+per byte, not true HTP blending — noted as a real limitation, not
+silently glossed over). `--effect-time <secs>` (paired with
+`--snapshot`, same idea as `--time` for haze phase) freezes an effect
+at a specific elapsed-seconds moment to capture headlessly.
+
+**Visually proven through the real render pipeline, not just unit
+tests**: `data/shows/demo-effect-chase.json` (a `Sine` Dimmer chase,
+360° spread, across the real "Pars" group) rendered at
+`--effect-time 0` and `--effect-time 2` — the two renders show a
+visibly different bright/dim pattern across the same 47 real pars,
+confirming the waveform actually animates end-to-end through
+`show.rs`'s byte encoding and `scene.rs`'s live rendering, not just
+`EffectPlayer::output()` in isolation.
+
+**"All lights on"**: `data/shows/all-lights-on.json`, a `RecipeCue`
+built from Slice 15's Group/Color/FocusPoint recipes — `Group "All"`
+(Norco's own real Eos group, 1-18+20-97) at full Dimmer + warm white,
+the two hazer channels (100-101, outside "All"'s range) added
+explicitly, and `FocusPoint` recipes aiming "Movers OH" at the real
+drum kit position and "Movers Beam" further downstage — rendered
+house and top-down views: 69 of Norco's 71 real patched fixtures lit
+simultaneously, built entirely from real venue data (the real group,
+the real drum-kit coordinates from `props.json`) through recipes, no
+hand-listed channel numbers.
+
+Verified: `cargo test --workspace` — 53 tests, all green (22 in
+`ignition-core`, up from 16 — 6 new `effect` tests). `shot`'s
+regression PNG stayed byte-identical (MD5 `d4c0f1b2...`, unchanged) —
+purely additive, same as every slice since Slice 12.

@@ -1,0 +1,29 @@
+{
+  "name": "Demo Effect Chase",
+  "effects": [
+    {
+      "name": "Par Chase",
+      "target": { "Group": "Pars" },
+      "attr": "Dimmer",
+      "waveform": "Sine",
+      "rate_hz": 0.25,
+      "size": 0.5,
+      "base": 0.5,
+      "phase_spread_deg": 360.0,
+      "phase_offset_deg": 0.0,
+      "direction": "Forward"
+    },
+    {
+      "name": "Par Chase Red",
+      "target": { "Group": "Pars" },
+      "attr": { "ColorAdd": { "channel": "Red" } },
+      "waveform": "Sine",
+      "rate_hz": 0.0,
+      "size": 0.0,
+      "base": 1.0,
+      "phase_spread_deg": 0.0,
+      "phase_offset_deg": 0.0,
+      "direction": "Forward"
+    }
+  ]
+}
