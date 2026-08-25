@@ -109,7 +109,7 @@ impl CuePlayer {
     /// real elapsed time. Out-of-range `index` clamps to the last cue.
     pub fn jump_to_end_of(&mut self, index: usize) {
         let target = index.min(self.cues.len().saturating_sub(1));
-        while self.current.map_or(true, |i| i < target) && self.current != Some(target) {
+        while self.current.is_none_or(|i| i < target) && self.current != Some(target) {
             self.go();
             self.elapsed = self.fade_secs;
             if self.current == Some(target) {

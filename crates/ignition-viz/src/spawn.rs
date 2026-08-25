@@ -182,15 +182,7 @@ pub struct Fixture {
 /// The part of a moving head that tilts — a child of the fixture root, so
 /// tilting it is one `Transform` write and the base stays put.
 #[derive(Component)]
-pub struct FixtureHead {
-    /// The QLC+ mesh's own convention correction (see
-    /// `fixture_profile`'s `moving_head_pre_rotate`). The live update
-    /// rewrites this entity's rotation every frame, so it has to compose
-    /// the tilt *onto* this rather than replacing it — otherwise the head
-    /// and its beam end up aimed along the mesh's unrotated axis, which
-    /// is 180 degrees out.
-    pub pre_rotate: Quat,
-}
+pub struct FixtureHead;
 
 /// An entity whose pose *is* the lens: its `GlobalTransform` translation
 /// is where the beam starts and its local -Z is the aim.
@@ -239,12 +231,9 @@ pub struct ScreenSurface;
 /// pars on" — the light was there, but nothing about the fixtures said
 /// which of them were producing it.
 ///
-/// `kind_color` is kept for the housing's own base colour, which is what
-/// the rig's own light falls on.
 #[derive(Component)]
 pub struct FixtureBody {
     pub material: Handle<StandardMaterial>,
-    pub kind_color: Color,
 }
 
 /// A fixture's beam cone — a child of its `BeamEmitter`.
@@ -318,6 +307,10 @@ fn display(
 
 /// Spawns the room, its screens and props, and one entity per patched
 /// fixture (plus that fixture's beam and spill, initially hidden).
+// A Bevy system's "arguments" are its data dependencies, which the
+// scheduler reads to decide what can run in parallel — splitting this one
+// up to satisfy an argument count would hide that, not simplify it.
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_venue(
     mut commands: Commands,
     venue: Res<VenueRes>,
@@ -591,7 +584,7 @@ pub fn spawn_venue(
 
         let mut root_cmd = commands.spawn((
             Fixture { index, base_rot: local_rot },
-            FixtureBody { material: body_material.clone(), kind_color: body_color },
+            FixtureBody { material: body_material.clone() },
             Transform {
                 // The QLC+ anchor correction is a body offset applied to
                 // the mesh child below — putting it here as well is what
@@ -666,15 +659,25 @@ pub fn spawn_venue(
                             // that fits a 1-unit mesh into a 24cm fixture
                             // — a metres-long beam rendered a few
                             // centimetres long.
+                            // The joint carries the *real* pan/tilt
+                            // convention and nothing else, because the
+                            // beam hangs off it: `mount * pan * tilt *
+                            // -Z`, which is what `focus.rs` solves for
+                            // and what a DMX reading means.
+                            //
+                            // `pre_rotate` is a correction for how the
+                            // QLC+ placeholder mesh was authored, not a
+                            // statement about where the fixture points,
+                            // so it belongs on the mesh alone. It was on
+                            // the joint, which put a 180-degree flip
+                            // between the aim that was asked for and the
+                            // beam that came out — every focus solve
+                            // rendered mirrored.
                             let pivot = anchor + visual.head_pivot.unwrap_or(Vec3::ZERO);
                             let head = commands
                                 .spawn((
-                                    FixtureHead { pre_rotate: *pre_rotate },
-                                    Transform {
-                                        translation: pivot,
-                                        rotation: *pre_rotate,
-                                        scale: Vec3::ONE,
-                                    },
+                                    FixtureHead,
+                                    Transform::from_translation(pivot),
                                     Visibility::default(),
                                     ChildOf(root),
                                 ))
@@ -682,7 +685,11 @@ pub fn spawn_venue(
                             commands.spawn((
                                 Mesh3d(meshes.add(asset.to_bevy_mesh(head_split))),
                                 MeshMaterial3d(body_material.clone()),
-                                Transform::from_scale(Vec3::splat(*scale)),
+                                Transform {
+                                    rotation: *pre_rotate,
+                                    scale: Vec3::splat(*scale),
+                                    ..default()
+                                },
                                 ChildOf(head),
                             ));
                             emitters.push(head);
@@ -781,7 +788,7 @@ pub fn update_live_fixtures(
     venue: Res<VenueRes>,
     dmx: Option<Res<DmxRes>>,
     mut fixtures: Query<(Entity, &Fixture, &mut Transform), Without<FixtureHead>>,
-    mut heads: Query<(&FixtureHead, &ChildOf, &mut Transform), Without<Fixture>>,
+    mut heads: Query<(&ChildOf, &mut Transform), (With<FixtureHead>, Without<Fixture>)>,
     mut pan_joints: Query<
         (&ChildOf, &mut Transform),
         (With<PanJoint>, Without<Fixture>, Without<FixtureHead>, Without<TiltJoint>),
@@ -863,14 +870,15 @@ pub fn update_live_fixtures(
         None
     };
 
-    for (head, parent, mut transform) in &mut heads {
+    for (parent, mut transform) in &mut heads {
         let Some(live) = fixture_index_of(parent.parent())
             .and_then(|i| resolved.get(i))
             .and_then(|o| o.as_ref())
         else {
             continue;
         };
-        transform.rotation = live.tilt * head.pre_rotate;
+        // Tilt alone. See the joint's own comment in `spawn_venue`.
+        transform.rotation = live.tilt;
     }
 
     // GDTF joints: the file itself said which node each attribute drives,
@@ -1116,5 +1124,74 @@ mod rigging_tests {
         let world_pos = CEILING + surface_rot * local_pos;
         assert!(world_pos.distance(fixture_pos) < 1e-5, "{world_pos:?}");
         assert!((surface_rot * local_rot).angle_between(fixture_rot) < 1e-5);
+    }
+}
+
+#[cfg(test)]
+mod aim_convention_tests {
+    use super::*;
+    use ignition_core::pan_tilt_deg_along;
+
+    /// The composition `spawn_venue` builds out of entities — the fixture
+    /// root carrying `mount * pan`, the head joint carrying `tilt`, and
+    /// the beam hanging off the head — must agree with the convention
+    /// `focus.rs` solves against, or every focus solve renders aimed
+    /// somewhere else.
+    ///
+    /// This has gone wrong three times in this renderer, each time by
+    /// putting something on the wrong entity: the mesh's `pre_rotate`
+    /// correction on the aim joint (a 180-degree flip, so every beam came
+    /// out mirrored), the mesh's scale on the joint (so beams inherited
+    /// the shrink), and the anchor offset in the wrong frame. The
+    /// hierarchy is not self-evidently right, so it is pinned here.
+    fn world_aim(mount: Quat, pan_deg: f32, tilt_deg: f32) -> Vec3 {
+        let pan = Quat::from_axis_angle(Vec3::Z, pan_deg.to_radians());
+        let tilt = Quat::from_axis_angle(Vec3::X, tilt_deg.to_radians());
+        // root rotation * head rotation, exactly as the two entities are
+        // built and then written each frame.
+        ((mount * pan) * tilt) * Vec3::NEG_Z
+    }
+
+    fn solve(mount: Quat, want: Vec3) -> (f32, f32) {
+        let m = ignition_proto::Quat { w: mount.w as f64, x: mount.x as f64, y: mount.y as f64, z: mount.z as f64 };
+        let d = ignition_proto::Vec3 { x: want.x as f64, y: want.y as f64, z: want.z as f64 };
+        pan_tilt_deg_along(m, d)
+    }
+
+    #[test]
+    fn the_entity_composition_matches_what_focus_solves_for() {
+        let want = Vec3::new(0.0, -1.0, -0.28).normalize();
+        for mount in [
+            Quat::IDENTITY,
+            Quat::from_rotation_x(std::f32::consts::PI),
+            Quat::from_rotation_z(0.9),
+            Quat::from_rotation_z(-2.1) * Quat::from_rotation_x(std::f32::consts::PI),
+        ] {
+            let (pan, tilt) = solve(mount, want);
+            let got = world_aim(mount, pan, tilt).normalize();
+            assert!(
+                got.dot(want) > 0.9999,
+                "mount {mount:?}: solved pan {pan} tilt {tilt} aimed {got:?}, wanted {want:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_mesh_pre_rotate_must_not_reach_the_aim() {
+        // The regression itself: the QLC+ moving-head mesh needs a
+        // 180-degree correction to be drawn the right way up, and folding
+        // that into the joint inverts the beam.
+        let mount = Quat::IDENTITY;
+        let want = Vec3::new(0.0, -1.0, -0.28).normalize();
+        let (pan, tilt) = solve(mount, want);
+        let pre_rotate = Quat::from_rotation_x(std::f32::consts::PI);
+        let wrong = ((mount * Quat::from_axis_angle(Vec3::Z, pan.to_radians()))
+            * Quat::from_axis_angle(Vec3::X, tilt.to_radians())
+            * pre_rotate)
+            * Vec3::NEG_Z;
+        assert!(
+            wrong.normalize().dot(want) < -0.9,
+            "the pre-rotate should invert the aim, which is why it belongs on the mesh"
+        );
     }
 }
