@@ -109,12 +109,22 @@ pub struct CuePlayer {
     /// This is what makes tracking work: a cue that doesn't mention a
     /// channel simply doesn't touch this map.
     tracked: HashMap<(ChanId, Attribute), Source>,
+    /// Which recipe, if any, is *modulating* each attribute. Relative
+    /// values do not compete for the slot — they add on top of whatever
+    /// won it — so they get their own tracking rather than sharing
+    /// `tracked`. One modulator per attribute, latest cue wins, same
+    /// rule as everything else.
+    modulated: HashMap<(ChanId, Attribute), usize>,
     /// Recipes introduced by cues so far, kept alive as long as anything
     /// in `tracked` still points at them. Compacted on every `go()`, so a
     /// three-hour show does not accumulate one entry per recipe per cue.
     active: Vec<Recipe>,
     elapsed: f32,
     fade_secs: f32,
+    /// Monotonic show time. Unlike `elapsed` this never resets, because
+    /// a phaser free-runs across cues — restarting its cycle on every GO
+    /// would make a chase stutter every time an unrelated cue fired.
+    clock: f32,
 }
 
 impl CuePlayer {
@@ -124,9 +134,11 @@ impl CuePlayer {
             current: None,
             from: HashMap::new(),
             tracked: HashMap::new(),
+            modulated: HashMap::new(),
             active: Vec::new(),
             elapsed: 0.0,
             fade_secs: 0.0,
+            clock: 0.0,
         }
     }
 
@@ -143,6 +155,7 @@ impl CuePlayer {
 
         if cue.block {
             self.tracked.clear();
+            self.modulated.clear();
             self.active.clear();
         }
 
@@ -153,9 +166,13 @@ impl CuePlayer {
         for recipe in &cue.recipes {
             let id = self.active.len();
             self.active.push(recipe.clone());
-            for value in expand_recipe(recipe, show) {
-                self.tracked
-                    .insert((value.chan, value.attr), Source::Recipe(id));
+            for emit in expand_recipe(recipe, show, self.clock) {
+                let key = (emit.value.chan, emit.value.attr);
+                if emit.relative {
+                    self.modulated.insert(key, id);
+                } else {
+                    self.tracked.insert(key, Source::Recipe(id));
+                }
             }
         }
         // Layer 1 last, so a direct value on this cue beats a recipe on
@@ -184,6 +201,7 @@ impl CuePlayer {
                 Source::Recipe(id) => Some(*id),
                 Source::Direct(_) => None,
             })
+            .chain(self.modulated.values().copied())
             .collect();
         if live.len() == self.active.len() {
             return;
@@ -201,6 +219,9 @@ impl CuePlayer {
             if let Source::Recipe(id) = source {
                 *id = remap[id];
             }
+        }
+        for id in self.modulated.values_mut() {
+            *id = remap[id];
         }
     }
 
@@ -222,6 +243,13 @@ impl CuePlayer {
 
     pub fn tick(&mut self, dt_secs: f32) {
         self.elapsed += dt_secs;
+        self.clock += dt_secs;
+    }
+
+    /// Advances the show clock without advancing the current fade — for
+    /// snapshotting a running phaser at a chosen moment.
+    pub fn advance_clock(&mut self, secs: f32) {
+        self.clock += secs;
     }
 
     pub fn current_index(&self) -> Option<usize> {
@@ -253,18 +281,24 @@ impl CuePlayer {
         } else {
             1.0
         };
-        // Resolve only the recipes something still tracks to, once each,
+        // Resolve only the recipes something still points at, once each,
         // rather than once per attribute they cover.
         let mut resolved: HashMap<usize, HashMap<(ChanId, Attribute), f32>> = HashMap::new();
-        for source in self.tracked.values() {
-            if let Source::Recipe(id) = source {
-                resolved.entry(*id).or_insert_with(|| {
-                    expand_recipe(&self.active[*id], show)
-                        .into_iter()
-                        .map(|v| ((v.chan, v.attr), v.value))
-                        .collect()
-                });
-            }
+        let referenced = self
+            .tracked
+            .values()
+            .filter_map(|s| match s {
+                Source::Recipe(id) => Some(*id),
+                Source::Direct(_) => None,
+            })
+            .chain(self.modulated.values().copied());
+        for id in referenced {
+            resolved.entry(id).or_insert_with(|| {
+                expand_recipe(&self.active[id], show, self.clock)
+                    .into_iter()
+                    .map(|e| ((e.value.chan, e.value.attr), e.value.value))
+                    .collect()
+            });
         }
 
         let mut out = HashMap::with_capacity(self.tracked.len());
@@ -280,6 +314,17 @@ impl CuePlayer {
                     None => continue,
                 },
             };
+            // Modulation is applied *after* the cascade has picked a
+            // winner, not as another competitor for the slot. That is
+            // what "−40% dimmer, and the colour is not my business"
+            // means mechanically.
+            let target_v = target_v
+                + self
+                    .modulated
+                    .get(key)
+                    .and_then(|id| resolved[id].get(key))
+                    .copied()
+                    .unwrap_or(0.0);
             // A key with no prior value (first time this (chan, attr) has
             // ever been targeted) fades in from 0 rather than snapping —
             // reads as the fixture coming up from off, the same as a real
@@ -438,10 +483,10 @@ mod tests {
     fn recipe_cue(name: &str, level: f32) -> Cue {
         Cue {
             name: name.to_string(),
-            recipes: vec![Recipe {
-                target: Selection::Group("Pars".to_string()),
-                apply: RecipeApply::Dimmer(level),
-            }],
+            recipes: vec![Recipe::new(
+                Selection::Group("Pars".to_string()),
+                RecipeApply::Dimmer(level),
+            )],
             ..Default::default()
         }
     }

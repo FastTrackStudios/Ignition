@@ -51,7 +51,6 @@ fn main() -> anyhow::Result<()> {
     let mut show_props = true;
     let mut cuelist: Option<PathBuf> = None;
     let mut recipes: Option<PathBuf> = None;
-    let mut effects: Option<PathBuf> = None;
     let mut cue: Option<usize> = None;
     let mut effect_time: Option<f32> = None;
     let mut gdtf_dir: Option<PathBuf> = None;
@@ -95,10 +94,9 @@ fn main() -> anyhow::Result<()> {
             "--cuelist" => cuelist = Some(PathBuf::from(next("a path"))),
             "--recipes" => recipes = Some(PathBuf::from(next("a path"))),
             "--cue" => cue = Some(next("a 0-based cue index").parse()?),
-            // Effects run continuously from load, layered on top of any
-            // cue; `--effect-time` freezes one at a chosen moment for a
+            // Advances the show clock without advancing the current
+            // fade — freezes a running phaser at a chosen moment for a
             // snapshot.
-            "--effects" => effects = Some(PathBuf::from(next("a path"))),
             "--effect-time" => effect_time = Some(next("seconds, e.g. 2.5").parse()?),
             // A directory of real `.gdtf` fixture profiles. A patched
             // fixture whose manufacturer/model matches one is drawn from
@@ -157,7 +155,6 @@ fn main() -> anyhow::Result<()> {
         &venue,
         cuelist.as_deref(),
         recipes.as_deref(),
-        effects.as_deref(),
         cue,
         effect_time,
     )?;

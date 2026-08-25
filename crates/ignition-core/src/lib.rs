@@ -18,10 +18,10 @@ pub mod focus;
 pub use focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 
 pub mod recipe;
+pub mod step;
+pub use step::{Direction, Ease, Speed, SpeedMasters, Step, Timing, Waveform};
+
 pub mod selection;
 pub use selection::{Axis, Cmp, Dir, FixtureInfo, Order, Rig, Selection, Where};
 
-pub use recipe::{Recipe, RecipeApply, Show, expand_recipe, unresolved};
-
-pub mod effect;
-pub use effect::{EffectDirection, EffectList, EffectPlayer, EffectRecipe, Waveform};
+pub use recipe::{Emit, Recipe, RecipeApply, Show, expand_recipe, unresolved};

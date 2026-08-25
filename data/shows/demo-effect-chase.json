@@ -1,29 +1,120 @@
 {
   "name": "Demo Effect Chase",
-  "effects": [
+  "cues": [
     {
-      "name": "Par Chase",
-      "target": { "Group": "Pars" },
-      "attr": "Dimmer",
-      "waveform": "Sine",
-      "rate_hz": 0.25,
-      "size": 0.5,
-      "base": 0.5,
-      "phase_spread_deg": 360.0,
-      "phase_offset_deg": 0.0,
-      "direction": "Forward"
+      "name": "Blackout",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": []
     },
     {
-      "name": "Par Chase Red",
-      "target": { "Group": "Pars" },
-      "attr": { "ColorAdd": { "channel": "Red" } },
-      "waveform": "Sine",
-      "rate_hz": 0.0,
-      "size": 0.0,
-      "base": 1.0,
-      "phase_spread_deg": 0.0,
-      "phase_offset_deg": 0.0,
-      "direction": "Forward"
+      "name": "Par Chase",
+      "fade_secs": 2.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Pars"
+          },
+          "apply": {
+            "Color": "Deep Red"
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Group": "Pars"
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "waveform": {
+            "shape": "Sine",
+            "attr": "Dimmer",
+            "base": 0.5,
+            "size": 0.5
+          },
+          "timing": {
+            "speed": {
+              "Bpm": 60.0
+            },
+            "phase_spread_deg": 360.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        }
+      ]
+    },
+    {
+      "name": "Relative Pulse",
+      "fade_secs": 2.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Pars"
+          },
+          "apply": {
+            "Dimmer": 0.9
+          }
+        },
+        {
+          "target": {
+            "Group": "Pars"
+          },
+          "apply": {
+            "Color": "Gold"
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Group": "Pars"
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "waveform": {
+            "shape": "Sine",
+            "attr": "Dimmer",
+            "base": -0.45,
+            "size": 0.45,
+            "relative": true
+          },
+          "timing": {
+            "speed": {
+              "Bpm": 120.0
+            },
+            "phase_spread_deg": 360.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        }
+      ]
     }
   ]
 }

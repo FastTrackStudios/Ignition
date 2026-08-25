@@ -8,11 +8,11 @@
 //! through the same path, so the visualizer cannot accidentally look
 //! right for a local show and wrong for a real one.
 
-use crate::show::{apply_cue_output, tick_and_apply, tick_and_apply_effects};
+use crate::show::{apply_cue_output, tick_and_apply};
 use crate::spawn::{DmxRes, VenueRes};
 use crate::venue::Venue;
 use bevy::prelude::*;
-use ignition_core::{CueList, CuePlayer, EffectList, EffectPlayer, Group, Rig, Show};
+use ignition_core::{CueList, CuePlayer, Group, Rig, Show, SpeedMasters};
 use std::path::Path;
 
 /// A loaded show, if the CLI was given one.
@@ -28,9 +28,10 @@ pub struct Playback {
     /// The patched rig, likewise resolved once — `Selection::Tag` and the
     /// spatial filters resolve against this every frame.
     pub rig: Rig,
-    /// Effects run continuously from the moment they load; an
-    /// `EffectRecipe` is a function of time, not a stepped state.
-    pub effects: Option<EffectPlayer>,
+    /// Named tempo sources every phaser can slave to. Empty until
+    /// something drives them — a tap-tempo key, or the session tempo map
+    /// from the FastTrackStudio side.
+    pub speeds: SpeedMasters,
 }
 
 impl Playback {
@@ -51,7 +52,6 @@ impl Playback {
         venue: &Venue,
         cuelist: Option<&Path>,
         recipes: Option<&Path>,
-        effects: Option<&Path>,
         jump_to_cue: Option<usize>,
         effect_time: Option<f32>,
     ) -> anyhow::Result<Self> {
@@ -62,10 +62,12 @@ impl Playback {
 
         let groups = venue.groups();
         let rig = venue.rig();
+        let speeds = SpeedMasters::new();
         let show = Show {
             groups: &groups,
             palettes: &venue.palettes,
             rig: &rig,
+            speeds: &speeds,
         };
 
         let cues: Option<CuePlayer> = match cuelist.or(recipes) {
@@ -87,19 +89,6 @@ impl Playback {
             None => None,
         };
 
-        let effects = match effects {
-            Some(path) => {
-                let list: EffectList = read_json(path, "an effect list")?;
-                println!(
-                    "loaded effect list {:?}: {} effects",
-                    list.name,
-                    list.effects.len()
-                );
-                Some(EffectPlayer::new(list.effects))
-            }
-            None => None,
-        };
-
         let mut cues = cues;
         if let Some(player) = cues.as_mut() {
             let index = jump_to_cue.unwrap_or(0);
@@ -108,16 +97,17 @@ impl Playback {
         }
         // `show` borrows `groups`, which the struct below takes
         // ownership of; nothing reads it past here.
-        let mut playback = Self {
+        // Advancing the clock without advancing the fade is how a
+        // running phaser gets snapshotted at a chosen moment.
+        if let (Some(player), Some(t)) = (cues.as_mut(), effect_time) {
+            player.advance_clock(t);
+        }
+        Ok(Self {
             cues,
             groups,
             rig,
-            effects,
-        };
-        if let (Some(player), Some(t)) = (playback.effects.as_mut(), effect_time) {
-            player.tick(t);
-        }
-        Ok(playback)
+            speeds: SpeedMasters::new(),
+        })
     }
 }
 
@@ -142,21 +132,17 @@ pub fn tick_playback(
         cues,
         groups,
         rig,
-        effects,
+        speeds,
     } = &mut *playback;
     let venue = &venue.0;
     let show = Show {
         groups,
         palettes: &venue.palettes,
         rig,
+        speeds,
     };
     if let Some(player) = cues.as_mut() {
         tick_and_apply(&dmx.0, venue, player, dt, &show);
-    }
-    if let Some(player) = effects.as_mut() {
-        // Layered after cues, so a running effect modifies whatever the
-        // current cue set rather than being overwritten by it.
-        tick_and_apply_effects(&dmx.0, venue, player, dt, rig);
     }
 }
 
@@ -171,7 +157,10 @@ pub fn go_on_space(
         return;
     }
     let Playback {
-        cues, groups, rig, ..
+        cues,
+        groups,
+        rig,
+        speeds,
     } = &mut *playback;
     if let Some(player) = cues.as_mut() {
         let venue = &venue.0;
@@ -179,6 +168,7 @@ pub fn go_on_space(
             groups,
             palettes: &venue.palettes,
             rig,
+            speeds,
         };
         player.go(&show);
         info!("cue -> {:?}", player.current_name());
