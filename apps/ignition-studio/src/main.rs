@@ -46,6 +46,10 @@ const PROJECT: &str = "/home/cody/Downloads/Bye Bye Bye/Bye Bye Bye.RPP";
 /// ceremony for its own sake.
 static TX: std::sync::OnceLock<Sender> = std::sync::OnceLock::new();
 static RX: std::sync::Mutex<Option<command::Receiver>> = std::sync::Mutex::new(None);
+/// The return path: the widget publishes the playhead, components read
+/// it. Same one-window reasoning as the pair above.
+static STATE_TX: std::sync::Mutex<Option<command::StateTx>> = std::sync::Mutex::new(None);
+static STATE_RX: std::sync::OnceLock<command::StateRx> = std::sync::OnceLock::new();
 
 fn main() -> anyhow::Result<()> {
     // `from_default_env()` alone defaults to ERROR when RUST_LOG is
@@ -75,6 +79,10 @@ fn main() -> anyhow::Result<()> {
     let (tx, rx) = command::channel();
     let _ = TX.set(tx);
     *RX.lock().expect("fresh mutex") = Some(rx);
+
+    let (state_tx, state_rx) = command::state_channel();
+    *STATE_TX.lock().expect("fresh mutex") = Some(state_tx);
+    let _ = STATE_RX.set(state_rx);
 
     let venue = Venue::load(VENUE)?;
     let surface = Surface {
@@ -302,11 +310,87 @@ fn app(surface: Surface) -> Element {
     }
 }
 
+/// The playhead the widget publishes, as a signal.
+///
+/// Polled rather than awaited on `changed()`: the UI already repaints at
+/// ~60 Hz to keep the visualizer animating (see the `frame` ticker), so
+/// a second timer costs nothing and avoids holding a mutable borrow of
+/// the receiver across an await inside a component.
+fn use_playhead() -> Signal<command::Playhead> {
+    let mut playhead = use_signal(command::Playhead::default);
+    use_future(move || async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(33)).await;
+            if let Some(rx) = STATE_RX.get() {
+                let latest = *rx.borrow();
+                // Only write when it actually moved. A signal write is a
+                // re-render, and rewriting the same value 30 times a
+                // second would re-render the cue list forever.
+                if latest != playhead() {
+                    playhead.set(latest);
+                }
+            }
+        }
+    });
+    playhead
+}
+
+/// mm:ss, for the transport readout.
+fn clock(secs: f32) -> String {
+    let secs = secs.max(0.0) as u32;
+    format!("{}:{:02}", secs / 60, secs % 60)
+}
+
+/// The song position, as a bar that can be dragged.
+///
+/// Clicking anywhere on the track seeks there. The fill is driven by the
+/// transport's own position rather than by drag state, so it tracks the
+/// music while playing and does not fight the pointer: a scrub sends a
+/// command and the next published playhead moves the bar.
+#[component]
+fn Progress() -> Element {
+    let playhead = use_playhead();
+    let seek = move |event: Event<MouseData>| {
+        let x = event.data().element_coordinates().x;
+        send(Command::Scrub((x / TRACK_WIDTH) as f32));
+    };
+
+    rsx! {
+        div { class: "progress",
+            div {
+                class: "track",
+                onclick: seek,
+                div {
+                    class: "fill",
+                    style: "width: {playhead().fraction() * 100.0}%",
+                }
+            }
+            span { class: "time",
+                "{clock(playhead().secs)} / {clock(playhead().length)}"
+            }
+        }
+    }
+}
+
+/// The progress track's width in CSS pixels, matching `studio.css`.
+///
+/// Blitz reports pointer positions relative to the element but does not
+/// hand out the element's own width, so the click-to-seek maths needs
+/// the number from somewhere. Kept next to the component rather than
+/// only in the stylesheet so the two are at least adjacent when one
+/// changes.
+const TRACK_WIDTH: f64 = 240.0;
+
 /// The cue stack. Underneath the busking layer, not beside it: a cue
 /// fills in whatever the operator is not currently holding.
 #[component]
 fn CueList(cues: Vec<String>) -> Element {
-    let mut current = use_signal(|| Option::<usize>::None);
+    let playhead = use_playhead();
+    // What the player is actually standing on, not what was last
+    // clicked. A click still fires the cue; it just no longer decides
+    // what the list *shows*, which is how the highlight used to end up
+    // several sections behind the music.
+    let current = move || playhead().cue;
 
     rsx! {
         aside { class: "cues",
@@ -314,10 +398,7 @@ fn CueList(cues: Vec<String>) -> Element {
                 span { "Cue List" }
                 button {
                     class: "go",
-                    onclick: move |_| {
-                        current.set(Some(current().map_or(0, |i| i + 1)));
-                        send(Command::Go);
-                    },
+                    onclick: move |_| send(Command::Go),
                     "GO"
                 }
             }
@@ -328,6 +409,7 @@ fn CueList(cues: Vec<String>) -> Element {
                 button { class: "play", onclick: move |_| send(Command::Play), "▶ Play" }
                 button { class: "tile", onclick: move |_| send(Command::Stop), "■ Stop" }
             }
+            Progress {}
             ol {
                 for (i, name) in cues.iter().enumerate() {
                     li {
@@ -336,7 +418,6 @@ fn CueList(cues: Vec<String>) -> Element {
                         onclick: {
                             let name = name.clone();
                             move |_| {
-                                current.set(Some(i));
                                 // Locate the song too. A cue in a
                                 // generated show *is* a section, so
                                 // clicking one is how a rehearsal says
@@ -613,11 +694,17 @@ fn Viewport() -> Element {
             .expect("fresh mutex")
             .take()
             .expect("one viewport");
+        let report = STATE_TX
+            .lock()
+            .expect("fresh mutex")
+            .take()
+            .expect("one viewport");
         CustomWidgetAttr::new(VizWidget::new(
             config,
             Some((SHOW.to_string(), 0)),
             Some(PROJECT),
             rx,
+            report,
         ))
     });
 

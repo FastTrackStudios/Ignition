@@ -7,7 +7,7 @@
 //! copy — the 3D view is a `<div>` as far as the rest of the UI is
 //! concerned, and HTML can sit above or below it.
 
-use crate::command::{Command, Receiver};
+use crate::command::{Command, Playhead, Receiver, StateTx};
 use anyrender::{PaintRef, PaintScene, RenderContext, ResourceId, Scene};
 use blitz_dom::Widget;
 use blitz_dom::node::ComputedStyles;
@@ -41,6 +41,8 @@ pub struct VizWidget {
     /// the visualizer renders — a transport polled from the UI would be
     /// a frame behind, and a frame late on a downbeat is visible.
     transport: Option<SongTransport>,
+    /// Where the show is, published back to the UI every frame.
+    report: StateTx,
 }
 
 enum State {
@@ -97,6 +99,7 @@ impl VizWidget {
         show: Option<(String, usize)>,
         project: Option<&str>,
         commands: Receiver,
+        report: StateTx,
     ) -> Self {
         // A project that will not open is not fatal — the surface still
         // busks and the cue list still steps on GO, which is the point
@@ -115,6 +118,7 @@ impl VizWidget {
             state: State::Waiting,
             registered: None,
             transport,
+            report,
         }
     }
 }
@@ -179,6 +183,7 @@ impl Widget for VizWidget {
         };
         drain(&self.commands, viz, self.transport.as_ref());
         follow_song(self.transport.as_ref(), viz);
+        publish(&self.report, self.transport.as_ref(), viz);
         let Some(texture) = viz.render(width, height) else {
             tracing::debug!(width, height, "viz.embed: no target texture yet");
             return scene;
@@ -333,10 +338,55 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         tracing::warn!(name, "studio: no such section");
                     }
                 }
+                Command::Scrub(fraction) => {
+                    if let Some(transport) = transport {
+                        transport.scrub(fraction);
+                    }
+                }
             }
         }
     }
     viz.app_mut().world_mut().insert_resource(playback);
+}
+
+/// Reports where the show actually is, for the UI to render.
+///
+/// The cue index comes from the **player**, not from what the sidebar
+/// last sent. Those two agree only for as long as every change comes
+/// from a click; once the song is driving the cues the sidebar's own
+/// memory is stale, and it went on highlighting a cue the transport had
+/// left several sections ago.
+///
+/// `send_if_modified` so an idle frame does not wake the UI. `Playhead`
+/// is `PartialEq` for exactly this: seconds change constantly while
+/// playing, so the UI does re-render then, but a stopped show settles.
+fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
+    let cue = viz
+        .app_mut()
+        .world()
+        .get_resource::<Playback>()
+        .and_then(|p| p.cues.as_ref())
+        .and_then(|player| player.current_index());
+    let next = match transport {
+        Some(t) => Playhead {
+            cue,
+            secs: t.seconds() as f32,
+            length: t.length() as f32,
+            playing: t.is_playing(),
+        },
+        None => Playhead {
+            cue,
+            ..Default::default()
+        },
+    };
+    state.send_if_modified(|current| {
+        if *current == next {
+            false
+        } else {
+            *current = next;
+            true
+        }
+    });
 }
 
 /// Points the cue player at wherever the song is.

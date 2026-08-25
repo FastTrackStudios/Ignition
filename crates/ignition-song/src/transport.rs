@@ -140,6 +140,34 @@ impl SongTransport {
         }
     }
 
+    /// How long the song runs, in seconds.
+    ///
+    /// From the last section's end rather than the decoded audio's
+    /// length, so it agrees with the timeline the cues are written
+    /// against. A project whose audio runs past its final section — a
+    /// tail, a stray region — would otherwise give a progress bar that
+    /// never quite reaches the end.
+    pub fn length(&self) -> f64 {
+        self.song
+            .sections
+            .last()
+            .map(|s| self.song.tempo.seconds_at(s.end(&self.song.tempo)))
+            .unwrap_or_default()
+    }
+
+    /// Moves the playhead to a fraction of the song, 0..=1 — a scrub.
+    ///
+    /// Seconds rather than bars deliberately: dragging a bar is a
+    /// gesture about *time*, and snapping it to the nearest musical
+    /// position would make the handle refuse to sit where it was
+    /// dropped.
+    pub fn scrub(&self, fraction: f32) {
+        let seconds = self.length() * f64::from(fraction.clamp(0.0, 1.0));
+        if let Err(e) = TransportService::set_position(&self.daw, self.ctx.clone(), seconds) {
+            tracing::warn!(error = ?e, "song: scrub failed");
+        }
+    }
+
     /// Moves the playhead to the start of a named section.
     pub fn locate_section(&self, name: &str) -> bool {
         match self.song.section(name).map(|s| s.start) {

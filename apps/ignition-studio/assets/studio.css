@@ -1,0 +1,32 @@
+
+/* Song position. The track's width is mirrored in main.rs as
+   TRACK_WIDTH — Blitz reports pointer coordinates relative to the
+   element but not the element's width, so click-to-seek needs the
+   number in Rust too. Change one, change the other. */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 10px;
+}
+.progress .track {
+  width: 240px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  overflow: hidden;
+}
+.progress .track:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.progress .fill {
+  height: 100%;
+  background: #d8c56a;
+  border-radius: 3px;
+}
+.progress .time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.6);
+}

@@ -34,6 +34,9 @@ pub enum Command {
     Stop,
     /// Locate to a section by name — how a rehearsal loops one part.
     Section(String),
+    /// Move the playhead to a fraction of the song, 0..=1 — what
+    /// dragging the progress bar sends.
+    Scrub(f32),
 }
 
 pub type Sender = std::sync::mpsc::Sender<Command>;
@@ -41,4 +44,48 @@ pub type Receiver = std::sync::mpsc::Receiver<Command>;
 
 pub fn channel() -> (Sender, Receiver) {
     std::sync::mpsc::channel()
+}
+
+/// Where the show actually is — the widget's answer back to the UI.
+///
+/// The commands above are one-way, and that was fine while every change
+/// came from a click: the sidebar could just remember what it had sent.
+/// The moment the *song* drives the cues, that memory becomes a second
+/// source of truth and starts lying — it went on highlighting the last
+/// cue clicked while the transport had moved several cues past it. So
+/// the player's own state comes back, and the UI renders that rather
+/// than anything it believes about itself.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Playhead {
+    /// Index of the cue the player is actually standing on.
+    pub cue: Option<usize>,
+    /// Seconds into the song, and how long it is — the progress bar.
+    pub secs: f32,
+    pub length: f32,
+    pub playing: bool,
+}
+
+impl Playhead {
+    /// How far through, 0..=1. A zero-length song reports 0 rather than
+    /// NaN, which would otherwise reach a CSS percentage and lay the bar
+    /// out at a width no one can explain.
+    pub fn fraction(&self) -> f32 {
+        if self.length > 0.0 {
+            (self.secs / self.length).clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
+    }
+}
+
+/// The latest playhead, written by the widget and read by the UI.
+///
+/// A watch channel rather than a queue: the UI wants the *current*
+/// value, and a backlog of stale positions is worse than useless — it
+/// would render the song's history one frame at a time, always behind.
+pub type StateTx = tokio::sync::watch::Sender<Playhead>;
+pub type StateRx = tokio::sync::watch::Receiver<Playhead>;
+
+pub fn state_channel() -> (StateTx, StateRx) {
+    tokio::sync::watch::channel(Playhead::default())
 }
