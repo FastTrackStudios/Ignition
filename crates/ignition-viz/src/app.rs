@@ -17,8 +17,8 @@
 use crate::beam::BeamPlugin;
 use crate::playback::{go_on_space, tick_playback, Playback};
 use crate::spawn::{
-    apply_ambient, spawn_venue, update_beams, update_live_fixtures, DmxRes, GdtfLibraryRes, VenueRes,
-    VizSettings,
+    apply_ambient, spawn_venue, update_beams, update_live_fixtures, BeamStyle, DmxRes,
+    GdtfLibraryRes, VenueRes, VizSettings,
 };
 use crate::gdtf_geometry::GdtfLibrary;
 use crate::view::ViewPreset;
@@ -28,6 +28,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::camera::{Hdr, RenderTarget};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::image::Image;
+use bevy::light::VolumetricFog;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, PollType, TextureDimension, TextureFormat, TextureUsages};
@@ -55,6 +56,8 @@ pub struct VizConfig {
     pub show_props: bool,
     /// Room objects to leave out — see `VizSettings::exclude`.
     pub exclude: Vec<String>,
+    /// How beams are drawn — see `BeamStyle`.
+    pub beam_style: BeamStyle,
     /// Highest sACN/Art-Net universe to listen on.
     pub max_universe: u16,
     /// Render one frame to this path and exit, instead of opening a
@@ -90,6 +93,7 @@ impl Plugin for VizPlugin {
                 ambient: self.config.ambient,
                 show_props: self.config.show_props,
                 exclude: self.config.exclude.clone(),
+                beam_style: self.config.beam_style,
             })
             .insert_resource(GdtfLibraryRes(self.gdtf.lock().expect("gdtf library lock").take()))
             .add_plugins(BeamPlugin)
@@ -265,5 +269,22 @@ fn camera_bundle(view: ViewPreset, min: Vec3, max: Vec3) -> impl Bundle {
         Tonemapping::TonyMcMapface,
         Bloom::NATURAL,
         view.transform(min, max),
+        // Only does anything when there is a `FogVolume` in the scene,
+        // so it costs nothing in `BeamStyle::Shader` and there is no
+        // reason to make the camera's shape depend on the beam style.
+        VolumetricFog {
+            // No environment map, so nothing should be lit by one.
+            ambient_intensity: 0.0,
+            // Well above the default 64. A church auditorium is ~20m
+            // deep and a beam crosses most of it, so the default step
+            // spacing lands visibly wide and every shaft comes out in
+            // stair-steps. Cost is per-pixel raymarching, which is worth
+            // it here: beams *are* the picture.
+            step_count: 192,
+            // Breaks up what banding is left by starting each ray at a
+            // slightly different depth.
+            jitter: 0.35,
+            ..default()
+        },
     )
 }

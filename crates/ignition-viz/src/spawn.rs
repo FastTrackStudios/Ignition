@@ -15,6 +15,7 @@ use crate::fixture_profile::{
 };
 use crate::gdtf_geometry::{self, GdtfLibrary, PanJoint, TiltJoint};
 use crate::venue::Venue;
+use bevy::light::{FogVolume, VolumetricLight};
 use bevy::prelude::*;
 
 /// The loaded `.gdtf` profiles, if `--gdtf-dir` was given. Absent means
@@ -32,6 +33,15 @@ const MIN_VISIBLE_DIMMER: f32 = 0.02;
 /// rigged to it. Generous, because "on the truss" and "at ceiling height"
 /// are the same thing to an operator and venue data rounds differently.
 const CEILING_RIG_TOLERANCE: f32 = 0.35;
+
+/// Maps the operator's haze dial onto Bevy's `FogVolume::density_factor`,
+/// whose own default is 0.1. Above roughly 0.3 the room stops being a
+/// room: the fog absorbs its own light shafts and everything goes flat.
+const VOLUMETRIC_HAZE_SCALE: f32 = 0.11;
+
+/// The same dial for the hand-drawn cone, whose brightness is a plain
+/// multiplier on an additive material rather than a density.
+const SHADER_HAZE_SCALE: f32 = 10.0;
 
 /// How far below the surface a rigged fixture hangs — clearance for the
 /// clamp and yoke, and what keeps a fixture from being coplanar with the
@@ -69,8 +79,15 @@ pub struct DmxRes(pub DmxUniverses);
 #[derive(Resource)]
 pub struct VizSettings {
     /// How much particulate is in the air to scatter a beam into
-    /// something visible. At 0 a beam is inert, the way it would
-    /// genuinely look in clean air.
+    /// something visible — a hazer's fluid-output dial, roughly 0..2,
+    /// with 1.0 a normally hazed room. At 0 a beam is inert, the way it
+    /// would genuinely look in clean air.
+    ///
+    /// Normalized deliberately: the two beam styles want wildly
+    /// different raw numbers (Bevy's `density_factor` defaults to 0.1;
+    /// the hand-drawn cone's gain wanted ~10), and an operator dial that
+    /// changes meaning when you switch renderer is not a dial. Each
+    /// style scales it on the way in.
     pub haze: f32,
     /// Non-fixture room lighting. 0 by default: a real dark venue has no
     /// ambient fill, and everything you see is a fixture's beam or its
@@ -78,6 +95,8 @@ pub struct VizSettings {
     pub ambient: f32,
     /// Whether to draw the props layer — see `VizConfig::show_props`.
     pub show_props: bool,
+    /// How beams are drawn — see `BeamStyle`.
+    pub beam_style: BeamStyle,
     /// Room/screen/prop objects whose name contains any of these are not
     /// drawn — `--exclude Ceiling` for a plan view that would otherwise
     /// just render the roof, and the escape hatch for a venue whose
@@ -90,6 +109,27 @@ impl VizSettings {
     fn skip(&self, name: &str) -> bool {
         self.exclude.iter().any(|e| name.contains(e.as_str()))
     }
+}
+
+/// How a beam in the air is produced.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BeamStyle {
+    /// Bevy's own volumetric fog: a `FogVolume` filling the room, and
+    /// every fixture's spot light marked `VolumetricLight`, so a shaft
+    /// is what the renderer computes from the light actually passing
+    /// through haze — occluded by geometry, shaped by the light's real
+    /// cone, and with no beam mesh anywhere.
+    ///
+    /// This is the physical answer and the one that scales: haze is a
+    /// property of the room rather than something re-drawn per fixture.
+    /// It needs shadow maps on every contributing light, which is the
+    /// cost to watch on a rig this size.
+    Volumetric,
+    /// The hand-drawn additive cone (`beam.wgsl`, a port of ASLS's own
+    /// beam shader). Cheap and independent of shadow maps, but the haze
+    /// is drawn *per beam* rather than being in the room, so beams do
+    /// not interact with each other or with anything they pass behind.
+    Shader,
 }
 
 /// Marks a fixture's root entity and remembers which venue record it came
@@ -349,6 +389,29 @@ pub fn spawn_venue(
         ));
     }
 
+    if settings.beam_style == BeamStyle::Volumetric {
+        // One volume covering the room. Haze is a property of the air in
+        // here, not of any one fixture, which is the whole reason this
+        // reads better than a cone per beam: two beams crossing actually
+        // brighten where they overlap.
+        let (min, max) = venue.bounds();
+        let center = (min + max) * 0.5;
+        // Generous over the venue's own bounds, which are a bound on
+        // object *centres* — the fog has to reach past the fixtures and
+        // the floor, not stop at them.
+        let size = (max - min).max(Vec3::splat(4.0)) * 1.6;
+        commands.spawn((
+            FogVolume {
+                density_factor: settings.haze * VOLUMETRIC_HAZE_SCALE,
+                scattering: 0.6,
+                absorption: 0.05,
+                ..default()
+            },
+            Transform { translation: center, scale: size, ..default() },
+            Name::new("Haze"),
+        ));
+    }
+
     // The surface an overhead fixture is rigged to, if the venue has one.
     let ceiling = room_anchors.get("Ceiling").copied();
 
@@ -525,28 +588,33 @@ pub fn spawn_venue(
         // despawning entities as cues fade in and out.
         for emitter in emitters {
             commands.entity(emitter).insert((BeamEmitter { fixture: index }, EmitterState::default()));
-            commands.spawn((
-                FixtureBeam,
-                Mesh3d(beam_cone.clone()),
-                MeshMaterial3d(beams.add(BeamMaterial::new(
-                    LinearRgba::BLACK,
-                    Vec3::ZERO,
-                    Vec3::NEG_Z,
-                    12.5,
-                    1.0,
-                    settings.haze,
-                ))),
-                Transform::default(),
-                Visibility::Hidden,
-                Name::new(format!("{} beam", f.name)),
-                ChildOf(emitter),
-            ));
-            commands.spawn((
+            if settings.beam_style == BeamStyle::Shader {
+                commands.spawn((
+                    FixtureBeam,
+                    Mesh3d(beam_cone.clone()),
+                    MeshMaterial3d(beams.add(BeamMaterial::new(
+                        LinearRgba::BLACK,
+                        Vec3::ZERO,
+                        Vec3::NEG_Z,
+                        12.5,
+                        1.0,
+                        settings.haze,
+                    ))),
+                    Transform::default(),
+                    Visibility::Hidden,
+                    Name::new(format!("{} beam", f.name)),
+                    ChildOf(emitter),
+                ));
+            }
+            let mut spill = commands.spawn((
                 FixtureSpill,
                 SpotLight {
                     intensity: 0.0,
                     range: 40.0,
-                    shadow_maps_enabled: false,
+                    // Volumetric light shafts are raymarched against the
+                    // light's shadow map, so a light with no shadows
+                    // casts no shaft.
+                    shadow_maps_enabled: settings.beam_style == BeamStyle::Volumetric,
                     ..default()
                 },
                 Transform::default(),
@@ -554,6 +622,9 @@ pub fn spawn_venue(
                 Name::new(format!("{} spill", f.name)),
                 ChildOf(emitter),
             ));
+            if settings.beam_style == BeamStyle::Volumetric {
+                spill.insert(VolumetricLight);
+            }
         }
     }
 }
@@ -745,7 +816,7 @@ pub fn update_beams(
                             m.direction_angle =
                                 Vec4::new(direction.x, direction.y, direction.z, state.half_angle_deg);
                             m.origin_length = Vec4::new(origin.x, origin.y, origin.z, length);
-                            m.params = Vec4::new(settings.haze, seconds, 0.0, 0.0);
+                            m.params = Vec4::new(settings.haze * SHADER_HAZE_SCALE, seconds, 0.0, 0.0);
                         }
                     }
                     None => *visibility = Visibility::Hidden,

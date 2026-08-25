@@ -10,6 +10,7 @@
 
 use ignition_viz::gdtf_geometry::GdtfLibrary;
 use ignition_viz::playback::Playback;
+use ignition_viz::spawn::BeamStyle;
 use ignition_viz::{run, Venue, ViewPreset, VizConfig};
 use std::path::PathBuf;
 
@@ -23,11 +24,10 @@ fn main() -> anyhow::Result<()> {
     // spill — and enough haze in the air that beams read as visible
     // shafts rather than invisible cones that only show up where they
     // land.
-    // Higher than the pre-Bevy default (0.35) because the exposure it
-    // was tuned against is gone: beams now render into an HDR target and
-    // go through Bevy's tonemapper and bloom rather than being added
-    // straight onto an already-tonemapped image.
-    let mut haze = 10.0f32;
+    // A hazer's fluid-output dial, roughly 0..2, where 1.0 is a normally
+    // hazed room. Each beam style scales it to whatever its own renderer
+    // wants — see `VizSettings::haze`.
+    let mut haze = 1.0f32;
     // Not zero. A real dark venue genuinely has no ambient fill, but a
     // visualizer the operator is *working* in is not a photograph: with
     // nothing lit you need to still see the stage, the truss and where
@@ -45,6 +45,7 @@ fn main() -> anyhow::Result<()> {
     let mut effect_time: Option<f32> = None;
     let mut gdtf_dir: Option<PathBuf> = None;
     let mut exclude: Vec<String> = Vec::new();
+    let mut beam_style = BeamStyle::Volumetric;
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -54,7 +55,7 @@ fn main() -> anyhow::Result<()> {
             "--view" => view = next("house|stage|top"),
             "--width" => width = next("a number").parse()?,
             "--height" => height = next("a number").parse()?,
-            "--haze" => haze = next("a number, e.g. 0.35").parse()?,
+            "--haze" => haze = next("a number, 0..2, 1.0 = normally hazed").parse()?,
             "--ambient" => ambient = next("a number 0..1").parse()?,
             "--max-universe" => max_universe = next("a number").parse()?,
             "--snapshot" => snapshot = Some(PathBuf::from(next("a path"))),
@@ -85,6 +86,17 @@ fn main() -> anyhow::Result<()> {
             // only the roof, and at Norco the ceiling plane sits below
             // the truss the pars hang from, so it hides the whole rig.
             "--exclude" => exclude.push(next("a name substring")),
+            // How beams in the air are produced: Bevy's own volumetric
+            // fog (haze is a property of the room, shafts fall out of
+            // the lighting), or the hand-drawn additive cone ported from
+            // ASLS. See `BeamStyle`.
+            "--beams" => {
+                beam_style = match next("volumetric|shader").as_str() {
+                    "volumetric" => BeamStyle::Volumetric,
+                    "shader" => BeamStyle::Shader,
+                    other => anyhow::bail!("unknown --beams {other}; use volumetric or shader"),
+                }
+            }
             other => eprintln!("viz: ignoring unknown argument {other}"),
         }
     }
@@ -132,6 +144,7 @@ fn main() -> anyhow::Result<()> {
             settle_frames,
             show_props,
             exclude,
+            beam_style,
         },
         playback,
         gdtf,
