@@ -310,7 +310,7 @@ mod tests {
     /// These tests exercise tracking and fades, none of which need a
     /// venue — the layer-2 path has its own tests below.
     fn bare() -> Show<'static> {
-        Show::new(&[], &|_| None)
+        Show::new(&[], &crate::selection::EMPTY_RIG)
     }
 
     #[test]
@@ -425,7 +425,8 @@ mod tests {
     // -----------------------------------------------------------------
 
     use crate::group::Group;
-    use crate::recipe::{RecipeApply, RecipeTarget};
+    use crate::recipe::RecipeApply;
+    use crate::selection::Selection;
 
     fn pars() -> Vec<Group> {
         vec![Group {
@@ -438,7 +439,7 @@ mod tests {
         Cue {
             name: name.to_string(),
             recipes: vec![Recipe {
-                target: RecipeTarget::Group("Pars".to_string()),
+                target: Selection::Group("Pars".to_string()),
                 apply: RecipeApply::Dimmer(level),
             }],
             ..Default::default()
@@ -448,7 +449,7 @@ mod tests {
     #[test]
     fn a_recipe_on_a_cue_resolves_at_output_time() {
         let groups = pars();
-        let show = Show::new(&groups, &|_| None);
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
         let mut player = CuePlayer::new(vec![recipe_cue("Wash", 0.8)]);
         player.go(&show);
         let out = player.output(&show);
@@ -462,13 +463,13 @@ mod tests {
     fn a_recipe_covers_a_fixture_added_to_its_group_after_loading() {
         let mut player = CuePlayer::new(vec![recipe_cue("Wash", 1.0)]);
         let before = pars();
-        player.go(&Show::new(&before, &|_| None));
+        player.go(&Show::new(&before, &crate::selection::EMPTY_RIG));
 
         let after = vec![Group {
             name: "Pars".to_string(),
             chans: vec![1, 2, 3, 4],
         }];
-        let grown = Show::new(&after, &|_| None);
+        let grown = Show::new(&after, &crate::selection::EMPTY_RIG);
         // Re-firing is the cook that picks up the new fixture.
         let mut player2 = CuePlayer::new(vec![recipe_cue("Wash", 1.0)]);
         player2.go(&grown);
@@ -483,7 +484,7 @@ mod tests {
     #[test]
     fn a_direct_value_beats_a_recipe_on_the_same_cue() {
         let groups = pars();
-        let show = Show::new(&groups, &|_| None);
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
         let mut cue = recipe_cue("Wash", 0.8);
         cue.values = vec![CueValue {
             chan: 2,
@@ -505,7 +506,7 @@ mod tests {
     #[test]
     fn a_later_cues_recipe_supersedes_an_earlier_ones() {
         let groups = pars();
-        let show = Show::new(&groups, &|_| None);
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
         let mut player = CuePlayer::new(vec![recipe_cue("A", 0.2), recipe_cue("B", 0.9)]);
         player.go(&show);
         player.go(&show);
@@ -518,7 +519,7 @@ mod tests {
     #[test]
     fn a_recipe_tracks_forward_through_a_cue_that_does_not_mention_it() {
         let groups = pars();
-        let show = Show::new(&groups, &|_| None);
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
         let mut player = CuePlayer::new(vec![
             recipe_cue("Wash", 0.7),
             cue("Something Else", 0.0, vec![(9, Attribute::Dimmer, 1.0)]),
@@ -534,7 +535,7 @@ mod tests {
     #[test]
     fn a_block_cue_drops_everything_it_does_not_set() {
         let groups = pars();
-        let show = Show::new(&groups, &|_| None);
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
         let mut blocked = cue("Fresh", 0.0, vec![(9, Attribute::Dimmer, 1.0)]);
         blocked.block = true;
         let mut player = CuePlayer::new(vec![recipe_cue("Wash", 0.7), blocked]);
@@ -550,7 +551,7 @@ mod tests {
     #[test]
     fn superseded_recipes_are_dropped_rather_than_accumulating() {
         let groups = pars();
-        let show = Show::new(&groups, &|_| None);
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
         let cues: Vec<Cue> = (0..20)
             .map(|i| recipe_cue("Wash", i as f32 / 20.0))
             .collect();

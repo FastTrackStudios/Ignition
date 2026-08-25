@@ -12,7 +12,7 @@ use crate::show::{apply_cue_output, tick_and_apply, tick_and_apply_effects};
 use crate::spawn::{DmxRes, VenueRes};
 use crate::venue::Venue;
 use bevy::prelude::*;
-use ignition_core::{CueList, CuePlayer, EffectList, EffectPlayer, Group, Show};
+use ignition_core::{CueList, CuePlayer, EffectList, EffectPlayer, Group, Rig, Show};
 use std::path::Path;
 
 /// A loaded show, if the CLI was given one.
@@ -25,6 +25,9 @@ pub struct Playback {
     /// re-parsing 127 channel-range strings per frame to do it would be
     /// a silly way to spend the budget that decision bought.
     pub groups: Vec<Group>,
+    /// The patched rig, likewise resolved once — `Selection::Tag` and the
+    /// spatial filters resolve against this every frame.
+    pub rig: Rig,
     /// Effects run continuously from the moment they load; an
     /// `EffectRecipe` is a function of time, not a stepped state.
     pub effects: Option<EffectPlayer>,
@@ -58,10 +61,11 @@ impl Playback {
         );
 
         let groups = venue.groups();
+        let rig = venue.rig();
         let show = Show {
             groups: &groups,
             palettes: &venue.palettes,
-            placement: &|chan| venue.placement_of(chan),
+            rig: &rig,
         };
 
         let cues: Option<CuePlayer> = match cuelist.or(recipes) {
@@ -107,6 +111,7 @@ impl Playback {
         let mut playback = Self {
             cues,
             groups,
+            rig,
             effects,
         };
         if let (Some(player), Some(t)) = (playback.effects.as_mut(), effect_time) {
@@ -136,21 +141,22 @@ pub fn tick_playback(
     let Playback {
         cues,
         groups,
+        rig,
         effects,
     } = &mut *playback;
+    let venue = &venue.0;
+    let show = Show {
+        groups,
+        palettes: &venue.palettes,
+        rig,
+    };
     if let Some(player) = cues.as_mut() {
-        let venue = &venue.0;
-        let show = Show {
-            groups,
-            palettes: &venue.palettes,
-            placement: &|chan| venue.placement_of(chan),
-        };
         tick_and_apply(&dmx.0, venue, player, dt, &show);
     }
     if let Some(player) = effects.as_mut() {
         // Layered after cues, so a running effect modifies whatever the
         // current cue set rather than being overwritten by it.
-        tick_and_apply_effects(&dmx.0, &venue.0, player, dt);
+        tick_and_apply_effects(&dmx.0, venue, player, dt, rig);
     }
 }
 
@@ -164,13 +170,15 @@ pub fn go_on_space(
     if !keys.just_pressed(KeyCode::Space) {
         return;
     }
-    let Playback { cues, groups, .. } = &mut *playback;
+    let Playback {
+        cues, groups, rig, ..
+    } = &mut *playback;
     if let Some(player) = cues.as_mut() {
         let venue = &venue.0;
         let show = Show {
             groups,
             palettes: &venue.palettes,
-            placement: &|chan| venue.placement_of(chan),
+            rig,
         };
         player.go(&show);
         info!("cue -> {:?}", player.current_name());

@@ -292,6 +292,27 @@ impl Venue {
             .collect()
     }
 
+    /// The patched rig in the flat shape `ignition_core::selection`
+    /// resolves against — position, model and tags per channel, which is
+    /// what makes `Selection::Tag`/`Model` and the spatial filters and
+    /// orders answerable. Built once by the loader, not per frame.
+    pub fn rig(&self) -> ignition_core::Rig {
+        ignition_core::Rig::new(
+            self.fixtures
+                .iter()
+                .filter_map(|f| {
+                    Some(ignition_core::FixtureInfo {
+                        chan: f.chan?,
+                        placement: Some(f.placement()),
+                        manufacturer: f.manufacturer.clone().unwrap_or_default(),
+                        model: f.model.clone().unwrap_or_default(),
+                        tags: f.tags.clone(),
+                    })
+                })
+                .collect(),
+        )
+    }
+
     /// A patched channel's real `Placement`, for `ignition_core::recipe`'s
     /// Focus Point expansion — `None` for a channel with no matching
     /// fixture (an unpatched or out-of-range `chan`).

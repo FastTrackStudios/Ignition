@@ -97,10 +97,11 @@ pub fn tick_and_apply_effects(
     venue: &Venue,
     player: &mut ignition_core::EffectPlayer,
     dt_secs: f32,
+    rig: &ignition_core::Rig,
 ) {
     player.tick(dt_secs);
     let groups = venue.groups();
-    apply_cue_output(dmx, venue, &player.output(&groups));
+    apply_cue_output(dmx, venue, &player.output(&groups, rig));
 }
 
 #[cfg(test)]
@@ -163,7 +164,7 @@ mod tests {
             ],
             ..Default::default()
         }]);
-        let show = Show::new(&[], &|_| None);
+        let show = Show::new(&[], &ignition_core::selection::EMPTY_RIG);
         player.go(&show);
         apply_cue_output(&dmx, &venue, &player.output(&show));
 

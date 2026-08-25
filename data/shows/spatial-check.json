@@ -1,0 +1,452 @@
+{
+  "name": "Spatial Selection Check",
+  "cues": [
+    {
+      "name": "Blackout",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": []
+    },
+    {
+      "name": "Band 1",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": -6.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": -4.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": -6.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": -4.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        }
+      ]
+    },
+    {
+      "name": "Band 2",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": -4.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": -2.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": -4.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": -2.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        }
+      ]
+    },
+    {
+      "name": "Band 3",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": -2.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": 0.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": -2.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": 0.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        }
+      ]
+    },
+    {
+      "name": "Band 4",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": 0.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": 2.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": 0.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": 2.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        }
+      ]
+    },
+    {
+      "name": "Band 5",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": 2.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": 4.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": 2.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": 4.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        }
+      ]
+    },
+    {
+      "name": "Band 6",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": 4.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": 6.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Within": {
+                  "min": {
+                    "x": 4.0,
+                    "y": -20.0,
+                    "z": 2.0
+                  },
+                  "max": {
+                    "x": 6.0,
+                    "y": 10.0,
+                    "z": 5.0
+                  }
+                }
+              }
+            }
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.35
+          }
+        }
+      ]
+    },
+    {
+      "name": "Movers by model",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Color": "Cyan"
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "FocusPoint": "Audience Back"
+          }
+        },
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -18,7 +18,7 @@
 //! rule as `cue.rs`: `tick(dt_secs)` takes elapsed time as data.
 
 use crate::group::Group;
-use crate::recipe::{RecipeTarget, resolve_target};
+use crate::selection::{Rig, Selection, resolve};
 use ignition_proto::{Attribute, ChanId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -96,7 +96,7 @@ fn default_direction() -> EffectDirection {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EffectRecipe {
     pub name: String,
-    pub target: RecipeTarget,
+    pub target: Selection,
     pub attr: Attribute,
     pub waveform: Waveform,
     pub rate_hz: f32,
@@ -170,10 +170,10 @@ impl EffectPlayer {
     /// effect. Two effects targeting the same `(chan, attr)` — last one in
     /// `effects` wins, same convention `CuePlayer::go()` uses when folding
     /// a cue's values into its tracked state.
-    pub fn output(&self, groups: &[Group]) -> HashMap<(ChanId, Attribute), f32> {
+    pub fn output(&self, groups: &[Group], rig: &Rig) -> HashMap<(ChanId, Attribute), f32> {
         let mut out = HashMap::new();
         for effect in &self.effects {
-            let chans = resolve_target(&effect.target, groups);
+            let chans = resolve(&effect.target, groups, rig);
             let n = chans.len();
             for (i, chan) in chans.into_iter().enumerate() {
                 let value = effect.value_at(i, n, self.elapsed);
@@ -216,7 +216,7 @@ mod tests {
     fn a_full_spread_chase_offsets_each_fixture_differently() {
         let player = EffectPlayer::new(vec![EffectRecipe {
             name: "Chase".to_string(),
-            target: RecipeTarget::Group("Pars".to_string()),
+            target: Selection::Group("Pars".to_string()),
             attr: Attribute::Dimmer,
             waveform: Waveform::Sine,
             rate_hz: 1.0,
@@ -226,7 +226,7 @@ mod tests {
             phase_offset_deg: 0.0,
             direction: EffectDirection::Forward,
         }]);
-        let out = player.output(&groups());
+        let out = player.output(&groups(), &crate::selection::EMPTY_RIG);
         let v1 = *out.get(&(1, Attribute::Dimmer)).unwrap();
         let v2 = *out.get(&(2, Attribute::Dimmer)).unwrap();
         let v3 = *out.get(&(3, Attribute::Dimmer)).unwrap();
@@ -240,7 +240,7 @@ mod tests {
     fn zero_spread_moves_every_fixture_in_lockstep() {
         let player = EffectPlayer::new(vec![EffectRecipe {
             name: "Pulse".to_string(),
-            target: RecipeTarget::Group("Pars".to_string()),
+            target: Selection::Group("Pars".to_string()),
             attr: Attribute::Dimmer,
             waveform: Waveform::Sine,
             rate_hz: 1.0,
@@ -250,7 +250,7 @@ mod tests {
             phase_offset_deg: 0.0,
             direction: EffectDirection::Forward,
         }]);
-        let out = player.output(&groups());
+        let out = player.output(&groups(), &crate::selection::EMPTY_RIG);
         let v1 = *out.get(&(1, Attribute::Dimmer)).unwrap();
         let v4 = *out.get(&(4, Attribute::Dimmer)).unwrap();
         assert!(
@@ -263,7 +263,7 @@ mod tests {
     fn tick_advances_the_waveform_over_time() {
         let mut player = EffectPlayer::new(vec![EffectRecipe {
             name: "Pulse".to_string(),
-            target: RecipeTarget::Chans(vec![1]),
+            target: Selection::Chans(vec![1]),
             attr: Attribute::Dimmer,
             waveform: Waveform::RampUp,
             rate_hz: 1.0,
@@ -273,9 +273,15 @@ mod tests {
             phase_offset_deg: 0.0,
             direction: EffectDirection::Forward,
         }]);
-        let before = *player.output(&[]).get(&(1, Attribute::Dimmer)).unwrap();
+        let before = *player
+            .output(&[], &crate::selection::EMPTY_RIG)
+            .get(&(1, Attribute::Dimmer))
+            .unwrap();
         player.tick(0.25); // a quarter cycle at 1Hz
-        let after = *player.output(&[]).get(&(1, Attribute::Dimmer)).unwrap();
+        let after = *player
+            .output(&[], &crate::selection::EMPTY_RIG)
+            .get(&(1, Attribute::Dimmer))
+            .unwrap();
         assert!(
             after > before,
             "a ramp should have risen after ticking forward"
@@ -288,7 +294,7 @@ mod tests {
         // effects, same rate, 90 degrees apart, sine on each axis.
         let mut pan = EffectPlayer::new(vec![EffectRecipe {
             name: "Pan".to_string(),
-            target: RecipeTarget::Chans(vec![1]),
+            target: Selection::Chans(vec![1]),
             attr: Attribute::Pan,
             waveform: Waveform::Sine,
             rate_hz: 1.0,
@@ -300,7 +306,7 @@ mod tests {
         }]);
         let mut tilt = EffectPlayer::new(vec![EffectRecipe {
             name: "Tilt".to_string(),
-            target: RecipeTarget::Chans(vec![1]),
+            target: Selection::Chans(vec![1]),
             attr: Attribute::Tilt,
             waveform: Waveform::Sine,
             rate_hz: 1.0,
@@ -312,8 +318,14 @@ mod tests {
         }]);
         // At t=0: pan should be at its base (sine(0)=0), tilt should be at
         // its peak (sine(0.25 cycle)=1) — the two axes 90 degrees apart.
-        let pan_v = *pan.output(&[]).get(&(1, Attribute::Pan)).unwrap();
-        let tilt_v = *tilt.output(&[]).get(&(1, Attribute::Tilt)).unwrap();
+        let pan_v = *pan
+            .output(&[], &crate::selection::EMPTY_RIG)
+            .get(&(1, Attribute::Pan))
+            .unwrap();
+        let tilt_v = *tilt
+            .output(&[], &crate::selection::EMPTY_RIG)
+            .get(&(1, Attribute::Tilt))
+            .unwrap();
         assert!(pan_v.abs() < 0.5, "pan should start near its base");
         assert!(
             (tilt_v - 30.0).abs() < 0.5,
@@ -321,8 +333,14 @@ mod tests {
         );
         pan.tick(0.25);
         tilt.tick(0.25);
-        let pan_v2 = *pan.output(&[]).get(&(1, Attribute::Pan)).unwrap();
-        let tilt_v2 = *tilt.output(&[]).get(&(1, Attribute::Tilt)).unwrap();
+        let pan_v2 = *pan
+            .output(&[], &crate::selection::EMPTY_RIG)
+            .get(&(1, Attribute::Pan))
+            .unwrap();
+        let tilt_v2 = *tilt
+            .output(&[], &crate::selection::EMPTY_RIG)
+            .get(&(1, Attribute::Tilt))
+            .unwrap();
         assert!(
             (pan_v2 - 30.0).abs() < 0.5,
             "a quarter cycle later, pan should be at its own peak"

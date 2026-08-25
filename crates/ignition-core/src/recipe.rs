@@ -22,25 +22,11 @@
 
 use crate::cue::{Cue, CueValue};
 use crate::focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
-use crate::group::{self, Group};
+use crate::group::Group;
 use crate::preset::{ColorPreset, Palettes, Ref};
-use ignition_proto::{Attribute, ChanId, ColorChannel, Placement};
+use crate::selection::{Rig, Selection, resolve, unresolved_names};
+use ignition_proto::{Attribute, ColorChannel};
 use serde::{Deserialize, Serialize};
-
-/// Who a recipe applies to.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum RecipeTarget {
-    /// Looked up by name against the venue's real groups
-    /// (`ignition_viz::venue::Venue::groups`, sourced from Eos's own
-    /// `groups.json`) — unknown name resolves to no fixtures rather than
-    /// erroring, matching this project's existing "falls back to nothing
-    /// rather than panicking" tolerance for unresolvable references
-    /// (`channel_map_for`, `shape_for`, ...).
-    Group(String),
-    /// An explicit, inline channel list — for a one-off cue that doesn't
-    /// warrant naming a reusable group.
-    Chans(Vec<ChanId>),
-}
 
 /// What to apply to the target.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -70,7 +56,7 @@ pub enum RecipeApply {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Recipe {
-    pub target: RecipeTarget,
+    pub target: Selection,
     pub apply: RecipeApply,
 }
 
@@ -80,48 +66,33 @@ pub struct Recipe {
 /// Bundled into one struct rather than passed as three parallel
 /// arguments because every one of them is a property of the *venue*, they
 /// are always supplied together, and effects will want the same set.
-/// `placement` stays a function rather than a table so `ignition-core`
-/// keeps its no-I/O rule — `ignition_viz` supplies the real one, backed
-/// by `Venue::fixtures`.
+/// `rig` is flat records rather than a venue-loader callback, so
+/// `ignition-core` keeps its no-I/O rule while still being able to answer
+/// "which fixtures are tagged `mover`" — a question a
+/// `Fn(ChanId) -> Placement` closure cannot be asked, and the reason
+/// `Selection::Tag`/`Model` are possible at all.
 pub struct Show<'a> {
     pub groups: &'a [Group],
     pub palettes: &'a Palettes,
-    pub placement: &'a dyn Fn(ChanId) -> Option<Placement>,
+    pub rig: &'a Rig,
 }
 
 impl<'a> Show<'a> {
     /// A show with no palettes — for tests and for a venue that has not
     /// been given a palette file yet.
-    pub fn new(groups: &'a [Group], placement: &'a dyn Fn(ChanId) -> Option<Placement>) -> Self {
+    pub fn new(groups: &'a [Group], rig: &'a Rig) -> Self {
         Self {
             groups,
             palettes: Palettes::EMPTY,
-            placement,
+            rig,
         }
     }
 }
 
-/// Resolves a target to its real channel list — `pub(crate)` so
-/// `phaser.rs` can share the exact same Group/Chans resolution a static
-/// `Recipe` uses, rather than re-implementing it.
-pub(crate) fn resolve_target(target: &RecipeTarget, groups: &[Group]) -> Vec<ChanId> {
-    match target {
-        RecipeTarget::Chans(chans) => chans.clone(),
-        RecipeTarget::Group(name) => group::find(groups, name)
-            .map(|g| g.chans.clone())
-            .unwrap_or_default(),
-    }
-}
-
-/// Expands one `Recipe` into the concrete `CueValue`s it produces for every
-/// channel in its resolved target. `placement`, used only by `FocusPoint`,
-/// looks up a channel's real hung position/orientation — kept as a
-/// caller-supplied function rather than a field so this stays free of any
-/// venue-loading/I-O knowledge (`ignition-core`'s own "no I/O" rule — see
-/// `cue.rs`'s module doc); `ignition_viz` supplies the real one, backed by
-/// `Venue::fixtures`.
+/// Expands one `Recipe` into the concrete `CueValue`s it produces for
+/// every channel in its resolved selection.
 pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>) -> Vec<CueValue> {
-    let chans = resolve_target(&recipe.target, show.groups);
+    let chans = resolve(&recipe.target, show.groups, show.rig);
     let mut out = Vec::new();
     for chan in chans {
         match &recipe.apply {
@@ -160,7 +131,7 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>) -> Vec<CueValue> {
                 let Some(target) = show.palettes.resolve_focus(reference) else {
                     continue;
                 };
-                if let Some(p) = (show.placement)(chan) {
+                if let Some(p) = show.rig.placement(chan) {
                     let (pan, tilt) = pan_tilt_deg_to_point(p.position, p.orientation, target);
                     out.push(CueValue {
                         chan,
@@ -175,7 +146,7 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>) -> Vec<CueValue> {
                 }
             }
             RecipeApply::FocusDirection(dir) => {
-                if let Some(p) = (show.placement)(chan) {
+                if let Some(p) = show.rig.placement(chan) {
                     let (pan, tilt) = pan_tilt_deg_along(p.orientation, *dir);
                     out.push(CueValue {
                         chan,
@@ -217,10 +188,8 @@ pub fn unresolved(cues: &[Cue], show: &Show<'_>) -> Vec<String> {
     let mut out = Vec::new();
     for cue in cues {
         for recipe in &cue.recipes {
-            if let RecipeTarget::Group(name) = &recipe.target
-                && group::find(show.groups, name).is_none()
-            {
-                out.push(format!("cue {:?}: no group named {:?}", cue.name, name));
+            for problem in unresolved_names(&recipe.target, show.groups, show.rig) {
+                out.push(format!("cue {:?}: {problem}", cue.name));
             }
             match &recipe.apply {
                 RecipeApply::Color(Ref::Named(name)) if show.palettes.color(name).is_none() => {
@@ -243,7 +212,8 @@ pub fn unresolved(cues: &[Cue], show: &Show<'_>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ignition_proto::{Quat, Vec3};
+    use crate::selection::{FixtureInfo, Rig};
+    use ignition_proto::{Placement, Quat, Vec3};
 
     fn groups() -> Vec<Group> {
         vec![Group {
@@ -255,10 +225,10 @@ mod tests {
     #[test]
     fn a_group_target_resolves_to_its_real_channels() {
         let recipe = Recipe {
-            target: RecipeTarget::Group("Pars".to_string()),
+            target: Selection::Group("Pars".to_string()),
             apply: RecipeApply::Dimmer(0.8),
         };
-        let values = expand_recipe(&recipe, &Show::new(&groups(), &|_| None));
+        let values = expand_recipe(&recipe, &Show::new(&groups(), &crate::selection::EMPTY_RIG));
         assert_eq!(values.len(), 3);
         assert!(
             values
@@ -273,16 +243,18 @@ mod tests {
     #[test]
     fn an_unknown_group_name_resolves_to_no_fixtures_not_an_error() {
         let recipe = Recipe {
-            target: RecipeTarget::Group("Nonexistent".to_string()),
+            target: Selection::Group("Nonexistent".to_string()),
             apply: RecipeApply::Dimmer(1.0),
         };
-        assert!(expand_recipe(&recipe, &Show::new(&groups(), &|_| None)).is_empty());
+        assert!(
+            expand_recipe(&recipe, &Show::new(&groups(), &crate::selection::EMPTY_RIG)).is_empty()
+        );
     }
 
     #[test]
     fn a_color_recipe_emits_red_green_blue_per_channel() {
         let recipe = Recipe {
-            target: RecipeTarget::Chans(vec![5]),
+            target: Selection::Chans(vec![5]),
             apply: RecipeApply::Color(Ref::Inline(ColorPreset {
                 name: "Amber".to_string(),
                 red: 1.0,
@@ -290,7 +262,7 @@ mod tests {
                 blue: 0.0,
             })),
         };
-        let values = expand_recipe(&recipe, &Show::new(&[], &|_| None));
+        let values = expand_recipe(&recipe, &Show::new(&[], &crate::selection::EMPTY_RIG));
         assert_eq!(values.len(), 3);
         assert!(values.iter().any(|v| v.attr
             == Attribute::ColorAdd {
@@ -325,23 +297,21 @@ mod tests {
             },
         };
         let recipe = Recipe {
-            target: RecipeTarget::Chans(vec![7]),
+            target: Selection::Chans(vec![7]),
             apply: RecipeApply::FocusPoint(Ref::Inline(Vec3 {
                 x: 0.0,
                 y: 0.0,
                 z: -5.0,
             })), // straight below
         };
-        let values = expand_recipe(
-            &recipe,
-            &Show::new(&[], &|chan| {
-                if chan == 7 {
-                    Some(placement.clone())
-                } else {
-                    None
-                }
-            }),
-        );
+        let rig = Rig::new(vec![FixtureInfo {
+            chan: 7,
+            placement: Some(placement),
+            manufacturer: String::new(),
+            model: String::new(),
+            tags: Vec::new(),
+        }]);
+        let values = expand_recipe(&recipe, &Show::new(&[], &rig));
         let pan = values.iter().find(|v| v.attr == Attribute::Pan).unwrap();
         let tilt = values.iter().find(|v| v.attr == Attribute::Tilt).unwrap();
         assert!(pan.value.abs() < 0.5);
@@ -351,14 +321,14 @@ mod tests {
     #[test]
     fn a_focus_point_recipe_skips_a_channel_with_no_known_placement() {
         let recipe = Recipe {
-            target: RecipeTarget::Chans(vec![99]),
+            target: Selection::Chans(vec![99]),
             apply: RecipeApply::FocusPoint(Ref::Inline(Vec3 {
                 x: 0.0,
                 y: 0.0,
                 z: 0.0,
             })),
         };
-        assert!(expand_recipe(&recipe, &Show::new(&[], &|_| None)).is_empty());
+        assert!(expand_recipe(&recipe, &Show::new(&[], &crate::selection::EMPTY_RIG)).is_empty());
     }
 
     fn palettes() -> Palettes {
@@ -383,14 +353,14 @@ mod tests {
     #[test]
     fn a_named_colour_resolves_against_the_venues_palette() {
         let recipe = Recipe {
-            target: RecipeTarget::Chans(vec![5]),
+            target: Selection::Chans(vec![5]),
             apply: RecipeApply::Color(Ref::Named("House Blue".to_string())),
         };
         let pool = palettes();
         let show = Show {
             groups: &[],
             palettes: &pool,
-            placement: &|_| None,
+            rig: &crate::selection::EMPTY_RIG,
         };
         let values = expand_recipe(&recipe, &show);
         assert_eq!(values.len(), 3);
@@ -408,7 +378,7 @@ mod tests {
         let cue = Cue {
             name: "Oops".to_string(),
             recipes: vec![Recipe {
-                target: RecipeTarget::Chans(vec![5]),
+                target: Selection::Chans(vec![5]),
                 apply: RecipeApply::Color(Ref::Named("Chartreuse".to_string())),
             }],
             ..Default::default()
@@ -417,7 +387,7 @@ mod tests {
         let show = Show {
             groups: &[],
             palettes: &pool,
-            placement: &|_| None,
+            rig: &crate::selection::EMPTY_RIG,
         };
         assert!(
             cue.recipes
