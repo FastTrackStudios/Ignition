@@ -10,9 +10,22 @@ repository.workspace = true
 # project. Separate from `ignition-core` because core has a no-I/O rule,
 # and separate from `ignition-viz` because a song map is not a rendering
 # concern.
+[features]
+default = []
+# Actually playing the project — the standalone DAW backend, its RPP
+# loader and a cpal output stream. Off by default because reading a
+# song's shape is cheap and this is not: it pulls audio decoding, a
+# device backend and a render graph, none of which a tool that only
+# wants the section list should pay for.
+play = ["dep:daw-proto", "dep:tracing-subscriber", "dep:tokio", "daw/standalone-rpp"]
+
 [dependencies]
 ignition-core.workspace = true
 daw.workspace = true
+daw-proto = { path = "../../../FastTrackStudio/crates/daw/proto", optional = true }
 anyhow = "1"
 serde.workspace = true
 serde_json.workspace = true
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true }

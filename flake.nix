@@ -89,6 +89,11 @@
             # dev shell is shared.
             fontconfig
             freetype
+            # The standalone DAW backend's audio output. PipeWire is its
+            # default engine on Linux, and `libspa-sys` builds against
+            # the headers rather than dlopening — so this is needed to
+            # compile, not only to run.
+            pipewire
             # `dx serve` turns on the full `dioxus/native` feature set,
             # which brings Blitz's networking (remote images, devtools)
             # and therefore `openssl-sys`. A plain `cargo build` of the

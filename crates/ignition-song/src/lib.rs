@@ -15,6 +15,11 @@
 //! Today the format is REAPER's. The `.daw` format is the target, and
 //! it goes through the same crate.
 
+#[cfg(feature = "play")]
+pub mod transport;
+#[cfg(feature = "play")]
+pub use transport::SongTransport;
+
 pub mod generate;
 pub use generate::{Kind, Roles, generate};
 
