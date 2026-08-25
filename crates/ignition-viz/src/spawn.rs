@@ -44,12 +44,14 @@ const VOLUMETRIC_HAZE_SCALE: f32 = 0.11;
 /// multiplier on an additive material rather than a density.
 const SHADER_HAZE_SCALE: f32 = 10.0;
 
-/// How brightly a dark fixture's housing glows in its own kind colour —
-/// enough to find it in a blacked-out room, not enough to look lit.
-const DARK_BODY_GLOW: f32 = 1.6;
-
 /// How brightly a lit fixture's housing glows in the colour it is
-/// emitting, at full dimmer. Well above 1 so bloom haloes the lens.
+/// emitting, at full dimmer. Well above 1 so bloom haloes the lens the
+/// way a real one does.
+///
+/// A *dark* fixture emits nothing. It briefly had a faint always-on glow
+/// so the rig could be found in a blacked-out room, which is no longer
+/// needed now the fixtures actually light it — and a housing that glows
+/// when its lamp is off is not something any fixture does.
 const LIT_BODY_GLOW: f32 = 14.0;
 
 /// How far below the surface a rigged fixture hangs — clearance for the
@@ -208,12 +210,14 @@ pub struct EmitterState {
 /// A fixture's housing material, so its body can show what it is
 /// currently doing.
 ///
-/// A dark fixture glows faintly in its own kind colour just to be
-/// findable in a blacked-out room; a lit one glows in the colour it is
-/// actually putting out. Without this the rig looks identical whether it
-/// is on or off, which was reported as "I don't really see all the
-/// ceiling pars on" — the light was there, but nothing about the
-/// fixtures said which of them were producing it.
+/// A lit fixture glows in the colour it is actually putting out; a dark
+/// one emits nothing. Without this the rig looks identical whether it is
+/// on or off, which was reported as "I don't really see all the ceiling
+/// pars on" — the light was there, but nothing about the fixtures said
+/// which of them were producing it.
+///
+/// `kind_color` is kept for the housing's own base colour, which is what
+/// the rig's own light falls on.
 #[derive(Component)]
 pub struct FixtureBody {
     pub material: Handle<StandardMaterial>,
@@ -294,10 +298,9 @@ pub fn spawn_venue(
     };
     /// Room geometry emits nothing; only the rig lights it.
     const UNLIT: f32 = 0.0;
-    /// A fixture's own housing, so the rig is visible in the dark. This
-    /// is only the spawn-time value; `update_fixture_bodies` takes over
-    /// once there is live data.
-    const FIXTURE_GLOW: f32 = DARK_BODY_GLOW;
+    /// Fixtures start dark; `update_fixture_bodies` lights a housing
+    /// once its own lamp is up.
+    const FIXTURE_GLOW: f32 = 0.0;
 
     for g in &venue.room {
         if settings.skip(&g.name) {
@@ -979,14 +982,9 @@ pub fn update_fixture_bodies(
                 let gain = live.dimmer * LIT_BODY_GLOW;
                 LinearRgba::rgb(c[0] * gain, c[1] * gain, c[2] * gain)
             }
-            _ => {
-                let base = LinearRgba::from(body.kind_color);
-                LinearRgba::rgb(
-                    base.red * DARK_BODY_GLOW,
-                    base.green * DARK_BODY_GLOW,
-                    base.blue * DARK_BODY_GLOW,
-                )
-            }
+            // Dark: emits nothing, and is lit only by whatever else in
+            // the rig happens to fall on it.
+            _ => LinearRgba::BLACK,
         };
 
         if let Some(mut material) = materials.get_mut(&body.material) {
