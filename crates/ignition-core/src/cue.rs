@@ -23,6 +23,7 @@
 //! fixture re-stated in every cue, just the deltas), and is why `target`
 //! below is cumulative across `go()` calls rather than reset per cue.
 
+use crate::music::Bars;
 use crate::recipe::{Recipe, Show, expand_recipe};
 use ignition_proto::{Attribute, ChanId};
 use serde::{Deserialize, Serialize};
@@ -65,6 +66,15 @@ pub struct Cue {
     /// inherit the bridge's leftovers).
     #[serde(default)]
     pub block: bool,
+    /// Where this cue sits in the song, if it belongs to one.
+    ///
+    /// Optional, and *alongside* list order rather than instead of it.
+    /// `at` is what a clock uses; order is what a person pressing GO
+    /// uses; both land in the same state. That is the whole of "losing
+    /// backing tracks must not mean losing lighting" — see
+    /// `docs/domain/musical-time-cues.md`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<Bars>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -74,13 +84,6 @@ pub struct CueList {
     pub cues: Vec<Cue>,
 }
 
-/// Plays a `CueList` forward, one `go()` at a time, holding the interpolated
-/// output for whatever moment `output_at` is asked for. Has no concept of
-/// wall-clock time itself (`no_std`-friendly, matches `ignition-core`'s own
-/// aspiration — see `lib.rs`) — the caller drives it with elapsed seconds
-/// each tick, the same way `daw-audio-graph`-style processing crates in the
-/// sibling FastTrackStudio repo are always handed time as data rather than
-/// reading a clock themselves.
 /// Where a tracked attribute's value comes from.
 ///
 /// Tracking carries the *source*, not a number, because a recipe is a
@@ -132,6 +135,13 @@ impl Stage {
 /// several times over; the alternative is an unbounded stack.
 const MAX_FADES: usize = 8;
 
+/// Plays a `CueList`, either stepped by `go()` or driven by `seek()`.
+///
+/// Has no concept of wall-clock time itself (`no_std`-friendly, matching
+/// `ignition-core`'s own aspiration — see `lib.rs`): the caller hands it
+/// elapsed seconds each tick, and a musical position if there is one,
+/// the same way processing crates in the sibling FastTrackStudio tree
+/// are always given time as data rather than reading a clock.
 pub struct CuePlayer {
     cues: Vec<Cue>,
     /// Index of the cue currently playing/played-into, or `None` before the
@@ -244,6 +254,59 @@ impl CuePlayer {
                 break; // ran off the end of the list
             }
         }
+    }
+
+    /// The index of the last cue at or before a musical position.
+    ///
+    /// Cues without an `at` are invisible to this: a list can mix
+    /// positioned cues with hand-only ones, and the unpositioned ones
+    /// simply never come up under a clock.
+    pub fn index_at(&self, position: Bars) -> Option<usize> {
+        self.cues
+            .iter()
+            .enumerate()
+            .filter(|(_, cue)| cue.at.is_some_and(|at| at <= position))
+            .map(|(i, _)| i)
+            .next_back()
+    }
+
+    /// Puts playback where a musical position says it should be.
+    ///
+    /// This — not `go` — is what makes a synced show survive being
+    /// looped, restarted, or jumped around in. An event-driven player
+    /// that has been *told* to fire cues 1..9 has no answer to "we went
+    /// back to bar 22" except replaying its own history. Asking instead
+    /// "what is the state at bar 22" has one answer, and it is the same
+    /// answer however you arrived.
+    ///
+    /// Cheap to call every frame: it returns immediately unless the
+    /// position implies a different cue than the one already current.
+    /// Seeking *backwards* rebuilds from the top of the list, because
+    /// tracking means a cue's state is the sum of everything before it.
+    pub fn seek(&mut self, position: Bars, show: &Show<'_>) {
+        let Some(target) = self.index_at(position) else {
+            // Before the first positioned cue — nothing has happened yet.
+            if self.current.is_some() {
+                self.reset();
+            }
+            return;
+        };
+        if self.current == Some(target) {
+            return;
+        }
+        if self.current.is_none_or(|current| current > target) {
+            self.reset();
+        }
+        self.jump_to_end_of(target, show);
+    }
+
+    /// Back to before the first cue, keeping the show clock — a phaser
+    /// that is running should not restart because the operator jumped
+    /// the transport.
+    fn reset(&mut self) {
+        self.current = None;
+        self.stack.clear();
+        self.active.clear();
     }
 
     pub fn tick(&mut self, dt_secs: f32) {
@@ -834,5 +897,136 @@ mod tests {
             player.go(&show);
         }
         assert!(player.stack.len() <= MAX_FADES, "{}", player.stack.len());
+    }
+
+    // -----------------------------------------------------------------
+    // Musical position
+    // -----------------------------------------------------------------
+
+    /// A cue at a bar, setting one channel to a recognisable level.
+    fn at_bar(bar: u32, level: f32) -> Cue {
+        Cue {
+            name: format!("bar {bar}"),
+            values: vec![CueValue {
+                chan: 1,
+                attr: Attribute::Dimmer,
+                value: level,
+            }],
+            at: Some(Bars::bar(bar)),
+            ..Default::default()
+        }
+    }
+
+    fn song() -> Vec<Cue> {
+        vec![
+            at_bar(1, 0.1),
+            at_bar(11, 0.2),
+            at_bar(23, 0.3),
+            at_bar(31, 0.4),
+        ]
+    }
+
+    fn level(player: &CuePlayer, show: &Show<'_>) -> Option<f32> {
+        player.output(show).get(&(1, Attribute::Dimmer)).copied()
+    }
+
+    #[test]
+    fn seeking_lands_on_the_last_cue_at_or_before_the_position() {
+        let show = bare();
+        let mut player = CuePlayer::new(song());
+        player.seek(Bars::bar(23), &show);
+        assert_eq!(level(&player, &show), Some(0.3));
+        // Mid-section stays on the section's cue.
+        player.seek(Bars::new(27, 2.5), &show);
+        assert_eq!(level(&player, &show), Some(0.3));
+    }
+
+    /// The point of position-addressing: a jump backwards has to land in
+    /// the same state as arriving there forwards. An event-driven player
+    /// cannot do this without replaying its own history.
+    #[test]
+    fn seeking_backwards_lands_where_playing_forwards_would() {
+        let show = bare();
+        let mut forwards = CuePlayer::new(song());
+        forwards.seek(Bars::bar(11), &show);
+        let expected = level(&forwards, &show);
+
+        let mut jumped = CuePlayer::new(song());
+        jumped.seek(Bars::bar(31), &show);
+        jumped.seek(Bars::bar(11), &show);
+        assert_eq!(level(&jumped, &show), expected);
+    }
+
+    /// Looping a section is the same motion, repeated — the case a live
+    /// rehearsal spends all afternoon in.
+    #[test]
+    fn looping_a_section_is_stable() {
+        let show = bare();
+        let mut player = CuePlayer::new(song());
+        for _ in 0..3 {
+            for bar in [23u32, 26, 29, 23] {
+                player.seek(Bars::bar(bar), &show);
+                assert_eq!(level(&player, &show), Some(0.3), "bar {bar}");
+            }
+        }
+    }
+
+    #[test]
+    fn before_the_first_positioned_cue_nothing_is_lit() {
+        let show = bare();
+        let mut player = CuePlayer::new(vec![at_bar(11, 0.2), at_bar(23, 0.3)]);
+        player.seek(Bars::bar(23), &show);
+        assert!(level(&player, &show).is_some());
+        player.seek(Bars::bar(1), &show);
+        assert!(
+            player.output(&show).is_empty(),
+            "rewinding past the show clears it"
+        );
+    }
+
+    /// A list can mix positioned cues with hand-only ones; the clock
+    /// simply never picks the unpositioned ones up.
+    #[test]
+    fn cues_without_a_position_are_invisible_to_seeking() {
+        let show = bare();
+        let mut cues = song();
+        cues.insert(2, cue("Hand only", 0.0, vec![(1, Attribute::Dimmer, 0.99)]));
+        let mut player = CuePlayer::new(cues);
+        player.seek(Bars::bar(23), &show);
+        // Bar 23's cue is now at index 3, and the hand-only one at 2 was
+        // passed through on the way — tracking still applied it, which
+        // is correct: seeking replays the list, it does not skip it.
+        assert_eq!(level(&player, &show), Some(0.3));
+        assert_eq!(player.index_at(Bars::bar(23)), Some(3));
+    }
+
+    /// Seeking every frame is the normal case, so it has to be free when
+    /// nothing changed.
+    #[test]
+    fn seeking_within_the_same_cue_does_not_refire_it() {
+        let show = bare();
+        let mut player = CuePlayer::new(song());
+        player.seek(Bars::bar(23), &show);
+        let stack = player.stack.len();
+        for beat in 1..16 {
+            player.seek(Bars::new(23 + beat / 4, (beat % 4) as f64 + 1.0), &show);
+        }
+        assert_eq!(
+            player.stack.len(),
+            stack,
+            "a re-seek inside a cue restacked it"
+        );
+    }
+
+    /// The show clock is not the transport: a phaser mid-cycle should
+    /// not restart because somebody moved the playhead.
+    #[test]
+    fn seeking_does_not_disturb_the_show_clock() {
+        let show = bare();
+        let mut player = CuePlayer::new(song());
+        player.tick(4.0);
+        player.seek(Bars::bar(31), &show);
+        player.seek(Bars::bar(1), &show);
+        assert!((player.clock() - 4.0).abs() < 1e-6);
     }
 }
