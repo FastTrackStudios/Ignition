@@ -53,6 +53,8 @@ pub struct VizConfig {
     /// default: as placeholder boxes they clutter every shot without
     /// adding information worth the noise.
     pub show_props: bool,
+    /// Room objects to leave out — see `VizSettings::exclude`.
+    pub exclude: Vec<String>,
     /// Highest sACN/Art-Net universe to listen on.
     pub max_universe: u16,
     /// Render one frame to this path and exit, instead of opening a
@@ -87,6 +89,7 @@ impl Plugin for VizPlugin {
                 haze: self.config.haze,
                 ambient: self.config.ambient,
                 show_props: self.config.show_props,
+                exclude: self.config.exclude.clone(),
             })
             .insert_resource(GdtfLibraryRes(self.gdtf.lock().expect("gdtf library lock").take()))
             .add_plugins(BeamPlugin)

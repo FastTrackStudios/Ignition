@@ -44,6 +44,7 @@ fn main() -> anyhow::Result<()> {
     let mut cue: Option<usize> = None;
     let mut effect_time: Option<f32> = None;
     let mut gdtf_dir: Option<PathBuf> = None;
+    let mut exclude: Vec<String> = Vec::new();
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -79,6 +80,11 @@ fn main() -> anyhow::Result<()> {
             // the joints the file itself names — instead of the generic
             // QLC+ category mesh it otherwise falls back to.
             "--gdtf-dir" => gdtf_dir = Some(PathBuf::from(next("a path"))),
+            // Leave a room object out by name substring. `--exclude
+            // Ceiling` is the common one: a plan view otherwise renders
+            // only the roof, and at Norco the ceiling plane sits below
+            // the truss the pars hang from, so it hides the whole rig.
+            "--exclude" => exclude.push(next("a name substring")),
             other => eprintln!("viz: ignoring unknown argument {other}"),
         }
     }
@@ -125,6 +131,7 @@ fn main() -> anyhow::Result<()> {
             snapshot,
             settle_frames,
             show_props,
+            exclude,
         },
         playback,
         gdtf,

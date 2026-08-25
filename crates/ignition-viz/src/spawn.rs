@@ -28,6 +28,16 @@ pub struct GdtfLibraryRes(pub Option<GdtfLibrary>);
 /// from drawing a visible beam.
 const MIN_VISIBLE_DIMMER: f32 = 0.02;
 
+/// A fixture patched at or above the ceiling (less this slack) counts as
+/// rigged to it. Generous, because "on the truss" and "at ceiling height"
+/// are the same thing to an operator and venue data rounds differently.
+const CEILING_RIG_TOLERANCE: f32 = 0.35;
+
+/// How far below the surface a rigged fixture hangs — clearance for the
+/// clamp and yoke, and what keeps a fixture from being coplanar with the
+/// ceiling it hangs from.
+const RIG_DROP: f32 = 0.08;
+
 // Room palette, carried over from the pre-Bevy renderer — every one of
 // these was an operator call at some point, so they are kept verbatim
 // rather than re-picked. What changed is that they are now base colours
@@ -68,6 +78,18 @@ pub struct VizSettings {
     pub ambient: f32,
     /// Whether to draw the props layer — see `VizConfig::show_props`.
     pub show_props: bool,
+    /// Room/screen/prop objects whose name contains any of these are not
+    /// drawn — `--exclude Ceiling` for a plan view that would otherwise
+    /// just render the roof, and the escape hatch for a venue whose
+    /// ceiling sits below its own truss (Norco's does; see the README's
+    /// venue notes).
+    pub exclude: Vec<String>,
+}
+
+impl VizSettings {
+    fn skip(&self, name: &str) -> bool {
+        self.exclude.iter().any(|e| name.contains(e.as_str()))
+    }
 }
 
 /// Marks a fixture's root entity and remembers which venue record it came
@@ -75,6 +97,11 @@ pub struct VizSettings {
 #[derive(Component)]
 pub struct Fixture {
     pub index: usize,
+    /// The fixture's mount rotation *in its parent's frame*. Live pan is
+    /// composed onto this each frame. Stored rather than re-read from the
+    /// venue record because a rigged fixture's parent is the surface it
+    /// hangs from, not the world.
+    pub base_rot: Quat,
 }
 
 /// The part of a moving head that tilts — a child of the fixture root, so
@@ -128,6 +155,31 @@ pub struct FixtureBeam;
 #[derive(Component)]
 pub struct FixtureSpill;
 
+/// Whether a fixture counts as rigged to the overhead surface, rather
+/// than standing on the floor or clamped to a wall.
+fn is_rigged_overhead(fixture_pos: Vec3, ceiling_pos: Vec3) -> bool {
+    fixture_pos.z >= ceiling_pos.z - CEILING_RIG_TOLERANCE
+}
+
+/// A fixture's pose expressed relative to the surface it hangs from, so
+/// moving that surface moves the fixture with it.
+///
+/// The height is clamped to hang *below* the surface. Venue data can put
+/// a truss above the room's own ceiling plane — Norco's does, by half a
+/// metre — and a fixture left there is invisible from inside the room and
+/// shines its beam from outside the roof.
+fn rig_to_surface(
+    fixture_pos: Vec3,
+    fixture_rot: Quat,
+    surface_pos: Vec3,
+    surface_rot: Quat,
+) -> (Vec3, Quat) {
+    let inv = surface_rot.inverse();
+    let mut local = inv * (fixture_pos - surface_pos);
+    local.z = local.z.min(-RIG_DROP);
+    (local, inv * fixture_rot)
+}
+
 /// Spawns the room, its screens and props, and one entity per patched
 /// fixture (plus that fixture's beam and spill, initially hidden).
 pub fn spawn_venue(
@@ -141,6 +193,10 @@ pub fn spawn_venue(
 ) {
     let venue = &venue.0;
     let unit_cube = meshes.add(Cuboid::from_length(1.0));
+    // Name -> (anchor entity, world position, world rotation), so a
+    // fixture rigged to a room surface can be parented to it.
+    let mut room_anchors: std::collections::HashMap<String, (Entity, Vec3, Quat)> =
+        std::collections::HashMap::new();
     let beam_cone = meshes.add(Mesh::from(beam_mesh().mesh().resolution(BEAM_CONE_SEGMENTS)));
 
     // Room surfaces are lit only by the rig, which is the point — but a
@@ -165,6 +221,9 @@ pub fn spawn_venue(
     const FIXTURE_GLOW: f32 = 1.6;
 
     for g in &venue.room {
+        if settings.skip(&g.name) {
+            continue;
+        }
         let color = if g.name == "Ceiling" {
             CEILING_COLOR
         } else if g.name.starts_with("Stage") {
@@ -195,12 +254,26 @@ pub fn spawn_venue(
         } else {
             pos
         };
+        // Two entities per room object: an unscaled anchor at its pose,
+        // and the box mesh scaled to its size underneath. The split is
+        // what lets anything be *rigged to* a room surface — a child of
+        // the scaled box would inherit the box's own stretch, so a par
+        // hung from a 12x20x0.02m ceiling would come out 12m wide and
+        // paper-thin. See `RoomAnchors`.
+        let anchor = commands
+            .spawn((
+                Transform { translation: center, rotation: rot, scale: Vec3::ONE },
+                Visibility::default(),
+                Name::new(g.name.clone()),
+            ))
+            .id();
         commands.spawn((
             Mesh3d(unit_cube.clone()),
             MeshMaterial3d(solid(color, UNLIT)),
-            Transform { translation: center, rotation: rot, scale: size },
-            Name::new(g.name.clone()),
+            Transform::from_scale(size),
+            ChildOf(anchor),
         ));
+        room_anchors.insert(g.name.clone(), (anchor, center, rot));
         if g.name.starts_with("Column") {
             // A black capstone on top of the column — its own entity
             // rather than trying to two-tone one box.
@@ -209,18 +282,18 @@ pub fn spawn_venue(
                 Mesh3d(unit_cube.clone()),
                 MeshMaterial3d(solid(COLUMN_CAP_COLOR, UNLIT)),
                 Transform {
-                    translation: center + rot * Vec3::Z * (size.z * 0.5 + cap_height * 0.5),
-                    rotation: rot,
+                    translation: Vec3::Z * (size.z * 0.5 + cap_height * 0.5),
                     scale: Vec3::new(size.x * 1.02, size.y * 1.02, cap_height),
+                    ..default()
                 },
-                Name::new(format!("{} cap", g.name)),
+                ChildOf(anchor),
             ));
         }
     }
 
     // Pillars are an architectural detail like the columns, not
     // set-dressing — always drawn, unlike the rest of props.json.
-    for g in venue.props.iter().filter(|g| g.name.starts_with("Pillar")) {
+    for g in venue.props.iter().filter(|g| g.name.starts_with("Pillar") && !settings.skip(&g.name)) {
         commands.spawn((
             Mesh3d(unit_cube.clone()),
             MeshMaterial3d(solid(PILLAR_COLOR, UNLIT)),
@@ -239,7 +312,7 @@ pub fn spawn_venue(
             // standing person is just a tall box with no readable
             // silhouette, easy to mistake for a fixture. Pillars are
             // drawn unconditionally above — architecture, not dressing.
-            if g.name.starts_with("Person") || g.name.starts_with("Pillar") {
+            if g.name.starts_with("Person") || g.name.starts_with("Pillar") || settings.skip(&g.name) {
                 continue;
             }
             commands.spawn((
@@ -256,6 +329,9 @@ pub fn spawn_venue(
     }
 
     for g in &venue.screens {
+        if settings.skip(&g.name) {
+            continue;
+        }
         let rot = g.orientation();
         let size = g.size.to_vec3();
         // Same base-pivot convention as walls: a TV's position is its
@@ -272,6 +348,9 @@ pub fn spawn_venue(
             Name::new(g.name.clone()),
         ));
     }
+
+    // The surface an overhead fixture is rigged to, if the venue has one.
+    let ceiling = room_anchors.get("Ceiling").copied();
 
     let throw = BeamThrow::for_venue(venue);
     for (index, f) in venue.fixtures.iter().enumerate() {
@@ -305,18 +384,49 @@ pub fn spawn_venue(
         // guessed from a placeholder mesh's vertex histogram.
         let gdtf = gdtf_library.0.as_ref().and_then(|lib| lib.find(manufacturer, model));
 
-        let root = commands
-            .spawn((
-                Fixture { index },
-                Transform {
-                    translation: if gdtf.is_some() { f.position.to_vec3() } else { visual.position },
-                    rotation: f.orientation(),
-                    scale: Vec3::ONE,
-                },
-                Visibility::default(),
-                Name::new(f.name.clone()),
-            ))
-            .id();
+        // Rig a fixture to the surface it hangs from, rather than
+        // leaving it floating at an absolute height: move the ceiling and
+        // the whole overhead rig follows it.
+        //
+        // Norco's data needs this to be more than bookkeeping. Its 47
+        // truss pars are patched at z = 3.25m and its ceiling plane sits
+        // at 2.743m (exactly 9 feet), so the rig is half a metre *above*
+        // the room's own roof and is hidden behind it from every view
+        // inside the room. Rather than silently rewriting either number,
+        // an overhead fixture is hung from the ceiling: it keeps its real
+        // x/y, and its height becomes an offset from the ceiling instead
+        // of an absolute — clamped so it hangs below the surface rather
+        // than through it.
+        let rigged_to = ceiling
+            .filter(|(_, ceiling_pos, _)| is_rigged_overhead(f.position.to_vec3(), *ceiling_pos));
+
+        let (parent, local_pos, local_rot) = match rigged_to {
+            Some((anchor, ceiling_pos, ceiling_rot)) => {
+                let (local_pos, local_rot) =
+                    rig_to_surface(f.position.to_vec3(), f.orientation(), ceiling_pos, ceiling_rot);
+                (Some(anchor), local_pos, local_rot)
+            }
+            None => (None, f.position.to_vec3(), f.orientation()),
+        };
+
+        let mut root_cmd = commands.spawn((
+            Fixture { index, base_rot: local_rot },
+            Transform {
+                // The QLC+ anchor correction is a body offset applied to
+                // the mesh child below — putting it here as well is what
+                // sank the floor movers halfway through the floor, by
+                // applying it twice.
+                translation: local_pos,
+                rotation: local_rot,
+                scale: Vec3::ONE,
+            },
+            Visibility::default(),
+            Name::new(f.name.clone()),
+        ));
+        if let Some(anchor) = parent {
+            root_cmd.insert(ChildOf(anchor));
+        }
+        let root = root_cmd.id();
 
         // Where the beam comes from. The GDTF path gets it from the
         // file's own `<Beam>` node; otherwise it is the head if the
@@ -521,11 +631,12 @@ pub fn update_live_fixtures(
     for (entity, fixture, mut transform) in &mut fixtures {
         index_of_root.insert(entity, fixture.index);
         let Some(Some(live)) = resolved.get(fixture.index) else { continue };
-        let Some(record) = venue.fixtures.get(fixture.index) else { continue };
         // Pan turns the whole fixture on its mount, which is what a real
         // yoke does. A GDTF file that declares its own pan joint gets
-        // that applied there instead, below.
-        transform.rotation = record.orientation() * live.pan;
+        // that applied there instead, below. `base_rot`, not the venue
+        // record's own orientation — a rigged fixture's rotation is
+        // relative to the surface it hangs from.
+        transform.rotation = fixture.base_rot * live.pan;
     }
 
     // Root of the fixture this entity belongs to, however deep it sits —
@@ -668,5 +779,49 @@ pub fn update_beams(
 pub fn apply_ambient(settings: Res<VizSettings>, mut ambient: ResMut<GlobalAmbientLight>) {
     if settings.is_changed() {
         ambient.brightness = settings.ambient * 200.0;
+    }
+}
+
+#[cfg(test)]
+mod rigging_tests {
+    use super::*;
+
+    const CEILING: Vec3 = Vec3::new(0.0, 0.0, 2.743);
+
+    #[test]
+    fn a_truss_fixture_counts_as_overhead_and_a_floor_one_does_not() {
+        // Norco's real numbers: 47 pars at 3.25, floor movers near zero.
+        assert!(is_rigged_overhead(Vec3::new(1.0, 2.0, 3.25), CEILING));
+        assert!(!is_rigged_overhead(Vec3::new(1.0, 2.0, 0.02), CEILING));
+        // Just under the ceiling still counts — "on the truss" and "at
+        // ceiling height" are the same thing to an operator.
+        assert!(is_rigged_overhead(Vec3::new(0.0, 0.0, 2.5), CEILING));
+    }
+
+    #[test]
+    fn a_fixture_above_the_ceiling_is_pulled_down_to_hang_from_it() {
+        let (local, _) = rig_to_surface(Vec3::new(1.0, 2.0, 3.25), Quat::IDENTITY, CEILING, Quat::IDENTITY);
+        // Real x/y kept, height clamped to just below the surface.
+        assert_eq!((local.x, local.y), (1.0, 2.0));
+        assert!(local.z < 0.0, "must hang below the ceiling, got {}", local.z);
+        assert!((local.z + RIG_DROP).abs() < 1e-6, "{}", local.z);
+    }
+
+    #[test]
+    fn a_fixture_already_below_the_ceiling_keeps_its_real_drop() {
+        let (local, _) = rig_to_surface(Vec3::new(0.0, 0.0, 2.0), Quat::IDENTITY, CEILING, Quat::IDENTITY);
+        assert!((local.z - (2.0 - CEILING.z)).abs() < 1e-6, "{}", local.z);
+    }
+
+    #[test]
+    fn the_local_pose_reproduces_the_world_pose_when_the_surface_is_rotated() {
+        let surface_rot = Quat::from_rotation_z(0.7);
+        let fixture_pos = Vec3::new(1.0, 2.0, 2.0);
+        let fixture_rot = Quat::from_rotation_x(0.3);
+        let (local_pos, local_rot) = rig_to_surface(fixture_pos, fixture_rot, CEILING, surface_rot);
+        // Composing the parent back on must return where it started.
+        let world_pos = CEILING + surface_rot * local_pos;
+        assert!(world_pos.distance(fixture_pos) < 1e-5, "{world_pos:?}");
+        assert!((surface_rot * local_rot).angle_between(fixture_rot) < 1e-5);
     }
 }
