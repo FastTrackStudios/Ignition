@@ -12,15 +12,47 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # A dedicated nixpkgs used ONLY to source `dx` (dioxus-cli). The
+    # main pin carries an older one, and dx refuses to build a tree
+    # whose dioxus is a different minor — the version pair is checked at
+    # startup, not discovered at link time. Same pin the FastTrackStudio
+    # tree uses, for the same reason.
+    nixpkgs-dx.url = "github:NixOS/nixpkgs/d99b013d5d1931ad77fe3912ed218170dec5d9a4";
   };
 
-  outputs = { self, nixpkgs, rust-overlay }:
+  outputs = { self, nixpkgs, nixpkgs-dx, rust-overlay }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (import nixpkgs {
         inherit system;
         overlays = [ rust-overlay.overlays.default ];
       }));
+
+      # `dx` at the version this tree's dioxus rev pins (0.8.0-alpha.0).
+      # nixpkgs carries 0.7.9, which refuses to serve a 0.8 tree, so the
+      # source is overridden onto the published alpha crate. Bump this
+      # together with the dioxus rev in `apps/ignition-studio/Cargo.toml`
+      # — they are checked against each other at `dx serve` startup.
+      dxFor = system:
+        let pkgsDx = import nixpkgs-dx { inherit system; };
+        in pkgsDx.dioxus-cli.overrideAttrs (old: rec {
+          version = "0.8.0-alpha.0";
+          src = pkgsDx.fetchCrate {
+            pname = "dioxus-cli";
+            inherit version;
+            hash = "sha256-gEC5MtvkTBAhv2ChvWPQIx4u/OJ5Qx2sN2+epdcXwSA=";
+          };
+          cargoDeps = pkgsDx.rustPlatform.fetchCargoVendor {
+            inherit src;
+            name = "dioxus-cli-${version}-vendor";
+            hash = "sha256-znRYZFhWP5PzS6ftcShzNBvRqJXRjnM10OZ+KzUOOsg=";
+          };
+          # The 0.7.9-era patches and checks do not apply to the alpha.
+          patches = [ ];
+          doCheck = false;
+          doInstallCheck = false;
+        });
     in
     {
       devShells = forAllSystems (pkgs:
@@ -69,6 +101,10 @@
               # default linker dominates incremental build time.
               pkgs.mold
               pkgs.cargo-nextest
+              # `dx serve` for the studio app. Native renderer only —
+              # the visualizer is composited through Blitz's wgpu
+              # device, which a webview does not have.
+              (dxFor pkgs.stdenv.hostPlatform.system)
               # The operator overlay's font. Bevy's built-in default is a
               # small subset with no box-drawing or symbol glyphs, so a
               # cue sheet drawn with it renders a column of tofu where
