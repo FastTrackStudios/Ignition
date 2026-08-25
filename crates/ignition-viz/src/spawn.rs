@@ -119,6 +119,8 @@ pub struct VizSettings {
     pub ambient: f32,
     /// Whether to draw the props layer — see `VizConfig::show_props`.
     pub show_props: bool,
+    /// Whether to draw the operator overlay — see `VizConfig::overlay`.
+    pub overlay: bool,
     /// Global exposure: a multiplier on every fixture's *real* luminous
     /// output (`fixture_profile::power_watts` x `LUMENS_PER_WATT`).
     ///

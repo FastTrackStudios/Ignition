@@ -24,4 +24,7 @@ pub use step::{Direction, Ease, Speed, SpeedMasters, Step, Timing, Waveform};
 pub mod selection;
 pub use selection::{Axis, Cmp, Dir, FixtureInfo, Order, Rig, Selection, Where};
 
-pub use recipe::{Emit, Recipe, RecipeApply, Show, expand_recipe, unresolved};
+pub use recipe::{
+    Cook, CueCook, Emit, Recipe, RecipeApply, Show, Status, cook_cue, cook_list, expand_recipe,
+    unresolved,
+};

@@ -94,36 +94,66 @@ enum Source {
     Recipe(usize),
 }
 
+/// The layer stack at one point in the show — what tracking carries
+/// forward from cue to cue.
+#[derive(Debug, Clone, Default)]
+struct Layers {
+    /// Every `(chan, attr)` any cue up to here has set, and where its
+    /// value comes from. A cue that does not mention a channel simply
+    /// does not touch this, which is what tracking *is*.
+    tracked: HashMap<(ChanId, Attribute), Source>,
+    /// Which recipe, if any, is *modulating* each attribute. Relative
+    /// values do not compete for the slot — they add on top of whatever
+    /// won it — so they get their own map. One modulator per attribute,
+    /// latest cue wins, same rule as everything else.
+    modulated: HashMap<(ChanId, Attribute), usize>,
+}
+
+/// One cue's worth of state, plus how far into its own fade it is.
+#[derive(Debug, Clone)]
+struct Stage {
+    layers: Layers,
+    fade_secs: f32,
+    elapsed: f32,
+}
+
+impl Stage {
+    fn progress(&self) -> f32 {
+        if self.fade_secs > 0.0 {
+            (self.elapsed / self.fade_secs).clamp(0.0, 1.0)
+        } else {
+            1.0
+        }
+    }
+}
+
+/// How many overlapping fades to carry before the oldest is forced to
+/// finish. Only reachable by firing GO faster than fades complete,
+/// several times over; the alternative is an unbounded stack.
+const MAX_FADES: usize = 8;
+
 pub struct CuePlayer {
     cues: Vec<Cue>,
     /// Index of the cue currently playing/played-into, or `None` before the
     /// first `go()` (nothing has been fired yet — output is empty/blackout).
     current: Option<usize>,
-    /// Values at the moment the current move started — the fade-FROM
-    /// snapshot, taken fresh on every `go()` so re-firing mid-fade chains
-    /// smoothly from wherever playback actually was, not the previous cue's
-    /// resting value.
-    from: HashMap<(ChanId, Attribute), f32>,
-    /// Cumulative tracked state — every `(chan, attr)` any cue up to and
-    /// including the current one has set, and where its value comes from.
-    /// This is what makes tracking work: a cue that doesn't mention a
-    /// channel simply doesn't touch this map.
-    tracked: HashMap<(ChanId, Attribute), Source>,
-    /// Which recipe, if any, is *modulating* each attribute. Relative
-    /// values do not compete for the slot — they add on top of whatever
-    /// won it — so they get their own tracking rather than sharing
-    /// `tracked`. One modulator per attribute, latest cue wins, same
-    /// rule as everything else.
-    modulated: HashMap<(ChanId, Attribute), usize>,
-    /// Recipes introduced by cues so far, kept alive as long as anything
-    /// in `tracked` still points at them. Compacted on every `go()`, so a
+    /// Recipes introduced by cues so far, kept alive as long as any live
+    /// stage still points at them. Compacted on every `go()`, so a
     /// three-hour show does not accumulate one entry per recipe per cue.
     active: Vec<Recipe>,
-    elapsed: f32,
-    fade_secs: f32,
-    /// Monotonic show time. Unlike `elapsed` this never resets, because
-    /// a phaser free-runs across cues — restarting its cycle on every GO
-    /// would make a chase stutter every time an unrelated cue fired.
+    /// Oldest first. The last stage is the cue being moved into;
+    /// everything before it is a fade still resolving.
+    ///
+    /// A stack rather than a single remembered snapshot because both
+    /// sides of a fade have to keep *resolving*: crossing from one
+    /// phaser into another, the outgoing one must keep moving while it
+    /// goes. A snapshot freezes it. See
+    /// `docs/domain/cue-building-architecture.md`, Decision 6.
+    stack: Vec<Stage>,
+    /// Monotonic show time. Unlike a fade's `elapsed` this never resets,
+    /// because a phaser free-runs across cues — restarting its cycle on
+    /// every GO would make a chase stutter every time an unrelated cue
+    /// fired.
     clock: f32,
 }
 
@@ -132,12 +162,8 @@ impl CuePlayer {
         Self {
             cues,
             current: None,
-            from: HashMap::new(),
-            tracked: HashMap::new(),
-            modulated: HashMap::new(),
             active: Vec::new(),
-            elapsed: 0.0,
-            fade_secs: 0.0,
+            stack: Vec::new(),
             clock: 0.0,
         }
     }
@@ -147,17 +173,21 @@ impl CuePlayer {
     /// nothing to advance into, stays put).
     pub fn go(&mut self, show: &Show<'_>) {
         let next = self.current.map_or(0, |i| i + 1);
-        if self.cues.get(next).is_none() {
+        if next >= self.cues.len() {
             return;
         }
-        self.from = self.output_at(self.elapsed, show);
         let cue = self.cues[next].clone();
 
-        if cue.block {
-            self.tracked.clear();
-            self.modulated.clear();
-            self.active.clear();
-        }
+        // Tracking: start from wherever the show already is, unless this
+        // cue blocks.
+        let mut layers = if cue.block {
+            Layers::default()
+        } else {
+            self.stack
+                .last()
+                .map(|s| s.layers.clone())
+                .unwrap_or_default()
+        };
 
         // Cook: resolving a recipe now is what establishes *which*
         // (chan, attr) pairs it covers, so tracking knows what it owns.
@@ -169,39 +199,102 @@ impl CuePlayer {
             for emit in expand_recipe(recipe, show, self.clock) {
                 let key = (emit.value.chan, emit.value.attr);
                 if emit.relative {
-                    self.modulated.insert(key, id);
+                    layers.modulated.insert(key, id);
                 } else {
-                    self.tracked.insert(key, Source::Recipe(id));
+                    layers.tracked.insert(key, Source::Recipe(id));
                 }
             }
         }
         // Layer 1 last, so a direct value on this cue beats a recipe on
         // the same cue. The cascade is an ordering, not a merge.
         for v in &cue.values {
-            self.tracked
+            layers
+                .tracked
                 .insert((v.chan, v.attr.clone()), Source::Direct(v.value));
         }
 
+        self.stack.push(Stage {
+            layers,
+            fade_secs: cue.fade_secs,
+            elapsed: 0.0,
+        });
+        while self.stack.len() > MAX_FADES {
+            self.stack.remove(0);
+        }
+        self.collapse();
         self.compact();
-        self.elapsed = 0.0;
-        self.fade_secs = cue.fade_secs;
         self.current = Some(next);
     }
 
-    /// Drops recipes nothing tracks to any more, renumbering the rest.
+    /// Jumps straight to the end of cue `index`'s fade (as if `go()` had
+    /// been called `index + 1` times and enough time had passed for each
+    /// fade to finish) — for headless/automated testing and snapshotting a
+    /// specific point in a show without stepping through every cue with
+    /// real elapsed time. Out-of-range `index` clamps to the last cue.
+    pub fn jump_to_end_of(&mut self, index: usize, show: &Show<'_>) {
+        let target = index.min(self.cues.len().saturating_sub(1));
+        while self.current != Some(target) {
+            let before = self.current;
+            self.go(show);
+            if let Some(stage) = self.stack.last_mut() {
+                stage.elapsed = stage.fade_secs;
+            }
+            self.collapse();
+            if self.current == before {
+                break; // ran off the end of the list
+            }
+        }
+    }
+
+    pub fn tick(&mut self, dt_secs: f32) {
+        self.clock += dt_secs;
+        for stage in &mut self.stack {
+            stage.elapsed += dt_secs;
+        }
+        self.collapse();
+    }
+
+    /// Advances the show clock without advancing any fade — for
+    /// snapshotting a running phaser at a chosen moment.
+    pub fn advance_clock(&mut self, secs: f32) {
+        self.clock += secs;
+    }
+
+    pub fn clock(&self) -> f32 {
+        self.clock
+    }
+
+    /// Drops fades that have finished. Once a stage is fully arrived,
+    /// everything under it contributes nothing.
+    fn collapse(&mut self) {
+        if let Some(last) = self.stack.iter().rposition(|s| s.progress() >= 1.0)
+            && last > 0
+        {
+            self.stack.drain(..last);
+        }
+    }
+
+    /// Drops recipes no live stage points at any more, renumbering the
+    /// rest.
     ///
     /// Without this, `active` gains an entry per recipe per `go()` for
     /// the length of the show and never gives one back — invisible at
     /// eleven cues, a real leak over a three-hour service.
     fn compact(&mut self) {
         let live: HashSet<usize> = self
-            .tracked
-            .values()
-            .filter_map(|s| match s {
-                Source::Recipe(id) => Some(*id),
-                Source::Direct(_) => None,
+            .stack
+            .iter()
+            .flat_map(|stage| {
+                stage
+                    .layers
+                    .tracked
+                    .values()
+                    .filter_map(|s| match s {
+                        Source::Recipe(id) => Some(*id),
+                        Source::Direct(_) => None,
+                    })
+                    .chain(stage.layers.modulated.values().copied())
             })
-            .chain(self.modulated.values().copied())
             .collect();
         if live.len() == self.active.len() {
             return;
@@ -215,41 +308,16 @@ impl CuePlayer {
             }
         }
         self.active = kept;
-        for source in self.tracked.values_mut() {
-            if let Source::Recipe(id) = source {
+        for stage in &mut self.stack {
+            for source in stage.layers.tracked.values_mut() {
+                if let Source::Recipe(id) = source {
+                    *id = remap[id];
+                }
+            }
+            for id in stage.layers.modulated.values_mut() {
                 *id = remap[id];
             }
         }
-        for id in self.modulated.values_mut() {
-            *id = remap[id];
-        }
-    }
-
-    /// Jumps straight to the end of cue `index`'s fade (as if `go()` had
-    /// been called `index + 1` times and enough time had passed for each
-    /// fade to finish) — for headless/automated testing and snapshotting a
-    /// specific point in a show without stepping through every cue with
-    /// real elapsed time. Out-of-range `index` clamps to the last cue.
-    pub fn jump_to_end_of(&mut self, index: usize, show: &Show<'_>) {
-        let target = index.min(self.cues.len().saturating_sub(1));
-        while self.current.is_none_or(|i| i < target) && self.current != Some(target) {
-            self.go(show);
-            self.elapsed = self.fade_secs;
-            if self.current == Some(target) {
-                break;
-            }
-        }
-    }
-
-    pub fn tick(&mut self, dt_secs: f32) {
-        self.elapsed += dt_secs;
-        self.clock += dt_secs;
-    }
-
-    /// Advances the show clock without advancing the current fade — for
-    /// snapshotting a running phaser at a chosen moment.
-    pub fn advance_clock(&mut self, secs: f32) {
-        self.clock += secs;
     }
 
     pub fn current_index(&self) -> Option<usize> {
@@ -262,36 +330,43 @@ impl CuePlayer {
             .map(|c| c.name.as_str())
     }
 
-    /// The interpolated `(chan, attr) -> value` output right now (at
-    /// whatever `elapsed` `tick()` has accumulated to).
-    pub fn output(&self, show: &Show<'_>) -> HashMap<(ChanId, Attribute), f32> {
-        self.output_at(self.elapsed, show)
+    pub fn cues(&self) -> &[Cue] {
+        &self.cues
     }
 
-    /// Resolves the tracked layer stack into one frame of output.
+    /// The `(chan, attr) -> value` output right now.
     ///
-    /// Deliberately a pure function of (tracked state, `show`, `elapsed`)
-    /// with nothing cached between calls. That is affordable at this
-    /// rig's scale and it is what keeps a memoisation layer a legal
+    /// Every stage in the stack resolves live and they are folded oldest
+    /// to newest, so a phaser being faded *out of* keeps moving while it
+    /// goes, exactly like the one being faded into.
+    ///
+    /// Deliberately a pure function of (stack, `show`, clock) with
+    /// nothing cached between calls. That is affordable at this rig's
+    /// scale and it is what keeps a memoisation layer a legal
     /// optimisation later rather than a rewrite — see
     /// `docs/domain/cue-building-architecture.md`, Decision 1.
-    fn output_at(&self, elapsed: f32, show: &Show<'_>) -> HashMap<(ChanId, Attribute), f32> {
-        let t = if self.fade_secs > 0.0 {
-            (elapsed / self.fade_secs).clamp(0.0, 1.0)
-        } else {
-            1.0
-        };
+    pub fn output(&self, show: &Show<'_>) -> HashMap<(ChanId, Attribute), f32> {
+        let mut out: HashMap<(ChanId, Attribute), f32> = HashMap::new();
+        for stage in &self.stack {
+            let target = self.resolve(&stage.layers, show);
+            out = blend(&out, &target, stage.progress());
+        }
+        out
+    }
+
+    /// One stage's layer stack, resolved through the cascade.
+    fn resolve(&self, layers: &Layers, show: &Show<'_>) -> HashMap<(ChanId, Attribute), f32> {
         // Resolve only the recipes something still points at, once each,
         // rather than once per attribute they cover.
         let mut resolved: HashMap<usize, HashMap<(ChanId, Attribute), f32>> = HashMap::new();
-        let referenced = self
+        let referenced = layers
             .tracked
             .values()
             .filter_map(|s| match s {
                 Source::Recipe(id) => Some(*id),
                 Source::Direct(_) => None,
             })
-            .chain(self.modulated.values().copied());
+            .chain(layers.modulated.values().copied());
         for id in referenced {
             resolved.entry(id).or_insert_with(|| {
                 expand_recipe(&self.active[id], show, self.clock)
@@ -301,9 +376,9 @@ impl CuePlayer {
             });
         }
 
-        let mut out = HashMap::with_capacity(self.tracked.len());
-        for (key, source) in &self.tracked {
-            let target_v = match source {
+        let mut out = HashMap::with_capacity(layers.tracked.len());
+        for (key, source) in &layers.tracked {
+            let value = match source {
                 Source::Direct(v) => *v,
                 // A recipe whose selection has since stopped covering
                 // this channel simply contributes nothing, rather than
@@ -316,24 +391,43 @@ impl CuePlayer {
             };
             // Modulation is applied *after* the cascade has picked a
             // winner, not as another competitor for the slot. That is
-            // what "−40% dimmer, and the colour is not my business"
+            // what "-40% dimmer, and the colour is not my business"
             // means mechanically.
-            let target_v = target_v
-                + self
-                    .modulated
-                    .get(key)
-                    .and_then(|id| resolved[id].get(key))
-                    .copied()
-                    .unwrap_or(0.0);
-            // A key with no prior value (first time this (chan, attr) has
-            // ever been targeted) fades in from 0 rather than snapping —
-            // reads as the fixture coming up from off, the same as a real
-            // desk's first cue on a previously-untouched channel.
-            let from_v = self.from.get(key).copied().unwrap_or(0.0);
-            out.insert(key.clone(), from_v + (target_v - from_v) * t);
+            let modulation = layers
+                .modulated
+                .get(key)
+                .and_then(|id| resolved[id].get(key))
+                .copied()
+                .unwrap_or(0.0);
+            out.insert(key.clone(), value + modulation);
         }
         out
     }
+}
+
+/// Crossfades two resolved frames.
+///
+/// A key only `next` has fades in from 0 — the fixture coming up from
+/// off, the same as a real desk's first cue on a previously-untouched
+/// channel. A key only `prev` has fades *out* to 0, which is how a
+/// `block` cue takes back what it does not set instead of snapping it
+/// dark.
+fn blend(
+    prev: &HashMap<(ChanId, Attribute), f32>,
+    next: &HashMap<(ChanId, Attribute), f32>,
+    t: f32,
+) -> HashMap<(ChanId, Attribute), f32> {
+    let mut out = HashMap::with_capacity(next.len().max(prev.len()));
+    for (key, target) in next {
+        let from = prev.get(key).copied().unwrap_or(0.0);
+        out.insert(key.clone(), from + (target - from) * t);
+    }
+    for (key, leaving) in prev {
+        if !next.contains_key(key) && t < 1.0 {
+            out.insert(key.clone(), leaving * (1.0 - t));
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -609,5 +703,136 @@ mod tests {
             1,
             "only the newest recipe is still tracked"
         );
+    }
+
+    // -----------------------------------------------------------------
+    // Both sides of a fade resolve live
+    // -----------------------------------------------------------------
+
+    use crate::step::{Speed, Step, Timing};
+
+    /// A two-step phaser on channel 1 swinging between `lo` and `hi`
+    /// once per second.
+    fn chase(lo: f32, hi: f32) -> Recipe {
+        let at = |v: f32| Step::new(vec![RecipeApply::Raw(vec![(Attribute::Dimmer, v)])]);
+        Recipe {
+            target: Selection::Chans(vec![1]),
+            steps: vec![at(lo), at(hi)],
+            timing: Timing {
+                speed: Speed::Hz(1.0),
+                ..Default::default()
+            },
+        }
+    }
+
+    /// The bug a snapshot `from` has: crossing from one phaser into
+    /// another, the outgoing one must keep moving while it goes. Held
+    /// halfway through the fade, the output has to change as the clock
+    /// advances even though the fade position does not.
+    #[test]
+    fn a_phaser_being_faded_out_of_keeps_moving() {
+        let show = bare();
+        let mut player = CuePlayer::new(vec![
+            Cue {
+                name: "A".into(),
+                recipes: vec![chase(0.0, 1.0)],
+                ..Default::default()
+            },
+            Cue {
+                name: "B".into(),
+                fade_secs: 10.0,
+                // Static, so anything that moves in the output can only
+                // have come from the outgoing phaser.
+                values: vec![CueValue {
+                    chan: 1,
+                    attr: Attribute::Dimmer,
+                    value: 0.5,
+                }],
+                ..Default::default()
+            },
+        ]);
+        player.go(&show);
+        player.go(&show);
+
+        // Advance the clock a quarter-cycle at a time, but read the
+        // output at the same fade position each time by rewinding it.
+        let sample = |p: &mut CuePlayer, dt: f32| {
+            p.tick(dt);
+            for stage in &mut p.stack {
+                stage.elapsed = 1.0; // a tenth of the way into the fade
+            }
+            *p.output(&show).get(&(1, Attribute::Dimmer)).unwrap()
+        };
+        let first = sample(&mut player, 0.0);
+        let later = sample(&mut player, 0.5);
+        assert!(
+            (first - later).abs() > 0.05,
+            "the outgoing phaser froze: {first} then {later}"
+        );
+    }
+
+    /// The incoming side moves too, which the snapshot model already
+    /// got right — pinned so a future change cannot lose it.
+    #[test]
+    fn a_phaser_being_faded_into_moves_while_it_arrives() {
+        let show = bare();
+        let mut player = CuePlayer::new(vec![
+            cue("Static", 0.0, vec![(1, Attribute::Dimmer, 0.0)]),
+            Cue {
+                name: "Chase".into(),
+                fade_secs: 10.0,
+                recipes: vec![chase(0.0, 1.0)],
+                ..Default::default()
+            },
+        ]);
+        player.go(&show);
+        player.go(&show);
+        let sample = |p: &mut CuePlayer, dt: f32| {
+            p.tick(dt);
+            for stage in &mut p.stack {
+                stage.elapsed = 1.0;
+            }
+            *p.output(&show).get(&(1, Attribute::Dimmer)).unwrap()
+        };
+        let first = sample(&mut player, 0.0);
+        let later = sample(&mut player, 0.5);
+        assert!((first - later).abs() > 0.01, "{first} then {later}");
+    }
+
+    /// Overlapping fades compose rather than the newest simply
+    /// discarding the one in flight.
+    #[test]
+    fn firing_go_mid_fade_stacks_the_fades() {
+        let show = bare();
+        let mut player = CuePlayer::new(vec![
+            cue("A", 0.0, vec![(1, Attribute::Dimmer, 1.0)]),
+            cue("B", 4.0, vec![(1, Attribute::Dimmer, 0.0)]),
+            cue("C", 4.0, vec![(1, Attribute::Dimmer, 1.0)]),
+        ]);
+        player.go(&show);
+        player.go(&show);
+        player.tick(2.0); // halfway to 0, so ~0.5
+        let mid = *player.output(&show).get(&(1, Attribute::Dimmer)).unwrap();
+        assert!((mid - 0.5).abs() < 0.01, "{mid}");
+
+        player.go(&show); // back up to 1.0, from ~0.5, while B still runs
+        assert_eq!(player.stack.len(), 3, "B's fade is still in flight");
+        player.tick(4.0);
+        let done = *player.output(&show).get(&(1, Attribute::Dimmer)).unwrap();
+        assert!((done - 1.0).abs() < 0.01, "{done}");
+        assert_eq!(player.stack.len(), 1, "finished fades collapse");
+    }
+
+    #[test]
+    fn spamming_go_does_not_grow_the_stack_without_bound() {
+        let show = bare();
+        let cues: Vec<Cue> = (0..40)
+            .map(|i| cue(&format!("C{i}"), 100.0, vec![(1, Attribute::Dimmer, 1.0)]))
+            .collect();
+        let mut player = CuePlayer::new(cues);
+        for _ in 0..40 {
+            player.go(&show);
+        }
+        assert!(player.stack.len() <= MAX_FADES, "{}", player.stack.len());
     }
 }

@@ -44,6 +44,12 @@ bevy = { version = "0.19.1", default-features = false, features = [
     # default image set.
     "webp",
     "jpeg",
+    # The operator overlay: cue name, cooked status, show clock. Not in
+    # the `3d` set, which is renderer-only.
+    "bevy_ui",
+    "bevy_ui_render",
+    "bevy_text",
+    "default_font",
     "bevy_camera_controller",
     "free_camera",
     "pan_camera",

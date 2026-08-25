@@ -60,6 +60,8 @@ fn main() -> anyhow::Result<()> {
     // Packaging this properly is a later problem.
     let mut assets_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string();
     let mut screen_content: Option<String> = Some("screens/rockstars-logo.webp".to_string());
+    // On in a window, off in a snapshot unless asked for.
+    let mut overlay: Option<bool> = None;
     let mut eye: Option<Vec3> = None;
     let mut look: Option<Vec3> = None;
 
@@ -81,6 +83,11 @@ fn main() -> anyhow::Result<()> {
             "--settle-frames" => settle_frames = next("a number").parse()?,
             "--show-props" => show_props = true,
             "--hide-props" => show_props = false,
+            // The cue list with cooked status, drawn over the render.
+            // Always on in a window; this is for putting it in a
+            // snapshot too.
+            "--overlay" => overlay = Some(true),
+            "--no-overlay" => overlay = Some(false),
             // An arbitrary camera, for looking at one thing rather than
             // at the room. Both are needed; either alone is ignored.
             "--eye" => eye = Some(parse_point(&next("x,y,z in metres"))?),
@@ -97,7 +104,7 @@ fn main() -> anyhow::Result<()> {
             // Advances the show clock without advancing the current
             // fade — freezes a running phaser at a chosen moment for a
             // snapshot.
-            "--effect-time" => effect_time = Some(next("seconds, e.g. 2.5").parse()?),
+            "--time" | "--effect-time" => effect_time = Some(next("seconds, e.g. 2.5").parse()?),
             // A directory of real `.gdtf` fixture profiles. A patched
             // fixture whose manufacturer/model matches one is drawn from
             // the manufacturer's own geometry tree — real nested
@@ -151,6 +158,7 @@ fn main() -> anyhow::Result<()> {
         None => None,
     };
 
+    let draw_overlay = overlay.unwrap_or(snapshot.is_none());
     let playback = Playback::load(
         &venue,
         cuelist.as_deref(),
@@ -172,6 +180,7 @@ fn main() -> anyhow::Result<()> {
             settle_frames,
             show_props,
             camera: eye.zip(look),
+            overlay: draw_overlay,
             exclude,
             beam_style,
             exposure,

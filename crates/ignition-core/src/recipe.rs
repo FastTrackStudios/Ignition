@@ -387,6 +387,118 @@ pub fn unresolved(cues: &[Cue], show: &Show<'_>) -> Vec<String> {
     out
 }
 
+// ---------------------------------------------------------------------
+// Cooked status
+// ---------------------------------------------------------------------
+
+/// What one recipe resolved to.
+///
+/// grandMA3 shows this as a coloured pot beside every recipe in the cue
+/// sheet, and it is worth stealing outright: it answers "is this cue's
+/// content actually going to do what I think it does" at a glance. That
+/// is a small feature with an outsized effect on trust, and trust in
+/// what the desk is about to do is most of what an operator is buying.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Cook {
+    /// Resolved to this many fixtures — MA3's green pot.
+    Ok(usize),
+    /// Resolved to nothing: a group this room lacks, a spatial filter
+    /// that excluded everything, a palette name that does not exist.
+    /// MA3's red pot. Not an error — the show still runs — but almost
+    /// always a mistake, and invisible without this.
+    Empty,
+}
+
+/// A whole cue's cooked state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CueCook {
+    pub name: String,
+    pub recipes: Vec<Cook>,
+    /// How many direct (layer 1) values the cue carries.
+    pub direct: usize,
+}
+
+/// The one-glance verdict, matching MA3's pot colours.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Status {
+    /// Every recipe resolved, and nothing but recipes — green.
+    Cooked,
+    /// At least one recipe resolved to nothing — red.
+    Failed,
+    /// Recipe output *and* hand-placed direct values — orange. Not a
+    /// problem, but worth knowing: part of this cue will not follow a
+    /// rig change the way the rest of it will.
+    Mixed,
+    /// Direct values only. Nothing generative to go wrong.
+    Direct,
+    /// Sets nothing at all — a blackout, or a mistake.
+    Empty,
+}
+
+impl CueCook {
+    pub fn status(&self) -> Status {
+        if self.recipes.contains(&Cook::Empty) {
+            Status::Failed
+        } else if self.recipes.is_empty() {
+            if self.direct == 0 {
+                Status::Empty
+            } else {
+                Status::Direct
+            }
+        } else if self.direct > 0 {
+            Status::Mixed
+        } else {
+            Status::Cooked
+        }
+    }
+
+    /// A compact marker for a cue sheet or a status line.
+    ///
+    /// MA3 shows these as coloured pots; this is the monochrome port.
+    /// Drawing them needs a real font — Bevy's built-in default is a
+    /// subset with none of these glyphs, which is why `flake.nix`
+    /// supplies DejaVu and `ignition-viz/build.rs` embeds it.
+    pub fn marker(&self) -> char {
+        match self.status() {
+            Status::Cooked => '\u{25cf}', // ● full
+            Status::Failed => '\u{2716}', // ✖ failed
+            Status::Mixed => '\u{25d0}',  // ◐ half
+            Status::Direct => '\u{25cb}', // ○ empty
+            Status::Empty => '\u{00b7}',  // · nothing
+        }
+    }
+}
+
+/// Cooks one cue without firing it — how a cue sheet shows status for
+/// cues that have not played yet.
+pub fn cook_cue(cue: &Cue, show: &Show<'_>, secs: f32) -> CueCook {
+    CueCook {
+        name: cue.name.clone(),
+        recipes: cue
+            .recipes
+            .iter()
+            .map(|r| {
+                // Count fixtures, not emitted values: one recipe can set
+                // three colour channels per fixture, and "3 fixtures" is
+                // what an operator wants to read.
+                let emits = expand_recipe(r, show, secs);
+                let fixtures: std::collections::HashSet<ChanId> =
+                    emits.iter().map(|e| e.value.chan).collect();
+                if fixtures.is_empty() {
+                    Cook::Empty
+                } else {
+                    Cook::Ok(fixtures.len())
+                }
+            })
+            .collect(),
+        direct: cue.values.len(),
+    }
+}
+
+pub fn cook_list(cues: &[Cue], show: &Show<'_>, secs: f32) -> Vec<CueCook> {
+    cues.iter().map(|c| cook_cue(c, show, secs)).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -761,5 +873,93 @@ mod tests {
         let problems = unresolved(std::slice::from_ref(&cue), &bare(&groups));
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("Song"), "{problems:?}");
+    }
+
+    // -----------------------------------------------------------------
+    // Cooked status
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn a_recipe_that_resolves_reports_its_fixture_count() {
+        let cue = Cue {
+            name: "Wash".into(),
+            recipes: vec![Recipe::new(
+                Selection::Group("Pars".to_string()),
+                RecipeApply::Color(Ref::Inline(ColorPreset {
+                    name: "Red".into(),
+                    red: 1.0,
+                    green: 0.0,
+                    blue: 0.0,
+                })),
+            )],
+            ..Default::default()
+        };
+        let groups = groups();
+        let cook = cook_cue(&cue, &bare(&groups), 0.0);
+        // Three fixtures, not nine values — a colour sets three
+        // channels each and "9" would be a lie.
+        assert_eq!(cook.recipes, vec![Cook::Ok(3)]);
+        assert_eq!(cook.status(), Status::Cooked);
+    }
+
+    #[test]
+    fn a_recipe_that_selects_nothing_reports_failed() {
+        let cue = Cue {
+            name: "Typo".into(),
+            recipes: vec![Recipe::new(
+                Selection::Group("Prs".to_string()),
+                RecipeApply::Dimmer(1.0),
+            )],
+            ..Default::default()
+        };
+        let groups = groups();
+        let cook = cook_cue(&cue, &bare(&groups), 0.0);
+        assert_eq!(cook.recipes, vec![Cook::Empty]);
+        assert_eq!(cook.status(), Status::Failed);
+    }
+
+    #[test]
+    fn the_pot_colours_distinguish_the_five_cases() {
+        let groups = groups();
+        let show = bare(&groups);
+        let with = |recipes: Vec<Recipe>, values: Vec<CueValue>| {
+            cook_cue(
+                &Cue {
+                    name: "x".into(),
+                    recipes,
+                    values,
+                    ..Default::default()
+                },
+                &show,
+                0.0,
+            )
+            .status()
+        };
+        let good = || {
+            Recipe::new(
+                Selection::Group("Pars".to_string()),
+                RecipeApply::Dimmer(1.0),
+            )
+        };
+        let bad = || {
+            Recipe::new(
+                Selection::Group("Nope".to_string()),
+                RecipeApply::Dimmer(1.0),
+            )
+        };
+        let direct = || CueValue {
+            chan: 1,
+            attr: Attribute::Dimmer,
+            value: 1.0,
+        };
+
+        assert_eq!(with(vec![good()], vec![]), Status::Cooked);
+        assert_eq!(with(vec![bad()], vec![]), Status::Failed);
+        assert_eq!(with(vec![good()], vec![direct()]), Status::Mixed);
+        assert_eq!(with(vec![], vec![direct()]), Status::Direct);
+        assert_eq!(with(vec![], vec![]), Status::Empty);
+        // A failure beats everything else — an operator needs to see the
+        // broken one, not an average.
+        assert_eq!(with(vec![good(), bad()], vec![direct()]), Status::Failed);
     }
 }

@@ -16,7 +16,7 @@
 
 use crate::beam::BeamPlugin;
 use crate::gdtf_geometry::GdtfLibrary;
-use crate::playback::{Playback, go_on_space, tick_playback};
+use crate::playback::{Playback, operator_keys, tick_playback};
 use crate::spawn::{
     BeamStyle, DmxRes, GdtfLibraryRes, VenueRes, VizSettings, apply_ambient, spawn_venue,
     update_beams, update_fixture_bodies, update_live_fixtures,
@@ -60,6 +60,11 @@ pub struct VizConfig {
     /// An explicit eye/target pair, overriding `view`'s framing. What
     /// `--eye`/`--look` set, for inspecting one corner of the room.
     pub camera: Option<(Vec3, Vec3)>,
+    /// Draw the operator overlay — the cue list with cooked status.
+    /// Always on in a window; `--overlay` turns it on for a snapshot
+    /// too, which is how a still can carry the cue context that makes it
+    /// mean something.
+    pub overlay: bool,
     /// Room objects to leave out — see `VizSettings::exclude`.
     pub exclude: Vec<String>,
     /// Global exposure — see `VizSettings::exposure`.
@@ -105,6 +110,7 @@ impl Plugin for VizPlugin {
                 haze: self.config.haze,
                 ambient: self.config.ambient,
                 show_props: self.config.show_props,
+                overlay: self.config.overlay,
                 exclude: self.config.exclude.clone(),
                 beam_style: self.config.beam_style,
                 exposure: self.config.exposure,
@@ -121,7 +127,7 @@ impl Plugin for VizPlugin {
                 Update,
                 (
                     apply_ambient,
-                    go_on_space,
+                    operator_keys,
                     tick_playback,
                     update_live_fixtures,
                     update_fixture_bodies,
@@ -129,6 +135,19 @@ impl Plugin for VizPlugin {
                     .chain(),
             )
             .add_systems(Update, crate::props::pose_new_characters)
+            .add_systems(
+                Update,
+                (
+                    crate::overlay::target_overlay_camera,
+                    crate::overlay::update_overlay,
+                )
+                    .chain()
+                    .run_if(|s: Res<VizSettings>| s.overlay),
+            )
+            .add_systems(
+                Startup,
+                crate::overlay::spawn_overlay.run_if(|s: Res<VizSettings>| s.overlay),
+            )
             // After transform propagation, because a beam's world pose is
             // whatever the joints `update_live_fixtures` just moved ended
             // up producing — see `update_beams`.

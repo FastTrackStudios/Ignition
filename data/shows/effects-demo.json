@@ -1,0 +1,543 @@
+{
+  "name": "Effects Demo",
+  "cues": [
+    {
+      "name": "Blackout",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": []
+    },
+    {
+      "name": "L-R Chase",
+      "fade_secs": 2.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "apply": {
+            "Color": "Cyan"
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "waveform": {
+            "shape": "Sine",
+            "attr": "Dimmer",
+            "base": 0.5,
+            "size": 0.5,
+            "relative": false
+          },
+          "timing": {
+            "speed": {
+              "Master": "Tap"
+            },
+            "phase_spread_deg": 360.0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Centre-Out Bloom",
+      "fade_secs": 3.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Distance": {
+                  "from": {
+                    "x": 0.0,
+                    "y": -3.0,
+                    "z": 2.7
+                  },
+                  "dir": "Asc"
+                }
+              }
+            }
+          },
+          "apply": {
+            "Color": "Magenta"
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Distance": {
+                  "from": {
+                    "x": 0.0,
+                    "y": -3.0,
+                    "z": 2.7
+                  },
+                  "dir": "Asc"
+                }
+              }
+            }
+          },
+          "waveform": {
+            "shape": "Sine",
+            "attr": "Dimmer",
+            "base": 0.5,
+            "size": 0.5,
+            "relative": false
+          },
+          "timing": {
+            "speed": {
+              "Master": "Tap"
+            },
+            "phase_spread_deg": 360.0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wash + Relative Pulse",
+      "fade_secs": 3.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.4
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "apply": {
+            "Dimmer": 0.95
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "apply": {
+            "Color": "Warm White"
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "waveform": {
+            "shape": "Sine",
+            "attr": "Dimmer",
+            "base": -0.45,
+            "size": 0.45,
+            "relative": true
+          },
+          "timing": {
+            "speed": {
+              "Master": "Tap"
+            },
+            "phase_spread_deg": 360.0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Movers Circle",
+      "fade_secs": 3.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.5
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Color": "Open White"
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "FocusPoint": "Audience Front"
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "waveform": {
+            "shape": "Sine",
+            "attr": "Pan",
+            "base": 0.0,
+            "size": 18.0,
+            "relative": true
+          },
+          "timing": {
+            "speed": {
+              "Master": "Tap"
+            },
+            "measure": 4.0,
+            "phase_spread_deg": 180.0
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "waveform": {
+            "shape": "Sine",
+            "attr": "Tilt",
+            "base": 0.0,
+            "size": 12.0,
+            "relative": true
+          },
+          "timing": {
+            "speed": {
+              "Master": "Tap"
+            },
+            "measure": 4.0,
+            "phase_spread_deg": 180.0,
+            "phase_offset_deg": 90.0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Everything",
+      "fade_secs": 2.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 0.5
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "apply": {
+            "Color": "Gold"
+          }
+        },
+        {
+          "target": {
+            "Order": {
+              "of": {
+                "Where": {
+                  "of": {
+                    "Tag": "Luminaire_LED_Wash"
+                  },
+                  "filter": {
+                    "Half": {
+                      "axis": "Z",
+                      "cmp": "Gt",
+                      "at": 2.0
+                    }
+                  }
+                }
+              },
+              "by": {
+                "Axis": [
+                  "X",
+                  "Asc"
+                ]
+              }
+            }
+          },
+          "waveform": {
+            "shape": "Sine",
+            "attr": "Dimmer",
+            "base": 0.55,
+            "size": 0.45,
+            "relative": false
+          },
+          "timing": {
+            "speed": {
+              "Master": "Tap"
+            },
+            "phase_spread_deg": 360.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Dimmer": 0.9
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Color": "Congo"
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Color": "Magenta"
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "waveform": {
+            "shape": "Triangle",
+            "attr": "Dimmer",
+            "base": 0.5,
+            "size": 0.5,
+            "relative": false
+          },
+          "timing": {
+            "speed": {
+              "Master": "Tap"
+            },
+            "phase_spread_deg": 360.0
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "Color": "Cyan"
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "apply": {
+            "FocusPoint": "Audience Back"
+          }
+        },
+        {
+          "target": {
+            "Model": "Moving Head"
+          },
+          "waveform": {
+            "shape": "Sine",
+            "attr": "Pan",
+            "base": 0.0,
+            "size": 22.0,
+            "relative": true
+          },
+          "timing": {
+            "speed": {
+              "Master": "Tap"
+            },
+            "measure": 2.0,
+            "phase_spread_deg": 360.0
+          }
+        }
+      ]
+    }
+  ]
+}

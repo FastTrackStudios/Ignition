@@ -22,6 +22,7 @@ pub mod gdtf_geometry;
 pub mod gdtf_import;
 pub mod obj_mesh;
 pub mod ofl_import;
+pub mod overlay;
 pub mod playback;
 pub mod props;
 pub mod show;

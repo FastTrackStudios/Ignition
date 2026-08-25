@@ -32,6 +32,11 @@ pub struct Playback {
     /// something drives them — a tap-tempo key, or the session tempo map
     /// from the FastTrackStudio side.
     pub speeds: SpeedMasters,
+    /// Recent tap-tempo taps, in show-clock seconds. Drives the `Tap`
+    /// speed master — the cheapest possible demonstration that a phaser
+    /// really is slaved to something outside itself, and the same seam
+    /// the session tempo map will arrive through.
+    taps: Vec<f32>,
 }
 
 impl Playback {
@@ -62,7 +67,7 @@ impl Playback {
 
         let groups = venue.groups();
         let rig = venue.rig();
-        let speeds = SpeedMasters::new();
+        let speeds = default_speeds();
         let show = Show {
             groups: &groups,
             palettes: &venue.palettes,
@@ -84,6 +89,31 @@ impl Playback {
                     venue.palettes.colors.len(),
                     venue.palettes.focus.len()
                 );
+                // The cook report: what every cue actually resolves to,
+                // before a single one has fired. A recipe that selects
+                // nothing is not an error and the show still runs — this
+                // is the only thing that makes it visible.
+                for (i, cook) in ignition_core::cook_list(&list.cues, &show, 0.0)
+                    .iter()
+                    .enumerate()
+                {
+                    let counts: Vec<String> = cook
+                        .recipes
+                        .iter()
+                        .map(|c| match c {
+                            ignition_core::Cook::Ok(n) => n.to_string(),
+                            ignition_core::Cook::Empty => "-".to_string(),
+                        })
+                        .collect();
+                    println!(
+                        "  {} {i:>3}  {:<24} {} recipe(s) [{}] {} direct",
+                        cook.marker(),
+                        cook.name,
+                        cook.recipes.len(),
+                        counts.join(" "),
+                        cook.direct
+                    );
+                }
                 Some(CuePlayer::new(list.cues))
             }
             None => None,
@@ -106,9 +136,21 @@ impl Playback {
             cues,
             groups,
             rig,
-            speeds: SpeedMasters::new(),
+            speeds: default_speeds(),
+            taps: Vec::new(),
         })
     }
+}
+
+/// The speed masters a show can assume exist.
+///
+/// `Tap` is seeded at a plausible tempo rather than left empty so a
+/// tap-driven show runs the moment it loads — an operator should not
+/// have to tap four times to find out whether their chase works. The
+/// `T` key retunes it; `unresolved()` still reports any *other* master
+/// a show names, which is the case that really is a wiring mistake.
+fn default_speeds() -> SpeedMasters {
+    SpeedMasters::from([("Tap".to_string(), 120.0)])
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path, what: &str) -> anyhow::Result<T> {
@@ -133,6 +175,7 @@ pub fn tick_playback(
         groups,
         rig,
         speeds,
+        ..
     } = &mut *playback;
     let venue = &venue.0;
     let show = Show {
@@ -146,32 +189,85 @@ pub fn tick_playback(
     }
 }
 
-/// Space is GO, the way it is on every console an operator has used.
-pub fn go_on_space(
+/// How long a gap before a tap-tempo run is treated as a fresh start
+/// rather than a very slow beat.
+const TAP_TIMEOUT: f32 = 3.0;
+
+/// The operator keys. Space is GO, the way it is on every console.
+pub fn operator_keys(
     keys: Res<ButtonInput<KeyCode>>,
     venue: Res<VenueRes>,
     dmx: Res<DmxRes>,
     mut playback: ResMut<Playback>,
 ) {
-    if !keys.just_pressed(KeyCode::Space) {
+    let go = keys.just_pressed(KeyCode::Space);
+    let back = keys.just_pressed(KeyCode::Backspace);
+    let restart = keys.just_pressed(KeyCode::KeyR);
+    let tap = keys.just_pressed(KeyCode::KeyT);
+    if !(go || back || restart || tap) {
         return;
     }
+
     let Playback {
         cues,
         groups,
         rig,
         speeds,
+        taps,
     } = &mut *playback;
-    if let Some(player) = cues.as_mut() {
-        let venue = &venue.0;
-        let show = Show {
-            groups,
-            palettes: &venue.palettes,
-            rig,
-            speeds,
+    let Some(player) = cues.as_mut() else {
+        return;
+    };
+
+    if tap {
+        let now = player.clock();
+        if taps.last().is_some_and(|t| now - t > TAP_TIMEOUT) {
+            taps.clear();
+        }
+        taps.push(now);
+        // Four taps is one bar of four, which is how people tap.
+        if taps.len() > 4 {
+            taps.remove(0);
+        }
+        if let (Some(first), Some(last)) = (taps.first(), taps.last())
+            && taps.len() > 1
+        {
+            let interval = (last - first) / (taps.len() - 1) as f32;
+            if interval > 0.05 {
+                let bpm = 60.0 / interval;
+                info!("tap tempo -> {bpm:.1} BPM");
+                speeds.insert("Tap".to_string(), bpm);
+            }
+        }
+    }
+
+    let venue = &venue.0;
+    let show = Show {
+        groups,
+        palettes: &venue.palettes,
+        rig,
+        speeds,
+    };
+
+    // Stepping backwards re-runs the show from the top to the target,
+    // because tracking means a cue's state is the sum of everything
+    // before it — there is no "undo one cue" that is correct.
+    if back || restart {
+        let target = if restart {
+            0
+        } else {
+            player.current_index().unwrap_or(0).saturating_sub(1)
         };
+        let cues_owned = player.cues().to_vec();
+        let mut fresh = ignition_core::CuePlayer::new(cues_owned);
+        fresh.advance_clock(player.clock());
+        fresh.jump_to_end_of(target, &show);
+        *player = fresh;
+        info!("cue -> {} {:?}", target, player.current_name());
+    } else if go {
         player.go(&show);
         info!("cue -> {:?}", player.current_name());
-        apply_cue_output(&dmx.0, venue, &player.output(&show));
     }
+
+    apply_cue_output(&dmx.0, venue, &player.output(&show));
 }

@@ -63,7 +63,20 @@
               # default linker dominates incremental build time.
               pkgs.mold
               pkgs.cargo-nextest
+              # The operator overlay's font. Bevy's built-in default is a
+              # small subset with no box-drawing or symbol glyphs, so a
+              # cue sheet drawn with it renders a column of tofu where
+              # the cooked-status markers should be.
+              pkgs.dejavu_fonts
             ] ++ lib.optionals stdenv.hostPlatform.isLinux linuxBuildInputs;
+
+            # Read by `crates/ignition-viz/build.rs`, which copies the
+            # file into OUT_DIR so it ends up *embedded in the binary*
+            # rather than referenced by store path. A nix store path is
+            # machine-specific; a visualizer that only draws its own UI
+            # inside the dev shell would be a bad trade for one font.
+            IGNITION_OVERLAY_FONT =
+              "${pkgs.dejavu_fonts}/share/fonts/truetype/DejaVuSansMono.ttf";
 
             # wgpu dlopen's the Vulkan loader and winit dlopen's the
             # Wayland/xkb clients, so they must be findable at run time,

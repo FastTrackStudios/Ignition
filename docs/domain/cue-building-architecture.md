@@ -287,21 +287,19 @@ to-side, with the crossfade applied to the two resolved outputs. That is
 one extra stack and one extra resolve per frame, and it is what makes a
 phaser fade *in* rather than snap.
 
-**Shipped short of that, deliberately.** The `from` side is a *snapshot*
-taken at GO, not a live stack. That is exactly right for the common case
-— a phaser introduced by a cue fades in from the previous static look
-while already moving, because the *to* side resolves live. The one case
-it gets wrong is crossfading from one phaser directly into another: the
-outgoing one freezes for the length of the fade. Narrow, visible only in
-that pairing, and the fix is the live from-side stack described above.
-Left as its own step rather than smuggled into the unification.
+**Built** as a stack of stages rather than one remembered `from`, which
+also makes overlapping fades compose: firing GO mid-fade pushes a stage
+rather than discarding the one in flight, and the output is the fold of
+every live stage oldest to newest. Bounded at eight, past which the
+oldest is forced to finish — only reachable by firing GO faster than
+fades complete, several times over, and the alternative is an unbounded
+stack.
 
 ## Staging
 
 Each step is independently shippable and leaves the tree working:
 
-**Done:** 1, 2, 3 and 4 (2026-08-25). Remaining: 5, plus the
-`from`-side refinement named under Decision 6 below.
+**Done: all five, plus Decision 6 in full** (2026-08-25).
 
 1. **Cascade + `block`.** `Cue` gains `recipes` and `block`; resolution
    moves from load time to output time. Existing shows keep working —
@@ -340,4 +338,4 @@ precondition for the phase-spread semantics in 3 being meaningful.
 | 3 | `Recipe` and `EffectRecipe` unify; `Waveform` demoted to a step-table constructor; `Value::Relative` added. |
 | 4 | Full selection algebra **plus spatial filter and spatial ordering**. No `<From Value>`. |
 | 5 | `Speed::{Hz,Bpm,Secs,Master}` — and unlike MA3, a speed master drives **every** recipe, not only hand-authored phasers. |
-| 6 | Tracking carries the layer stack, not resolved values. The *to* side resolves every frame; the *from* side is still a snapshot — see the note under Decision 6. |
+| 6 | Tracking carries the layer stack, not resolved values; **both** sides of a fade resolve every frame, and overlapping fades compose as a stack. |
