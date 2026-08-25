@@ -97,25 +97,24 @@ impl FixtureRecord {
         Some(ignition_proto::DmxAddress { universe: self.universe?, start_channel: self.address? })
     }
 
-    /// This fixture's real hung position, and its *effective beam-aim*
-    /// orientation, in `ignition_core`'s f64 `Placement` shape — what
-    /// `ignition_core::focus`'s Focus Point math needs to solve for real
-    /// Pan/Tilt values that will actually land where intended once drawn.
+    /// This fixture's real hung position and mount orientation, in
+    /// `ignition_core`'s f64 `Placement` shape — what
+    /// `ignition_core::focus` solves Pan/Tilt against.
     ///
-    /// `orientation` is `self.quat` composed with
-    /// `fixture_profile::beam_pre_rotate` — NOT the raw mount quaternion
-    /// alone. `add_typed_fixture` composes a fixture's real drawn beam
-    /// direction as `rot * pan * tilt * pre_rotate` (see
-    /// `emit_light_and_beam`); a Focus Point solved against `rot` (this
-    /// fixture's raw `quat`) alone ignores that `pre_rotate` term and is
-    /// off by it — for every real mover in this venue, `pre_rotate` is a
-    /// 180°-class rotation (`moving_head_pre_rotate`), so the resulting
-    /// beam lands roughly opposite of intended: reported directly as a
-    /// beam "behind the fixture" instead of at its real target. Folding
-    /// the same correction in here means the recipe math and the renderer
-    /// agree on what "aim at this point" actually means, without
-    /// `ignition_core` (fixture-shape-agnostic by design — see
-    /// `focus.rs`'s own module doc) needing to know `pre_rotate` exists.
+    /// The **raw** mount quaternion, deliberately. This used to compose
+    /// `fixture_profile::beam_pre_rotate` in, to compensate for the
+    /// renderer aiming beams along `rot * pan * tilt * pre_rotate` — a
+    /// mesh-authoring correction that had leaked onto the aim joint. That
+    /// was a compensating error for a real bug, and not even an exact
+    /// one: it applied the correction *before* pan where the renderer
+    /// applied it *after* tilt, and a 180-degree flip does not commute
+    /// with pan. Focus solves came out right only when pan happened to be
+    /// near zero.
+    ///
+    /// The renderer now aims along `mount * pan * tilt * -Z`, which is
+    /// what `focus.rs` always documented itself as targeting, so there is
+    /// nothing left to compensate for. `spawn.rs`'s
+    /// `aim_convention_tests` pins the two together.
     ///
     /// A plain unit cast for both fields (this crate's own `Vec3`/`Quat`
     /// are `f32`, matching Bevy's maths types; `ignition_proto`'s are
@@ -123,11 +122,7 @@ impl FixtureRecord {
     /// coordinate remap, same convention both sides already agree on
     /// (`to_vec3()`/`to_quat()`'s own doc comments).
     pub fn placement(&self) -> ignition_proto::Placement {
-        let pre_rotate = crate::fixture_profile::beam_pre_rotate(
-            self.manufacturer.as_deref().unwrap_or(""),
-            self.model.as_deref().unwrap_or(""),
-        );
-        let effective_rot = self.orientation() * pre_rotate;
+        let effective_rot = self.orientation();
         ignition_proto::Placement {
             position: ignition_proto::Vec3 {
                 x: self.position.x as f64,

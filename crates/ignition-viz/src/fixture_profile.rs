@@ -172,31 +172,6 @@ pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
     Shape::Generic
 }
 
-/// The same mesh-frame correction `add_typed_fixture` folds into a
-/// fixture's *actual drawn beam direction* (`head_full_rot = rot * pan *
-/// tilt * pre_rotate`, used by `emit_light_and_beam`) — exposed
-/// separately so anything computing an aim direction *without* going
-/// through `add_typed_fixture` (currently: `ignition_core::focus`'s
-/// Focus Point solver, reached via `venue.rs::FixtureRecord::placement`)
-/// can target the same real convention instead of a naive `mount_rot *
-/// NEG_Z` that ignores it.
-///
-/// This isn't optional for movers: Norco's real Eos-exported `quat` for
-/// every Riukoe/Betopper unit checked is a 180°-class rotation (e.g.
-/// `{w:0, x:1, y:0, z:0}`) — the *fixture's own mount data* encodes it
-/// mounted "flipped" relative to this project's naive baseline, the same
-/// physical fact `moving_head_pre_rotate`'s own doc comment already
-/// describes for the mesh ("confirmed backwards... the truss-hung centre
-/// OH movers rendered upright... exactly inverted"). A Focus Point
-/// solved against `mount_rot` alone is off by that same flip — reported
-/// directly as a beam landing "behind the fixture" instead of at its
-/// intended target.
-pub fn beam_pre_rotate(manufacturer: &str, model: &str) -> Quat {
-    match shape_for(manufacturer, model) {
-        Shape::Mesh { pre_rotate, .. } => pre_rotate,
-        Shape::Bar { .. } | Shape::Generic => Quat::IDENTITY,
-    }
-}
 
 /// Where the moving-head mesh's yoke/base ends and its head begins, in the
 /// mesh's own raw local Z (`assets/qlc-meshes/moving_head.obj`, unscaled,
