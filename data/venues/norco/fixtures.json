@@ -714,7 +714,7 @@
     "global_address": 64,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -1.908,
+      "x": -2.5175,
       "y": -4.67,
       "z": 3.25
     },
@@ -751,7 +751,7 @@
     "global_address": 71,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -1.5952,
+      "x": -2.1048,
       "y": -4.67,
       "z": 3.25
     },
@@ -788,7 +788,7 @@
     "global_address": 78,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -1.2824,
+      "x": -1.6921,
       "y": -4.67,
       "z": 3.25
     },
@@ -825,7 +825,7 @@
     "global_address": 85,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -0.9696,
+      "x": -1.2794,
       "y": -4.67,
       "z": 3.25
     },
@@ -862,7 +862,7 @@
     "global_address": 92,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -0.4692,
+      "x": -0.6191,
       "y": -4.67,
       "z": 3.0976
     },
@@ -899,7 +899,7 @@
     "global_address": 99,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -0.1564,
+      "x": -0.2064,
       "y": -4.67,
       "z": 3.0976
     },
@@ -936,7 +936,7 @@
     "global_address": 576,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": 0.1564,
+      "x": 0.2064,
       "y": -4.67,
       "z": 3.0976
     },
@@ -973,7 +973,7 @@
     "global_address": 583,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": 0.4692,
+      "x": 0.6191,
       "y": -4.67,
       "z": 3.0976
     },
@@ -1010,7 +1010,7 @@
     "global_address": 590,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": 0.9696,
+      "x": 1.2794,
       "y": -4.67,
       "z": 3.25
     },
@@ -1047,7 +1047,7 @@
     "global_address": 597,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": 1.2824,
+      "x": 1.6921,
       "y": -4.67,
       "z": 3.25
     },
@@ -1084,7 +1084,7 @@
     "global_address": 604,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": 1.5952,
+      "x": 2.1048,
       "y": -4.67,
       "z": 3.25
     },
@@ -1121,7 +1121,7 @@
     "global_address": 611,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": 1.908,
+      "x": 2.5176,
       "y": -4.67,
       "z": 3.25
     },
@@ -1158,7 +1158,7 @@
     "global_address": 106,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -3.7032,
+      "x": -4.6126,
       "y": -3.7556,
       "z": 3.25
     },
@@ -1195,7 +1195,7 @@
     "global_address": 113,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -3.3904,
+      "x": -4.1999,
       "y": -3.8572,
       "z": 3.25
     },
@@ -1232,7 +1232,7 @@
     "global_address": 120,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -3.0777,
+      "x": -3.7872,
       "y": -3.9588,
       "z": 3.25
     },
@@ -1269,7 +1269,7 @@
     "global_address": 127,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": -2.7649,
+      "x": -3.3744,
       "y": -4.0604,
       "z": 3.25
     },
@@ -1343,7 +1343,7 @@
     "global_address": 625,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": 3.6872,
+      "x": 3.7872,
       "y": -3.9588,
       "z": 3.25
     },
@@ -1380,7 +1380,7 @@
     "global_address": 632,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": 4.0,
+      "x": 4.1999,
       "y": -3.8572,
       "z": 3.25
     },
@@ -1417,7 +1417,7 @@
     "global_address": 639,
     "beam_angle_deg": 30.0,
     "position": {
-      "x": 4.3129,
+      "x": 4.6126,
       "y": -3.7556,
       "z": 3.25
     },
