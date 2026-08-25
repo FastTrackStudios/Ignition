@@ -17,6 +17,7 @@ use ignition_viz::{Venue, ViewPreset, VizConfig};
 use std::any::Any;
 
 mod command;
+mod faders;
 mod viz_widget;
 use command::{Command, Sender};
 
@@ -52,7 +53,19 @@ fn main() -> anyhow::Result<()> {
             .palettes
             .colors
             .iter()
-            .map(|c| c.name.clone())
+            .map(|c| ColorChip {
+                name: c.name.clone(),
+                // The palette is linear 0–1 like the fixtures; the disc
+                // only has to look like the gel, so a plain byte scale
+                // is close enough and avoids a colour-management rabbit
+                // hole for a swatch.
+                css: format!(
+                    "rgb({} {} {})",
+                    (c.red * 255.0) as u8,
+                    (c.green * 255.0) as u8,
+                    (c.blue * 255.0) as u8
+                ),
+            })
             .collect(),
         focus: venue
             .palettes
@@ -174,11 +187,20 @@ fn pick_monitor(
     }
 }
 
+/// A colour palette entry as the surface draws it: the name to send, and
+/// the colour to show. A colour pool that does not show its colours is a
+/// list of words, which is the whole reason to have a pool.
+#[derive(Clone, PartialEq)]
+struct ColorChip {
+    name: String,
+    css: String,
+}
+
 /// The named things the surface offers, resolved once from the venue.
 #[derive(Clone, Props, PartialEq)]
 struct Surface {
     groups: Vec<String>,
-    colors: Vec<String>,
+    colors: Vec<ColorChip>,
     focus: Vec<String>,
     cues: Vec<String>,
 }
@@ -211,6 +233,22 @@ fn busking_groups(venue: &Venue) -> Vec<String> {
 
 fn app(surface: Surface) -> Element {
     place_window();
+
+    // Load the eight faders once. They queue in the channel until the
+    // visualizer exists to drain them, so this does not have to wait for
+    // the widget to be built.
+    use_hook(|| {
+        for (i, spec) in faders::defaults().into_iter().enumerate() {
+            send(Command::Fader(
+                i,
+                Box::new(ignition_core::Fader {
+                    name: spec.name.to_string(),
+                    recipe: Some(spec.recipe),
+                    level: 0.0,
+                }),
+            ));
+        }
+    });
 
     rsx! {
         style { {include_str!("studio.css")} }
@@ -273,18 +311,16 @@ fn send(command: Command) {
 #[component]
 fn Busking(surface: Surface) -> Element {
     let mut selected = use_signal(|| Option::<String>::None);
-    let mut rate = use_signal(|| 120.0f32);
-    let mut levels = use_signal(|| [0.0f32; ignition_core::FADERS]);
 
     rsx! {
         section { class: "surface",
-            div { class: "col wide",
+            div { class: "col groups",
                 header { "Groups" }
-                div { class: "chips",
+                div { class: "tiles",
                     for name in surface.groups.iter().cloned() {
                         button {
                             key: "{name}",
-                            class: if selected() == Some(name.clone()) { "chip on" } else { "chip" },
+                            class: if selected() == Some(name.clone()) { "tile on" } else { "tile" },
                             onclick: {
                                 let name = name.clone();
                                 move |_| {
@@ -298,30 +334,34 @@ fn Busking(surface: Surface) -> Element {
                 }
             }
 
-            div { class: "col",
+            div { class: "col colours",
                 header { "Colour" }
-                div { class: "chips",
-                    for name in surface.colors.iter().cloned() {
+                div { class: "swatches",
+                    for chip in surface.colors.iter().cloned() {
                         button {
-                            key: "{name}",
-                            class: "chip",
+                            key: "{chip.name}",
+                            class: "swatch",
                             onclick: {
-                                let name = name.clone();
+                                let name = chip.name.clone();
                                 move |_| send(Command::Color(name.clone()))
                             },
-                            "{name}"
+                            // The disc carries the colour and the whole
+                            // control is the hit target, so the label can
+                            // stay small without making it hard to press.
+                            span { class: "disc", style: "background: {chip.css}" }
+                            span { class: "swatch-label", "{chip.name}" }
                         }
                     }
                 }
             }
 
-            div { class: "col",
+            div { class: "col focus",
                 header { "Focus" }
-                div { class: "chips",
+                div { class: "grid",
                     for name in surface.focus.iter().cloned() {
                         button {
                             key: "{name}",
-                            class: "chip",
+                            class: "cell",
                             onclick: {
                                 let name = name.clone();
                                 move |_| send(Command::Focus(name.clone()))
@@ -332,55 +372,116 @@ fn Busking(surface: Surface) -> Element {
                 }
             }
 
-            div { class: "col narrow",
+            div { class: "col intensity",
                 header { "Intensity" }
-                div { class: "chips",
-                    for pct in [0u32, 25, 50, 75, 100] {
-                        button {
-                            key: "{pct}",
-                            class: "chip",
-                            onclick: move |_| send(Command::Dimmer(pct as f32 / 100.0)),
-                            "{pct}%"
+                div { class: "intensity-row",
+                    // Presets to the left of the fader, the way a
+                    // console puts its dimmer pool beside the wheel.
+                    div { class: "presets",
+                        for pct in [100u32, 75, 50, 25, 0] {
+                            button {
+                                key: "{pct}",
+                                class: "preset",
+                                onclick: move |_| send(Command::Dimmer(pct as f32 / 100.0)),
+                                "{pct}"
+                            }
                         }
                     }
-                    button { class: "chip warn", onclick: move |_| send(Command::Release), "Release" }
-                    button { class: "chip warn", onclick: move |_| send(Command::ClearValues), "Clear" }
+                    Fader {
+                        label: "INT".to_string(),
+                        css: "#e8e8e8".to_string(),
+                        initial: 0.0,
+                        on_change: move |v: f32| send(Command::Dimmer(v)),
+                    }
+                }
+                div { class: "row",
+                    button { class: "tile warn", onclick: move |_| send(Command::Release), "Release" }
+                    button { class: "tile warn", onclick: move |_| send(Command::ClearValues), "Clear" }
                 }
             }
 
             div { class: "col faders",
                 header { "Faders" }
                 div { class: "fader-row",
-                    for i in 0..ignition_core::FADERS {
-                        div { key: "{i}", class: "fader",
-                            input {
-                                r#type: "range",
-                                min: "0", max: "100", step: "1",
-                                value: "{(levels()[i] * 100.0) as u32}",
-                                oninput: move |e| {
-                                    let v = e.value().parse::<f32>().unwrap_or(0.0) / 100.0;
-                                    levels.write()[i] = v;
-                                    send(Command::Level(i, v));
-                                },
-                            }
-                            span { class: "fader-label", "{i + 1}" }
+                    for (i, spec) in faders::defaults().into_iter().enumerate() {
+                        Fader {
+                            key: "{i}",
+                            label: spec.name.to_string(),
+                            css: spec.css.to_string(),
+                            initial: 0.0,
+                            on_change: move |v: f32| send(Command::Level(i, v)),
                         }
                     }
-                    div { class: "fader master",
-                        input {
-                            r#type: "range",
-                            min: "40", max: "220", step: "1",
-                            value: "{rate() as u32}",
-                            oninput: move |e| {
-                                let v = e.value().parse::<f32>().unwrap_or(120.0);
-                                rate.set(v);
-                                send(Command::Rate(v));
-                            },
+                    div { class: "master",
+                        Fader {
+                            label: "RATE".to_string(),
+                            css: "#c08a3e".to_string(),
+                            initial: 0.4,
+                            // 40–220 BPM over the fader's travel.
+                            on_change: move |v: f32| send(Command::Rate(40.0 + v * 180.0)),
                         }
-                        span { class: "fader-label", "{rate() as u32}" }
                     }
                 }
             }
+        }
+    }
+}
+
+/// How tall a fader's track is, in CSS pixels.
+///
+/// Known rather than measured: the value comes from the pointer's
+/// position *within the element*, and a layout query in an event handler
+/// is exactly the thing that deadlocks Blitz. Keep this in step with
+/// `.track` in studio.css.
+const TRACK: f32 = 190.0;
+
+/// A fader built from divs rather than `<input type=range>`.
+///
+/// Three reasons, in order: a range input renders as a bare white bar in
+/// Blitz with no way to style the fill; touch needs a hit target far
+/// larger than a native thumb; and the value has to be readable as a
+/// colour at a glance from two metres away, which a native control
+/// cannot do.
+#[component]
+fn Fader(label: String, css: String, initial: f32, on_change: EventHandler<f32>) -> Element {
+    let mut level = use_signal(|| initial);
+    let mut held = use_signal(|| false);
+
+    // `element_coordinates` is relative to the element the handler is
+    // on, which is why the track owns the events rather than the whole
+    // fader — no measuring, no layout query.
+    let mut set_from = move |y: f64| {
+        let v = (1.0 - (y as f32 / TRACK)).clamp(0.0, 1.0);
+        level.set(v);
+        on_change.call(v);
+    };
+
+    rsx! {
+        div { class: "fader",
+            div {
+                class: "track",
+                onpointerdown: move |e| {
+                    held.set(true);
+                    set_from(e.data.element_coordinates().y);
+                },
+                onpointermove: move |e| {
+                    if held() {
+                        set_from(e.data.element_coordinates().y);
+                    }
+                },
+                onpointerup: move |_| held.set(false),
+                onpointerleave: move |_| held.set(false),
+                div {
+                    class: "fill",
+                    style: "height: {level() * 100.0}%; background: {css}",
+                }
+                div {
+                    class: "handle",
+                    style: "bottom: {level() * 100.0}%; border-color: {css}",
+                }
+            }
+            span { class: "fader-label", "{label}" }
+            span { class: "fader-value", "{(level() * 100.0) as u32}" }
         }
     }
 }

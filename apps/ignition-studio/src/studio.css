@@ -1,6 +1,8 @@
-/* Blitz implements a real subset of CSS, not all of it, so this leans on
-   flexbox and explicit values rather than anything clever — the surface
-   working matters more than the stylesheet being short. */
+/* Sized for fingers, not cursors. Every control is at least 44px on its
+   short edge — the smallest thing a thumb hits reliably — and nothing
+   depends on :hover, because a touchscreen has no hover state to give.
+   Blitz implements a real subset of CSS, so this leans on flexbox and
+   explicit values rather than anything clever. */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 13px; }
@@ -11,62 +13,89 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .cues { width: 260px; min-width: 260px; height: 100%; background: #131317;
         border-right: 1px solid #26262c; overflow-y: auto; }
 .cues header { display: flex; justify-content: space-between; align-items: center;
-               padding: 10px 12px; font-weight: bold; letter-spacing: 0.08em;
+               padding: 12px 14px; font-weight: bold; letter-spacing: 0.08em;
                text-transform: uppercase; font-size: 10px; color: #8d8d99;
                border-bottom: 1px solid #26262c; }
 .cues ol { list-style: none; margin: 0; padding: 0; }
-.cue { display: flex; gap: 10px; padding: 7px 12px; cursor: pointer;
-       border-bottom: 1px solid #1c1c22; }
-.cue:hover { background: #1b1b21; }
+.cue { display: flex; gap: 10px; align-items: center; padding: 14px;
+       cursor: pointer; border-bottom: 1px solid #1c1c22; }
 .cue.on { background: #23233a; color: #fff; }
 .num { width: 22px; color: #6f6f7d; text-align: right; }
 .go { background: #2c4a2c; color: #cfe8cf; border: 1px solid #3d663d;
-      border-radius: 3px; padding: 3px 10px; font-size: 10px; font-weight: bold;
+      border-radius: 5px; padding: 8px 18px; font-size: 11px; font-weight: bold;
       letter-spacing: 0.08em; cursor: pointer; }
-.go:hover { background: #365a36; }
 
 /* ── Stage: visualizer over the busking surface ───────────────────── */
 .stage { flex: 1; height: 100%; display: flex; flex-direction: column; }
-.viewport { flex: 1; min-height: 0; }
 /* An <object> is a replaced element with no intrinsic size, so it lays
-   out 0x0 inside a plain block and never paints. Making the container a
-   grid stretches its single item to fill. */
-.viewport { display: grid; }
+   out 0x0 inside a plain block and never paints. Grid stretches it. */
+.viewport { flex: 1; min-height: 0; display: grid; }
 .viz { display: grid; width: 100%; height: 100%; }
 .viz > object { width: 100%; height: 100%; }
 
-/* ── Busking surface, under the visualizer ────────────────────────── */
-.surface { height: 250px; min-height: 250px; display: flex;
+/* ── Busking surface ──────────────────────────────────────────────── */
+.surface { height: 320px; min-height: 320px; display: flex;
            background: #131317; border-top: 1px solid #26262c; }
-/* `min-width: 0` on a flex item is what lets it shrink below its
-   content — without it the palette columns refuse to give ground and
-   push the faders off the right edge, which is exactly how this looked
-   the first time. Groups, intensity and faders keep fixed widths
-   because their content does not reflow usefully; the two palette
-   columns absorb whatever is left. */
-.col { padding: 10px 12px; border-right: 1px solid #1f1f26;
+/* `min-width: 0` is what lets a flex item shrink below its content —
+   without it the pools refuse to give ground and push the faders off
+   the right edge. */
+.col { padding: 12px; border-right: 1px solid #1f1f26;
        overflow-y: auto; flex: 1 1 0; min-width: 0; }
-.col.wide { flex: 0 0 280px; }
-.col.narrow { flex: 0 0 150px; }
-.col.faders { flex: 0 0 340px; border-right: none; }
+.col.groups { flex: 0 0 260px; }
+.col.intensity { flex: 0 0 210px; }
+.col.faders { flex: 0 0 470px; border-right: none; }
 .surface header { font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;
-                  font-size: 10px; color: #8d8d99; margin-bottom: 8px; }
+                  font-size: 10px; color: #8d8d99; margin-bottom: 10px; }
 
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { background: #1e1e26; color: #d6d6e0; border: 1px solid #2c2c36;
-        border-radius: 4px; padding: 5px 9px; font-size: 12px; cursor: pointer; }
-.chip:hover { background: #272733; }
-.chip.on { background: #3a3a6b; border-color: #5252a0; color: #fff; }
-.chip.warn { background: #2a1a1a; border-color: #4a2a2a; color: #e0b0b0; }
+/* Groups — console tiles. */
+.tiles, .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.tile { background: #1e1e26; color: #d6d6e0; border: 1px solid #2c2c36;
+        border-radius: 6px; padding: 0 12px; height: 44px; min-width: 74px;
+        font-size: 12px; cursor: pointer; }
+.tile.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.tile.warn { background: #2a1a1a; border-color: #4a2a2a; color: #e0b0b0; }
 
-.fader-row { display: flex; gap: 10px; align-items: flex-end; }
-.fader { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-/* A vertical range is what a fader is; a row of horizontal sliders in a
-   250px-tall pane would be unreadable. */
-.fader input { writing-mode: vertical-lr; direction: rtl; width: 18px; height: 150px; }
-.fader-label { font-size: 11px; color: #8d8d99; }
-/* The master sits to the right of the eight, with a gap so it does not
-   read as a ninth fader. */
-.fader.master { margin-left: 14px; padding-left: 14px; border-left: 1px solid #2c2c36; }
-.fader.master input { accent-color: #c08a3e; }
-.fader.master .fader-label { color: #c08a3e; }
+/* Colour — the pool shows its colours. A ring rather than a filled
+   square so a white gel still reads as a swatch against a dark panel. */
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch { background: transparent; border: none; padding: 0; cursor: pointer;
+          width: 62px; display: flex; flex-direction: column;
+          align-items: center; gap: 4px; }
+.disc { width: 46px; height: 46px; border-radius: 23px;
+        border: 2px solid rgba(255, 255, 255, 0.18); }
+.swatch-label { font-size: 10px; color: #9a9aa6; text-align: center; }
+
+/* Focus — a grid of places, which is what a position pool is. */
+.grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.cell { background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
+        border-radius: 6px; width: 96px; height: 52px; font-size: 11px;
+        cursor: pointer; }
+
+/* Intensity — presets beside the fader, the way a console puts its
+   dimmer pool next to the wheel. */
+.intensity-row { display: flex; gap: 12px; }
+.presets { display: flex; flex-direction: column; gap: 6px; }
+.preset { background: #1e1e26; color: #d6d6e0; border: 1px solid #2c2c36;
+          border-radius: 6px; width: 52px; height: 40px; font-size: 12px;
+          cursor: pointer; }
+
+/* ── Faders ───────────────────────────────────────────────────────── */
+.fader-row { display: flex; gap: 8px; align-items: flex-start; }
+.fader { display: flex; flex-direction: column; align-items: center; gap: 5px;
+         width: 44px; }
+/* Keep `.track`'s height in step with `TRACK` in main.rs — the value
+   comes from the pointer's position within this element, so the two have
+   to agree. */
+.track { position: relative; width: 44px; height: 190px; border-radius: 8px;
+         background: #17171d; border: 1px solid #2c2c36; overflow: hidden;
+         cursor: pointer; }
+.fill { position: absolute; left: 0; bottom: 0; width: 100%; opacity: 0.55; }
+/* A wide flat handle reads as a fader cap and gives the thumb something
+   to aim at. */
+.handle { position: absolute; left: 0; width: 100%; height: 8px;
+          margin-bottom: -4px; background: #e8e8ee;
+          border-top: 2px solid; border-bottom: 2px solid; }
+.fader-label { font-size: 10px; color: #9a9aa6; }
+.fader-value { font-size: 11px; color: #d6d6e0; }
+/* The master sits apart so it does not read as a ninth fader. */
+.master { margin-left: 12px; padding-left: 12px; border-left: 1px solid #2c2c36; }
