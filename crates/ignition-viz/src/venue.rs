@@ -91,6 +91,29 @@ impl FixtureRecord {
         Some(ignition_proto::DmxAddress { universe: self.universe?, start_channel: self.address? })
     }
 
+    /// This fixture's real hung position/orientation, in `ignition_core`'s
+    /// f64 `Placement` shape — what `ignition_core::focus`'s Focus Point
+    /// math needs to solve for real Pan/Tilt values. A plain unit cast
+    /// (this crate's own `Vec3`/`Quat` are `f32`, matching wgpu/glam
+    /// convention; `ignition_proto`'s are `f64`, matching the rest of the
+    /// wire-contract types) — no coordinate remap, same convention both
+    /// sides already agree on (`to_glam()`'s own doc comments).
+    pub fn placement(&self) -> ignition_proto::Placement {
+        ignition_proto::Placement {
+            position: ignition_proto::Vec3 {
+                x: self.position.x as f64,
+                y: self.position.y as f64,
+                z: self.position.z as f64,
+            },
+            orientation: ignition_proto::Quat {
+                w: self.quat.w as f64,
+                x: self.quat.x as f64,
+                y: self.quat.y as f64,
+                z: self.quat.z as f64,
+            },
+        }
+    }
+
     pub fn kind(&self) -> FixtureKind {
         if self.tags.iter().any(|t| t.contains("Yoke") || t.contains("Mover")) {
             FixtureKind::Mover
@@ -133,11 +156,60 @@ impl GeometryRecord {
     }
 }
 
+/// One `channels` array entry from Eos's export — most groups use its
+/// range-string shorthand (`"1-48"`, or a bare `"50"` for one channel),
+/// but some (e.g. Norco's "Pars Odd") are exported as a plain JSON array
+/// of individual channel numbers instead — Eos apparently picks whichever
+/// is more compact for a given selection. `untagged` accepts either shape
+/// per-element rather than requiring the whole array to agree.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum ChannelListEntry {
+    Range(String),
+    Chan(u32),
+}
+
+/// One entry from Eos's own exported `groups.json` — the live rig's real
+/// group list (112 of them for Norco: "Pars", "Movers", "OH Movers", ...
+/// see `docs/domain/norco-patch-and-groups.md`). `Venue::groups()` expands
+/// `channels` into the plain `ChanId` lists `ignition_core::recipe`'s
+/// `RecipeTarget::Group` actually needs.
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupRecord {
+    #[allow(dead_code)] // Eos's own numeric group ID — kept for round-tripping, not read yet.
+    pub target: String,
+    pub label: String,
+    pub channels: Vec<ChannelListEntry>,
+}
+
+fn parse_channel_ranges(entries: &[ChannelListEntry]) -> Vec<u32> {
+    let mut out = Vec::new();
+    for entry in entries {
+        match entry {
+            ChannelListEntry::Chan(v) => out.push(*v),
+            ChannelListEntry::Range(r) => {
+                if let Some((a, b)) = r.split_once('-') {
+                    if let (Ok(a), Ok(b)) = (a.trim().parse::<u32>(), b.trim().parse::<u32>()) {
+                        out.extend(a..=b);
+                    }
+                } else if let Ok(v) = r.trim().parse::<u32>() {
+                    out.push(v);
+                }
+            }
+        }
+    }
+    out
+}
+
 pub struct Venue {
     pub fixtures: Vec<FixtureRecord>,
     pub room: Vec<GeometryRecord>,
     pub screens: Vec<GeometryRecord>,
     pub props: Vec<GeometryRecord>,
+    /// Raw Eos group records — empty for a venue with no `groups.json`
+    /// (not every extracted venue will have one). Use `groups()` for the
+    /// resolved `ignition_core::Group` form recipes actually target.
+    pub group_records: Vec<GroupRecord>,
 }
 
 impl Venue {
@@ -147,12 +219,37 @@ impl Venue {
             std::fs::read_to_string(dir.join(name))
                 .map_err(|e| anyhow::anyhow!("reading {}: {e}", dir.join(name).display()))
         };
+        // groups.json is optional — a venue extract without one (or an
+        // older extract, predating this field) just has no named groups
+        // to recipe-target by name; `RecipeTarget::Chans` still works.
+        let group_records = match std::fs::read_to_string(dir.join("groups.json")) {
+            Ok(raw) => serde_json::from_str(&raw)?,
+            Err(_) => Vec::new(),
+        };
         Ok(Self {
             fixtures: serde_json::from_str(&read("fixtures.json")?)?,
             room: serde_json::from_str(&read("room.json")?)?,
             screens: serde_json::from_str(&read("screens.json")?)?,
             props: serde_json::from_str(&read("props.json")?)?,
+            group_records,
         })
+    }
+
+    /// The venue's real groups, resolved into `ignition_core::Group`'s
+    /// plain `(name, chans)` shape — what `ignition_core::recipe`'s
+    /// `RecipeTarget::Group` actually resolves against.
+    pub fn groups(&self) -> Vec<ignition_core::Group> {
+        self.group_records
+            .iter()
+            .map(|g| ignition_core::Group { name: g.label.clone(), chans: parse_channel_ranges(&g.channels) })
+            .collect()
+    }
+
+    /// A patched channel's real `Placement`, for `ignition_core::recipe`'s
+    /// Focus Point expansion — `None` for a channel with no matching
+    /// fixture (an unpatched or out-of-range `chan`).
+    pub fn placement_of(&self, chan: u32) -> Option<ignition_proto::Placement> {
+        self.fixtures.iter().find(|f| f.chan == Some(chan)).map(|f| f.placement())
     }
 
     /// Axis-aligned bounds over every object's centre — used to auto-frame
@@ -180,5 +277,73 @@ impl Venue {
             visit(g.position.to_glam());
         }
         (min, max)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_eos_range_strings_and_bare_numbers_into_channel_lists() {
+        // Real shapes straight from Norco's groups.json: range strings
+        // ("1-3", "80-82") and a bare single-channel string ("50") — plus
+        // the plain-integer shape Eos uses for some groups (e.g. "Pars
+        // Odd"), all in the one array `ChannelListEntry::untagged` accepts.
+        let entries = vec![
+            ChannelListEntry::Range("1-3".to_string()),
+            ChannelListEntry::Range("50".to_string()),
+            ChannelListEntry::Chan(7),
+            ChannelListEntry::Range("80-82".to_string()),
+        ];
+        assert_eq!(parse_channel_ranges(&entries), vec![1, 2, 3, 50, 7, 80, 81, 82]);
+    }
+
+    #[test]
+    fn channel_list_entry_deserializes_both_real_json_shapes() {
+        let ranges: Vec<ChannelListEntry> = serde_json::from_str(r#"["1-48", "50-53"]"#).unwrap();
+        assert!(matches!(ranges[0], ChannelListEntry::Range(_)));
+        let nums: Vec<ChannelListEntry> = serde_json::from_str(r#"[1, 3, 5, 7]"#).unwrap();
+        assert!(matches!(nums[0], ChannelListEntry::Chan(1)));
+    }
+
+    #[test]
+    fn groups_resolves_eos_group_records_into_ignition_core_groups() {
+        let venue = Venue {
+            fixtures: vec![],
+            room: vec![],
+            screens: vec![],
+            props: vec![],
+            group_records: vec![GroupRecord {
+                target: "1".to_string(),
+                label: "Pars".to_string(),
+                channels: vec![ChannelListEntry::Range("1-3".to_string())],
+            }],
+        };
+        let groups = venue.groups();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].name, "Pars");
+        assert_eq!(groups[0].chans, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn placement_of_finds_the_real_fixture_and_converts_units() {
+        let record: FixtureRecord = serde_json::from_value(serde_json::json!({
+            "chan": 7,
+            "name": "Test",
+            "tags": [],
+            "position": {"x": 1.5, "y": -2.0, "z": 3.25},
+            "eulers": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "quat": {"w": 1.0, "x": 0.0, "y": 0.0, "z": 0.0},
+            "size": {"x": 0.2, "y": 0.2, "z": 0.2},
+        }))
+        .expect("valid fixture record");
+        let venue = Venue { fixtures: vec![record], room: vec![], screens: vec![], props: vec![], group_records: vec![] };
+
+        let placement = venue.placement_of(7).expect("fixture on channel 7 exists");
+        assert!((placement.position.x - 1.5).abs() < 0.001);
+        assert!((placement.position.y - (-2.0)).abs() < 0.001);
+        assert!((placement.position.z - 3.25).abs() < 0.001);
+        assert!(venue.placement_of(999).is_none(), "no fixture on channel 999");
     }
 }

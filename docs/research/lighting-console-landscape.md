@@ -827,3 +827,102 @@ Verified: `cargo test --workspace` — 35 tests, all green (7 new in
 unchanged). `shot`'s regression PNG stayed byte-identical (MD5
 `d4c0f1b2...`, unchanged) — this slice only adds new modules and an
 additive `live` flag, nothing in the static venue-render path changed.
+
+## Slice 15 — Groups, Colors, Focus Points, and Recipes (2026-08-24, same day)
+
+Operator, invoking grandMA3's own model by name: "we need to support
+Groups, Colors, Focus Points. Then we can start with Recipes... Recipes
+is extremely powerful and flexible and should be the foundation of what
+we do." Slice 14's cue engine could only target raw channel numbers with
+raw attribute values — this slice adds the authoring layer real desks
+build cues from, compiling down to Slice 14's already-tested flat `Cue`
+format rather than changing it.
+
+**Real data, not invented data**: Norco's live Eos patch exports its own
+`groups.json` — 112 real named groups ("Pars", "OH Movers", "Chase
+Quarters", ...) with Eos's own range-string channel shorthand. Wired
+straight in rather than inventing a parallel group format:
+`ignition_viz::venue::Venue` gained `group_records` (loaded from
+`groups.json` if present — optional, so a venue extract without one
+just has no named groups to target by name) and `groups()`, which
+resolves them into `ignition_core::Group`'s plain `(name, chans)` shape.
+Eos's export turned out to use *two* different shapes for `channels` in
+the same file — most groups are range strings (`"1-48"`), but some
+(Norco's "Pars Odd") are a plain JSON array of individual channel
+numbers — caught by testing against the real file rather than an
+assumption; `ChannelListEntry` is `#[serde(untagged)]` so either shape
+in the same array parses.
+
+- **`ignition_core::group`** (new): `Group { name, chans }` — the *who*.
+- **`ignition_core::preset`** (new): `ColorPreset { name, red, green,
+  blue }` and `FocusPointPreset { name, target: Vec3 }` — the *what*.
+  Only these two preset types (the ones asked for first); more (Gobo,
+  Beam, Shapers) are additive later, not a redesign.
+- **`ignition_core::focus`** (new): the actual reason a Focus Point
+  preset is more than "a stored value" here — real inverse pan/tilt
+  math. Given a fixture's real hung `Placement` (position +
+  orientation, already extracted from the live rig) and an arbitrary
+  XYZ room location, `pan_tilt_deg_to_point` solves the Pan/Tilt pair
+  that aims the fixture's beam there, targeting the same canonical
+  `mount_rot * RotZ(pan) * RotX(tilt) * NEG_Z` convention `dmx.rs` and
+  `gdtf_geometry.rs`'s kinematic drawing both already use (deliberately
+  *not* `fixture_profile.rs`'s `moving_head_pre_rotate` — that is a
+  QLC+-placeholder-mesh-authoring correction, not a physical/DMX-level
+  fact). This is a real 3D-geometry-driven feature this project's own
+  extracted venue data makes possible that a flat DMX-only cue engine
+  couldn't do. Pure `ignition_proto::Vec3`/`Quat` (f64) math, no
+  `glam` dependency added to `ignition-core`. Proven with a genuine
+  round-trip test: pick arbitrary pan/tilt, compute where that beam
+  physically points under a *non-identity* mount rotation (exercising
+  the inverse-quaternion step, not just the identity case), place a
+  target far out along that exact direction, solve back from the
+  target, and confirm the original angles come back out.
+- **`ignition_core::recipe`** (new): `Recipe { target: RecipeTarget,
+  apply: RecipeApply }` (`RecipeTarget::Group(name)` or
+  `::Chans([...])`; `RecipeApply::Dimmer`/`Color`/`FocusPoint`/`Raw`),
+  `RecipeCue`/`RecipeCueList`, and `expand_cue`/`expand_cue_list` —
+  compiles a list of recipes into the exact flat `Cue`/`CueValue`
+  `CuePlayer` already plays back unchanged. An unknown group name
+  resolves to zero fixtures rather than erroring (same tolerance as
+  `channel_map_for`/`shape_for`'s unknown-fixture fallback); a
+  `FocusPoint` recipe silently skips a channel with no known
+  `Placement`. `expand_recipe` takes the venue's placement lookup as a
+  caller-supplied closure rather than reading it directly — keeps
+  `ignition-core` free of any venue-loading/I-O knowledge, the same
+  "no I/O" rule `cue.rs` already states.
+- **Wired into `live`**: new `--recipes <path>` flag (mutually exclusive
+  with `--cuelist`), loads a `RecipeCueList` and compiles it against
+  `venue.groups()` + `venue.placement_of` before handing the result to
+  the same `CuePlayer` `--cuelist` uses — Space-to-GO and
+  `--snapshot --cue N` both work identically regardless of which
+  authoring format built the cues.
+
+Demo at `data/shows/demo-recipes.json`, run against real Norco data
+(`--recipes ... --cue 1 --snapshot ... --view stage`): a "Movers on
+Drums, Pars Red" cue built from 5 recipes (Group "Pars" -> Dimmer +
+Red, Group "OH Movers" -> Dimmer + Color + FocusPoint at the real drum
+kit's position from `props.json`) compiled against the venue's 112 real
+groups and rendered 51 real lights — the "Pars" group alone resolved to
+its full 48 real channels, all lit red in the render. The OH Movers'
+`Color` recipe correctly produced no visible RGB change — confirmed
+against `channel_map.rs`: Riukoe/Betopper movers use a real physical
+colour *wheel* (`Attribute::ColorWheel`), which this project doesn't
+model as an RGB target, so a `ColorAdd`-based recipe has nothing to
+attach to and is silently skipped, the same tolerance
+`apply_cue_output` already documents for any unmatched attribute — not
+a bug, a correct reflection of what that real fixture type can actually
+do.
+
+**Deliberately not built this slice**: Phaser Recipes (grandMA3's
+effect-generator engine — a waveform driving an attribute across a
+group with per-fixture phase offset, a continuous function of time
+rather than a fixed target state) — the operator's own stated next
+step after Recipes land, not part of "start with." Also not built:
+Gobo/Beam/Shaper preset types, and no UI/console for authoring
+recipes/cues beyond hand-written JSON.
+
+Verified: `cargo test --workspace` — 47 tests, all green (16 in
+`ignition-core`, up from 7; 24 in `ignition-viz`, up from 20 — new
+tests in `venue.rs` for the real-groups-file parsing, including the
+two-different-`channels`-shapes case). `shot`'s regression PNG stayed
+byte-identical (MD5 `d4c0f1b2...`, unchanged).

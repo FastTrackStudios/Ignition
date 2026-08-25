@@ -83,7 +83,7 @@ mod tests {
             "address": start_channel,
         }))
         .expect("valid fixture record");
-        Venue { fixtures: vec![record], room: vec![], screens: vec![], props: vec![] }
+        Venue { fixtures: vec![record], room: vec![], screens: vec![], props: vec![], group_records: vec![] }
     }
 
     /// End-to-end round trip: a cue targeting a real patched fixture's
@@ -119,7 +119,7 @@ mod tests {
     /// same tolerance the read-side (`scene.rs`) already has.
     #[test]
     fn a_cue_targeting_an_unpatched_channel_is_silently_skipped() {
-        let venue = Venue { fixtures: vec![], room: vec![], screens: vec![], props: vec![] };
+        let venue = Venue { fixtures: vec![], room: vec![], screens: vec![], props: vec![], group_records: vec![] };
         let dmx = DmxUniverses::new();
         let mut output = HashMap::new();
         output.insert((99, Attribute::Dimmer), 1.0);

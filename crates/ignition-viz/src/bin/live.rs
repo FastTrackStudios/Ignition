@@ -124,6 +124,11 @@ fn load_cue_list(path: &PathBuf) -> anyhow::Result<CueList> {
     serde_json::from_str(&raw).map_err(|e| anyhow::anyhow!("parsing {} as a cue list: {e}", path.display()))
 }
 
+fn load_recipe_cue_list(path: &PathBuf) -> anyhow::Result<ignition_core::RecipeCueList> {
+    let raw = std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
+    serde_json::from_str(&raw).map_err(|e| anyhow::anyhow!("parsing {} as a recipe cue list: {e}", path.display()))
+}
+
 fn main() -> anyhow::Result<()> {
     let mut venue_dir = PathBuf::from("data/venues/norco");
     let mut max_universe = 4u16;
@@ -136,6 +141,7 @@ fn main() -> anyhow::Result<()> {
     let mut haze = DEFAULT_HAZE;
     let mut snapshot_time: Option<f32> = None;
     let mut cuelist_path: Option<PathBuf> = None;
+    let mut recipes_path: Option<PathBuf> = None;
     let mut cue_index: Option<usize> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -170,6 +176,13 @@ fn main() -> anyhow::Result<()> {
             // straight to the end of cue N's fade and capture that moment
             // headlessly (no keyboard/window needed to test a show).
             "--cuelist" => cuelist_path = Some(PathBuf::from(args.next().expect("--cuelist needs a path"))),
+            // Recipes: the higher-level authoring format
+            // (`ignition_core::recipe`) — a cue is a list of `Recipe`s
+            // (Group + Dimmer/Color/FocusPoint), compiled against this
+            // venue's own real groups.json and fixture placements into the
+            // same flat `Cue` format `--cuelist` loads directly. Mutually
+            // exclusive with `--cuelist`.
+            "--recipes" => recipes_path = Some(PathBuf::from(args.next().expect("--recipes needs a path"))),
             "--cue" => cue_index = Some(args.next().expect("--cue needs a 0-based cue index").parse().unwrap()),
             other => eprintln!("ignition-live: ignoring unknown argument {other}"),
         }
@@ -187,13 +200,27 @@ fn main() -> anyhow::Result<()> {
     dmx::spawn_sacn_listener(dmx.clone(), max_universe);
     dmx::spawn_artnet_listener(dmx.clone());
 
-    let mut cue_player = match &cuelist_path {
-        Some(path) => {
-            let list = load_cue_list(path)?;
-            println!("loaded cue list {:?}: {} cues", list.name, list.cues.len());
-            Some(CuePlayer::new(list.cues))
-        }
-        None => None,
+    anyhow::ensure!(
+        cuelist_path.is_none() || recipes_path.is_none(),
+        "pass either --cuelist or --recipes, not both"
+    );
+    let mut cue_player = if let Some(path) = &cuelist_path {
+        let list = load_cue_list(path)?;
+        println!("loaded cue list {:?}: {} cues", list.name, list.cues.len());
+        Some(CuePlayer::new(list.cues))
+    } else if let Some(path) = &recipes_path {
+        let list = load_recipe_cue_list(path)?;
+        let groups = venue.groups();
+        let cues = ignition_core::expand_cue_list(&list.cues, &groups, &|chan| venue.placement_of(chan));
+        println!(
+            "loaded recipe cue list {:?}: {} cues, compiled against {} real venue groups",
+            list.name,
+            cues.len(),
+            groups.len()
+        );
+        Some(CuePlayer::new(cues))
+    } else {
+        None
     };
 
     if let Some(out_path) = snapshot {

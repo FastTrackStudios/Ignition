@@ -1,0 +1,46 @@
+{
+  "name": "Demo Recipes",
+  "cues": [
+    {
+      "name": "Blackout",
+      "fade_secs": 0,
+      "recipes": []
+    },
+    {
+      "name": "Movers on Drums, Pars Red",
+      "fade_secs": 3,
+      "recipes": [
+        {
+          "target": { "Group": "OH Movers" },
+          "apply": { "Dimmer": 1.0 }
+        },
+        {
+          "target": { "Group": "OH Movers" },
+          "apply": { "FocusPoint": { "x": 0.0, "y": 0.3, "z": 1.0 } }
+        },
+        {
+          "target": { "Group": "OH Movers" },
+          "apply": { "Color": { "name": "Amber", "red": 1.0, "green": 0.6, "blue": 0.1 } }
+        },
+        {
+          "target": { "Group": "Pars" },
+          "apply": { "Dimmer": 0.8 }
+        },
+        {
+          "target": { "Group": "Pars" },
+          "apply": { "Color": { "name": "Red", "red": 1.0, "green": 0.0, "blue": 0.0 } }
+        }
+      ]
+    },
+    {
+      "name": "Movers Swing Stage Left",
+      "fade_secs": 4,
+      "recipes": [
+        {
+          "target": { "Group": "OH Movers" },
+          "apply": { "FocusPoint": { "x": -3.0, "y": 1.0, "z": 0.5 } }
+        }
+      ]
+    }
+  ]
+}
