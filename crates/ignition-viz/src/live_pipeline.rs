@@ -14,6 +14,15 @@ use wgpu::util::DeviceExt;
 
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
+/// The opaque and glow passes render into this format instead of the
+/// caller's real final target (a surface's sRGB format, or an sRGB
+/// offscreen texture for PNG readback) — plain floats, no sRGB encode, so
+/// values can genuinely exceed 1.0 without clipping until the single final
+/// `fs_tonemap` pass compresses the real combined result. See
+/// `render_frame`'s doc comment for why a single final tonemap pass
+/// replaced the old per-pass tonemap.
+pub const HDR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+
 /// 4x MSAA — the single biggest "why does this look worse than ASLS"
 /// fix found by actually reading their renderer setup: `antialias: true`
 /// is a one-line default in `THREE.WebGLRenderer`, but wgpu doesn't
@@ -69,6 +78,9 @@ pub struct LivePipeline {
     pub queue: wgpu::Queue,
     pipeline: wgpu::RenderPipeline,
     glow_pipeline: wgpu::RenderPipeline,
+    tonemap_pipeline: wgpu::RenderPipeline,
+    tonemap_bind_group_layout: wgpu::BindGroupLayout,
+    hdr_sampler: wgpu::Sampler,
     camera_bind_group_layout: wgpu::BindGroupLayout,
     lights_bind_group_layout: wgpu::BindGroupLayout,
     pub ambient: f32,
@@ -76,7 +88,11 @@ pub struct LivePipeline {
 }
 
 impl LivePipeline {
-    pub fn new(device: wgpu::Device, queue: wgpu::Queue, color_format: wgpu::TextureFormat, ambient: f32, haze: f32) -> Self {
+    /// `output_format` is the caller's real final target format (a
+    /// surface's sRGB format, or an sRGB offscreen texture for PNG
+    /// readback) — used only by the final `fs_tonemap` pass; the opaque
+    /// and glow passes always render into `HDR_FORMAT` regardless of it.
+    pub fn new(device: wgpu::Device, queue: wgpu::Queue, output_format: wgpu::TextureFormat, ambient: f32, haze: f32) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("ignition-live-shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("live_shader.wgsl").into()),
@@ -147,7 +163,7 @@ impl LivePipeline {
                 module: &shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: color_format,
+                    format: HDR_FORMAT,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -187,7 +203,7 @@ impl LivePipeline {
                 module: &shader,
                 entry_point: Some("fs_glow"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: color_format,
+                    format: HDR_FORMAT,
                     blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent {
                             src_factor: wgpu::BlendFactor::SrcAlpha,
@@ -217,7 +233,86 @@ impl LivePipeline {
             cache: None,
         });
 
-        Self { device, queue, pipeline, glow_pipeline, camera_bind_group_layout, lights_bind_group_layout, ambient, haze }
+        // The final pass: a fullscreen triangle sampling the resolved HDR
+        // target, applying `aces_tonemap` exactly once on the real
+        // combined brightness — see `HDR_FORMAT`'s and `vs_fullscreen`'s
+        // doc comments for why this replaced tonemapping inside `fs_main`/
+        // `fs_glow` individually.
+        let tonemap_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("tonemap-bgl"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
+        let tonemap_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("ignition-live-tonemap-pipeline-layout"),
+            bind_group_layouts: &[Some(&tonemap_bind_group_layout)],
+            immediate_size: 0,
+        });
+        let tonemap_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("ignition-live-tonemap-pipeline"),
+            layout: Some(&tonemap_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_fullscreen"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_tonemap"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: output_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                cull_mode: None,
+                ..Default::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+        let hdr_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("hdr-sampler"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
+        Self {
+            device,
+            queue,
+            pipeline,
+            glow_pipeline,
+            tonemap_pipeline,
+            tonemap_bind_group_layout,
+            hdr_sampler,
+            camera_bind_group_layout,
+            lights_bind_group_layout,
+            ambient,
+            haze,
+        }
     }
 
     /// Depth attachment's `sample_count` must match the pipeline's own
@@ -257,23 +352,47 @@ impl LivePipeline {
         texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    /// Builds and submits the full two-pass frame (opaque + additive glow).
-    /// Callers own acquiring the views and whatever happens to the result
-    /// after submission (present vs. readback) — this is everything in
-    /// between that's identical either way.
+    /// A single-sample `HDR_FORMAT` target — what the multisampled opaque/
+    /// glow passes resolve into (still HDR, MSAA-resolved but not yet
+    /// tonemapped), and what the final `fs_tonemap` pass samples from.
+    /// Needs `TEXTURE_BINDING` on top of `RENDER_ATTACHMENT` for that read.
+    pub fn make_hdr_resolve_view(&self, width: u32, height: u32) -> wgpu::TextureView {
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("live-hdr-resolve-target"),
+            size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: HDR_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        texture.create_view(&wgpu::TextureViewDescriptor::default())
+    }
+
+    /// Builds and submits the full three-pass frame (opaque + additive
+    /// glow, both in HDR, then one final tonemap). Callers own acquiring
+    /// the views and whatever happens to the result after submission
+    /// (present vs. readback) — this is everything in between that's
+    /// identical either way.
     ///
-    /// `msaa_view` (from `make_msaa_color_view`) is what both passes
-    /// actually render into; `resolve_view` is the caller's real final
+    /// `hdr_msaa_view` (from `make_msaa_color_view(..., HDR_FORMAT)`) is
+    /// what the opaque and glow passes actually render into;
+    /// `hdr_resolve_view` (from `make_hdr_resolve_view`) is where they
+    /// resolve to — still HDR, still linear, not yet tonemapped — resolved
+    /// into on whichever pass runs last (the glow pass when there's glow
+    /// geometry, the opaque pass otherwise), since resolving mid-sequence
+    /// would discard the following pass's additive blending against the
+    /// multisampled buffer. `resolve_view` is the caller's real final
     /// target (a surface texture, or an offscreen texture for PNG
-    /// readback) — resolved into on whichever pass runs last (the glow
-    /// pass when there's glow geometry, the opaque pass otherwise), since
-    /// resolving mid-sequence would discard the following pass's additive
-    /// blending against the multisampled buffer.
+    /// readback) — written once, by the final tonemap pass, from
+    /// `hdr_resolve_view`.
     pub fn render_frame(
         &self,
         mesh: &MeshBuilder,
         camera: &Camera,
-        msaa_view: &wgpu::TextureView,
+        hdr_msaa_view: &wgpu::TextureView,
+        hdr_resolve_view: &wgpu::TextureView,
         resolve_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
         time_secs: f32,
@@ -352,12 +471,12 @@ impl LivePipeline {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("ignition-live-pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: msaa_view,
+                    view: hdr_msaa_view,
                     // Resolve now only if there's no glow pass to follow —
                     // resolving mid-sequence would throw away the
                     // multisampled buffer the glow pass needs to blend
                     // into. See `render_frame`'s doc comment.
-                    resolve_target: if has_glow { None } else { Some(resolve_view) },
+                    resolve_target: if has_glow { None } else { Some(hdr_resolve_view) },
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.04, g: 0.045, b: 0.06, a: 1.0 }),
                         store: wgpu::StoreOp::Store,
@@ -395,8 +514,8 @@ impl LivePipeline {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("ignition-live-glow-pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: msaa_view,
-                    resolve_target: Some(resolve_view),
+                    view: hdr_msaa_view,
+                    resolve_target: Some(hdr_resolve_view),
                     ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
                     depth_slice: None,
                 })],
@@ -415,6 +534,33 @@ impl LivePipeline {
             pass.set_vertex_buffer(0, glow_vertex_buffer.slice(..));
             pass.set_index_buffer(glow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             pass.draw_indexed(0..mesh.glow_indices.len() as u32, 0, 0..1);
+        }
+
+        {
+            let tonemap_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("live-tonemap-bg"),
+                layout: &self.tonemap_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(hdr_resolve_view) },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&self.hdr_sampler) },
+                ],
+            });
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("ignition-live-tonemap-pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: resolve_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_pipeline(&self.tonemap_pipeline);
+            pass.set_bind_group(0, &tonemap_bind_group, &[]);
+            pass.draw(0..3, 0..1);
         }
 
         self.queue.submit(Some(encoder.finish()));

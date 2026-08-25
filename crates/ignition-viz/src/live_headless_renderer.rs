@@ -11,7 +11,7 @@
 //! write a PNG, exit.
 
 use crate::camera::Camera;
-use crate::live_pipeline::LivePipeline;
+use crate::live_pipeline::{LivePipeline, HDR_FORMAT};
 use crate::mesh::MeshBuilder;
 
 const COLOR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
@@ -75,9 +75,18 @@ impl LiveHeadlessRenderer {
         });
         let color_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let depth_view = self.pipeline.make_depth_view(width, height);
-        let msaa_view = self.pipeline.make_msaa_color_view(width, height, COLOR_FORMAT);
+        let hdr_msaa_view = self.pipeline.make_msaa_color_view(width, height, HDR_FORMAT);
+        let hdr_resolve_view = self.pipeline.make_hdr_resolve_view(width, height);
 
-        self.pipeline.render_frame(mesh, camera, &msaa_view, &color_view, &depth_view, time_secs);
+        self.pipeline.render_frame(
+            mesh,
+            camera,
+            &hdr_msaa_view,
+            &hdr_resolve_view,
+            &color_view,
+            &depth_view,
+            time_secs,
+        );
 
         // Readback: rows must be padded to a 256-byte alignment.
         let bytes_per_pixel = 4u32;

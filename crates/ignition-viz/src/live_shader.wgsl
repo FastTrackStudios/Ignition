@@ -211,7 +211,16 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         rgb += light.color.rgb * light_ndotl * atten * cone;
     }
 
-    return vec4<f32>(aces_tonemap(rgb), 1.0);
+    // Raw linear HDR — no tonemap here. This target is `HDR_FORMAT`
+    // (`live_pipeline.rs`), resolved and handed to a single final
+    // `fs_tonemap` pass instead. Tonemapping per-pass here (as this used
+    // to) applies a filmic *compression* to each fragment individually,
+    // which is not the same operation as compressing the true combined
+    // brightness once everything (this pass, the additive glow pass) has
+    // actually summed together in the framebuffer — several already-
+    // compressed-toward-1.0 fragments can still sum past white when
+    // added on top of each other. See `fs_tonemap`'s own comment.
+    return vec4<f32>(rgb, 1.0);
 }
 
 // The beam-cone pass: pure emissive colour, no lighting model, additively
@@ -340,9 +349,52 @@ fn fs_glow(in: VertexOut) -> @location(0) vec4<f32> {
     // fogTime does.
     let fog_coord = vec3<f32>(in.world_pos.xy * 1.5, in.world_pos.z * 1.5 + settings.time * 0.15);
     let density = clamp(fogging(fog_coord) * 0.6 + 0.55, 0.0, 1.6);
-    // Tonemapped per-pass rather than once on a combined HDR buffer (no
-    // separate post-process pass exists to do that) — an approximation,
-    // but a soft filmic rolloff on the glow's own brightness still beats
-    // a hard clamp for a beam that's meant to read as intensely bright.
-    return vec4<f32>(aces_tonemap(in.color * settings.haze * alignment * density), 1.0);
+    // Raw linear HDR, additively blended into the same HDR target
+    // `fs_main` writes — see that function's comment on why tonemapping
+    // per-pass (this used to) let overlapping beams sum straight past
+    // white even after each fragment was individually compressed toward
+    // 1.0. `fs_tonemap` compresses the real combined result once, after
+    // every beam has actually summed together.
+    return vec4<f32>(in.color * settings.haze * alignment * density, 1.0);
+}
+
+// A fullscreen triangle (3 vertices, no vertex buffer — the classic
+// oversized-triangle trick: covers the full clip-space quad without
+// needing 4 vertices + an index buffer) that samples the resolved HDR
+// target and applies ACES tonemap exactly once, on the real combined
+// brightness after both `fs_main`'s opaque pass and `fs_glow`'s additive
+// pass have actually summed together — the fix for per-pass tonemapping
+// letting overlapping bright fragments clip straight to white even
+// though each one individually looked fine (see both functions' own
+// comments, and `docs/research/lighting-console-landscape.md`'s Slice 17
+// for the "all lights on" render that first exposed it).
+struct FullscreenOut {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+}
+
+@vertex
+fn vs_fullscreen(@builtin(vertex_index) idx: u32) -> FullscreenOut {
+    var positions = array<vec2<f32>, 3>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>(3.0, -1.0),
+        vec2<f32>(-1.0, 3.0),
+    );
+    var out: FullscreenOut;
+    let p = positions[idx];
+    out.clip_position = vec4<f32>(p, 0.0, 1.0);
+    // Clip space is Y-up, texture space is Y-down — flip.
+    out.uv = p * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);
+    return out;
+}
+
+@group(0) @binding(0)
+var hdr_texture: texture_2d<f32>;
+@group(0) @binding(1)
+var hdr_sampler: sampler;
+
+@fragment
+fn fs_tonemap(in: FullscreenOut) -> @location(0) vec4<f32> {
+    let hdr = textureSample(hdr_texture, hdr_sampler, in.uv).rgb;
+    return vec4<f32>(aces_tonemap(hdr), 1.0);
 }

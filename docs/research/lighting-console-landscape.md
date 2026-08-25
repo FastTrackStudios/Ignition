@@ -1082,3 +1082,74 @@ plane only — a beam aimed at a wall or riser still reaches the capped
 fallback distance rather than stopping at that surface); ASLS's other
 still-unported techniques (GPU instancing, animated-not-just-drifting
 fog turbulence, from Slice 7's own "not ported" list).
+
+## Slice 18 — the real HDR/single-tonemap fix, and cutting beam intensity again (2026-08-24, same day)
+
+Operator: "still do that" (the HDR/single-final-tonemap fix flagged as
+not-done in Slice 17) "but still it looks really bad, like the beam
+intensity is too high, it just becomes a solid color instead of
+lighting up the stage geometry." Two real, separate fixes.
+
+**The HDR intermediate + single tonemap pass, built for real this
+time.** `live_pipeline.rs` gained `HDR_FORMAT` (`Rgba16Float`): the
+opaque (`fs_main`) and glow (`fs_glow`) passes now render into an HDR
+MSAA target and resolve into a single-sample HDR texture — no sRGB
+encode, no clamping, genuinely unbounded linear values. Both shader
+functions dropped their own `aces_tonemap` call entirely, returning raw
+linear HDR instead. A third pass — a fullscreen triangle (`vs_fullscreen`
+generates it from 3 bare vertex indices, no vertex/index buffer needed),
+new `fs_tonemap` entry point — samples the resolved HDR texture and
+applies `aces_tonemap` exactly once, on the *real* combined brightness
+after the opaque pass and every overlapping additive glow fragment have
+actually summed together, and writes that into the caller's real final
+target. This is the actual fix for what per-pass tonemapping (Slice 11
+through 17) could only approximate: compressing each fragment
+individually before blending is not the same operation as compressing
+the true combined result once, and no amount of per-pass headroom-
+cutting fully closes that gap — a single global tonemap does.
+`render_frame`'s signature grew a `hdr_resolve_view` parameter between
+the two existing view params; both callers (`live_renderer.rs`,
+`live_headless_renderer.rs`) now create and own that resolve texture
+alongside the depth/MSAA views they already managed, resized alongside
+them.
+
+**Beam intensity was still too high even with the real fix** — the
+"solid colour instead of lighting the stage" complaint pointed at
+something the tonemap architecture alone couldn't fix: `mesh.rs`'s
+glow-cone frustum is closed geometry rendered with `cull_mode: None`
+(both winding directions), so at oblique viewing angles a *single*
+beam's near wall AND far wall both rasterize additively onto the same
+screen pixel — no per-fragment depth sorting exists to prevent it, the
+same limitation every baked-triangle beam-cone approximation in this
+project has. That silently doubles what one wall alone would
+contribute, on top of the `haze`/`alignment`/`density` multipliers
+already in `fs_glow`. Cut the glow-cone's own baseline color further:
+near-ring scale 0.55 → 0.22, far-ring scale 0.10 → 0.04 (on top of
+Slice 17's already-once-reduced values) — low enough that even a
+doubled single beam stays well inside the tonemap's graceful rolloff
+instead of pushed into its flat, saturated top, which is what reads as
+"solid colour" rather than translucent haze.
+
+Verified visually: the "all lights on" house view (the packed-cluster,
+worst-case angle that first exposed the saturation bug in Slice 17) now
+shows genuine soft graduated falloff, not a hard-edged white blob — a
+real, visible difference from the single-tonemap fix alone. The
+`demo-recipes.json` moderate cue's **top-down view** — mottled,
+visibly translucent beam shafts with distinct floor-landing pools per
+fixture, individual beams readable as separate objects rather than
+fused into one solid shape — is the clearest proof the intensity cut
+did what it needed to; the same cue's tight, very-close **house** view
+still reads as more saturated (an inherent property of a camera nearly
+inside a cluster of overlapping beam sources, not a rendering bug on
+its own).
+
+`cargo test --workspace`: 53/53 unchanged (shader/pipeline tuning, no
+new testable logic). `shot`'s regression PNG byte-identical (MD5
+`d4c0f1b2...`) — `renderer.rs`'s headless pipeline is a completely
+separate code path from `live_pipeline.rs`, untouched by any of this.
+
+**Still not done, flagged honestly**: real depth-sorted or single-layer
+beam rendering (would remove the near/far double-counting at its root
+instead of just keeping headroom below it); a real occlusion raycast
+for throw distance; ASLS's remaining unported techniques from Slice 7's
+own list.

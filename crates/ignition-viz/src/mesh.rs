@@ -418,17 +418,22 @@ fn build_glow_cone(
     // A small non-zero near radius (rather than a true point) so the near
     // end still reads as a lens-sized glow up close, not a degenerate
     // vertex fan. Both ends are scaled well below the raw emission colour
-    // (near to ~55%, far to ~10%) — `fs_glow` tonemaps *before* additive
-    // blending (a known approximation, see that function's own comment),
-    // so several already-bright fragments from overlapping beams can sum
-    // straight past white; baking in headroom here, on top of dimming
-    // toward the far end for the real reason a beam's intensity per unit
-    // area falls off as it spreads over distance, keeps a dense rig's
-    // many overlapping beams (`fixture_profile.rs::BeamThrow` made them
-    // both long and wide) from blowing the whole glow pass out solid.
+    // (near to ~22%, far to ~4%). `live_pipeline.rs` now tonemaps once
+    // over the true combined HDR result rather than per-fragment, so a
+    // single beam summing past 1.0 is no longer catastrophic on its
+    // own — but this cone is a *closed* frustum with `cull_mode: None`
+    // (see `live_pipeline.rs`'s glow pipeline), so at most oblique
+    // viewing angles a single beam's near AND far walls both rasterize
+    // additively at the same screen pixel, roughly doubling what one
+    // wall alone would contribute. Without real per-fragment depth
+    // sorting (well beyond what a baked-triangle beam-cone approximation
+    // does anywhere in this project), staying low enough that a doubled
+    // single beam is still nowhere near clipping is what keeps the shape
+    // reading as translucent haze instead of solid colour — the
+    // complaint that sent this scale down twice now.
     let near_radius = (radius * 0.08).max(0.02);
-    let near_color = [color[0] * 0.55, color[1] * 0.55, color[2] * 0.55];
-    let far_color = [color[0] * 0.10, color[1] * 0.10, color[2] * 0.10];
+    let near_color = [color[0] * 0.22, color[1] * 0.22, color[2] * 0.22];
+    let far_color = [color[0] * 0.04, color[1] * 0.04, color[2] * 0.04];
 
     let mut ring = |dist: f32, ring_radius: f32, c: [f32; 3]| -> u32 {
         let start = vertices.len() as u32;
