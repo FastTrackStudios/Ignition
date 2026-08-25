@@ -44,6 +44,10 @@ pub struct EmbeddedViz {
     app: App,
     target: Handle<Image>,
     size: (u32, u32),
+    /// The last texture actually handed out. Kept so a resize — which
+    /// costs a frame or two while the render world allocates the new
+    /// target — shows the previous frame rather than a black flash.
+    last_good: Option<wgpu::Texture>,
 }
 
 /// The host's wgpu objects, in the order `RenderCreation::manual` wants
@@ -132,7 +136,12 @@ impl EmbeddedViz {
             ));
         });
 
-        let mut viz = Self { app, target, size };
+        let mut viz = Self {
+            app,
+            target,
+            size,
+            last_good: None,
+        };
         // Bevy allocates the target's GPU image in the render world, one
         // frame behind the main world, and pipelines compile on the
         // first draw. Without a few frames here the host's first paint
@@ -170,15 +179,23 @@ impl EmbeddedViz {
     /// which takes a frame or two — the host draws nothing rather than
     /// a black hole.
     pub fn render(&mut self, width: u32, height: u32) -> Option<wgpu::Texture> {
-        // Size changes are the host's problem to avoid for now: Bevy
-        // does not re-extract a render target swapped in after startup,
-        // so a resize here silently blacks the viewport. The host builds
-        // at the viewport's real size instead — see `VizWidget`.
-        let _ = (width, height);
-        if !self.step() {
-            return None;
+        if width > 0 && height > 0 && (width, height) != self.size {
+            self.resize(width, height);
         }
-        self.texture()
+        if !self.step() {
+            return self.last_good.clone();
+        }
+        // Hold the previous frame's texture while a new target warms up.
+        // The render world allocates a `GpuImage` a frame behind the main
+        // world, so a resize otherwise shows as a black flash for as
+        // long as that takes.
+        match self.texture() {
+            Some(texture) => {
+                self.last_good = Some(texture.clone());
+                Some(texture)
+            }
+            None => self.last_good.clone(),
+        }
     }
 
     /// The current target texture, without stepping.
@@ -211,7 +228,17 @@ impl EmbeddedViz {
     ///
     /// A resize is a new `Image` asset rather than a mutation, because
     /// the render world caches a `GpuImage` per handle and there is no
-    /// supported way to swap the texture under one.
+    /// supported way to swap the texture under one. Dropping the old
+    /// handle is what frees the old GPU texture — `self.target` holds
+    /// the only strong reference besides the camera's, which is replaced
+    /// below.
+    ///
+    /// This did not work the first time it was written, and the reason
+    /// is worth keeping: the target was built with `Image::new_uninit`,
+    /// which never gets extracted into the render world at all. That
+    /// looked like "Bevy cannot re-point a render target", and it is
+    /// not — it is `new_target_texture` or nothing, at any point in the
+    /// app's life.
     fn resize(&mut self, width: u32, height: u32) {
         self.size = (width, height);
         let target = add_target(&mut self.app, self.size);

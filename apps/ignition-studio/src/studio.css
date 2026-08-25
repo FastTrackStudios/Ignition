@@ -1,16 +1,54 @@
-/* Blitz implements a real subset of CSS, not all of it, so this is
-   written with explicit values rather than leaning on shorthands the
-   engine may not have — the surface working matters more than the
-   stylesheet being clever. */
+/* Blitz implements a real subset of CSS, not all of it, so this leans on
+   flexbox and explicit values rather than anything clever — the surface
+   working matters more than the stylesheet being short. */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 13px; }
 
 .studio { display: flex; width: 100%; height: 100vh; }
 
-.surface { width: 340px; min-width: 340px; height: 100%; background: #131317;
-           border-right: 1px solid #26262c; overflow-y: auto; }
-.surface section { border-bottom: 1px solid #1f1f26; padding: 10px 12px; }
+/* ── Cue list, left ────────────────────────────────────────────────── */
+.cues { width: 260px; min-width: 260px; height: 100%; background: #131317;
+        border-right: 1px solid #26262c; overflow-y: auto; }
+.cues header { display: flex; justify-content: space-between; align-items: center;
+               padding: 10px 12px; font-weight: bold; letter-spacing: 0.08em;
+               text-transform: uppercase; font-size: 10px; color: #8d8d99;
+               border-bottom: 1px solid #26262c; }
+.cues ol { list-style: none; margin: 0; padding: 0; }
+.cue { display: flex; gap: 10px; padding: 7px 12px; cursor: pointer;
+       border-bottom: 1px solid #1c1c22; }
+.cue:hover { background: #1b1b21; }
+.cue.on { background: #23233a; color: #fff; }
+.num { width: 22px; color: #6f6f7d; text-align: right; }
+.go { background: #2c4a2c; color: #cfe8cf; border: 1px solid #3d663d;
+      border-radius: 3px; padding: 3px 10px; font-size: 10px; font-weight: bold;
+      letter-spacing: 0.08em; cursor: pointer; }
+.go:hover { background: #365a36; }
+
+/* ── Stage: visualizer over the busking surface ───────────────────── */
+.stage { flex: 1; height: 100%; display: flex; flex-direction: column; }
+.viewport { flex: 1; min-height: 0; }
+/* An <object> is a replaced element with no intrinsic size, so it lays
+   out 0x0 inside a plain block and never paints. Making the container a
+   grid stretches its single item to fill. */
+.viewport { display: grid; }
+.viz { display: grid; width: 100%; height: 100%; }
+.viz > object { width: 100%; height: 100%; }
+
+/* ── Busking surface, under the visualizer ────────────────────────── */
+.surface { height: 250px; min-height: 250px; display: flex;
+           background: #131317; border-top: 1px solid #26262c; }
+/* `min-width: 0` on a flex item is what lets it shrink below its
+   content — without it the palette columns refuse to give ground and
+   push the faders off the right edge, which is exactly how this looked
+   the first time. Groups, intensity and faders keep fixed widths
+   because their content does not reflow usefully; the two palette
+   columns absorb whatever is left. */
+.col { padding: 10px 12px; border-right: 1px solid #1f1f26;
+       overflow-y: auto; flex: 1 1 0; min-width: 0; }
+.col.wide { flex: 0 0 280px; }
+.col.narrow { flex: 0 0 150px; }
+.col.faders { flex: 0 0 340px; border-right: none; }
 .surface header { font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;
                   font-size: 10px; color: #8d8d99; margin-bottom: 8px; }
 
@@ -21,19 +59,14 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .chip.on { background: #3a3a6b; border-color: #5252a0; color: #fff; }
 .chip.warn { background: #2a1a1a; border-color: #4a2a2a; color: #e0b0b0; }
 
-.faders .fader-row { display: flex; gap: 10px; align-items: flex-end; }
-.fader { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-/* A vertical range is what a fader is; Blitz honours the appearance
-   property here, and a horizontal row of horizontal sliders would be
-   unreadable at this width. */
-.fader input { writing-mode: vertical-lr; direction: rtl; width: 20px; height: 120px; }
+.fader-row { display: flex; gap: 10px; align-items: flex-end; }
+.fader { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+/* A vertical range is what a fader is; a row of horizontal sliders in a
+   250px-tall pane would be unreadable. */
+.fader input { writing-mode: vertical-lr; direction: rtl; width: 18px; height: 150px; }
 .fader-label { font-size: 11px; color: #8d8d99; }
+/* The master sits to the right of the eight, with a gap so it does not
+   read as a ninth fader. */
+.fader.master { margin-left: 14px; padding-left: 14px; border-left: 1px solid #2c2c36; }
 .fader.master input { accent-color: #c08a3e; }
 .fader.master .fader-label { color: #c08a3e; }
-
-.viewport { flex: 1; height: 100%; }
-/* An <object> is a replaced element with no intrinsic size, so it lays
-   out 0x0 inside a plain block and never paints. Making the container a
-   grid stretches its single item to fill. */
-.viz { display: grid; width: 100%; height: 100%; }
-.viz > object { width: 100%; height: 100%; }

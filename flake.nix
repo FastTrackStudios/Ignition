@@ -89,6 +89,12 @@
             # dev shell is shared.
             fontconfig
             freetype
+            # `dx serve` turns on the full `dioxus/native` feature set,
+            # which brings Blitz's networking (remote images, devtools)
+            # and therefore `openssl-sys`. A plain `cargo build` of the
+            # studio app does not need this — the features it selects are
+            # narrower — so this only shows up under dx.
+            openssl
           ];
         in
         {

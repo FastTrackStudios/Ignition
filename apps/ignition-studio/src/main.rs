@@ -60,6 +60,7 @@ fn main() -> anyhow::Result<()> {
             .iter()
             .map(|f| f.name.clone())
             .collect(),
+        cues: load_cue_names(SHOW).unwrap_or_default(),
     };
 
     // Blitz creates the wgpu device, so anything Bevy needs has to be
@@ -74,15 +75,58 @@ fn main() -> anyhow::Result<()> {
                 | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
         ),
         Box::new(wgpu::Limits::default()),
-        Box::new(
-            dioxus_native::winit::window::WindowAttributes::default()
-                .with_title("Ignition Studio")
-                .with_surface_size(dioxus_native::winit::dpi::LogicalSize::new(1600, 950)),
-        ),
+        Box::new(window_attributes()),
     ];
 
     dioxus_native::launch_cfg_with_props(app, surface, Vec::new(), config);
     Ok(())
+}
+
+/// Where the window opens.
+///
+/// There is no `dioxus.toml` option for this — that file configures the
+/// build and the bundle, not window placement, and nothing in it reaches
+/// winit. `WindowAttributes` is the only lever, which means the choice
+/// has to be made *before* an event loop exists, and therefore before
+/// any monitor can be enumerated. So the monitor is named by position
+/// rather than picked by index:
+///
+/// ```text
+/// IGNITION_WINDOW_POS=6560,0   # top-left corner of the target monitor
+/// IGNITION_FULLSCREEN=1        # borderless fullscreen on whichever
+///                              # monitor that corner lands in
+/// ```
+///
+/// Environment rather than a constant because a monitor layout is a
+/// property of the machine, not of the program — see the `studio`
+/// recipe in the Justfile for this rig's values.
+fn window_attributes() -> dioxus_native::winit::window::WindowAttributes {
+    use dioxus_native::winit::dpi::{LogicalSize, PhysicalPosition};
+    // `Fullscreen` lives in `monitor`, not `window`, even though the
+    // only thing that takes one is `WindowAttributes::with_fullscreen`.
+    use dioxus_native::winit::monitor::Fullscreen;
+    use dioxus_native::winit::window::WindowAttributes;
+
+    let mut attrs = WindowAttributes::default()
+        .with_title("Ignition Studio")
+        .with_surface_size(LogicalSize::new(1600, 950));
+
+    if let Some((x, y)) = std::env::var("IGNITION_WINDOW_POS").ok().and_then(|v| {
+        let (x, y) = v.split_once(',')?;
+        Some((x.trim().parse::<i32>().ok()?, y.trim().parse::<i32>().ok()?))
+    }) {
+        attrs = attrs.with_position(PhysicalPosition::new(x, y));
+    }
+
+    // `Borderless(None)` means "the monitor this window is on", which is
+    // why the position above is set first — together they are how you
+    // say "fullscreen over there" without being able to ask what
+    // monitors exist.
+    if std::env::var("IGNITION_FULLSCREEN").is_ok_and(|v| v != "0") {
+        attrs = attrs.with_fullscreen(Some(Fullscreen::Borderless(None)));
+    }
+
+    attrs
 }
 
 /// The named things the surface offers, resolved once from the venue.
@@ -91,6 +135,7 @@ struct Surface {
     groups: Vec<String>,
     colors: Vec<String>,
     focus: Vec<String>,
+    cues: Vec<String>,
 }
 
 /// The groups worth a button. The venue carries 127, most of them
@@ -123,8 +168,48 @@ fn app(surface: Surface) -> Element {
     rsx! {
         style { {include_str!("studio.css")} }
         div { class: "studio",
-            Busking { surface: surface.clone() }
-            main { class: "viewport", Viewport {} }
+            CueList { cues: surface.cues.clone() }
+            main { class: "stage",
+                div { class: "viewport", Viewport {} }
+                Busking { surface: surface.clone() }
+            }
+        }
+    }
+}
+
+/// The cue stack. Underneath the busking layer, not beside it: a cue
+/// fills in whatever the operator is not currently holding.
+#[component]
+fn CueList(cues: Vec<String>) -> Element {
+    let mut current = use_signal(|| Option::<usize>::None);
+
+    rsx! {
+        aside { class: "cues",
+            header {
+                span { "Cue List" }
+                button {
+                    class: "go",
+                    onclick: move |_| {
+                        current.set(Some(current().map_or(0, |i| i + 1)));
+                        send(Command::Go);
+                    },
+                    "GO"
+                }
+            }
+            ol {
+                for (i, name) in cues.iter().enumerate() {
+                    li {
+                        key: "{i}",
+                        class: if current() == Some(i) { "cue on" } else { "cue" },
+                        onclick: move |_| {
+                            current.set(Some(i));
+                            send(Command::Cue(i));
+                        },
+                        span { class: "num", "{i}" }
+                        span { class: "name", "{name}" }
+                    }
+                }
+            }
         }
     }
 }
@@ -145,8 +230,8 @@ fn Busking(surface: Surface) -> Element {
     let mut levels = use_signal(|| [0.0f32; ignition_core::FADERS]);
 
     rsx! {
-        aside { class: "surface",
-            section {
+        section { class: "surface",
+            div { class: "col wide",
                 header { "Groups" }
                 div { class: "chips",
                     for name in surface.groups.iter().cloned() {
@@ -166,7 +251,7 @@ fn Busking(surface: Surface) -> Element {
                 }
             }
 
-            section {
+            div { class: "col",
                 header { "Colour" }
                 div { class: "chips",
                     for name in surface.colors.iter().cloned() {
@@ -183,7 +268,7 @@ fn Busking(surface: Surface) -> Element {
                 }
             }
 
-            section {
+            div { class: "col",
                 header { "Focus" }
                 div { class: "chips",
                     for name in surface.focus.iter().cloned() {
@@ -200,7 +285,7 @@ fn Busking(surface: Surface) -> Element {
                 }
             }
 
-            section {
+            div { class: "col narrow",
                 header { "Intensity" }
                 div { class: "chips",
                     for pct in [0u32, 25, 50, 75, 100] {
@@ -216,7 +301,7 @@ fn Busking(surface: Surface) -> Element {
                 }
             }
 
-            section { class: "faders",
+            div { class: "col faders",
                 header { "Faders" }
                 div { class: "fader-row",
                     for i in 0..ignition_core::FADERS {
@@ -306,4 +391,12 @@ fn Viewport() -> Element {
             object { "data": widget_attr }
         }
     }
+}
+
+/// Cue names for the list. The player inside the visualizer owns the
+/// real cues; this is only what to draw.
+fn load_cue_names(path: &str) -> anyhow::Result<Vec<String>> {
+    let raw = std::fs::read_to_string(path)?;
+    let list: ignition_core::CueList = serde_json::from_str(&raw)?;
+    Ok(list.cues.into_iter().map(|c| c.name).collect())
 }
