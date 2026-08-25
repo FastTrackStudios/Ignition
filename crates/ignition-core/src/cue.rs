@@ -265,9 +265,9 @@ impl CuePlayer {
         self.cues
             .iter()
             .enumerate()
-            .filter(|(_, cue)| cue.at.is_some_and(|at| at <= position))
+            .rev()
+            .find(|(_, cue)| cue.at.is_some_and(|at| at <= position))
             .map(|(i, _)| i)
-            .next_back()
     }
 
     /// Puts playback where a musical position says it should be.
