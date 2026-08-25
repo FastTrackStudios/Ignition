@@ -19,7 +19,7 @@
 use crate::channel_map::channel_map_for;
 use crate::dmx::DmxUniverses;
 use crate::venue::{FixtureRecord, Venue};
-use ignition_core::{Attribute, ChanId, CuePlayer};
+use ignition_core::{Attribute, ChanId, CuePlayer, Show};
 use std::collections::HashMap;
 
 /// `value`'s unit depends on `attr` — see the module doc and
@@ -73,9 +73,15 @@ pub fn apply_cue_output(
 /// Advances `player` by `dt_secs` and writes its resulting output into
 /// `dmx` against `venue`'s patch — the one call `live.rs`'s redraw loop
 /// needs each frame once a cue list is loaded.
-pub fn tick_and_apply(dmx: &DmxUniverses, venue: &Venue, player: &mut CuePlayer, dt_secs: f32) {
+pub fn tick_and_apply(
+    dmx: &DmxUniverses,
+    venue: &Venue,
+    player: &mut CuePlayer,
+    dt_secs: f32,
+    show: &Show<'_>,
+) {
     player.tick(dt_secs);
-    apply_cue_output(dmx, venue, &player.output());
+    apply_cue_output(dmx, venue, &player.output(show));
 }
 
 /// The `EffectPlayer` counterpart to `tick_and_apply` — advances `player`
@@ -155,9 +161,11 @@ mod tests {
                     value: 0.5,
                 },
             ],
+            ..Default::default()
         }]);
-        player.go();
-        apply_cue_output(&dmx, &venue, &player.output());
+        let show = Show::new(&[], &|_| None);
+        player.go(&show);
+        apply_cue_output(&dmx, &venue, &player.output(&show));
 
         let fixture = &venue.fixtures[0];
         let map = channel_map_for("Uking", "Par").unwrap();

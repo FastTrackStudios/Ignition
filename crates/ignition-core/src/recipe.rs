@@ -1,14 +1,16 @@
 //! Recipes — this project's foundation for building cues, the same role
 //! grandMA3's Preset system plays: a `Recipe` pairs a *target* (a `Group`
 //! or an explicit channel list) with an *apply* (a `Dimmer` level, a
-//! `Color`, a `FocusPoint`, or a `Raw` attribute list), and `expand_cue`
-//! compiles a list of them down into the flat `Cue`/`CueValue` format
-//! `CuePlayer` already plays back — recipes are an authoring-time layer on
-//! top of the existing tracking engine, not a change to it. This is
-//! deliberately the same split GDTF/OFL import already established
-//! elsewhere in this project: a rich, expressive input format compiled
-//! down to a small, well-tested runtime representation, rather than
-//! teaching the runtime every input format's own concepts.
+//! `Color`, a `FocusPoint`, or a `Raw` attribute list).
+//!
+//! A recipe is **stored into** a `Cue` and resolved at output time, not
+//! flattened into values when the show loads. That distinction is the
+//! whole feature: a stored recipe still knows it targets a *group*, so
+//! adding a fixture to that group changes what every cue using it covers
+//! with no re-authoring, and the recipe stays something an editor can
+//! show and change. `expand_recipe` is the resolver `CuePlayer` calls;
+//! see `docs/domain/cue-building-architecture.md` for why resolution
+//! lives there rather than at load.
 //!
 //! grandMA3 also has "Phaser" recipes — effect generators (waveforms
 //! driving an attribute across a group's fixtures with per-fixture phase
@@ -70,27 +72,6 @@ pub enum RecipeApply {
 pub struct Recipe {
     pub target: RecipeTarget,
     pub apply: RecipeApply,
-}
-
-/// A cue authored as a list of recipes rather than raw `CueValue`s —
-/// `expand_cue`/`expand_cue_list` compile this into the `Cue` type
-/// `CuePlayer` actually plays back.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RecipeCue {
-    pub name: String,
-    #[serde(default)]
-    pub fade_secs: f32,
-    pub recipes: Vec<Recipe>,
-}
-
-/// A whole show authored as recipe cues — the `RecipeCue` counterpart to
-/// `cue::CueList`. `expand_cue_list` compiles `cues` into the flat form
-/// `CuePlayer` plays back.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct RecipeCueList {
-    #[serde(default)]
-    pub name: String,
-    pub cues: Vec<RecipeCue>,
 }
 
 /// Everything expanding a recipe needs to know about the room: who the
@@ -222,27 +203,6 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>) -> Vec<CueValue> {
     out
 }
 
-/// Compiles one `RecipeCue` into the flat `Cue` format `CuePlayer` plays
-/// back. Recipes are expanded in order, so a later recipe's `CueValue` for
-/// the same `(chan, attr)` as an earlier one in the same cue wins — the
-/// same last-write convention `CuePlayer::go()` already uses when folding
-/// a cue's values into its tracked state.
-pub fn expand_cue(raw: &RecipeCue, show: &Show<'_>) -> Cue {
-    let mut values = Vec::new();
-    for recipe in &raw.recipes {
-        values.extend(expand_recipe(recipe, show));
-    }
-    Cue {
-        name: raw.name.clone(),
-        fade_secs: raw.fade_secs,
-        values,
-    }
-}
-
-pub fn expand_cue_list(raw: &[RecipeCue], show: &Show<'_>) -> Vec<Cue> {
-    raw.iter().map(|c| expand_cue(c, show)).collect()
-}
-
 /// Every name in `cues` that this venue cannot resolve, as readable
 /// one-liners.
 ///
@@ -253,7 +213,7 @@ pub fn expand_cue_list(raw: &[RecipeCue], show: &Show<'_>) -> Vec<Cue> {
 /// a typo'd group name is a cue that silently does nothing, and the only
 /// symptom is lights that never come on. So the tolerance stays and the
 /// diagnosis is reported separately, for the loader to print.
-pub fn unresolved(cues: &[RecipeCue], show: &Show<'_>) -> Vec<String> {
+pub fn unresolved(cues: &[Cue], show: &Show<'_>) -> Vec<String> {
     let mut out = Vec::new();
     for cue in cues {
         for recipe in &cue.recipes {
@@ -445,13 +405,13 @@ mod tests {
     /// able to say so — the split `unresolved` exists for.
     #[test]
     fn an_unknown_palette_name_is_skipped_but_reported() {
-        let cue = RecipeCue {
+        let cue = Cue {
             name: "Oops".to_string(),
-            fade_secs: 0.0,
             recipes: vec![Recipe {
                 target: RecipeTarget::Chans(vec![5]),
                 apply: RecipeApply::Color(Ref::Named("Chartreuse".to_string())),
             }],
+            ..Default::default()
         };
         let pool = palettes();
         let show = Show {
@@ -459,7 +419,11 @@ mod tests {
             palettes: &pool,
             placement: &|_| None,
         };
-        assert!(expand_cue(&cue, &show).values.is_empty());
+        assert!(
+            cue.recipes
+                .iter()
+                .all(|r| expand_recipe(r, &show).is_empty())
+        );
         let problems = unresolved(std::slice::from_ref(&cue), &show);
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("Chartreuse"), "{problems:?}");
@@ -474,33 +438,5 @@ mod tests {
         assert!(matches!(parsed, Ref::Inline(c) if c.red == 1.0));
         let named: Ref<ColorPreset> = serde_json::from_str(r#""Red""#).unwrap();
         assert!(matches!(named, Ref::Named(n) if n == "Red"));
-    }
-
-    #[test]
-    fn expand_cue_compiles_multiple_recipes_into_one_flat_cue() {
-        let raw = RecipeCue {
-            name: "Wash On".to_string(),
-            fade_secs: 2.0,
-            recipes: vec![
-                Recipe {
-                    target: RecipeTarget::Group("Pars".to_string()),
-                    apply: RecipeApply::Dimmer(1.0),
-                },
-                Recipe {
-                    target: RecipeTarget::Group("Pars".to_string()),
-                    apply: RecipeApply::Color(Ref::Inline(ColorPreset {
-                        name: "Red".to_string(),
-                        red: 1.0,
-                        green: 0.0,
-                        blue: 0.0,
-                    })),
-                },
-            ],
-        };
-        let cue = expand_cue(&raw, &Show::new(&groups(), &|_| None));
-        assert_eq!(cue.name, "Wash On");
-        assert_eq!(cue.fade_secs, 2.0);
-        // 3 fixtures x (1 dimmer + 3 colour) = 12 values.
-        assert_eq!(cue.values.len(), 12);
     }
 }

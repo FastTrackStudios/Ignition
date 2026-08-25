@@ -18,10 +18,7 @@ pub mod focus;
 pub use focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 
 pub mod recipe;
-pub use recipe::{
-    Recipe, RecipeApply, RecipeCue, RecipeCueList, RecipeTarget, Show, expand_cue, expand_cue_list,
-    expand_recipe, unresolved,
-};
+pub use recipe::{Recipe, RecipeApply, RecipeTarget, Show, expand_recipe, unresolved};
 
 pub mod effect;
 pub use effect::{EffectDirection, EffectList, EffectPlayer, EffectRecipe, Waveform};

@@ -86,9 +86,10 @@ fn main() -> anyhow::Result<()> {
             // at the room. Both are needed; either alone is ignored.
             "--eye" => eye = Some(parse_point(&next("x,y,z in metres"))?),
             "--look" => look = Some(parse_point(&next("x,y,z in metres"))?),
-            // A programmed show. `--cuelist` is the flat compiled form,
-            // `--recipes` the authoring form compiled against this
-            // venue's own groups; press Space to GO through either. With
+            // A programmed show. The two spellings are the same format
+            // now — a cue carries direct values and recipes as the two
+            // layers of one cascade — and both are kept because both
+            // appear in scripts. Press Space to GO. With
             // `--snapshot`, `--cue N` jumps straight to the end of cue
             // N's fade so a look can be captured without a keyboard.
             "--cuelist" => cuelist = Some(PathBuf::from(next("a path"))),

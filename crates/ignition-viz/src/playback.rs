@@ -12,7 +12,7 @@ use crate::show::{apply_cue_output, tick_and_apply, tick_and_apply_effects};
 use crate::spawn::{DmxRes, VenueRes};
 use crate::venue::Venue;
 use bevy::prelude::*;
-use ignition_core::{CueList, CuePlayer, EffectList, EffectPlayer, RecipeCueList};
+use ignition_core::{CueList, CuePlayer, EffectList, EffectPlayer, Group, Show};
 use std::path::Path;
 
 /// A loaded show, if the CLI was given one.
@@ -20,6 +20,11 @@ use std::path::Path;
 pub struct Playback {
     /// Cues stepped by GO — space, same convention as a real console.
     pub cues: Option<CuePlayer>,
+    /// The venue's groups, resolved once. Recipes are resolved every
+    /// frame now (see `docs/domain/cue-building-architecture.md`), and
+    /// re-parsing 127 channel-range strings per frame to do it would be
+    /// a silly way to spend the budget that decision bought.
+    pub groups: Vec<Group>,
     /// Effects run continuously from the moment they load; an
     /// `EffectRecipe` is a function of time, not a stepped state.
     pub effects: Option<EffectPlayer>,
@@ -28,10 +33,12 @@ pub struct Playback {
 impl Playback {
     /// Loads whichever show files the CLI was given.
     ///
-    /// `cuelist` is the flat, already-compiled form; `recipes` is the
-    /// authoring form (a cue is a list of group + dimmer/colour/focus
-    /// recipes) compiled here against the venue's own real groups and
-    /// fixture placements. They are alternatives, not layers.
+    /// `cuelist` and `recipes` are the same format now and either flag
+    /// accepts either file: a `Cue` carries direct values *and* recipes
+    /// as the two layers of one cascade, so the two show shapes that
+    /// used to need separate types are one type with different fields
+    /// filled in. Both spellings are kept because both appear in scripts
+    /// and in this repo's own data.
     ///
     /// `jump_to_cue` puts the player at the *end* of that cue's fade
     /// rather than starting it — how you capture a programmed look
@@ -50,34 +57,30 @@ impl Playback {
             "pass either --cuelist or --recipes, not both"
         );
 
-        let cues = if let Some(path) = cuelist {
-            let list: CueList = read_json(path, "a cue list")?;
-            println!("loaded cue list {:?}: {} cues", list.name, list.cues.len());
-            Some(CuePlayer::new(list.cues))
-        } else if let Some(path) = recipes {
-            let list: RecipeCueList = read_json(path, "a recipe cue list")?;
-            let groups = venue.groups();
-            let show = ignition_core::Show {
-                groups: &groups,
-                palettes: &venue.palettes,
-                placement: &|chan| venue.placement_of(chan),
-            };
-            for problem in ignition_core::unresolved(&list.cues, &show) {
-                eprintln!("warning: {problem}");
+        let groups = venue.groups();
+        let show = Show {
+            groups: &groups,
+            palettes: &venue.palettes,
+            placement: &|chan| venue.placement_of(chan),
+        };
+
+        let cues: Option<CuePlayer> = match cuelist.or(recipes) {
+            Some(path) => {
+                let list: CueList = read_json(path, "a cue list")?;
+                for problem in ignition_core::unresolved(&list.cues, &show) {
+                    eprintln!("warning: {problem}");
+                }
+                println!(
+                    "loaded show {:?}: {} cues against {} groups, {} colour / {} focus palettes",
+                    list.name,
+                    list.cues.len(),
+                    groups.len(),
+                    venue.palettes.colors.len(),
+                    venue.palettes.focus.len()
+                );
+                Some(CuePlayer::new(list.cues))
             }
-            let cues = ignition_core::expand_cue_list(&list.cues, &show);
-            println!(
-                "loaded recipe cue list {:?}: {} cues, compiled against {} real venue groups \
-                 and {} colour / {} focus palettes",
-                list.name,
-                cues.len(),
-                groups.len(),
-                venue.palettes.colors.len(),
-                venue.palettes.focus.len()
-            );
-            Some(CuePlayer::new(cues))
-        } else {
-            None
+            None => None,
         };
 
         let effects = match effects {
@@ -93,12 +96,19 @@ impl Playback {
             None => None,
         };
 
-        let mut playback = Self { cues, effects };
-        if let Some(player) = playback.cues.as_mut() {
+        let mut cues = cues;
+        if let Some(player) = cues.as_mut() {
             let index = jump_to_cue.unwrap_or(0);
-            player.jump_to_end_of(index);
-            println!("cue -> {} {:?}", index + 1, player.current_name());
+            player.jump_to_end_of(index, &show);
+            println!("cue -> {index} {:?}", player.current_name());
         }
+        // `show` borrows `groups`, which the struct below takes
+        // ownership of; nothing reads it past here.
+        let mut playback = Self {
+            cues,
+            groups,
+            effects,
+        };
         if let (Some(player), Some(t)) = (playback.effects.as_mut(), effect_time) {
             player.tick(t);
         }
@@ -121,10 +131,23 @@ pub fn tick_playback(
     mut playback: ResMut<Playback>,
 ) {
     let dt = time.delta_secs();
-    if let Some(player) = playback.cues.as_mut() {
-        tick_and_apply(&dmx.0, &venue.0, player, dt);
+    // Split the borrow: resolving needs the groups while the player is
+    // held mutably.
+    let Playback {
+        cues,
+        groups,
+        effects,
+    } = &mut *playback;
+    if let Some(player) = cues.as_mut() {
+        let venue = &venue.0;
+        let show = Show {
+            groups,
+            palettes: &venue.palettes,
+            placement: &|chan| venue.placement_of(chan),
+        };
+        tick_and_apply(&dmx.0, venue, player, dt, &show);
     }
-    if let Some(player) = playback.effects.as_mut() {
+    if let Some(player) = effects.as_mut() {
         // Layered after cues, so a running effect modifies whatever the
         // current cue set rather than being overwritten by it.
         tick_and_apply_effects(&dmx.0, &venue.0, player, dt);
@@ -141,9 +164,16 @@ pub fn go_on_space(
     if !keys.just_pressed(KeyCode::Space) {
         return;
     }
-    if let Some(player) = playback.cues.as_mut() {
-        player.go();
+    let Playback { cues, groups, .. } = &mut *playback;
+    if let Some(player) = cues.as_mut() {
+        let venue = &venue.0;
+        let show = Show {
+            groups,
+            palettes: &venue.palettes,
+            placement: &|chan| venue.placement_of(chan),
+        };
+        player.go(&show);
         info!("cue -> {:?}", player.current_name());
-        apply_cue_output(&dmx.0, &venue.0, &player.output());
+        apply_cue_output(&dmx.0, venue, &player.output(&show));
     }
 }
