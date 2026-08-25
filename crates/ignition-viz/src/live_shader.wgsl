@@ -19,17 +19,21 @@ var<uniform> camera: Camera;
 
 // Visualizer settings — the live-mode equivalent of a console viz app's
 // "ambient light"/"haze level" sliders (QLC+, grandMA3's 3D view, WYSIWYG
-// etc. all expose something like this). Defaults live in `live_renderer.rs`
-// / `live_headless_renderer.rs` (ambient 0.0, haze 1.6) and are overridable
-// from `bin/live.rs`'s `--ambient`/`--haze` flags — deliberately NOT the
-// same 0.45 ambient `shader.wgsl` hardcodes, since that shader exists to
-// give `shot` a flat, always-readable layout view, not a realistic stage
-// look. `_pad0`/`_pad1` keep the struct's WGSL uniform alignment (16-byte
-// rounded) matching its Rust-side `#[repr(C)]` twin.
+// etc. all expose something like this). Defaults live in `live_pipeline.rs`
+// (ambient 0.0, haze 1.6) and are overridable from `bin/live.rs`'s
+// `--ambient`/`--haze` flags — deliberately NOT the same 0.45 ambient
+// `shader.wgsl` hardcodes, since that shader exists to give `shot` a flat,
+// always-readable layout view, not a realistic stage look. `_pad1` keeps
+// the struct's WGSL uniform alignment (16-byte rounded) matching its
+// Rust-side `#[repr(C)]` twin.
 struct Settings {
     ambient: f32,
     haze: f32,
-    _pad0: f32,
+    /// Seconds since the renderer started — drifts the beam haze's
+    /// turbulence (`fs_glow`'s `fogging()`) each frame instead of leaving
+    /// it frozen. 0.0 in `--snapshot` mode (a single static frame has no
+    /// "next frame" for drift to matter).
+    time: f32,
     _pad1: f32,
 }
 
@@ -303,6 +307,11 @@ fn fs_glow(in: VertexOut) -> @location(0) vec4<f32> {
     // shaft instead of a flat-lit solid.
     let edge = 1.0 - abs(dot(view_dir, n));
     let alignment = mix(0.55, 1.4, edge);
-    let density = clamp(fogging(in.world_pos * 1.5) * 0.6 + 0.55, 0.0, 1.6);
+    // Drift through the noise field's Z axis over time — the haze's
+    // turbulence pattern moves without the beam geometry itself moving,
+    // the same "sample a moving slice of 3D noise" trick ASLS's own
+    // fogTime does.
+    let fog_coord = vec3<f32>(in.world_pos.xy * 1.5, in.world_pos.z * 1.5 + settings.time * 0.15);
+    let density = clamp(fogging(fog_coord) * 0.6 + 0.55, 0.0, 1.6);
     return vec4<f32>(in.color * settings.haze * alignment * density, 1.0);
 }

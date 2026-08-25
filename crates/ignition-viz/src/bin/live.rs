@@ -94,6 +94,7 @@ fn main() -> anyhow::Result<()> {
     let mut height = 1000u32;
     let mut ambient = DEFAULT_AMBIENT;
     let mut haze = DEFAULT_HAZE;
+    let mut snapshot_time: Option<f32> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -115,6 +116,12 @@ fn main() -> anyhow::Result<()> {
             // the real stage looks in the dark.
             "--ambient" => ambient = args.next().expect("--ambient needs a number 0..1").parse().unwrap(),
             "--haze" => haze = args.next().expect("--haze needs a number, e.g. 1.6").parse().unwrap(),
+            // Phase of the beam haze's drifting turbulence to render, for
+            // --snapshot (a single frame has no "next frame" to animate
+            // through, so this is the only way to see the effect at a
+            // moment other than t=0). Defaults to the real wall-clock time
+            // of day so repeated snapshots aren't all identical.
+            "--time" => snapshot_time = Some(args.next().expect("--time needs seconds, e.g. 12.5").parse().unwrap()),
             other => eprintln!("ignition-live: ignoring unknown argument {other}"),
         }
     }
@@ -150,8 +157,14 @@ fn main() -> anyhow::Result<()> {
             other => anyhow::bail!("unknown --view {other}; use house, stage, or top"),
         };
         let renderer = LiveHeadlessRenderer::new(ambient, haze)?;
-        renderer.render_to_png(&mesh, &camera, width, height, &out_path)?;
-        println!("wrote {}", out_path.display());
+        let time_secs = snapshot_time.unwrap_or_else(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| (d.as_secs_f32()) % 3600.0)
+                .unwrap_or(0.0)
+        });
+        renderer.render_to_png(&mesh, &camera, width, height, time_secs, &out_path)?;
+        println!("wrote {} (haze phase t={:.1}s)", out_path.display(), time_secs);
         return Ok(());
     }
 

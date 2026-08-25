@@ -19,6 +19,7 @@ pub struct LiveRenderer {
     depth_view: wgpu::TextureView,
     width: u32,
     height: u32,
+    start: std::time::Instant,
 }
 
 impl LiveRenderer {
@@ -56,7 +57,16 @@ impl LiveRenderer {
 
         let pipeline = LivePipeline::new(device, queue, surface_format, ambient, haze);
         let depth_view = pipeline.make_depth_view(width, height);
-        let mut renderer = Self { pipeline, adapter, surface, surface_format, depth_view, width, height };
+        let mut renderer = Self {
+            pipeline,
+            adapter,
+            surface,
+            surface_format,
+            depth_view,
+            width,
+            height,
+            start: std::time::Instant::now(),
+        };
         renderer.configure_surface(width, height);
         Ok(renderer)
     }
@@ -112,7 +122,8 @@ impl LiveRenderer {
             wgpu::CurrentSurfaceTexture::Validation => anyhow::bail!("surface validation error"),
         };
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        self.pipeline.render_frame(mesh, camera, &view, &self.depth_view);
+        let time_secs = self.start.elapsed().as_secs_f32();
+        self.pipeline.render_frame(mesh, camera, &view, &self.depth_view, time_secs);
         self.pipeline.queue.present(frame);
         Ok(())
     }

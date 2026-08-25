@@ -446,3 +446,30 @@ fixture geometry (yoke/head Geometry tree, actual manufacturer models) —
 OFL doesn't carry geometry at all. For the channel-map-only need this
 project actually had unresolved, OFL was faster to reach for and covered
 more of Norco's real, obscure fixtures than GDTF did.
+
+## Slice 9 — animated beam haze (2026-08-24, same day)
+
+Closed the one deferred item explicitly flagged in Slice 7: the noise-
+based haze turbulence (`fs_glow`'s `fogging()`) sampled world position
+only, so it was spatially varying but frozen — the same mottled pattern
+every frame, no drift. `GpuSettings`/WGSL `Settings` gained a `time: f32`
+field; `LivePipeline::render_frame` takes a `time_secs` parameter and
+`fs_glow` samples a moving slice of the 3D noise field
+(`world_pos.z * 1.5 + time * 0.15`, same "advance one axis of a 3D noise
+field over time" trick as ASLS's own `fogTime`) instead of a fixed
+coordinate — the haze drifts without the beam geometry itself moving.
+
+`LiveRenderer` (the real window) tracks a real `std::time::Instant` from
+construction and passes elapsed seconds each frame — genuinely animated
+when actually watching it. `--snapshot` (a single static frame has no
+"next frame" to animate through) gained a `--time <seconds>` flag to pick
+which phase of the drift to render, defaulting to the real wall-clock
+time of day so repeated snapshots aren't all identical; `Live
+HeadlessRenderer::render_to_png` takes `time_secs` as a parameter rather
+than hardcoding 0.0.
+
+Verified: two `--snapshot`s of the same live-DMX scene 5 seconds apart
+produce different PNGs (different MD5) — the haze pattern actually
+changed, not just the fixture state. 13/13 tests still pass, `shot`'s
+regression PNG byte-identical (MD5) — this only touches the live shader's
+glow pass.

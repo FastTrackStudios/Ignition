@@ -58,6 +58,7 @@ impl LiveHeadlessRenderer {
         camera: &Camera,
         width: u32,
         height: u32,
+        time_secs: f32,
         out_path: &std::path::Path,
     ) -> anyhow::Result<()> {
         let device = &self.pipeline.device;
@@ -75,7 +76,7 @@ impl LiveHeadlessRenderer {
         let color_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let depth_view = self.pipeline.make_depth_view(width, height);
 
-        self.pipeline.render_frame(mesh, camera, &color_view, &depth_view);
+        self.pipeline.render_frame(mesh, camera, &color_view, &depth_view, time_secs);
 
         // Readback: rows must be padded to a 256-byte alignment.
         let bytes_per_pixel = 4u32;

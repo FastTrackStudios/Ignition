@@ -44,7 +44,13 @@ struct GpuPointLight {
 struct GpuSettings {
     ambient: f32,
     haze: f32,
-    _pad0: f32,
+    /// Seconds since the renderer was created — animates the beam haze's
+    /// turbulence (`fs_glow`'s `fogging()`) so it drifts instead of
+    /// sitting frozen. `render_frame`'s caller supplies it each frame
+    /// (`LiveRenderer`'s window loop uses a real clock; `--snapshot`'s
+    /// single frame just passes 0.0, which is fine — a static snapshot
+    /// has no "next frame" for drift to matter).
+    time: f32,
     _pad1: f32,
 }
 
@@ -229,6 +235,7 @@ impl LivePipeline {
         camera: &Camera,
         color_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
+        time_secs: f32,
     ) {
         let device = &self.device;
 
@@ -249,7 +256,7 @@ impl LivePipeline {
             contents: bytemuck::bytes_of(&uniform),
             usage: wgpu::BufferUsages::UNIFORM,
         });
-        let settings = GpuSettings { ambient: self.ambient, haze: self.haze, _pad0: 0.0, _pad1: 0.0 };
+        let settings = GpuSettings { ambient: self.ambient, haze: self.haze, time: time_secs, _pad1: 0.0 };
         let settings_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("live-settings-uniform"),
             contents: bytemuck::bytes_of(&settings),
