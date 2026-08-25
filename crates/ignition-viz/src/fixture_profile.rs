@@ -364,16 +364,23 @@ pub fn add_typed_fixture(
 /// just the flat floor plane, which is the case that mattered here
 /// (every downward-aimed beam in this venue) — a real occlusion raycast
 /// is a further improvement, not attempted this pass.
+///
+/// Since then this stops at **any** of the room's six bounding planes,
+/// not only the floor. Only intersecting the floor meant every
+/// upward-aimed fixture — Norco's uplights, and any mover tilted above
+/// horizontal — got a flat 10m beam that punched straight through the
+/// ceiling and ended in mid-air, which is exactly what a beam is never
+/// allowed to do. It is still an axis-aligned box, not the room's real
+/// mesh: a beam still passes through a riser or a hung screen. That
+/// remains the further improvement it always was.
 #[derive(Clone, Copy)]
 pub struct BeamThrow {
-    /// The room's real floor height — a beam aimed downward reaches
-    /// exactly this far, the same way a real beam stops at the surface it
+    /// The room's bounding box — a beam stops at whichever face it
+    /// reaches first, the same way a real beam stops at the surface it
     /// hits instead of passing through it.
-    floor_z: f32,
-    /// How far a beam aimed level or upward reaches — there's no floor
-    /// intersection to compute for those, so this is the room's own
-    /// horizontal diagonal (generous enough to visibly cross the room)
-    /// rather than an arbitrary small constant.
+    min: Vec3,
+    max: Vec3,
+    /// The longest throw any beam gets, whatever the geometry says.
     max_reach: f32,
 }
 
@@ -381,29 +388,83 @@ impl BeamThrow {
     pub fn for_venue(venue: &crate::venue::Venue) -> Self {
         let (min, max) = venue.bounds();
         let room_diag = ((max.x - min.x).powi(2) + (max.y - min.y).powi(2)).sqrt();
-        // Capped at a realistic stage-lighting throw distance regardless
-        // of the room's raw size — an uncapped room diagonal (Norco's is
-        // ~22m) produced beams so large on near-horizontal aims (a
-        // fixture with a FocusPoint recipe pointed across the room, not
-        // straight down) that their additive glow blew the whole render
-        // out to solid white. This clamp applies to the floor-intersection
-        // case too (a near-horizontal *downward* aim has the same runaway
-        // problem — dividing by a `direction.z` near zero), not just the
-        // level/upward fallback.
-        Self { floor_z: min.z, max_reach: room_diag.max(5.0).min(10.0) }
+        // The room's own diagonal, not the 10m this used to clamp to.
+        // That clamp dates from flat-brightness beam cones, where a long
+        // beam was as bright at its far end as at its near end and a
+        // roomful of them blew the render out to solid white; with the
+        // real falloff curve a beam is down to a few percent long before
+        // it crosses the room, so the clamp bought nothing and cost a
+        // visible hard edge — every beam that reached neither a surface
+        // nor the clamp ended in a rounded cap hanging in mid-air.
+        //
+        // `bounds()` is a bound on object *centres* (it exists to frame
+        // the default cameras), so it does not describe the room's real
+        // extent and cannot be relied on to stop every beam — Norco's
+        // truss fixtures sit above every room object's centre, so an
+        // uplight finds no face at all above it. What actually stops
+        // those is the glow pass's depth test against the room geometry:
+        // a beam is occluded by the ceiling it runs into whether or not
+        // its geometry was clipped there first. The box test below is
+        // just a cheap way to not build cone geometry nobody can see.
+        Self { min, max, max_reach: room_diag.max(5.0) }
     }
 
+    /// Distance from `origin` along `direction` to the first bounding-box
+    /// face — the standard slab test, one axis at a time, keeping the
+    /// nearest positive hit. An axis the beam runs parallel to simply
+    /// contributes nothing.
     fn reach(&self, origin: Vec3, direction: Vec3) -> f32 {
-        // A beam with any real downward component (`direction.z` clearly
-        // negative) hits the floor plane at a well-defined distance;
-        // anything level or aimed upward has no floor to hit within this
-        // simple model, so it just gets the room's generous fallback reach.
-        if direction.z < -1e-3 {
-            let t = (self.floor_z - origin.z) / direction.z;
-            t.clamp(0.3, self.max_reach)
-        } else {
-            self.max_reach
+        let mut nearest = self.max_reach;
+        for axis in 0..3 {
+            let d = direction[axis];
+            if d.abs() < 1e-3 {
+                continue;
+            }
+            let plane = if d < 0.0 { self.min[axis] } else { self.max[axis] };
+            let t = (plane - origin[axis]) / d;
+            if t > 0.0 && t < nearest {
+                nearest = t;
+            }
         }
+        // A fixture sitting exactly on a bounding face (a floor uplight,
+        // a fixture flush to the back wall) would otherwise get a
+        // zero-length beam.
+        nearest.max(0.3)
+    }
+}
+
+#[cfg(test)]
+mod beam_throw_tests {
+    use super::*;
+
+    fn throw() -> BeamThrow {
+        BeamThrow { min: Vec3::new(-5.0, -10.0, 0.0), max: Vec3::new(5.0, 10.0, 6.0), max_reach: 10.0 }
+    }
+
+    #[test]
+    fn a_downward_beam_stops_at_the_floor() {
+        let r = throw().reach(Vec3::new(0.0, 0.0, 4.0), Vec3::NEG_Z);
+        assert!((r - 4.0).abs() < 1e-4, "{r}");
+    }
+
+    #[test]
+    fn an_upward_beam_stops_at_the_ceiling_instead_of_in_mid_air() {
+        // The regression this test exists for: uplights used to get a
+        // flat 10m and end above the roof.
+        let r = throw().reach(Vec3::new(0.0, 0.0, 1.0), Vec3::Z);
+        assert!((r - 5.0).abs() < 1e-4, "{r}");
+    }
+
+    #[test]
+    fn a_level_beam_stops_at_the_wall_it_is_aimed_at() {
+        let r = throw().reach(Vec3::new(0.0, -8.0, 3.0), Vec3::Y);
+        assert!((r - 10.0).abs() < 1e-4, "{r}");
+    }
+
+    #[test]
+    fn a_long_diagonal_is_still_capped() {
+        let r = throw().reach(Vec3::new(-4.0, -9.0, 5.5), Vec3::new(1.0, 2.0, -0.2).normalize());
+        assert!(r <= 10.0, "{r}");
     }
 }
 
@@ -416,10 +477,64 @@ impl BeamThrow {
 fn emit_light_and_beam(mesh: &mut MeshBuilder, pos: Vec3, rot: Quat, emission: &LiveEmission, throw: &BeamThrow) {
     let direction = rot * Vec3::NEG_Z;
     let length = throw.reach(pos, direction);
-    let angle_deg = emission.beam_angle_deg.unwrap_or(25.0);
-    let radius = length * (angle_deg.to_radians() * 0.5).tan();
-    mesh.add_light(pos, emission.color, direction, angle_deg * 0.5);
-    mesh.add_glow_cone(pos, rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, angle_deg, GLOW_CONE_SEGMENTS);
+    let half_angle_deg = beam_half_angle_deg(emission.beam_angle_deg);
+    let radius = length * half_angle_deg.to_radians().tan();
+    mesh.add_light(pos, emission.color, direction, half_angle_deg);
+    mesh.add_glow_cone(pos, rot, Vec3::NEG_Z, length, radius.max(0.05), emission.color, half_angle_deg, GLOW_CONE_SEGMENTS);
+}
+
+/// The beam **half** angle in degrees, which is what everything
+/// downstream wants: the cone's own geometry, the spill light's cone
+/// test, and `fs_glow`'s falloff curve. `FixtureRecord::beam_angle_deg`
+/// is the full angle, the way a manufacturer quotes it.
+///
+/// Half, not full, is also what ASLS's shader means by its `angle`
+/// attribute — `MovingHead.set angle()` stores `angle / 2` before it
+/// reaches the buffer, so their `radians(vAngle) * distance * distance`
+/// term is a half-angle. Feeding it the full angle (as the first pass at
+/// this port did) doubles the quadratic term and makes every beam die
+/// out at roughly half the distance it should.
+///
+/// Zero and negative are treated as "not known" rather than "a beam with
+/// no spread": Norco's real patch has fifteen fixtures carrying 0.0 or a
+/// near-zero angle, which produced 5cm-wide pencil beams with no
+/// distance falloff at all (`radians(0) * d * d` is zero, so nothing in
+/// the curve ever dimmed them) — the hard white streaks visible through
+/// the middle of the rig.
+pub(crate) fn beam_half_angle_deg(full_angle_deg: Option<f32>) -> f32 {
+    /// ASLS's own `BEAM_MAX_ANGLE`, in the same half-angle terms.
+    const MAX_HALF_ANGLE_DEG: f32 = 45.0;
+    /// ASLS's fallback is a 10 degree half angle (`get angle()`); this
+    /// crate's has always been 25 degrees full, which is the same order.
+    const DEFAULT_FULL_ANGLE_DEG: f32 = 25.0;
+
+    let full = match full_angle_deg {
+        Some(a) if a > 0.1 => a,
+        _ => DEFAULT_FULL_ANGLE_DEG,
+    };
+    (full * 0.5).min(MAX_HALF_ANGLE_DEG)
+}
+
+#[cfg(test)]
+mod beam_angle_tests {
+    use super::beam_half_angle_deg;
+
+    #[test]
+    fn a_manufacturer_full_angle_becomes_a_half_angle() {
+        assert_eq!(beam_half_angle_deg(Some(15.0)), 7.5);
+    }
+
+    #[test]
+    fn a_missing_or_zero_angle_falls_back_rather_than_making_a_pencil_beam() {
+        // Norco's patch carries both of these for real.
+        assert_eq!(beam_half_angle_deg(None), 12.5);
+        assert_eq!(beam_half_angle_deg(Some(0.0)), 12.5);
+    }
+
+    #[test]
+    fn an_absurd_angle_is_clamped_the_way_asls_clamps_its_own() {
+        assert_eq!(beam_half_angle_deg(Some(360.0)), 45.0);
+    }
 }
 
 /// Radial segments per beam cone. Sixteen left a visibly faceted

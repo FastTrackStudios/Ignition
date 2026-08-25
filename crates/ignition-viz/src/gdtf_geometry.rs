@@ -287,10 +287,10 @@ fn draw_node(
         GdtfShape::None => {
             if let Some(emission) = emission {
                 let length = 2.5f32;
-                let angle_deg = emission.beam_angle_deg.unwrap_or(25.0);
-                let radius = length * (angle_deg.to_radians() * 0.5).tan();
+                let half_angle_deg = crate::fixture_profile::beam_half_angle_deg(emission.beam_angle_deg);
+                let radius = length * half_angle_deg.to_radians().tan();
                 let direction = world_rot * Vec3::NEG_Z;
-                mesh.add_light(world_pos, emission.color, direction, angle_deg * 0.5);
+                mesh.add_light(world_pos, emission.color, direction, half_angle_deg);
                 mesh.add_glow_cone(
                     world_pos,
                     world_rot,
@@ -298,7 +298,7 @@ fn draw_node(
                     length,
                     radius.max(0.05),
                     emission.color,
-                    angle_deg,
+                    half_angle_deg,
                     crate::fixture_profile::GLOW_CONE_SEGMENTS,
                 );
             }

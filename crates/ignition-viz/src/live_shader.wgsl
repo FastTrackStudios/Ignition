@@ -337,6 +337,12 @@ struct GlowVertexIn {
 struct GlowOut {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) world_pos: vec3<f32>,
+    // The pre-divide clip position, forwarded as an ordinary varying.
+    // `@builtin(position)` is the framebuffer coordinate by the time a
+    // fragment sees it, which is not what `anglePower` wants — ASLS's
+    // `vWorldPosition` (their name; it holds `projectionMatrix *
+    // viewMatrix * modelMatrix * position`) is this.
+    @location(7) clip_pos: vec4<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) beam_local: vec3<f32>,
     @location(3) color: vec3<f32>,
@@ -350,6 +356,7 @@ struct GlowOut {
 fn vs_glow(in: GlowVertexIn) -> GlowOut {
     var out: GlowOut;
     out.clip_position = camera.view_proj * vec4<f32>(in.position, 1.0);
+    out.clip_pos = out.clip_position;
     out.world_pos = in.position;
     out.normal = in.normal;
     out.beam_local = in.beam_local;
@@ -362,9 +369,6 @@ fn vs_glow(in: GlowVertexIn) -> GlowOut {
 
 @fragment
 fn fs_glow(in: GlowOut) -> @location(0) vec4<f32> {
-    let n = normalize(in.normal);
-    let view_dir = normalize(camera.camera_pos.xyz - in.world_pos);
-
     // --- ASLS's `alignmentFactor` ---
     // How across-the-beam the camera is: 0 looking straight down the
     // beam's axis, 1 looking square across it. Computed from the beam's
@@ -385,21 +389,35 @@ fn fs_glow(in: GlowOut) -> @location(0) vec4<f32> {
     let attenuation = 2.0 / (1.0 + alignment * dist + radians(in.angle_deg) * dist * dist);
 
     // --- ASLS's `anglePower` ---
-    // `pow(dot(view, normal), 4.0 * alignmentFactor)`: bright where the
-    // cone wall faces the camera (the beam's middle), falling to nothing
-    // at its silhouette, and the harder the more across-the-beam the view
-    // is. This is the term that makes a beam read as a soft shaft of
-    // light instead of a flat-shaded solid, and it was the one missing
-    // piece — no amount of tuning the old per-vertex intensity curve
-    // could produce a gradient *across* a beam, only along it.
+    // `pow(dot(normalize(vWorldPosition.xyz), recomputeVertexNormal()),
+    // 4.0 * alignmentFactor)` — a gradient *across* the beam: bright
+    // through its middle, falling off toward its silhouette, and the
+    // harder the more across-the-beam the view is. This is the term that
+    // makes a beam read as a soft shaft of light rather than a
+    // flat-shaded solid, and no per-vertex intensity curve can express
+    // it — it varies across a beam, not along it.
     //
-    // One-sided (`max(..., 0)` against an outward wall normal) so a
-    // beam's far wall contributes nothing and a single beam is not
-    // double-counted. ASLS gets the same one-sidedness out of the sign of
-    // a screen-space derived normal (`recomputeVertexNormal`); taking it
-    // from the real outward normal `mesh.rs` already computes is the same
-    // result without depending on which way the rasteriser's Y axis runs.
-    let facing = max(dot(view_dir, n), 0.0);
+    // Both vectors are in **clip space**, which is not a typo in their
+    // shader and matters: the first pass at this port substituted an
+    // honest world-space N·V, which is a stronger, more physical falloff
+    // and collapsed every beam's visible silhouette into a tapering
+    // finger well before its real far end. Clip space compresses depth
+    // nonlinearly and leaves the "view direction" nearly constant across
+    // the frame, so their term is much flatter and the beam keeps its
+    // cone shape out to where the distance falloff ends it. Their look
+    // is the point, so this is now their maths.
+    //
+    // `recomputeVertexNormal` is a geometric normal from screen-space
+    // derivatives. WGSL's `dpdy` runs down the framebuffer where GLSL's
+    // `dFdy` runs up it, which flips the cross product — hence the
+    // explicit negation, rather than leaving the beam's lit side up to
+    // the rasteriser's Y convention. `max(..., 0.0)` keeps `pow` off a
+    // negative base (undefined in both languages, and a NaN here would
+    // poison the additive blend); it also one-sides the beam, so its far
+    // wall contributes nothing and a single beam is never double-counted.
+    let clip = in.clip_pos.xyz;
+    let clip_normal = -normalize(cross(dpdx(clip), dpdy(clip)));
+    let facing = max(dot(normalize(clip), clip_normal), 0.0);
     let angle_power = pow(facing, 4.0 * alignment);
 
     let intensity = attenuation * angle_power;

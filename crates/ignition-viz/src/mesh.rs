@@ -58,9 +58,11 @@ pub struct GlowVertex {
     /// per-beam (not per-fragment), so it must come from the beam's origin
     /// rather than this vertex's own position.
     pub origin: [f32; 3],
-    /// The real fixture's beam angle in degrees. ASLS's `angle.x` — it is
-    /// the quadratic term of the falloff curve, so a wide wash genuinely
-    /// dies off over a shorter distance than a tight spot.
+    /// The real fixture's beam **half** angle in degrees — see
+    /// `fixture_profile::beam_half_angle_deg`, and note that ASLS's
+    /// `angle.x` attribute is a half angle too. It is the quadratic term
+    /// of the falloff curve, so a wide wash genuinely dies off over a
+    /// shorter distance than a tight spot.
     pub angle_deg: f32,
     /// Keeps the struct 16-byte aligned so `bytemuck::cast_slice` and the
     /// vertex layout agree on stride without an implicit tail pad.
@@ -637,5 +639,41 @@ impl MeshBuilder {
             }
             self.indices.extend_from_slice(&[base_idx, base_idx + 1, base_idx + 2]);
         }
+    }
+}
+
+#[cfg(test)]
+mod glow_cone_tests {
+    use super::*;
+
+    /// The envelope must be narrow at the lens and wide at the far end —
+    /// the shape of a light beam, not of a funnel pointed at the fixture.
+    #[test]
+    fn a_glow_cone_widens_away_from_the_fixture() {
+        let mut mesh = MeshBuilder::default();
+        let origin = Vec3::new(0.0, 0.0, 3.0);
+        mesh.add_glow_cone(origin, Quat::IDENTITY, Vec3::NEG_Z, 8.0, 1.0, [1.0; 3], 7.5, 8);
+
+        let near_max = mesh
+            .glow_vertices
+            .iter()
+            .filter(|v| Vec3::from(v.beam_local).length() < 0.5)
+            .map(|v| Vec3::from(v.beam_local).truncate().length())
+            .fold(0.0f32, f32::max);
+        let far_max = mesh
+            .glow_vertices
+            .iter()
+            .filter(|v| Vec3::from(v.beam_local).length() > 4.0)
+            .map(|v| Vec3::from(v.beam_local).truncate().length())
+            .fold(0.0f32, f32::max);
+
+        assert!(near_max < 0.2, "lens ring radius {near_max}");
+        assert!(far_max > 0.9, "far ring radius {far_max}");
+        let deepest = mesh
+            .glow_vertices
+            .iter()
+            .map(|v| -v.beam_local[2])
+            .fold(0.0f32, f32::max);
+        assert!((deepest - 8.0).abs() < 0.01, "beam reaches {deepest}m, expected 8");
     }
 }
