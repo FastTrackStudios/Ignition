@@ -284,9 +284,13 @@ fn camera_bundle(view: ViewPreset, min: Vec3, max: Vec3) -> impl Bundle {
             // stair-steps. Cost is per-pixel raymarching, which is worth
             // it here: beams *are* the picture.
             step_count: 192,
-            // Breaks up what banding is left by starting each ray at a
-            // slightly different depth.
-            jitter: 0.35,
+            // No jitter. It offsets each ray's start depth to trade
+            // banding for noise, and Bevy's own docs say it is meant for
+            // use *with* temporal antialiasing — which resolves that
+            // noise across frames. There is no TAA here, so all it did
+            // was speckle every lit surface. The step count above is
+            // what buys smoothness instead.
+            jitter: 0.0,
             ..default()
         },
     )

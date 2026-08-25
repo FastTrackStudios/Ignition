@@ -642,9 +642,19 @@ pub fn power_watts(manufacturer: &str, model: &str) -> f32 {
     if m == "chauvet" && mo.contains("slimpar") {
         return 21.0;
     }
-    // Rockville Rockstrip 252: 252 x 0.5W LEDs.
+    // Rockville Rockstrip 252: "Max power: 50VA" per Rockville's own
+    // listing — not the 126W a 252 x 0.5W LED count would suggest.
+    //
+    // They also publish 1,452 lux at 1m, which is a directly measured
+    // 1,452 cd. That is two orders of magnitude below
+    // `SHAFT_CANDELA_THRESHOLD`, so a Rockstrip is unambiguously a wash:
+    // it lights what it is aimed at and puts nothing visible in the air.
+    // Worth stating because the patch carries 0.0 for its beam angle, so
+    // it falls back to a generic 25 degrees, and at the wattage this
+    // used to claim that fallback made every strip cut a huge cone
+    // across the stage.
     if m == "rockville" && mo.contains("rockstrip") {
-        return 126.0;
+        return 50.0;
     }
     // A hazer is not a light source. It emits haze, which is a property
     // of the room the fog volume already models — giving it an output

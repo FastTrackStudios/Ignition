@@ -28,11 +28,13 @@ fn main() -> anyhow::Result<()> {
     // hazed room. Each beam style scales it to whatever its own renderer
     // wants — see `VizSettings::haze`.
     let mut haze = 1.6f32;
-    // Multiplier on each fixture's real luminous output. Above 1 because
-    // the room has no other light in it and the shafts are the subject;
-    // the *relative* brightness between fixtures comes from their own
-    // wattage and beam angle now, not from this.
-    let mut exposure = 60.0f32;
+    // Multiplier on each fixture's real luminous output. Large because
+    // it is doing the job a camera's aperture and shutter would: the
+    // room is otherwise unlit, the surfaces in it are mostly black
+    // (black plywood deck, black ceiling), and the fog absorbs some of
+    // what does reach them. The *relative* brightness between fixtures
+    // comes from their own wattage and beam angle now, not from this.
+    let mut exposure = 3000.0f32;
     // Not zero. A real dark venue genuinely has no ambient fill, but a
     // visualizer the operator is *working* in is not a photograph: with
     // nothing lit you need to still see the stage, the truss and where
