@@ -71,7 +71,13 @@ pub fn spawn_overlay(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
 /// worth pinning for this.
 pub fn target_overlay_camera(
     mut commands: Commands,
-    overlay: Query<Entity, (With<OverlayText>, Without<UiTargetCamera>)>,
+    overlay: Query<
+        Entity,
+        (
+            Or<(With<OverlayText>, With<FpsText>)>,
+            Without<UiTargetCamera>,
+        ),
+    >,
     camera: Query<Entity, With<Camera3d>>,
 ) {
     let Ok(camera) = camera.single() else {
@@ -82,9 +88,82 @@ pub fn target_overlay_camera(
     }
 }
 
+/// Marks the standalone frame-rate readout.
+#[derive(Component)]
+pub struct FpsText;
+
+/// The frame-rate readout on its own, for contexts that want the number
+/// without the cue list — the studio being the case, since it draws its
+/// own cue list in the Dioxus sidebar.
+pub fn spawn_fps(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
+    let font = match FONT {
+        Some(bytes) => bevy::text::FontSource::Handle(fonts.add(Font::from_bytes(bytes.to_vec()))),
+        None => bevy::text::FontSource::default(),
+    };
+    commands.spawn((
+        Text::new(String::new()),
+        TextFont {
+            font,
+            font_size: bevy::text::FontSize::Px(13.0),
+            ..default()
+        },
+        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.85)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            // Top-right, where it cannot land on top of the operator
+            // overlay if both happen to be on.
+            right: Val::Px(12.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.45)),
+        FpsText,
+    ));
+}
+
+pub fn update_fps(
+    diagnostics: Res<bevy::diagnostic::DiagnosticsStore>,
+    mut text: Query<&mut Text, With<FpsText>>,
+) {
+    if let Ok(mut text) = text.single_mut() {
+        text.0 = fps_readout(&diagnostics);
+    }
+}
+
+/// The frame rate, smoothed, plus the frame time that produced it.
+///
+/// Both numbers, because they answer different questions. 120 fps is the
+/// target; 8.3 ms is the budget, and it is the budget that says how much
+/// headroom is left before a heavier cue costs frames.
+///
+/// Worth knowing what this measures when the visualizer is **embedded**
+/// in the studio: Bevy renders when Blitz asks it to, so the rate here is
+/// the host's paint cadence, not what Bevy could manage if it drove
+/// itself. A standalone `viz` window is the honest measure of the
+/// renderer; this one is the honest measure of what the operator sees,
+/// which is the number that actually matters on a show.
+fn fps_readout(diagnostics: &bevy::diagnostic::DiagnosticsStore) -> String {
+    use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+    let fps = diagnostics
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|d| d.smoothed());
+    let frame_ms = diagnostics
+        .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
+        .and_then(|d| d.smoothed());
+    match (fps, frame_ms) {
+        // The history is empty for the first frames after launch, which
+        // would otherwise read as a hard 0 fps right when someone is
+        // watching to see whether it starts well.
+        (Some(fps), Some(ms)) => format!("{fps:>5.1} fps  {ms:>4.1} ms"),
+        (Some(fps), None) => format!("{fps:>5.1} fps"),
+        _ => "  -- fps".to_string(),
+    }
+}
+
 pub fn update_overlay(
     venue: Res<VenueRes>,
     mut playback: ResMut<Playback>,
+    diagnostics: Res<bevy::diagnostic::DiagnosticsStore>,
     mut text: Query<&mut Text, With<OverlayText>>,
 ) {
     let Ok(mut text) = text.single_mut() else {
@@ -117,8 +196,9 @@ pub fn update_overlay(
     let last = (current.unwrap_or(0) + WINDOW + 1).min(all.len());
 
     let mut lines = vec![format!(
-        "GO space   BACK backspace   RESTART r   TAP t        clock {:>6.1}s",
-        player.clock()
+        "GO space   BACK backspace   RESTART r   TAP t        clock {:>6.1}s   {}",
+        player.clock(),
+        fps_readout(&diagnostics)
     )];
     if !speeds.is_empty() {
         let mut masters: Vec<String> = speeds

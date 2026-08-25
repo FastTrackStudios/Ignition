@@ -600,6 +600,13 @@ fn Viewport() -> Element {
             settle_frames: 1,
             camera: None,
             overlay: false,
+            // On, because the visualizer is the thing that has to hold
+            // 120 fps and a number in the corner is how anyone notices
+            // it stopped. Note what it measures here: embedded, Bevy
+            // draws when Blitz asks it to, so this is the rate the
+            // operator actually sees — the composite, not the renderer
+            // in isolation. Standalone `viz --fps` measures the latter.
+            fps: true,
         };
         let rx = RX
             .lock()

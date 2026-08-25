@@ -65,6 +65,12 @@ pub struct VizConfig {
     /// too, which is how a still can carry the cue context that makes it
     /// mean something.
     pub overlay: bool,
+    /// Draw the frame-rate readout in the corner.
+    ///
+    /// Separate from `overlay` because the studio wants this without the
+    /// cue list — it already draws the cue list in its own sidebar, and
+    /// two of them on one screen is worse than none.
+    pub fps: bool,
     /// Room objects to leave out — see `VizSettings::exclude`.
     pub exclude: Vec<String>,
     /// Global exposure — see `VizSettings::exposure`.
@@ -114,6 +120,7 @@ impl Plugin for VizPlugin {
                 ambient: self.config.ambient,
                 show_props: self.config.show_props,
                 overlay: self.config.overlay,
+                fps: self.config.fps,
                 exclude: self.config.exclude.clone(),
                 beam_style: self.config.beam_style,
                 exposure: self.config.exposure,
@@ -124,6 +131,12 @@ impl Plugin for VizPlugin {
                 self.gdtf.lock().expect("gdtf library lock").take(),
             ))
             .add_plugins(BeamPlugin)
+            // Frame timing for the overlay's FPS readout. Bevy's own
+            // plugin rather than a hand-rolled delta average, because it
+            // keeps a smoothed history — a per-frame reciprocal flickers
+            // too much to read, and the question is whether the rig
+            // *holds* a rate, not what one frame did.
+            .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
             .add_systems(Startup, spawn_venue)
             // Playback runs before the fixture update so a beam reflects
             // this frame's cue state, not last frame's.
@@ -139,18 +152,31 @@ impl Plugin for VizPlugin {
                     .chain(),
             )
             .add_systems(Update, crate::props::pose_new_characters)
+            // Camera targeting covers both readouts, so it is gated on
+            // either being on — not on `overlay`, or an fps-only studio
+            // would spawn the text and then draw it nowhere.
             .add_systems(
                 Update,
-                (
-                    crate::overlay::target_overlay_camera,
-                    crate::overlay::update_overlay,
-                )
-                    .chain()
+                crate::overlay::target_overlay_camera
+                    .run_if(|s: Res<VizSettings>| s.overlay || s.fps),
+            )
+            .add_systems(
+                Update,
+                crate::overlay::update_overlay
+                    .after(crate::overlay::target_overlay_camera)
                     .run_if(|s: Res<VizSettings>| s.overlay),
             )
             .add_systems(
                 Startup,
                 crate::overlay::spawn_overlay.run_if(|s: Res<VizSettings>| s.overlay),
+            )
+            .add_systems(
+                Update,
+                crate::overlay::update_fps.run_if(|s: Res<VizSettings>| s.fps),
+            )
+            .add_systems(
+                Startup,
+                crate::overlay::spawn_fps.run_if(|s: Res<VizSettings>| s.fps),
             )
             // After transform propagation, because a beam's world pose is
             // whatever the joints `update_live_fixtures` just moved ended

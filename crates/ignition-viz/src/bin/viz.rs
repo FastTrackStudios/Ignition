@@ -65,6 +65,10 @@ fn main() -> anyhow::Result<()> {
     let mut canvas_content: std::collections::HashMap<String, String> = Default::default();
     // On in a window, off in a snapshot unless asked for.
     let mut overlay: Option<bool> = None;
+    // Off by default: a snapshot with a frame counter baked into it is
+    // not a snapshot of the rig, and the operator overlay already
+    // carries the number for a live window.
+    let mut fps = false;
     let mut eye: Option<Vec3> = None;
     let mut look: Option<Vec3> = None;
 
@@ -90,6 +94,7 @@ fn main() -> anyhow::Result<()> {
             // Always on in a window; this is for putting it in a
             // snapshot too.
             "--overlay" => overlay = Some(true),
+            "--fps" => fps = true,
             "--no-overlay" => overlay = Some(false),
             // An arbitrary camera, for looking at one thing rather than
             // at the room. Both are needed; either alone is ignored.
@@ -202,6 +207,7 @@ fn main() -> anyhow::Result<()> {
             show_props,
             camera: eye.zip(look),
             overlay: draw_overlay,
+            fps,
             exclude,
             beam_style,
             exposure,

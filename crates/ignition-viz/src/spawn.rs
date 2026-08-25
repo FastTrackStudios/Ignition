@@ -121,6 +121,8 @@ pub struct VizSettings {
     pub show_props: bool,
     /// Whether to draw the operator overlay — see `VizConfig::overlay`.
     pub overlay: bool,
+    /// Whether to draw the frame-rate readout — see `VizConfig::fps`.
+    pub fps: bool,
     /// Global exposure: a multiplier on every fixture's *real* luminous
     /// output (`fixture_profile::power_watts` x `LUMENS_PER_WATT`).
     ///
