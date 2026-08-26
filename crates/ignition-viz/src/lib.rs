@@ -4,7 +4,8 @@
 //! the modules below the renderer know nothing about Bevy's ECS. `venue`
 //! loads the extracted venue JSON, `dmx` receives sACN/Art-Net,
 //! `channel_map` resolves a universe against a fixture's personality, and
-//! `show` plays cues and effects. `spawn` is the one place that turns any
+//! `show` plays cues and effects, and `video` decodes screen-canvas
+//! clips on threads of its own. `spawn` is the one place that turns any
 //! of that into entities, and `app` is the one place that owns a
 //! `bevy::App`.
 //!
@@ -30,9 +31,11 @@ pub mod props;
 pub mod show;
 pub mod spawn;
 pub mod venue;
+pub mod video;
 pub mod view;
 
 pub use app::{VizConfig, run};
 pub use dmx::{DmxUniverses, ResolvedAttributes};
+pub use spawn::CanvasClock;
 pub use venue::Venue;
 pub use view::ViewPreset;

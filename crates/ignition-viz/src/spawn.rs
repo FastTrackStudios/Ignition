@@ -16,8 +16,13 @@ use crate::fixture_profile::{
 };
 use crate::gdtf_geometry::{self, GdtfLibrary, PanJoint, TiltJoint};
 use crate::venue::Venue;
+use crate::video::{ContentKind, VideoSource};
+use bevy::asset::RenderAssetUsages;
+use bevy::image::Image;
 use bevy::light::{FogVolume, VolumetricLight};
 use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use std::sync::Mutex;
 
 /// The loaded `.gdtf` profiles, if `--gdtf-dir` was given. Absent means
 /// every fixture falls back to its QLC+ category shape, which is what
@@ -141,7 +146,20 @@ pub struct VizSettings {
     /// Per-canvas sources, by canvas name. A canvas with no entry here
     /// falls back to `screen_content`, which is what makes the flag
     /// optional rather than a new requirement.
+    ///
+    /// A source is a still or a clip depending on its extension alone —
+    /// `.png` and `.webp` go through the asset server as they always
+    /// have, `.mov` and `.mp4` through `crate::video`. Deliberately no
+    /// new syntax: a show file that had to declare which one it meant
+    /// would be a show file that breaks when the content changes.
     pub canvas_content: std::collections::HashMap<String, String>,
+    /// Where the asset server reads from — see `VizConfig::assets_dir`.
+    ///
+    /// Needed here because a clip is *not* loaded through the asset
+    /// server: it has no Bevy loader, and it needs a decoder thread of
+    /// its own rather than a one-shot load. Canvas paths stay relative
+    /// to the same root either way, so this is what resolves one.
+    pub assets_dir: String,
     /// Room/screen/prop objects whose name contains any of these are not
     /// drawn — `--exclude Ceiling` for a plan view that would otherwise
     /// just render the roof, and the escape hatch for a venue whose
@@ -351,6 +369,135 @@ fn display(
     })
 }
 
+/// The time the video canvases are presented at.
+///
+/// A canvas is not a media player with a play button — it is a picture
+/// of the song at a point in time, the same way a cue is. Set `seconds`
+/// from the transport every frame and a scrub drags the graphics with
+/// the music, backwards as readily as forwards. That is the whole reason
+/// `VideoSource::frame_at` takes a time instead of keeping one:
+///
+/// ```no_run
+/// # use ignition_viz::spawn::CanvasClock;
+/// # fn wire(world: &mut bevy::prelude::World, position: f64) {
+/// world.insert_resource(CanvasClock::at(position));
+/// # }
+/// ```
+///
+/// `free_running` is for the standalone `viz` binary, which has no
+/// transport to follow and would otherwise show one frozen frame.
+#[derive(Resource, Debug, Clone, Copy)]
+pub struct CanvasClock {
+    /// Where in the song we are, in seconds.
+    pub seconds: f64,
+    /// Advance `seconds` with the app's own elapsed time, because
+    /// nothing outside is setting it.
+    pub free_running: bool,
+}
+
+impl Default for CanvasClock {
+    fn default() -> Self {
+        Self {
+            seconds: 0.0,
+            free_running: true,
+        }
+    }
+}
+
+impl CanvasClock {
+    /// A clock pinned to a supplied position — what a host driving the
+    /// visualizer from a transport inserts each frame.
+    pub fn at(seconds: f64) -> Self {
+        Self {
+            seconds,
+            free_running: false,
+        }
+    }
+}
+
+/// A canvas whose source is a clip rather than a still.
+struct CanvasVideo {
+    canvas: String,
+    source: VideoSource,
+    image: Handle<Image>,
+}
+
+/// Every playing canvas, and the texture each one writes into.
+///
+/// The `Mutex` is not protecting anything: a `VideoSource` owns the
+/// receiving end of a channel, which is `Send` but not `Sync`, and a
+/// Bevy `Resource` has to be both. Every access below is through
+/// `get_mut`, which does not lock.
+#[derive(Resource)]
+pub struct CanvasVideos(Mutex<Vec<CanvasVideo>>);
+
+/// The texture a clip's frames land in, sized to the clip.
+///
+/// `RenderAssetUsages::all()` rather than the render world alone: the
+/// CPU-side copy is the thing being written every frame, and dropping it
+/// would leave nothing to write into after the first upload.
+fn blank_frame((width, height): (u32, u32)) -> Image {
+    Image::new(
+        Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        vec![0; (width as usize) * (height as usize) * 4],
+        // Srgb, matching what the still path gets from a PNG. The
+        // sampled value feeds an emissive channel, and a linear texture
+        // there reads as a screen with its gamma wound up.
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::all(),
+    )
+}
+
+/// Puts the frame that belongs at the current clock into each playing
+/// canvas's texture.
+///
+/// Nothing here decodes: `frame_at` only ever hands over what a worker
+/// thread has already produced, and answers `None` when that is what is
+/// on screen already. `None` is the *usual* answer — the visualizer runs
+/// at 120 fps and a clip at 30 — and it is what keeps this from
+/// re-uploading eight megabytes four times per clip frame.
+pub fn update_canvas_videos(
+    time: Res<Time>,
+    mut clock: ResMut<CanvasClock>,
+    mut videos: ResMut<CanvasVideos>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    if clock.free_running {
+        clock.seconds += f64::from(time.delta_secs());
+    }
+    let seconds = clock.seconds;
+
+    for entry in videos.0.get_mut().expect("canvas video lock").iter_mut() {
+        let Some(frame) = entry.source.frame_at(seconds) else {
+            continue;
+        };
+        let Some(mut image) = images.get_mut(&entry.image) else {
+            continue;
+        };
+        let Some(data) = image.data.as_mut() else {
+            continue;
+        };
+        if data.len() == frame.len() {
+            data.copy_from_slice(frame);
+        } else {
+            // A decoder that changed frame size mid-clip. Nothing here
+            // handles that, and silently writing a short row would be a
+            // sheared picture rather than an obvious fault.
+            tracing::warn!(
+                canvas = entry.canvas,
+                expected = data.len(),
+                got = frame.len(),
+                "viz: canvas frame is the wrong size; skipping it"
+            );
+        }
+    }
+}
+
 /// Spawns the room, its screens and props, and one entity per patched
 /// fixture (plus that fixture's beam and spill, initially hidden).
 // A Bevy system's "arguments" are its data dependencies, which the
@@ -364,6 +511,7 @@ pub fn spawn_venue(
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard: ResMut<Assets<StandardMaterial>>,
     mut beams: ResMut<Assets<BeamMaterial>>,
+    mut images: ResMut<Assets<Image>>,
     gdtf_library: Res<GdtfLibraryRes>,
     asset_server: Res<AssetServer>,
 ) {
@@ -536,6 +684,7 @@ pub fn spawn_venue(
     let slices = crate::canvas::slices(&venue.screens);
     let mut canvas_content: std::collections::HashMap<String, Handle<Image>> =
         std::collections::HashMap::new();
+    let mut playing: Vec<CanvasVideo> = Vec::new();
     for screen in &venue.screens {
         let canvas = screen.canvas_name().to_string();
         if canvas_content.contains_key(&canvas) {
@@ -545,10 +694,37 @@ pub fn spawn_venue(
             .canvas_content
             .get(&canvas)
             .or(settings.screen_content.as_ref());
-        if let Some(path) = path {
-            canvas_content.insert(canvas, asset_server.load(path.clone()));
+        let Some(path) = path else { continue };
+        match crate::video::content_kind(path) {
+            ContentKind::Still => {
+                canvas_content.insert(canvas, asset_server.load(path.clone()));
+            }
+            ContentKind::Video => {
+                let file = std::path::Path::new(&settings.assets_dir).join(path);
+                match VideoSource::open(&file) {
+                    Ok(source) => {
+                        let handle = images.add(blank_frame(source.size()));
+                        canvas_content.insert(canvas.clone(), handle.clone());
+                        playing.push(CanvasVideo {
+                            canvas,
+                            source,
+                            image: handle,
+                        });
+                    }
+                    // One canvas going dark is not a reason to take the
+                    // rig down — the lights are the show, and a screen
+                    // with no content already renders as an unlit panel.
+                    Err(error) => tracing::warn!(
+                        canvas,
+                        file = %file.display(),
+                        %error,
+                        "viz: canvas clip did not open; that screen stays dark"
+                    ),
+                }
+            }
         }
     }
+    commands.insert_resource(CanvasVideos(Mutex::new(playing)));
 
     for g in &venue.screens {
         if settings.skip(&g.name) {

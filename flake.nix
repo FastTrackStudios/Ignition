@@ -100,6 +100,20 @@
             # studio app does not need this — the features it selects are
             # narrower — so this only shows up under dx.
             openssl
+            # ignition-viz's `ffmpeg` feature — screen canvases playing
+            # anything that is not HAP (h.264 mp4, WebM). That feature is
+            # off by default precisely because it needs this; the HAP
+            # path is pure Rust and needs nothing from here.
+            #
+            # The major this pin carries has to match the `ffmpeg-next`
+            # major in crates/ignition-viz/Cargo.toml. The binding checks
+            # libav*'s version while building and refuses one it does not
+            # know, so a mismatch is a wall of bindgen errors rather than
+            # a missing symbol. Both are on 9 today.
+            #
+            # The CLI comes along with the libraries, which is how you
+            # make a test clip.
+            ffmpeg
           ];
         in
         {

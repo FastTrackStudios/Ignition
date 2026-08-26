@@ -5,6 +5,21 @@ license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+# Which video codecs the screen canvases can play. Neither is required:
+# with both off, every canvas is a still and nothing else changes.
+[features]
+# HAP is on by default because it costs almost nothing to have — three
+# small pure-Rust crates, no system library — and it is the codec this
+# corner of the industry actually runs (Resolume, VDMX, every media
+# server ships it). See src/video/hap.rs for why the format suits a
+# scrubbable show.
+default = ["hap"]
+hap = ["dep:hap-qt", "dep:texpresso"]
+# Everything else — h.264 in mp4, WebM. Off by default because it links
+# libav*, so `pkgs.ffmpeg` has to be in the dev shell and in whatever
+# builds a release. See src/video/ffmpeg.rs.
+ffmpeg = ["dep:ffmpeg-next"]
+
 [dependencies]
 anyhow = "1.0.104"
 artnet_protocol = "0.4.4"
@@ -22,6 +37,20 @@ sacn = "0.11.1"
 serde.workspace = true
 serde_json.workspace = true
 thiserror = "2.0.20"
+
+# --- video, both optional; see [features] above ---
+# QuickTime demux plus HAP frame parsing, pure Rust. Its default
+# `cpu-compression` feature is the encoder, kept on so the round-trip
+# test can write its own fixture rather than commit a video file.
+hap-qt = { version = "0.3.0", optional = true }
+# BCn decompression. The frames HAP hands over are GPU texture blocks;
+# this is what turns them back into pixels until the upload path can
+# take them as they are.
+texpresso = { version = "2.0", optional = true }
+# Tracks ffmpeg's own major version — 9.x is the `pkgs.ffmpeg` the
+# flake's nixpkgs pin carries, and the binding will refuse to build
+# against a libav* whose major it does not know.
+ffmpeg-next = { version = "9", optional = true }
 
 # The one visualizer binary — windowed by default, `--snapshot <path>` to
 # render a single frame headlessly. Replaces the pre-Bevy pair of `shot`

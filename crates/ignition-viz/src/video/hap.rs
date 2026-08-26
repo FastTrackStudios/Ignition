@@ -141,7 +141,7 @@ fn to_rgba(frame: &hap_qt::HapFrame, width: u32, height: u32) -> Result<Vec<u8>,
 /// Normally this runs in a shader on the way to the screen. Here it is
 /// the price of decoding on the CPU — see the module note.
 fn ycocg_to_rgb(rgba: &mut [u8]) {
-    for texel in rgba.chunks_exact_mut(4) {
+    for texel in rgba.as_chunks_mut::<4>().0 {
         let co = f32::from(texel[0]) / 255.0 - 0.5;
         let cg = f32::from(texel[1]) / 255.0 - 0.5;
         // Blue carries the scale the encoder divided the chroma by,
@@ -211,8 +211,8 @@ mod tests {
         let (w, h) = (64u32, 64u32);
         let mut encoder = HapFrameEncoder::new(HapFormat::Hap1, w, h).expect("encoder");
         encoder.set_compression(CompressionMode::Snappy);
-        let mut writer =
-            QtHapWriter::create(&path, VideoConfig::new(w, h, 10.0, HapFormat::Hap)).expect("writer");
+        let config = VideoConfig::new(w, h, 10.0, HapFormat::Hap1);
+        let mut writer = QtHapWriter::create(&path, config).expect("writer");
         for i in 0..10u32 {
             // A flat colour per frame, so a decoded frame says which
             // frame it is.

@@ -61,7 +61,9 @@ fn main() -> anyhow::Result<()> {
     let _ = tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                tracing_subscriber::EnvFilter::new("warn,ignition_studio=info,ignition_song=info,ignition_viz=info")
+                tracing_subscriber::EnvFilter::new(
+                    "warn,ignition_studio=info,ignition_song=info,ignition_viz=info",
+                )
             }),
         )
         .try_init();
@@ -655,8 +657,14 @@ fn Viewport() -> Element {
             // TVs are their own canvases and play independently; they are
             // where lyrics will go, over a bed like this one.
             //
-            // Stills for now: nothing here decodes video yet, and the
-            // slicing is the part worth looking at.
+            // Stills because there is no clip in the repo to point at,
+            // not because these have to be stills: a `.mov` or `.mp4`
+            // here plays instead, decided by the extension alone (see
+            // `ignition_viz::video`). What is still missing is the
+            // clock — until the widget puts
+            // `CanvasClock::at(transport.position())` into the viz world
+            // beside the cue seek it already does in `follow_song`, a
+            // clip free-runs rather than scrubbing with the song.
             canvas_content: [
                 ("main", "screens/clip-particles.png"),
                 ("side-left", "screens/clip-astronaut.png"),

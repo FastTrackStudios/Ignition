@@ -346,7 +346,7 @@ dependencies = [
 [[package]]
 name = "architect"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/architect?rev=5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86#5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86"
+source = "git+https://github.com/FastTrackStudios/architect?tag=v0.0.2#e2ae8f54bf9cb8a2a6ab7f5ba06260f90edbb12f"
 dependencies = [
  "architect-action-derive",
  "architect-derive",
@@ -370,7 +370,7 @@ dependencies = [
 [[package]]
 name = "architect-action-derive"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/architect?rev=5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86#5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86"
+source = "git+https://github.com/FastTrackStudios/architect?tag=v0.0.2#e2ae8f54bf9cb8a2a6ab7f5ba06260f90edbb12f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -380,7 +380,7 @@ dependencies = [
 [[package]]
 name = "architect-derive"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/architect?rev=5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86#5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86"
+source = "git+https://github.com/FastTrackStudios/architect?tag=v0.0.2#e2ae8f54bf9cb8a2a6ab7f5ba06260f90edbb12f"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -391,7 +391,7 @@ dependencies = [
 [[package]]
 name = "architect-permissions"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/architect?rev=5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86#5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86"
+source = "git+https://github.com/FastTrackStudios/architect?tag=v0.0.2#e2ae8f54bf9cb8a2a6ab7f5ba06260f90edbb12f"
 dependencies = [
  "serde",
  "serde_json",
@@ -401,7 +401,7 @@ dependencies = [
 [[package]]
 name = "architect-rpc-derive"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/architect?rev=5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86#5e4bb829674fe8b2d3527c3b65b9ab3a2b6baa86"
+source = "git+https://github.com/FastTrackStudios/architect?tag=v0.0.2#e2ae8f54bf9cb8a2a6ab7f5ba06260f90edbb12f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -582,6 +582,7 @@ dependencies = [
 [[package]]
 name = "audiocore-dsp"
 version = "0.1.0"
+source = "git+https://github.com/FastTrackStudios/daw?tag=v0.0.2#f9017749e1d32fe15c83ce79e1eb632030f4ff8f"
 
 [[package]]
 name = "autocfg"
@@ -3940,6 +3941,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b97b65636e5b9ef369943878ac74335ba1c55c1cb6adbf1e2c293c624248d693"
 
 [[package]]
+name = "ffmpeg-next"
+version = "9.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6380599799e175191eb7ffe82c97f36a2a90a36cbc54c738a903e5287d7f516a"
+dependencies = [
+ "bitflags 2.13.1",
+ "ffmpeg-sys-next",
+ "libc",
+]
+
+[[package]]
+name = "ffmpeg-sys-next"
+version = "9.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b939bf79dd5949412a4b81cfe21a07f48ea21b47fcbb5f57816c8c2de5ae30b"
+dependencies = [
+ "bindgen",
+ "cc",
+ "libc",
+ "num_cpus",
+ "pkg-config",
+ "vcpkg",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4545,6 +4571,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "hap-parser"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c1423b8ada98acdaced416e3d5cec5c515a9a05b2cd67c3d278328cb2f994e8"
+dependencies = [
+ "snap",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "hap-qt"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9addb55b3fc5a33c6853d10b4d3d4612a6046be2f617e8bb1122ce0f6c2e018"
+dependencies = [
+ "byteorder",
+ "hap-parser",
+ "memmap2",
+ "snap",
+ "texpresso",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "harfrust"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5050,13 +5100,16 @@ dependencies = [
  "anyhow",
  "artnet_protocol",
  "bevy",
+ "ffmpeg-next",
  "gdtf",
+ "hap-qt",
  "ignition-core",
  "ignition-proto",
  "image",
  "sacn",
  "serde",
  "serde_json",
+ "texpresso",
  "thiserror 2.0.20",
  "tracing",
  "wgpu",
@@ -7913,6 +7966,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "snap"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "199905e6153d6405f9728fe44daace35f8f837bbf830bb6e85fbd5828709a886"
+
+[[package]]
 name = "socket2"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8560,6 +8619,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "texpresso"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8550677e2259d675a7841cb1403db35f330cc9e58674c8c5caa12dd12c51dc71"
+dependencies = [
+ "libm",
 ]
 
 [[package]]

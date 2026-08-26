@@ -64,7 +64,9 @@ const BACK_TOLERANCE: f64 = 1.0 / 240.0;
 
 #[derive(Debug, thiserror::Error)]
 pub enum VideoError {
-    #[error("no video backend is compiled in for {0} — build with --features hap or --features ffmpeg")]
+    #[error(
+        "no video backend is compiled in for {0} — build with --features hap or --features ffmpeg"
+    )]
     NoBackend(String),
     #[error("{0}")]
     Backend(String),
@@ -110,7 +112,7 @@ pub fn content_kind(path: &str) -> ContentKind {
 /// negative — a count-in before bar 1 is a negative song position, and
 /// `%` would hand back a negative time that no frame index matches.
 pub fn wrap_time(secs: f64, duration: f64) -> f64 {
-    if !(duration > 0.0) || !secs.is_finite() {
+    if !duration.is_finite() || duration <= 0.0 || !secs.is_finite() {
         return 0.0;
     }
     secs.rem_euclid(duration)
@@ -418,7 +420,10 @@ fn pump(mut decoder: Box<dyn Decoder>, frames: SyncSender<Frame>, seek: Arc<Seek
         let frame = match decoder.next_frame() {
             Ok(Some(frame)) => {
                 empty_passes = 0;
-                Frame { generation, ..frame }
+                Frame {
+                    generation,
+                    ..frame
+                }
             }
             Ok(None) => {
                 empty_passes += 1;
@@ -484,8 +489,14 @@ mod tests {
         assert_eq!(content_kind("clips/city.mp4"), ContentKind::Video);
         assert_eq!(content_kind("clips/city.mov"), ContentKind::Video);
         assert_eq!(content_kind("clips/city.webm"), ContentKind::Video);
-        assert_eq!(content_kind("screens/clip-particles.png"), ContentKind::Still);
-        assert_eq!(content_kind("screens/rockstars-logo.webp"), ContentKind::Still);
+        assert_eq!(
+            content_kind("screens/clip-particles.png"),
+            ContentKind::Still
+        );
+        assert_eq!(
+            content_kind("screens/rockstars-logo.webp"),
+            ContentKind::Still
+        );
         assert_eq!(content_kind("screens/logo.jpg"), ContentKind::Still);
     }
 
@@ -665,7 +676,9 @@ mod tests {
         assert_eq!(got, vec![0.0, 0.1, 0.2, 0.0, 0.1, 0.2, 0.0]);
 
         drop(rx);
-        worker.join().expect("the worker exits when the source does");
+        worker
+            .join()
+            .expect("the worker exits when the source does");
     }
 
     /// An empty clip must not spin the worker on its own end-of-file.
@@ -673,7 +686,8 @@ mod tests {
     fn an_empty_clip_stops_the_worker_rather_than_spinning() {
         let (tx, rx) = sync_channel(QUEUE_DEPTH);
         let seek = Arc::new(SeekRequest::default());
-        let worker = std::thread::spawn(move || pump(Box::new(Fake { frames: 0, next: 0 }), tx, seek));
+        let worker =
+            std::thread::spawn(move || pump(Box::new(Fake { frames: 0, next: 0 }), tx, seek));
         worker.join().expect("the worker gives up on an empty clip");
         assert!(rx.recv().is_err());
     }
@@ -686,7 +700,16 @@ mod tests {
         let seek = Arc::new(SeekRequest::default());
         let worker = std::thread::spawn({
             let seek = Arc::clone(&seek);
-            move || pump(Box::new(Fake { frames: 100, next: 0 }), tx, seek)
+            move || {
+                pump(
+                    Box::new(Fake {
+                        frames: 100,
+                        next: 0,
+                    }),
+                    tx,
+                    seek,
+                )
+            }
         });
 
         assert_eq!(rx.recv().expect("a first frame").generation, 0);
@@ -699,6 +722,8 @@ mod tests {
         assert!(after.pts >= 5.0, "seek landed at {}", after.pts);
 
         drop(rx);
-        worker.join().expect("the worker exits when the source does");
+        worker
+            .join()
+            .expect("the worker exits when the source does");
     }
 }

@@ -18,8 +18,8 @@ use crate::beam::BeamPlugin;
 use crate::gdtf_geometry::GdtfLibrary;
 use crate::playback::{Playback, operator_keys, tick_playback};
 use crate::spawn::{
-    BeamStyle, DmxRes, GdtfLibraryRes, VenueRes, VizSettings, apply_ambient, spawn_venue,
-    update_beams, update_fixture_bodies, update_live_fixtures,
+    BeamStyle, CanvasClock, DmxRes, GdtfLibraryRes, VenueRes, VizSettings, apply_ambient,
+    spawn_venue, update_beams, update_canvas_videos, update_fixture_bodies, update_live_fixtures,
 };
 use crate::view::ViewPreset;
 use crate::{DmxUniverses, Venue, dmx};
@@ -126,7 +126,12 @@ impl Plugin for VizPlugin {
                 exposure: self.config.exposure,
                 screen_content: self.config.screen_content.clone(),
                 canvas_content: self.config.canvas_content.clone(),
+                assets_dir: self.config.assets_dir.clone(),
             })
+            // Free-running by default, which is what the standalone
+            // binary wants; a host driving the visualizer from a
+            // transport overwrites it every frame. See `CanvasClock`.
+            .init_resource::<CanvasClock>()
             .insert_resource(GdtfLibraryRes(
                 self.gdtf.lock().expect("gdtf library lock").take(),
             ))
@@ -152,6 +157,11 @@ impl Plugin for VizPlugin {
                     .chain(),
             )
             .add_systems(Update, crate::props::pose_new_characters)
+            // Not in the chain above: a canvas frame does not depend on
+            // anything a fixture did this frame, and holding up the rig
+            // for a texture upload is the one thing the whole video path
+            // is built to avoid.
+            .add_systems(Update, update_canvas_videos)
             // Camera targeting covers both readouts, so it is gated on
             // either being on — not on `overlay`, or an fps-only studio
             // would spawn the text and then draw it nowhere.
