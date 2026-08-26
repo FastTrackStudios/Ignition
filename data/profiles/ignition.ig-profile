@@ -17016,7 +17016,908 @@
       }
     }
   },
+  "looks": {
+    "blackout": {
+      "about": "the stage to zero; the house stays up",
+      "kind": "Safe",
+      "recipes": [
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Union": [
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Beams"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "chorus full": {
+      "about": "everything up: faces full, the wash hot, the back deep, the rig driving",
+      "kind": "Full",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Warm White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Hot"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Deep"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Hot"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "bundle": "chorus drive"
+        }
+      ]
+    },
+    "punt": {
+      "about": "faces lit, warm, nothing moving — the state a stage can always be dropped into",
+      "kind": "Punt",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6000000238418579
+                },
+                {
+                  "Color": "Warm White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Union": [
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Back"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "verse bed": {
+      "about": "faces warm at a working level, the wash breathing under the vocal",
+      "kind": "Bed",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.699999988079071
+                },
+                {
+                  "Color": "Warm White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4000000059604645
+                },
+                {
+                  "Color": "Deep"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "bundle": "verse bed"
+        }
+      ]
+    }
+  },
+  "macros": {
+    "breakdown": {
+      "about": "down to the verse bed, the movers fly out, a little sparkle",
+      "steps": [
+        {
+          "Look": "verse bed"
+        },
+        {
+          "Effect": {
+            "level": 1.0,
+            "name": "fly out"
+          }
+        },
+        {
+          "Effect": {
+            "level": 0.30000001192092896,
+            "name": "sparkle"
+          }
+        }
+      ]
+    },
+    "build 8": {
+      "about": "the riser into a last chorus: the rig builds light by light under a strobe climbing over eight bars",
+      "steps": [
+        {
+          "Effect": {
+            "level": 1.0,
+            "name": "rig build"
+          }
+        },
+        {
+          "Effect": {
+            "level": 1.0,
+            "name": "strobe riser"
+          }
+        },
+        {
+          "Wait": {
+            "beats": 32.0
+          }
+        },
+        "Release"
+      ]
+    },
+    "drop": {
+      "about": "the drop: strobe burst, blinders, movers fly out, colour hot; four beats, then let go",
+      "steps": [
+        {
+          "Effect": {
+            "level": 1.0,
+            "name": "strobe burst"
+          }
+        },
+        {
+          "Flash": {
+            "kind": "white",
+            "role": "Audience"
+          }
+        },
+        {
+          "Effect": {
+            "level": 1.0,
+            "name": "fly out"
+          }
+        },
+        {
+          "Look": "chorus full"
+        },
+        {
+          "Wait": {
+            "beats": 4.0
+          }
+        },
+        "Release"
+      ]
+    },
+    "end": {
+      "about": "two beats, then black",
+      "steps": [
+        {
+          "Wait": {
+            "beats": 2.0
+          }
+        },
+        "Blackout"
+      ]
+    }
+  },
   "name": "Ignition",
+  "pages": [
+    {
+      "faders": [
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "KEY",
+          "source": {
+            "Inline": {
+              "steps": [
+                {
+                  "apply": [
+                    {
+                      "Dimmer": 1.0
+                    },
+                    {
+                      "Color": "Warm White"
+                    }
+                  ],
+                  "ease": "Linear",
+                  "transition": 0.0,
+                  "width": 1.0
+                }
+              ],
+              "target": {
+                "Role": "Key"
+              }
+            }
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "CHASE",
+          "params": [
+            {
+              "default": 1.0,
+              "max": 1.0,
+              "min": 0.0,
+              "name": "depth"
+            }
+          ],
+          "source": {
+            "Effect": "chase"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "SPARKLE",
+          "params": [
+            {
+              "default": 1.0,
+              "max": 1.0,
+              "min": 0.0,
+              "name": "depth"
+            }
+          ],
+          "source": {
+            "Effect": "sparkle"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "BALLY",
+          "source": {
+            "Effect": "ballyhoo"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "BARS",
+          "source": {
+            "Effect": "strip chase"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "BACK",
+          "params": [
+            {
+              "default": 2.0,
+              "max": 8.0,
+              "min": 1.0,
+              "name": "bars"
+            }
+          ],
+          "source": {
+            "Effect": "back breathe"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "STROBE",
+          "params": [
+            {
+              "default": 0.5,
+              "max": 0.949999988079071,
+              "min": 0.05000000074505806,
+              "name": "duty"
+            }
+          ],
+          "source": {
+            "Effect": "strobe"
+          },
+          "speed": {
+            "Scaled": {
+              "master": "Tap",
+              "scale": 2.0
+            }
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "BLIND",
+          "source": {
+            "Inline": {
+              "steps": [
+                {
+                  "apply": [
+                    {
+                      "Dimmer": 1.0
+                    },
+                    {
+                      "Color": "Open White"
+                    }
+                  ],
+                  "ease": "Linear",
+                  "transition": 0.0,
+                  "width": 1.0
+                }
+              ],
+              "target": {
+                "Role": "Audience"
+              }
+            }
+          }
+        }
+      ],
+      "name": "busking"
+    },
+    {
+      "faders": [
+        {
+          "filter": {
+            "beam": false,
+            "colour": false,
+            "intensity": false,
+            "position": true
+          },
+          "label": "WINDMILL",
+          "source": {
+            "Effect": "windmill"
+          }
+        },
+        {
+          "filter": {
+            "beam": false,
+            "colour": false,
+            "intensity": false,
+            "position": true
+          },
+          "label": "PAN WAVE",
+          "source": {
+            "Effect": "pan wave"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "2 COLOUR",
+          "source": {
+            "Effect": "two colour chase"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "RAINBOW",
+          "source": {
+            "Effect": "rainbow"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "ZOOM",
+          "source": {
+            "Effect": "zoom pulse"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "IRIS",
+          "source": {
+            "Effect": "iris chase"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "STRIPS",
+          "source": {
+            "Effect": "strip chase"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "BLINDERS",
+          "source": {
+            "Effect": "blinder chase"
+          }
+        }
+      ],
+      "name": "movement"
+    },
+    {
+      "faders": [
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "KEY MID",
+          "source": {
+            "Inline": {
+              "apply": {
+                "Sound": {
+                  "attr": "Dimmer",
+                  "band": "Mid",
+                  "high": 0.30000001192092896,
+                  "low": 0.0,
+                  "relative": true
+                }
+              },
+              "target": {
+                "Role": "Key"
+              }
+            }
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "WASH MID",
+          "source": {
+            "Inline": {
+              "apply": {
+                "Sound": {
+                  "attr": "Dimmer",
+                  "band": "Mid",
+                  "high": 0.5,
+                  "low": 0.0,
+                  "relative": true
+                }
+              },
+              "target": {
+                "Role": "Wash"
+              }
+            }
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "SPARK HI",
+          "source": {
+            "Inline": {
+              "apply": {
+                "Random": {
+                  "absolute": false,
+                  "attack": 0.0,
+                  "attr": "Dimmer",
+                  "decay": 0.0,
+                  "high": 1.0,
+                  "high_from_band": "High",
+                  "level_var": 0.0,
+                  "low": 0.0,
+                  "seed": 0,
+                  "speed_var": 0.0
+                }
+              },
+              "target": {
+                "Role": "Wash"
+              },
+              "timing": {
+                "direction": "Forward",
+                "measure": 1.0,
+                "once": false,
+                "phase_offset_deg": 0.0,
+                "phase_spread_deg": 0.0,
+                "speed": {
+                  "Master": "Song"
+                }
+              }
+            }
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "MOVE MID",
+          "source": {
+            "Inline": {
+              "apply": {
+                "Sound": {
+                  "attr": "Dimmer",
+                  "band": "Mid",
+                  "high": 1.0,
+                  "low": 0.0,
+                  "relative": false
+                }
+              },
+              "target": {
+                "Role": "Movers"
+              }
+            }
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "BARS HI",
+          "source": {
+            "Inline": {
+              "apply": {
+                "Sound": {
+                  "attr": "Dimmer",
+                  "band": "High",
+                  "high": 1.0,
+                  "low": 0.0,
+                  "relative": false
+                }
+              },
+              "target": {
+                "Role": "Bars"
+              }
+            }
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "BACK LOW",
+          "source": {
+            "Inline": {
+              "apply": {
+                "Sound": {
+                  "attr": "Dimmer",
+                  "band": "Low",
+                  "high": 1.0,
+                  "low": 0.10000000149011612,
+                  "relative": false
+                }
+              },
+              "target": {
+                "Role": "Back"
+              }
+            }
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "BEAM LOW",
+          "source": {
+            "Inline": {
+              "apply": {
+                "Sound": {
+                  "attr": "Dimmer",
+                  "band": "Low",
+                  "high": 1.0,
+                  "low": 0.0,
+                  "relative": false
+                }
+              },
+              "target": {
+                "Role": "Beams"
+              }
+            }
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "BLND LOW",
+          "source": {
+            "Inline": {
+              "apply": {
+                "Sound": {
+                  "attr": "Dimmer",
+                  "band": "Low",
+                  "high": 1.0,
+                  "low": 0.0,
+                  "relative": false
+                }
+              },
+              "target": {
+                "Role": "Audience"
+              }
+            }
+          }
+        }
+      ],
+      "name": "sound"
+    },
+    {
+      "faders": [
+        {
+          "filter": {
+            "beam": false,
+            "colour": true,
+            "intensity": false,
+            "position": false
+          },
+          "label": "2 COLOUR",
+          "source": {
+            "Effect": "two colour chase"
+          }
+        },
+        {
+          "filter": {
+            "beam": false,
+            "colour": true,
+            "intensity": false,
+            "position": false
+          },
+          "label": "RAINBOW",
+          "source": {
+            "Effect": "rainbow"
+          }
+        },
+        {
+          "filter": {
+            "beam": false,
+            "colour": true,
+            "intensity": false,
+            "position": false
+          },
+          "label": "WIPE",
+          "source": {
+            "Effect": "colour wipe"
+          }
+        },
+        {
+          "filter": {
+            "beam": false,
+            "colour": true,
+            "intensity": false,
+            "position": false
+          },
+          "label": "FIRE",
+          "source": {
+            "Effect": "colour fire"
+          }
+        },
+        {
+          "filter": {
+            "beam": false,
+            "colour": true,
+            "intensity": false,
+            "position": false
+          },
+          "label": "WARM",
+          "source": {
+            "Effect": "warm chase"
+          }
+        },
+        {
+          "filter": {
+            "beam": false,
+            "colour": true,
+            "intensity": false,
+            "position": false
+          },
+          "label": "SAT",
+          "source": {
+            "Effect": "saturation breathe"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "WHITE",
+          "source": {
+            "Effect": "white pop"
+          }
+        },
+        {
+          "filter": {
+            "beam": true,
+            "colour": true,
+            "intensity": true,
+            "position": true
+          },
+          "label": "CLR BUMP",
+          "source": {
+            "Effect": "colour bump"
+          }
+        }
+      ],
+      "name": "colour"
+    }
+  ],
+  "protected": [
+    "House Lights"
+  ],
   "roles": [
     {
       "about": "Light on the performers' faces, from the front. Without it the audience cannot see who is playing, and no amount of colour elsewhere substitutes.",
@@ -17085,6 +17986,12 @@
       "required": false
     },
     {
+      "about": "the room's own lights on the desk, where a venue puts them there. Protected: a blackout, a rig drop, the black key and the grand master never touch it, so a stage can go dark without the room going dark",
+      "kind": "Group",
+      "name": "House Lights",
+      "required": false
+    },
+    {
       "about": "The lead position. A room that cannot say where its singer stands cannot host a show written for one.",
       "kind": "Focus",
       "name": "Vocal",
@@ -17145,6 +18052,32 @@
       "required": false
     }
   ],
+  "speed_routing": {
+    "beam": {
+      "Scaled": {
+        "master": "Tap",
+        "scale": 2.0
+      }
+    },
+    "colour": {
+      "Master": "Song"
+    },
+    "intensity": {
+      "Master": "Song"
+    },
+    "movement": {
+      "Scaled": {
+        "master": "Tap",
+        "scale": 0.5
+      }
+    },
+    "one-shot": {
+      "Master": "Song"
+    },
+    "strip": {
+      "Master": "Song"
+    }
+  },
   "splits": [
     {
       "colors": [

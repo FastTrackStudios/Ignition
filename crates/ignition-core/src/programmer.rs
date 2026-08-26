@@ -63,6 +63,28 @@ pub struct Fader {
     // r[impl playback.speed-scale] - per-fader clock scale; Speed::Scaled is not yet a variant
     #[serde(default = "one")]
     pub speed_scale: f32,
+    /// Further recipes played at the same level — a bundle or a look on
+    /// one fader. Empty for the ordinary single-effect fader.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub also: Vec<Recipe>,
+    /// Which attribute families this fader may touch. Everything, by
+    /// default; a colour fader filtered to colour cannot move a mover
+    /// however the library effect was written.
+    // r[impl profile.attribute-filter]
+    #[serde(default)]
+    pub filter: AttrFilter,
+    /// Effect parameters applied at fold, by name: `depth` scales the
+    /// swing for this fader alone, `bars` sets the loop length, `duty`
+    /// sets the first step's share of the cycle. The recipe itself is
+    /// never rewritten.
+    // r[impl profile.effect-parameters]
+    // r[impl playback.effect-parameters]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub params: BTreeMap<String, f32>,
+    /// A fader that *is* a role's scaling master rather than a recipe —
+    /// `FaderSource::Master`. Its level is the master's level.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub master: Option<String>,
 }
 
 fn one() -> f32 {
@@ -76,6 +98,106 @@ impl Default for Fader {
             recipe: None,
             level: 0.0,
             speed_scale: 1.0,
+            also: Vec::new(),
+            filter: AttrFilter::default(),
+            params: BTreeMap::new(),
+            master: None,
+        }
+    }
+}
+
+impl Fader {
+    /// Every recipe this fader plays, the main one first.
+    pub fn recipes(&self) -> impl Iterator<Item = &Recipe> {
+        self.recipe.iter().chain(self.also.iter())
+    }
+
+    /// `recipe` with this fader's parameters applied — `depth`, `bars`,
+    /// `duty` — when it has any; the recipe itself untouched. The same
+    /// `recipe::apply_params` a cue's reference goes through, so the
+    /// two cannot mean different things.
+    // r[impl playback.effect-parameters] - applied to a copy at fold
+    pub fn parametrised<'r>(&self, recipe: &'r Recipe) -> std::borrow::Cow<'r, Recipe> {
+        if self.params.is_empty() {
+            return std::borrow::Cow::Borrowed(recipe);
+        }
+        let mut out = recipe.clone();
+        crate::recipe::apply_params(&mut out, &self.params);
+        std::borrow::Cow::Owned(out)
+    }
+
+    /// The `depth` parameter, 1 where none is set.
+    pub fn depth(&self) -> f32 {
+        self.params.get("depth").copied().unwrap_or(1.0).max(0.0)
+    }
+}
+
+/// Which attribute families a fader may touch.
+///
+/// Four families, because that is how an operator thinks of a fixture —
+/// how bright, what colour, where it points, what the beam is doing —
+/// and how a console's filter keys are laid out. A `Custom` attribute
+/// belongs to none of them and always passes.
+// r[impl profile.attribute-filter]
+// r[impl playback.attribute-filter]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AttrFilter {
+    #[serde(default = "yes")]
+    pub intensity: bool,
+    #[serde(default = "yes")]
+    pub colour: bool,
+    #[serde(default = "yes")]
+    pub position: bool,
+    #[serde(default = "yes")]
+    pub beam: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for AttrFilter {
+    fn default() -> Self {
+        Self::ALL
+    }
+}
+
+impl AttrFilter {
+    pub const ALL: Self = Self {
+        intensity: true,
+        colour: true,
+        position: true,
+        beam: true,
+    };
+
+    pub const INTENSITY: Self = Self::only(true, false, false, false);
+    pub const COLOUR: Self = Self::only(false, true, false, false);
+    pub const POSITION: Self = Self::only(false, false, true, false);
+    pub const BEAM: Self = Self::only(false, false, false, true);
+
+    const fn only(intensity: bool, colour: bool, position: bool, beam: bool) -> Self {
+        Self {
+            intensity,
+            colour,
+            position,
+            beam,
+        }
+    }
+
+    /// Whether an emit on this attribute passes the filter.
+    pub fn admits(&self, attr: &Attribute) -> bool {
+        match attr {
+            Attribute::Dimmer => self.intensity,
+            Attribute::ColorAdd { .. } | Attribute::ColorWheel { .. } => self.colour,
+            Attribute::Pan | Attribute::Tilt | Attribute::PanFine | Attribute::TiltFine => {
+                self.position
+            }
+            Attribute::Zoom
+            | Attribute::Focus
+            | Attribute::Iris
+            | Attribute::Strobe
+            | Attribute::GoboWheel { .. } => self.beam,
+            Attribute::Custom(_) => true,
         }
     }
 }
@@ -445,7 +567,29 @@ pub struct Programmer {
     /// this has to stay for as long as the trouble lasts. One slot, since
     /// a hand holds one key.
     // r[impl effects.bump.is-not-held] - the held look is the thing a bump is not
-    held: Option<Recipe>,
+    // r[impl playback.look-hold] - a look is several recipes held as one
+    held: Vec<Recipe>,
+    /// Effects a macro fired by name, beside the faders: the name, the
+    /// recipe, its weight and when it started. Released by the macro's
+    /// release step, never by a fader move.
+    // r[impl playback.macro-effects]
+    extras: Vec<Extra>,
+    /// Every intensity to zero, protected roles aside — what a macro's
+    /// blackout step sets and its release clears. Arrives over the
+    /// program time like everything else the desk does.
+    // r[impl playback.blackout]
+    pub blackout: bool,
+    /// When `blackout` last changed, for the fade.
+    blackout_since: Option<f32>,
+    /// Roles the black key, a blackout, a `Safe` held look and the
+    /// grand master leave alone — from the profile.
+    // r[impl profile.protected-roles]
+    // r[impl playback.protected-untouched]
+    pub protected: Vec<String>,
+    /// Whether the held look is a `Safe` one, which protected roles
+    /// pass through. A punt look is not safe in this sense: house lights
+    /// under a punt are whatever the punt says.
+    held_safe: bool,
     /// Attributes nailed to a value above every playback and the hand.
     ///
     /// A motor screaming on one tilt is fixed at the desk in a second by
@@ -485,6 +629,15 @@ pub struct Programmer {
     /// released — the level it had reached and when.
     temp_down: [Option<f32>; FADERS],
     temp_release: [Option<(f32, f32)>; FADERS],
+}
+
+/// An effect a macro fired by name — see `Programmer::extras`.
+#[derive(Debug, Clone, PartialEq)]
+struct Extra {
+    name: String,
+    recipe: Recipe,
+    level: f32,
+    started: f32,
 }
 
 /// How close a latched fader has to come to the new page's level to
@@ -643,15 +796,88 @@ impl Programmer {
 
     /// Holds a look at full until `release_hold` — a key that is down.
     pub fn hold(&mut self, recipe: Recipe) {
-        self.held = Some(recipe);
+        self.held = vec![recipe];
+        self.held_safe = false;
+    }
+
+    /// Holds several recipes as one look — a profile look — latched
+    /// until released or replaced. `safe` marks a look protected roles
+    /// pass through.
+    // r[impl playback.look-hold]
+    pub fn hold_look(&mut self, recipes: Vec<Recipe>, safe: bool) {
+        self.held = recipes;
+        self.held_safe = safe;
     }
 
     pub fn release_hold(&mut self) {
-        self.held = None;
+        self.held.clear();
+        self.held_safe = false;
     }
 
     pub fn is_holding(&self) -> bool {
-        self.held.is_some()
+        !self.held.is_empty()
+    }
+
+    /// Plays an effect on the macro layer at `level`, replacing one of
+    /// the same name. Its clock starts now, so an envelope runs from
+    /// the moment it was fired.
+    // r[impl playback.macro-effects]
+    pub fn take_effect(&mut self, name: &str, recipe: Recipe, level: f32) {
+        let started = self.now.get();
+        self.extras.retain(|e| e.name != name);
+        self.extras.push(Extra {
+            name: name.to_string(),
+            recipe,
+            level: level.clamp(0.0, 1.0),
+            started,
+        });
+    }
+
+    pub fn release_effect(&mut self, name: &str) {
+        self.extras.retain(|e| e.name != name);
+    }
+
+    pub fn release_effects(&mut self) {
+        self.extras.clear();
+    }
+
+    /// The names on the macro layer, in the order they were fired.
+    pub fn effects_playing(&self) -> Vec<&str> {
+        self.extras.iter().map(|e| e.name.as_str()).collect()
+    }
+
+    /// Sets the blackout; the fade runs from now.
+    // r[impl playback.blackout]
+    pub fn set_blackout(&mut self, on: bool) {
+        if self.blackout != on {
+            self.blackout = on;
+            self.blackout_since = Some(self.now.get());
+        }
+    }
+
+    /// Lets go of everything a macro can take: the held look, the
+    /// macro effects, the blackout. Faders, the hand, parks and masters
+    /// are not the macro's to release.
+    // r[impl profile.macros.release]
+    pub fn release_macro(&mut self) {
+        self.release_hold();
+        self.release_effects();
+        self.set_blackout(false);
+    }
+
+    /// The fixtures of every protected role, resolved once per fold.
+    fn protected_chans(&self, show: &Show<'_>) -> HashSet<ChanId> {
+        self.protected
+            .iter()
+            .flat_map(|role| {
+                crate::selection::resolve_with(
+                    &Selection::Role(role.clone()),
+                    show.groups,
+                    show.rig,
+                    show.roles,
+                )
+            })
+            .collect()
     }
 
     /// Drops bumps whose envelope has run out.
@@ -659,6 +885,16 @@ impl Programmer {
     pub fn retire_flashes(&mut self, show: &Show<'_>, now: f32) {
         self.flashes
             .retain(|(recipe, started)| recipe.timing.cycles(now - started, show.speeds) < 1.0);
+        // A blackout that has fully faded back out has no fade left to
+        // run; forgetting when it started is what stops the fold
+        // resolving the protected roles every frame for the rest of
+        // the night.
+        if !self.blackout
+            && let Some(since) = self.blackout_since
+            && self.progress(show, now - since) >= 1.0
+        {
+            self.blackout_since = None;
+        }
     }
 
     /// Sets a role's intensity master, 0..=1, keeping its mode (scaling
@@ -711,8 +947,20 @@ impl Programmer {
     pub fn assigned(&self) -> Vec<Recipe> {
         self.faders
             .iter()
-            .filter_map(|f| f.recipe.clone())
+            .flat_map(|f| f.recipes().cloned())
             .collect()
+    }
+
+    /// Sets one effect parameter on a fader — `depth`, `bars`, `duty`.
+    // r[impl profile.effect-parameters]
+    pub fn set_param(&mut self, index: usize, name: &str, value: f32) {
+        if index >= FADERS {
+            return;
+        }
+        self.faders[index].params.insert(name.to_string(), value);
+        if let Some(page) = self.pages.get_mut(self.page) {
+            page[index].params.insert(name.to_string(), value);
+        }
     }
 
     /// Clears everything the operator set by hand, leaving the faders.
@@ -1131,10 +1379,23 @@ impl Programmer {
         // here, so a fader and a cue-player effect obey the same control
         // the same way.
         let show = &self.show_for(show);
+        // Resolved once, and only when something that respects it is
+        // in play — a fold with no black key, no blackout, no held look
+        // and the grand master at full never asks.
+        let black_down = self
+            .keys_down
+            .iter()
+            .any(|k| matches!(k, Some(KeyAction::Black)));
+        let blackout_live = self.blackout || self.blackout_since.is_some();
+        let wants_protected = !self.protected.is_empty()
+            && (black_down || blackout_live || self.held_safe || self.grand < 1.0);
+        let protected = if wants_protected {
+            self.protected_chans(show)
+        } else {
+            HashSet::new()
+        };
+
         for (index, fader) in self.faders.iter().enumerate() {
-            let Some(recipe) = &fader.recipe else {
-                continue;
-            };
             let level = self.playing_level(index, show, secs);
             if level <= 0.0 {
                 continue;
@@ -1144,20 +1405,53 @@ impl Programmer {
             // is evaluated at; the programmer's rate reaches it through
             // the show's speed scale, as it reaches every other recipe.
             let at = secs * fader.speed_scale.max(0.0);
-            for emit in expand_recipe(recipe, show, at) {
-                if black && emit.value.attr == Attribute::Dimmer {
-                    continue;
+            // `depth` rides on the parametrised copy and reaches the
+            // expansion as this recipe's own size.
+            // r[impl playback.effect-parameters] - depth through the show's size
+            for recipe in fader.recipes() {
+                let recipe = fader.parametrised(recipe);
+                for emit in expand_recipe(&recipe, show, at) {
+                    // r[impl playback.attribute-filter] - dropped before the weight, withdraws nothing
+                    if !fader.filter.admits(&emit.value.attr) {
+                        continue;
+                    }
+                    if black
+                        && emit.value.attr == Attribute::Dimmer
+                        && !protected.contains(&emit.value.chan)
+                    {
+                        continue;
+                    }
+                    let key = (emit.value.chan, emit.value.attr);
+                    let under = base.get(&key).copied().unwrap_or(0.0);
+                    // The fader says how much of *this* effect; size (how
+                    // much of every effect at once) has already scaled the
+                    // swing inside the expansion.
+                    let weight = level;
+                    let value = if emit.relative {
+                        under + emit.value.value * weight
+                    } else {
+                        under + (emit.value.value - under) * weight
+                    };
+                    base.insert(key, value);
                 }
+            }
+        }
+
+        // The macro layer: effects fired by name, beside the faders and
+        // weighted the same way, each on its own clock from the moment
+        // it was fired.
+        // r[impl playback.macro-effects]
+        for extra in &self.extras {
+            if extra.level <= 0.0 {
+                continue;
+            }
+            for emit in expand_recipe(&extra.recipe, show, secs - extra.started) {
                 let key = (emit.value.chan, emit.value.attr);
                 let under = base.get(&key).copied().unwrap_or(0.0);
-                // The fader says how much of *this* effect; size (how
-                // much of every effect at once) has already scaled the
-                // swing inside the expansion.
-                let weight = level;
                 let value = if emit.relative {
-                    under + emit.value.value * weight
+                    under + emit.value.value * extra.level
                 } else {
-                    under + (emit.value.value - under) * weight
+                    under + (emit.value.value - under) * extra.level
                 };
                 base.insert(key, value);
             }
@@ -1167,8 +1461,17 @@ impl Programmer {
         // look is the operator saying "not whatever that was", and it
         // has to beat the effects that were running. Under the masters,
         // like everything else that is not the operator's direct hand.
-        if let Some(recipe) = &self.held {
+        // A `Safe` look — a blackout held on a key — leaves the
+        // protected roles' intensity where the layers beneath put it.
+        // r[impl playback.protected-untouched] - a safe held look, a rig drop
+        for recipe in &self.held {
             for emit in expand_recipe(recipe, show, secs) {
+                if self.held_safe
+                    && emit.value.attr == Attribute::Dimmer
+                    && protected.contains(&emit.value.chan)
+                {
+                    continue;
+                }
                 let key = (emit.value.chan, emit.value.attr);
                 let value = if emit.relative {
                     base.get(&key).copied().unwrap_or(0.0) + emit.value.value
@@ -1176,6 +1479,26 @@ impl Programmer {
                     emit.value.value
                 };
                 base.insert(key, value);
+            }
+        }
+
+        // Blackout: every intensity toward zero over the program time,
+        // above the faders, the macro layer, the held look and the
+        // flashes — under the masters and the hand, like the rest of
+        // what is not the operator's own fingers.
+        // r[impl playback.blackout]
+        // r[impl playback.protected-untouched] - blackout
+        if blackout_live {
+            let since = self.blackout_since.unwrap_or(secs);
+            let t = self.progress(show, secs - since);
+            // Fading in toward black, or back out of it.
+            let keep = if self.blackout { 1.0 - t } else { t };
+            if keep < 1.0 {
+                for ((chan, attr), value) in base.iter_mut() {
+                    if *attr == Attribute::Dimmer && !protected.contains(chan) {
+                        *value *= keep;
+                    }
+                }
             }
         }
 
@@ -1221,10 +1544,11 @@ impl Programmer {
         // parked *DMX channel* is past its reach, being applied on the
         // wire after encode.
         // r[impl playback.grand-master] - every intensity, last, after parks of intensity
+        // r[impl playback.protected-untouched] - the grand master too
         let grand = self.grand.clamp(0.0, 1.0);
         if grand < 1.0 {
-            for ((_, attr), value) in base.iter_mut() {
-                if *attr == Attribute::Dimmer {
+            for ((chan, attr), value) in base.iter_mut() {
+                if *attr == Attribute::Dimmer && !protected.contains(chan) {
                     *value *= grand;
                 }
             }
@@ -1279,7 +1603,28 @@ impl Programmer {
     // r[impl groups.master.modes] - scaling, positive, negative, additive
     // r[impl playback.master-modes]
     fn apply_masters(&self, base: &mut HashMap<(ChanId, Attribute), f32>, show: &Show<'_>) {
-        if self.masters.is_empty() && self.selection_masters.is_empty() && self.solo.is_none() {
+        // A fader that *is* a master — `Fader::master` — is a scaling
+        // master at the fader's level, folded with the named ones.
+        let master_faders: Vec<(String, Master)> = self
+            .faders
+            .iter()
+            .filter_map(|f| {
+                f.master.as_ref().map(|role| {
+                    (
+                        role.clone(),
+                        Master {
+                            mode: MasterMode::Scaling,
+                            level: f.level,
+                        },
+                    )
+                })
+            })
+            .collect();
+        if self.masters.is_empty()
+            && self.selection_masters.is_empty()
+            && self.solo.is_none()
+            && master_faders.is_empty()
+        {
             return;
         }
         // Resolve each named role once, not once per channel.
@@ -1302,7 +1647,12 @@ impl Programmer {
         let by_role = self
             .masters
             .iter()
-            .map(|(role, master)| (role_chans(role), *master));
+            .map(|(role, master)| (role_chans(role), *master))
+            .chain(
+                master_faders
+                    .iter()
+                    .map(|(role, master)| (role_chans(role), *master)),
+            );
         let by_selection = self.selection_masters.iter().map(|(selection, master)| {
             (
                 crate::selection::resolve_with(selection, show.groups, show.rig, show.roles),
@@ -1385,7 +1735,9 @@ impl Programmer {
     /// a desk that always looks armed teaches operators to ignore it.
     pub fn is_active(&self) -> bool {
         !self.values.is_empty()
-            || self.held.is_some()
+            || !self.held.is_empty()
+            || !self.extras.is_empty()
+            || self.blackout
             || self.faders.iter().any(|f| f.level > 0.0)
             || self.toggled.iter().any(|t| *t)
             || self.keys_down.iter().any(|k| k.is_some())
@@ -1644,6 +1996,7 @@ mod tests {
                 recipe: Some(chase(2)),
                 level: 1.0,
                 speed_scale: 2.0,
+                ..Default::default()
             },
         );
         // At 2 cycles/sec, 0.2s is 0.4 cycles: step 0 at x1, step 1 at x2.
@@ -2592,5 +2945,318 @@ mod tests {
             roles,
             ..Show::new(groups, &EMPTY_RIG)
         }
+    }
+
+    // ── filters, parameters, protection, blackout ────────────────────
+
+    /// A role binding for the tests below: every role is the pars.
+    struct AllPars;
+    impl crate::selection::Roles for AllPars {
+        fn role(&self, _: &str) -> Option<&Selection> {
+            static PARS: std::sync::LazyLock<Selection> =
+                std::sync::LazyLock::new(|| Selection::Group("Pars".into()));
+            Some(&PARS)
+        }
+    }
+
+    fn colour_and_level(chan: ChanId) -> Recipe {
+        let mut r = Recipe::new(Selection::Chans(vec![chan]), RecipeApply::Dimmer(1.0));
+        r.steps[0]
+            .apply
+            .push(RecipeApply::Color(Ref::Inline(ColorPreset {
+                name: "Red".into(),
+                red: 1.0,
+                green: 0.0,
+                blue: 0.0,
+                ..Default::default()
+            })));
+        r
+    }
+
+    /// r[verify profile.attribute-filter]
+    /// r[verify playback.attribute-filter]
+    #[test]
+    fn a_filtered_fader_drops_emits_outside_the_filter() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_fader(
+            0,
+            Fader {
+                name: "RED".into(),
+                recipe: Some(colour_and_level(1)),
+                level: 1.0,
+                filter: AttrFilter::COLOUR,
+                ..Default::default()
+            },
+        );
+        let red = Attribute::ColorAdd {
+            channel: ignition_proto::ColorChannel::Red,
+        };
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.3);
+        p.apply_to(&mut out, &show(&groups), 0.0);
+        assert_eq!(out[&(1, red)], 1.0, "the colour lands");
+        assert_eq!(
+            out[&(1, Attribute::Dimmer)],
+            0.3,
+            "the level was outside the filter and withdrew nothing"
+        );
+        assert!(AttrFilter::POSITION.admits(&Attribute::Tilt));
+        assert!(!AttrFilter::POSITION.admits(&Attribute::Zoom));
+        assert!(AttrFilter::BEAM.admits(&Attribute::Custom("x".into())));
+    }
+
+    /// r[verify profile.effect-parameters]
+    /// r[verify playback.effect-parameters]
+    #[test]
+    fn effect_parameters_apply_at_fold_and_leave_the_recipe_alone() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        let pulse = Recipe {
+            target: Selection::Chans(vec![1]),
+            steps: vec![
+                Step::new(vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.5)])]),
+                Step::new(vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.0)])]),
+            ],
+            timing: Timing {
+                speed: crate::step::Speed::Hz(1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        p.set_fader(
+            0,
+            Fader {
+                name: "PULSE".into(),
+                recipe: Some(pulse.clone()),
+                level: 1.0,
+                ..Default::default()
+            },
+        );
+        // Depth halves the swing.
+        p.set_param(0, "depth", 0.5);
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.2);
+        p.apply_to(&mut out, &show(&groups), 0.0);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.45).abs() < 0.01,
+            "{out:?}"
+        );
+        // Bars stretches the loop: at 4 bars (16 beats) the first step
+        // holds for 8 beats, so 0.3 cycles-worth of seconds is still
+        // on step 0 where it would have moved on.
+        p.set_param(0, "depth", 1.0);
+        p.set_param(0, "bars", 4.0);
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.0);
+        p.apply_to(&mut out, &show(&groups), 0.6);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 0.01, "{out:?}");
+        // Duty gives the first step a tenth of the cycle.
+        p.set_param(0, "bars", 0.25);
+        p.set_param(0, "duty", 0.1);
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.0);
+        p.apply_to(&mut out, &show(&groups), 0.2);
+        assert!(
+            out[&(1, Attribute::Dimmer)].abs() < 0.01,
+            "off after the duty: {out:?}"
+        );
+        // The recipe on the fader is untouched.
+        assert_eq!(p.faders[0].recipe.as_ref(), Some(&pulse));
+        assert_eq!(p.faders[0].params.get("duty"), Some(&0.1));
+    }
+
+    fn lit_base() -> HashMap<(ChanId, Attribute), f32> {
+        let mut out = base();
+        for chan in [1, 2, 3] {
+            out.insert((chan, Attribute::Dimmer), 1.0);
+        }
+        out
+    }
+
+    /// r[verify profile.protected-roles]
+    /// r[verify playback.protected-untouched]
+    /// r[verify playback.grand-master]
+    #[test]
+    fn protected_roles_survive_the_grand_master_the_black_key_and_a_safe_look() {
+        let groups = groups();
+        let show = Show {
+            roles: &AllPars,
+            ..show(&groups)
+        };
+        let mut p = Programmer::new();
+        p.protected = vec!["House Lights".into()];
+        p.set_grand(0.0);
+        let mut out = lit_base();
+        p.apply_to(&mut out, &show, 0.0);
+        assert_eq!(
+            out[&(1, Attribute::Dimmer)],
+            1.0,
+            "the grand master skips the house"
+        );
+
+        // A safe held look — the blackout look — leaves them too.
+        p.set_grand(1.0);
+        p.hold_look(
+            vec![Recipe::new(
+                Selection::Role("Key".into()),
+                RecipeApply::Dimmer(0.0),
+            )],
+            true,
+        );
+        let mut out = lit_base();
+        p.apply_to(&mut out, &show, 0.0);
+        assert_eq!(out[&(1, Attribute::Dimmer)], 1.0);
+        // The same look held as a plain (unsafe) look does drop them.
+        p.hold(Recipe::new(
+            Selection::Role("Key".into()),
+            RecipeApply::Dimmer(0.0),
+        ));
+        let mut out = lit_base();
+        p.apply_to(&mut out, &show, 0.0);
+        assert_eq!(out[&(1, Attribute::Dimmer)], 0.0);
+        p.release_hold();
+
+        // The black key on a fader that lights them keeps lighting them.
+        p.set_fader(
+            0,
+            Fader {
+                name: "HOUSE".into(),
+                recipe: Some(Recipe::new(
+                    Selection::Role("House Lights".into()),
+                    RecipeApply::Dimmer(0.8),
+                )),
+                level: 1.0,
+                ..Default::default()
+            },
+        );
+        p.key_down(0, KeyAction::Black);
+        let mut out = base();
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.8).abs() < 0.01);
+        p.key_up(0);
+
+        // And the hand still wins: a direct value reaches a protected role.
+        // r[verify playback.hand-wins]
+        p.select(Selection::Chans(vec![1]));
+        p.apply(RecipeApply::Dimmer(0.25), &show);
+        let mut out = lit_base();
+        p.apply_to(&mut out, &show, 0.0);
+        assert_eq!(out[&(1, Attribute::Dimmer)], 0.25);
+    }
+
+    /// r[verify playback.blackout]
+    /// r[verify profile.macros.release]
+    #[test]
+    fn a_blackout_zeroes_every_intensity_but_the_protected_and_releases() {
+        let groups = groups();
+        let show = show(&groups);
+        let mut p = Programmer::new();
+        p.set_blackout(true);
+        let mut out = lit_base();
+        out.insert(
+            (
+                1,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Red,
+                },
+            ),
+            1.0,
+        );
+        p.apply_to(&mut out, &show, 0.0);
+        assert_eq!(out[&(2, Attribute::Dimmer)], 0.0);
+        assert_eq!(
+            out[&(
+                1,
+                Attribute::ColorAdd {
+                    channel: ColorChannel::Red
+                }
+            )],
+            1.0,
+            "only intensity"
+        );
+        assert!(p.is_active());
+        p.release_macro();
+        assert!(!p.blackout);
+        let mut out = lit_base();
+        p.apply_to(&mut out, &show, 0.0);
+        assert_eq!(out[&(2, Attribute::Dimmer)], 1.0);
+
+        // Over the program time it fades rather than snaps.
+        let mut speeds = crate::step::SpeedMasters::new();
+        speeds.insert("Song".into(), 60.0);
+        let timed = Show {
+            speeds: &speeds,
+            ..show
+        };
+        p.program_time_beats = 2.0;
+        p.set_now(0.0);
+        p.set_blackout(true);
+        let mut out = lit_base();
+        p.apply_to(&mut out, &timed, 1.0);
+        assert!((out[&(2, Attribute::Dimmer)] - 0.5).abs() < 0.01, "{out:?}");
+        // A protected role, resolved by the show, passes through.
+        let protected = Show {
+            roles: &AllPars,
+            ..timed
+        };
+        p.protected = vec!["House Lights".into()];
+        let mut out = lit_base();
+        p.apply_to(&mut out, &protected, 5.0);
+        assert_eq!(out[&(2, Attribute::Dimmer)], 1.0);
+    }
+
+    /// A fader that is a role master scales that role at its level.
+    /// r[verify profile.pages]
+    #[test]
+    fn a_master_fader_scales_its_role() {
+        let groups = groups();
+        let show = Show {
+            roles: &AllPars,
+            ..show(&groups)
+        };
+        let mut p = Programmer::new();
+        p.set_fader(
+            0,
+            Fader {
+                name: "MOVERS".into(),
+                master: Some("Movers".into()),
+                level: 0.5,
+                ..Default::default()
+            },
+        );
+        let mut out = lit_base();
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 0.01);
+    }
+
+    /// r[verify playback.macro-effects]
+    #[test]
+    fn macro_effects_play_beside_the_faders_and_release_without_them() {
+        let groups = groups();
+        let show = show(&groups);
+        let mut p = Programmer::new();
+        p.set_fader(0, dimmer_fader(2, 0.6, 1.0));
+        p.take_effect("lift", dimmer_fader(1, 1.0, 1.0).recipe.unwrap(), 0.5);
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.0);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.5).abs() < 0.01,
+            "half weight"
+        );
+        assert!((out[&(2, Attribute::Dimmer)] - 0.6).abs() < 0.01);
+        // Firing the same name again replaces rather than stacks.
+        p.take_effect("lift", dimmer_fader(1, 1.0, 1.0).recipe.unwrap(), 1.0);
+        assert_eq!(p.effects_playing(), vec!["lift"]);
+        p.release_effects();
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.0);
+        p.apply_to(&mut out, &show, 0.0);
+        assert_eq!(out[&(1, Attribute::Dimmer)], 0.0);
+        assert!(
+            (out[&(2, Attribute::Dimmer)] - 0.6).abs() < 0.01,
+            "the fader stays"
+        );
     }
 }

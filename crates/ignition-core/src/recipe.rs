@@ -24,6 +24,7 @@ use crate::cue::{Cue, CueValue};
 use crate::focus::{pan_tilt_deg_along, pan_tilt_deg_to_point, v_add, v_scale};
 use crate::group::Group;
 use crate::preset::{ColorPreset, ColorSplit, Palettes, Ref};
+use crate::programmer::AttrFilter;
 use crate::selection::{Rig, Selection, resolve};
 use crate::step::{Play, Speed, SpeedMasters, Step, Timing, Waveform, locate};
 use ignition_proto::{Attribute, ChanId, ColorChannel, Vec3};
@@ -495,6 +496,22 @@ pub struct Recipe {
     // r[impl tricks.shared-or-inline] - the reference half
     // r[impl recipes.tricks] - by reference
     pub tricks_ref: Option<String>,
+    /// How far this recipe's relative values and swings go — the
+    /// `depth` effect parameter, multiplied into the show's size at
+    /// expansion for this recipe alone. `1.0` is as authored. Set by
+    /// `apply_params` on a resolved copy; a library recipe is never
+    /// written with anything else.
+    // r[impl profile.effect-parameters] - depth, on the resolved copy
+    // r[impl playback.effect-parameters]
+    pub depth: f32,
+    /// Which attribute families this recipe may touch. Everything by
+    /// default; a `Named` reference with a `filter` narrows the
+    /// resolved copy so a rainbow on the bars owns colour while a strip
+    /// chase owns intensity. Applied at expansion: an emit outside the
+    /// filter is dropped and withdraws nothing.
+    // r[impl profile.attribute-filter] - on a cue's reference
+    // r[impl playback.attribute-filter]
+    pub filter: AttrFilter,
 }
 
 impl Default for Recipe {
@@ -507,6 +524,8 @@ impl Default for Recipe {
             stack: false,
             enabled: true,
             tricks_ref: None,
+            depth: 1.0,
+            filter: AttrFilter::ALL,
         }
     }
 }
@@ -558,12 +577,20 @@ impl Recipe {
 // r[impl effects.library.by-name] - a cue stores the effect's name
 // r[impl effects.bundle] - a cue stores the bundle's name
 // r[impl files.additive-evolution] - the inline spelling is unchanged
+// r[impl profile.looks] - a cue may take a look by name
+// r[impl profile.effect-parameters] - a cue's reference carries the same params a fader does
+// r[impl profile.attribute-filter] - and the same filter
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RecipeRef {
     /// A library effect, retargeted and retimed for this cue. `bars`
     /// overrides the loop length (one bar is four beats of the measure)
-    /// and `tricks` replaces the effect's own.
+    /// and `tricks` replaces the effect's own. `params` are the effect
+    /// parameters a page fader exposes — `depth`, `bars`, `duty` —
+    /// applied to the resolved copy exactly as a fader applies them;
+    /// `filter` narrows the copy to attribute families; `speed`
+    /// replaces the effect's own master — the show-side spelling of
+    /// speed routing, since a cue has no family table to route by.
     Named {
         effect: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -572,12 +599,24 @@ pub enum RecipeRef {
         bars: Option<f32>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         tricks: Option<Vec<crate::tricks::Trick>>,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        params: BTreeMap<String, f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<AttrFilter>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        speed: Option<Speed>,
     },
     /// Every effect in a library bundle, each retargeted the same way.
     Bundle {
         bundle: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         target: Option<Selection>,
+    },
+    /// A profile look by name — `{"look": "verse bed"}` — every recipe
+    /// it carries, resolved through the show's looks. A section cue
+    /// opens on the look and states its own recipes on top.
+    Look {
+        look: String,
     },
     Inline(Recipe),
 }
@@ -604,6 +643,148 @@ impl RecipeRef {
             target: None,
             bars: None,
             tricks: None,
+            params: BTreeMap::new(),
+            filter: None,
+            speed: None,
+        }
+    }
+
+    /// A profile look by name.
+    // r[impl profile.looks]
+    pub fn look(name: &str) -> Self {
+        RecipeRef::Look {
+            look: name.to_string(),
+        }
+    }
+
+    /// This reference retargeted — a `Named` or `Bundle`; an inline
+    /// recipe or a look is returned unchanged.
+    pub fn on(self, selection: Selection) -> Self {
+        match self {
+            RecipeRef::Named {
+                target: _,
+                effect,
+                bars,
+                tricks,
+                params,
+                filter,
+                speed,
+            } => RecipeRef::Named {
+                effect,
+                target: Some(selection),
+                bars,
+                tricks,
+                params,
+                filter,
+                speed,
+            },
+            RecipeRef::Bundle { bundle, .. } => RecipeRef::Bundle {
+                bundle,
+                target: Some(selection),
+            },
+            other => other,
+        }
+    }
+
+    /// A `Named` reference with one effect parameter set — `depth`,
+    /// `bars`, `duty`. Anything else is returned unchanged.
+    // r[impl profile.effect-parameters]
+    pub fn with_param(self, name: &str, value: f32) -> Self {
+        match self {
+            RecipeRef::Named {
+                effect,
+                target,
+                bars,
+                tricks,
+                mut params,
+                filter,
+                speed,
+            } => {
+                params.insert(name.to_string(), value);
+                RecipeRef::Named {
+                    effect,
+                    target,
+                    bars,
+                    tricks,
+                    params,
+                    filter,
+                    speed,
+                }
+            }
+            other => other,
+        }
+    }
+
+    /// A `Named` reference narrowed to attribute families.
+    // r[impl profile.attribute-filter]
+    pub fn filtered(self, filter: AttrFilter) -> Self {
+        match self {
+            RecipeRef::Named {
+                effect,
+                target,
+                bars,
+                tricks,
+                params,
+                speed,
+                ..
+            } => RecipeRef::Named {
+                effect,
+                target,
+                bars,
+                tricks,
+                params,
+                filter: Some(filter),
+                speed,
+            },
+            other => other,
+        }
+    }
+
+    /// A `Named` reference at an explicit speed.
+    pub fn at(self, speed: Speed) -> Self {
+        match self {
+            RecipeRef::Named {
+                effect,
+                target,
+                bars,
+                tricks,
+                params,
+                filter,
+                ..
+            } => RecipeRef::Named {
+                effect,
+                target,
+                bars,
+                tricks,
+                params,
+                filter,
+                speed: Some(speed),
+            },
+            other => other,
+        }
+    }
+
+    /// A `Named` reference with its tricks replaced.
+    pub fn tricked(self, tricks: Vec<crate::tricks::Trick>) -> Self {
+        match self {
+            RecipeRef::Named {
+                effect,
+                target,
+                bars,
+                params,
+                filter,
+                speed,
+                ..
+            } => RecipeRef::Named {
+                effect,
+                target,
+                bars,
+                tricks: Some(tricks),
+                params,
+                filter,
+                speed,
+            },
+            other => other,
         }
     }
 
@@ -627,6 +808,9 @@ impl RecipeRef {
                 target,
                 bars,
                 tricks,
+                params,
+                filter,
+                speed,
             } => retarget(effect, target)
                 .map(|mut r| {
                     if let Some(b) = bars {
@@ -635,10 +819,32 @@ impl RecipeRef {
                     if let Some(t) = tricks {
                         r.tricks = t.clone();
                     }
+                    // r[impl playback.effect-parameters] - the one place params land, shared with the fader
+                    apply_params(&mut r, params);
+                    if let Some(f) = filter {
+                        r.filter = f.clone();
+                    }
+                    if let Some(s) = speed {
+                        r.timing.speed = s.clone();
+                    }
                     r
                 })
                 .into_iter()
                 .collect(),
+            // A look is static by contract, so a look inside a look is
+            // not followed: one level, never a cycle.
+            // r[impl profile.looks] - resolved like any other reference
+            RecipeRef::Look { look } => show
+                .looks
+                .get(look)
+                .map(|l| {
+                    l.recipes
+                        .iter()
+                        .filter(|r| !matches!(r, RecipeRef::Look { .. }))
+                        .flat_map(|r| r.resolve(show))
+                        .collect()
+                })
+                .unwrap_or_default(),
             RecipeRef::Bundle { bundle, target } => show
                 .bundles
                 .get(bundle)
@@ -670,6 +876,46 @@ impl RecipeRef {
                     .map(|name| format!("no library effect {name:?} (in bundle {bundle:?})"))
                     .collect(),
             },
+            // r[impl profile.looks] - an unknown look is reported, never fatal
+            RecipeRef::Look { look } => match show.looks.get(look) {
+                None => vec![format!("no look {look:?}")],
+                Some(l) => l
+                    .recipes
+                    .iter()
+                    .filter(|r| !matches!(r, RecipeRef::Look { .. }))
+                    .flat_map(|r| r.missing(show))
+                    .map(|problem| format!("{problem} (in look {look:?})"))
+                    .collect(),
+            },
+        }
+    }
+}
+
+/// Applies effect parameters to a recipe — the one place `depth`,
+/// `bars` and `duty` are given their meaning, so a fader and a cue's
+/// reference cannot drift. `depth` is how far the relative values and
+/// swings go; `bars` the loop length in bars; `duty` the first step's
+/// share of the cycle. Call it on a copy: the library recipe is never
+/// rewritten. Unknown names are ignored — a parameter the engine does
+/// not know is one a later engine may.
+// r[impl profile.effect-parameters]
+// r[impl playback.effect-parameters] - depth, bars, duty; applied to a copy
+pub fn apply_params(recipe: &mut Recipe, params: &BTreeMap<String, f32>) {
+    if let Some(depth) = params.get("depth") {
+        recipe.depth = depth.max(0.0);
+    }
+    if let Some(bars) = params.get("bars")
+        && *bars > 0.0
+    {
+        recipe.timing.measure = bars * 4.0;
+    }
+    if let Some(duty) = params.get("duty")
+        && recipe.steps.len() > 1
+    {
+        let duty = duty.clamp(0.01, 0.99);
+        let rest = (1.0 - duty) / (recipe.steps.len() - 1) as f32;
+        for (i, step) in recipe.steps.iter_mut().enumerate() {
+            step.width = if i == 0 { duty } else { rest };
         }
     }
 }
@@ -703,10 +949,22 @@ struct RecipeWire {
     // r[impl tricks.shared-or-inline] - `"tricks_ref": "Name"` on disk
     #[serde(default, skip_serializing_if = "Option::is_none")]
     tricks_ref: Option<String>,
+    /// `"depth": 0.5` on disk; absent is 1.
+    // r[impl profile.effect-parameters]
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    depth: f32,
+    /// `"filter": {"intensity": false, ...}` on disk; absent is all.
+    // r[impl profile.attribute-filter]
+    #[serde(default, skip_serializing_if = "is_all")]
+    filter: AttrFilter,
 }
 
 fn yes() -> bool {
     true
+}
+
+fn is_all(f: &AttrFilter) -> bool {
+    *f == AttrFilter::ALL
 }
 
 fn is_default_timing(t: &Timing) -> bool {
@@ -747,6 +1005,8 @@ impl From<RecipeWire> for Recipe {
             stack: w.stack,
             enabled: w.enabled,
             tricks_ref: w.tricks_ref,
+            depth: w.depth,
+            filter: w.filter,
         }
     }
 }
@@ -772,6 +1032,8 @@ impl From<Recipe> for RecipeWire {
             stack: r.stack,
             enabled: r.enabled,
             tricks_ref: r.tricks_ref,
+            depth: r.depth,
+            filter: r.filter,
         }
     }
 }
@@ -812,6 +1074,11 @@ pub struct Show<'a> {
     /// Named bundles of library effects, for `RecipeRef::Bundle`.
     // r[impl effects.bundle]
     pub bundles: &'a BTreeMap<String, crate::profile::Bundle>,
+    /// The profile's looks, for `RecipeRef::Look`. Empty by default,
+    /// so a show that names one against a host that passed none is
+    /// reported by `unresolved` rather than lit wrong.
+    // r[impl profile.looks]
+    pub looks: &'a BTreeMap<String, crate::profile::Look>,
     /// Where a named focus marker is *right now*, when a tracker or an
     /// operator has moved it off the palette's value. Consulted before
     /// the palette by every focus lookup, so a host can move `Vocal`
@@ -864,6 +1131,10 @@ pub static NO_LIBRARY: std::sync::LazyLock<BTreeMap<String, Recipe>> =
 pub static NO_BUNDLES: std::sync::LazyLock<BTreeMap<String, crate::profile::Bundle>> =
     std::sync::LazyLock::new(BTreeMap::new);
 
+/// No looks — every `RecipeRef::Look` resolves to nothing.
+pub static NO_LOOKS: std::sync::LazyLock<BTreeMap<String, crate::profile::Look>> =
+    std::sync::LazyLock::new(BTreeMap::new);
+
 /// No moved markers — every focus name reads from the palette.
 pub static NO_FOCUS_OVERRIDES: std::sync::LazyLock<HashMap<String, Vec3>> =
     std::sync::LazyLock::new(HashMap::new);
@@ -884,6 +1155,7 @@ impl<'a> Show<'a> {
             roles: &NO_ROLES,
             library: &NO_LIBRARY,
             bundles: &NO_BUNDLES,
+            looks: &NO_LOOKS,
             focus_overrides: &NO_FOCUS_OVERRIDES,
             tempo: None,
             stage: None,
@@ -1497,8 +1769,13 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
     // Speed scale: the masters as the operator has scaled them. Hz and
     // BPM recipes are not slaved to anything and are not touched.
     let speeds = show.scaled_speeds();
+    // `depth` is this recipe's own size — the same scaling size does
+    // to every recipe, for this one alone — so it rides in through the
+    // one door size uses.
+    // r[impl playback.effect-parameters] - depth through the show's size
     let show = &Show {
         speeds: &speeds,
+        size: show.size * recipe.depth.max(0.0),
         ..*show
     };
     let size = show.size.max(0.0);
@@ -1702,6 +1979,18 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
                     },
                 });
             }
+        }
+    }
+    // The recipe's own attribute filter: an emit outside it is dropped
+    // here, before any layer weighs it, so it withdraws nothing. A
+    // position filter that is off drops the focus work too — a
+    // colour-only rainbow aims nothing.
+    // r[impl playback.attribute-filter] - per emit, at expansion
+    if recipe.filter != AttrFilter::ALL {
+        out.emits.retain(|e| recipe.filter.admits(&e.value.attr));
+        if !recipe.filter.position {
+            out.focus_deltas.clear();
+            out.focus_points.clear();
         }
     }
     out
@@ -5231,5 +5520,221 @@ mod intent_and_sound_tests {
             ..base.clone()
         };
         assert!((0..8).any(|u| started.at(u, 0.5) != base.at(u, 0.5)));
+    }
+}
+
+/// The busking features a cue's reference can carry: a look by name,
+/// the fader's effect parameters, an attribute filter — resolved the
+/// way a page fader resolves them, so a cue and a key mean one thing.
+#[cfg(test)]
+mod busking_refs {
+    use super::*;
+    use crate::group::Group;
+    use crate::profile::{Look, LookKind};
+    use crate::programmer::{AttrFilter, Fader};
+
+    fn groups() -> Vec<Group> {
+        vec![Group {
+            name: "Pars".to_string(),
+            chans: vec![1, 2],
+        }]
+    }
+
+    fn pars() -> Selection {
+        Selection::Group("Pars".into())
+    }
+
+    fn pulse() -> Recipe {
+        Recipe {
+            target: pars(),
+            steps: vec![
+                Step::new(vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.5)])]),
+                Step::new(vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.0)])]),
+            ],
+            timing: Timing {
+                speed: Speed::Hz(1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    fn library() -> BTreeMap<String, Recipe> {
+        let mut lib = BTreeMap::new();
+        lib.insert("pulse".to_string(), pulse());
+        lib.insert(
+            "lit and aimed".to_string(),
+            Recipe::new(
+                pars(),
+                RecipeApply::Raw(vec![(Attribute::Dimmer, 1.0), (Attribute::Pan, 0.5)]),
+            ),
+        );
+        lib
+    }
+
+    fn looks() -> BTreeMap<String, Look> {
+        let mut looks = BTreeMap::new();
+        looks.insert(
+            "bed".to_string(),
+            Look {
+                kind: LookKind::Bed,
+                about: String::new(),
+                recipes: vec![
+                    RecipeRef::Inline(Recipe::new(pars(), RecipeApply::Dimmer(0.4))),
+                    RecipeRef::named("pulse"),
+                    // A look inside a look is not followed.
+                    RecipeRef::look("bed"),
+                ],
+            },
+        );
+        looks
+    }
+
+    fn show<'a>(
+        groups: &'a [Group],
+        library: &'a BTreeMap<String, Recipe>,
+        looks: &'a BTreeMap<String, Look>,
+    ) -> Show<'a> {
+        Show {
+            library,
+            looks,
+            ..Show::new(groups, &crate::selection::EMPTY_RIG)
+        }
+    }
+
+    /// r[verify profile.looks]
+    #[test]
+    fn a_cue_takes_a_look_by_name_and_an_unknown_one_is_reported() {
+        let (groups, library, looks) = (groups(), library(), looks());
+        let show = show(&groups, &library, &looks);
+        let taken = RecipeRef::look("bed").resolve(&show);
+        assert_eq!(
+            taken.len(),
+            2,
+            "the static recipe and the named one, no recursion"
+        );
+        assert_eq!(taken[1], pulse());
+        assert!(RecipeRef::look("bed").missing(&show).is_empty());
+        assert_eq!(
+            RecipeRef::look("nope").missing(&show),
+            vec!["no look \"nope\"".to_string()]
+        );
+        assert!(RecipeRef::look("nope").resolve(&show).is_empty());
+        let cue = Cue {
+            name: "VS 1".into(),
+            recipes: vec![RecipeRef::look("nope")],
+            ..Default::default()
+        };
+        assert_eq!(
+            unresolved(&[cue], &show),
+            vec!["cue \"VS 1\": no look \"nope\"".to_string()]
+        );
+        // A show that was handed no looks reports the same.
+        let none = Show::new(&groups, &crate::selection::EMPTY_RIG);
+        assert_eq!(RecipeRef::look("bed").missing(&none).len(), 1);
+        // On disk it is `{"look": "bed"}`, beside `{"effect": …}`.
+        let json = serde_json::to_string(&RecipeRef::look("bed")).unwrap();
+        assert_eq!(json, r#"{"look":"bed"}"#);
+        let back: RecipeRef = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, RecipeRef::look("bed"));
+    }
+
+    /// r[verify profile.effect-parameters]
+    /// r[verify playback.effect-parameters]
+    #[test]
+    fn params_on_a_reference_mean_what_they_mean_on_a_fader() {
+        let (groups, library, looks) = (groups(), library(), looks());
+        let show = show(&groups, &library, &looks);
+        let reference = RecipeRef::named("pulse")
+            .with_param("depth", 0.5)
+            .with_param("bars", 2.0)
+            .with_param("duty", 0.1);
+        let resolved = reference.resolve(&show).remove(0);
+        assert_eq!(resolved.depth, 0.5);
+        assert_eq!(resolved.timing.measure, 8.0);
+        assert!((resolved.steps[0].width - 0.1).abs() < 1e-6);
+        assert!((resolved.steps[1].width - 0.9).abs() < 1e-6);
+        // The library recipe is untouched.
+        assert_eq!(library["pulse"], pulse());
+        // A fader with the same params plays the same copy.
+        let fader = Fader {
+            recipe: Some(pulse()),
+            params: BTreeMap::from([
+                ("depth".to_string(), 0.5),
+                ("bars".to_string(), 2.0),
+                ("duty".to_string(), 0.1),
+            ]),
+            ..Default::default()
+        };
+        assert_eq!(fader.parametrised(&pulse()).into_owned(), resolved);
+        // Depth halves the swing at expansion: a +0.5 delta lands as +0.25.
+        let emits = expand_recipe(&resolved, &show, 0.0);
+        assert!(!emits.is_empty());
+        for emit in &emits {
+            assert!(emit.relative);
+            assert!((emit.value.value - 0.25).abs() < 1e-6, "{emit:?}");
+        }
+        // On disk: `"params": {"bars": 2.0, …}`; a params-free reference
+        // is written exactly as it always was.
+        let json = serde_json::to_string(&reference).unwrap();
+        assert!(
+            json.contains(r#""params":{"bars":2.0,"depth":0.5,"duty":0.1}"#),
+            "{json}"
+        );
+        assert_eq!(
+            serde_json::to_string(&RecipeRef::named("pulse")).unwrap(),
+            r#"{"effect":"pulse"}"#
+        );
+        let back: RecipeRef = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, reference);
+    }
+
+    /// r[verify profile.attribute-filter]
+    /// r[verify playback.attribute-filter]
+    #[test]
+    fn a_filtered_reference_drops_every_emit_outside_the_filter() {
+        let (groups, library, looks) = (groups(), library(), looks());
+        let show = show(&groups, &library, &looks);
+        let colour_only = RecipeRef::named("lit and aimed")
+            .filtered(AttrFilter::INTENSITY)
+            .resolve(&show)
+            .remove(0);
+        assert_eq!(colour_only.filter, AttrFilter::INTENSITY);
+        let emits = expand_recipe(&colour_only, &show, 0.0);
+        assert_eq!(emits.len(), 2, "one dimmer per par, no pan: {emits:?}");
+        assert!(emits.iter().all(|e| e.value.attr == Attribute::Dimmer));
+        // Unfiltered, the same effect pans.
+        let both = RecipeRef::named("lit and aimed").resolve(&show).remove(0);
+        assert_eq!(expand_recipe(&both, &show, 0.0).len(), 4);
+        // On disk and back.
+        let json =
+            serde_json::to_string(&RecipeRef::named("lit and aimed").filtered(AttrFilter::COLOUR))
+                .unwrap();
+        assert!(
+            json.contains(
+                r#""filter":{"intensity":false,"colour":true,"position":false,"beam":false}"#
+            ),
+            "{json}"
+        );
+        let back: RecipeRef = serde_json::from_str(&json).unwrap();
+        assert!(
+            matches!(back, RecipeRef::Named { filter: Some(f), .. } if f == AttrFilter::COLOUR)
+        );
+        // A filtered inline recipe round-trips its filter and depth too;
+        // an unfiltered one writes neither.
+        let mut r = pulse();
+        r.filter = AttrFilter::COLOUR;
+        r.depth = 0.5;
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(
+            json.contains(r#""depth":0.5"#) && json.contains(r#""filter""#),
+            "{json}"
+        );
+        assert_eq!(serde_json::from_str::<Recipe>(&json).unwrap(), r);
+        let plain = serde_json::to_string(&pulse()).unwrap();
+        assert!(
+            !plain.contains("depth") && !plain.contains("filter"),
+            "{plain}"
+        );
     }
 }

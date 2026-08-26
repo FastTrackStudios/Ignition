@@ -1,4 +1,5 @@
-//! Writes the built-in effects library into a profile file.
+//! Writes the built-in effects library — and the busking programming
+//! beside it — into a profile file.
 //!
 //! The library is authored in Rust — fifteen recipes of nested step
 //! tables is a lot of punctuation to get right by eye, and these are
@@ -15,15 +16,21 @@
 //! example gets dev-dependencies and says "tooling, not product" in the
 //! same move.
 //!
-//! Only the `effects`, `effect_notes` and `bundles` maps are replaced.
-//! Everything else in the file is hand-authored and must survive, which
-//! is why this rewrites three keys rather than serialising a `Profile`
-//! back out — a round trip would quietly drop any field the struct does
-//! not model yet.
+//! Only the baked keys are replaced: `effects`, `effect_notes`,
+//! `bundles`, and the busking programming — `looks`, `macros`, `pages`,
+//! `protected`, `speed_routing`. Everything else in the file is
+//! hand-authored and must survive, which is why this rewrites keys
+//! rather than serialising a `Profile` back out — a round trip would
+//! quietly drop any field the struct does not model yet.
 
 // r[impl effects.library.profile-ships-it] - bakes the Rust library into the shipped profile file
 // r[impl effects.bundle] - the bundles ship in the profile beside the library
-// r[impl files.additive-evolution] - only the `effects`, `effect_notes` and `bundles` keys are rewritten, every other field survives
+// r[impl profile.looks] - and the looks
+// r[impl profile.macros] - and the macros
+// r[impl profile.pages] - and the pages
+// r[impl profile.protected-roles] - and the protected roles
+// r[impl profile.speed-routing] - and the speed routing
+// r[impl files.additive-evolution] - only the baked keys are rewritten, every other field survives
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = std::env::args()
         .nth(1)
@@ -34,12 +41,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let library = ignition_core::effects::library();
     let notes = ignition_core::effects::notes();
     let bundles = ignition_core::effects::bundles();
+    let busking = ignition_core::macros::shipped();
     let (count, bundled) = (library.len(), bundles.len());
+    let (looks, macros, pages) = (
+        busking.looks.len(),
+        busking.macros.len(),
+        busking.pages.len(),
+    );
     doc["effects"] = serde_json::to_value(&library)?;
     doc["effect_notes"] = serde_json::to_value(&notes)?;
     doc["bundles"] = serde_json::to_value(&bundles)?;
+    doc["looks"] = serde_json::to_value(&busking.looks)?;
+    doc["macros"] = serde_json::to_value(&busking.macros)?;
+    doc["pages"] = serde_json::to_value(&busking.pages)?;
+    doc["protected"] = serde_json::to_value(&busking.protected)?;
+    doc["speed_routing"] = serde_json::to_value(&busking.speed_routing)?;
 
     std::fs::write(&path, format!("{}\n", serde_json::to_string_pretty(&doc)?))?;
-    println!("baked {count} effects, their notes and {bundled} bundles into {path}");
+    println!(
+        "baked {count} effects, their notes, {bundled} bundles, {looks} looks, {macros} macros and {pages} pages into {path}"
+    );
     Ok(())
 }

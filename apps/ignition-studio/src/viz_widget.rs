@@ -13,6 +13,7 @@ use blitz_dom::Widget;
 use blitz_dom::node::ComputedStyles;
 use dioxus_native::DeviceHandle;
 use ignition_core::preset::Ref;
+use ignition_core::{HostRequest, MacroRunner};
 use ignition_song::SongTransport;
 use ignition_viz::VizConfig;
 use ignition_viz::embedded::{EmbeddedViz, HostGpu};
@@ -59,6 +60,11 @@ pub struct VizWidget {
     /// The sound-in's levels, raw as they arrived and smoothed by the
     /// sound fade — see [`SoundFade`].
     sound: SoundFade,
+    /// The profile macro running, if one is. One at a time: a MACRO key
+    /// replaces whatever was running, and the new macro's own release
+    /// lets go of what the old one took.
+    // r[impl playback.macro-runner] - the widget ticks it every frame
+    macro_runner: Option<MacroRunner>,
 }
 
 /// The sound fade: a one-pole smoother over the band levels, with the
@@ -200,6 +206,7 @@ impl VizWidget {
             transport,
             report,
             sound: SoundFade::default(),
+            macro_runner: None,
         }
     }
 }
@@ -267,6 +274,7 @@ impl Widget for VizWidget {
             viz,
             self.transport.as_ref(),
             &mut self.sound,
+            &mut self.macro_runner,
         );
         smooth_sound(&mut self.sound, viz);
         follow_song(self.transport.as_ref(), viz);
@@ -324,6 +332,7 @@ fn drain(
     viz: &mut EmbeddedViz,
     transport: Option<&SongTransport>,
     sound_fade: &mut SoundFade,
+    macro_runner: &mut Option<MacroRunner>,
 ) {
     use ignition_core::{Class, RecipeApply, Show};
 
@@ -340,8 +349,18 @@ fn drain(
             speeds,
             programmer,
             profile,
+            library,
+            bundles,
             ..
         } = &mut playback;
+        // The looks and macros the keys name, and the roles a blackout
+        // leaves alone, come from the shipped profile — the one the
+        // bank is built from.
+        let shipped = crate::faders::profile();
+        if programmer.protected.is_empty() && !shipped.protected.is_empty() {
+            // r[impl profile.protected-roles] - the programmer learns them from the profile
+            programmer.protected = shipped.protected.clone();
+        }
         while let Ok(command) = commands.try_recv() {
             // Rebuilt per command because `Rate` mutates `speeds`, which
             // the `Show` borrows. Cheap — it is four references.
@@ -462,6 +481,40 @@ fn drain(
                 },
                 Command::Hold(Some(recipe)) => programmer.hold(*recipe),
                 Command::Hold(None) => programmer.release_hold(),
+                // r[impl playback.macro-runner] - a MACRO key starts one; the tick below runs it
+                Command::Macro(name) => match MacroRunner::from_profile(shipped, &name) {
+                    Some(runner) => {
+                        tracing::info!(name, "studio: macro");
+                        *macro_runner = Some(runner);
+                    }
+                    None => tracing::warn!(name, "studio: no such macro"),
+                },
+                // r[impl playback.look-hold] - a LOOK key latches the look on the held layer
+                Command::Look(Some(name)) => {
+                    let show = Show {
+                        groups,
+                        palettes,
+                        rig,
+                        speeds,
+                        roles: profile,
+                        library,
+                        bundles,
+                        looks: &shipped.looks,
+                        ..Show::new(groups, rig)
+                    };
+                    let recipes = shipped.look_recipes(&name, &show);
+                    if recipes.is_empty() {
+                        tracing::warn!(name, "studio: no such look");
+                    }
+                    let safe = shipped
+                        .looks
+                        .get(&name)
+                        .is_some_and(|l| l.kind == ignition_core::profile::LookKind::Safe);
+                    programmer.hold_look(recipes, safe);
+                }
+                Command::Look(None) => programmer.release_hold(),
+                // r[impl profile.effect-parameters] - the control reaches the engine's fader
+                Command::Param { index, name, value } => programmer.set_param(index, &name, value),
                 Command::Flash(target, kind) => {
                     // Fired against the player's clock, which is the song
                     // while a transport is loaded — so a hand-played
@@ -610,6 +663,62 @@ fn drain(
                         transport.locate(position);
                     }
                 }
+            }
+        }
+
+        // The cues' host commands. `macro <name>` is the show starting
+        // a profile macro — the drop on the last chorus's downbeat, the
+        // end after the last cue — exactly as a MACRO key would, so a
+        // move an operator busks and a move the show fires are one
+        // thing. Anything else (`osc …`) is a host line: logged here,
+        // and a transmitter's for the taking.
+        // r[impl cues.command] - handed out once, when the cue goes live
+        // r[impl playback.macro-runner] - a cue can start one
+        if let Some(player) = playbacks.of_class(Class::Song) {
+            for command in player.drain_commands() {
+                match command.strip_prefix("macro ") {
+                    Some(name) => match MacroRunner::from_profile(shipped, name.trim()) {
+                        Some(runner) => {
+                            tracing::info!(name, "studio: macro (from cue)");
+                            *macro_runner = Some(runner);
+                        }
+                        None => tracing::warn!(name, "studio: cue names no such macro"),
+                    },
+                    None => tracing::info!(command, "studio: cue command"),
+                }
+            }
+        }
+
+        // The running macro, stepped on the song's clock. Steps up to
+        // the next wait land this frame; what the programmer cannot do
+        // itself — the transmitter switch — comes back as a request.
+        // r[impl playback.macro-runner]
+        if let Some(runner) = macro_runner {
+            let show = Show {
+                groups,
+                palettes,
+                rig,
+                speeds,
+                roles: profile,
+                library,
+                bundles,
+                looks: &shipped.looks,
+                ..Show::new(groups, rig)
+            };
+            for request in runner.tick(programmer, playbacks, shipped, &show) {
+                match request {
+                    HostRequest::Output(on) => {
+                        if let Some(mut output) =
+                            world.get_resource_mut::<ignition_viz::DmxOutput>()
+                        {
+                            output.set_enabled(on);
+                        }
+                        tracing::info!(on, "studio: dmx output (macro)");
+                    }
+                }
+            }
+            if runner.finished() {
+                *macro_runner = None;
             }
         }
     }

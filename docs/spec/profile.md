@@ -249,3 +249,96 @@ The file extensions are `.ig-profile`, `.ig-venue`, `.ignition`, `.ig-show`, and
 Written out rather than abbreviated: these are files a person picks from a
 folder at a desk, in a hurry, and `.igv` versus `.igs` is a distinction nobody
 makes correctly under pressure.
+
+## Busking programming the profile ships
+
+A profile carries more than names and effects. What an operator reaches for
+in the dark — the safe scenes, the two-key moves, the layout of the fader
+bank — is programming too, and it is programming written against roles, so
+it is as portable as an effect. Shipping it in the profile is what makes a
+new room buskable the moment its venue binds the roles.
+
+r[profile.looks]
+A profile MAY ship **looks**: named static scenes, each a list of recipe
+references written against roles, with a **kind** — `Bed` (what sits under a
+verse), `Full` (a chorus), `Punt` (faces lit, nothing moving, the state a
+stage can always be dropped into) and `Safe` (a blackout or near it, which
+protected roles survive). A look is not a cue: it has no fade times and no
+place in a list. It is what a key holds, a macro takes, or a fader carries —
+and what a cue MAY open on, by name (`{"look": "verse bed"}` among its
+recipes), stating its own recipes on top; a look the profile lacks is
+reported like an unknown effect.
+
+r[profile.looks.static]
+A look's recipes SHOULD be static — one step — or looping beds. A look that
+fires a one-shot is a macro wearing the wrong hat.
+
+r[profile.macros]
+A profile MAY ship **macros**: a named list of steps the programmer executes
+with timing. The steps are: take a look, set a fader's level, fire a library
+effect by name at a level, flash a role with a bump kind, wait a number of
+beats of the `Song` master, release everything the macro took, blackout, and
+switch DMX output. A macro is the two-key move written down — *drop*, *build
+eight*, *breakdown*, *end* — so it lands the same every night.
+
+r[profile.macros.beats]
+A macro's waits MUST be in beats, resolved against the `Song` speed master at
+the moment the wait starts, so the same macro fits a ballad and a banger.
+Where the master is unset the wait MUST resolve at the fallback tempo rather
+than never.
+
+r[profile.macros.release]
+A macro's **release** step MUST let go of everything the macro itself took —
+the look it held, the effects it fired, a blackout it set — and MUST NOT
+touch what the operator's hand or faders were doing before the macro started.
+
+r[profile.pages]
+A profile MAY declare the fader bank's **pages**: each a name and eight
+fader specs — a label, a source (a library effect, a bundle, a look, a role
+master, or an inline recipe), an attribute filter, an optional speed, and the
+effect parameters the fader exposes. The studio's bank MUST be built from
+these pages rather than from code, so a profile can lay its own desk out.
+
+r[profile.pages.label-fits]
+A page fader's label MUST fit under a hardware track: eight characters or
+fewer.
+
+r[profile.attribute-filter]
+A fader MAY carry an **attribute filter** — any subset of intensity, colour,
+position, beam — and the programmer MUST drop every emit of that fader
+outside the filter. A colour chase on a fader filtered to colour cannot move
+a mover, however the library effect was written. A cue's reference to a
+library effect MAY carry the same filter, with the same meaning, so a rainbow
+on the bars may own their colour while a strip chase beside it owns their
+intensity.
+
+r[profile.protected-roles]
+A profile MAY name **protected roles**: roles a blackout, a rig drop, a black
+key, a held `Safe` look and the grand master MUST never touch. House lights
+are the case: a rig drop that took the house to black would empty a room
+under fire regulations. The operator's direct hand still reaches a protected
+role — `r[playback.hand-wins]` has no exception — and a protected role is
+declared `optional`, since a room without house lights on the desk is still
+a room.
+
+r[profile.speed-routing]
+A profile MAY declare **speed routing** defaults per effect family: what
+speed a fader carrying an effect of that family runs at when the fader does
+not say. The default profile routes movement to the `Tap` master at half,
+beam to `Tap` at double, and intensity, colour and strip to the `Song`
+master, so the movers stay slow while the strobes run double against one
+tapped tempo. A fader's own speed, where declared, wins.
+
+r[profile.effect-parameters]
+A page fader MAY expose **effect parameters** as a second control beside its
+level: `depth` (how far the recipe's relative values and swings go, scaled
+like size but for this fader alone), `bars` (the loop length in bars) and
+`duty` (the first step's share of the cycle — a strobe's on-time). Each is
+declared with a name, a range and a default, and the programmer MUST apply
+the values at fold, leaving the library recipe unchanged. A cue's reference
+to a library effect MAY carry the same parameters by name (`"params":
+{"depth": 0.5}`), applied at resolution through the same rule, so a strobe at
+a quarter duty on a fader and in a cue are one thing. A cue has no family
+table to route speed by — it is synced to the song — so the show-side form of
+speed routing is an explicit `speed` on the reference, a scale against the
+`Song` master.

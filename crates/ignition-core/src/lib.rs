@@ -45,7 +45,10 @@ pub mod trigger;
 pub use trigger::{Trigger, TriggerBus};
 
 pub mod programmer;
-pub use programmer::{FADERS, Fader, KeyAction, Master, MasterMode, Programmer};
+pub use programmer::{AttrFilter, FADERS, Fader, KeyAction, Master, MasterMode, Programmer};
+
+pub mod macros;
+pub use macros::{HostRequest, MacroRunner};
 
 pub mod playbacks;
 pub use playbacks::{Class, Playback, Playbacks};

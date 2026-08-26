@@ -79,6 +79,10 @@ pub struct Playback {
     /// "mirror"` and get the shared definition.
     // r[impl tricks.shared-or-inline] - the shared half, from the profile
     pub named_tricks: BTreeMap<String, Vec<ignition_core::Trick>>,
+    /// The profile's looks, so a cue may say `{"look": "verse bed"}`
+    /// and get the scene the busk keys hold.
+    // r[impl profile.looks] - the host passes the profile's looks beside the library
+    pub looks: BTreeMap<String, ignition_core::profile::Look>,
     /// Focus markers moved off their palette value — by a tracker, an
     /// operator — consulted before the palette every frame.
     // r[impl focus.marker-moving] - the host's per-frame override map
@@ -203,7 +207,7 @@ impl Playback {
         // The venue knows the profile's *name*; the file is looked up under
         // `data/profiles/` (or `IGNITION_PROFILE`), and a missing file is
         // simply no shared tricks — a recipe naming one is then reported.
-        let named_tricks = {
+        let (named_tricks, looks) = {
             let path = std::env::var("IGNITION_PROFILE").unwrap_or_else(|_| {
                 format!(
                     "data/profiles/{}.ig-profile",
@@ -211,10 +215,10 @@ impl Playback {
                 )
             });
             match ignition_core::Profile::load(&path) {
-                Ok(profile) => profile.tricks,
+                Ok(profile) => (profile.tricks, profile.looks),
                 Err(error) => {
                     tracing::debug!(%error, path, "no profile file for named tricks");
-                    BTreeMap::new()
+                    (BTreeMap::new(), BTreeMap::new())
                 }
             }
         };
@@ -226,6 +230,7 @@ impl Playback {
             roles: &venue.profile,
             library: &library,
             bundles: &bundles,
+            looks: &looks,
             named_tricks: &named_tricks,
             tempo: song.map(|s| &s.tempo),
             ..Show::new(&groups, &rig)
@@ -350,6 +355,7 @@ impl Playback {
             profile: venue.profile.clone(),
             library,
             bundles,
+            looks,
             named_tricks,
             focus_overrides: HashMap::new(),
             frozen_at: effect_time,
@@ -422,6 +428,7 @@ pub fn tick_playback(
         profile,
         library,
         bundles,
+        looks,
         named_tricks,
         focus_overrides,
         programmer,
@@ -454,6 +461,7 @@ pub fn tick_playback(
         roles: profile,
         library,
         bundles,
+        looks,
         named_tricks,
         focus_overrides,
         ..Show::new(groups, rig)
@@ -590,6 +598,7 @@ pub fn operator_keys(
         profile,
         library,
         bundles,
+        looks,
         named_tricks,
         focus_overrides,
         ..
@@ -629,6 +638,7 @@ pub fn operator_keys(
         roles: profile,
         library,
         bundles,
+        looks,
         named_tricks,
         focus_overrides,
         ..Show::new(groups, rig)

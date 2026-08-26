@@ -4539,12 +4539,7 @@ mod wave2_tests {
         let show = with_library(&lib, &bun);
         let mut player = CuePlayer::new(vec![Cue {
             name: "named".into(),
-            recipes: vec![RecipeRef::Named {
-                effect: "flat".into(),
-                target: Some(Selection::Chans(vec![3])),
-                bars: None,
-                tricks: None,
-            }],
+            recipes: vec![RecipeRef::named("flat").on(Selection::Chans(vec![3]))],
             ..Default::default()
         }]);
         player.go(&show);
@@ -4628,15 +4623,10 @@ mod wave2_tests {
         }"#;
         let cue: Cue = serde_json::from_str(json).unwrap();
         assert!(matches!(cue.recipes[0], RecipeRef::Inline(_)));
-        assert_eq!(
-            cue.recipes[1],
-            RecipeRef::Named {
-                effect: "circle".into(),
-                target: None,
-                bars: Some(8.0),
-                tricks: None
-            }
-        );
+        assert!(matches!(
+            &cue.recipes[1],
+            RecipeRef::Named { effect, bars: Some(b), .. } if effect == "circle" && *b == 8.0
+        ));
         assert!(matches!(
             &cue.recipes[2],
             RecipeRef::Named { tricks: Some(t), .. } if t.len() == 1

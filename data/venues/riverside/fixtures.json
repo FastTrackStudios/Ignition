@@ -601,8 +601,8 @@
       "Pole 1"
     ],
     "patched": true,
-    "manufacturer": "",
-    "model": "Mini Gobo Moving Head Light",
+    "manufacturer": "U'King",
+    "model": "150W Moving Head Beam",
     "position": {
       "x": -2.4384,
       "y": 1.6288,
@@ -624,9 +624,9 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 8.0,
     "universe": 1,
-    "address": 433
+    "address": 444
   },
   {
     "chan": 18,
@@ -638,8 +638,8 @@
       "Pole 2"
     ],
     "patched": true,
-    "manufacturer": "",
-    "model": "Mini Gobo Moving Head Light",
+    "manufacturer": "U'King",
+    "model": "150W Moving Head Beam",
     "position": {
       "x": -0.8128,
       "y": 1.6288,
@@ -661,9 +661,9 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 8.0,
     "universe": 1,
-    "address": 411
+    "address": 460
   },
   {
     "chan": 19,
@@ -675,12 +675,1038 @@
       "Pole 3"
     ],
     "patched": true,
-    "manufacturer": "",
-    "model": "Mini Gobo Moving Head Light",
+    "manufacturer": "U'King",
+    "model": "150W Moving Head Beam",
     "position": {
       "x": 0.8128,
       "y": 1.6288,
       "z": 3.4248
+    },
+    "eulers": {
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "quat": {
+      "w": 0.0,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.24,
+      "y": 0.24,
+      "z": 0.34
+    },
+    "beam_angle_deg": 8.0,
+    "universe": 1,
+    "address": 476
+  },
+  {
+    "chan": 20,
+    "name": "Pole 4 Mover",
+    "tags": [
+      "Luminaire_LED_Yoke_Spot",
+      "Movers All",
+      "Back Wall",
+      "Pole 4"
+    ],
+    "patched": true,
+    "manufacturer": "U'King",
+    "model": "150W Moving Head Beam",
+    "position": {
+      "x": 2.4384,
+      "y": 1.6288,
+      "z": 3.4248
+    },
+    "eulers": {
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "quat": {
+      "w": 0.0,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.24,
+      "y": 0.24,
+      "z": 0.34
+    },
+    "beam_angle_deg": 8.0,
+    "universe": 1,
+    "address": 492
+  },
+  {
+    "chan": 21,
+    "name": "Back Wall Bar 1",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Luminaire_LED_Wash",
+      "Back Wall",
+      "Bars"
+    ],
+    "patched": true,
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "position": {
+      "x": -1.9981,
+      "y": 1.7288,
+      "z": 3.6048
+    },
+    "eulers": {
+      "x": 83.5849,
+      "y": 0.0,
+      "z": -180.0
+    },
+    "quat": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": -0.6664,
+      "z": -0.7456
+    },
+    "size": {
+      "x": 1.2,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "beam_angle_deg": 40.0,
+    "universe": 1,
+    "address": 386
+  },
+  {
+    "chan": 22,
+    "name": "Back Wall Bar 2",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Luminaire_LED_Wash",
+      "Back Wall",
+      "Bars"
+    ],
+    "patched": true,
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "position": {
+      "x": 0.0,
+      "y": 1.7288,
+      "z": 3.6048
+    },
+    "eulers": {
+      "x": 83.5849,
+      "y": 0.0,
+      "z": -180.0
+    },
+    "quat": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": -0.6664,
+      "z": -0.7456
+    },
+    "size": {
+      "x": 1.2,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "beam_angle_deg": 40.0,
+    "universe": 1,
+    "address": 393
+  },
+  {
+    "chan": 23,
+    "name": "Back Wall Bar 3",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Luminaire_LED_Wash",
+      "Back Wall",
+      "Bars"
+    ],
+    "patched": true,
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "position": {
+      "x": 1.9981,
+      "y": 1.7288,
+      "z": 3.6048
+    },
+    "eulers": {
+      "x": 83.5849,
+      "y": 0.0,
+      "z": -180.0
+    },
+    "quat": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": -0.6664,
+      "z": -0.7456
+    },
+    "size": {
+      "x": 1.2,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "beam_angle_deg": 40.0,
+    "universe": 2,
+    "address": 1
+  },
+  {
+    "chan": 31,
+    "name": "Beam Par 1",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Fill"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": -2.7523,
+      "y": -4.2672,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 48.8471,
+      "y": 0.0,
+      "z": 3.284
+    },
+    "quat": {
+      "w": 0.9101,
+      "x": 0.4133,
+      "y": 0.0118,
+      "z": 0.0261
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 43
+  },
+  {
+    "chan": 32,
+    "name": "Beam Par 2",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Fill"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": -1.966,
+      "y": -4.2672,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 48.8242,
+      "y": 0.0,
+      "z": 2.3471
+    },
+    "quat": {
+      "w": 0.9104,
+      "x": 0.4132,
+      "y": 0.0085,
+      "z": 0.0186
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 1
+  },
+  {
+    "chan": 33,
+    "name": "Beam Par 3",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Fill"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": -1.1796,
+      "y": -4.2672,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 48.809,
+      "y": 0.0,
+      "z": 1.4088
+    },
+    "quat": {
+      "w": 0.9106,
+      "x": 0.4131,
+      "y": 0.0051,
+      "z": 0.0112
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 50
+  },
+  {
+    "chan": 34,
+    "name": "Beam Par 4",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Fill"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": -0.3932,
+      "y": -4.2672,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 48.8013,
+      "y": 0.0,
+      "z": 0.4697
+    },
+    "quat": {
+      "w": 0.9107,
+      "x": 0.4131,
+      "y": 0.0017,
+      "z": 0.0037
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 57
+  },
+  {
+    "chan": 35,
+    "name": "Beam Par 5",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Fill"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": 0.3932,
+      "y": -4.2672,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 48.8013,
+      "y": 0.0,
+      "z": -0.4697
+    },
+    "quat": {
+      "w": 0.9107,
+      "x": 0.4131,
+      "y": -0.0017,
+      "z": -0.0037
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 64
+  },
+  {
+    "chan": 36,
+    "name": "Beam Par 6",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Fill"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": 1.1796,
+      "y": -4.2672,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 48.809,
+      "y": 0.0,
+      "z": -1.4088
+    },
+    "quat": {
+      "w": 0.9106,
+      "x": 0.4131,
+      "y": -0.0051,
+      "z": -0.0112
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 71
+  },
+  {
+    "chan": 37,
+    "name": "Beam Par 7",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Fill"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": 1.966,
+      "y": -4.2672,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 48.8242,
+      "y": 0.0,
+      "z": -2.3471
+    },
+    "quat": {
+      "w": 0.9104,
+      "x": 0.4132,
+      "y": -0.0085,
+      "z": -0.0186
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 78
+  },
+  {
+    "chan": 38,
+    "name": "Beam Par 8",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Fill"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": 2.7523,
+      "y": -4.2672,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 48.8471,
+      "y": 0.0,
+      "z": -3.284
+    },
+    "quat": {
+      "w": 0.9101,
+      "x": 0.4133,
+      "y": -0.0118,
+      "z": -0.0261
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 36
+  },
+  {
+    "chan": 81,
+    "name": "Beam Bar 1",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Bars",
+      "House"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "position": {
+      "x": -2.5,
+      "y": -3.9672,
+      "z": 5.0856
+    },
+    "eulers": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "quat": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 1.0,
+      "y": 0.08,
+      "z": 0.08
+    },
+    "beam_angle_deg": 40.0,
+    "universe": 1,
+    "address": 100
+  },
+  {
+    "chan": 82,
+    "name": "Beam Bar 2",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Bars",
+      "House"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "RockStrip 252",
+    "position": {
+      "x": -1.2,
+      "y": -3.9672,
+      "z": 5.0856
+    },
+    "eulers": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "quat": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 1.0,
+      "y": 0.08,
+      "z": 0.08
+    },
+    "beam_angle_deg": 40.0,
+    "universe": 1,
+    "address": 92
+  },
+  {
+    "chan": 83,
+    "name": "Beam Bar 3",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Bars",
+      "House"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "RockStrip 252",
+    "position": {
+      "x": 1.2,
+      "y": -3.9672,
+      "z": 5.0856
+    },
+    "eulers": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "quat": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 1.0,
+      "y": 0.08,
+      "z": 0.08
+    },
+    "beam_angle_deg": 40.0,
+    "universe": 1,
+    "address": 216
+  },
+  {
+    "chan": 84,
+    "name": "Beam Bar 4",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Bars",
+      "House"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "position": {
+      "x": 2.5,
+      "y": -3.9672,
+      "z": 5.0856
+    },
+    "eulers": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "quat": {
+      "w": 1.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 1.0,
+      "y": 0.08,
+      "z": 0.08
+    },
+    "beam_angle_deg": 40.0,
+    "universe": 1,
+    "address": 106
+  },
+  {
+    "chan": 85,
+    "name": "Ball Pinspot",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Beam",
+      "Disco"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "RGBW Spot Light 6CH",
+    "position": {
+      "x": 0.9,
+      "y": -4.1172,
+      "z": 5.1356
+    },
+    "eulers": {
+      "x": 63.7476,
+      "y": 0.0,
+      "z": 99.4623
+    },
+    "quat": {
+      "w": 0.5489,
+      "x": 0.3413,
+      "y": 0.4029,
+      "z": 0.648
+    },
+    "size": {
+      "x": 0.12,
+      "y": 0.12,
+      "z": 0.18
+    },
+    "beam_angle_deg": 8.0,
+    "universe": 1,
+    "address": 85
+  },
+  {
+    "chan": 51,
+    "name": "Sizzle Drums",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Luminaire_LED_Wash",
+      "PA Pole",
+      "Sizzle"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "ENDYSHOW LED Stage Light Bar PL-32M",
+    "position": {
+      "x": -2.6504,
+      "y": -2.4288,
+      "z": 1.092
+    },
+    "eulers": {
+      "x": 90.1484,
+      "y": 0.0,
+      "z": -14.3656
+    },
+    "quat": {
+      "w": 0.7006,
+      "x": 0.7025,
+      "y": -0.0885,
+      "z": -0.0883
+    },
+    "size": {
+      "x": 0.9,
+      "y": 0.08,
+      "z": 0.08
+    },
+    "beam_angle_deg": 40.0,
+    "universe": 1,
+    "address": 362
+  },
+  {
+    "chan": 52,
+    "name": "Sizzle Keys",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Luminaire_LED_Wash",
+      "PA Pole",
+      "Sizzle"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "ENDYSHOW LED Stage Light Bar PL-32M",
+    "position": {
+      "x": 2.6504,
+      "y": -2.4288,
+      "z": 1.092
+    },
+    "eulers": {
+      "x": 98.1041,
+      "y": 0.0,
+      "z": 10.9743
+    },
+    "quat": {
+      "w": 0.6524,
+      "x": 0.7518,
+      "y": 0.0722,
+      "z": 0.0627
+    },
+    "size": {
+      "x": 0.9,
+      "y": 0.08,
+      "z": 0.08
+    },
+    "beam_angle_deg": 40.0,
+    "universe": 1,
+    "address": 370
+  },
+  {
+    "chan": 91,
+    "name": "Side Par Left",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Stage Beam",
+      "Sides"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": -1.9981,
+      "y": 1.5288,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 19.2872,
+      "y": 0.0,
+      "z": 90.0
+    },
+    "quat": {
+      "w": 0.6971,
+      "x": 0.1185,
+      "y": 0.1185,
+      "z": 0.6971
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 8
+  },
+  {
+    "chan": 92,
+    "name": "Pinspot Left",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Stage Beam",
+      "Luminaire_LED_Yoke_Spot",
+      "Pinspots",
+      "Disco"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "LED MINI BEAM WH",
+    "position": {
+      "x": -1.4154,
+      "y": 1.5288,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 84.7331,
+      "y": 0.0,
+      "z": -166.2766
+    },
+    "quat": {
+      "w": 0.0883,
+      "x": 0.0805,
+      "y": -0.669,
+      "z": -0.7336
+    },
+    "size": {
+      "x": 0.22,
+      "y": 0.22,
+      "z": 0.24
+    },
+    "beam_angle_deg": 14.0,
+    "universe": 1,
+    "address": 115
+  },
+  {
+    "chan": 93,
+    "name": "Derby Left",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Stage Beam",
+      "Derbys"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "MINI DERBY",
+    "position": {
+      "x": -0.8327,
+      "y": 1.5288,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 32.6721,
+      "y": 0.0,
+      "z": -180.0
+    },
+    "quat": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": -0.2813,
+      "z": -0.9596
+    },
+    "size": {
+      "x": 0.22,
+      "y": 0.22,
+      "z": 0.24
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 131
+  },
+  {
+    "chan": 94,
+    "name": "Sign Par Left",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Stage Beam",
+      "Sign"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": -0.25,
+      "y": 1.5288,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 8.4281,
+      "y": 0.0,
+      "z": -39.8056
+    },
+    "quat": {
+      "w": 0.9377,
+      "x": 0.0691,
+      "y": -0.025,
+      "z": -0.3395
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 15
+  },
+  {
+    "chan": 95,
+    "name": "Sign Par Right",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Stage Beam",
+      "Sign"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": 0.25,
+      "y": 1.5288,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 8.4281,
+      "y": 0.0,
+      "z": 39.8056
+    },
+    "quat": {
+      "w": 0.9377,
+      "x": 0.0691,
+      "y": 0.025,
+      "z": 0.3395
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 22
+  },
+  {
+    "chan": 96,
+    "name": "Derby Right",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Stage Beam",
+      "Derbys"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "MINI DERBY",
+    "position": {
+      "x": 0.8327,
+      "y": 1.5288,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 32.6721,
+      "y": 0.0,
+      "z": -180.0
+    },
+    "quat": {
+      "w": 0.0,
+      "x": 0.0,
+      "y": -0.2813,
+      "z": -0.9596
+    },
+    "size": {
+      "x": 0.22,
+      "y": 0.22,
+      "z": 0.24
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 140
+  },
+  {
+    "chan": 97,
+    "name": "Pinspot Right",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Stage Beam",
+      "Luminaire_LED_Yoke_Spot",
+      "Pinspots",
+      "Disco"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "LED MINI BEAM WH",
+    "position": {
+      "x": 1.4154,
+      "y": 1.5288,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 84.7331,
+      "y": 0.0,
+      "z": 166.2766
+    },
+    "quat": {
+      "w": 0.0883,
+      "x": 0.0805,
+      "y": 0.669,
+      "z": 0.7336
+    },
+    "size": {
+      "x": 0.22,
+      "y": 0.22,
+      "z": 0.24
+    },
+    "beam_angle_deg": 14.0,
+    "universe": 1,
+    "address": 123
+  },
+  {
+    "chan": 98,
+    "name": "Side Par Right",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Stage Beam",
+      "Sides"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": 1.9981,
+      "y": 1.5288,
+      "z": 5.2356
+    },
+    "eulers": {
+      "x": 19.2872,
+      "y": 0.0,
+      "z": -90.0
+    },
+    "quat": {
+      "w": 0.6971,
+      "x": 0.1185,
+      "y": -0.1185,
+      "z": -0.6971
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 29
+  },
+  {
+    "chan": 71,
+    "name": "Floor Mover Upstage Left",
+    "tags": [
+      "Luminaire_LED_Yoke_Spot",
+      "Movers All",
+      "Floor Movers"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "position": {
+      "x": -1.63,
+      "y": 1.6488,
+      "z": 0.17
     },
     "eulers": {
       "x": 180.0,
@@ -703,21 +1729,56 @@
     "address": 400
   },
   {
-    "chan": 20,
-    "name": "Pole 4 Mover",
+    "chan": 72,
+    "name": "Floor Mover Upstage Right",
     "tags": [
       "Luminaire_LED_Yoke_Spot",
       "Movers All",
-      "Back Wall",
-      "Pole 4"
+      "Floor Movers"
     ],
     "patched": true,
     "manufacturer": "",
     "model": "Mini Gobo Moving Head Light",
     "position": {
-      "x": 2.4384,
-      "y": 1.6288,
-      "z": 3.4248
+      "x": 1.63,
+      "y": 1.6488,
+      "z": 0.17
+    },
+    "eulers": {
+      "x": 180.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "quat": {
+      "w": 0.0,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.24,
+      "y": 0.24,
+      "z": 0.34
+    },
+    "beam_angle_deg": 14.0,
+    "universe": 1,
+    "address": 411
+  },
+  {
+    "chan": 73,
+    "name": "Floor Mover Downstage Left",
+    "tags": [
+      "Luminaire_LED_Yoke_Spot",
+      "Movers All",
+      "Floor Movers"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "position": {
+      "x": -2.7,
+      "y": -1.4488,
+      "z": 0.17
     },
     "eulers": {
       "x": 180.0,
@@ -740,405 +1801,40 @@
     "address": 422
   },
   {
-    "chan": 21,
-    "name": "Back Wall Bar 1",
+    "chan": 74,
+    "name": "Floor Mover Downstage Right",
     "tags": [
-      "Luminaire_LED_Bar",
-      "Luminaire_LED_Wash",
-      "Back Wall",
-      "Bars"
+      "Luminaire_LED_Yoke_Spot",
+      "Movers All",
+      "Floor Movers"
     ],
     "patched": true,
-    "manufacturer": "Rockville",
-    "model": "Rockstrip 252 7ch",
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
     "position": {
-      "x": -1.9981,
-      "y": 1.7288,
-      "z": 3.556
+      "x": 2.7,
+      "y": -1.4488,
+      "z": 0.17
     },
     "eulers": {
-      "x": 83.5849,
-      "y": 0.0,
-      "z": -180.0
-    },
-    "quat": {
-      "w": 0.0,
-      "x": 0.0,
-      "y": -0.6664,
-      "z": -0.7456
-    },
-    "size": {
-      "x": 1.2,
-      "y": 0.09,
-      "z": 0.09
-    },
-    "beam_angle_deg": 40.0,
-    "universe": 1,
-    "address": 1
-  },
-  {
-    "chan": 22,
-    "name": "Back Wall Bar 2",
-    "tags": [
-      "Luminaire_LED_Bar",
-      "Luminaire_LED_Wash",
-      "Back Wall",
-      "Bars"
-    ],
-    "patched": true,
-    "manufacturer": "Rockville",
-    "model": "Rockstrip 252 7ch",
-    "position": {
-      "x": 0.0,
-      "y": 1.7288,
-      "z": 3.556
-    },
-    "eulers": {
-      "x": 83.5849,
-      "y": 0.0,
-      "z": -180.0
-    },
-    "quat": {
-      "w": 0.0,
-      "x": 0.0,
-      "y": -0.6664,
-      "z": -0.7456
-    },
-    "size": {
-      "x": 1.2,
-      "y": 0.09,
-      "z": 0.09
-    },
-    "beam_angle_deg": 40.0,
-    "universe": 1,
-    "address": 8
-  },
-  {
-    "chan": 23,
-    "name": "Back Wall Bar 3",
-    "tags": [
-      "Luminaire_LED_Bar",
-      "Luminaire_LED_Wash",
-      "Back Wall",
-      "Bars"
-    ],
-    "patched": true,
-    "manufacturer": "Rockville",
-    "model": "Rockstrip 252 7ch",
-    "position": {
-      "x": 1.9981,
-      "y": 1.7288,
-      "z": 3.556
-    },
-    "eulers": {
-      "x": 83.5849,
-      "y": 0.0,
-      "z": -180.0
-    },
-    "quat": {
-      "w": 0.0,
-      "x": 0.0,
-      "y": -0.6664,
-      "z": -0.7456
-    },
-    "size": {
-      "x": 1.2,
-      "y": 0.09,
-      "z": 0.09
-    },
-    "beam_angle_deg": 40.0,
-    "universe": 1,
-    "address": 15
-  },
-  {
-    "chan": 31,
-    "name": "Beam Par 1",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Beam",
-      "Front Wash"
-    ],
-    "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
-    "position": {
-      "x": -2.5603,
-      "y": -4.572,
-      "z": 5.1856
-    },
-    "eulers": {
-      "x": 51.254,
-      "y": 0.0,
-      "z": 5.4583
-    },
-    "quat": {
-      "w": 0.9006,
-      "x": 0.432,
-      "y": 0.0206,
-      "z": 0.0429
-    },
-    "size": {
-      "x": 0.3097,
-      "y": 0.3057,
-      "z": 0.3622
-    },
-    "beam_angle_deg": 30.0,
-    "universe": 1,
-    "address": 22
-  },
-  {
-    "chan": 32,
-    "name": "Beam Par 2",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Beam",
-      "Front Wash"
-    ],
-    "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
-    "position": {
-      "x": -1.5362,
-      "y": -4.572,
-      "z": 5.1856
-    },
-    "eulers": {
-      "x": 51.1728,
-      "y": 0.0,
-      "z": 3.2814
-    },
-    "quat": {
-      "w": 0.9016,
-      "x": 0.4317,
-      "y": 0.0124,
-      "z": 0.0258
-    },
-    "size": {
-      "x": 0.3097,
-      "y": 0.3057,
-      "z": 0.3622
-    },
-    "beam_angle_deg": 30.0,
-    "universe": 1,
-    "address": 29
-  },
-  {
-    "chan": 33,
-    "name": "Beam Par 3",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Beam",
-      "Front Wash"
-    ],
-    "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
-    "position": {
-      "x": -0.5121,
-      "y": -4.572,
-      "z": 5.1856
-    },
-    "eulers": {
-      "x": 51.132,
-      "y": 0.0,
-      "z": 1.0949
-    },
-    "quat": {
-      "w": 0.902,
-      "x": 0.4315,
-      "y": 0.0041,
-      "z": 0.0086
-    },
-    "size": {
-      "x": 0.3097,
-      "y": 0.3057,
-      "z": 0.3622
-    },
-    "beam_angle_deg": 30.0,
-    "universe": 1,
-    "address": 36
-  },
-  {
-    "chan": 34,
-    "name": "Beam Par 4",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Beam",
-      "Front Wash"
-    ],
-    "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
-    "position": {
-      "x": 0.5121,
-      "y": -4.572,
-      "z": 5.1856
-    },
-    "eulers": {
-      "x": 51.132,
-      "y": 0.0,
-      "z": -1.0949
-    },
-    "quat": {
-      "w": 0.902,
-      "x": 0.4315,
-      "y": -0.0041,
-      "z": -0.0086
-    },
-    "size": {
-      "x": 0.3097,
-      "y": 0.3057,
-      "z": 0.3622
-    },
-    "beam_angle_deg": 30.0,
-    "universe": 1,
-    "address": 43
-  },
-  {
-    "chan": 35,
-    "name": "Beam Par 5",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Beam",
-      "Front Wash"
-    ],
-    "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
-    "position": {
-      "x": 1.5362,
-      "y": -4.572,
-      "z": 5.1856
-    },
-    "eulers": {
-      "x": 51.1728,
-      "y": 0.0,
-      "z": -3.2814
-    },
-    "quat": {
-      "w": 0.9016,
-      "x": 0.4317,
-      "y": -0.0124,
-      "z": -0.0258
-    },
-    "size": {
-      "x": 0.3097,
-      "y": 0.3057,
-      "z": 0.3622
-    },
-    "beam_angle_deg": 30.0,
-    "universe": 1,
-    "address": 50
-  },
-  {
-    "chan": 36,
-    "name": "Beam Par 6",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Beam",
-      "Front Wash"
-    ],
-    "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
-    "position": {
-      "x": 2.5603,
-      "y": -4.572,
-      "z": 5.1856
-    },
-    "eulers": {
-      "x": 51.254,
-      "y": 0.0,
-      "z": -5.4583
-    },
-    "quat": {
-      "w": 0.9006,
-      "x": 0.432,
-      "y": -0.0206,
-      "z": -0.0429
-    },
-    "size": {
-      "x": 0.3097,
-      "y": 0.3057,
-      "z": 0.3622
-    },
-    "beam_angle_deg": 30.0,
-    "universe": 1,
-    "address": 57
-  },
-  {
-    "chan": 37,
-    "name": "Beam Strip 1",
-    "tags": [
-      "Luminaire_LED_Bar",
-      "Luminaire_LED_Wash",
-      "Beam",
-      "Bars"
-    ],
-    "patched": true,
-    "manufacturer": "Rockville",
-    "model": "Rockstrip 252 7ch",
-    "position": {
-      "x": -1.4402,
-      "y": -4.222,
-      "z": 5.1356
-    },
-    "eulers": {
-      "x": 0.0,
+      "x": 180.0,
       "y": 0.0,
       "z": 0.0
     },
     "quat": {
-      "w": 1.0,
-      "x": 0.0,
-      "y": 0.0,
-      "z": 0.0
-    },
-    "size": {
+      "w": 0.0,
       "x": 1.0,
-      "y": 0.08,
-      "z": 0.08
-    },
-    "beam_angle_deg": 40.0,
-    "universe": 1,
-    "address": 64
-  },
-  {
-    "chan": 38,
-    "name": "Beam Strip 2",
-    "tags": [
-      "Luminaire_LED_Bar",
-      "Luminaire_LED_Wash",
-      "Beam",
-      "Bars"
-    ],
-    "patched": true,
-    "manufacturer": "Rockville",
-    "model": "Rockstrip 252 7ch",
-    "position": {
-      "x": 1.4402,
-      "y": -4.222,
-      "z": 5.1356
-    },
-    "eulers": {
-      "x": 0.0,
-      "y": 0.0,
-      "z": 0.0
-    },
-    "quat": {
-      "w": 1.0,
-      "x": 0.0,
       "y": 0.0,
       "z": 0.0
     },
     "size": {
-      "x": 1.0,
-      "y": 0.08,
-      "z": 0.08
+      "x": 0.24,
+      "y": 0.24,
+      "z": 0.34
     },
-    "beam_angle_deg": 40.0,
+    "beam_angle_deg": 14.0,
     "universe": 1,
-    "address": 71
+    "address": 433
   },
   {
     "chan": 41,
@@ -1147,26 +1843,27 @@
       "Luminaire_LED_Wash",
       "FOH",
       "Front Wash",
-      "Key"
+      "Key",
+      "FOH Bar"
     ],
     "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "position": {
-      "x": -2.45,
+      "x": -2.775,
       "y": -7.1652,
-      "z": 3.6
+      "z": 2.7432
     },
     "eulers": {
-      "x": 71.8608,
+      "x": 79.2121,
       "y": 0.0,
-      "z": -11.2895
+      "z": -11.5026
     },
     "quat": {
-      "w": 0.8058,
-      "x": 0.584,
-      "y": -0.0577,
-      "z": -0.0796
+      "w": 0.7666,
+      "x": 0.6343,
+      "y": -0.0639,
+      "z": -0.0772
     },
     "size": {
       "x": 0.3097,
@@ -1175,7 +1872,7 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 78
+    "address": 149
   },
   {
     "chan": 42,
@@ -1184,26 +1881,27 @@
       "Luminaire_LED_Wash",
       "FOH",
       "Front Wash",
-      "Key"
+      "Key",
+      "FOH Bar"
     ],
     "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "position": {
-      "x": -1.9,
+      "x": -2.225,
       "y": -7.1652,
-      "z": 3.6
+      "z": 2.7432
     },
     "eulers": {
-      "x": 71.7299,
+      "x": 79.1365,
       "y": 0.0,
-      "z": -8.8003
+      "z": -9.267
     },
     "quat": {
-      "w": 0.808,
-      "x": 0.5841,
-      "y": -0.0449,
-      "z": -0.0622
+      "w": 0.7683,
+      "x": 0.6349,
+      "y": -0.0515,
+      "z": -0.0623
     },
     "size": {
       "x": 0.3097,
@@ -1212,7 +1910,7 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 85
+    "address": 156
   },
   {
     "chan": 43,
@@ -1221,26 +1919,27 @@
       "Luminaire_LED_Wash",
       "FOH",
       "Front Wash",
-      "Key"
+      "Key",
+      "FOH Bar"
     ],
     "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "position": {
-      "x": -1.35,
+      "x": -1.675,
       "y": -7.1652,
-      "z": 3.6
+      "z": 2.7432
     },
     "eulers": {
-      "x": 71.6303,
+      "x": 79.0765,
       "y": 0.0,
-      "z": -6.2773
+      "z": -7.0027
     },
     "quat": {
-      "w": 0.8097,
-      "x": 0.5843,
-      "y": -0.032,
-      "z": -0.0444
+      "w": 0.7698,
+      "x": 0.6354,
+      "y": -0.0389,
+      "z": -0.0471
     },
     "size": {
       "x": 0.3097,
@@ -1249,7 +1948,7 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 92
+    "address": 163
   },
   {
     "chan": 44,
@@ -1258,26 +1957,27 @@
       "Luminaire_LED_Wash",
       "FOH",
       "Front Wash",
-      "Key"
+      "Key",
+      "FOH Bar"
     ],
     "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "position": {
-      "x": 1.075,
+      "x": -1.125,
       "y": -7.1652,
-      "z": 3.6
+      "z": 2.7432
     },
     "eulers": {
-      "x": 71.5927,
+      "x": 79.0327,
       "y": 0.0,
-      "z": 5.0059
+      "z": -4.7162
     },
     "quat": {
-      "w": 0.8103,
-      "x": 0.5843,
-      "y": 0.0255,
-      "z": 0.0354
+      "w": 0.7708,
+      "x": 0.6358,
+      "y": -0.0262,
+      "z": -0.0317
     },
     "size": {
       "x": 0.3097,
@@ -1286,7 +1986,7 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 99
+    "address": 170
   },
   {
     "chan": 45,
@@ -1295,26 +1995,27 @@
       "Luminaire_LED_Wash",
       "FOH",
       "Front Wash",
-      "Key"
+      "Key",
+      "FOH Top"
     ],
     "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
     "position": {
-      "x": 1.625,
+      "x": -1.95,
       "y": -7.1652,
-      "z": 3.6
+      "z": 3.0932
     },
     "eulers": {
-      "x": 71.6761,
+      "x": 76.0204,
       "y": 0.0,
-      "z": 7.5425
+      "z": -8.1381
     },
     "quat": {
-      "w": 0.8089,
-      "x": 0.5842,
-      "y": 0.0385,
-      "z": 0.0533
+      "w": 0.7859,
+      "x": 0.6142,
+      "y": -0.0437,
+      "z": -0.0559
     },
     "size": {
       "x": 0.3097,
@@ -1323,7 +2024,7 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 106
+    "address": 209
   },
   {
     "chan": 46,
@@ -1332,26 +2033,27 @@
       "Luminaire_LED_Wash",
       "FOH",
       "Front Wash",
-      "Key"
+      "Key",
+      "FOH Bar"
     ],
     "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "position": {
-      "x": 2.175,
+      "x": 1.125,
       "y": -7.1652,
-      "z": 3.6
+      "z": 2.7432
     },
     "eulers": {
-      "x": 71.7916,
+      "x": 79.0327,
       "y": 0.0,
-      "z": 10.0497
+      "z": 4.7162
     },
     "quat": {
-      "w": 0.807,
-      "x": 0.5841,
-      "y": 0.0514,
-      "z": 0.071
+      "w": 0.7708,
+      "x": 0.6358,
+      "y": 0.0262,
+      "z": 0.0317
     },
     "size": {
       "x": 0.3097,
@@ -1360,7 +2062,7 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 113
+    "address": 198
   },
   {
     "chan": 47,
@@ -1369,26 +2071,27 @@
       "Luminaire_LED_Wash",
       "FOH",
       "Front Wash",
-      "Key"
+      "Key",
+      "FOH Bar"
     ],
     "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "position": {
-      "x": 2.725,
+      "x": 1.675,
       "y": -7.1652,
-      "z": 3.6
+      "z": 2.7432
     },
     "eulers": {
-      "x": 71.9373,
+      "x": 79.0765,
       "y": 0.0,
-      "z": 12.5186
+      "z": 7.0027
     },
     "quat": {
-      "w": 0.8045,
-      "x": 0.5838,
-      "y": 0.064,
-      "z": 0.0882
+      "w": 0.7698,
+      "x": 0.6354,
+      "y": 0.0389,
+      "z": 0.0471
     },
     "size": {
       "x": 0.3097,
@@ -1397,7 +2100,7 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 120
+    "address": 177
   },
   {
     "chan": 48,
@@ -1406,26 +2109,27 @@
       "Luminaire_LED_Wash",
       "FOH",
       "Front Wash",
-      "Key"
+      "Key",
+      "FOH Bar"
     ],
     "patched": true,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "position": {
-      "x": 1.9,
+      "x": 2.225,
       "y": -7.1652,
-      "z": 4.3
+      "z": 2.7432
     },
     "eulers": {
-      "x": 66.1129,
+      "x": 79.1365,
       "y": 0.0,
-      "z": 8.8003
+      "z": 9.267
     },
     "quat": {
-      "w": 0.8357,
-      "x": 0.5439,
-      "y": 0.0418,
-      "z": 0.0643
+      "w": 0.7683,
+      "x": 0.6349,
+      "y": 0.0515,
+      "z": 0.0623
     },
     "size": {
       "x": 0.3097,
@@ -1434,6 +2138,82 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 127
+    "address": 184
+  },
+  {
+    "chan": 49,
+    "name": "FOH Par 9",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "FOH",
+      "Front Wash",
+      "Key",
+      "FOH Bar"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": 2.775,
+      "y": -7.1652,
+      "z": 2.7432
+    },
+    "eulers": {
+      "x": 79.2121,
+      "y": 0.0,
+      "z": 11.5026
+    },
+    "quat": {
+      "w": 0.7666,
+      "x": 0.6343,
+      "y": 0.0639,
+      "z": 0.0772
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 191
+  },
+  {
+    "chan": 50,
+    "name": "FOH Par 10",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "FOH",
+      "Front Wash",
+      "Key",
+      "FOH Top"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "position": {
+      "x": 1.95,
+      "y": -7.1652,
+      "z": 3.0932
+    },
+    "eulers": {
+      "x": 76.0204,
+      "y": 0.0,
+      "z": 8.1381
+    },
+    "quat": {
+      "w": 0.7859,
+      "x": 0.6142,
+      "y": 0.0437,
+      "z": 0.0559
+    },
+    "size": {
+      "x": 0.3097,
+      "y": 0.3057,
+      "z": 0.3622
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 225
   }
 ]

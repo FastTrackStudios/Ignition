@@ -47,7 +47,9 @@ overwrite), **ASSUMED** (neither measured nor visible — a working value).
 | Back wall to stage lip (depth) | 12' 0" | 3.6576 |
 | Stage height above room floor | 20" | 0.508 |
 | Back-of-room width | 21' 0" | 6.4008 |
-| Room floor to the beam | 19' 6" | 5.9436 |
+| Room floor to the beam's **underside** | 19' 6" | 5.9436 |
+| The beam's own depth (a ceiling downstand) | ~6' 0" | 1.8288 |
+| Beam to the audience back wall | ~10' 0" | 3.048 |
 | Light pole to light pole | 64" | 1.6256 |
 | Lowest par above the deck | 40" | 1.016 |
 | Par to par up a pole | 24" | 0.6096 |
@@ -55,6 +57,20 @@ overwrite), **ASSUMED** (neither measured nor visible — a working value).
 
 Four poles at 64" centres span 16' 0" overall, centred on a 19' 8" stage —
 1' 10" of margin at each end.
+
+## The beam
+
+**One** beam, and it is a 6'-deep **downstand from the ceiling**, not a truss —
+so its top *is* the ceiling, which puts the room at about 25' 6" floor to
+ceiling. Its underside is the measured 19' 6". It hangs ~10' off the audience
+back wall, i.e. slightly behind the middle of the room. (An earlier note of
+"6 inches from the back wall" was a mis-measure and is not used.)
+
+It carries:
+
+- **8 pars** in a row, pointing across at the stage — the white *fill lights*
+- **4 bars**, two either side of the ball, doubling as house and floor light
+- the **disco ball** at its centre, with a pinspot beside it aimed at it
 
 ## The rig
 
@@ -66,9 +82,13 @@ without renumbering everything downstream of it.
 | 1–16 | Back wall, on the poles | 4 pars × 4 poles | measured |
 | 17–20 | Back wall, pole tops | 4 movers | measured |
 | 21–23 | Back wall, top | 3 bars | measured |
-| 31–36 | House beam | 6 pars | photo |
-| 37–38 | House beam | 2 amber strips | photo |
-| 41–48 | Back-of-house wall | 7 pars (3 + 4 flanking the arch) + 1 above | photo |
+| 31–38 | House beam | 8 fill pars | described |
+| 81–84 | House beam | 4 bars, 2 either side of the ball | described |
+| 85 | House beam | pinspot on the disco ball | described |
+| 41–50 | Audience wall, 10' 8" | 5 a side: 4 on a bar + 1 centred above | described |
+| 51–52 | PA poles | 2 ENDYSHOW "sizzle" bars → kit / keys | console-named |
+| 61–62 | Centre pole tops | 2 derbys | described |
+| 71–74 | Deck | 4 floor movers (the old ZKYMZLs) | described |
 
 ```
    11' 8"  ── ▭▭▭▭▭   ▭▭▭▭▭   ▭▭▭▭▭      3 bars           21–23
@@ -151,6 +171,86 @@ height — four primitives, the same call the mic stands make.
 The kit is held 18" off the back wall on purpose: the light poles stand on
 the deck, and a kit pushed flat against the wall has pole 1 coming up through
 the floor tom.
+
+## Audience wall
+
+Ten pars, five a side, mirrored about the arch: **four on a horizontal bar
+with a fifth centred above it**, at the wall's own 10' 8".
+
+The desk's own layout confirms the split without being told: `REAR PARS` is
+two runs of four (POSX 260–380 and 590–710), and the two remaining Solenas
+sit at POSX 295 and 660 — centred over each run. That is what puts them on
+top rather than on the bar, and it is why the bars are U'King 36-LED cans
+while the two above them are Solenas.
+
+## Stage-ceiling beam
+
+A second beam at the stage back wall, same section and height as the house
+one. Eight fixtures, reading outside-in on each side and mirroring about
+the centre:
+
+```
+  side par   pinspot   derby   sign par | sign par   derby   pinspot   side par
+    @8        @115      @131     @15         @22      @140     @123      @29
+```
+
+The outer pair sit above the midpoints of back-wall bars 1 and 3, which is
+what fixes the row's span. The side pars aim across at the side walls, the
+pinspots are motorised and point at the ball on the house beam, and the two
+sign pars light the Rockstars sign from either side.
+
+The desk's own layout agrees fixture-for-fixture: sorted by its POSX these
+eight come out in exactly that order, all on one row (POSY 1–18) with the
+side pars set slightly above it.
+
+## Mirroring the desk's scenes
+
+[`tools/dvc_scenes.py`](../../../tools/dvc_scenes.py) turns the showfile's
+scenes into an Ignition cue list:
+
+```sh
+tools/dvc_scenes.py SHOW.dvc --list
+tools/dvc_scenes.py SHOW.dvc --bank "Main Scenes" --bank Zones \
+  --out data/shows/riverside-desk.json
+```
+
+A scene is stored as raw DMX per fixture, in a **different container** from
+the patch: `base64(raw zlib)` with *no* length prefix, and the stream has no
+proper terminator (so `decompressobj` is needed, not `decompress`). The
+plaintext is a `uint16be` channel count then one `uint16be` per channel, with
+`0xFFFF` meaning "this scene does not touch it".
+
+The converter runs those bytes back through each fixture's own channel map to
+recover a dimmer level and a colour, then groups fixtures that agree so a cue
+reads as a look rather than as 400 numbers. Every mirrored cue is
+`block: true` — a desk scene is an independent look, not a change tracked
+onto the one before it.
+
+### The three kinds of scene
+
+| Kind | Desk shape | Mirrored as |
+|---|---|---|
+| **Look** | one `STEP` of raw values | one blocking cue |
+| **Chase** | several `STEP`s | one cue per step, named `▸ 2/6` |
+| **Effect** | an `EFFECT` + a `BEAM` per fixture, no steps | the palette's mean colour as a base, plus a library effect on the same fixtures |
+
+A scene's values carry more than dimmer and colour: several Movers scenes
+set **pan/tilt and nothing else**, so those are read too and converted with
+the same formula `dmx.rs` uses in the other direction — pan over 540°, tilt
+over 270°, both centred. Reading only dimmer and colour mirrored the whole
+Movers bank as empty.
+
+**Effects are the one approximation.** The desk stores its own machinery — a
+colour palette, or a pan/tilt point path — which Ignition cannot execute
+directly, because Ignition runs effects from its own library. `EFFECT_BY_NAME`
+in the converter is that mapping, deliberately a visible table rather than
+buried logic. The desk's palette still sets the base colour, so the look sits
+where it did even though the motion is Ignition's.
+
+Decoding is checked by the scene names themselves: `Main | Red` comes out
+R=255/G=0/B=0 on the wall, `Main | Green` green-only, `White Stage` full
+white — and the beam's eight pars read white in every colour scene, which is
+what "the fill lights" should do.
 
 ## Profile
 

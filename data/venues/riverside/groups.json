@@ -99,53 +99,132 @@
     "target": "13",
     "label": "Beam Pars",
     "channels": [
-      "31-36"
+      "31-38"
     ]
   },
   {
     "target": "14",
-    "label": "Beam Strips",
+    "label": "Beam Bars",
     "channels": [
-      "37-38"
+      "81-84"
     ]
   },
   {
     "target": "15",
     "label": "Beam All",
     "channels": [
-      "31-38"
+      "31-38",
+      "81-84"
     ]
   },
   {
     "target": "16",
     "label": "FOH Pars",
     "channels": [
-      "41-48"
+      "41-50"
     ]
   },
   {
     "target": "17",
-    "label": "Front Wash",
+    "label": "FOH Bars",
     "channels": [
-      "41-48",
-      "31-36"
+      "41-44",
+      "46-49"
     ]
   },
   {
     "target": "18",
-    "label": "Strips All",
+    "label": "FOH Tops",
     "channels": [
-      "21-23",
-      "37-38"
+      45,
+      50
     ]
   },
   {
     "target": "19",
+    "label": "Front Wash",
+    "channels": [
+      "41-50",
+      "31-38"
+    ]
+  },
+  {
+    "target": "20",
+    "label": "Strips All",
+    "channels": [
+      "21-23",
+      "81-84",
+      "51-52"
+    ]
+  },
+  {
+    "target": "21",
     "label": "Pars All",
     "channels": [
       "1-16",
-      "31-36",
-      "41-48"
+      "31-38",
+      "41-50"
+    ]
+  },
+  {
+    "target": "22",
+    "label": "Sizzle",
+    "channels": [
+      "51-52"
+    ]
+  },
+  {
+    "target": "23",
+    "label": "Stage Beam",
+    "channels": [
+      "91-98"
+    ]
+  },
+  {
+    "target": "24",
+    "label": "Side Pars",
+    "channels": [
+      91,
+      98
+    ]
+  },
+  {
+    "target": "25",
+    "label": "Pinspots",
+    "channels": [
+      92,
+      97
+    ]
+  },
+  {
+    "target": "26",
+    "label": "Derbys",
+    "channels": [
+      93,
+      96
+    ]
+  },
+  {
+    "target": "27",
+    "label": "Sign Pars",
+    "channels": [
+      94,
+      95
+    ]
+  },
+  {
+    "target": "28",
+    "label": "Floor Movers",
+    "channels": [
+      "71-74"
+    ]
+  },
+  {
+    "target": "29",
+    "label": "Movers All",
+    "channels": [
+      "17-20",
+      "71-74"
     ]
   }
 ]

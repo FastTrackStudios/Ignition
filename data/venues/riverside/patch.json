@@ -161,43 +161,55 @@
   },
   {
     "chan": 17,
-    "manufacturer": "",
-    "model": "Mini Gobo Moving Head Light",
+    "manufacturer": "U'King",
+    "model": "150W Moving Head Beam",
     "patched": true,
     "universe": 1,
-    "address": 433,
-    "footprint": 11,
-    "source": "console-show.json"
+    "address": 444,
+    "footprint": 16,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
   },
   {
     "chan": 18,
-    "manufacturer": "",
-    "model": "Mini Gobo Moving Head Light",
+    "manufacturer": "U'King",
+    "model": "150W Moving Head Beam",
     "patched": true,
     "universe": 1,
-    "address": 411,
-    "footprint": 11,
-    "source": "console-show.json"
+    "address": 460,
+    "footprint": 16,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
   },
   {
     "chan": 19,
-    "manufacturer": "",
-    "model": "Mini Gobo Moving Head Light",
+    "manufacturer": "U'King",
+    "model": "150W Moving Head Beam",
     "patched": true,
     "universe": 1,
-    "address": 400,
-    "footprint": 11,
-    "source": "console-show.json"
+    "address": 476,
+    "footprint": 16,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
   },
   {
     "chan": 20,
-    "manufacturer": "",
-    "model": "Mini Gobo Moving Head Light",
+    "manufacturer": "U'King",
+    "model": "150W Moving Head Beam",
     "patched": true,
     "universe": 1,
-    "address": 422,
-    "footprint": 11,
-    "source": "console-show.json"
+    "address": 492,
+    "footprint": 16,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
   },
   {
     "chan": 21,
@@ -205,7 +217,7 @@
     "model": "Rockstrip 252 7ch",
     "patched": true,
     "universe": 1,
-    "address": 1,
+    "address": 386,
     "footprint": 7,
     "provisional": true,
     "notes": [
@@ -218,7 +230,7 @@
     "model": "Rockstrip 252 7ch",
     "patched": true,
     "universe": 1,
-    "address": 8,
+    "address": 393,
     "footprint": 7,
     "provisional": true,
     "notes": [
@@ -230,8 +242,8 @@
     "manufacturer": "Rockville",
     "model": "Rockstrip 252 7ch",
     "patched": true,
-    "universe": 1,
-    "address": 15,
+    "universe": 2,
+    "address": 1,
     "footprint": 7,
     "provisional": true,
     "notes": [
@@ -240,210 +252,372 @@
   },
   {
     "chan": 31,
-    "manufacturer": "Uking",
-    "model": "Par",
-    "patched": true,
-    "universe": 1,
-    "address": 22,
-    "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
-  },
-  {
-    "chan": 32,
-    "manufacturer": "Uking",
-    "model": "Par",
-    "patched": true,
-    "universe": 1,
-    "address": 29,
-    "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
-  },
-  {
-    "chan": 33,
-    "manufacturer": "Uking",
-    "model": "Par",
-    "patched": true,
-    "universe": 1,
-    "address": 36,
-    "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
-  },
-  {
-    "chan": 34,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
     "patched": true,
     "universe": 1,
     "address": 43,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
-    "chan": 35,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "chan": 32,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 1,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 33,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
     "patched": true,
     "universe": 1,
     "address": 50,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
-    "chan": 36,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "chan": 34,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
     "patched": true,
     "universe": 1,
     "address": 57,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
-    "chan": 37,
-    "manufacturer": "Rockville",
-    "model": "Rockstrip 252 7ch",
+    "chan": 35,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
     "patched": true,
     "universe": 1,
     "address": 64,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
-    "chan": 38,
-    "manufacturer": "Rockville",
-    "model": "Rockstrip 252 7ch",
+    "chan": 36,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
     "patched": true,
     "universe": 1,
     "address": 71,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
-    "chan": 41,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "chan": 37,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
     "patched": true,
     "universe": 1,
     "address": 78,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
-    "chan": 42,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "chan": 38,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
     "patched": true,
     "universe": 1,
-    "address": 85,
+    "address": 36,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
-    "chan": 43,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "chan": 81,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 100,
+    "footprint": 6,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 82,
+    "manufacturer": "",
+    "model": "RockStrip 252",
     "patched": true,
     "universe": 1,
     "address": 92,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
-    "chan": 44,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "chan": 83,
+    "manufacturer": "",
+    "model": "RockStrip 252",
     "patched": true,
     "universe": 1,
-    "address": 99,
+    "address": 216,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
-    "chan": 45,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "chan": 84,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
     "patched": true,
     "universe": 1,
     "address": 106,
+    "footprint": 6,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 85,
+    "manufacturer": "",
+    "model": "RGBW Spot Light 6CH",
+    "patched": true,
+    "universe": 1,
+    "address": 85,
+    "footprint": 6,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 51,
+    "manufacturer": "",
+    "model": "ENDYSHOW LED Stage Light Bar PL-32M",
+    "patched": true,
+    "universe": 1,
+    "address": 362,
+    "footprint": 8,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 52,
+    "manufacturer": "",
+    "model": "ENDYSHOW LED Stage Light Bar PL-32M",
+    "patched": true,
+    "universe": 1,
+    "address": 370,
+    "footprint": 8,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 91,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 8,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
+  },
+  {
+    "chan": 92,
+    "manufacturer": "",
+    "model": "LED MINI BEAM WH",
+    "patched": true,
+    "universe": 1,
+    "address": 115,
+    "footprint": 8,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 93,
+    "manufacturer": "",
+    "model": "MINI DERBY",
+    "patched": true,
+    "universe": 1,
+    "address": 131,
+    "footprint": 9,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 94,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 15,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 95,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 22,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 96,
+    "manufacturer": "",
+    "model": "MINI DERBY",
+    "patched": true,
+    "universe": 1,
+    "address": 140,
+    "footprint": 9,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 97,
+    "manufacturer": "",
+    "model": "LED MINI BEAM WH",
+    "patched": true,
+    "universe": 1,
+    "address": 123,
+    "footprint": 8,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 98,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 29,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 71,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "patched": true,
+    "universe": 1,
+    "address": 400,
+    "footprint": 11,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 72,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "patched": true,
+    "universe": 1,
+    "address": 411,
+    "footprint": 11,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 73,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "patched": true,
+    "universe": 1,
+    "address": 422,
+    "footprint": 11,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 74,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "patched": true,
+    "universe": 1,
+    "address": 433,
+    "footprint": 11,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 41,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 149,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 42,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 156,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 43,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 163,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 44,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 170,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 45,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 209,
+    "footprint": 7,
+    "source": "console-show.json"
   },
   {
     "chan": 46,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 113,
+    "address": 198,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
     "chan": 47,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 120,
+    "address": 177,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
   },
   {
     "chan": 48,
-    "manufacturer": "Uking",
-    "model": "Par",
+    "manufacturer": "",
+    "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 127,
+    "address": 184,
     "footprint": 7,
-    "provisional": true,
-    "notes": [
-      "No position->fixture link yet. See README."
-    ]
+    "source": "console-show.json"
+  },
+  {
+    "chan": 49,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 191,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 50,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 225,
+    "footprint": 7,
+    "source": "console-show.json"
   }
 ]

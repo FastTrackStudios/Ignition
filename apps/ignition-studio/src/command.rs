@@ -154,6 +154,23 @@ pub enum Command {
     /// either way; this is the switch on the transmitter.
     // r[impl dmx.output-toggle] - the surface's OUTPUT key
     Output(bool),
+    /// Run a profile macro by name — DROP, BUILD 8, BREAKDOWN, END.
+    /// One runs at a time; a new one replaces the running one.
+    // r[impl playback.macro-runner] - the surface's MACRO keys
+    Macro(String),
+    /// Take a profile look by name, latched on the programmer's held
+    /// layer until `None` releases it or another look replaces it.
+    // r[impl playback.look-hold] - the surface's LOOK keys
+    Look(Option<String>),
+    /// One effect parameter on a bank fader — `depth`, `bars`, `duty`
+    /// — as the page declared it. The second thin control beside a
+    /// fader's level.
+    // r[impl profile.effect-parameters] - the surface's param control
+    Param {
+        index: usize,
+        name: String,
+        value: f32,
+    },
 }
 
 /// The keys beside RATE. `Tap` is a learn tap — averaged, so a hand a

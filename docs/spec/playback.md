@@ -281,3 +281,49 @@ it carries one, otherwise a sensible rest — and that default MUST be the floor
 a released attribute falls to, and what a list's implicit **cue zero**
 establishes before its first cue. A released zoom lands on the spot's default
 zoom, not on zero.
+
+## Macros, looks and protection in the programmer
+
+r[playback.macro-runner]
+The programmer MUST be able to run a profile macro (`r[profile.macros]`)
+step by step against the show clock: steps up to the first wait land in the
+frame the macro starts, and each wait resumes on the frame the Song beats
+have elapsed. One macro runs at a time; starting another replaces the one
+running without releasing what it took — the new macro's own release does.
+A cue's `commands` entry `macro <name>` MUST start that macro on the same
+runner when the cue goes live, so the move an operator busks and the move the
+show fires are one thing.
+
+r[playback.look-hold]
+A look (`r[profile.looks]`) taken by a key MUST be held on the programmer's
+held layer — over the faders, under the masters and the hand — and latched
+until released or replaced by another look. Taking a look is *being
+somewhere*, not a flash; it stays until the operator leaves.
+
+r[playback.macro-effects]
+Effects a macro fires by name MUST be played on a layer of the programmer
+beside the faders, weighted by the level the step gave, and MUST be released
+by the macro's release step without touching the faders. A macro that borrowed
+a fader slot would leave the operator's bank rearranged.
+
+r[playback.blackout]
+The programmer MUST have a **blackout** — every intensity to zero over the
+program time, above the faders, flashes and held look — that a macro can set
+and a release clears. It MUST skip protected roles (`r[profile.protected-roles]`).
+
+r[playback.protected-untouched]
+Protected roles MUST pass through the black key, a blackout, a held `Safe`
+look, a rig drop and the grand master unchanged: the fold MUST leave their
+intensity at whatever the layers beneath produced. The direct hand and a
+park still reach them.
+
+r[playback.attribute-filter]
+A fader's attribute filter MUST be applied at fold, per emit, before the
+fader's weight is applied; an emit outside the filter contributes nothing
+and does not withdraw what is beneath it.
+
+r[playback.effect-parameters]
+A fader's effect parameters MUST be applied at fold to a copy of the recipe:
+`depth` scales the swing for this fader only, `bars` sets the loop length,
+`duty` sets the first step's width. The recipe stored on the fader — and in
+the library — MUST NOT be rewritten.

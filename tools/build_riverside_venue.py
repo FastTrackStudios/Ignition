@@ -53,12 +53,23 @@ STAGE_W = ft(19, 8)     # 19' 8"  front-of-stage width
 STAGE_D = ft(12, 0)     # 12' 0"  back wall to stage lip
 STAGE_H = ft(0, 20)     # 20"     deck height above the room floor
 ROOM_W = ft(21, 0)      # 21' 0"  back-of-room width
-BEAM_H = ft(19, 6)      # 19' 6"  room floor up to the beam
+BEAM_BOTTOM = ft(19, 6)   # 19' 6"  room floor up to the BOTTOM of the beam
+BEAM_DEPTH = ft(6, 0)     # 6' 0"   the beam's own depth: it is a downstand
+                          #         from the ceiling, not a truss, so the
+                          #         ceiling sits at its top
+BEAM_FROM_BACK = ft(10, 0)  # 10' 0" beam to the AUDIENCE back wall, which
+                            #        puts it slightly behind the middle of
+                            #        the room. (An earlier "6 inches from
+                            #        the back wall" was a mis-measure.)
 
 POLE_PITCH = ft(0, 64)  # 64"     light pole to light pole, centre to centre
 PAR_FIRST = ft(0, 40)   # 40"     lowest par, above the deck
 PAR_PITCH = ft(2, 0)    # 2' 0"   par to par up a pole
-BACKWALL_H = ft(10, 8)  # 10' 8"  the back wall bar lights
+AUDIENCE_WALL_H = ft(10, 8)   # 10' 8"  height of the AUDIENCE (back-of-house)
+                              #         wall, and of the lights on it.
+                              #         NOT the stage bars — that was this
+                              #         model's earlier reading of the same
+                              #         number, and it was wrong.
 
 # How much the whole back-wall lighting structure is raised above the
 # measured heights: the poles get taller, and the pars, movers and bars
@@ -71,13 +82,11 @@ BACKWALL_LIFT = ft(1, 0)
 # =====================================================================
 # PHOTO — counted off the room photos, not measured.
 # =====================================================================
-BEAM_PAR_COUNT = 6      # pars in the row along the beam
-BEAM_STRIP_COUNT = 2    # amber LED strips under the beam
-FOH_LEFT_COUNT = 3      # pars house-left of the arch, on the back wall
-FOH_RIGHT_COUNT = 4     # pars house-right of the arch, on a T-bar
-FOH_HIGH_COUNT = 1      # the odd par mounted above the T-bar
-FOH_Z = 3.60            # FOH par height above the deck
-FOH_HIGH_Z = 4.30       # the high one
+BEAM_PAR_COUNT = 8      # the white "fill lights" in a row along the beam
+BEAM_BAR_COUNT = 4      # bars on the beam, two either side of the ball
+FOH_SIDE_COUNT = 4      # pars on the bar, each side of the audience wall
+                        # (plus one centred above each bar: 5 a side, 10)
+# (FOH_Z / FOH_HIGH_Z are derived below, once FLOOR_Z exists.)
 ARCH_W, ARCH_H = 1.30, 2.60   # the red neon arch on the back-of-house wall
 
 # =====================================================================
@@ -91,6 +100,9 @@ MOVER_Z = POLE_TOP + 0.12  # mover body centre, sitting on the pole top
 POLE_Y_INSET = 0.20     # pole centre, downstage of the back wall
 FIXTURE_Y_INSET = 0.12  # fixture face, downstage of its pole centre
 BAR_LEN = 1.2           # the three back-wall bars
+STAGE_BAR_H = 3.30      # how high the three stage back-wall bars hang.
+                        # Unmeasured: 10' 8" turned out to be the audience
+                        # wall, so these lost the number they were using.
 STRIP_LEN = 1.0         # the beam's amber strips
 WALL_INSET = 0.15       # how far a wall-mounted fixture stands off its wall
 
@@ -99,14 +111,69 @@ HALF_W = STAGE_W / 2.0
 UPSTAGE_Y = STAGE_D / 2.0
 LIP_Y = -STAGE_D / 2.0
 FLOOR_Z = -STAGE_H
-BEAM_Z = BEAM_H + FLOOR_Z          # beam, expressed above the deck
+# Everything vertical is stated above the room floor and re-expressed
+# above the deck, which is where this venue's origin sits.
+BEAM_BOTTOM_Z = BEAM_BOTTOM + FLOOR_Z     # underside, above the deck
+BEAM_TOP_Z = BEAM_BOTTOM_Z + BEAM_DEPTH   # and its top, which is the ceiling
+BEAM_Z = BEAM_BOTTOM_Z + BEAM_DEPTH / 2.0  # centre, for the room record
+CEILING_Z = BEAM_TOP_Z
+ROOM_H = CEILING_Z - FLOOR_Z               # floor to ceiling
 HOUSE_BACK_Y = LIP_Y - HOUSE_D
 HOUSE_MID_Y = (LIP_Y + HOUSE_BACK_Y) / 2.0
+BEAM_Y = HOUSE_BACK_Y + BEAM_FROM_BACK
+# The audience wall's lights hang at the wall's own height, which is
+# measured from the room floor.
+FOH_Z = AUDIENCE_WALL_H + FLOOR_Z
+FOH_HIGH_Z = FOH_Z + 0.35               # the single centre par, on top
 POLE_Y = UPSTAGE_Y - POLE_Y_INSET
+
+# The mains stand on the room floor in front of the lip, on poles that
+# also carry the sizzle bars — so this is room geometry, not dressing.
+PA_X = ROOM_W / 2.0 - 0.55
+PA_Y = LIP_Y - 0.60
+PA_CAB_H = 0.95                       # the cabinet itself
+PA_TOP = ft(9, 0)                     # measured: top edge, above the DECK
+# The pole is measured from the room floor the tripod stands on, so it has
+# to make up the deck height as well as reach the cabinet's underside.
+PA_POLE_H = PA_TOP + STAGE_H - PA_CAB_H
 FIXTURE_Y = POLE_Y - FIXTURE_Y_INSET
 
 # Four poles, centred on the stage, 64" apart: a 16' overall span.
 POLE_X = [r(-1.5 * POLE_PITCH + i * POLE_PITCH) for i in range(4)]
+
+# The band, as the operator described it — and they described it from the
+# *audience's* side of the room ("back left corner", not "upstage right"),
+# so `left` here means house left, which is stage right, which is -X. The
+# palette below keeps the stage's own naming, because that is what a desk
+# says: the bass player at house left stands on `Vocal Stage Right`.
+#
+#         ┌──────────────── upstage wall ────────────────┐
+#         │  DRUMS          GUITAR           KEYS        │   back line
+#         │                                              │
+#         │  BASS           VOCAL                        │   front line
+#         └───────────── stage lip / house ──────────────┘
+#            house left        centre        house right
+#            (-X, stage R)                   (+X, stage L)
+VOCAL_Y = LIP_Y + 0.75      # the front line: just upstage of the lip
+BAND_Y = UPSTAGE_Y - 1.10   # the back line
+HEAD_Z = 1.55               # face height, standing on the deck
+OUTER_X = HALF_W * 0.68     # how far out the outer two players stand
+
+# The kit goes in the house-left back corner. Its centre sits half its own
+# depth off the upstage wall, and half its own width off the stage edge,
+# so the whole footprint lands on the deck rather than the middle of it
+# being at the corner.
+KIT_W, KIT_D, KIT_H = 1.926, 1.632, 1.206
+DRUM_X = -(HALF_W - KIT_W / 2.0 - 0.15)
+# Far enough off the wall to clear the light poles, which stand on the
+# deck at y = POLE_Y — a kit pushed flat against the back wall would have
+# pole 1 coming up through the floor tom.
+DRUM_Y = UPSTAGE_Y - KIT_D / 2.0 - 0.45
+
+GUITAR_X, GUITAR_Y = 0.0, BAND_Y          # back centre
+KEYS_X, KEYS_Y = OUTER_X, BAND_Y          # back, house right
+BASS_X, BASS_Y = -OUTER_X, VOCAL_Y        # front, house left
+LEAD_X, LEAD_Y = 0.0, VOCAL_Y             # front centre
 
 
 def spread(count, width, centre=0.0):
@@ -238,20 +305,118 @@ WALL_ADDR = {  # (pole 1-4, row 1-4 bottom-up) -> address
 # view is schematic, so it is trusted for order and not for position.
 MOVER_ADDR = {1: 433, 2: 411, 3: 400, 4: 422}
 
-CONSOLE_FIXTURES = {}
+# Named outright by the console, so no inference needed.
+NAMED = {
+    51: (362, 8, "ENDYSHOW LED Stage Light Bar PL-32M"),  # "Endy Show Pole L"
+    52: (370, 8, "ENDYSHOW LED Stage Light Bar PL-32M"),  # "Endyshow Pole R"
+    # Stage-ceiling beam, in POSX order (house left to right).
+    91: (8, 7, "Solena Professional Max Par 54 RGB"),    # side par
+    92: (115, 8, "LED MINI BEAM WH"),                    # pinspot
+    93: (131, 9, "MINI DERBY"),
+    94: (15, 7, "Solena Professional Max Par 54 RGB"),   # sign par
+    95: (22, 7, "Solena Professional Max Par 54 RGB"),   # sign par
+    96: (140, 9, "MINI DERBY"),
+    97: (123, 8, "LED MINI BEAM WH"),                    # pinspot
+    98: (29, 7, "Solena Professional Max Par 54 RGB"),   # side par
+    # The four ZKYMZL heads keep their own addresses when they come off
+    # the pole tops and go on the floor — it is the incoming U'King 150s
+    # that get new ones, so 400-433 travels with the old fixtures. Which
+    # unit lands where on the floor is arbitrary; this is address order.
+    # The beam's row of 8 fill pars: the "PARS" members the desk draws in
+    # one evenly-spaced line (POSY 200, POSX 380..660), in POSX order.
+    31: (43, 7, "Solena Professional Max Par 54 RGB"),
+    32: (1, 7, "Solena Professional Max Par 54 RGB"),
+    33: (50, 7, "Solena Professional Max Par 54 RGB"),
+    34: (57, 7, "Solena Professional Max Par 54 RGB"),
+    35: (64, 7, "Solena Professional Max Par 54 RGB"),
+    36: (71, 7, "Solena Professional Max Par 54 RGB"),
+    37: (78, 7, "Solena Professional Max Par 54 RGB"),
+    38: (36, 7, "Solena Professional Max Par 54 RGB"),
+
+    # The beam's 4 bars. The desk splits these across two groups by what
+    # they are *used* for rather than where they hang — "CURTAIN BARS"
+    # (Solena Max Bar) and "FLOOR BARS" (RockStrip) — which is exactly the
+    # "house lights floor lights etc" double duty. In POSX order they read
+    # 107, 390, 400, 666: two either side of the ball at the centre.
+    81: (100, 6, "Solena Max Bar 28 RGB"),
+    82: (92, 7, "RockStrip 252"),
+    83: (216, 7, "RockStrip 252"),
+    84: (106, 6, "Solena Max Bar 28 RGB"),
+
+    # The pinspot on the ball.
+    85: (85, 6, "RGBW Spot Light 6CH"),
+
+    # Audience wall. "REAR PARS" is two runs of four (desk POSX 260-380
+    # and 590-710); the two Solenas at POSX 295 and 660 land centred over
+    # each run, which is what puts them on top rather than on the bar.
+    41: (149, 7, "36 LED Par Can"),          # house-left bar, left to right
+    42: (156, 7, "36 LED Par Can"),
+    43: (163, 7, "36 LED Par Can"),
+    44: (170, 7, "36 LED Par Can"),
+    45: (209, 7, "Solena Professional Max Par 54 RGB"),   # centred above it
+    46: (198, 7, "36 LED Par Can"),          # house-right bar, left to right
+    47: (177, 7, "36 LED Par Can"),
+    48: (184, 7, "36 LED Par Can"),
+    49: (191, 7, "36 LED Par Can"),
+    50: (225, 7, "Solena Professional Max Par 54 RGB"),   # centred above it
+
+    71: (400, 11, "Mini Gobo Moving Head Light"),
+    72: (411, 11, "Mini Gobo Moving Head Light"),
+    73: (422, 11, "Mini Gobo Moving Head Light"),
+    74: (433, 11, "Mini Gobo Moving Head Light"),
+}
+
+CONSOLE_FIXTURES = dict(NAMED)
 for pole in range(1, 5):
     for row in range(1, 5):
         CONSOLE_FIXTURES[(pole - 1) * 4 + row] = (
             WALL_ADDR[(pole, row)], 7, "Solena Professional Max Par 54 RGB")
-    CONSOLE_FIXTURES[16 + pole] = (
-        MOVER_ADDR[pole], 11, "Mini Gobo Moving Head Light")
+    # The pole tops are being re-fitted with U'King 150W beams. Their
+    # addresses are not assigned yet, so they stay placeholders — the old
+    # 400-433 belongs to the ZKYMZLs, which are moving to the floor.
+    pass
 
 # Everything else this venue models still has no position->fixture link,
 # so it keeps a placeholder type and a placeholder address.
+# Footprints for every type the desk actually carries, read from the same
+# extract the addresses come from. A modelled fixture whose position is
+# still unknown can therefore reserve the right number of channels even
+# before it has an address.
+def _console_footprints():
+    path = (pathlib.Path(__file__).resolve().parent.parent
+            / "data" / "venues" / "riverside" / "console-show.json")
+    try:
+        show = json.loads(path.read_text())
+    except OSError:
+        return {}
+    return {p["profile"]: p["footprint"] for p in show.get("profiles", [])}
+
+
+CONSOLE_FOOTPRINTS = _console_footprints()
+
+
+def _console_occupied():
+    """Every DMX channel the desk's own patch uses."""
+    path = (pathlib.Path(__file__).resolve().parent.parent
+            / "data" / "venues" / "riverside" / "console-show.json")
+    try:
+        show = json.loads(path.read_text())
+    except OSError:
+        return []
+    return [range(f["address"], f["address"] + f["footprint"])
+            for f in show.get("fixtures", [])]
+
+
+CONSOLE_OCCUPIED = _console_occupied()
+
 PROVISIONAL_TYPES = {
     "Par": ("Uking", "Par", 7),
     "Moving Head": ("Betopper", "Beam Moving Head", 12),
     "Bar": ("Rockville", "Rockstrip 252 7ch", 7),
+    # Not in the showfile yet — the U'King 150s have not been patched. 16
+    # channels is this class of beam mover's usual footprint; it is a
+    # placeholder either way, and only reserves space.
+    "U'King 150W Moving Head Beam": ("U'King", "150W Moving Head Beam", 16),
 }
 
 
@@ -265,7 +430,15 @@ def provisional_patch(fixtures):
     """
     # Real entries first, so the placeholder allocator can route around
     # the addresses they really occupy.
+    # Addresses are only unique within a universe, so everything below
+    # tracks (universe, address) pairs. The console is a single universe;
+    # placeholders spill into the next one once it is full.
     real, taken = {}, set()
+    for entry in CONSOLE_OCCUPIED:
+        # Every channel the desk already uses, including the fixtures this
+        # model has not placed yet. A placeholder landing on one of those
+        # would silently drive a real fixture in the room.
+        taken.update((1, a) for a in entry)
     for chan, (addr, footprint, model) in CONSOLE_FIXTURES.items():
         real[chan] = {
             "chan": chan,
@@ -280,34 +453,45 @@ def provisional_patch(fixtures):
             "footprint": footprint,
             "source": "console-show.json",
         }
-        taken.update(range(addr, addr + footprint))
+        taken.update((1, a) for a in range(addr, addr + footprint))
 
-    patch, universe, next_addr = [], 1, 1
+    def allocate(footprint):
+        """First free run of `footprint` channels, in the lowest universe
+        that has room."""
+        universe = 1
+        while True:
+            for addr in range(1, 512 - footprint + 2):
+                if all((universe, a) not in taken
+                       for a in range(addr, addr + footprint)):
+                    taken.update((universe, a)
+                                 for a in range(addr, addr + footprint))
+                    return universe, addr
+            universe += 1
+
+    patch = []
     for f in fixtures:
         if f["chan"] in real:
             patch.append(real[f["chan"]])
             continue
-        maker, model, footprint = PROVISIONAL_TYPES[f["model"]]
-        # Skip over anything the console already uses, so a placeholder
-        # can never sit on top of a real fixture and drive it by accident.
-        while any(a in taken for a in range(next_addr, next_addr + footprint)):
-            next_addr += 1
-        if next_addr + footprint - 1 > 512:
-            universe += 1
-            next_addr = 1
+        if f["model"] in CONSOLE_FOOTPRINTS:
+            # A real fixture type, so its footprint is known even though
+            # its address is not — the placeholder reserves the right
+            # number of channels.
+            maker, model, footprint = "", f["model"], CONSOLE_FOOTPRINTS[f["model"]]
+        else:
+            maker, model, footprint = PROVISIONAL_TYPES[f["model"]]
+        universe, address = allocate(footprint)
         patch.append({
             "chan": f["chan"],
             "manufacturer": maker,
             "model": model,
             "patched": True,
             "universe": universe,
-            "address": next_addr,
+            "address": address,
             "footprint": footprint,
             "provisional": True,
             "notes": ["No position->fixture link yet. See README."],
         })
-        taken.update(range(next_addr, next_addr + footprint))
-        next_addr += footprint
     return patch
 
 
@@ -332,23 +516,29 @@ room = [
      "size": v3(ROOM_W, HOUSE_D, 0.0)},
     {"name": "Wall - Upstage",
      "position": v3(0, UPSTAGE_Y, FLOOR_Z), "eulers": v3(0, 0, 0),
-     "size": v3(ROOM_W, 0.0, BEAM_H)},
+     "size": v3(ROOM_W, 0.0, ROOM_H)},
     {"name": "Wall - House Back",
      "position": v3(0, HOUSE_BACK_Y, FLOOR_Z), "eulers": v3(0, 0, -180),
-     "size": v3(ROOM_W, 0.0, BEAM_H)},
+     "size": v3(ROOM_W, 0.0, ROOM_H)},
     {"name": "Wall - Stage Left",
      "position": v3(ROOM_W / 2.0, (UPSTAGE_Y + HOUSE_BACK_Y) / 2.0, FLOOR_Z),
      "eulers": v3(0, 0, 0),
-     "size": v3(0.0, UPSTAGE_Y - HOUSE_BACK_Y, BEAM_H)},
+     "size": v3(0.0, UPSTAGE_Y - HOUSE_BACK_Y, ROOM_H)},
     {"name": "Wall - Stage Right",
      "position": v3(-ROOM_W / 2.0, (UPSTAGE_Y + HOUSE_BACK_Y) / 2.0, FLOOR_Z),
      "eulers": v3(0, 0, -180),
-     "size": v3(0.0, UPSTAGE_Y - HOUSE_BACK_Y, BEAM_H)},
+     "size": v3(0.0, UPSTAGE_Y - HOUSE_BACK_Y, ROOM_H)},
+    # A 6'-deep downstand hanging across the room, not a truss.
     {"name": "Beam - House",
-     "position": v3(0, HOUSE_MID_Y, BEAM_Z), "eulers": v3(0, 0, 0),
-     "size": v3(ROOM_W, 0.3048, 0.3048)},
+     "position": v3(0, BEAM_Y, BEAM_Z), "eulers": v3(0, 0, 0),
+     "size": v3(ROOM_W, 0.4064, BEAM_DEPTH)},
+    # The second beam: same section and height as the house one, at the
+    # stage back wall.
+    {"name": "Beam - Stage",
+     "position": v3(0, UPSTAGE_Y - 0.30, BEAM_Z), "eulers": v3(0, 0, 0),
+     "size": v3(ROOM_W, 0.4064, BEAM_DEPTH)},
     {"name": "Ceiling",
-     "position": v3(0, (UPSTAGE_Y + HOUSE_BACK_Y) / 2.0, BEAM_Z + 0.1524),
+     "position": v3(0, (UPSTAGE_Y + HOUSE_BACK_Y) / 2.0, CEILING_Z),
      "eulers": v3(0, 0, 0),
      "size": v3(ROOM_W, UPSTAGE_Y - HOUSE_BACK_Y, 0.0)},
 ]
@@ -388,58 +578,177 @@ for c, x in enumerate(POLE_X, start=1):
     fixtures.append(fixture(
         16 + c, f"Pole {c} Mover",
         ["Luminaire_LED_Yoke_Spot", "Movers All", "Back Wall", f"Pole {c}"],
-        "Moving Head", (x, POLE_Y, MOVER_Z), None, MOVER_SIZE, 14.0,
+        "U'King 150W Moving Head Beam", (x, POLE_Y, MOVER_Z), None,
+        MOVER_SIZE, 8.0,
         hang=MOVER_HANG))
 
 # Three bars across the top of the back wall, aimed straight downstage.
 for i, x in enumerate(spread(3, STAGE_W * 2.0 / 3.0), start=1):
-    pos = (x, UPSTAGE_Y - 0.10, BACKWALL_H + BACKWALL_LIFT)
+    pos = (x, UPSTAGE_Y - 0.10, STAGE_BAR_H + BACKWALL_LIFT)
     fixtures.append(fixture(
         20 + i, f"Back Wall Bar {i}",
         ["Luminaire_LED_Bar", "Luminaire_LED_Wash", "Back Wall", "Bars"],
-        "Bar", pos, (x, LIP_Y, BACKWALL_H + BACKWALL_LIFT - 0.4),
+        "Bar", pos, (x, LIP_Y, STAGE_BAR_H + BACKWALL_LIFT - 0.4),
         (BAR_LEN, 0.09, 0.09), 40.0))
 
-# --- Beam (overhead, mid-house), chans 31-38 -------------------------
-# The row of pars along the house beam plus the two amber strips slung
-# under it — top light over the stage, and the only thing at Riverside
-# that can key the band from in front. Each par aims at the patch of
-# stage directly ahead of it, so the row covers the width.
-for i, x in enumerate(spread(BEAM_PAR_COUNT, ROOM_W * 0.8), start=1):
-    pos = (x, HOUSE_MID_Y, BEAM_Z - 0.25)
+# --- The house beam, chans 31-38 and 81-85 --------------------------
+# One beam only: a 6'-deep downstand hanging across the room, slightly
+# behind its middle. It carries a row of 8 pars pointing across at the
+# stage — the white "fill lights" — plus 4 bars split two either side of
+# the disco ball hanging at its centre, and a pinspot aimed at the ball.
+BEAM_RIG_Z = BEAM_BOTTOM_Z - 0.20       # hung just under the beam
+for i, x in enumerate(spread(BEAM_PAR_COUNT, ROOM_W * 0.86), start=1):
+    pos = (x, BEAM_Y, BEAM_RIG_Z)
     fixtures.append(fixture(
         30 + i, f"Beam Par {i}",
-        ["Luminaire_LED_Wash", "Beam", "Front Wash"],
-        "Par", pos, (x * (STAGE_W / (ROOM_W * 0.8)), 0.0, 1.5),
-        PAR_SIZE, 30.0))
+        ["Luminaire_LED_Wash", "Beam", "Fill"],
+        "Solena Professional Max Par 54 RGB",
+        # Fanned across the stage rather than converging: these are fill,
+        # so the row should cover the width evenly.
+        pos, (x * (STAGE_W / (ROOM_W * 0.86)), 0.0, 1.5), PAR_SIZE, 30.0))
 
-for i, x in enumerate(spread(BEAM_STRIP_COUNT, ROOM_W * 0.45), start=1):
-    pos = (x, HOUSE_MID_Y + 0.35, BEAM_Z - 0.30)
+# Two bars each side of the ball. `spread` over the full span would put
+# one at the centre, where the ball is, so the two sides are placed
+# separately.
+BEAM_BAR_X = ([r(-x) for x in spread(BEAM_BAR_COUNT // 2, 1.30, centre=1.85)]
+              + spread(BEAM_BAR_COUNT // 2, 1.30, centre=1.85))
+for i, x in enumerate(sorted(BEAM_BAR_X), start=1):
+    pos = (x, BEAM_Y + 0.30, BEAM_RIG_Z - 0.15)
     fixtures.append(fixture(
-        30 + BEAM_PAR_COUNT + i, f"Beam Strip {i}",
-        ["Luminaire_LED_Bar", "Luminaire_LED_Wash", "Beam", "Bars"],
-        "Bar", pos, (x, HOUSE_MID_Y + 0.35, 0.0),
+        80 + i, f"Beam Bar {i}",
+        ["Luminaire_LED_Bar", "Luminaire_LED_Wash", "Beam", "Bars", "House"],
+        "Solena Max Bar 28 RGB", pos, (x, BEAM_Y + 0.30, 0.0),
         (STRIP_LEN, 0.08, 0.08), 40.0))
+
+# The ball hangs at the beam's centre; the pinspot lives beside it and
+# points at it. The Czgor colour pinspots are a 2-pack but the desk
+# carries one RGBW Spot, so one is modelled.
+DISCO = (0.0, BEAM_Y, BEAM_RIG_Z - 0.55)
+fixtures.append(fixture(
+    85, "Ball Pinspot",
+    ["Luminaire_LED_Wash", "Beam", "Disco"],
+    "RGBW Spot Light 6CH",
+    (0.9, BEAM_Y + 0.15, BEAM_RIG_Z - 0.10), DISCO, (0.12, 0.12, 0.18), 8.0))
+
+# --- The PA poles, chans 51-52 --------------------------------------
+# "2 bar lights on the piles that lift up the studio speakers" — the
+# sizzle lights. The console names these itself: "Endy Show Pole L" and
+# "Endyshow Pole R", which is what pins them to this position rather than
+# to any of the other bars in the rig.
+#
+# Left aims at the kit, right at the keys player — house left and house
+# right, and the band happens to sit that way round, so the two agree.
+SIZZLE_Z = FLOOR_Z + 1.60
+# Named for what each one lights rather than for a side. The console calls
+# these "Endy Show Pole L" / "Endyshow Pole R" in HOUSE left/right, while
+# this model's props say "Stage Left" — opposite sides of the same room.
+# "Sizzle Drums" cannot be read two ways.
+for i, (side, target) in enumerate((
+    ("Drums", (DRUM_X, DRUM_Y, 1.10)),
+    ("Keys", (KEYS_X, KEYS_Y, HEAD_Z)),
+)):
+    x = -PA_X if side == "Drums" else PA_X
+    fixtures.append(fixture(
+        51 + i, f"Sizzle {side}",
+        ["Luminaire_LED_Bar", "Luminaire_LED_Wash", "PA Pole", "Sizzle"],
+        "ENDYSHOW LED Stage Light Bar PL-32M",
+        (x, PA_Y, SIZZLE_Z), target, (0.90, 0.08, 0.08), 40.0))
+
+# --- Stage-ceiling beam, chans 91-98 --------------------------------
+# A second beam, same section and height as the house one, at the stage
+# back wall. Its row reads outside-in on each side and mirrors about the
+# centre — and the desk's own layout agrees, fixture for fixture, in POSX
+# order: @8 side par, @115 pinspot, @131 derby, @15/@22 the two sign
+# pars, then @140, @123, @29 back out again.
+#
+# The outermost pair sit above the midpoints of back-wall bars 1 and 3,
+# which is what fixes the row's overall span.
+BEAM2_Y = UPSTAGE_Y - 0.30
+BEAM2_Z = BEAM_BOTTOM_Z - 0.20
+BEAM2_OUTER = STAGE_W / 3.0          # over the middle of bars 1 and 3
+# Four positions a side. The innermost pair are the two sign pars, which
+# sit either side of centre rather than on it — the sign is one object and
+# they light it from both sides.
+BEAM2_INNER = 0.25
+BEAM2_PITCH = (BEAM2_OUTER - BEAM2_INNER) / 3.0
+SIGN = (0.0, UPSTAGE_Y, 2.60)        # the Rockstars sign on the back wall
+
+BEAM2 = []
+for side in (-1, 1):
+    for slot, kind in enumerate(("Side Par", "Pinspot", "Derby", "Sign Par")):
+        BEAM2.append((side * (BEAM2_OUTER - slot * BEAM2_PITCH), side, kind))
+BEAM2.sort(key=lambda e: e[0])
+for i, (x, side, kind) in enumerate(BEAM2, start=1):
+    hand = "Left" if side < 0 else "Right"
+    if kind == "Side Par":
+        # Aimed across at the side wall it is nearest.
+        target, model, tags = ((side * ROOM_W / 2.0, BEAM2_Y, 1.80),
+                               "Solena Professional Max Par 54 RGB", ["Sides"])
+    elif kind == "Pinspot":
+        # Motorised, and pointed at the ball on the house beam.
+        target, model, tags = (DISCO, "LED MINI BEAM WH",
+                               ["Luminaire_LED_Yoke_Spot", "Pinspots", "Disco"])
+    elif kind == "Derby":
+        target, model, tags = ((x, LIP_Y, 0.0), "MINI DERBY", ["Derbys"])
+    else:
+        target, model, tags = (SIGN, "Solena Professional Max Par 54 RGB",
+                               ["Sign"])
+    fixtures.append(fixture(
+        90 + i, f"{kind} {hand}" if kind != "Sign Par" else f"Sign Par {hand}",
+        ["Luminaire_LED_Wash", "Stage Beam"] + tags,
+        model, (x, BEAM2_Y, BEAM2_Z), target,
+        (0.22, 0.22, 0.24) if kind in ("Derby", "Pinspot") else PAR_SIZE,
+        14.0 if kind == "Pinspot" else 30.0))
+
+# --- Floor movers, chans 71-74 --------------------------------------
+# The four ZKYMZL 30W gobo heads coming off the pole tops when the U'King
+# 150W beams replace them. A 12'-deep deck with this band on it has very
+# little clear floor: mapping it leaves a 34 cm strip against the back
+# wall between the poles, and the two downstage outer corners.
+#
+# Split rather than clustered — two upstage shooting up the back wall and
+# through the band, two downstage in the corners for audience beams and
+# front cross-light. Four in the back strip would all be hidden behind the
+# band and unreachable behind the kit.
+FLOOR_MOVERS = [
+    (-1.63, POLE_Y + 0.02, "Upstage Left"),
+    (1.63, POLE_Y + 0.02, "Upstage Right"),
+    (-2.70, LIP_Y + 0.38, "Downstage Left"),
+    (2.70, LIP_Y + 0.38, "Downstage Right"),
+]
+for i, (x, y, where) in enumerate(FLOOR_MOVERS):
+    fixtures.append(fixture(
+        71 + i, f"Floor Mover {where}",
+        ["Luminaire_LED_Yoke_Spot", "Movers All", "Floor Movers"],
+        "Mini Gobo Moving Head Light", (x, y, 0.17), None,
+        MOVER_SIZE, 14.0, hang=MOVER_HANG))
 
 # --- Front of house (back-of-room wall), chans 41-49 -----------------
 # Two brackets flanking the arch, plus the one par mounted above the
 # house-right bracket. These are the front light on faces.
 FOH_Y = HOUSE_BACK_Y + WALL_INSET
+# Ten pars, five a side, mirrored: four on a horizontal bar with a fifth
+# centred above it. Numbered house left to house right, bar first then the
+# one on top, so each side is a contiguous block of five.
+FOH_GROUP_X = 1.95          # centre of each bar
+FOH_PITCH = 0.55            # par to par along a bar
 foh = []
-for x in spread(FOH_LEFT_COUNT, 0.55 * (FOH_LEFT_COUNT - 1), centre=-1.9):
-    foh.append((x, FOH_Z))
-for x in spread(FOH_RIGHT_COUNT, 0.55 * (FOH_RIGHT_COUNT - 1), centre=1.9):
-    foh.append((x, FOH_Z))
-for x in spread(FOH_HIGH_COUNT, 0.55, centre=1.9):
-    foh.append((x, FOH_HIGH_Z))
-for i, (x, z) in enumerate(foh, start=1):
+for centre in (-FOH_GROUP_X, FOH_GROUP_X):
+    for x in spread(FOH_SIDE_COUNT, FOH_PITCH * (FOH_SIDE_COUNT - 1), centre=centre):
+        foh.append((x, FOH_Z, "bar"))
+    foh.append((centre, FOH_HIGH_Z, "top"))
+for i, (x, z, kind) in enumerate(foh, start=1):
     pos = (x, FOH_Y, z)
-    # Aimed at the downstage third of the stage, fanned across its width
-    # — front light wants the faces, not the back wall.
+    # "Colour washes spread evenly across the stage" — each one takes its
+    # own share of the width rather than all converging on centre.
     fixtures.append(fixture(
         40 + i, f"FOH Par {i}",
-        ["Luminaire_LED_Wash", "FOH", "Front Wash", "Key"],
-        "Par", pos, (x * 0.5, LIP_Y + 0.8, 1.55), PAR_SIZE, 30.0))
+        ["Luminaire_LED_Wash", "FOH", "Front Wash", "Key",
+         "FOH Top" if kind == "top" else "FOH Bar"],
+        # The bars are the U'King 36-LED cans the desk groups as "REAR
+        # PARS"; the two on top are Solenas.
+        "36 LED Par Can" if kind == "bar" else "Solena Professional Max Par 54 RGB",
+        pos, (x * 0.55, LIP_Y + 0.8, 1.55), PAR_SIZE, 30.0))
 
 # =====================================================================
 # Groups — the selections this rig is actually programmed against.
@@ -453,7 +762,7 @@ def group(label, channels):
 
 
 BEAM_PAR_CH = [30 + i for i in range(1, BEAM_PAR_COUNT + 1)]
-BEAM_STRIP_CH = [30 + BEAM_PAR_COUNT + i for i in range(1, BEAM_STRIP_COUNT + 1)]
+BEAM_BAR_CH = [80 + i for i in range(1, BEAM_BAR_COUNT + 1)]
 FOH_CH = [40 + i for i in range(1, len(foh) + 1)]
 
 
@@ -470,16 +779,26 @@ group("Movers", ["17-20"])
 group("Back Wall Bars", ["21-23"])
 group("Back Wall All", ["1-23"])
 group("Beam Pars", rng(BEAM_PAR_CH))
-group("Beam Strips", rng(BEAM_STRIP_CH))
-group("Beam All", rng(BEAM_PAR_CH + BEAM_STRIP_CH))
+group("Beam Bars", rng(BEAM_BAR_CH))
+group("Beam All", rng(BEAM_PAR_CH) + rng(BEAM_BAR_CH))
 group("FOH Pars", rng(FOH_CH))
+group("FOH Bars", ["41-44", "46-49"])
+group("FOH Tops", [45, 50])
 # The two layers the profile's Key/Wash roles bind to. Front Wash is
 # everything that lights the band from in front of them; Strips All is
 # every linear fixture in the room regardless of position, which is what
 # a charted hit wants.
 group("Front Wash", rng(FOH_CH) + rng(BEAM_PAR_CH))
-group("Strips All", ["21-23"] + rng(BEAM_STRIP_CH))
+group("Strips All", ["21-23"] + rng(BEAM_BAR_CH) + ["51-52"])
 group("Pars All", ["1-16"] + rng(BEAM_PAR_CH) + rng(FOH_CH))
+group("Sizzle", ["51-52"])
+group("Stage Beam", ["91-98"])
+group("Side Pars", [91, 98])
+group("Pinspots", [92, 97])
+group("Derbys", [93, 96])
+group("Sign Pars", [94, 95])
+group("Floor Movers", ["71-74"])
+group("Movers All", ["17-20", "71-74"])
 
 # =====================================================================
 # Palettes — the room's focus points. Colours are deliberately NOT
@@ -487,40 +806,6 @@ group("Pars All", ["1-16"] + rng(BEAM_PAR_CH) + rng(FOH_CH))
 # Riverside means the same thing by "Deep Blue" as every other room
 # until it has a reason not to.
 # =====================================================================
-# The band, as the operator described it — and they described it from the
-# *audience's* side of the room ("back left corner", not "upstage right"),
-# so `left` here means house left, which is stage right, which is -X. The
-# palette below keeps the stage's own naming, because that is what a desk
-# says: the bass player at house left stands on `Vocal Stage Right`.
-#
-#         ┌──────────────── upstage wall ────────────────┐
-#         │  DRUMS          GUITAR           KEYS        │   back line
-#         │                                              │
-#         │  BASS           VOCAL                        │   front line
-#         └───────────── stage lip / house ──────────────┘
-#            house left        centre        house right
-#            (-X, stage R)                   (+X, stage L)
-VOCAL_Y = LIP_Y + 0.75      # the front line: just upstage of the lip
-BAND_Y = UPSTAGE_Y - 1.10   # the back line
-HEAD_Z = 1.55               # face height, standing on the deck
-OUTER_X = HALF_W * 0.68     # how far out the outer two players stand
-
-# The kit goes in the house-left back corner. Its centre sits half its own
-# depth off the upstage wall, and half its own width off the stage edge,
-# so the whole footprint lands on the deck rather than the middle of it
-# being at the corner.
-KIT_W, KIT_D, KIT_H = 1.926, 1.632, 1.206
-DRUM_X = -(HALF_W - KIT_W / 2.0 - 0.15)
-# Far enough off the wall to clear the light poles, which stand on the
-# deck at y = POLE_Y — a kit pushed flat against the back wall would have
-# pole 1 coming up through the floor tom.
-DRUM_Y = UPSTAGE_Y - KIT_D / 2.0 - 0.45
-
-GUITAR_X, GUITAR_Y = 0.0, BAND_Y          # back centre
-KEYS_X, KEYS_Y = OUTER_X, BAND_Y          # back, house right
-BASS_X, BASS_Y = -OUTER_X, VOCAL_Y        # front, house left
-LEAD_X, LEAD_Y = 0.0, VOCAL_Y             # front centre
-
 focus = [
     # The blocking grid, in the stage's own naming.
     ("Vocal Centre",      (LEAD_X, LEAD_Y, HEAD_Z)),
@@ -639,10 +924,8 @@ prop("Mic - Keys", (KEYS_X + 0.62, KEYS_Y - 0.05, 0.0), BOOM_MIC)
 #
 # Being off the deck, they can also sit wider than the stage is: the room
 # is 21' across where the stage is 19' 8".
-PA_X = ROOM_W / 2.0 - 0.55
-PA_Y = LIP_Y - 0.60
-prop("PA Speaker Stage Left", (PA_X, PA_Y, FLOOR_Z), (0.45, 0.50, 0.95))
-prop("PA Speaker Stage Right", (-PA_X, PA_Y, FLOOR_Z), (0.45, 0.50, 0.95))
+prop("PA Speaker Stage Left", (PA_X, PA_Y, FLOOR_Z), (0.45, 0.50, PA_CAB_H))
+prop("PA Speaker Stage Right", (-PA_X, PA_Y, FLOOR_Z), (0.45, 0.50, PA_CAB_H))
 
 # Wedges along the front of the deck, one per front-line position plus the
 # two back-line players who need one. Angled up at the band, which is what
@@ -654,7 +937,8 @@ for _n, _x, _y in (("Vocal", LEAD_X, LIP_Y + 0.30),
                    ("Guitar", GUITAR_X, GUITAR_Y - 0.85),
                    ("Keys", KEYS_X, KEYS_Y - 0.95)):
     prop(f"Monitor - {_n}", (_x, _y, 0.0), (0.62, 0.38, 0.33), eulers=(0, 0, 180))
-prop("Disco Ball", (0.0, HOUSE_MID_Y, BEAM_Z - 0.70), (0.40, 0.40, 0.40))
+# Hung under the beam's underside, not inside it — the beam is 6' deep.
+prop("Disco Ball", (DISCO[0], DISCO[1], DISCO[2]), (0.40, 0.40, 0.40))
 prop("Arch Neon", (0.0, HOUSE_BACK_Y + 0.06, ARCH_H / 2.0), (ARCH_W, 0.04, ARCH_H))
 
 # =====================================================================
@@ -691,7 +975,9 @@ write("props.json", props)
 write("screens.json", [])
 print(f"\nstage {r(STAGE_W)} x {r(STAGE_D)} m, deck {r(STAGE_H)} m up, "
       f"house {r(HOUSE_D)} m deep, beam {r(BEAM_Z)} m above deck")
-print(f"chans: back wall 1-23, beam {BEAM_PAR_CH[0]}-{BEAM_STRIP_CH[-1]}, "
-      f"FOH {FOH_CH[0]}-{FOH_CH[-1]}  ({len(fixtures)} fixtures)")
+print(f"chans: back wall 1-23, beam pars {BEAM_PAR_CH[0]}-{BEAM_PAR_CH[-1]}, "
+      f"beam bars {BEAM_BAR_CH[0]}-{BEAM_BAR_CH[-1]}, ball 85, "
+      f"FOH {FOH_CH[0]}-{FOH_CH[-1]}, sizzle 51-52, derbys 61-62, "
+      f"floor movers 71-74  ({len(fixtures)} fixtures)")
 print(f"patch: {matched}/{len(fixtures)} addressed from {origin}"
       + ("  <-- PROVISIONAL" if any(e.get("provisional") for e in patch) else ""))

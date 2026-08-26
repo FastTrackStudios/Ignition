@@ -26,6 +26,7 @@ pub use draft::{Edits, merge, reposition, reposition_from_sidecar};
 
 pub mod chart;
 pub mod generate;
+pub mod lint;
 pub mod mib;
 pub use mib::{set_class_timing, set_mib};
 pub mod hits;

@@ -18,7 +18,9 @@
 //! fixtures; the profile supplies the programming.
 
 use crate::preset::ColorPreset;
-use crate::recipe::Recipe;
+use crate::programmer::{AttrFilter, Fader};
+use crate::recipe::{Recipe, RecipeRef, Show};
+use crate::step::Speed;
 use crate::tricks::Trick;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -151,6 +153,197 @@ pub struct Profile {
     // r[impl effects.bundle] - the profile ships the bundles beside the library
     #[serde(default)]
     pub bundles: BTreeMap<String, Bundle>,
+    /// Named static scenes against roles — what a key holds, a macro
+    /// takes, a fader carries. See [`Look`].
+    // r[impl profile.looks]
+    #[serde(default)]
+    pub looks: BTreeMap<String, Look>,
+    /// Named step lists the programmer runs with timing. See [`Macro`].
+    // r[impl profile.macros]
+    #[serde(default)]
+    pub macros: BTreeMap<String, Macro>,
+    /// The fader bank, page by page, as data. See [`Page`].
+    // r[impl profile.pages]
+    #[serde(default)]
+    pub pages: Vec<Page>,
+    /// Roles a blackout, a drop, a black key and the grand master never
+    /// touch — house lights.
+    // r[impl profile.protected-roles]
+    #[serde(default)]
+    pub protected: Vec<String>,
+    /// The speed a fader runs an effect of each family at, when the
+    /// fader does not say — keyed by `effects::FAMILIES`.
+    // r[impl profile.speed-routing]
+    #[serde(default)]
+    pub speed_routing: BTreeMap<String, Speed>,
+}
+
+/// What a look is for. Not decoration: `Safe` is the kind protected
+/// roles survive, and `Punt` is the one a key holds through trouble.
+// r[impl profile.looks]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum LookKind {
+    /// What sits under a verse.
+    #[default]
+    Bed,
+    /// A chorus.
+    Full,
+    /// Faces lit, nothing moving — the state a stage drops into.
+    Punt,
+    /// A blackout or near it. Protected roles pass through.
+    Safe,
+}
+
+/// A named static scene: recipes against roles, no fade, no list.
+// r[impl profile.looks]
+// r[impl profile.looks.static]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct Look {
+    #[serde(default)]
+    pub kind: LookKind,
+    #[serde(default)]
+    pub about: String,
+    /// Library effects, bundles or inline recipes, resolved through the
+    /// show the way a cue resolves them.
+    #[serde(default)]
+    pub recipes: Vec<RecipeRef>,
+}
+
+/// One step of a macro. The verbs an operator's two hands would do,
+/// written down.
+// r[impl profile.macros]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum MacroStep {
+    /// Hold a look by name.
+    Look(String),
+    /// Move a fader on the current page.
+    Fader { index: usize, level: f32 },
+    /// Fire a library effect by name at a level, on the macro layer.
+    Effect { name: String, level: f32 },
+    /// Flash a role. `kind` is a bump label — `bump`, `white`, `boost`,
+    /// `burst` — as `bump::Kind::label` spells it.
+    Flash { role: String, kind: String },
+    /// Wait this many beats of the `Song` master.
+    // r[impl profile.macros.beats]
+    Wait { beats: f32 },
+    /// Let go of everything the macro took.
+    // r[impl profile.macros.release]
+    Release,
+    /// Every intensity to zero, protected roles aside.
+    Blackout,
+    /// DMX output on or off — a request the host carries out.
+    Output(bool),
+}
+
+/// A named list of steps, run with timing.
+// r[impl profile.macros]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct Macro {
+    #[serde(default)]
+    pub about: String,
+    #[serde(default)]
+    pub steps: Vec<MacroStep>,
+}
+
+/// What a page fader plays.
+// r[impl profile.pages]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub enum FaderSource {
+    /// An unassigned slot.
+    #[default]
+    None,
+    /// A library effect by name.
+    Effect(String),
+    /// Every effect in a bundle, at one level.
+    Bundle(String),
+    /// A look by name.
+    Look(String),
+    /// A role's intensity master — the fader's level is the master.
+    Master(String),
+    /// A recipe written in place — a level and a colour on a role, a
+    /// band-driven value.
+    Inline(Recipe),
+}
+
+/// An effect parameter a fader exposes beside its level.
+// r[impl profile.effect-parameters]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Param {
+    /// `depth`, `bars` or `duty` — see `programmer::Fader::params`.
+    pub name: String,
+    pub min: f32,
+    pub max: f32,
+    pub default: f32,
+}
+
+impl Param {
+    pub fn new(name: &str, min: f32, max: f32, default: f32) -> Self {
+        Self {
+            name: name.into(),
+            min,
+            max,
+            default,
+        }
+    }
+}
+
+/// One fader of a page, as data.
+// r[impl profile.pages]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct FaderSpec {
+    /// Eight characters or fewer — see `r[profile.pages.label-fits]`.
+    pub label: String,
+    #[serde(default)]
+    pub source: FaderSource,
+    // r[impl profile.attribute-filter]
+    #[serde(default)]
+    pub filter: AttrFilter,
+    /// `None` routes by the effect's family — `r[profile.speed-routing]`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speed: Option<Speed>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<Param>,
+}
+
+impl FaderSpec {
+    pub fn new(label: &str, source: FaderSource) -> Self {
+        Self {
+            label: label.into(),
+            source,
+            ..Default::default()
+        }
+    }
+
+    pub fn at(mut self, speed: Speed) -> Self {
+        self.speed = Some(speed);
+        self
+    }
+
+    pub fn filtered(mut self, filter: AttrFilter) -> Self {
+        self.filter = filter;
+        self
+    }
+
+    pub fn with(mut self, param: Param) -> Self {
+        self.params.push(param);
+        self
+    }
+}
+
+/// A page of the fader bank.
+// r[impl profile.pages]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct Page {
+    pub name: String,
+    pub faders: [FaderSpec; crate::programmer::FADERS],
+}
+
+/// The bump kind a macro's `Flash` names, by label.
+pub fn bump_kind(label: &str) -> Option<crate::bump::Kind> {
+    use crate::bump::Kind;
+    [Kind::Level, Kind::White, Kind::ColorBoost, Kind::Burst]
+        .into_iter()
+        .find(|k| k.label().eq_ignore_ascii_case(label))
 }
 
 /// Several library effects taken as one: "pan sweeps every two bars,
@@ -473,6 +666,112 @@ impl Profile {
         out.dedup();
         out
     }
+
+    // ── busking programming ──────────────────────────────────────────
+
+    /// The family a library effect belongs to, from its note.
+    pub fn family_of(&self, effect: &str) -> Option<&str> {
+        self.effect_notes.get(effect).map(|n| n.family.as_str())
+    }
+
+    /// The speed a fader runs an effect at: its own where declared,
+    /// otherwise the family's routing, otherwise the `Song` master.
+    // r[impl profile.speed-routing] - the fader's own speed wins; the family routes the rest
+    pub fn speed_for(&self, spec: &FaderSpec, effect: Option<&str>) -> Speed {
+        if let Some(speed) = &spec.speed {
+            return speed.clone();
+        }
+        effect
+            .and_then(|name| self.family_of(name))
+            .and_then(|family| self.speed_routing.get(family))
+            .cloned()
+            .unwrap_or(Speed::Master("Song".into()))
+    }
+
+    /// A look's recipes, resolved through `show` — the library it
+    /// carries is where a `Named` reference lands.
+    // r[impl profile.looks] - resolved like a cue resolves any reference
+    pub fn look_recipes(&self, name: &str, show: &Show<'_>) -> Vec<Recipe> {
+        self.looks
+            .get(name)
+            .map(|look| look.recipes.iter().flat_map(|r| r.resolve(show)).collect())
+            .unwrap_or_default()
+    }
+
+    /// Whether a role is protected — case-insensitive, like every role
+    /// lookup.
+    // r[impl profile.protected-roles]
+    pub fn is_protected(&self, role: &str) -> bool {
+        self.protected.iter().any(|p| p.eq_ignore_ascii_case(role))
+    }
+
+    /// A page fader as the programmer plays it. A source the show
+    /// cannot resolve — an effect the library lacks, an unknown look —
+    /// is an assigned fader with nothing on it, which the surface still
+    /// labels, so the gap is visible at the desk rather than silent.
+    // r[impl profile.pages] - the bank is built from data
+    // r[impl profile.effect-parameters] - the declared defaults seed the fader's params
+    pub fn resolve_fader(&self, spec: &FaderSpec, show: &Show<'_>) -> Fader {
+        let mut fader = Fader {
+            name: spec.label.clone(),
+            filter: spec.filter.clone(),
+            ..Default::default()
+        };
+        for param in &spec.params {
+            fader.params.insert(param.name.clone(), param.default);
+        }
+        let mut recipes: Vec<Recipe> = match &spec.source {
+            FaderSource::None => Vec::new(),
+            FaderSource::Effect(name) => {
+                let speed = self.speed_for(spec, Some(name));
+                RecipeRef::named(name)
+                    .resolve(show)
+                    .into_iter()
+                    .map(|mut r| {
+                        r.timing.speed = speed.clone();
+                        r
+                    })
+                    .collect()
+            }
+            FaderSource::Bundle(name) => {
+                let members: Vec<String> = self
+                    .bundles
+                    .get(name)
+                    .map(|b| b.recipes.clone())
+                    .unwrap_or_default();
+                members
+                    .iter()
+                    .flat_map(|member| {
+                        let speed = self.speed_for(spec, Some(member));
+                        RecipeRef::named(member)
+                            .resolve(show)
+                            .into_iter()
+                            .map(move |mut r| {
+                                r.timing.speed = speed.clone();
+                                r
+                            })
+                    })
+                    .collect()
+            }
+            FaderSource::Look(name) => self.look_recipes(name, show),
+            FaderSource::Master(role) => {
+                fader.master = Some(role.clone());
+                Vec::new()
+            }
+            FaderSource::Inline(recipe) => {
+                let mut r = recipe.clone();
+                if let Some(speed) = &spec.speed {
+                    r.timing.speed = speed.clone();
+                }
+                vec![r]
+            }
+        };
+        if !recipes.is_empty() {
+            fader.recipe = Some(recipes.remove(0));
+            fader.also = recipes;
+        }
+        fader
+    }
 }
 
 #[cfg(test)]
@@ -777,5 +1076,72 @@ mod tests {
         .unwrap();
         assert_ne!(a.name, b.name);
         assert!(b.required(RoleKind::Group) == vec!["Pulpit"]);
+    }
+
+    /// r[verify profile.protected-roles]
+    #[test]
+    fn the_default_profile_protects_the_house_lights_as_an_optional_role() {
+        let p = default_profile();
+        let r = role(&p, "House Lights", RoleKind::Group).expect("House Lights");
+        assert!(
+            !r.required,
+            "a room without house lights on the desk is still a room"
+        );
+        assert!(p.is_protected("House Lights"));
+        assert!(p.is_protected("house lights"));
+        assert!(!p.is_protected("Key"));
+        // Every protected role is one the profile declares.
+        for name in &p.protected {
+            assert!(
+                role(&p, name, RoleKind::Group).is_some(),
+                "{name} is declared"
+            );
+        }
+    }
+
+    /// The busking programming ships in the file, baked from
+    /// `macros::shipped`, and the file agrees with the code.
+    /// r[verify profile.looks]
+    /// r[verify profile.macros]
+    /// r[verify profile.pages]
+    /// r[verify profile.speed-routing]
+    #[test]
+    fn the_default_profile_ships_the_busking_programming() {
+        let p = default_profile();
+        let shipped = crate::macros::shipped();
+        assert_eq!(p.looks, shipped.looks);
+        assert_eq!(p.macros, shipped.macros);
+        assert_eq!(p.pages, shipped.pages);
+        assert_eq!(p.protected, shipped.protected);
+        assert_eq!(p.speed_routing, shipped.speed_routing);
+        for name in ["verse bed", "chorus full", "punt", "blackout"] {
+            assert!(p.looks.contains_key(name), "look {name}");
+        }
+        for name in ["drop", "build 8", "breakdown", "end"] {
+            assert!(p.macros.contains_key(name), "macro {name}");
+        }
+        assert_eq!(p.pages.len(), 4);
+        // Every effect a page or a look or a macro names is in the file's library.
+        let show = Show {
+            library: &p.effects,
+            bundles: &p.bundles,
+            ..Show::new(&[], &crate::selection::EMPTY_RIG)
+        };
+        for page in &p.pages {
+            for spec in &page.faders {
+                if let FaderSource::Effect(name) = &spec.source {
+                    assert!(p.effects.contains_key(name), "{}: {name}", spec.label);
+                }
+            }
+        }
+        for (name, look) in &p.looks {
+            for r in &look.recipes {
+                assert!(
+                    r.missing(&show).is_empty(),
+                    "look {name}: {:?}",
+                    r.missing(&show)
+                );
+            }
+        }
     }
 }

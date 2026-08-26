@@ -764,6 +764,19 @@ impl Used {
                     self.selection(cue, t);
                 }
             }
+            // r[impl profile.looks] - a look the profile lacks is an unknown name; a known one is walked
+            RecipeRef::Look { look } => match profile.looks.get(look) {
+                None => self.cue(cue, Finding::UnknownEffect { name: look.clone() }),
+                Some(l) => {
+                    for r in l
+                        .recipes
+                        .iter()
+                        .filter(|r| !matches!(r, RecipeRef::Look { .. }))
+                    {
+                        self.recipe_ref(cue, profile, r);
+                    }
+                }
+            },
         }
     }
 }

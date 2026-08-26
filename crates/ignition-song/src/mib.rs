@@ -24,7 +24,7 @@ const MIB_FADE_BEATS: f32 = 2.0;
 /// A fan over `movers_lr()` and an aim at `movers()` are the same
 /// fixtures under different orderings, so the pass keys on the leaves
 /// rather than on the whole selection.
-fn leaves(selection: &Selection, out: &mut Vec<String>) {
+pub(crate) fn leaves(selection: &Selection, out: &mut Vec<String>) {
     match selection {
         Selection::Group(n) | Selection::Role(n) | Selection::Tag(n) | Selection::Model(n) => {
             out.push(n.clone())

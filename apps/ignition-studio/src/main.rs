@@ -368,6 +368,12 @@ fn app(surface: Surface) -> Element {
     // Load every page of the bank once. They queue in the channel until
     // the visualizer exists to drain them, so this does not have to wait
     // for the widget to be built.
+    // The whole resolved fader goes — filter, parameters, the further
+    // recipes of a bundle or look, a role master — not just its first
+    // recipe, so what the page declared is what the engine plays.
+    // r[impl profile.pages] - the bank is the profile's pages, whole
+    // r[impl profile.attribute-filter] - the filter reaches the engine
+    // r[impl profile.effect-parameters] - and the params, at their defaults
     use_hook(|| {
         for (page, bank) in faders::bank_pages().into_iter().enumerate() {
             for (index, spec) in bank.into_iter().enumerate() {
@@ -375,10 +381,8 @@ fn app(surface: Surface) -> Element {
                     page,
                     index,
                     fader: Box::new(ignition_core::Fader {
-                        name: spec.name.to_string(),
-                        recipe: Some(spec.recipe),
                         level: 0.0,
-                        ..Default::default()
+                        ..spec.fader
                     }),
                 });
             }
@@ -804,8 +808,12 @@ fn Busking(surface: Surface) -> Element {
     // keys under each fader: a hand learns one key per fader, and the
     // mode is a decision made before the song, not during it.
     let mut key_mode = use_signal(|| ignition_core::KeyAction::Flash);
+    // Which profile look is latched on the held layer, if any — so the
+    // key that took it is drawn lit, and pressing it again lets go.
+    let mut look_on: Signal<Option<String>> = use_signal(|| None);
     let desk = use_desk();
     let pages = faders::bank_pages();
+    let page_names = faders::page_names();
 
     rsx! {
         section { class: "surface",
@@ -1015,7 +1023,11 @@ fn Busking(surface: Surface) -> Element {
                     // drawn latched — until it is brought back to match.
                     div { class: "pages",
                         button { class: "page-btn", onclick: move |_| send(Command::Page(PageMove::Prev)), "◀" }
-                        span { class: "page-num", "page {desk().page + 1} / {desk().pages}" }
+                        // The page's own name from the profile, beside
+                        // its number — a hand turning to "colour" reads
+                        // the word, not the digit.
+                        // r[impl profile.pages] - the page is named at the desk
+                        span { class: "page-num", "page {desk().page + 1} / {desk().pages} · {page_names.get(desk().page).cloned().unwrap_or_default()}" }
                         button { class: "page-btn", onclick: move |_| send(Command::Page(PageMove::Next)), "▶" }
                     }
                     // Key mode for the row.
@@ -1051,6 +1063,7 @@ fn Busking(surface: Surface) -> Element {
                             let spec = &page[i];
                             let latched = desk().latched[i];
                             let toggled = desk().toggled[i];
+                            let params = spec.params.clone();
                             rsx! {
                                 div { class: "fader-slot", key: "{i}",
                                     Fader {
@@ -1059,6 +1072,34 @@ fn Busking(surface: Surface) -> Element {
                                         initial: 0.0,
                                         latched,
                                         on_change: move |v: f32| send(Command::Level(i, v)),
+                                    }
+                                    // The effect parameters the page
+                                    // declared for this fader — depth,
+                                    // bars, duty — one thin slider each,
+                                    // mapped over the declared range and
+                                    // opening at the default.
+                                    // r[impl profile.effect-parameters] - the second control beside the level
+                                    for param in params.iter() {
+                                        {
+                                            let name = param.name.clone();
+                                            let label = name.clone();
+                                            let (min, max) = (param.min, param.max);
+                                            let span = (max - min).max(f32::EPSILON);
+                                            let initial = ((param.default - min) / span).clamp(0.0, 1.0);
+                                            rsx! {
+                                                div { class: "param", key: "{i}-{label}", title: "{label}",
+                                                    span { class: "param-name", "{label}" }
+                                                    HSlider {
+                                                        initial,
+                                                        on_change: move |v: f32| send(Command::Param {
+                                                            index: i,
+                                                            name: name.clone(),
+                                                            value: min + v * span,
+                                                        }),
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                     // The playback key under the fader.
                                     // Held modes send the release; toggle
@@ -1107,6 +1148,40 @@ fn Busking(surface: Surface) -> Element {
                                         "{key.label}"
                                     }
                                 },
+                            }
+                        }
+                    }
+                    // Macro keys and look keys. A macro is the two-key
+                    // move written down — one press runs the drop, the
+                    // build, the breakdown, the end, on the song's
+                    // beats. A look is a place to *be*: pressed once it
+                    // latches on the held layer, pressed again it lets
+                    // go, and another look replaces it.
+                    // r[impl playback.macro-runner] - MACRO keys
+                    // r[impl playback.look-hold] - LOOK keys
+                    div { class: "flashes macros",
+                        for key in faders::macro_keys() {
+                            button {
+                                key: "macro-{key.label}",
+                                class: "flash",
+                                onclick: move |_| send(Command::Macro(key.name.to_string())),
+                                "{key.label}"
+                            }
+                        }
+                        for key in faders::look_keys() {
+                            button {
+                                key: "look-{key.label}",
+                                class: if look_on().as_deref() == Some(key.name) { "flash hold punt" } else { "flash hold" },
+                                onclick: move |_| {
+                                    let next = if look_on().as_deref() == Some(key.name) {
+                                        None
+                                    } else {
+                                        Some(key.name.to_string())
+                                    };
+                                    look_on.set(next.clone());
+                                    send(Command::Look(next));
+                                },
+                                "{key.label}"
                             }
                         }
                     }
