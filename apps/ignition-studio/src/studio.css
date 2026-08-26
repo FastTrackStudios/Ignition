@@ -125,3 +125,67 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .fader-value { font-size: 11px; color: #d6d6e0; }
 /* The master sits apart so it does not read as a ninth fader. */
 .master { margin-left: 12px; padding-left: 12px; border-left: 1px solid #2c2c36; }
+
+/* Solo. Deliberately loud when engaged: a solo left on by accident is
+   the kind of mistake that survives a whole song, and a control that
+   looks the same either way is how that happens. */
+.groups header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.groups .solo {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.66);
+  background: #232330;
+  border: 1px solid #33333f;
+}
+.groups .solo:hover { background: #2b2b3a; }
+
+/* Flash keys. Wide and short — a flash is hit with the side of a hand
+   under pressure, not clicked precisely, so the target is generous even
+   though the control is momentary. */
+.flashes { display: flex; flex-direction: column; gap: 6px; padding: 0 8px; justify-content: center; }
+.flashes .flash {
+  width: 74px;
+  padding: 9px 0;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  border-radius: 5px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.8);
+  background: #2a2733;
+  border: 1px solid #3a3546;
+}
+.flashes .flash:hover { background: #363042; border-color: #4a4358; }
+.flashes .flash:active { background: #d8d0e8; color: #14121a; }
+
+/* Role masters, beside the effect controls. Same fader shape as the
+   rest — a master and an effect fader feel identical under a hand, and
+   what they do differently is the label's job, not the geometry's. */
+.masters { display: flex; gap: 6px; padding: 0 6px; }
+
+/* Transport, across the top of the visualizer.
+   Above the picture rather than beside the cue list, because that is
+   where the eye already is: an operator watching the rig should not have
+   to look away to see where the song is. */
+.transport-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: #16161d;
+  border-bottom: 1px solid #26262f;
+  flex: 0 0 auto;
+}
+.transport-bar .t-btn {
+  width: 30px;
+  height: 26px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.78);
+  background: #23232e;
+  border: 1px solid #33333f;
+}
+.transport-bar .t-btn:hover { background: #2c2c3a; }

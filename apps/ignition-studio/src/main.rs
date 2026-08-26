@@ -311,6 +311,12 @@ fn app(surface: Surface) -> Element {
         // that turned out not to render would take the entire surface
         // with it. If the Groups pool comes up right, the rest follows
         // and `studio.css` goes.
+        // Inlined from *this directory*, not from `assets/`. There was
+        // briefly a second `studio.css` under `assets/` that nothing
+        // loaded, and four rounds of styling went into it before anyone
+        // noticed the app was unstyled — `include_str!` resolves
+        // relative to the source file, and a plausible-looking file in
+        // the conventional place is a very quiet way to lose work.
         style { {include_str!("studio.css")} }
         document::Stylesheet { href: TAILWIND }
         div { class: "studio",
