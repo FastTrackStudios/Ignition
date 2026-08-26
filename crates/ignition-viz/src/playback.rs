@@ -107,40 +107,58 @@ impl Playback {
             Some(path) => {
                 let list: CueList = read_json(path, "a cue list")?;
                 for problem in ignition_core::unresolved(&list.cues, &show) {
-                    eprintln!("warning: {problem}");
+                    tracing::warn!("{problem}");
                 }
-                println!(
-                    "loaded show {:?}: {} cues against {} groups, {} colour / {} focus palettes",
-                    list.name,
-                    list.cues.len(),
-                    groups.len(),
-                    venue.palettes.colors.len(),
-                    venue.palettes.focus.len()
-                );
-                // The cook report: what every cue actually resolves to,
-                // before a single one has fired. A recipe that selects
-                // nothing is not an error and the show still runs — this
-                // is the only thing that makes it visible.
-                for (i, cook) in ignition_core::cook_list(&list.cues, &show, 0.0)
+
+                // The cook report — what every cue resolves to before
+                // one has fired. A recipe that selects nothing is not an
+                // error and the show still runs, so this is the only
+                // thing that makes it visible.
+                //
+                // Only the cues that resolve to *nothing* are printed.
+                // The full list was a hundred and five lines at every
+                // launch, which buried the one line that mattered — a
+                // report nobody reads is not a report, and the whole
+                // point of a cooked-status marker is that a problem
+                // stands out. `RUST_LOG=ignition_viz=debug` still shows
+                // every cue.
+                let cooked = ignition_core::cook_list(&list.cues, &show, 0.0);
+                let dead: Vec<&ignition_core::CueCook> = cooked
                     .iter()
-                    .enumerate()
-                {
-                    let counts: Vec<String> = cook
-                        .recipes
-                        .iter()
-                        .map(|c| match c {
-                            ignition_core::Cook::Ok(n) => n.to_string(),
-                            ignition_core::Cook::Empty => "-".to_string(),
-                        })
-                        .collect();
-                    println!(
-                        "  {} {i:>3}  {:<24} {} recipe(s) [{}] {} direct",
-                        cook.marker(),
-                        cook.name,
-                        cook.recipes.len(),
-                        counts.join(" "),
-                        cook.direct
+                    .filter(|c| {
+                        c.recipes
+                            .iter()
+                            .any(|r| matches!(r, ignition_core::Cook::Empty))
+                    })
+                    .collect();
+                for (i, cook) in cooked.iter().enumerate() {
+                    tracing::debug!(
+                        cue = i,
+                        name = %cook.name,
+                        recipes = cook.recipes.len(),
+                        direct = cook.direct,
+                        "cooked"
                     );
+                }
+                if dead.is_empty() {
+                    tracing::info!(
+                        show = %list.name,
+                        cues = list.cues.len(),
+                        groups = groups.len(),
+                        colors = venue.palettes.colors.len(),
+                        focus = venue.palettes.focus.len(),
+                        "loaded, every cue resolves"
+                    );
+                } else {
+                    tracing::warn!(
+                        show = %list.name,
+                        cues = list.cues.len(),
+                        empty = dead.len(),
+                        "loaded, but some cues resolve to nothing"
+                    );
+                    for cook in dead {
+                        tracing::warn!(name = %cook.name, "selects nothing");
+                    }
                 }
                 Some(CuePlayer::new(list.cues))
             }

@@ -62,7 +62,18 @@ fn main() -> anyhow::Result<()> {
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
                 tracing_subscriber::EnvFilter::new(
-                    "warn,ignition_studio=info,ignition_song=info,ignition_viz=info",
+                    // `bevy_pbr::ssao` is silenced rather than the
+                    // plugin disabled. Screen-space ambient occlusion
+                    // declines on this device — its limits allow four
+                    // storage textures per shader stage where SSAO wants
+                    // five — and we do not use it. Calling
+                    // `.disable::<ScreenSpaceAmbientOcclusionPlugin>()`
+                    // panics with "cannot disable a plugin that does not
+                    // exist", because PbrPlugin adds it rather than it
+                    // being a member of the group, and a crash is a poor
+                    // trade for a tidy log.
+                    "warn,ignition_studio=info,ignition_song=info,\
+                     ignition_viz=info,bevy_pbr::ssao=error",
                 )
             }),
         )

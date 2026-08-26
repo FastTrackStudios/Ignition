@@ -31,6 +31,9 @@
     },
     "Haze": {
       "Group": "Hazers"
+    },
+    "Floor": {
+      "Group": "SlimPars All"
     }
   },
   "focus": {

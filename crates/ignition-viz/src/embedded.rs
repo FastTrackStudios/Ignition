@@ -124,13 +124,7 @@ impl EmbeddedViz {
                 // own, fails, and reports the failure at ERROR — so the
                 // loudest line in a clean startup is the log system
                 // complaining about the log system.
-                .disable::<bevy::log::LogPlugin>()
-                // We do not use screen-space ambient occlusion, and the
-                // device Blitz hands us cannot support it anyway: its
-                // limits allow four storage textures per stage where SSAO
-                // wants five. Loading it only to have it decline is a
-                // warning about a feature nobody asked for.
-                .disable::<bevy::pbr::ScreenSpaceAmbientOcclusionPlugin>(),
+                .disable::<bevy::log::LogPlugin>(),
         )
         .add_plugins(VizPlugin {
             config,
