@@ -126,6 +126,39 @@ loop on a per-cue clock restarts every time a cue is taken, so two cues carrying
 the same chase fall out of phase; a one-shot on the shared clock has already
 finished before its own cue fired, so it never plays at all.
 
+## Live control
+
+An operator does not only choose *which* effect runs. They ride how big it
+is and how fast, continuously, with a hand on a fader — which is a different
+thing from editing the recipe, and has to stay different.
+
+r[recipes.size]
+An effect's depth MUST be scalable at run time by a **size** control, without
+editing the recipe. Size scales the swing an effect applies and MUST NOT change
+its shape, its rate or what it targets: at zero the effect is inert and whatever
+is underneath shows through unchanged, at one it is as authored.
+
+This is the control a busking operator holds for most of a night. Without it the
+only way to make a chase shallower is to author a second chase, and a library
+then grows a timid and a bold spelling of everything in it.
+
+r[recipes.size.is-not-intensity]
+Size MUST be distinct from a group master or a dimmer. A master scales what the
+fixtures *output*; size scales how far the effect *swings*. Halving a master
+makes a chase dimmer overall; halving size makes it flatter while the look under
+it stays where it was. Conflating them is the common mistake and it makes an
+effect impossible to withdraw from a look without dimming the look too.
+
+r[recipes.rate]
+An effect's rate MUST likewise be scalable at run time against its speed master.
+A tap master already lets an operator set the tempo; rate is how one effect runs
+at half or double it without a second recipe.
+
+r[recipes.live-control-is-not-stored]
+Size and rate are **operator state**, not part of the recipe. Storing them into
+the recipe would make the show file depend on where somebody left a fader, and
+two cues sharing an effect would fight over it.
+
 ## Composition
 
 r[recipes.tricks]

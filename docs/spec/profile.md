@@ -214,6 +214,27 @@ The check MUST report which songs in a set have a venue layer and which do not.
 A show that behaves differently in one room is a fact an operator needs before
 the night, not a surprise during it.
 
+## Notes from prior art
+
+r[profile.spatial-grid-is-derived]
+Group ordering MUST be derived from real fixture positions rather than assembled
+by hand. This is a deliberate divergence from how console template shows do it:
+a widely used grandMA3 template requires the operator to build each group "using
+the 2D selection grid" according to the fixtures' positions on stage, and warns
+that "otherwise the effect forms might look different".
+
+That instruction is a workaround for the console not knowing where anything is.
+Ignition's venue already carries every fixture's surveyed position, so the grid
+is a *consequence* of the patch rather than a parallel structure to maintain —
+and the failure mode where a correct patch and a mis-built group disagree cannot
+occur.
+
+r[profile.setup-cost-is-the-metric]
+The measure of a profile is how long it takes a new room to implement it. The
+same template advertises patch, groups and presets in about thirty minutes, and
+that number is the product. A profile requiring more of a room than it can do in
+an afternoon will not be adopted, however good the effects behind it are.
+
 ## Extensions
 
 r[profile.extensions]

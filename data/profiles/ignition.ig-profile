@@ -1651,6 +1651,391 @@
         }
       }
     },
+    "circle breathe": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  18.0
+                ],
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  6.888302326202393
+                ],
+                [
+                  "Tilt",
+                  16.629831314086914
+                ],
+                [
+                  "Dimmer",
+                  -0.019030123949050903
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  12.727921485900879
+                ],
+                [
+                  "Tilt",
+                  12.727921485900879
+                ],
+                [
+                  "Dimmer",
+                  -0.0732233077287674
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  16.629831314086914
+                ],
+                [
+                  "Tilt",
+                  6.888301849365234
+                ],
+                [
+                  "Dimmer",
+                  -0.15432915091514587
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  18.0
+                ],
+                [
+                  "Tilt",
+                  -7.868050033721374e-7
+                ],
+                [
+                  "Dimmer",
+                  -0.25
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  16.629831314086914
+                ],
+                [
+                  "Tilt",
+                  -6.888303279876709
+                ],
+                [
+                  "Dimmer",
+                  -0.3456708788871765
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  12.727921485900879
+                ],
+                [
+                  "Tilt",
+                  -12.727921485900879
+                ],
+                [
+                  "Dimmer",
+                  -0.4267767071723938
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  6.888298988342285
+                ],
+                [
+                  "Tilt",
+                  -16.629833221435547
+                ],
+                [
+                  "Dimmer",
+                  -0.4809699058532715
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -1.5736100067442749e-6
+                ],
+                [
+                  "Tilt",
+                  -18.0
+                ],
+                [
+                  "Dimmer",
+                  -0.5
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.888301849365234
+                ],
+                [
+                  "Tilt",
+                  -16.629831314086914
+                ],
+                [
+                  "Dimmer",
+                  -0.4809698760509491
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -12.727924346923828
+                ],
+                [
+                  "Tilt",
+                  -12.727919578552246
+                ],
+                [
+                  "Dimmer",
+                  -0.426776647567749
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -16.62983512878418
+                ],
+                [
+                  "Tilt",
+                  -6.888296127319336
+                ],
+                [
+                  "Dimmer",
+                  -0.34567078948020935
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -18.0
+                ],
+                [
+                  "Tilt",
+                  2.1464785504576867e-7
+                ],
+                [
+                  "Dimmer",
+                  -0.25
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -16.62982940673828
+                ],
+                [
+                  "Tilt",
+                  6.888304710388184
+                ],
+                [
+                  "Dimmer",
+                  -0.1543290913105011
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -12.727917671203613
+                ],
+                [
+                  "Tilt",
+                  12.727926254272461
+                ],
+                [
+                  "Dimmer",
+                  -0.07322324812412262
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.888301849365234
+                ],
+                [
+                  "Tilt",
+                  16.629831314086914
+                ],
+                [
+                  "Dimmer",
+                  -0.01903010904788971
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
     "circle tight": {
       "steps": [
         {
@@ -3463,6 +3848,251 @@
         }
       }
     },
+    "fly out": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  0.0
+                ],
+                [
+                  "Zoom",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  11.0
+                ],
+                [
+                  "Zoom",
+                  0.15000000596046448
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  19.05255889892578
+                ],
+                [
+                  "Zoom",
+                  0.25980764627456665
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  22.0
+                ],
+                [
+                  "Zoom",
+                  0.30000001192092896
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  19.05255889892578
+                ],
+                [
+                  "Zoom",
+                  0.25980761647224426
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  11.000000953674316
+                ],
+                [
+                  "Zoom",
+                  0.15000002086162567
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  -1.923301169881597e-6
+                ],
+                [
+                  "Zoom",
+                  -2.622683403785686e-8
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  -10.999999046325684
+                ],
+                [
+                  "Zoom",
+                  -0.14999999105930328
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  -19.05255889892578
+                ],
+                [
+                  "Zoom",
+                  -0.25980764627456665
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  -22.0
+                ],
+                [
+                  "Zoom",
+                  -0.30000001192092896
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  -19.05255889892578
+                ],
+                [
+                  "Zoom",
+                  -0.25980764627456665
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  -10.999994277954102
+                ],
+                [
+                  "Zoom",
+                  -0.1499999314546585
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
     "heartbeat": {
       "steps": [
         {
@@ -4358,6 +4988,313 @@
         }
       }
     },
+    "random strobe": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Dimmer": 1.0
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Dimmer": 0.0
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Dimmer": 0.0
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Dimmer": 0.0
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 1.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Shuffle": 4409
+        }
+      ]
+    },
+    "rig alternate": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.8500000238418579
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Union": [
+          {
+            "Role": "Key"
+          },
+          {
+            "Role": "Wash"
+          },
+          {
+            "Role": "Back"
+          },
+          {
+            "Role": "Bars"
+          }
+        ]
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 180.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Group": 2
+        }
+      ]
+    },
+    "rig build": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.8999999761581421
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Union": [
+          {
+            "Role": "Key"
+          },
+          {
+            "Role": "Wash"
+          },
+          {
+            "Role": "Back"
+          },
+          {
+            "Role": "Bars"
+          }
+        ]
+      },
+      "timing": {
+        "direction": "Build",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "rig chase": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.8999999761581421
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Union": [
+          {
+            "Role": "Key"
+          },
+          {
+            "Role": "Wash"
+          },
+          {
+            "Role": "Back"
+          },
+          {
+            "Role": "Bars"
+          }
+        ]
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "rig stab": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.800000011920929
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 3.0
+        }
+      ],
+      "target": {
+        "Union": [
+          {
+            "Role": "Key"
+          },
+          {
+            "Role": "Wash"
+          },
+          {
+            "Role": "Back"
+          },
+          {
+            "Role": "Bars"
+          }
+        ]
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 1.0,
+        "once": true,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
     "slow swell": {
       "steps": [
         {
@@ -4812,6 +5749,421 @@
         "phase_spread_deg": 0.0,
         "speed": {
           "Master": "Song"
+        }
+      }
+    },
+    "tap chase": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.800000011920929
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Tap"
+        }
+      }
+    },
+    "tap circle": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  18.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  6.888302326202393
+                ],
+                [
+                  "Tilt",
+                  16.629831314086914
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  12.727921485900879
+                ],
+                [
+                  "Tilt",
+                  12.727921485900879
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  16.629831314086914
+                ],
+                [
+                  "Tilt",
+                  6.888298988342285
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  18.0
+                ],
+                [
+                  "Tilt",
+                  -1.5736100067442749e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  16.629831314086914
+                ],
+                [
+                  "Tilt",
+                  -6.888301849365234
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  12.727921485900879
+                ],
+                [
+                  "Tilt",
+                  -12.727924346923828
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  6.888298988342285
+                ],
+                [
+                  "Tilt",
+                  -16.62983512878418
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -1.5736100067442749e-6
+                ],
+                [
+                  "Tilt",
+                  -18.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.888301849365234
+                ],
+                [
+                  "Tilt",
+                  -16.62982940673828
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -12.727924346923828
+                ],
+                [
+                  "Tilt",
+                  -12.727917671203613
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -16.62983512878418
+                ],
+                [
+                  "Tilt",
+                  -6.888293743133545
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -18.0
+                ],
+                [
+                  "Tilt",
+                  3.1472200134885497e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -16.62982940673828
+                ],
+                [
+                  "Tilt",
+                  6.888307571411133
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -12.727917671203613
+                ],
+                [
+                  "Tilt",
+                  12.727928161621094
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.888301849365234
+                ],
+                [
+                  "Tilt",
+                  16.629833221435547
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Tap"
+        }
+      }
+    },
+    "tap pulse": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.5
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Tap"
         }
       }
     },

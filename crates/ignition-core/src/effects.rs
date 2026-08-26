@@ -54,6 +54,23 @@ fn beat(bars: f32, spread: f32, direction: Play) -> Timing {
     }
 }
 
+/// The same, but slaved to the **tap** master rather than the song.
+///
+/// Busking, as opposed to playback. The song master is right when a
+/// track is running and useless when one is not — a support act, a
+/// change-over, a worship set nobody sequenced — and an operator tapping
+/// four times is the oldest tempo source there is.
+///
+/// Deliberately the same recipes with a different rate source rather
+/// than a second library. An effect that behaved differently depending
+/// on where its tempo came from would be two effects wearing one name.
+fn tapped(bars: f32, spread: f32, direction: Play) -> Timing {
+    Timing {
+        speed: Speed::Master("Tap".into()),
+        ..beat(bars, spread, direction)
+    }
+}
+
 /// A step setting one relative attribute.
 fn delta(attr: Attribute, v: f32) -> Step {
     Step::new(vec![RecipeApply::Delta(vec![(attr, v)])])
@@ -130,6 +147,16 @@ fn hue(name: &str) -> Step {
     ))])
 }
 
+/// The plain chase, shared by its song- and tap-mastered spellings.
+fn library_chase() -> Recipe {
+    Recipe {
+        target: role("Wash"),
+        steps: vec![delta(Attribute::Dimmer, 0.0), delta(Attribute::Dimmer, -0.8)],
+        timing: beat(1.0, 360.0, Play::Forward),
+        tricks: Vec::new(),
+    }
+}
+
 /// Every effect in the default library.
 ///
 /// Keyed by the name a programmer types. Names are lower case and plain
@@ -147,15 +174,7 @@ pub fn library() -> BTreeMap<String, Recipe> {
     // fixture is a full cycle behind its neighbour across the selection,
     // which is what makes one point of light travel rather than the rig
     // breathing together.
-    add(
-        "chase",
-        Recipe {
-            target: role("Wash"),
-            steps: vec![delta(Attribute::Dimmer, 0.0), delta(Attribute::Dimmer, -0.8)],
-            timing: beat(1.0, 360.0, Play::Forward),
-            tricks: Vec::new(),
-        },
-    );
+    add("chase", library_chase());
 
     // The same shape with the swing inverted: the travelling point is
     // the one that *drops out*. grandMA3's docs single this out as the
@@ -386,6 +405,190 @@ pub fn library() -> BTreeMap<String, Recipe> {
             ],
             timing: Timing { once: true, ..beat(0.5, 0.0, Play::Forward) },
             tricks: Vec::new(),
+        },
+    );
+
+
+    // ── busked ───────────────────────────────────────────────────────
+    //
+    // The same shapes on the tap master. Not a separate library: an
+    // effect that behaved differently depending on where its tempo came
+    // from would be two effects sharing a name. These exist so an
+    // operator with no track running still has the vocabulary.
+
+    add(
+        "tap chase",
+        Recipe {
+            timing: tapped(1.0, 360.0, Play::Forward),
+            ..library_chase()
+        },
+    );
+    add(
+        "tap pulse",
+        Recipe {
+            target: role("Wash"),
+            steps: Waveform::Sine.steps(Attribute::Dimmer, -0.25, 0.25, true),
+            timing: tapped(1.0, 0.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+    add(
+        "tap circle",
+        Recipe {
+            timing: tapped(4.0, 0.0, Play::Forward),
+            ..mover(orbit(18.0, 18.0, 1.0, 1.0, 90.0), 4.0, 0.0)
+        },
+    );
+
+    // ── rig ──────────────────────────────────────────────────────────
+    //
+    // Effects that take the *whole* rig at once rather than one layer.
+    // Everything above is deliberately scoped to a role so it can be
+    // layered under something else; these are the opposite, and are for
+    // the four bars where subtlety is not the goal.
+    //
+    // `Union` of roles, so they resolve at any venue and quietly cover
+    // less where a room has fewer layers.
+
+    let whole_rig = || {
+        Selection::Union(vec![
+            role("Key"),
+            role("Wash"),
+            role("Back"),
+            role("Bars"),
+        ])
+    };
+
+    // Everything, chased as one selection. Ordered by the venue's own
+    // spatial ordering when the show wraps it, so this genuinely travels
+    // across the room rather than round a fixture list.
+    add(
+        "rig chase",
+        Recipe {
+            target: whole_rig(),
+            steps: vec![delta(Attribute::Dimmer, 0.0), delta(Attribute::Dimmer, -0.9)],
+            timing: beat(2.0, 360.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // The whole rig filling and resetting — the biggest single gesture
+    // available without a strobe.
+    add(
+        "rig build",
+        Recipe {
+            target: whole_rig(),
+            steps: vec![delta(Attribute::Dimmer, -0.9), delta(Attribute::Dimmer, 0.0)],
+            timing: beat(4.0, 360.0, Play::Build),
+            tricks: Vec::new(),
+        },
+    );
+
+    // Everything at once, hard, once. A whole-rig stab.
+    add(
+        "rig stab",
+        Recipe {
+            target: whole_rig(),
+            steps: vec![
+                Step { apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.8)])], width: 1.0, transition: 0.0, ..Step::new(Vec::new()) },
+                Step { apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.0)])], width: 3.0, transition: 1.0, ..Step::new(Vec::new()) },
+            ],
+            timing: Timing { once: true, ..beat(0.25, 0.0, Play::Forward) },
+            tricks: Vec::new(),
+        },
+    );
+
+    // Odds and evens across the entire rig, which reads much larger than
+    // the same trick on one layer.
+    add(
+        "rig alternate",
+        Recipe {
+            target: whole_rig(),
+            steps: vec![delta(Attribute::Dimmer, 0.0), delta(Attribute::Dimmer, -0.85)],
+            timing: beat(1.0, 180.0, Play::Forward),
+            tricks: vec![Trick::Group(2)],
+        },
+    );
+
+    // ── multi-parameter ──────────────────────────────────────────────
+    //
+    // One effect moving more than one kind of thing. `orbit` already
+    // does this for pan and tilt; these go further, and the reason to
+    // bother is that the combination is a *look* — a beam that opens as
+    // it rises reads as one gesture, where a zoom effect and a tilt
+    // effect run separately read as two.
+
+    // Rising and opening together.
+    add(
+        "fly out",
+        Recipe {
+            target: role("Movers"),
+            steps: (0..12)
+                .map(|i| {
+                    let t = i as f32 / 12.0;
+                    let up = (std::f32::consts::TAU * t).sin();
+                    Step {
+                        apply: vec![RecipeApply::Delta(vec![
+                            (Attribute::Tilt, 22.0 * up),
+                            (Attribute::Zoom, 0.3 * up),
+                        ])],
+                        width: 1.0,
+                        transition: 1.0,
+                        ..Step::new(Vec::new())
+                    }
+                })
+                .collect(),
+            timing: beat(4.0, 0.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // A circle that also breathes in intensity — the beam is dimmest at
+    // the far side of the arc, which reads as depth rather than as two
+    // effects happening at once.
+    add(
+        "circle breathe",
+        Recipe {
+            target: role("Movers"),
+            steps: (0..16)
+                .map(|i| {
+                    let t = i as f32 / 16.0;
+                    let a = std::f32::consts::TAU * t;
+                    Step {
+                        apply: vec![RecipeApply::Delta(vec![
+                            (Attribute::Pan, 18.0 * a.sin()),
+                            (Attribute::Tilt, 18.0 * a.cos()),
+                            (Attribute::Dimmer, -0.25 + 0.25 * a.cos()),
+                        ])],
+                        width: 1.0,
+                        transition: 1.0,
+                        ..Step::new(Vec::new())
+                    }
+                })
+                .collect(),
+            timing: beat(4.0, 0.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // ── strobes ──────────────────────────────────────────────────────
+
+    // Irregular rather than metronomic. A shuffled selection on a fast
+    // chase gives fixtures firing in an order that does not repeat
+    // audibly, which is what makes a random strobe read as chaos where a
+    // plain strobe reads as a machine.
+    add(
+        "random strobe",
+        Recipe {
+            target: role("Wash"),
+            steps: vec![
+                Step::new(vec![RecipeApply::Dimmer(1.0)]),
+                Step::new(vec![RecipeApply::Dimmer(0.0)]),
+                Step::new(vec![RecipeApply::Dimmer(0.0)]),
+                Step::new(vec![RecipeApply::Dimmer(0.0)]),
+            ],
+            timing: beat(0.25, 360.0, Play::Forward),
+            tricks: vec![Trick::Shuffle(4409)],
         },
     );
 
@@ -625,19 +828,43 @@ mod tests {
     use super::*;
     use crate::profile::RoleKind;
 
-    /// Every effect targets a role, never a venue's own group name.
+    /// Every name an effect reaches for is a role.
     ///
-    /// The rule the library exists to keep. One `Selection::Group` in
-    /// here and that effect works at exactly one address, which is worse
-    /// than it not existing — it would be picked from the same list as
-    /// the portable ones and fail somewhere else.
+    /// The rule the library exists to keep, and it has to walk the whole
+    /// selection tree rather than check the outermost node: a rig effect
+    /// targets a `Union` of roles, and an earlier version of this test
+    /// asked only whether the top-level selection *was* a role — which
+    /// the union is not, and which would have passed for a union of
+    /// venue group names just the same.
+    ///
+    /// One `Selection::Group` in here and that effect works at exactly
+    /// one address, which is worse than it not existing: it would be
+    /// picked from the same list as the portable ones and fail somewhere
+    /// else.
     #[test]
-    fn every_effect_targets_a_role() {
+    fn every_effect_names_only_roles() {
+        fn venue_names(sel: &Selection, out: &mut Vec<String>) {
+            match sel {
+                Selection::Role(_) | Selection::Chans(_) => {}
+                Selection::Group(n) => out.push(format!("group {n:?}")),
+                Selection::Tag(t) => out.push(format!("tag {t:?}")),
+                Selection::Model(m) => out.push(format!("model {m:?}")),
+                Selection::Union(parts) | Selection::Intersect(parts) => {
+                    parts.iter().for_each(|p| venue_names(p, out))
+                }
+                Selection::Except { of, minus } => {
+                    venue_names(of, out);
+                    venue_names(minus, out);
+                }
+                Selection::Where { of, .. } | Selection::Order { of, .. } => venue_names(of, out),
+            }
+        }
         for (name, recipe) in library() {
+            let mut found = Vec::new();
+            venue_names(&recipe.target, &mut found);
             assert!(
-                matches!(recipe.target, Selection::Role(_)),
-                "effect {name:?} targets {:?}, not a role",
-                recipe.target
+                found.is_empty(),
+                "effect {name:?} reaches for venue-specific names: {found:?}"
             );
         }
     }
@@ -668,16 +895,22 @@ mod tests {
         }
     }
 
-    /// Every rate is against the song, so the library follows a tempo
-    /// change rather than needing to be re-dialled.
+    /// Every rate is against a named master, never a hard-coded tempo.
+    ///
+    /// `Song` for playback and `Tap` for busking — the same shapes with
+    /// a different rate source, which is why they are one library rather
+    /// than two. What must never appear is a raw Hz or BPM: that is a
+    /// tempo somebody dialled in once, and it will not follow the music.
     #[test]
-    fn every_effect_is_slaved_to_the_song() {
+    fn every_effect_is_slaved_to_a_named_master() {
         for (name, recipe) in library() {
-            assert!(
-                matches!(&recipe.timing.speed, Speed::Master(m) if m == "Song"),
-                "effect {name:?} runs on {:?} rather than the song",
-                recipe.timing.speed
-            );
+            match &recipe.timing.speed {
+                Speed::Master(m) => assert!(
+                    m == "Song" || m == "Tap",
+                    "effect {name:?} runs on unknown master {m:?}"
+                ),
+                other => panic!("effect {name:?} has a hard-coded rate: {other:?}"),
+            }
         }
     }
 
@@ -698,7 +931,12 @@ mod tests {
     /// the stage, because it looks like it is working.
     #[test]
     fn intensity_effects_are_relative_except_where_named() {
-        const DELIBERATELY_ABSOLUTE: [&str; 2] = ["strobe", "audience blind"];
+        // Each of these overrides rather than layers, on purpose: a
+        // strobe or a blinder that merely modulated would still show
+        // what was under it, and a whole-rig stab is meant to be the
+        // only thing visible for its quarter beat.
+        const DELIBERATELY_ABSOLUTE: [&str; 4] =
+            ["strobe", "random strobe", "audience blind", "rig stab"];
 
         let mut unexpected: Vec<String> = Vec::new();
         for (name, recipe) in library() {
