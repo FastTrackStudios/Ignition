@@ -176,6 +176,39 @@ pub enum Command {
         name: String,
         value: f32,
     },
+    // ── Additive, for the Live / Program / Library panels (`live.rs`
+    // and friends). Handled in `live_commands::apply`, which the widget's
+    // drain calls for anything it does not match itself.
+    /// Take a library effect or bundle by name on the macro layer at
+    /// `level` — what tapping an effect tile in the library does.
+    // r[impl studio.views.whole-profile] - every effect is reachable by name
+    Take {
+        name: String,
+        level: f32,
+    },
+    /// Let go of an effect or bundle taken by `Take`.
+    Untake(String),
+    /// Fire a desk scene — a cue of the venue's console show — on the
+    /// Show-class playback, under the looks and the song.
+    // r[impl studio.live.desk-scenes] - a desk scene is a cue in a playback
+    DeskScene(usize),
+    /// Fold the desk playback out of the stack without forgetting it.
+    DeskRelease,
+    /// Protect, or stop protecting, a role — an operator decision made
+    /// on the Live surface.
+    // r[impl studio.views.seven-busking-features] - protection is toggled live
+    Protect {
+        role: String,
+        on: bool,
+    },
+    /// Store the programmer's captured values into cue `index` of the
+    /// show file on disk, in a store mode. The running player is not
+    /// re-read — see `live_commands`.
+    // r[impl studio.program.cue-editing] - store to a cue
+    StoreCue {
+        index: usize,
+        mode: ignition_core::cue::StoreMode,
+    },
 }
 
 /// The keys beside RATE. `Tap` is a learn tap — averaged, so a hand a
@@ -277,6 +310,23 @@ pub struct Playhead {
     /// rate, and any socket error — as the engine sees it.
     // r[impl dmx.output-toggle] - the transmit state travels back to the surface
     pub output: ignition_viz::OutputSummary,
+    // ── Additive, for the Live / Program panels. Filled by
+    // `live_commands::publish`.
+    /// The profile look latched on the held layer, by name.
+    // r[impl studio.one-truth] - the held look comes back from the engine side
+    pub held_look: Option<String>,
+    /// Effects and bundles taken on the macro layer, in firing order.
+    pub effects_playing: Vec<String>,
+    /// The desk scene the Show-class playback is standing on, if that
+    /// playback is enabled.
+    pub desk_scene: Option<usize>,
+    /// The roles the programmer protects right now.
+    pub protected: Vec<String>,
+    /// The programmer's selection, described for the surface.
+    pub selection: Option<String>,
+    /// How many direct values the programmer holds — what a store
+    /// would write.
+    pub captured: usize,
 }
 
 impl Playhead {

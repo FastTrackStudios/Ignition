@@ -1,0 +1,544 @@
+//! The Library panel: the whole profile, browsable and searchable, with
+//! the operator's favourites first.
+//!
+//! One panel for both views (`r[studio.panels]`): Program hosts it as a
+//! column, Live as a browse sheet behind the favourites. Every kind the
+//! profile has is a tab — effects, tricks, bundles, looks, macros,
+//! colours, splits, roles — plus the venue's focus points and groups,
+//! which are palette entries the profile only names. Nothing here is a
+//! reduced copy: the tab lists the profile's own map, and the search
+//! box filters it by name, family and the note that says what it is for.
+
+// Nothing is dead here; it is mounted when `main.rs` hosts `live::Views`
+// (and its stylesheet, `live::LIVE_CSS`). Until the integrator wires
+// that, the crate root does not reach these items. Remove once mounted.
+
+// r[impl studio.views.whole-profile] - every profile map has a tab
+// r[impl studio.operators.favourites] - favourites first, one-tap star
+// r[impl studio.touch] - tiles are 44px and respond on press
+
+use crate::command::Command;
+use crate::operators::{Kind, Operator};
+use crate::{Surface, send, use_playhead};
+use dioxus::prelude::*;
+use ignition_core::Selection;
+use ignition_core::profile::LookKind;
+
+/// The profile the panels browse: the shipped file — every role, colour,
+/// split, trick, effect note — under `IGNITION_PROFILE` or
+/// `data/profiles/ignition.ig-profile`, the same lookup `Playback::load`
+/// makes. `faders::profile()` is only the busking programming baked from
+/// code (pages, looks, macros); the file is that plus the vocabulary,
+/// and the faders tests hold the two equal where they overlap. With no
+/// file, the baked one, so the surface still opens.
+// r[impl studio.views.whole-profile] - the file profile, whole
+pub fn profile() -> &'static ignition_core::Profile {
+    static PROFILE: std::sync::LazyLock<ignition_core::Profile> = std::sync::LazyLock::new(|| {
+        let path = std::env::var("IGNITION_PROFILE")
+            .unwrap_or_else(|_| "data/profiles/ignition.ig-profile".to_string());
+        let candidates = [
+            std::path::PathBuf::from(&path),
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .join(&path),
+        ];
+        for candidate in &candidates {
+            if let Ok(profile) = ignition_core::Profile::load(candidate) {
+                return profile;
+            }
+        }
+        tracing::warn!(
+            path,
+            "no profile file; the library shows the baked profile only"
+        );
+        crate::faders::profile().clone()
+    });
+    &PROFILE
+}
+
+/// One tile of the library.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Entry {
+    pub tab: Tab,
+    pub name: String,
+    /// The effect's family, a bundle's family, a look's kind, a trick's
+    /// steps — whatever a second line should say.
+    pub family: String,
+    pub about: String,
+    /// A swatch for colours and splits.
+    pub css: Option<String>,
+    /// A favourite the profile no longer has. Shown, never acted on.
+    pub missing: bool,
+    pub favourite: bool,
+}
+
+/// The panel's tabs. The first eight are the favourite kinds; splits
+/// and roles are profile maps with no favourites set of their own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Tab {
+    Kind(Kind),
+    Splits,
+    Roles,
+}
+
+impl Tab {
+    pub const ALL: [Tab; 10] = [
+        Tab::Kind(Kind::Effect),
+        Tab::Kind(Kind::Trick),
+        Tab::Kind(Kind::Bundle),
+        Tab::Kind(Kind::Look),
+        Tab::Kind(Kind::Macro),
+        Tab::Kind(Kind::Colour),
+        Tab::Splits,
+        Tab::Kind(Kind::Focus),
+        Tab::Kind(Kind::Group),
+        Tab::Roles,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Tab::Kind(k) => k.label(),
+            Tab::Splits => "Splits",
+            Tab::Roles => "Roles",
+        }
+    }
+
+    pub fn kind(self) -> Option<Kind> {
+        match self {
+            Tab::Kind(k) => Some(k),
+            _ => None,
+        }
+    }
+}
+
+/// A colour preset as CSS — the same plain byte scale the swatches use.
+pub fn css_of(c: &ignition_core::preset::ColorPreset) -> String {
+    format!(
+        "rgb({} {} {})",
+        (c.red * 255.0) as u8,
+        (c.green * 255.0) as u8,
+        (c.blue * 255.0) as u8
+    )
+}
+
+/// The colour a look's kind is drawn in — bed, full, punt, safe.
+pub fn look_css(kind: LookKind) -> &'static str {
+    match kind {
+        LookKind::Bed => "#3a5a8a",
+        LookKind::Full => "#a04a3a",
+        LookKind::Punt => "#c8a050",
+        LookKind::Safe => "#2c2c36",
+    }
+}
+
+/// The beats a macro runs for — the sum of its waits — and whether it
+/// lets go at the end.
+pub fn macro_shape(m: &ignition_core::profile::Macro) -> (f32, bool) {
+    use ignition_core::profile::MacroStep;
+    let beats = m
+        .steps
+        .iter()
+        .map(|s| match s {
+            MacroStep::Wait { beats } => *beats,
+            _ => 0.0,
+        })
+        .sum();
+    let releases = m.steps.iter().any(|s| matches!(s, MacroStep::Release));
+    (beats, releases)
+}
+
+/// Every entry of one tab, in the profile's order, unstarred.
+pub fn catalogue(tab: Tab, surface: &Surface) -> Vec<Entry> {
+    let profile = profile();
+    let entry = |name: &str, family: String, about: String, css: Option<String>| Entry {
+        tab,
+        name: name.to_string(),
+        family,
+        about,
+        css,
+        missing: false,
+        favourite: false,
+    };
+    match tab {
+        Tab::Kind(Kind::Effect) => profile
+            .effects
+            .keys()
+            .map(|name| {
+                let note = profile.effect_notes.get(name);
+                entry(
+                    name,
+                    note.map(|n| n.family.clone()).unwrap_or_default(),
+                    note.map(|n| n.about.clone()).unwrap_or_default(),
+                    None,
+                )
+            })
+            .collect(),
+        Tab::Kind(Kind::Trick) => profile
+            .tricks
+            .iter()
+            .map(|(name, steps)| {
+                let shape: Vec<String> = steps.iter().map(|t| format!("{t:?}")).collect();
+                entry(name, shape.join(" · "), String::new(), None)
+            })
+            .collect(),
+        Tab::Kind(Kind::Bundle) => profile
+            .bundles
+            .values()
+            .map(|b| entry(&b.name, b.family.clone(), b.about.clone(), None))
+            .collect(),
+        Tab::Kind(Kind::Look) => profile
+            .looks
+            .iter()
+            .map(|(name, look)| {
+                entry(
+                    name,
+                    format!("{:?}", look.kind).to_lowercase(),
+                    look.about.clone(),
+                    Some(look_css(look.kind).to_string()),
+                )
+            })
+            .collect(),
+        Tab::Kind(Kind::Macro) => profile
+            .macros
+            .iter()
+            .map(|(name, m)| {
+                let (beats, releases) = macro_shape(m);
+                let shape = format!("{beats} beats{}", if releases { " · releases" } else { "" });
+                entry(name, shape, m.about.clone(), None)
+            })
+            .collect(),
+        Tab::Kind(Kind::Colour) => profile
+            .colors
+            .iter()
+            .map(|c| entry(&c.name, String::new(), String::new(), Some(css_of(c))))
+            .collect(),
+        Tab::Splits => surface
+            .splits
+            .iter()
+            .map(|s| entry(&s.name, String::new(), String::new(), Some(s.css.clone())))
+            .collect(),
+        Tab::Kind(Kind::Focus) => surface
+            .focus
+            .iter()
+            .map(|f| entry(f, String::new(), String::new(), None))
+            .collect(),
+        Tab::Kind(Kind::Group) => surface
+            .groups
+            .iter()
+            .map(|g| entry(g, String::new(), String::new(), None))
+            .collect(),
+        Tab::Roles => profile
+            .roles
+            .iter()
+            .map(|r| {
+                let mut family = format!("{:?}", r.kind).to_lowercase();
+                if r.required {
+                    family.push_str(" · required");
+                }
+                if profile.is_protected(&r.name) {
+                    family.push_str(" · protected");
+                }
+                entry(&r.name, family, r.about.clone(), None)
+            })
+            .collect(),
+    }
+}
+
+/// Favourites first, in the operator's order — a stale name as a
+/// missing tile — then everything else in the profile's order.
+// r[impl studio.operators.favourites] - shown first; missing rather than failing
+pub fn ordered(all: &[Entry], favourites: &[String]) -> Vec<Entry> {
+    let mut out: Vec<Entry> = favourites
+        .iter()
+        .map(|name| match all.iter().find(|e| &e.name == name) {
+            Some(e) => Entry {
+                favourite: true,
+                ..e.clone()
+            },
+            None => Entry {
+                tab: all.first().map(|e| e.tab).unwrap_or(Tab::Roles),
+                name: name.clone(),
+                family: "missing".into(),
+                about: "not in this profile".into(),
+                css: None,
+                missing: true,
+                favourite: true,
+            },
+        })
+        .collect();
+    out.extend(
+        all.iter()
+            .filter(|e| !favourites.iter().any(|f| f == &e.name))
+            .cloned(),
+    );
+    out
+}
+
+/// Whether a tile matches the search box: name, family or note,
+/// case-insensitively; an empty query matches everything.
+pub fn matches(entry: &Entry, query: &str) -> bool {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return true;
+    }
+    entry.name.to_lowercase().contains(&q)
+        || entry.family.to_lowercase().contains(&q)
+        || entry.about.to_lowercase().contains(&q)
+}
+
+/// The operator at the desk, shared by every panel in the tree. A
+/// panel mounted outside a provider gets its own copy rather than a
+/// panic.
+pub fn use_operator() -> Signal<Operator> {
+    let existing = try_use_context::<Signal<Operator>>();
+    let own = use_signal(Operator::current);
+    existing.unwrap_or(own)
+}
+
+/// Star or unstar `name` for the operator, and keep it.
+pub fn toggle_favourite(mut operator: Signal<Operator>, kind: Kind, name: &str) {
+    let mut op = operator();
+    op.favourites.toggle(kind, name);
+    if let Err(error) = op.save() {
+        tracing::warn!(%error, "operator file not saved");
+    }
+    operator.set(op);
+}
+
+/// What tapping a tile does — the natural thing for its kind, through
+/// the commands the engine already has. Tricks have no command: a trick
+/// is applied by a recipe, not fired, so the tile only shows its shape.
+pub fn tap(entry: &Entry, playhead: &crate::command::Playhead) {
+    if entry.missing {
+        return;
+    }
+    let name = entry.name.clone();
+    match entry.tab {
+        Tab::Kind(Kind::Effect) | Tab::Kind(Kind::Bundle) => {
+            if playhead.effects_playing.iter().any(|e| *e == name) {
+                send(Command::Untake(name));
+            } else {
+                send(Command::Take { name, level: 1.0 });
+            }
+        }
+        Tab::Kind(Kind::Look) => {
+            if playhead.held_look.as_deref() == Some(&name) {
+                send(Command::Look(None));
+            } else {
+                send(Command::Look(Some(name)));
+            }
+        }
+        Tab::Kind(Kind::Macro) => send(Command::Macro(name)),
+        Tab::Kind(Kind::Colour) => send(Command::Color(name)),
+        Tab::Splits => send(Command::Split(name)),
+        Tab::Kind(Kind::Focus) => send(Command::Focus(name)),
+        Tab::Kind(Kind::Group) => send(Command::Select(Selection::Group(name))),
+        Tab::Roles => send(Command::Select(Selection::Role(name))),
+        Tab::Kind(Kind::Trick) => {}
+    }
+}
+
+/// Whether the engine says this tile is active — for the lit state.
+pub fn is_on(entry: &Entry, playhead: &crate::command::Playhead) -> bool {
+    match entry.tab {
+        Tab::Kind(Kind::Effect) | Tab::Kind(Kind::Bundle) => {
+            playhead.effects_playing.iter().any(|e| *e == entry.name)
+        }
+        Tab::Kind(Kind::Look) => playhead.held_look.as_deref() == Some(&entry.name),
+        _ => false,
+    }
+}
+
+/// The Library panel.
+#[component]
+pub fn Library(surface: Surface, #[props(default = Tab::Kind(Kind::Effect))] open: Tab) -> Element {
+    let mut tab = use_signal(|| open);
+    let mut query = use_signal(String::new);
+    let operator = use_operator();
+    let playhead = use_playhead();
+
+    let all = catalogue(tab(), &surface);
+    let favourites = tab()
+        .kind()
+        .map(|k| operator().favourites.of(k).clone())
+        .unwrap_or_default();
+    let tiles: Vec<Entry> = ordered(&all, &favourites)
+        .into_iter()
+        .filter(|e| matches(e, &query()))
+        .collect();
+
+    rsx! {
+        section { class: "library",
+            header { class: "lib-head",
+                span { class: "lib-title", "Library" }
+                input {
+                    class: "lib-search",
+                    r#type: "text",
+                    placeholder: "search name, family, note",
+                    value: "{query}",
+                    oninput: move |e| query.set(e.value()),
+                }
+            }
+            div { class: "lib-tabs",
+                for t in Tab::ALL {
+                    button {
+                        key: "{t.label()}",
+                        class: if tab() == t { "lib-tab on" } else { "lib-tab" },
+                        onpointerdown: move |_| tab.set(t),
+                        "{t.label()}"
+                    }
+                }
+            }
+            div { class: "lib-grid",
+                for entry in tiles.iter().cloned() {
+                    LibraryTile { key: "{entry.tab.label()}-{entry.name}", entry, operator, playhead }
+                }
+                if tiles.is_empty() {
+                    span { class: "lib-empty", "nothing matches" }
+                }
+            }
+        }
+    }
+}
+
+/// One touch-sized tile: the name, a second line, a swatch where there
+/// is one, and the star.
+#[component]
+pub fn LibraryTile(
+    entry: Entry,
+    operator: Signal<Operator>,
+    playhead: Signal<crate::command::Playhead>,
+) -> Element {
+    let on = is_on(&entry, &playhead());
+    let class = match (entry.missing, on, entry.favourite) {
+        (true, _, _) => "lib-tile missing",
+        (_, true, _) => "lib-tile on",
+        (_, _, true) => "lib-tile fav",
+        _ => "lib-tile",
+    };
+    let swatch = entry.css.clone();
+    let tap_entry = entry.clone();
+    let star_entry = entry.clone();
+    rsx! {
+        div { class: "{class}", title: "{entry.about}",
+            button {
+                class: "lib-body",
+                onpointerdown: move |_| tap(&tap_entry, &playhead()),
+                if let Some(css) = swatch {
+                    span { class: "lib-swatch", style: "background: {css}" }
+                }
+                span { class: "lib-name", "{entry.name}" }
+                if !entry.family.is_empty() {
+                    span { class: "lib-family", "{entry.family}" }
+                }
+            }
+            if let Some(kind) = entry.tab.kind() {
+                button {
+                    class: if entry.favourite { "lib-star on" } else { "lib-star" },
+                    onpointerdown: move |_| toggle_favourite(operator, kind, &star_entry.name),
+                    if entry.favourite { "★" } else { "☆" }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn e(name: &str, family: &str, about: &str) -> Entry {
+        Entry {
+            tab: Tab::Kind(Kind::Effect),
+            name: name.into(),
+            family: family.into(),
+            about: about.into(),
+            css: None,
+            missing: false,
+            favourite: false,
+        }
+    }
+
+    /// r[verify studio.operators.favourites]
+    #[test]
+    fn favourites_come_first_in_their_own_order_and_missing_ones_show() {
+        let all = vec![e("a", "", ""), e("b", "", ""), e("c", "", "")];
+        let out = ordered(&all, &["c".into(), "zzz".into(), "a".into()]);
+        let names: Vec<&str> = out.iter().map(|x| x.name.as_str()).collect();
+        assert_eq!(names, vec!["c", "zzz", "a", "b"]);
+        assert!(out[1].missing);
+        assert!(out[0].favourite && out[2].favourite && !out[3].favourite);
+    }
+
+    #[test]
+    fn search_reads_name_family_and_note() {
+        let x = e("pan wave", "movement", "the beams grazing slowly");
+        assert!(matches(&x, ""));
+        assert!(matches(&x, "PAN"));
+        assert!(matches(&x, "move"));
+        assert!(matches(&x, "grazing"));
+        assert!(!matches(&x, "strobe"));
+    }
+
+    /// Every profile map reaches a tab, at the profile's own size.
+    /// r[verify studio.views.whole-profile]
+    #[test]
+    fn every_tab_lists_the_whole_profile() {
+        let profile = profile();
+        let surface = Surface {
+            groups: vec!["All".into()],
+            colors: Vec::new(),
+            splits: Vec::new(),
+            focus: vec!["Centre".into()],
+            cues: Vec::new(),
+        };
+        assert_eq!(
+            catalogue(Tab::Kind(Kind::Effect), &surface).len(),
+            profile.effects.len()
+        );
+        assert_eq!(
+            catalogue(Tab::Kind(Kind::Trick), &surface).len(),
+            profile.tricks.len()
+        );
+        assert_eq!(
+            catalogue(Tab::Kind(Kind::Bundle), &surface).len(),
+            profile.bundles.len()
+        );
+        assert_eq!(
+            catalogue(Tab::Kind(Kind::Look), &surface).len(),
+            profile.looks.len()
+        );
+        assert_eq!(
+            catalogue(Tab::Kind(Kind::Macro), &surface).len(),
+            profile.macros.len()
+        );
+        assert_eq!(
+            catalogue(Tab::Kind(Kind::Colour), &surface).len(),
+            profile.colors.len()
+        );
+        assert_eq!(catalogue(Tab::Roles, &surface).len(), profile.roles.len());
+        assert_eq!(catalogue(Tab::Kind(Kind::Focus), &surface).len(), 1);
+        assert_eq!(catalogue(Tab::Kind(Kind::Group), &surface).len(), 1);
+        // Effects carry their family and note for the search.
+        let effects = catalogue(Tab::Kind(Kind::Effect), &surface);
+        assert!(
+            effects.iter().all(|x| !x.family.is_empty()),
+            "an effect has no family"
+        );
+        // The protected role says so on its tile.
+        let roles = catalogue(Tab::Roles, &surface);
+        let house = roles
+            .iter()
+            .find(|r| r.name == "House Lights")
+            .expect("house");
+        assert!(house.family.contains("protected"));
+    }
+
+    #[test]
+    fn a_macro_shows_its_beats_and_release() {
+        let profile = profile();
+        let (beats, releases) = macro_shape(&profile.macros["build 8"]);
+        assert_eq!(beats, 32.0);
+        assert!(releases);
+    }
+}

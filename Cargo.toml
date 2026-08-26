@@ -4,6 +4,8 @@ resolver = "3"
 
 members = [
     "crates/gdtf-vendored",
+    "crates/dioxus-native-vendored",
+    "crates/anyrender-vello-vendored",
     "crates/ignition-proto",
     "crates/ignition-core",
     "crates/ignition-song",
@@ -99,6 +101,15 @@ bevy = { version = "0.19.1", default-features = false, features = [
 # patched copy without touching any import paths.
 [patch.crates-io]
 gdtf = { path = "crates/gdtf-vendored" }
+# Vendored, one-hunk patch: one wgpu instance and device pool for every
+# Blitz window in the process — see crates/anyrender-vello-vendored/NOTICE.md.
+anyrender_vello = { path = "crates/anyrender-vello-vendored" }
+
+# Vendored `packages/native` from the pinned dioxus revision, with
+# runtime multi-window (`NewWindow` / `open_window`) added — see
+# crates/dioxus-native-vendored/NOTICE.md. r[impl studio.windows.implementation]
+[patch."https://github.com/DioxusLabs/dioxus"]
+dioxus-native = { path = "crates/dioxus-native-vendored" }
 
 [profile.dev]
 debug = "line-tables-only"

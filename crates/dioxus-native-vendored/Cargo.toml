@@ -1,0 +1,114 @@
+# Vendored from DioxusLabs/dioxus `packages/native` at rev
+# f717a8e184a522d078b70bb4b4d62a5f9a99ddfc — see NOTICE.md for what
+# was changed and why. The workspace `[patch]` table redirects every
+# `dioxus-native` git dependency here; the version must stay the
+# upstream one for the patch to apply.
+[package]
+name = "dioxus-native"
+version = "0.8.0-alpha.0"
+authors = ["Jonathan Kelley", "Nico Burns"]
+edition = "2024"
+description = "Native renderer for Dioxus based on blitz (Ignition vendored copy: multi-window)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/DioxusLabs/dioxus/"
+publish = false
+
+[features]
+default = ["accessibility", "hot-reload", "net", "html", "svg", "system-fonts", "clipboard", "file-dialog", "vello-hybrid", "incremental", "woff", "apple-font-embolden"]
+prelude = ["dep:dioxus-core-macro", "dep:dioxus-hooks", "dep:dioxus-signals", "dep:dioxus-stores", "dep:manganis"]
+
+svg = ["blitz-dom/svg", "blitz-paint/svg"]
+floats = ["blitz-dom/floats"]
+incremental = ["blitz-dom/incremental"]
+autofocus = ["blitz-dom/autofocus"]
+system-fonts = ["blitz-dom/system-fonts"]
+complex-scripts = ["blitz-dom/complex-scripts"]
+woff = ["blitz-dom/woff"]
+
+clipboard = ["blitz-shell/clipboard"]
+file-dialog = ["blitz-shell/file-dialog"]
+accessibility = ["blitz-shell/accessibility", "blitz-dom/accessibility"]
+data-uri = ["blitz-shell/data-uri"]
+
+vello = ["dep:anyrender_vello", "dep:wgpu_context"]
+vello-hybrid = ["dep:anyrender_vello_hybrid", "dep:wgpu_context"]
+skia = ["dep:anyrender_skia"]
+vello-cpu = ["vello-cpu-pixels"]
+vello-cpu-pixels = ["vello-cpu-base", "anyrender_vello_cpu/pixels_window_renderer"]
+vello-cpu-softbuffer = ["vello-cpu-base", "anyrender_vello_cpu/softbuffer_window_renderer"]
+vello-cpu-base = ["dep:anyrender_vello_cpu"]
+
+font-embolden = ["blitz-paint/font-embolden"]
+apple-font-embolden = ["blitz-paint/apple-font-embolden"]
+scrollbars = ["blitz-paint/scrollbars"]
+
+net = ["dep:tokio", "dep:blitz-net"]
+html = ["dep:blitz-html"]
+hot-reload = ["dep:dioxus-devtools"]
+
+log-times = ["log-phase-times", "log-frame-times"]
+log-phase-times = ["blitz-dom/log-phase-times"]
+log-frame-times = [
+  "anyrender_vello_cpu?/log_frame_times",
+  "anyrender_vello?/log_frame_times",
+  "anyrender_vello_hybrid?/log_frame_times",
+  "anyrender_skia?/log_frame_times",
+]
+tracing = ["dep:tracing", "dioxus-native-dom/tracing", "blitz-shell/tracing", "blitz-dom/tracing", "blitz-html/tracing", "blitz-net/tracing"]
+
+[dependencies]
+blitz-dom = { version = "=0.3.0-beta.1", default-features = false, features = ["custom-widget"] }
+blitz-html = { version = "=0.3.0-beta.1", optional = true }
+blitz-net = { version = "=0.3.0-beta.1", optional = true }
+blitz-paint = { version = "=0.3.0-beta.1", optional = true, features = ["custom-widget"] }
+blitz-traits = { version = "=0.3.0-beta.1" }
+blitz-shell = { version = "=0.3.0-beta.1", default-features = false }
+
+anyrender = { version = "0.11.0" }
+anyrender_vello = { version = "0.12.0", optional = true }
+anyrender_vello_hybrid = { version = "0.8.0", optional = true }
+anyrender_vello_cpu = { version = "0.14.0", optional = true }
+anyrender_skia = { version = "0.9.0", optional = true }
+wgpu_context = { version = "0.7.0", optional = true }
+
+dioxus-core = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc" }
+dioxus-html = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false }
+dioxus-native-dom = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc" }
+dioxus-asset-resolver = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", features = ["native"] }
+dioxus-history = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false }
+dioxus-document = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false }
+dioxus-cli-config = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc" }
+dioxus-devtools = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", optional = true }
+dioxus-hooks = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", optional = true }
+dioxus-signals = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", optional = true }
+dioxus-stores = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", optional = true }
+dioxus-core-macro = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", optional = true }
+manganis = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", features = ["dioxus"], optional = true }
+
+winit = { version = "=0.31.0-beta.2" }
+keyboard-types = { version = "0.7", default-features = false }
+
+tokio = { version = "1.48", features = ["rt"], optional = true }
+webbrowser = "1.2.1"
+
+tracing = { version = "0.1.41", optional = true }
+rustc-hash = "2.1.1"
+futures-util = { version = "0.3.32", default-features = false }
+cfg-if = "1.0.4"
+slotmap = { version = "1.0.7", features = ["serde"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1.48", features = ["rt-multi-thread"], optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android-activity = { version = "0.6", default-features = false }
+
+[target.'cfg(all(target_os = "ios", target_abi = "sim"))'.dependencies]
+anyrender_vello_cpu = { version = "0.14.0", features = ["pixels_window_renderer"]}
+
+[dev-dependencies]
+tokio = { version = "1.48", features = ["time", "rt-multi-thread", "macros"] }
+
+[[example]]
+name = "two_windows"
+required-features = ["vello", "prelude"]

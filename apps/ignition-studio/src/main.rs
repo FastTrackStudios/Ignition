@@ -17,10 +17,18 @@ use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig};
 use std::any::Any;
 
 mod command;
+mod desk;
 mod faders;
+mod layout;
+mod library;
+mod live;
+mod live_commands;
+mod operators;
+mod program;
 mod remote;
 mod sound;
 mod viz_widget;
+mod windows;
 use command::{Command, PageMove, Sender, SpeedKey};
 
 use viz_widget::VizWidget;
@@ -37,7 +45,7 @@ const TAILWIND: Asset = asset!("/assets/tailwind.css");
 /// driving should not be a recompile.
 const DEFAULT_VENUE: &str = "data/venues/norco";
 
-fn venue_dir() -> String {
+pub fn venue_dir() -> String {
     std::env::var("IGNITION_VENUE").unwrap_or_else(|_| DEFAULT_VENUE.to_string())
 }
 const SHOW: &str = "data/songs/bye-bye-bye.json";
@@ -211,9 +219,11 @@ fn window_attributes() -> dioxus_native::winit::window::WindowAttributes {
     use dioxus_native::winit::dpi::LogicalSize;
     use dioxus_native::winit::window::WindowAttributes;
 
-    WindowAttributes::default()
-        .with_title("Ignition Studio")
-        .with_surface_size(LogicalSize::new(1600, 950))
+    windows::with_app_id(
+        WindowAttributes::default()
+            .with_title("Ignition Studio")
+            .with_surface_size(LogicalSize::new(1600, 950)),
+    )
 }
 
 /// Puts the window borderless-fullscreen on a chosen monitor.
@@ -362,8 +372,25 @@ fn busking_groups(venue: &Venue) -> Vec<String> {
         .collect()
 }
 
+/// The named things every window's panels draw from, resolved once in
+/// `main` and read by whichever window asks. A global, like the
+/// channels: a second window is a second `VirtualDom`, and nothing can
+/// be handed across that boundary except through the process.
+static SURFACE: std::sync::OnceLock<Surface> = std::sync::OnceLock::new();
+
+fn surface() -> &'static Surface {
+    SURFACE
+        .get()
+        .expect("surface is set before any window renders")
+}
+
+/// The launch window's root. Installs the panel host for the whole
+/// process, loads the bank, and draws window 0; the layout's other
+/// windows are opened from here once this one exists — there has to be
+/// a running event loop before there can be a second window.
+// r[impl studio.operators.layout] - the layout is restored at launch for `IGNITION_OPERATOR`
 fn app(surface: Surface) -> Element {
-    place_window();
+    let _ = SURFACE.set(surface);
 
     // Load every page of the bank once. They queue in the channel until
     // the visualizer exists to drain them, so this does not have to wait
@@ -389,32 +416,42 @@ fn app(surface: Surface) -> Element {
         }
     });
 
-    rsx! {
-        // Both, on purpose, and only for as long as the migration takes.
-        // `studio.css` is the working stylesheet; Tailwind is proved out
-        // one column at a time, Groups first. Blitz's style engine is
-        // stylo — Firefox's — so `@layer`, `@property` and `color-mix()`
-        // in Tailwind v4's output should all resolve, but nobody in this
-        // tree has run them through it yet and a wholesale conversion
-        // that turned out not to render would take the entire surface
-        // with it. If the Groups pool comes up right, the rest follows
-        // and `studio.css` goes.
-        // Inlined from *this directory*, not from `assets/`. There was
-        // briefly a second `studio.css` under `assets/` that nothing
-        // loaded, and four rounds of styling went into it before anyone
-        // noticed the app was unstyled — `include_str!` resolves
-        // relative to the source file, and a plausible-looking file in
-        // the conventional place is a very quiet way to lose work.
-        style { {include_str!("studio.css")} }
-        document::Stylesheet { href: TAILWIND }
-        div { class: "studio",
-            CueList { cues: surface.cues.clone() }
-            main { class: "stage",
-                Transport {}
-                div { class: "viewport", Viewport {} }
-                Busking { surface: surface.clone() }
+    // The layout: the selected operator's, or today's one window. The
+    // host is installed before the first render of any panel, and the
+    // remaining windows are asked for now — they open on the next turn
+    // of the event loop, each with its own root.
+    use_hook(|| {
+        let layout = match layout::selected_operator() {
+            Some(name) => match layout::load(&name) {
+                Ok(layout) => {
+                    tracing::info!(
+                        operator = name,
+                        windows = layout.windows.len(),
+                        "studio: layout"
+                    );
+                    layout
+                }
+                Err(e) => {
+                    tracing::warn!(operator = name, error = %e, "studio: no layout; one window");
+                    windows::LEGACY_PLACEMENT.store(1, std::sync::atomic::Ordering::SeqCst);
+                    layout::Layout::default_single_window()
+                }
+            },
+            None => {
+                windows::LEGACY_PLACEMENT.store(1, std::sync::atomic::Ordering::SeqCst);
+                layout::Layout::default_single_window()
             }
+        };
+        let host = windows::Host::from_layout(&layout);
+        let others: Vec<windows::HostId> = host.ids().into_iter().skip(1).collect();
+        windows::install(host);
+        for id in others {
+            windows::open(id);
         }
+    });
+
+    rsx! {
+        windows::WindowRoot { host: 0 }
     }
 }
 
@@ -815,6 +852,11 @@ fn send(command: Command) {
     }
 }
 
+// Superseded on screen by `live::Views`, which the panel host mounts as
+// the desk (`windows.rs`); kept, unmounted, until the Live surface has
+// been judged against it on a real show. Delete together with `Fader`,
+// `PARK_ATTRS` and `TRACK` when that has happened.
+#[allow(dead_code)]
 #[component]
 fn Busking(surface: Surface) -> Element {
     let mut selected = use_signal(|| Option::<String>::None);
@@ -1334,6 +1376,7 @@ fn Busking(surface: Surface) -> Element {
 /// is most often stuck on. A colour park would be a surprise — the
 /// cue changes colour and one fixture does not — where a tilt park is
 /// the whole point.
+#[allow(dead_code)]
 const PARK_ATTRS: [ignition_core::Attribute; 3] = [
     ignition_core::Attribute::Pan,
     ignition_core::Attribute::Tilt,
@@ -1346,6 +1389,7 @@ const PARK_ATTRS: [ignition_core::Attribute; 3] = [
 /// position *within the element*, and a layout query in an event handler
 /// is exactly the thing that deadlocks Blitz. Keep this in step with
 /// `.track` in studio.css.
+#[allow(dead_code)]
 const TRACK: f32 = 190.0;
 
 /// A fader built from divs rather than `<input type=range>`.
@@ -1355,6 +1399,7 @@ const TRACK: f32 = 190.0;
 /// larger than a native thumb; and the value has to be readable as a
 /// colour at a glance from two metres away, which a native control
 /// cannot do.
+#[allow(dead_code)]
 #[component]
 fn Fader(
     label: String,
@@ -1425,7 +1470,10 @@ fn Viewport() -> Element {
             ambient: 0.05,
             show_props: true,
             exclude: Vec::new(),
-            exposure: 2500.0,
+            // 12, the same as `viz` — a multiplier on real candela, see
+            // `spawn::spot_lumens`. It was 2500 back when the spill
+            // light was fed raw lumens.
+            exposure: 12.0,
             screen_content: Some("screens/rockstars-logo.webp".to_string()),
             // The three back-wall TVs share one canvas, so this single
             // image spans all of them and each takes the slice matching
@@ -1520,23 +1568,29 @@ fn Viewport() -> Element {
             // `ignition_viz::output::LoopbackSink` for what it is for.
             loopback: false,
         };
-        let rx = RX
-            .lock()
-            .expect("fresh mutex")
-            .take()
-            .expect("one viewport");
-        let report = STATE_TX
-            .lock()
-            .expect("fresh mutex")
-            .take()
-            .expect("one viewport");
-        CustomWidgetAttr::new(VizWidget::new(
-            config,
-            Some((SHOW.to_string(), 0)),
-            Some(PROJECT),
-            rx,
-            report,
-        ))
+        // The core is built once per process; a Visualizer panel hosted
+        // by a later window (or popped out and docked back) attaches to
+        // the one that exists, so the receiver is taken only the first
+        // time.
+        CustomWidgetAttr::new(VizWidget::attach(|| {
+            let rx = RX
+                .lock()
+                .expect("fresh mutex")
+                .take()
+                .expect("one visualizer core");
+            let report = STATE_TX
+                .lock()
+                .expect("fresh mutex")
+                .take()
+                .expect("one visualizer core");
+            viz_widget::VizCore::new(
+                config,
+                Some((SHOW.to_string(), 0)),
+                Some(PROJECT),
+                rx,
+                report,
+            )
+        }))
     });
 
     // Blitz repaints on demand and a `Widget` has no way to ask for a

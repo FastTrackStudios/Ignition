@@ -1,0 +1,23 @@
+{
+  "name": "cody",
+  "windows": [
+    {
+      "monitor": "DP-5",
+      "placement": "fullscreen",
+      "panels": ["cue_list"],
+      "view": "live"
+    },
+    {
+      "monitor": "DP-4",
+      "placement": { "docked": { "region": "right", "fraction": 0.5 } },
+      "panels": ["visualizer", "transport"]
+    },
+    {
+      "monitor": "DP-3",
+      "placement": "fullscreen",
+      "panels": ["busking", "palettes", "library"],
+      "view": "live"
+    }
+  ],
+  "favourites": {}
+}

@@ -34,22 +34,27 @@ use tokio::sync::Notify;
 /// request it carries — is already queued while this frame presents.
 pub static FRAME_DONE: LazyLock<Arc<Notify>> = LazyLock::new(|| Arc::new(Notify::new()));
 
-/// Everything needed to build the visualizer once a device shows up.
+/// The one visualizer in the process, and everything needed to build it
+/// once a device shows up.
 ///
 /// The widget is constructed by Dioxus during render, but Blitz does not
 /// hand out a device until `can_create_surfaces` — so the config waits
 /// here and the Bevy app is built at that moment, not before.
-pub struct VizWidget {
+///
+/// One per process, not per widget: the Visualizer *panel* can be
+/// hosted by any window (`r[studio.windows.visualizer-anywhere]`), and
+/// moving it means the old window's widget is dropped and a new one
+/// built in the new window. The Bevy app, the transport and the command
+/// receiver survive that move here, in a thread-local the widgets
+/// borrow — thread-local because every Blitz window paints on the one
+/// event-loop thread, and a Bevy `App` is not `Send`.
+pub struct VizCore {
     commands: Receiver,
     pending: Option<Box<VizConfig>>,
     /// The cue to sit on once the visualizer exists. Loading the show
     /// needs the venue, which lives inside `pending` until then.
     show: Option<(String, usize)>,
     state: State,
-    /// The texture handed to Blitz last frame, and its size. Re-used
-    /// across frames: registering a new resource every frame would leak
-    /// one per frame.
-    registered: Option<(ResourceId, u32, u32)>,
     /// The song, if one was opened. Lives here rather than in a
     /// component because the position has to be read on the same frame
     /// the visualizer renders — a transport polled from the UI would be
@@ -146,7 +151,80 @@ enum State {
     Unavailable,
 }
 
+thread_local! {
+    static CORE: std::cell::RefCell<Option<VizCore>> = const { std::cell::RefCell::new(None) };
+}
+
+/// The visualizer, as a Blitz widget: a view onto [`VizCore`] from one
+/// window. Holds only what is per window — the texture registration
+/// with *that* window's renderer.
+// r[impl studio.windows.visualizer-anywhere] - per-window registration of one shared texture
+pub struct VizWidget {
+    /// The texture handed to this window's renderer last frame, and its
+    /// size. Re-used across frames: registering a new resource every
+    /// frame would leak one per frame. Keyed by the widget, and so by
+    /// the window: a second window's renderer needs its own
+    /// registration of the same texture, on the same device.
+    registered: Option<(ResourceId, u32, u32)>,
+}
+
 impl VizWidget {
+    /// A widget over the process's visualizer, building it with `build`
+    /// if this is the first window to host the panel.
+    pub fn attach(build: impl FnOnce() -> VizCore) -> Self {
+        CORE.with(|core| {
+            let mut core = core.borrow_mut();
+            if core.is_none() {
+                *core = Some(build());
+            } else {
+                tracing::info!("viz.embed: panel re-hosted; the visualizer carries over");
+            }
+        });
+        Self { registered: None }
+    }
+
+    fn with_core<R>(&mut self, f: impl FnOnce(&mut VizCore) -> R) -> Option<R> {
+        CORE.with(|core| core.borrow_mut().as_mut().map(f))
+    }
+}
+
+impl Widget for VizWidget {
+    fn connected(&mut self) {}
+    fn disconnected(&mut self) {
+        // The renderer that held this registration unregisters it
+        // itself when the widget node drops; nothing to do but forget.
+        self.registered = None;
+    }
+
+    fn can_create_surfaces(&mut self, render_ctx: &mut dyn RenderContext) {
+        self.with_core(|core| core.can_create_surfaces(render_ctx));
+    }
+
+    fn destroy_surfaces(&mut self) {
+        self.registered = None;
+        self.with_core(|core| core.destroy_surfaces());
+    }
+
+    fn handle_event(&mut self, _event: &blitz_traits::events::UiEvent) {}
+
+    fn paint(
+        &mut self,
+        render_ctx: &mut dyn RenderContext,
+        _styles: &ComputedStyles,
+        width: u32,
+        height: u32,
+        _scale: f64,
+    ) -> Scene {
+        let mut registered = self.registered.take();
+        let scene = self
+            .with_core(|core| core.paint(render_ctx, width, height, &mut registered))
+            .unwrap_or_else(Scene::new);
+        self.registered = registered;
+        scene
+    }
+}
+
+impl VizCore {
     /// Builds the visualizer at the viewport's real size.
     fn activate(&mut self, width: u32, height: u32) {
         let State::Ready(gpu) = std::mem::replace(&mut self.state, State::Waiting) else {
@@ -206,7 +284,6 @@ impl VizWidget {
             pending: Some(Box::new(config)),
             show,
             state: State::Waiting,
-            registered: None,
             transport,
             report,
             sound: SoundFade::default(),
@@ -215,10 +292,7 @@ impl VizWidget {
     }
 }
 
-impl Widget for VizWidget {
-    fn connected(&mut self) {}
-    fn disconnected(&mut self) {}
-
+impl VizCore {
     fn can_create_surfaces(&mut self, render_ctx: &mut dyn RenderContext) {
         if matches!(self.state, State::Active(_) | State::Ready(_)) {
             return;
@@ -252,18 +326,17 @@ impl Widget for VizWidget {
 
     fn destroy_surfaces(&mut self) {
         self.state = State::Waiting;
-        self.registered = None;
     }
 
-    fn handle_event(&mut self, _event: &blitz_traits::events::UiEvent) {}
-
+    /// One frame: drain the UI's commands, step the show, render, and
+    /// hand the texture to `render_ctx` — the renderer of whichever
+    /// window is painting, registered once per window and re-used.
     fn paint(
         &mut self,
         render_ctx: &mut dyn RenderContext,
-        _styles: &ComputedStyles,
         width: u32,
         height: u32,
-        _scale: f64,
+        registered: &mut Option<(ResourceId, u32, u32)>,
     ) -> Scene {
         let mut scene = Scene::new();
         if matches!(self.state, State::Ready(_)) && width > 0 && height > 0 {
@@ -279,6 +352,7 @@ impl Widget for VizWidget {
             self.transport.as_ref(),
             &mut self.sound,
             &mut self.macro_runner,
+            self.show.as_ref().map(|(path, _)| path.as_str()),
         );
         smooth_sound(&mut self.sound, viz);
         follow_song(self.transport.as_ref(), viz);
@@ -294,7 +368,7 @@ impl Widget for VizWidget {
         // Re-register only when the texture changes identity, which at
         // a steady size it does not. Registering every frame would leak
         // one resource per frame.
-        let resource = match self.registered {
+        let resource = match *registered {
             Some((id, w, h)) if (w, h) == (width, height) => id,
             other => {
                 if let Some((old, _, _)) = other {
@@ -302,11 +376,11 @@ impl Widget for VizWidget {
                 }
                 match render_ctx.try_register_custom_resource(Box::new(texture)) {
                     Ok(id) => {
-                        self.registered = Some((id, width, height));
+                        *registered = Some((id, width, height));
                         id
                     }
                     Err(_) => {
-                        self.registered = None;
+                        *registered = None;
                         return scene;
                     }
                 }
@@ -337,6 +411,7 @@ fn drain(
     transport: Option<&SongTransport>,
     sound_fade: &mut SoundFade,
     macro_runner: &mut Option<MacroRunner>,
+    show_file: Option<&str>,
 ) {
     use ignition_core::{Class, RecipeApply, Show};
 
@@ -344,6 +419,10 @@ fn drain(
     let Some(mut playback) = world.remove_resource::<Playback>() else {
         return;
     };
+    // The Live / Program / Library commands, handled after the block
+    // below — `live_commands::apply` wants the whole `Playback`, which
+    // the destructuring borrows piecemeal.
+    let mut deferred: Vec<Command> = Vec::new();
     {
         let Playback {
             playbacks,
@@ -366,9 +445,16 @@ fn drain(
             programmer.protected = shipped.protected.clone();
         }
         while let Ok(command) = commands.try_recv() {
+            crate::live_commands::note(&command);
             // Rebuilt per command because `Rate` mutates `speeds`, which
             // the `Show` borrows. Cheap — it is four references.
             match command {
+                Command::Take { .. }
+                | Command::Untake(_)
+                | Command::DeskScene(_)
+                | Command::DeskRelease
+                | Command::Protect { .. }
+                | Command::StoreCue { .. } => deferred.push(command),
                 Command::Select(selection) => programmer.select(selection),
                 Command::Deselect => programmer.deselect(),
                 Command::ClearValues => programmer.clear_values(),
@@ -735,6 +821,17 @@ fn drain(
             }
         }
     }
+    if !deferred.is_empty() {
+        let desk = crate::desk::path_for_venue(&crate::venue_dir());
+        for command in &deferred {
+            crate::live_commands::apply(
+                command,
+                &mut playback,
+                desk.as_deref(),
+                show_file.map(std::path::Path::new),
+            );
+        }
+    }
     viz.app_mut().world_mut().insert_resource(playback);
 }
 
@@ -777,6 +874,7 @@ fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut Embedde
         ..Default::default()
     };
     if let Some(p) = playback {
+        crate::live_commands::publish(&mut next, p);
         let prog = &p.programmer;
         next.page = prog.page;
         next.pages = prog.pages.len().max(1);

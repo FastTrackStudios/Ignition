@@ -1,0 +1,54 @@
+# Vendored from crates.io anyrender_vello 0.12.0 — see NOTICE.md.
+
+[package]
+edition = "2024"
+name = "anyrender_vello"
+version = "0.12.0"
+description = "Vello backend for anyrender"
+homepage = "https://github.com/dioxuslabs/anyrender"
+documentation = "https://docs.rs/anyrender_vello"
+readme = false
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/dioxuslabs/anyrender"
+publish = false
+
+[features]
+log_frame_times = ["debug_timer/enable"]
+
+[lib]
+name = "anyrender_vello"
+path = "src/lib.rs"
+
+[dependencies.anyrender]
+version = "0.11.0"
+
+[dependencies.debug_timer]
+version = "0.1.1"
+
+[dependencies.futures-channel]
+version = "0.3"
+
+[dependencies.kurbo]
+version = "0.13.1"
+
+[dependencies.peniko]
+version = "0.6"
+
+[dependencies.rustc-hash]
+version = "2"
+
+[dependencies.vello]
+version = "0.9"
+features = ["wgpu"]
+
+[dependencies.wgpu]
+version = "29"
+
+[dependencies.wgpu_context]
+version = "0.7.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.pollster]
+version = "0.4"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.wasm-bindgen-futures]
+version = "0.4"

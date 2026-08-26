@@ -1,0 +1,179 @@
+/* Live / Program / Library panels. Same palette as studio.css and the
+   Tailwind theme (pad #1b1b22, line #2c2c36, sel #3a3a6b, ink #e6e6e6).
+   Every control here is touch first: 44px or taller, press not release,
+   and hover only ever repeats what is already visible. */
+
+/* ── Views ────────────────────────────────────────────────────────── */
+.views { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
+.view-strip { display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+              background: #0f0f12; border-bottom: 1px solid #26262c; }
+.view-strip .operator { font-size: 11px; color: #8d8d99; letter-spacing: 0.08em;
+                        text-transform: uppercase; margin-right: auto; }
+.view-key { min-height: 44px; min-width: 110px; padding: 0 18px; border-radius: 6px;
+            background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
+            font-size: 12px; font-weight: bold; letter-spacing: 0.08em; cursor: pointer; }
+.view-key.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.view { flex: 1; min-height: 0; display: flex; }
+.view.hidden { display: none; }
+
+/* ── Live layout ──────────────────────────────────────────────────── */
+.live { display: flex; width: 100%; height: 100%; min-height: 0; background: #131317; }
+.live-col { padding: 10px; border-right: 1px solid #1f1f26; overflow-y: auto; min-width: 0; }
+.live-col.scenes { flex: 0 0 300px; }
+.live-col.centre { flex: 1 1 0; }
+.live-col.right { flex: 0 0 360px; border-right: none; }
+.live-block { margin-bottom: 14px; }
+.live-block header { display: flex; justify-content: space-between; align-items: center;
+                     font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;
+                     font-size: 10px; color: #8d8d99; margin-bottom: 8px; }
+
+/* Looks: a scene bank coloured by kind. */
+.look-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.look-key { min-height: 64px; width: 132px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; gap: 2px;
+            border: 2px solid #2c2c36; border-radius: 8px; background: #1b1b22;
+            color: #e6e6e6; cursor: pointer; }
+.look-key.held { color: #fff; }
+.look-name { font-size: 13px; font-weight: bold; letter-spacing: 0.06em; }
+.look-kind { font-size: 10px; color: #b0b0c0; }
+.look-key.held .look-kind { color: #fff; }
+
+/* Macros: beat length and release on the key. */
+.macro-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.macro-key { min-height: 56px; width: 132px; display: flex; flex-direction: column;
+             justify-content: center; align-items: center; gap: 2px;
+             border: 1px solid #3d663d; border-radius: 8px; background: #22301f;
+             color: #cfe8cf; cursor: pointer; }
+.macro-key:hover { background: #2c4a2c; }
+.macro-name { font-size: 13px; font-weight: bold; letter-spacing: 0.06em; }
+.macro-shape { font-size: 10px; color: #9fbf9f; }
+
+/* Desk banks, collapsed by bank. */
+.desk-off { min-height: 44px; padding: 0 12px; border-radius: 6px; background: #1b1b22;
+            color: #cfcfdb; border: 1px solid #2c2c36; font-size: 11px; cursor: pointer; }
+.desk-off.on { background: #5a2c2c; border-color: #a04a3a; color: #fff; }
+.desk-bank { margin-bottom: 6px; }
+.desk-bank-head { width: 100%; min-height: 44px; display: flex; justify-content: space-between;
+                  align-items: center; padding: 0 12px; border-radius: 6px;
+                  background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
+                  font-size: 12px; cursor: pointer; }
+.desk-bank-head.on { border-color: #6a6ad0; color: #fff; }
+.desk-count { color: #6f6f7d; font-size: 11px; }
+.desk-scenes { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 4px 8px; }
+.desk-scene { min-height: 44px; min-width: 88px; padding: 4px 10px; border-radius: 6px;
+              background: #16161b; color: #cfcfdb; border: 1px solid #2c2c36;
+              font-size: 11px; cursor: pointer; }
+.desk-scene.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+
+/* ── Fader bank ───────────────────────────────────────────────────── */
+.page-tabs { display: flex; gap: 6px; }
+.page-tab { min-height: 44px; min-width: 88px; padding: 0 12px; border-radius: 6px;
+            background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
+            font-size: 11px; font-weight: bold; letter-spacing: 0.06em; cursor: pointer; }
+.page-tab.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.live .key-modes { display: flex; gap: 4px; }
+.live .key-mode { min-height: 44px; padding: 0 10px; border-radius: 6px; background: #1b1b22;
+                  color: #9d9daa; border: 1px solid #2c2c36; font-size: 10px; cursor: pointer; }
+.live .key-mode.on { background: #2c2c40; color: #fff; border-color: #6a6ad0; }
+.tfader-row { display: flex; gap: 10px; align-items: flex-start; }
+.tslot { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 96px; }
+.badges { display: flex; gap: 4px; min-height: 18px; }
+.badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: #1b1b22;
+         border: 1px solid #2c2c36; color: #b0b0c0; letter-spacing: 0.04em; }
+.badge.clock { color: #e0b860; border-color: #5a4a20; }
+.badge.filter { color: #8fd0e8; border-color: #2a4a5a; }
+
+/* The touch fader: 220px track — keep in step with `TRACK` in live.rs. */
+.tfader { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 96px; }
+.ttrack { position: relative; width: 64px; height: 220px; background: #0f0f12;
+          border: 1px solid #2c2c36; border-radius: 8px; cursor: pointer; overflow: hidden; }
+.tfill { position: absolute; left: 0; right: 0; bottom: 0; opacity: 0.7; }
+.thandle { position: absolute; left: 4px; right: 4px; height: 22px; margin-bottom: -11px;
+           background: #26262c; border: 2px solid #c0b8d0; border-radius: 6px; }
+.tfader.latched .ttrack { border-style: dashed; border-color: #8d8d99; }
+.tfader.latched .tfill { opacity: 0.25; }
+.tfader.toggled .ttrack { border-color: #6a6ad0; }
+.tlabel { font-size: 11px; font-weight: bold; letter-spacing: 0.06em; color: #e6e6e6; }
+.tvalue { font-size: 10px; color: #8d8d99; }
+.tparam { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 96px; }
+.tparam.wide { flex-direction: row; gap: 8px; width: auto; }
+.tparam-name { font-size: 9px; color: #8d8d99; letter-spacing: 0.06em; }
+.tparam .hslider { width: 90px; height: 28px; }
+.tkey { min-height: 44px; width: 64px; border-radius: 8px; background: #1b1b22;
+        color: #cfcfdb; border: 1px solid #2c2c36; font-size: 14px; cursor: pointer; }
+.tkey.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+
+/* Tap masters. */
+.tap-masters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.tap-key { min-height: 48px; min-width: 72px; padding: 0 12px; border-radius: 8px;
+           background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
+           font-size: 12px; font-weight: bold; letter-spacing: 0.06em; cursor: pointer; }
+.tap-key.learn { background: #3a2f10; border-color: #8a6a20; color: #ffe9a8; }
+.tap-key.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.tap-readout { min-width: 72px; font-size: 12px; color: #e0b860; }
+
+/* ── Palettes, protection, masters ────────────────────────────────── */
+.tile-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.ptile { min-height: 48px; min-width: 84px; padding: 4px 8px; display: flex;
+         align-items: center; gap: 6px; border-radius: 6px;
+         background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
+         font-size: 11px; cursor: pointer; }
+.ptile:hover { background: #24242e; }
+.ptile.fav { border-color: #8a6a20; }
+.ptile.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.ptile.small { min-width: 56px; }
+.ptile.warn { border-color: #5a3d3d; color: #e8c0c0; }
+.ptile.protected { background: #2c2c40; border-color: #6a6ad0; color: #fff; }
+.ptile.store { border-color: #3d663d; color: #cfe8cf; }
+.ptile.store.off { opacity: 0.45; cursor: default; }
+.pdisc { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #3d3d4a; }
+.ptile.split .pdisc { border-radius: 4px; }
+.pname { white-space: nowrap; }
+.plock { font-size: 12px; }
+.browse { width: 100%; min-height: 48px; margin-bottom: 10px; border-radius: 6px;
+          background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
+          font-size: 12px; font-weight: bold; letter-spacing: 0.08em; cursor: pointer; }
+.browse.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+
+/* ── Library ──────────────────────────────────────────────────────── */
+.library { display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; min-width: 0; }
+.lib-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.lib-title { font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;
+             font-size: 10px; color: #8d8d99; }
+.lib-search { flex: 1; min-height: 44px; padding: 0 10px; border-radius: 6px;
+              background: #0f0f12; color: #e6e6e6; border: 1px solid #2c2c36; font-size: 12px; }
+.lib-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.lib-tab { min-height: 44px; padding: 0 10px; border-radius: 6px; background: #1b1b22;
+           color: #9d9daa; border: 1px solid #2c2c36; font-size: 11px; cursor: pointer; }
+.lib-tab.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.lib-grid { display: flex; flex-wrap: wrap; gap: 6px; overflow-y: auto; min-height: 0; }
+.lib-tile { display: flex; align-items: stretch; width: 164px; border-radius: 6px;
+            background: #1b1b22; border: 1px solid #2c2c36; overflow: hidden; }
+.lib-tile.fav { border-color: #8a6a20; }
+.lib-tile.on { background: #3a3a6b; border-color: #6a6ad0; }
+.lib-tile.missing { opacity: 0.5; border-style: dashed; }
+.lib-body { flex: 1; min-height: 52px; display: flex; flex-direction: column; justify-content: center;
+            align-items: flex-start; gap: 2px; padding: 4px 8px; background: transparent;
+            border: none; color: #e6e6e6; cursor: pointer; text-align: left; }
+.lib-body:hover { background: #24242e; }
+.lib-swatch { width: 100%; height: 8px; border-radius: 3px; }
+.lib-name { font-size: 12px; }
+.lib-family { font-size: 9px; color: #8d8d99; }
+.lib-star { min-width: 44px; min-height: 44px; background: transparent; border: none;
+            border-left: 1px solid #2c2c36; color: #6f6f7d; font-size: 16px; cursor: pointer; }
+.lib-star.on { color: #e0b860; }
+.lib-empty { color: #6f6f7d; font-size: 11px; padding: 10px; }
+
+/* ── Program ──────────────────────────────────────────────────────── */
+.program { display: flex; width: 100%; height: 100%; min-height: 0; background: #131317; }
+.program .library { flex: 0 0 380px; padding: 10px; border-left: 1px solid #1f1f26; }
+.programmer { flex: 1 1 0; min-width: 0; padding: 10px; overflow-y: auto; }
+.prog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.prog-title { font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;
+              font-size: 10px; color: #8d8d99; }
+.prog-sel { font-size: 13px; color: #fff; }
+.prog-captured { font-size: 11px; color: #8d8d99; }
+.prog-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.prog-label { width: 64px; min-height: 48px; display: flex; align-items: center;
+              font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #8d8d99; }
+.prog-note { font-size: 11px; color: #8d8d99; align-self: center; }
