@@ -118,7 +118,19 @@ impl EmbeddedViz {
                 // texture to the host every frame, so the pipelining has
                 // to go. Costs a frame of latency-hiding we do not have
                 // anyway, since the host controls when we render.
-                .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>(),
+                .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>()
+                // The host already installed a tracing subscriber, and a
+                // process gets one. Left in, Bevy tries to install its
+                // own, fails, and reports the failure at ERROR — so the
+                // loudest line in a clean startup is the log system
+                // complaining about the log system.
+                .disable::<bevy::log::LogPlugin>()
+                // We do not use screen-space ambient occlusion, and the
+                // device Blitz hands us cannot support it anyway: its
+                // limits allow four storage textures per stage where SSAO
+                // wants five. Loading it only to have it decline is a
+                // warning about a feature nobody asked for.
+                .disable::<bevy::pbr::ScreenSpaceAmbientOcclusionPlugin>(),
         )
         .add_plugins(VizPlugin {
             config,

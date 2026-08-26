@@ -156,8 +156,23 @@ fn drums() -> Selection {
 
 // ── recipe shorthands ────────────────────────────────────────────────
 
+/// The brightest a section look may sit.
+///
+/// Headroom, and it is the difference between a chorus that punches and
+/// one that sits there. Hits are **additive**: `+0.85` on a fixture
+/// already at 1.0 has nowhere to go, so it clamps and nothing visibly
+/// happens — which is exactly what a chorus authored at full does to
+/// every hit in it. The look has to leave room for the thing that lands
+/// on top of it.
+///
+/// This is ordinary practice rather than a workaround. An operator
+/// parks a chorus around seventy so the band's hits have somewhere to
+/// go; a rig already at full has spent its dynamic range before the
+/// chorus starts.
+const LOOK_CEILING: f32 = 0.72;
+
 fn look(target: Selection, level: f32, colour: &str) -> Recipe {
-    let mut r = Recipe::new(target, RecipeApply::Dimmer(level));
+    let mut r = Recipe::new(target, RecipeApply::Dimmer(level.min(LOOK_CEILING)));
     r.steps[0]
         .apply
         .push(RecipeApply::Color(Ref::Named(colour.into())));
@@ -691,12 +706,19 @@ fn accents(chart: &HitChart) -> Vec<Cue> {
         }
         let count = moments.len();
         for (n, (at, level)) in moments.into_iter().enumerate() {
-            cues.push(bump_cue(
-                at,
-                &format!("· fig {index} · {}/{count}", n + 1),
-                zone(n, count),
-                level,
-            ));
+            let label = format!("· fig {index} · {}/{count}", n + 1);
+            let target = zone(n, count);
+            // A figure of two or three is a *shape* — the stage carved
+            // into halves or thirds, arriving one piece at a time — and
+            // cutting to it reads far harder than adding to it. Longer
+            // runs stay additive: six cuts in six eighths is a strobe
+            // with extra steps, and the shape stops being legible once
+            // there are more pieces than the eye can hold.
+            cues.push(if (2..=3).contains(&count) {
+                cutout_cue(at, &label, target, level)
+            } else {
+                bump_cue(at, &label, target, level)
+            });
         }
     }
 
@@ -726,42 +748,104 @@ fn accents(chart: &HitChart) -> Vec<Cue> {
 const BUMP_BEATS: f32 = 0.45;
 
 /// One hit, as a cue that puts itself out.
-fn bump_cue(at: Bars, name: &str, target: Selection, level: f32) -> Cue {
-    // Snap up, fall back. `transition: 0.0` on the lift is what makes it
-    // a hit rather than a swell — a hit that eases in has already missed
-    // the moment it was for.
-    let up = Step {
-        apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, level)])],
-        width: 1.0,
-        transition: 0.0,
-        ease: Ease::default(),
+/// The lift a hit fires.
+///
+/// Depth decides the kind, and that is the fix for a chorus in which
+/// nothing appeared to happen. A hard hit flashes **white**, which reads
+/// through whatever colour and level the look is sitting at because it
+/// changes the hue rather than only adding to the level — the one accent
+/// a bright look cannot swallow. Softer hits stay level-only, so a busy
+/// section is not a strobe.
+fn bump(target: Selection, depth: f32) -> Recipe {
+    let kind = if depth >= 0.6 {
+        ignition_core::BumpKind::White
+    } else {
+        ignition_core::BumpKind::Level
     };
-    let down = Step {
-        apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.0)])],
-        // Three times the lift's width and transitioning the whole way,
-        // so the fall is a fall and not a second snap.
-        width: 3.0,
-        transition: 1.0,
-        ease: Ease::default(),
+    ignition_core::bump::bump(target, kind, depth)
+}
+
+/// A hit that cuts the rig and reveals one zone.
+///
+/// The strongest thing a figure can do, and completely different from a
+/// bump: instead of adding light to a lit rig, it takes the rig *away*
+/// and leaves one third of the stage standing. Three hits in a row read
+/// as the stage being carved into left, centre, right — which no amount
+/// of adding could produce, because the eye reads the contrast rather
+/// than the level.
+///
+/// It works because relative values are **last-wins** per channel, which
+/// is usually the rule you route around and here is the rule doing the
+/// work. Two recipes in one cue: kill the whole layer, then lift the
+/// zone. The zone's fixtures are in both, and the later one wins for
+/// them, so they take the lift while everything else takes the kill.
+/// Ordering is therefore load-bearing — swap these two and the cut
+/// swallows the reveal.
+fn cutout_cue(at: Bars, name: &str, zone: Selection, level: f32) -> Cue {
+    let envelope = |target: Selection, depth: f32| {
+        // The same shape a bump uses, so a cut falls at the same rate a
+        // hit does and a figure mixing the two stays even.
+        ignition_core::bump::bump(target, ignition_core::BumpKind::Level, depth.abs())
+            .steps
+            .into_iter()
+            .map(|mut step| {
+                if depth < 0.0 {
+                    for apply in step.apply.iter_mut() {
+                        if let RecipeApply::Delta(pairs) = apply {
+                            for (_, v) in pairs.iter_mut() {
+                                *v = -*v;
+                            }
+                        }
+                    }
+                }
+                step
+            })
+            .collect::<Vec<_>>()
     };
+    let timed = |steps| Recipe {
+        target: wash(),
+        steps,
+        timing: Timing {
+            speed: Speed::Master("Song".into()),
+            measure: ignition_core::bump::FALL_BEATS,
+            once: true,
+            ..Default::default()
+        },
+        tricks: Vec::new(),
+    };
+
     Cue {
         name: name.to_string(),
         fade_secs: 0.0,
         values: Vec::new(),
-        recipes: vec![Recipe {
-            target,
-            steps: vec![up, down],
-            timing: Timing {
-                speed: Speed::Master("Song".into()),
-                measure: BUMP_BEATS,
-                phase_spread_deg: 0.0,
-                // The envelope runs once and holds at zero, which for a
-                // Delta is the same as not being there.
-                once: true,
-                ..Default::default()
+        recipes: vec![
+            // Cut deep enough that what is left reads as the only thing
+            // lit, rather than as the brightest of several.
+            timed(envelope(wash(), -0.95)),
+            Recipe {
+                target: zone,
+                ..timed(envelope(wash(), level))
             },
-            tricks: Vec::new(),
-        }],
+        ],
+        block: false,
+        at: Some(at),
+    }
+}
+
+fn bump_cue(at: Bars, name: &str, target: Selection, level: f32) -> Cue {
+    Cue {
+        name: name.to_string(),
+        fade_secs: 0.0,
+        values: Vec::new(),
+        // Through `bump` rather than an envelope written here. This had
+        // its own copy, and the copy is what made the choruses look
+        // dead: it only ever touched Dimmer, so it could not use the
+        // white flash that reads through a bright look, and the shared
+        // module it was supposed to be sharing sat unused two functions
+        // away. Exactly the drift `ignition_core::bump` exists to stop,
+        // arriving from the direction nobody watches — not two things
+        // diverging, but one of them never being adopted.
+        recipes: vec![bump(target, level)],
         block: false,
         at: Some(at),
     }

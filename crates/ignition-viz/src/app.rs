@@ -136,6 +136,13 @@ impl Plugin for VizPlugin {
                 self.gdtf.lock().expect("gdtf library lock").take(),
             ))
             .add_plugins(BeamPlugin)
+            // Room for the whole rig's lights before the GPU clustering
+            // buffers have to grow. Bevy resizes them when they overflow
+            // and says so — "the scene lighting may have been corrupted
+            // for a few frames" — which on a venue with seventy-odd
+            // fixtures happens on the first busy cue. Sized up front, so
+            // the corruption never happens rather than happening once.
+            .add_systems(Startup, widen_light_clusters)
             // Frame timing for the overlay's FPS readout. Bevy's own
             // plugin rather than a hand-rolled delta average, because it
             // keeps a smoothed history — a per-frame reciprocal flickers
@@ -381,6 +388,20 @@ fn run_snapshot(
 /// The camera every mode uses: HDR so bloom has something above white to
 /// work with, a tonemapper that desaturates as it clips, and the preset's
 /// own framing.
+/// Grows the clustering buffers past what this rig will ever need.
+///
+/// A Startup system rather than an inserted resource because the plugin
+/// builds `GlobalClusterSettings` from the device's own capabilities —
+/// whether storage buffers and GPU clustering are supported at all — and
+/// replacing it wholesale would mean deciding those here, wrongly, on
+/// hardware this code cannot see.
+fn widen_light_clusters(mut settings: ResMut<bevy::light::cluster::GlobalClusterSettings>) {
+    if let Some(gpu) = settings.gpu_clustering.as_mut() {
+        gpu.initial_z_slice_list_capacity = gpu.initial_z_slice_list_capacity.max(4096);
+        gpu.initial_index_list_capacity = gpu.initial_index_list_capacity.max(16384);
+    }
+}
+
 pub(crate) fn camera_bundle(
     view: ViewPreset,
     free: Option<(Vec3, Vec3)>,
@@ -389,6 +410,12 @@ pub(crate) fn camera_bundle(
 ) -> impl Bundle {
     (
         Camera3d::default(),
+        // Where shadow level-of-detail is measured from. Bevy warns when
+        // point or spot lights exist and nothing declares one — which is
+        // every frame here, since a lighting rig is nothing but point and
+        // spot lights. Putting it on the camera is the intended answer:
+        // detail should fall off with distance from the viewer.
+        bevy::camera::ShadowLodOrigin,
         // Without HDR the additive beam material clips at 1.0 and there
         // is nothing left above white for bloom to find — which is most
         // of what makes a beam read as light rather than as a shape.
