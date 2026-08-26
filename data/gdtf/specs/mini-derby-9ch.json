@@ -1,0 +1,52 @@
+{
+  "console_name": "MINI DERBY",
+  "manufacturer": null,
+  "manufacturer_guess": true,
+  "model": "Generic LED Mini Derby (9ch, RGB)",
+  "model_guess": true,
+  "sources": [
+    "https://www.amazon.com/s?k=mini+derby+light+dmx+9ch",
+    "https://www.manualslib.com/manual/1113073/Flash-F7000598.html",
+    "http://www.hdaudiosystem.com/media/attachment/file/l/e/led_194s_user_manual_en.pdf",
+    "https://www.manualslib.com/manual/2405867/Purelight-Fx-Mini-Derby-2.html"
+  ],
+  "physical": {
+    "width_mm": 220, "width_mm_guess": true,
+    "length_mm": 220, "length_mm_guess": true,
+    "height_mm": 240, "height_mm_guess": true,
+    "weight_kg": 1.2, "weight_kg_guess": true,
+    "power_w": 30, "power_w_guess": true
+  },
+  "optics": {
+    "beam_angle_deg": 30, "beam_angle_deg_guess": true,
+    "field_angle_deg": null,
+    "lumens_or_lux": null,
+    "source": "Typically 4-6 x 3W RGB LEDs behind a rotating multi-lens derby dome (generic Amazon mini derby)",
+    "source_guess": true,
+    "led_count": null,
+    "emitters": ["R", "G", "B"]
+  },
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "9ch": [
+      {"channel": 1, "attribute": "Mode", "ranges": [
+        {"from": 0, "to": 255, "meaning": "Control mode select (manual/DMX vs auto vs sound); exact breakpoints unknown"}]},
+      {"channel": 2, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red 0-100%"}]},
+      {"channel": 3, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green 0-100%"}]},
+      {"channel": 4, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue 0-100%"}]},
+      {"channel": 5, "attribute": "Macro", "ranges": [
+        {"from": 0, "to": 255, "meaning": "LED colour control / colour macro (0 = use CH2-4); breakpoints unknown"}]},
+      {"channel": 6, "attribute": "Strobe", "ranges": [
+        {"from": 0, "to": 255, "meaning": "LED strobe, slow to fast (low values typically no strobe)"}]},
+      {"channel": 7, "attribute": "Fade", "ranges": [
+        {"from": 0, "to": 255, "meaning": "LED fade / colour-change speed"}]},
+      {"channel": 8, "attribute": "Motor", "ranges": [
+        {"from": 0, "to": 255, "meaning": "Motor speed (rotation direction/speed of derby dome)"}]},
+      {"channel": 9, "attribute": "Speed", "ranges": [
+        {"from": 0, "to": 255, "meaning": "Motor spin speed (auto-rotate / bounce speed)"}]}
+    ]
+  },
+  "confidence": "guessed",
+  "notes": "Could not identify the exact Amazon listing or a manual for a 9-channel 'MINI DERBY' whose chart matches the venue console (Mode, R, G, B, LED Color Control, LED Strobe, LED Fade, Motor Speed, Motor Spin Speed). Amazon search for 'mini derby light dmx 9ch' returns only Chauvet Derby X (RGB, 6/8ch-class), ADJ Mini Dekker (8ch), Adkins LED Derby (7ch) and generic 4-in-1 derby combos (15ch) -- none 9ch. Repo already ships Purelight FX Mini Derby 2 GDTF, but that is an 8ch fixture (Dimmer, R+O, G+P, B+W, G+Y, Shutter, Movement, Sound) and does not match the console map either. Channel attributes above are the venue console's map (treated as DMX truth); value ranges are generic for this class of fixture and are guesses. Physical size taken from the venue fixtures.json bounding box (0.22 x 0.22 x 0.24 m) and beam angle from the same file (30 deg); weight/power are typical for 4-6x3W generic derbies. No datasheet conflict recorded because no datasheet was found."
+}

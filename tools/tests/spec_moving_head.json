@@ -1,0 +1,41 @@
+{
+  "console_name": "Betopper 150W beam",
+  "manufacturer": "Betopper",
+  "model": "LM150 150W Beam",
+  "sources": ["https://example.invalid/betopper-lm150-manual"],
+  "physical": {"width_mm": 240, "length_mm": 260, "height_mm": 400, "weight_kg": 6.5, "power_w": 180},
+  "optics": {"beam_angle_deg": 3, "field_angle_deg": 6, "lumens_or_lux": 5000, "source": "150W white LED", "led_count": 1, "emitters": ["W"]},
+  "movement": {"pan_deg": 540, "tilt_deg": 270},
+  "wheels": {"color": ["Open", "Red", "Green", "Blue", "Yellow", "Magenta", "Cyan", "Orange"],
+             "gobo": ["Open", "Gobo 1", "Gobo 2", "Gobo 3", "Gobo 4", "Gobo 5", "Gobo 6", "Gobo 7"]},
+  "modes": {
+    "14ch": [
+      {"channel": 1, "attribute": "Pan"},
+      {"channel": 2, "attribute": "PanFine"},
+      {"channel": 3, "attribute": "Tilt"},
+      {"channel": 4, "attribute": "TiltFine"},
+      {"channel": 5, "attribute": "Speed"},
+      {"channel": 6, "attribute": "Dimmer"},
+      {"channel": 7, "attribute": "Strobe", "ranges": [
+        {"from": 0, "to": 9, "meaning": "closed"}, {"from": 10, "to": 250, "meaning": "strobe 1-20 Hz"}, {"from": 251, "to": 255, "meaning": "open"}]},
+      {"channel": 8, "attribute": "Color", "ranges": [
+        {"from": 0, "to": 7, "meaning": "Open"}, {"from": 8, "to": 15, "meaning": "Red"}, {"from": 16, "to": 23, "meaning": "Green"},
+        {"from": 24, "to": 31, "meaning": "Blue"}, {"from": 32, "to": 39, "meaning": "Yellow"}, {"from": 40, "to": 47, "meaning": "Magenta"},
+        {"from": 48, "to": 55, "meaning": "Cyan"}, {"from": 56, "to": 63, "meaning": "Orange"}, {"from": 128, "to": 255, "meaning": "rotation slow to fast"}]},
+      {"channel": 9, "attribute": "Gobo", "ranges": [
+        {"from": 0, "to": 7, "meaning": "Open"}, {"from": 8, "to": 15, "meaning": "Gobo 1"}, {"from": 16, "to": 23, "meaning": "Gobo 2"},
+        {"from": 64, "to": 127, "meaning": "gobo shake"}, {"from": 128, "to": 255, "meaning": "rotation"}]},
+      {"channel": 10, "attribute": "Prism", "ranges": [{"from": 0, "to": 127, "meaning": "off"}, {"from": 128, "to": 255, "meaning": "on"}]},
+      {"channel": 11, "attribute": "Focus"},
+      {"channel": 12, "attribute": "Program"},
+      {"channel": 13, "attribute": "Sound"},
+      {"channel": 14, "attribute": "Reset", "ranges": [{"from": 0, "to": 249, "meaning": "no function"}, {"from": 250, "to": 255, "meaning": "reset"}]}
+    ],
+    "9ch": [
+      {"channel": 1, "attribute": "Pan"}, {"channel": 2, "attribute": "Tilt"}, {"channel": 3, "attribute": "Dimmer"},
+      {"channel": 4, "attribute": "Strobe"}, {"channel": 5, "attribute": "Color"}, {"channel": 6, "attribute": "Gobo"},
+      {"channel": 7, "attribute": "Prism"}, {"channel": 8, "attribute": "Focus"}, {"channel": 9, "attribute": "Speed"}
+    ]
+  },
+  "notes": "Synthetic test fixture."
+}

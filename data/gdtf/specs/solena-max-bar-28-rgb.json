@@ -1,0 +1,74 @@
+{
+  "console_name": "Solena Max Bar 28 RGB",
+  "manufacturer": "Solena (Full Compass house brand)",
+  "model": "Max Bar 28 RGB",
+  "sources": [
+    "https://github.com/mcallegari/qlcplus/blob/master/resources/fixtures/Solena/Solena-Max-Bar-28-RGB.qxf",
+    "https://reverb.com/item/15121688-solena-max-bar-28-rgb-28-watt-dmx-led-wash-light",
+    "https://forum.thelightingcontroller.com/viewtopic.php?t=5812"
+  ],
+  "physical": {"width_mm": 1095, "length_mm": 120, "height_mm": 115, "weight_kg": 2.5, "power_w": 28},
+  "optics": {
+    "beam_angle_deg": 30,
+    "field_angle_deg": null,
+    "lumens_or_lux": null,
+    "source": "252x 5mm-class diodes (84 red, 84 green, 84 blue), 8 sections",
+    "led_count": 252,
+    "emitters": ["R", "G", "B"],
+    "sections": 8
+  },
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "6ch": [
+      {"channel": 1, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red brightness"}]},
+      {"channel": 2, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green brightness"}]},
+      {"channel": 3, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue brightness"}]},
+      {"channel": 4, "attribute": "Macro", "ranges": [
+        {"from": 0, "to": 7, "meaning": "Color controlled by CH1-CH3"},
+        {"from": 8, "to": 35, "meaning": "Static colors R--RG--G--GB--B--RB--RGB"},
+        {"from": 36, "to": 71, "meaning": "7 color AUTO change, speed slow(1.5s) to fast(0.1s)"},
+        {"from": 72, "to": 107, "meaning": "R--G--B AUTO change, speed slow to fast"},
+        {"from": 108, "to": 143, "meaning": "R--RG--RGB AUTO change, speed slow to fast"},
+        {"from": 144, "to": 179, "meaning": "Color AUTO fade, speed slow(3s) to fast(0.8s)"},
+        {"from": 180, "to": 187, "meaning": "7 color SOUND change"},
+        {"from": 188, "to": 195, "meaning": "R--G--B AUTO change"},
+        {"from": 196, "to": 203, "meaning": "R--G--B SOUND change"},
+        {"from": 204, "to": 219, "meaning": "7 color AUTO change, speed controlled by CH6 (96-215)"},
+        {"from": 220, "to": 235, "meaning": "R--G--B AUTO change, speed controlled by CH6 (96-215)"},
+        {"from": 236, "to": 255, "meaning": "R--G--B AUTO change, speed controlled by CH6 (96-215)"}
+      ]},
+      {"channel": 5, "attribute": "Strobe", "ranges": [
+        {"from": 0, "to": 63, "meaning": "No flash"},
+        {"from": 64, "to": 239, "meaning": "AUTO flash, speed slow to fast"},
+        {"from": 240, "to": 255, "meaning": "SOUND flash"}
+      ]},
+      {"channel": 6, "attribute": "Section Control", "ranges": [
+        {"from": 0, "to": 95, "meaning": "Section selection (static)"},
+        {"from": 96, "to": 111, "meaning": "Section 1-2-3-4-5-6-7-8 AUTO change, speed slow to fast"},
+        {"from": 112, "to": 127, "meaning": "Section 12-34-56-78 AUTO change"},
+        {"from": 128, "to": 143, "meaning": "Section 13-57-24-68 AUTO change"},
+        {"from": 144, "to": 159, "meaning": "Section 12-23-34-45-56-67-78-81 AUTO change"},
+        {"from": 160, "to": 175, "meaning": "Section 1357-2468-1234-5678-2367-1258 AUTO change"},
+        {"from": 176, "to": 191, "meaning": "AUTO section stream, speed slow to fast"},
+        {"from": 192, "to": 195, "meaning": "Section 1-2-3-4-5-6-7-8 SOUND change"},
+        {"from": 196, "to": 199, "meaning": "Section 12-34-56-78 SOUND change"},
+        {"from": 200, "to": 203, "meaning": "Section 13-57-24-68 SOUND change"},
+        {"from": 204, "to": 207, "meaning": "Section 12-23-..-81 SOUND change"},
+        {"from": 208, "to": 211, "meaning": "Section 1357-2468-5678-2367-1458 SOUND change"},
+        {"from": 212, "to": 215, "meaning": "SOUND section stream"},
+        {"from": 216, "to": 223, "meaning": "Section 1-2-..-8 AUTO change section"},
+        {"from": 224, "to": 231, "meaning": "Section 12-34-56-78 AUTO change section"},
+        {"from": 232, "to": 239, "meaning": "Section 13-57-24-68 AUTO change section"},
+        {"from": 240, "to": 243, "meaning": "Section 12-23-..-81 AUTO change section"},
+        {"from": 244, "to": 247, "meaning": "Section 1357-2648-1234-5678-2367-1458 AUTO change section"},
+        {"from": 248, "to": 255, "meaning": "AUTO section stream change"}
+      ]}
+    ],
+    "24ch": [
+      {"channel": "1-24", "attribute": "Red/Green/Blue per section", "ranges": [{"from": 0, "to": 255, "meaning": "Section n Red, Green, Blue (n = 1..8) in RGB triplets"}]}
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "DMX chart taken from the QLC+ fixture definition (Nathan Durnan), which transcribes the manufacturer chart; physical values (1095x115x120 mm, 2.5 kg, 28 W, 30 deg) also from that file and match the reseller spec table (AC110-250V, fuse 2A, 28 W, 252 diodes 84R/84G/84B, 6/24 ch, 30 deg, 8 sections). Order matches the venue console map (R,G,B,Macros,Shutter,Selection Control). No original Solena PDF located online; PSSL/Full Compass product pages are gone."
+}

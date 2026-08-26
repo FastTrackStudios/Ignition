@@ -1,0 +1,20 @@
+{
+  "console_name": "36 LED Par Can",
+  "manufacturer": "Generic",
+  "model": "36x3W RGB Par",
+  "sources": ["manual"],
+  "physical": {"width_mm": 240, "length_mm": 240, "height_mm": 300, "weight_kg": 2.2, "power_w": 110},
+  "optics": {"beam_angle_deg": 25, "field_angle_deg": 40, "lumens_or_lux": 2000, "source": "LED", "led_count": 36, "emitters": ["R","G","B","W","A","UV"]},
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "7ch": [
+      {"channel": 1, "attribute": "Dimmer", "ranges": [{"from": 0, "to": 255, "meaning": "0-100%"}]},
+      {"channel": 2, "attribute": "Red"}, {"channel": 3, "attribute": "Green"}, {"channel": 4, "attribute": "Blue"},
+      {"channel": 5, "attribute": "Strobe", "ranges": [{"from": 0, "to": 9, "meaning": "open"}, {"from": 10, "to": 255, "meaning": "strobe slow to fast"}]},
+      {"channel": 6, "attribute": "Macro"}, {"channel": 7, "attribute": "ColorMacro"}
+    ],
+    "3ch": [{"channel": 1, "attribute": "Red"}, {"channel": 2, "attribute": "Green"}, {"channel": 3, "attribute": "Blue"}]
+  },
+  "notes": "Synthetic."
+}

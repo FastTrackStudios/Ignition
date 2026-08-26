@@ -1,0 +1,52 @@
+{
+  "console_name": "Uking Par",
+  "manufacturer": "U`King (UKing, Shenzhen)",
+  "model": "18x RGBW 4-in-1 LED par, 8ch (ZQ01069 / ZQ01061 / B117 family; Amazon B0BFQWBGCX, B07PZF87HZ, B07L9VTSLN)",
+  "sources": [
+    "https://www.uking-online.com/cdn/shop/files/ZQ01069-18-PCS-RGBW-LEDs-Par-Light.pdf",
+    "https://www.uking-online.com/product/b35-par-can-rgbw-18-leds-par-light/",
+    "https://www.uking-online.com/products/b117-par-can-4in1-rgbw-18-leds",
+    "https://open-fixture-library.org/uking/b117-par-can-4in1-rgbw-18-leds",
+    "https://manuals.plus/u-king/zq01424-14pcs-rgbw-4-in-1-par-light-manual",
+    "https://www.amazon.com/U%60King-Uplight-Lighting-Activated-Control/dp/B0BFQWBGCX",
+    "https://open-fixture-library.org/uking/par-light-b262"
+  ],
+  "physical": {"width_mm": 220, "length_mm": 220, "height_mm": 300, "weight_kg": 2.07, "power_w": 110},
+  "optics": {
+    "beam_angle_deg": 25,
+    "field_angle_deg": null,
+    "lumens_or_lux": "809 lux @ 5 m (ZQ01069); 900 lux @ 5 m (ZQ01061)",
+    "source": "18x 8W RGBW 4-in-1 LEDs (marketing: 18x12W), 50,000 h",
+    "led_count": 18,
+    "emitters": ["R", "G", "B", "W"]
+  },
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "8ch": [
+      {"channel": 1, "attribute": "Dimmer", "ranges": [{"from": 0, "to": 255, "meaning": "R,G,B,W master dimmer, dark to bright"}]},
+      {"channel": 2, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red dimmer"}]},
+      {"channel": 3, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green dimmer"}]},
+      {"channel": 4, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue dimmer"}]},
+      {"channel": 5, "attribute": "White", "ranges": [{"from": 0, "to": 255, "meaning": "White dimmer"}]},
+      {"channel": 6, "attribute": "Strobe", "ranges": [{"from": 0, "to": 0, "meaning": "Open (OFL)"}, {"from": 1, "to": 255, "meaning": "R,G,B,W strobe slow to fast"}]},
+      {"channel": 7, "attribute": "Macro", "ranges": [
+        {"from": 0, "to": 50, "meaning": "8-channel DMX control (manual colour via CH1-5)"},
+        {"from": 51, "to": 100, "meaning": "Colour presets (CH8 selects: R, G, B, W, Y, M, C, W in 32-step bands)"},
+        {"from": 101, "to": 150, "meaning": "Colour jump (CH8 = speed)"},
+        {"from": 151, "to": 200, "meaning": "Colour fade/gradient (CH8 = speed)"},
+        {"from": 201, "to": 250, "meaning": "Colour pulse change (CH8 = speed)"},
+        {"from": 251, "to": 255, "meaning": "Sound active"}
+      ]},
+      {"channel": 8, "attribute": "Speed", "ranges": [{"from": 0, "to": 255, "meaning": "Preset colour select (when CH7 51-100) or effect speed slow to fast"}]}
+    ],
+    "4ch": [
+      {"channel": 1, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red dimmer"}]},
+      {"channel": 2, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green dimmer"}]},
+      {"channel": 3, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue dimmer"}]},
+      {"channel": 4, "attribute": "White", "ranges": [{"from": 0, "to": 255, "meaning": "White dimmer"}]}
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "UKing sells the same 8ch RGBW par chart across ZQ01069 (18x8W, 110 W, 2.07 kg net, 22x22x30 cm box, 25 deg), ZQ01061/B117 (18x8W, 108 W, 2.95 kg, 25x16x26 cm) and ZQ01424 (14 LEDs); the 8ch chart (Dimmer,R,G,B,W,Strobe,Function,Speed) is identical in the ZQ01069 manual, the ZQ01424 manual and OFL's B117 definition. Physical values here are ZQ01069's. CONFLICT with repo: the repo's 'Uking Par' 7ch map (OFL par-light-b262: Dimmer,R,G,B,Strobe,Mode,Hue) is the 36x1W RGB par with NO white channel; the 8ch RGBW chart inserts White at CH5 and shifts Strobe to CH6, Macro to CH7, Speed to CH8. Which physical par the venue owns decides which chart applies; if the fixture is patched at 8ch it is the RGBW unit. Amazon listings (B0BFQWBGCX '216W', B07PZF87HZ '18x12W') do not print the chart; the marketing wattage exceeds the manual's rated 110 W."
+}

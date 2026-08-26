@@ -1,0 +1,157 @@
+{
+  "console_name": "LED MINI BEAM WH",
+  "manufacturer": null,
+  "model": null,
+  "manufacturer_guess": true,
+  "model_guess": true,
+  "candidate": "Epsilon Pro 'Mini Beam' (EPL-MINI BEAM): 1 x 8W cool-white LED, 2 deg, 6/8 DMX channels, white-LED single-beam mini mover",
+  "sources": [
+    "https://www.planetdj.com/epsilon-minibeam",
+    "https://www.pitbullaudio.com/epsilon-mini-beam-8-watt-led-fast-moving-beam-head.html",
+    "http://www.epsilon-pro.com/lights-mini-beam.html",
+    "https://open-fixture-library.org/search?q=mini+beam",
+    "https://downloads.monoprice.com/files/manuals/612980_Manual_180122.pdf",
+    "https://images-na.ssl-images-amazon.com/images/I/817xvVgs88L.pdf"
+  ],
+  "physical": {
+    "width_mm": 150,
+    "length_mm": 230,
+    "height_mm": 240,
+    "weight_kg": 2.5,
+    "power_w": 27,
+    "width_mm_guess": true,
+    "length_mm_guess": true,
+    "height_mm_guess": true,
+    "weight_kg_guess": true,
+    "power_w_guess": true
+  },
+  "optics": {
+    "beam_angle_deg": 2,
+    "field_angle_deg": null,
+    "lumens_or_lux": "3552 lux @ 5 m (Epsilon Mini Beam)",
+    "source": "1 x 8W cool-white LED (Epsilon candidate); caller expects a 10W/12W white mini beam",
+    "led_count": 1,
+    "emitters": [
+      "white"
+    ],
+    "beam_angle_deg_guess": true
+  },
+  "movement": {
+    "pan_deg": 540,
+    "tilt_deg": 270,
+    "_guess": true
+  },
+  "wheels": null,
+  "modes": {
+    "8ch": [
+      {
+        "channel": 1,
+        "attribute": "Pan",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan 0-540 deg"
+          }
+        ],
+        "_guess": true
+      },
+      {
+        "channel": 2,
+        "attribute": "PanFine",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan fine"
+          }
+        ],
+        "_guess": true
+      },
+      {
+        "channel": 3,
+        "attribute": "Tilt",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "tilt 0-270 deg"
+          }
+        ],
+        "_guess": true
+      },
+      {
+        "channel": 4,
+        "attribute": "TiltFine",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "tilt fine"
+          }
+        ],
+        "_guess": true
+      },
+      {
+        "channel": 5,
+        "attribute": "Speed",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan/tilt speed fast to slow"
+          }
+        ],
+        "_guess": true
+      },
+      {
+        "channel": 6,
+        "attribute": "Strobe",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 7,
+            "meaning": "closed"
+          },
+          {
+            "from": 8,
+            "to": 15,
+            "meaning": "open"
+          },
+          {
+            "from": 16,
+            "to": 255,
+            "meaning": "strobe slow to fast"
+          }
+        ],
+        "_guess": true
+      },
+      {
+        "channel": 7,
+        "attribute": "Dimmer",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "dimmer 0-100%"
+          }
+        ],
+        "_guess": true
+      },
+      {
+        "channel": 8,
+        "attribute": "Special",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "function/reset/auto-sound (typical OEM: high values = reset)"
+          }
+        ],
+        "_guess": true
+      }
+    ]
+  },
+  "confidence": "guessed",
+  "notes": "No manual or listing with an 8-channel Pan/PanFine/Tilt/TiltFine/Speed/Shutter/Dimmer/Special chart for a white-LED mini beam was found. Searches covered Amazon manual PDFs, manuals.plus (blocked, HTTP 403), ManualsLib, Open Fixture Library (only RGBW mini beams: lixada/mini-beam-rgbw, stage-right/mini-beam-rgbw, both 11/13ch with R/G/B/W channels -- NOT this fixture), Monoprice Stage Right 612980 (10W RGBW, 11/13ch) and Monoprice 612830 (30W white, 4/12ch with colour+gobo wheels). Every generic 10W 'mini beam' found is RGBW 4-in-1 (9/14ch or 11/13ch) and therefore cannot be an 8ch fixture with a single Dimmer and no colour channels. The closest documented match is the discontinued Epsilon Pro Mini Beam: single 8W cool-white LED, 2 deg optic, 540/270 pan-tilt, 6/8 DMX channels, 150x230x240 mm, 2.5 kg, 27W -- its physical values are recorded here but flagged as guesses because the console name 'LED MINI BEAM WH' ('WH' = white housing or white LED) has not been tied to it, and no Epsilon DMX chart could be retrieved (epsilon-pro.com times out). The 8ch chart above simply mirrors the venue console's channel order (repo DMX truth); the strobe ranges follow the common OEM pattern (0-7 closed, 8-15 open, 16-255 strobe) and the 'Special' channel is assumed to be function/reset -- all _guess. The repo GDTF UKing@ZQ02021_80W_MINI_BEAM (ZQ02021, 80W, 18-prism, colour + gobo wheels) is a different, larger fixture and not an 8ch match either."
+}

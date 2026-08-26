@@ -1,0 +1,12 @@
+{
+  "_comment": "venue fixture model string (as patched, any DMX-mode suffix included) -> GDTF FixtureType Name in data/gdtf or data/gdtf/generated. Consulted by GdtfLibrary::find after an exact name match fails and before the fuzzy substring match. Keys and values compare case- and punctuation-insensitively.",
+  "SlimPAR Tri 7 IRC 7ch": "SlimPAR Pro Q USB",
+  "SlimPAR Tri 7 IRC": "SlimPAR Pro Q USB",
+  "Rockstrip 252 3ch": "RockStrip 252",
+  "Rockstrip 252 7ch": "RockStrip 252",
+  "Par": "Uking Par",
+  "Uking Par 8ch": "Uking Par",
+  "Hurricane Haze 1DX 1ch": "Hurricane Haze 1DX",
+  "Mini Gobo Moving Head Light 11ch": "Mini Gobo Moving Head Light 11ch",
+  "150W Moving Head Beam": "150W Moving Head Beam"
+}

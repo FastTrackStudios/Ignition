@@ -1,0 +1,52 @@
+{
+  "console_name": "ENDYSHOW LED Stage Light Bar PL-32M",
+  "manufacturer": "ENDYSHOW (Guangzhou Xinyu Stage Lighting)",
+  "model": "PL-32M",
+  "sources": [
+    "https://www.amazon.com/dp/B0D927F87V",
+    "https://www.amazon.com/dp/B0DRHTDJQ2",
+    "https://manuals.plus/asin/B0D927F87V",
+    "https://manuals.plus/asin/B0DRHTDJQ2"
+  ],
+  "physical": {
+    "width_mm": 60,
+    "length_mm": 400,
+    "height_mm": 105,
+    "weight_kg": 0.9, "weight_kg_guess": true,
+    "power_w": 50
+  },
+  "optics": {
+    "beam_angle_deg": 35,
+    "field_angle_deg": null,
+    "lumens_or_lux": null,
+    "source": "9 x 4W RGBW 4-in-1 LEDs",
+    "led_count": 9,
+    "emitters": ["R", "G", "B", "W"]
+  },
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "4ch": [
+      {"channel": 1, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red 0-100%"}]},
+      {"channel": 2, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green 0-100%"}]},
+      {"channel": 3, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue 0-100%"}]},
+      {"channel": 4, "attribute": "White", "ranges": [{"from": 0, "to": 255, "meaning": "White 0-100%"}]}
+    ],
+    "4ch_guess": true,
+    "8ch": [
+      {"channel": 1, "attribute": "Dimmer", "ranges": [{"from": 0, "to": 255, "meaning": "Total dimmer 0-100% (listing: 0-100% linear dimming)"}]},
+      {"channel": 2, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red 0-100%"}]},
+      {"channel": 3, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green 0-100%"}]},
+      {"channel": 4, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue 0-100%"}]},
+      {"channel": 5, "attribute": "White", "ranges": [{"from": 0, "to": 255, "meaning": "White 0-100%"}]},
+      {"channel": 6, "attribute": "Strobe", "ranges": [
+        {"from": 0, "to": 255, "meaning": "Total strobe, slow to fast (low values no strobe; breakpoint unknown)"}]},
+      {"channel": 7, "attribute": "Macro", "ranges": [
+        {"from": 0, "to": 255, "meaning": "Function choice: none / jump / fade / strobe programs / sound (breakpoints unknown)"}]},
+      {"channel": 8, "attribute": "Speed", "ranges": [{"from": 0, "to": 255, "meaning": "Function speed, slow to fast"}]}
+    ],
+    "8ch_ranges_guess": true
+  },
+  "confidence": "listing only",
+  "notes": "Amazon listing (B0D927F87V, 2-pack) gives: 9x4W RGBW 4-in-1 LEDs, 35 deg beam, 50W, AC110-240V 50/60Hz, 3-pin powercon-style in/out, DMX512 4/8ch, remote/auto/sound/master-slave, built-in fan, plastic housing, size 40 x 6 x 10.5 cm (listing text; Amazon spec box says 15.7 x 2.3 x 4.2 in per unit). Weight: Amazon lists 1.78 kg for the 2-pack shipping weight, so ~0.9 kg per unit is a guess. Channel order and names for 8ch are the venue console's map (Total Dimmer, R, G, B, W, Total Strobe, Function Choice, Function Speed); the manuals.plus manual (which confirms PL-32M and 4/8ch) returned 403 so per-channel value breakpoints are guessed. 4ch mode assumed to be plain RGBW (guess). No datasheet conflict with the console map found."
+}

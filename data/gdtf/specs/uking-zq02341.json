@@ -1,0 +1,274 @@
+{
+  "console_name": "150W Moving Head Beam",
+  "manufacturer": "U'King (UKING ONLINE / Shenzhen Uking Technology)",
+  "model": "ZQ02341 (Amazon ZQ02341US; 'Big Steel Gun' / 'BEAM PRO' 150W beam)",
+  "sources": [
+    "https://www.uking-online.com/products/zq02341-150w-beam-moving-head-light-stage-light-for-dj-concert-party-weddings-nightclub-dance-hall",
+    "https://www.uking-online.com/cdn/shop/files/ZQ02341-Beam-Moving-Head-Light.pdf?v=1024286754085817358",
+    "https://manuals.plus/asin/B0FDL1WML4",
+    "https://manuals.plus/m/d0365b144119eb959ec207c39033e50568fecd25a94a2bbd8b4e6dfe58ed12d5"
+  ],
+  "physical": {
+    "width_mm": 265,
+    "length_mm": 260,
+    "height_mm": 385,
+    "weight_kg": 5.0,
+    "power_w": 150,
+    "dimensions_guess": true
+  },
+  "optics": {
+    "beam_angle_deg": 2.8,
+    "field_angle_deg": null,
+    "lumens_or_lux": "34,000 lux @ 5 m",
+    "source": "1 x 80W COB white LED (150W rated input), 8000-9000K",
+    "led_count": 1,
+    "emitters": [
+      "white"
+    ]
+  },
+  "movement": {
+    "pan_deg": 540,
+    "tilt_deg": 180
+  },
+  "wheels": {
+    "color": [
+      "white",
+      "color1",
+      "color2",
+      "color3",
+      "color4",
+      "color5",
+      "color6",
+      "color7"
+    ],
+    "gobo": [
+      "open",
+      "gobo1",
+      "gobo2",
+      "gobo3",
+      "gobo4",
+      "gobo5",
+      "gobo6",
+      "gobo7"
+    ],
+    "color_names_guess": true
+  },
+  "modes": {
+    "12ch": [
+      {
+        "channel": 1,
+        "attribute": "Pan",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan 0-540 deg"
+          }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "PanFine",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan fine"
+          }
+        ]
+      },
+      {
+        "channel": 3,
+        "attribute": "Tilt",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "tilt 0-180 deg"
+          }
+        ]
+      },
+      {
+        "channel": 4,
+        "attribute": "TiltFine",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "tilt fine"
+          }
+        ]
+      },
+      {
+        "channel": 5,
+        "attribute": "Speed",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan/tilt speed fast to slow"
+          }
+        ]
+      },
+      {
+        "channel": 6,
+        "attribute": "Dimmer",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "LED linear dimming 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 7,
+        "attribute": "Strobe",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 15,
+            "meaning": "strobe off (open)"
+          },
+          {
+            "from": 16,
+            "to": 255,
+            "meaning": "strobe slow to fast"
+          }
+        ]
+      },
+      {
+        "channel": 8,
+        "attribute": "Color",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 9,
+            "meaning": "white"
+          },
+          {
+            "from": 10,
+            "to": 79,
+            "meaning": "colours 1-7 (10-value steps, manual does not list names)"
+          },
+          {
+            "from": 80,
+            "to": 139,
+            "meaning": "half-colour selection"
+          },
+          {
+            "from": 140,
+            "to": 197,
+            "meaning": "colour wheel forward rotation fast to slow"
+          },
+          {
+            "from": 198,
+            "to": 255,
+            "meaning": "colour wheel reverse rotation slow to fast"
+          }
+        ]
+      },
+      {
+        "channel": 9,
+        "attribute": "Gobo",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 9,
+            "meaning": "open (circular)"
+          },
+          {
+            "from": 10,
+            "to": 79,
+            "meaning": "gobos 1-7 (10-value steps)"
+          },
+          {
+            "from": 80,
+            "to": 149,
+            "meaning": "gobo shake, slow to fast"
+          },
+          {
+            "from": 150,
+            "to": 159,
+            "meaning": "open shake, slow to fast"
+          },
+          {
+            "from": 160,
+            "to": 207,
+            "meaning": "auto clockwise gobo scroll fast to slow"
+          },
+          {
+            "from": 208,
+            "to": 255,
+            "meaning": "auto counter-clockwise gobo scroll fast to slow"
+          }
+        ]
+      },
+      {
+        "channel": 10,
+        "attribute": "Prism",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 8,
+            "meaning": "prism closed"
+          },
+          {
+            "from": 9,
+            "to": 127,
+            "meaning": "prism open"
+          },
+          {
+            "from": 128,
+            "to": 255,
+            "meaning": "prism rotation slow to fast"
+          }
+        ]
+      },
+      {
+        "channel": 11,
+        "attribute": "Macro",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 50,
+            "meaning": "other channels active (no macro)"
+          },
+          {
+            "from": 51,
+            "to": 100,
+            "meaning": "fast auto program"
+          },
+          {
+            "from": 101,
+            "to": 200,
+            "meaning": "slow auto program"
+          },
+          {
+            "from": 201,
+            "to": 255,
+            "meaning": "sound mode"
+          }
+        ]
+      },
+      {
+        "channel": 12,
+        "attribute": "Reset",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 249,
+            "meaning": "no function"
+          },
+          {
+            "from": 250,
+            "to": 255,
+            "meaning": "reset, hold 3 s"
+          }
+        ]
+      }
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "12ch chart transcribed from U'King's own PDF manual (Big Steel Gun Manual, ZQ02341-Beam-Moving-Head-Light.pdf). The manual lists '8 colours, half colour effect', '8 patterns', '6+12 prism' and 18-facet prism on the product page; colour and gobo names are not given anywhere found. Dimensions 38.5 x 26.5 x 26.0 cm and 5 kg come from the U'King product page and are probably the packaged size (dimensions_guess); Amazon's manuals.plus page (blocked, HTTP 403) may list the bare-fixture size. Beam angle 2.8 deg per U'King (search snippet also cites '2 deg'). CONFLICTS with the repo's 12ch Betopper map that this fixture is assumed to share: here ch6 = Dimmer and ch7 = Strobe (repo order is the same, fine), but ch11 is an auto/sound macro channel, not Focus, and the colour wheel has 8 slots in 10-value steps (0-9 white, 10-79 colours 1-7) rather than 9 colours; 80-139 are half-colours. The repo GDTF UKing@ZQ02341_150W_Big_Steel_Gun_LED_Moving_Head_Beam (2024-R001) should be the definitive reference for slot names/colours -- not opened here. The Betopper LB150 (betopper-150w-beam.json) uses a different, finer colour/gobo layout even though it is the same chassis family."
+}

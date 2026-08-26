@@ -371,7 +371,7 @@ fn map_attribute_name(name: &str) -> Option<Attribute> {
         "ColorAdd_W" => Some(Attribute::ColorAdd {
             channel: ColorChannel::White,
         }),
-        "ColorAdd_A" | "ColorAdd_Am" => Some(Attribute::ColorAdd {
+        "ColorAdd_A" | "ColorAdd_Am" | "ColorAdd_RY" => Some(Attribute::ColorAdd {
             channel: ColorChannel::Amber,
         }),
         "ColorAdd_UV" => Some(Attribute::ColorAdd {

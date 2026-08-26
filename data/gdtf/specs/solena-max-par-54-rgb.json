@@ -1,0 +1,36 @@
+{
+  "console_name": "Solena Professional Max Par 54 RGB",
+  "manufacturer": "Solena (Full Compass house brand; also sold as TechnoLEDgy Max Par 54)",
+  "model": "Max Par 54 RGB (18x3W)",
+  "sources": [
+    "https://www.pssl.com/Solena-Max-Par-54-Watt-18x3-DMX-RGB-LED-Light-1",
+    "https://www.djgreasy.com/rentals/p/solena-professional-max-par-24-rgbw-stage-light-uplight-rental",
+    "https://shop.solotech.com/products/technoledgy-max-par-54-watt-18x3-dmx-rgb-led-light",
+    "https://www.youtube.com/watch?v=6_Mh00fn7vs"
+  ],
+  "physical": {"width_mm": 225, "length_mm": 210, "height_mm": 170, "weight_kg": 1.5, "weight_kg_guess": true, "power_w": 75},
+  "optics": {
+    "beam_angle_deg": 25,
+    "beam_angle_deg_guess": true,
+    "field_angle_deg": null,
+    "lumens_or_lux": null,
+    "source": "18x 3W LEDs (6 red, 6 green, 6 blue), 40,000-50,000 h",
+    "led_count": 18,
+    "emitters": ["R", "G", "B"]
+  },
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "7ch": [
+      {"channel": 1, "attribute": "Dimmer", "ranges": [{"from": 0, "to": 255, "meaning": "Master dimmer 0-100%"}]},
+      {"channel": 2, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red 0-100%"}]},
+      {"channel": 3, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green 0-100%"}]},
+      {"channel": 4, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue 0-100%"}]},
+      {"channel": 5, "attribute": "Strobe", "ranges": [{"from": 0, "to": 255, "meaning": "Strobe 0-100% (listing: adjustable strobe); exact ranges unknown"}], "ranges_guess": true},
+      {"channel": 6, "attribute": "Macro", "ranges": [{"from": 0, "to": 255, "meaning": "Color macros: static mix / jump / fade / sound (listing lists color mixing, gradual transitions, jump changes); exact ranges unknown"}], "ranges_guess": true},
+      {"channel": 7, "attribute": "Color Selection", "ranges": [{"from": 0, "to": 255, "meaning": "Color selection / shade (venue map); exact ranges unknown"}], "ranges_guess": true}
+    ]
+  },
+  "confidence": "listing only",
+  "notes": "No manual PDF found online (PSSL product page redirects to Solotech; Solotech and Full Compass pages no longer serve specs). Channel ORDER is the venue console map (Dimmer,R,G,B,Shutter,Color Macros,Color Selection/Shade), which agrees with listing text that the fixture is 7ch with dimmer 0-100% and strobe 0-100%; per-channel value ranges are guessed. Dimensions 8.86 x 8.27 x 6.69 in (225 x 210 x 170 mm) from DJ Greasy rental page. Weight: DJ Greasy says 0.6 kg (1.3 lb, implausibly light), a reseller snippet says 1.5 kg; 1.5 kg used and marked guess. Power: listing says 75 W at 2A (LED load 54 W). Beam angle not published; 25 deg is a typical 18x3W par value and is a guess. DJ Greasy copy mentions 'white LEDs' but the 54 RGB variant has no white emitter."
+}

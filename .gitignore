@@ -10,3 +10,4 @@ result-*
 *.esf2
 *.a3d
 /.direnv/
+tools/__pycache__/

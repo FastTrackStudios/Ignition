@@ -5163,6 +5163,7 @@ dependencies = [
  "bevy",
  "ffmpeg-next",
  "gdtf",
+ "gltf",
  "hap-qt",
  "ignition-core",
  "ignition-io",

@@ -1,0 +1,24 @@
+GDTF standard primitive meshes
+==============================
+
+The .3ds files in this directory are the official PrimitiveType meshes
+shipped with the GDTF specification, copied verbatim from
+https://github.com/mvrdevelopment/spec (folder `meshes/1.0` and
+`meshes/1.1`, main branch, fetched 2026-08-26):
+
+  primitivetype_base.3ds              PrimitiveType::Base
+  primitivetype_yoke.3ds              PrimitiveType::Yoke
+  primitivetype_head.3ds              PrimitiveType::Head
+  primitivetype_scanner.3ds           PrimitiveType::Scanner
+  primitivetype_conventional.3ds      PrimitiveType::Conventional
+  primitivetype_base_1.1.3ds          PrimitiveType::Base1_1
+  primitivetype_scanner_1.1.3ds       PrimitiveType::Scanner1_1
+  primitivetype_conventional_1.1.3ds  PrimitiveType::Conventional1_1
+
+License, per the repository README ("meshes" section):
+
+  "They are free to use, modify, and distribute, including in commercial
+   applications, without any licensing fees or royalties."
+
+The spec ships no mesh for Cube, Cylinder, Sphere or Pigtail; those are
+generated procedurally in src/gdtf_geometry.rs.

@@ -1,0 +1,40 @@
+{
+  "console_name": "Hurricane Haze 1DX",
+  "manufacturer": "Chauvet DJ",
+  "model": "Hurricane Haze 1DX (HHAZE1DX)",
+  "sources": [
+    "https://www.chauvetdj.com/wp-content/uploads/2017/01/Hurricane_Haze_1DX_UM_Rev3.pdf",
+    "https://www.chauvetdj.com/products/hurricane-haze-1dx/",
+    "https://open-fixture-library.org/chauvet-dj/hurricane-haze-1dx",
+    "https://www.manualslib.com/manual/1561183/Chauvet-Dj-Hurricane-Haze-1dx.html"
+  ],
+  "physical": {
+    "width_mm": 150,
+    "length_mm": 278,
+    "height_mm": 223,
+    "weight_kg": 3.3,
+    "power_w": 303
+  },
+  "optics": null,
+  "movement": null,
+  "wheels": null,
+  "fluid": {
+    "tank_l": 1.5,
+    "output": "3000 cfm; consumption 6 ml/min; water-based haze fluid",
+    "warmup_min": 2
+  },
+  "modes": {
+    "1ch": [
+      {
+        "channel": 1,
+        "attribute": "Haze",
+        "ranges": [
+          { "from": 0, "to": 10, "meaning": "No function (haze off)" },
+          { "from": 11, "to": 255, "meaning": "Haze volume, low to high" }
+        ]
+      }
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "User Manual Rev. 3 DMX Values table and Technical Specifications (CHANNEL RANGE: 1) list only a single-channel mode; there is NO 2ch mode in the manual - the standalone Haze Volume knob (H 1-3) is not a DMX personality. Matches OFL and the repo's 1ch Haze map. Fuse F 5 A 250 V; 120 V/60 Hz or 230 V/50 Hz fixed models (item codes 05071528 / 05071529). 3-pin XLR DMX. No GDTF-share entry located (gdtf-share.com requires login; nothing surfaced via search)."
+}

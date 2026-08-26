@@ -1,0 +1,47 @@
+{
+  "console_name": "Base Hazer 1500W",
+  "manufacturer": "Hazebase (Uta Raabe, Wedemark, Germany)",
+  "model": "base*hazer (original, 1500 W, 230 V/50 Hz)",
+  "sources": [
+    "https://protolight.com/files/2019/08/HazeBase-Base-Hazer_Manual.pdf",
+    "https://www.scribd.com/document/324126443/User-Manual-Base-Hazer",
+    "https://hazebase.com/en/hazer/",
+    "https://www.hazebaseamerica.com/base_hazer_pro.php"
+  ],
+  "physical": {
+    "width_mm": 540,
+    "length_mm": 414,
+    "height_mm": 185,
+    "weight_kg": 18,
+    "_guess": true,
+    "power_w": 1500
+  },
+  "optics": null,
+  "movement": null,
+  "wheels": null,
+  "fluid": {
+    "tank_l": 5,
+    "output": "fan > 6000 l/min; consumption 0.6 l/h at 99% pump, 0.04 l/h at 5%",
+    "warmup_min": 1
+  },
+  "modes": {
+    "2ch": [
+      {
+        "channel": 1,
+        "attribute": "Pump",
+        "ranges": [
+          { "from": 0, "to": 255, "meaning": "Pump output 1-99% (linear; manual gives no sub-ranges, 0 = off / post-run after 15 s without signal)" }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "Fan",
+        "ranges": [
+          { "from": 0, "to": 255, "meaning": "Fan output 1-99% (linear; manual gives no sub-ranges)" }
+        ]
+      }
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "Manual section 5.3: 'The base*hazer uses two channels on your desk! First Channel = Pump, second Channel = Fan.' Matches repo map (ch1 Pump, ch2 Fan). Manual gives percentages, not DMX value breakpoints, so the 0-255 ranges are a linear reading. Dimensions from manual are the flightcase: 59.4 x 54 x 18.5 cm closed, 41.4 x 54 x 18.5 cm open (recorded open: L=414, W=540, H=185). Weight is NOT in the original manual; 18 kg is the Base Hazer Pro figure (same 1500 W / 5 l / Amptown flightcase form factor, also the Weight in the repo's Hazebase@Base_Hazer_Pro@rev1.gdtf) - guessed. Repo already has Hazebase@Base_Hazer_Pro@rev1.gdtf (Pro model) whose 2Chan mode is ch1 Haze (pump), ch2 Blower (fan) - same layout, so it is a usable stand-in. OFL has base-hazer-pro only. No GDTF-share entry for the non-Pro base*hazer located (site requires login). Also supports 0-10 V analogue (pump only) and an internal timer; DMX takes priority."
+}

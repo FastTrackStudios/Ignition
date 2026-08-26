@@ -23,6 +23,7 @@ pub mod embedded;
 pub mod fixture_profile;
 pub mod gdtf_geometry;
 pub mod gdtf_import;
+pub mod gdtf_mesh;
 pub mod obj_mesh;
 pub mod ofl_import;
 pub mod output;

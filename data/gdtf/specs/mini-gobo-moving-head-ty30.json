@@ -1,0 +1,661 @@
+{
+  "console_name": "Mini Gobo Moving Head Light",
+  "console_names": [
+    "Mini Gobo Moving Head Light",
+    "Mini Gobo Moving Head Light 11ch"
+  ],
+  "manufacturer": "ZKYMZL (same OEM sold as Lixada, Riukoe, U'King ZQ02061, Tomshine mini gobo moving head)",
+  "model": "TY-30 (mfr part RYON-30); 25W/30W mini gobo moving head",
+  "sources": [
+    "https://images-na.ssl-images-amazon.com/images/I/81ej8MIZpBL.pdf",
+    "https://open-fixture-library.org/lixada/mini-gobo-moving-head-light",
+    "https://manuals.plus/zkymzl/dmx512-mini-gobo-moving-head-light-manual",
+    "https://www.amazon.com/ZKYMZL-Spotlight-Color-Split-Rotating-Patterns/dp/B08M5WJXQ8",
+    "https://www.amazon.com/ZKYMZL-PCS-Moving-Head-Lights/dp/B0F89FBDZN",
+    "https://manuals.plus/riukoe/mini-gobo-moving-head-light-manual",
+    "https://manuals.plus/u-king/zq02061-mini-gobo-moving-head-light-manual"
+  ],
+  "physical": {
+    "width_mm": 210,
+    "length_mm": 260,
+    "height_mm": 280,
+    "weight_kg": 3.2,
+    "power_w": 30
+  },
+  "optics": {
+    "beam_angle_deg": 11,
+    "field_angle_deg": null,
+    "lumens_or_lux": null,
+    "source": "single white LED (25W listed; 30W for TY-30), manual focus",
+    "led_count": 1,
+    "emitters": [
+      "white"
+    ],
+    "beam_angle_deg_guess": true
+  },
+  "movement": {
+    "pan_deg": 540,
+    "tilt_deg": 180
+  },
+  "wheels": {
+    "color": [
+      "white",
+      "red",
+      "pale blue",
+      "orange",
+      "blue",
+      "yellow",
+      "green",
+      "pink"
+    ],
+    "gobo": [
+      "open",
+      "gobo1",
+      "gobo2",
+      "gobo3",
+      "gobo4",
+      "gobo5",
+      "gobo6",
+      "gobo7"
+    ],
+    "color_order_guess": true
+  },
+  "modes": {
+    "9ch": [
+      {
+        "channel": 1,
+        "attribute": "Pan",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan 0-540 deg"
+          }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "Tilt",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "tilt 0-180 deg"
+          }
+        ]
+      },
+      {
+        "channel": 3,
+        "attribute": "Color",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 15,
+            "meaning": "white"
+          },
+          {
+            "from": 16,
+            "to": 31,
+            "meaning": "red"
+          },
+          {
+            "from": 32,
+            "to": 47,
+            "meaning": "pale blue / cyan"
+          },
+          {
+            "from": 48,
+            "to": 63,
+            "meaning": "orange"
+          },
+          {
+            "from": 64,
+            "to": 79,
+            "meaning": "blue"
+          },
+          {
+            "from": 80,
+            "to": 95,
+            "meaning": "yellow"
+          },
+          {
+            "from": 96,
+            "to": 111,
+            "meaning": "green"
+          },
+          {
+            "from": 112,
+            "to": 127,
+            "meaning": "pink / magenta"
+          },
+          {
+            "from": 128,
+            "to": 189,
+            "meaning": "colour wheel rotation fast to slow (CCW)"
+          },
+          {
+            "from": 190,
+            "to": 193,
+            "meaning": "stop"
+          },
+          {
+            "from": 194,
+            "to": 255,
+            "meaning": "colour wheel rotation slow to fast (CW)"
+          }
+        ]
+      },
+      {
+        "channel": 4,
+        "attribute": "Gobo",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 63,
+            "meaning": "gobo select (open + 7 gobos, ~8-value steps)"
+          },
+          {
+            "from": 64,
+            "to": 127,
+            "meaning": "gobo shake select"
+          },
+          {
+            "from": 128,
+            "to": 189,
+            "meaning": "gobo wheel rotation fast to slow"
+          },
+          {
+            "from": 190,
+            "to": 193,
+            "meaning": "stop"
+          },
+          {
+            "from": 194,
+            "to": 255,
+            "meaning": "gobo wheel rotation slow to fast"
+          }
+        ]
+      },
+      {
+        "channel": 5,
+        "attribute": "Strobe",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 7,
+            "meaning": "closed"
+          },
+          {
+            "from": 8,
+            "to": 15,
+            "meaning": "open"
+          },
+          {
+            "from": 16,
+            "to": 131,
+            "meaning": "strobe slow to fast"
+          },
+          {
+            "from": 132,
+            "to": 139,
+            "meaning": "open"
+          },
+          {
+            "from": 140,
+            "to": 181,
+            "meaning": "pulse: fast close, slow open"
+          },
+          {
+            "from": 182,
+            "to": 189,
+            "meaning": "open"
+          },
+          {
+            "from": 190,
+            "to": 231,
+            "meaning": "pulse: fast open, slow close"
+          },
+          {
+            "from": 232,
+            "to": 239,
+            "meaning": "open"
+          },
+          {
+            "from": 240,
+            "to": 247,
+            "meaning": "random strobe"
+          },
+          {
+            "from": 248,
+            "to": 255,
+            "meaning": "open"
+          }
+        ]
+      },
+      {
+        "channel": 6,
+        "attribute": "Dimmer",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "dimmer 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 7,
+        "attribute": "Speed",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan/tilt speed fast to slow"
+          }
+        ]
+      },
+      {
+        "channel": 8,
+        "attribute": "Function",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 69,
+            "meaning": "no function"
+          },
+          {
+            "from": 70,
+            "to": 79,
+            "meaning": "blackout while pan/tilt moving"
+          },
+          {
+            "from": 80,
+            "to": 89,
+            "meaning": "no function"
+          },
+          {
+            "from": 90,
+            "to": 99,
+            "meaning": "blackout while colour wheel moving"
+          },
+          {
+            "from": 100,
+            "to": 109,
+            "meaning": "no function"
+          },
+          {
+            "from": 110,
+            "to": 119,
+            "meaning": "blackout while gobo wheel moving"
+          },
+          {
+            "from": 120,
+            "to": 199,
+            "meaning": "no function"
+          },
+          {
+            "from": 200,
+            "to": 209,
+            "meaning": "reset"
+          },
+          {
+            "from": 210,
+            "to": 249,
+            "meaning": "no function"
+          },
+          {
+            "from": 250,
+            "to": 255,
+            "meaning": "sound-active mode"
+          }
+        ]
+      },
+      {
+        "channel": 9,
+        "attribute": "DimmerCurve",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 20,
+            "meaning": "standard dimmer curve"
+          },
+          {
+            "from": 21,
+            "to": 40,
+            "meaning": "stage dimmer curve"
+          },
+          {
+            "from": 41,
+            "to": 60,
+            "meaning": "TV dimmer curve"
+          },
+          {
+            "from": 61,
+            "to": 80,
+            "meaning": "architectural dimmer curve"
+          },
+          {
+            "from": 81,
+            "to": 100,
+            "meaning": "theatre dimmer curve"
+          },
+          {
+            "from": 101,
+            "to": 255,
+            "meaning": "default standard curve"
+          }
+        ]
+      }
+    ],
+    "11ch": [
+      {
+        "channel": 1,
+        "attribute": "Pan",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan 0-540 deg"
+          }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "PanFine",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan fine"
+          }
+        ]
+      },
+      {
+        "channel": 3,
+        "attribute": "Tilt",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "tilt 0-180 deg"
+          }
+        ]
+      },
+      {
+        "channel": 4,
+        "attribute": "TiltFine",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "tilt fine"
+          }
+        ]
+      },
+      {
+        "channel": 5,
+        "attribute": "Color",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 15,
+            "meaning": "white"
+          },
+          {
+            "from": 16,
+            "to": 31,
+            "meaning": "red"
+          },
+          {
+            "from": 32,
+            "to": 47,
+            "meaning": "pale blue / cyan"
+          },
+          {
+            "from": 48,
+            "to": 63,
+            "meaning": "orange"
+          },
+          {
+            "from": 64,
+            "to": 79,
+            "meaning": "blue"
+          },
+          {
+            "from": 80,
+            "to": 95,
+            "meaning": "yellow"
+          },
+          {
+            "from": 96,
+            "to": 111,
+            "meaning": "green"
+          },
+          {
+            "from": 112,
+            "to": 127,
+            "meaning": "pink / magenta"
+          },
+          {
+            "from": 128,
+            "to": 189,
+            "meaning": "colour wheel rotation fast to slow (CCW)"
+          },
+          {
+            "from": 190,
+            "to": 193,
+            "meaning": "stop"
+          },
+          {
+            "from": 194,
+            "to": 255,
+            "meaning": "colour wheel rotation slow to fast (CW)"
+          }
+        ]
+      },
+      {
+        "channel": 6,
+        "attribute": "Gobo",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 63,
+            "meaning": "gobo select (open + 7 gobos, ~8-value steps)"
+          },
+          {
+            "from": 64,
+            "to": 127,
+            "meaning": "gobo shake select"
+          },
+          {
+            "from": 128,
+            "to": 189,
+            "meaning": "gobo wheel rotation fast to slow"
+          },
+          {
+            "from": 190,
+            "to": 193,
+            "meaning": "stop"
+          },
+          {
+            "from": 194,
+            "to": 255,
+            "meaning": "gobo wheel rotation slow to fast"
+          }
+        ]
+      },
+      {
+        "channel": 7,
+        "attribute": "Strobe",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 7,
+            "meaning": "closed"
+          },
+          {
+            "from": 8,
+            "to": 15,
+            "meaning": "open"
+          },
+          {
+            "from": 16,
+            "to": 131,
+            "meaning": "strobe slow to fast"
+          },
+          {
+            "from": 132,
+            "to": 139,
+            "meaning": "open"
+          },
+          {
+            "from": 140,
+            "to": 181,
+            "meaning": "pulse: fast close, slow open"
+          },
+          {
+            "from": 182,
+            "to": 189,
+            "meaning": "open"
+          },
+          {
+            "from": 190,
+            "to": 231,
+            "meaning": "pulse: fast open, slow close"
+          },
+          {
+            "from": 232,
+            "to": 239,
+            "meaning": "open"
+          },
+          {
+            "from": 240,
+            "to": 247,
+            "meaning": "random strobe"
+          },
+          {
+            "from": 248,
+            "to": 255,
+            "meaning": "open"
+          }
+        ]
+      },
+      {
+        "channel": 8,
+        "attribute": "Dimmer",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "dimmer 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 9,
+        "attribute": "Speed",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan/tilt speed fast to slow"
+          }
+        ]
+      },
+      {
+        "channel": 10,
+        "attribute": "Function",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 69,
+            "meaning": "no function"
+          },
+          {
+            "from": 70,
+            "to": 79,
+            "meaning": "blackout while pan/tilt moving"
+          },
+          {
+            "from": 80,
+            "to": 89,
+            "meaning": "no function"
+          },
+          {
+            "from": 90,
+            "to": 99,
+            "meaning": "blackout while colour wheel moving"
+          },
+          {
+            "from": 100,
+            "to": 109,
+            "meaning": "no function"
+          },
+          {
+            "from": 110,
+            "to": 119,
+            "meaning": "blackout while gobo wheel moving"
+          },
+          {
+            "from": 120,
+            "to": 199,
+            "meaning": "no function"
+          },
+          {
+            "from": 200,
+            "to": 209,
+            "meaning": "reset"
+          },
+          {
+            "from": 210,
+            "to": 249,
+            "meaning": "no function"
+          },
+          {
+            "from": 250,
+            "to": 255,
+            "meaning": "sound-active mode"
+          }
+        ]
+      },
+      {
+        "channel": 11,
+        "attribute": "DimmerCurve",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 20,
+            "meaning": "standard dimmer curve"
+          },
+          {
+            "from": 21,
+            "to": 40,
+            "meaning": "stage dimmer curve"
+          },
+          {
+            "from": 41,
+            "to": 60,
+            "meaning": "TV dimmer curve"
+          },
+          {
+            "from": 61,
+            "to": 80,
+            "meaning": "architectural dimmer curve"
+          },
+          {
+            "from": 81,
+            "to": 100,
+            "meaning": "theatre dimmer curve"
+          },
+          {
+            "from": 101,
+            "to": 255,
+            "meaning": "default standard curve"
+          }
+        ]
+      }
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "Both charts transcribed from the OEM 'Mini Gobo Moving head Light' manual PDF hosted by Amazon (Lixada listing, 81ej8MIZpBL.pdf) and cross-checked against the Open Fixture Library Lixada definition, which is the same 9/11ch layout; ZKYMZL's own manuals.plus page confirms 9/11CH, 8 colours, 8 gobos, pan 570 / tilt 270 (ZKYMZL says 570/270, the OEM manual says 540/180 -- 540/180 kept), 3.2 kg, box 33x22x23 cm. Beam angle: OEM manual says 11 deg; Amazon TY-30 listing says 30 deg (almost certainly wrong); the caller expected ~15 deg -- 11 deg used, flagged as guess. Size 280x210x260 mm (LxWxH) and 3.4 kg from the OEM manual; ZKYMZL says 3.2 kg / 2.54 kg on Amazon. Colour order (red, pale-blue, orange, blue, yellow, green, pink) comes from the OFL definition (community-entered), the manual only says '8 colours'; U'King ZQ02061 listing lists red, yellow, blue, green, pink, orange + white. Gobo slot DMX positions are not itemised by the manual (0-63 select, ~8 values each). The 9ch mode has NO fine channels: Pan, Tilt, Color, Gobo, Strobe, Dimmer, Speed, Function, DimmerCurve. CONFLICTS with the repo's venue-console 11ch map: attribute order matches exactly (Pan, PanFine, Tilt, TiltFine, Color, Gobo, Shutter, Dimmer, Speed, Function, Dimmer Modes) but the repo guessed 8 colours in 8-value steps -- the real colour wheel uses 16-value steps (0-15 white ... 112-127 pink) with rotation above 128, and the repo's colour order (White, Red, Green, Blue, Yellow, Magenta, Cyan, Orange) does not match the OFL order. Repo already has GDTFs Lixada@Mini_Gobo_Moving_Head and UKing_old@Mini_Gobo_Moving_Head_2022 for this OEM. manuals.plus and device.report block automated fetches (HTTP 403 / JS challenge) so ZKYMZL's own chart was not read directly."
+}

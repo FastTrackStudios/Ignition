@@ -27,6 +27,10 @@ bevy.workspace = true
 wgpu.workspace = true
 tracing = "0.1"
 gdtf = "0.3.0"
+# GLB decoding for the 3D model files inside a .gdtf zip (and nothing
+# else: no image decoding, no file-system import). Same version Bevy's own
+# glTF loader already pulls in, so it costs no extra crate in the tree.
+gltf = { version = "1.4.1", default-features = false, features = ["utils"] }
 ignition-core.workspace = true
 ignition-io.workspace = true
 ignition-proto.workspace = true

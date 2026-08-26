@@ -175,7 +175,11 @@ impl VizWidget {
             self.transport.as_ref().map(|t| t.song()),
         )
         .unwrap_or_default();
-        let viz = EmbeddedViz::new(*config, Default::default(), playback, None, *gpu);
+        // No per-studio GDTF setting yet: the workspace's own library
+        // (`data/gdtf` + `data/gdtf/generated`), empty if absent.
+        let gdtf = ignition_viz::gdtf_geometry::GdtfLibrary::load_default();
+        tracing::info!(profiles = gdtf.len(), "viz.embed: GDTF library");
+        let viz = EmbeddedViz::new(*config, Default::default(), playback, Some(gdtf), *gpu);
         tracing::info!(width, height, "viz.embed: built on the host device");
         self.state = State::Active(Box::new(viz));
     }

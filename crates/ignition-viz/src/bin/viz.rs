@@ -209,7 +209,11 @@ fn main() -> anyhow::Result<()> {
             }
             Some(library)
         }
-        None => None,
+        None => {
+            let library = GdtfLibrary::load_default();
+            println!("loaded {} GDTF profiles from data/gdtf", library.len());
+            Some(library)
+        }
     };
 
     let export = match export {

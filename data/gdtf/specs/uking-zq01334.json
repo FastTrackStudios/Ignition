@@ -1,0 +1,65 @@
+{
+  "console_name": "ZQ01334",
+  "manufacturer": "U`King (UKing)",
+  "model": "ZQ01334 385W Retro Wash (6x warm-white COB + RGB)",
+  "sources": [
+    "https://www.uking-online.com/products/uking-zq01334-wash",
+    "https://www.uking-online.com/cdn/shop/files/ZQ01334.pdf",
+    "https://www.youtube.com/watch?v=7-em2lIGWRI"
+  ],
+  "physical": {"width_mm": 1400, "length_mm": 210, "height_mm": 280, "weight_kg": 4.65, "power_w": 200},
+  "optics": {
+    "beam_angle_deg": 120,
+    "field_angle_deg": null,
+    "lumens_or_lux": null,
+    "source": "6x 50W warm-white ('golden') COB + 168x 0.5W 5050 SMD RGB 3-in-1 LEDs (6 RGB aux zones), 50,000 h",
+    "led_count": 174,
+    "emitters": ["WW", "R", "G", "B"],
+    "sections": 6
+  },
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "15ch": [
+      {"channel": 1, "attribute": "Dimmer", "ranges": [{"from": 0, "to": 255, "meaning": "0-100% linear dimming"}]},
+      {"channel": 2, "attribute": "Strobe", "ranges": [{"from": 0, "to": 3, "meaning": "No strobe"}, {"from": 4, "to": 255, "meaning": "Synchronous strobe, slow to fast (1-20 Hz)"}]},
+      {"channel": 3, "attribute": "Warm White 1", "ranges": [{"from": 0, "to": 255, "meaning": "Warm white COB 1 dimming"}]},
+      {"channel": 4, "attribute": "Warm White 2", "ranges": [{"from": 0, "to": 255, "meaning": "Warm white COB 2 dimming"}]},
+      {"channel": 5, "attribute": "Warm White 3", "ranges": [{"from": 0, "to": 255, "meaning": "Warm white COB 3 dimming"}]},
+      {"channel": 6, "attribute": "Warm White 4", "ranges": [{"from": 0, "to": 255, "meaning": "Warm white COB 4 dimming"}]},
+      {"channel": 7, "attribute": "Warm White 5", "ranges": [{"from": 0, "to": 255, "meaning": "Warm white COB 5 dimming"}]},
+      {"channel": 8, "attribute": "Warm White 6", "ranges": [{"from": 0, "to": 255, "meaning": "Warm white COB 6 dimming"}]},
+      {"channel": 9, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Aux RGB LED red dimming (all 6 zones)"}]},
+      {"channel": 10, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Aux RGB LED green dimming"}]},
+      {"channel": 11, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Aux RGB LED blue dimming"}]},
+      {"channel": 12, "attribute": "Macro", "ranges": [
+        {"from": 0, "to": 4, "meaning": "No function"},
+        {"from": 5, "to": 214, "meaning": "Warm white COB effect 1-30 (7-value bands: 5-11 = effect 1, 12-18 = effect 2 ... 208-214 = effect 30)"},
+        {"from": 215, "to": 239, "meaning": "Warm white COB effect with auxiliary light effect"},
+        {"from": 240, "to": 244, "meaning": "Sound control effect 1"},
+        {"from": 245, "to": 249, "meaning": "Sound control effect 2"},
+        {"from": 250, "to": 255, "meaning": "Sound control effect 3"}
+      ]},
+      {"channel": 13, "attribute": "Speed", "ranges": [
+        {"from": 0, "to": 127, "meaning": "WW COB effect forward direction, speed slow to fast"},
+        {"from": 128, "to": 255, "meaning": "WW COB effect reverse direction, speed slow to fast"},
+        {"from": 0, "to": 255, "meaning": "In sound-control mode: sound sensitivity"}
+      ]},
+      {"channel": 14, "attribute": "Aux Macro", "ranges": [
+        {"from": 0, "to": 4, "meaning": "No function"},
+        {"from": 5, "to": 207, "meaning": "Auxiliary (RGB) light effect 1-29 (7-value bands)"},
+        {"from": 208, "to": 255, "meaning": "Auxiliary light effect 30"}
+      ]},
+      {"channel": 15, "attribute": "Aux Speed", "ranges": [
+        {"from": 0, "to": 127, "meaning": "Aux effect forward direction, speed slow to fast"},
+        {"from": 128, "to": 255, "meaning": "Aux effect reverse direction, speed slow to fast"}
+      ]}
+    ],
+    "33ch": [
+      {"channel": "1-15", "attribute": "as 15ch", "ranges": [{"from": 0, "to": 255, "meaning": "Identical to 15ch mode"}]},
+      {"channel": "16-33", "attribute": "Red/Green/Blue per aux zone", "ranges": [{"from": 0, "to": 255, "meaning": "R1,G1,B1 ... R6,G6,B6: auxiliary RGB light zones 1-6"}]}
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "Manual (ZQ01334.pdf on uking-online.com) 15CH chart matches the venue console map exactly (Dimmer, Strobe, WW1-6, R, G, B, WW Macro, WW Macro Speed, Aux Effect, Aux Effect Speed). Physical from product page: '28cm x 21cm x 140cm', 4.65 kg net, 200 W rated (page title says '385W'), AC110-240V, 120 deg output angle, IP20, RDM. The 140 cm dimension is taken as the bar width; manual does not give dimensions. Lumens not published."
+}

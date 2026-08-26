@@ -1,0 +1,51 @@
+{
+  "console_name": "MBDMX-PLUS",
+  "manufacturer": "ADJ / Eliminator Lighting",
+  "model": "MBDMX-PLUS (Heavy Duty DMX Mirror Ball Motor)",
+  "sources": [
+    "https://www.adj.com/products/mbdmx-plus",
+    "https://manuals.plus/eliminator-lighting/mbdmx-plus-mirror-ball-motor-manual",
+    "https://manuals.plus/eliminator-lighting/mbdmx-plus-mirror-ball-motor-manual.pdf",
+    "https://www.adj.com/mb-dmx-ii"
+  ],
+  "physical": {
+    "width_mm": 203,
+    "length_mm": 122,
+    "height_mm": 146,
+    "weight_kg": 2.0,
+    "power_w": 10.5
+  },
+  "optics": null,
+  "movement": {
+    "type": "continuous rotation",
+    "speed_rpm_min": 0.5,
+    "speed_rpm_max": 5,
+    "max_ball_in": 20
+  },
+  "wheels": null,
+  "fluid": null,
+  "modes": {
+    "2ch": [
+      {
+        "channel": 1,
+        "attribute": "Lamp",
+        "ranges": [
+          { "from": 0, "to": 127, "meaning": "Lamp (pinspot sockets) off" },
+          { "from": 128, "to": 255, "meaning": "Lamp (pinspot sockets) on" }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "Rotation",
+        "ranges": [
+          { "from": 0, "to": 0, "meaning": "Stop" },
+          { "from": 1, "to": 127, "meaning": "Clockwise, 5 rpm (1) slowing to 0.5 rpm (127)" },
+          { "from": 128, "to": 128, "meaning": "Stop" },
+          { "from": 129, "to": 255, "meaning": "Counter-clockwise, 0.5 rpm (129) speeding to 5 rpm (255)" }
+        ]
+      }
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "Not a fog machine: a mirror-ball motor with two switched 3-prong Edison sockets for pinspots (ch1 switches those sockets, so 'Lamp' is whatever pinspots are plugged in; the unit has no light source of its own, hence optics=null). Power figure is the motor draw only (10.5 W at 5 rpm, 10.2 W at 0.5 rpm) and excludes anything plugged into the pinspot sockets. Dimensions given by ADJ as 8 x 4.8 x 5.75 in; mapped W=203, L=122, H=146. Standalone speed via dip switches; primary/secondary sync for up to 16 units. Repo channel map (ch1 Lamp, ch2 Rotation) matches the manual exactly. No GDTF-share entry located (gdtf-share.com requires login; nothing surfaced via search)."
+}

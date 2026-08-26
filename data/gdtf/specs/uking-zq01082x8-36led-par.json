@@ -1,0 +1,54 @@
+{
+  "console_name": "36 LED Par Can",
+  "manufacturer": "U`King (Shenzhen Vastfire)",
+  "model": "ZQ01082 (ZQ01082X8, 36-LED RGB Par, manual model P36-5)",
+  "sources": [
+    "https://manuals.plus/m/4259bc27d83b321961b32f435a71c56dd2d7cb9068953b9537a00a155a60535e",
+    "https://www.amazon.com/dp/B0BFBFL36C",
+    "https://www.amazon.com/U%60King-Lighting-Channel-Control-Birthday/dp/B07HHBMYX2",
+    "https://www.uking-online.com/products/36-led-rgb-dj-par-lights-with-sound-activated-auto-play-remote-dmx-control-for-church-wedding-party-bar-club-mobile-music-live-show-entertainment-stage-lighting",
+    "https://support.enttec.com/support/discussions/topics/101000611404"
+  ],
+  "physical": {
+    "width_mm": 196,
+    "length_mm": 114,
+    "height_mm": 190,
+    "weight_kg": 0.73,
+    "power_w": 36, "power_w_guess": true
+  },
+  "optics": {
+    "beam_angle_deg": 30,
+    "field_angle_deg": null,
+    "lumens_or_lux": null,
+    "source": "36 x 1W LEDs (12 red, 12 green, 12 blue)",
+    "led_count": 36,
+    "emitters": ["R", "G", "B"]
+  },
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "7ch": [
+      {"channel": 1, "attribute": "Dimmer", "ranges": [
+        {"from": 0, "to": 255, "meaning": "Colour brightness control (use together with CH2-4)"}]},
+      {"channel": 2, "attribute": "Red", "ranges": [
+        {"from": 0, "to": 0, "meaning": "Red off"}, {"from": 1, "to": 255, "meaning": "Red dark to bright"}]},
+      {"channel": 3, "attribute": "Green", "ranges": [
+        {"from": 0, "to": 0, "meaning": "Green off"}, {"from": 1, "to": 255, "meaning": "Green dark to bright"}]},
+      {"channel": 4, "attribute": "Blue", "ranges": [
+        {"from": 0, "to": 0, "meaning": "Blue off"}, {"from": 1, "to": 255, "meaning": "Blue dark to bright"}]},
+      {"channel": 5, "attribute": "Strobe", "ranges": [
+        {"from": 0, "to": 7, "meaning": "No strobe"}, {"from": 8, "to": 255, "meaning": "Strobe slow to fast"}]},
+      {"channel": 6, "attribute": "Macro", "ranges": [
+        {"from": 0, "to": 10, "meaning": "Manual control (CH1-CH5)"},
+        {"from": 11, "to": 60, "meaning": "Colour selection (colour chosen by CH7)"},
+        {"from": 61, "to": 110, "meaning": "Colour shade/fade (speed by CH7)"},
+        {"from": 111, "to": 160, "meaning": "Colour pulse (speed by CH7)"},
+        {"from": 161, "to": 210, "meaning": "Colour transition/jump (speed by CH7)"},
+        {"from": 211, "to": 255, "meaning": "Sound control"}]},
+      {"channel": 7, "attribute": "Speed", "ranges": [
+        {"from": 0, "to": 255, "meaning": "Colour selection (when CH6 11-60) / program speed, higher is faster"}]}
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "DMX chart transcribed from the U`King '36 Par Lights User Manual' (manuals.plus, model P36-5, the manual shipped with the 36-LED RGB par family incl. ZQ01082/ZQ1082X4HUS). It matches the venue console map exactly (Dimmer, R, G, B, Shutter, Color Macros, Color Macros Speed). Physical: Amazon listing says 1W x 36 RGB LEDs (12R/12G/12B), AC110-240V, aluminium+PVC, beam 30 +/-5 deg (Amazon spec box says 45 deg; uking-online says 25-35 deg -- 30 used); uking-online lists size 7.7 x 4.5 x 7.5 in and 1.62 lb, power 72W (nominal marketing figure; 36 x 1W = 36W used and flagged as a guess). Reported by users to work over DMX with ENTTEC/Pioneer software as 7ch."
+}

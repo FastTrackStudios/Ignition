@@ -1,0 +1,545 @@
+{
+  "console_name": "150W LED Beam Moving Head Light",
+  "manufacturer": "Betopper (Shenzhen Ledy Optoelectronic)",
+  "model": "LB150",
+  "sources": [
+    "https://betopperdj.com/products/betopper-150w-led-beam-moving-head-light",
+    "https://cdn.shopify.com/s/files/1/0084/5230/9047/files/betopper_lb150_12ch.xml",
+    "https://cdn.shopify.com/s/files/1/0084/5230/9047/files/406-15012-002F_LB150_BETOPPER_latest_version.pdf",
+    "https://cdn.shopify.com/s/files/1/0084/5230/9047/files/LY-LB150-12CH.ssl2",
+    "https://betopperdj.com/pages/fixture-library-file",
+    "https://manuals.plus/asin/B0DBP5VQJX"
+  ],
+  "physical": {
+    "width_mm": 236,
+    "length_mm": 174,
+    "height_mm": 329,
+    "weight_kg": 4.6,
+    "power_w": 150
+  },
+  "optics": {
+    "beam_angle_deg": 1.72,
+    "field_angle_deg": null,
+    "lumens_or_lux": "1400 lm; 125,388 lux @ 3 m (Betopper page); Amazon listing says 115,000 lux @ 3 m, 1.78 deg",
+    "source": "150W white LED, 10000-12000K",
+    "led_count": 1,
+    "emitters": [
+      "white"
+    ]
+  },
+  "movement": {
+    "pan_deg": 540,
+    "tilt_deg": 270
+  },
+  "wheels": {
+    "color": [
+      "white",
+      "color1",
+      "color2",
+      "color3",
+      "color4",
+      "color5",
+      "color6",
+      "color7",
+      "color8",
+      "color9",
+      "color10",
+      "color11"
+    ],
+    "gobo": [
+      "open",
+      "gobo1",
+      "gobo2",
+      "gobo3",
+      "gobo4",
+      "gobo5",
+      "gobo6",
+      "gobo7",
+      "gobo8",
+      "gobo9",
+      "gobo10",
+      "gobo11",
+      "gobo12",
+      "gobo13"
+    ],
+    "color_names_guess": true
+  },
+  "modes": {
+    "12ch": [
+      {
+        "channel": 1,
+        "attribute": "Pan",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan 0-540 deg (16-bit coarse)"
+          }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "PanFine",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan fine"
+          }
+        ]
+      },
+      {
+        "channel": 3,
+        "attribute": "Tilt",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "tilt 0-270 deg (16-bit coarse)"
+          }
+        ]
+      },
+      {
+        "channel": 4,
+        "attribute": "TiltFine",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "tilt fine"
+          }
+        ]
+      },
+      {
+        "channel": 5,
+        "attribute": "Speed",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "pan/tilt speed"
+          }
+        ]
+      },
+      {
+        "channel": 6,
+        "attribute": "Dimmer",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "dimmer 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 7,
+        "attribute": "Strobe",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 10,
+            "meaning": "closed"
+          },
+          {
+            "from": 11,
+            "to": 99,
+            "meaning": "normal strobe slow-fast"
+          },
+          {
+            "from": 100,
+            "to": 109,
+            "meaning": "open"
+          },
+          {
+            "from": 110,
+            "to": 179,
+            "meaning": "pulse strobe"
+          },
+          {
+            "from": 180,
+            "to": 189,
+            "meaning": "open"
+          },
+          {
+            "from": 190,
+            "to": 250,
+            "meaning": "random strobe"
+          },
+          {
+            "from": 251,
+            "to": 255,
+            "meaning": "open"
+          }
+        ]
+      },
+      {
+        "channel": 8,
+        "attribute": "Color",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 10,
+            "meaning": "white"
+          },
+          {
+            "from": 11,
+            "to": 15,
+            "meaning": "color1"
+          },
+          {
+            "from": 16,
+            "to": 20,
+            "meaning": "color2"
+          },
+          {
+            "from": 21,
+            "to": 25,
+            "meaning": "color3"
+          },
+          {
+            "from": 26,
+            "to": 30,
+            "meaning": "color4"
+          },
+          {
+            "from": 31,
+            "to": 35,
+            "meaning": "color5"
+          },
+          {
+            "from": 36,
+            "to": 40,
+            "meaning": "color6"
+          },
+          {
+            "from": 41,
+            "to": 45,
+            "meaning": "color7"
+          },
+          {
+            "from": 46,
+            "to": 50,
+            "meaning": "color8"
+          },
+          {
+            "from": 51,
+            "to": 55,
+            "meaning": "color9"
+          },
+          {
+            "from": 56,
+            "to": 60,
+            "meaning": "color10"
+          },
+          {
+            "from": 61,
+            "to": 65,
+            "meaning": "color11"
+          },
+          {
+            "from": 66,
+            "to": 191,
+            "meaning": "white"
+          },
+          {
+            "from": 192,
+            "to": 225,
+            "meaning": "scroll CW"
+          },
+          {
+            "from": 226,
+            "to": 255,
+            "meaning": "scroll CCW"
+          }
+        ]
+      },
+      {
+        "channel": 9,
+        "attribute": "Gobo",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 10,
+            "meaning": "open"
+          },
+          {
+            "from": 11,
+            "to": 15,
+            "meaning": "gobo1"
+          },
+          {
+            "from": 16,
+            "to": 20,
+            "meaning": "gobo2"
+          },
+          {
+            "from": 21,
+            "to": 25,
+            "meaning": "gobo3"
+          },
+          {
+            "from": 26,
+            "to": 30,
+            "meaning": "gobo4"
+          },
+          {
+            "from": 31,
+            "to": 35,
+            "meaning": "gobo5"
+          },
+          {
+            "from": 36,
+            "to": 40,
+            "meaning": "gobo6"
+          },
+          {
+            "from": 41,
+            "to": 45,
+            "meaning": "gobo7"
+          },
+          {
+            "from": 46,
+            "to": 50,
+            "meaning": "gobo8"
+          },
+          {
+            "from": 51,
+            "to": 55,
+            "meaning": "gobo9"
+          },
+          {
+            "from": 56,
+            "to": 60,
+            "meaning": "gobo10"
+          },
+          {
+            "from": 61,
+            "to": 65,
+            "meaning": "gobo11"
+          },
+          {
+            "from": 66,
+            "to": 70,
+            "meaning": "gobo12"
+          },
+          {
+            "from": 71,
+            "to": 75,
+            "meaning": "gobo13"
+          },
+          {
+            "from": 76,
+            "to": 80,
+            "meaning": "open"
+          },
+          {
+            "from": 81,
+            "to": 87,
+            "meaning": "gobo1 shake"
+          },
+          {
+            "from": 88,
+            "to": 94,
+            "meaning": "gobo2 shake"
+          },
+          {
+            "from": 95,
+            "to": 101,
+            "meaning": "gobo3 shake"
+          },
+          {
+            "from": 102,
+            "to": 108,
+            "meaning": "gobo4 shake"
+          },
+          {
+            "from": 109,
+            "to": 115,
+            "meaning": "gobo5 shake"
+          },
+          {
+            "from": 116,
+            "to": 122,
+            "meaning": "gobo6 shake"
+          },
+          {
+            "from": 123,
+            "to": 129,
+            "meaning": "gobo7 shake"
+          },
+          {
+            "from": 130,
+            "to": 136,
+            "meaning": "gobo8 shake"
+          },
+          {
+            "from": 137,
+            "to": 143,
+            "meaning": "gobo9 shake"
+          },
+          {
+            "from": 144,
+            "to": 150,
+            "meaning": "gobo10 shake"
+          },
+          {
+            "from": 151,
+            "to": 157,
+            "meaning": "gobo11 shake"
+          },
+          {
+            "from": 158,
+            "to": 164,
+            "meaning": "gobo12 shake"
+          },
+          {
+            "from": 165,
+            "to": 171,
+            "meaning": "gobo13 shake"
+          },
+          {
+            "from": 172,
+            "to": 180,
+            "meaning": "open"
+          },
+          {
+            "from": 181,
+            "to": 221,
+            "meaning": "gobo scroll CW"
+          },
+          {
+            "from": 222,
+            "to": 255,
+            "meaning": "gobo scroll CCW"
+          }
+        ]
+      },
+      {
+        "channel": 10,
+        "attribute": "Prism",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 10,
+            "meaning": "prism off"
+          },
+          {
+            "from": 11,
+            "to": 155,
+            "meaning": "prism in"
+          },
+          {
+            "from": 156,
+            "to": 157,
+            "meaning": "stop"
+          },
+          {
+            "from": 158,
+            "to": 205,
+            "meaning": "spin CCW"
+          },
+          {
+            "from": 206,
+            "to": 207,
+            "meaning": "stop"
+          },
+          {
+            "from": 208,
+            "to": 255,
+            "meaning": "spin CW"
+          }
+        ]
+      },
+      {
+        "channel": 11,
+        "attribute": "Reserved",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "reserved / no function (Betopper grandMA2 profile)"
+          }
+        ]
+      },
+      {
+        "channel": 12,
+        "attribute": "Reset",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 40,
+            "meaning": "no function"
+          },
+          {
+            "from": 41,
+            "to": 50,
+            "meaning": "PWM 600Hz"
+          },
+          {
+            "from": 51,
+            "to": 60,
+            "meaning": "PWM 2000Hz"
+          },
+          {
+            "from": 61,
+            "to": 70,
+            "meaning": "PWM 4000Hz"
+          },
+          {
+            "from": 71,
+            "to": 80,
+            "meaning": "PWM 6000Hz"
+          },
+          {
+            "from": 81,
+            "to": 90,
+            "meaning": "PWM 20000Hz"
+          },
+          {
+            "from": 91,
+            "to": 100,
+            "meaning": "dimmer curve linear"
+          },
+          {
+            "from": 101,
+            "to": 110,
+            "meaning": "dimmer curve square"
+          },
+          {
+            "from": 111,
+            "to": 120,
+            "meaning": "dimmer curve inverse square"
+          },
+          {
+            "from": 121,
+            "to": 130,
+            "meaning": "dimmer curve S"
+          },
+          {
+            "from": 131,
+            "to": 140,
+            "meaning": "reset pan/tilt"
+          },
+          {
+            "from": 141,
+            "to": 150,
+            "meaning": "reset effects"
+          },
+          {
+            "from": 151,
+            "to": 160,
+            "meaning": "reset all"
+          },
+          {
+            "from": 161,
+            "to": 255,
+            "meaning": "safe / no function"
+          }
+        ]
+      }
+    ]
+  },
+  "confidence": "manual found",
+  "notes": "DMX chart taken from Betopper's own grandMA2 XML profile (betopper_lb150_12ch.xml) on the product page; the PDF manual (406-15012-002F) is image-only so its text could not be extracted, and manuals.plus blocks fetches. Betopper specs say 'colour wheel: 11 colours + white' and 'static gobo wheel: 11 gobos + white circle', but the XML profile enumerates 11 colours (5-step ranges 11-65) and 13 gobos (11-75); the XML does not name the colours, so the colour list here is only white + color1..color11 (order unknown, color_names_guess). CONFLICTS with the repo's guessed 12ch map: repo has ch8 ColorWheel with 9 colours in 10-value steps -- actual is 12 slots (white 0-10, then 5-value steps), and 66-191 is also white; repo ch11 'Focus' is actually a reserved/no-function channel (no focus on this fixture); repo ch12 Reset actually carries PWM frequency + dimmer-curve settings, with reset all at 151-160. Pan/tilt/speed/dimmer/strobe/gobo/prism positions (ch1-7, 9, 10) agree with the repo. Dimensions 236x174x329 mm are given by Betopper without stating which axis is which (width/length assumed). The same OEM chassis is sold as U'King ZQ02341 (see uking-zq02341.json), but the U'King 12ch chart is DIFFERENT (strobe/dimmer order, colour ranges), so do not assume the two are DMX-identical. Related repo GDTF: UKing@ZQ02341_150W_Big_Steel_Gun_LED_Moving_Head_Beam."
+}
