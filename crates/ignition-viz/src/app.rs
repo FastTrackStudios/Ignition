@@ -173,9 +173,12 @@ impl RenderQuality {
     /// and rings instead of a solid cone. Only a rig that actually cuts
     /// such a shaft pays for the finer march; a room of pars keeps the
     /// live count.
-    pub fn for_rig(self, venue: &Venue) -> Self {
+    pub fn for_rig(self, venue: &Venue, gdtf: Option<&GdtfLibrary>) -> Self {
         Self {
-            fog_steps: fog_steps_for(self.fog_steps, narrowest_shaft_full_angle_deg(venue)),
+            fog_steps: fog_steps_for(
+                self.fog_steps,
+                narrowest_shaft_full_angle_deg(venue, gdtf),
+            ),
             msaa: self.msaa,
         }
     }
@@ -201,20 +204,24 @@ pub fn fog_steps_for(base: u32, narrowest_shaft_full_angle_deg: Option<f32>) -> 
 
 /// The full beam angle of the narrowest patched fixture bright enough
 /// per-direction to cut a shaft (see `SHAFT_CANDELA_THRESHOLD`), if any.
-pub fn narrowest_shaft_full_angle_deg(venue: &Venue) -> Option<f32> {
+///
+/// The angle is the profile's where one resolves, the patch's only
+/// otherwise — the same rule the emitters follow.
+pub fn narrowest_shaft_full_angle_deg(venue: &Venue, gdtf: Option<&GdtfLibrary>) -> Option<f32> {
     use crate::fixture_profile::{
-        LUMENS_PER_WATT, SHAFT_CANDELA_THRESHOLD, beam_half_angle_deg, peak_candela, power_watts,
+        LUMENS_PER_WATT, SHAFT_CANDELA_THRESHOLD, peak_candela, power_watts,
     };
+    use crate::spawn::fixture_optics;
     venue
         .fixtures
         .iter()
         .filter(|f| f.patched)
         .filter_map(|f| {
-            let half = beam_half_angle_deg(f.beam_angle_deg);
-            let lumens = power_watts(
-                f.manufacturer.as_deref().unwrap_or(""),
-                f.model.as_deref().unwrap_or(""),
-            ) * LUMENS_PER_WATT;
+            let manufacturer = f.manufacturer.as_deref().unwrap_or("");
+            let model = f.model.as_deref().unwrap_or("");
+            let profile = gdtf.and_then(|lib| lib.find(manufacturer, model));
+            let half = fixture_optics(f, profile).beam_half_deg;
+            let lumens = power_watts(manufacturer, model) * LUMENS_PER_WATT;
             (peak_candela(lumens, half) >= SHAFT_CANDELA_THRESHOLD).then_some(half * 2.0)
         })
         .min_by(|a, b| a.total_cmp(b))
@@ -387,7 +394,7 @@ fn run_windowed(
     let (min, max) = config.venue.bounds();
     let view = config.view;
     let free_camera = config.camera;
-    let quality = config.quality.for_rig(&config.venue);
+    let quality = config.quality.for_rig(&config.venue, gdtf.as_ref());
     let (width, height) = (config.width, config.height);
     let assets_dir = config.assets_dir.clone();
 
@@ -438,7 +445,7 @@ impl Headless {
         let (min, max) = config.venue.bounds();
         let view = config.view;
         let free_camera = config.camera;
-        let quality = config.quality.for_rig(&config.venue);
+        let quality = config.quality.for_rig(&config.venue, gdtf.as_ref());
         let (width, height) = (config.width, config.height);
 
         let assets_dir = config.assets_dir.clone();

@@ -1,0 +1,59 @@
+{
+  "console_name": "SlimPAR Tri 7 IRC",
+  "console_names": ["SlimPAR Tri 7 IRC 7ch"],
+  "manufacturer": "Chauvet DJ",
+  "model": "SlimPAR Tri 7 IRC (7 x 3W tri-colour LED par, IR remote)",
+  "sources": [
+    "https://www.chauvetdj.com/products/slimpar-tri-7-irc/",
+    "https://www.chauvetdj.com/wp-content/uploads/2015/12/SlimPAR_Tri_7__12_IRC_UM_Rev6_WO.pdf"
+  ],
+  "physical": {
+    "width_mm": 195,
+    "length_mm": 118,
+    "height_mm": 215,
+    "weight_kg": 1.7,
+    "power_w": 42
+  },
+  "optics": {
+    "beam_angle_deg": 20,
+    "field_angle_deg": 34,
+    "lumens_or_lux": "1,073 lux @ 2 m (manual Rev. 6) = 4,292 cd",
+    "source": "7 x 3W tri-colour (RGB) LEDs, 350 mA x 3",
+    "led_count": 7,
+    "emitters": ["R", "G", "B"]
+  },
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "7ch": [
+      {"channel": 1, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red 0-100%"}]},
+      {"channel": 2, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green 0-100%"}]},
+      {"channel": 3, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue 0-100%"}]},
+      {"channel": 4, "attribute": "ColorMacro", "ranges": [
+        {"from": 0, "to": 15, "meaning": "No function"},
+        {"from": 16, "to": 255, "meaning": "Colour macros (override CH1-3)"}
+      ]},
+      {"channel": 5, "attribute": "Strobe", "ranges": [
+        {"from": 0, "to": 15, "meaning": "No function (speed 0-100% when CH6 is 32-223)"},
+        {"from": 16, "to": 255, "meaning": "Strobe slow to fast"}
+      ]},
+      {"channel": 6, "attribute": "Mode", "ranges": [
+        {"from": 0, "to": 31, "meaning": "RGB mode"},
+        {"from": 32, "to": 63, "meaning": "Pulse effect 0-100%"},
+        {"from": 64, "to": 95, "meaning": "Pulse effect 100%-0"},
+        {"from": 96, "to": 127, "meaning": "Pulse effect 100%-0-100%"},
+        {"from": 128, "to": 159, "meaning": "Auto fade transition"},
+        {"from": 160, "to": 191, "meaning": "Auto snap transition (3 colours)"},
+        {"from": 192, "to": 223, "meaning": "Auto snap transition (7 colours)"},
+        {"from": 224, "to": 255, "meaning": "Sound-active mode"}
+      ]},
+      {"channel": 7, "attribute": "Dimmer", "ranges": [{"from": 0, "to": 255, "meaning": "Dimmer 0-100%"}]}
+    ],
+    "3ch": [
+      {"channel": 1, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red 0-100%"}]},
+      {"channel": 2, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green 0-100%"}]},
+      {"channel": 3, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue 0-100%"}]}
+    ]
+  },
+  "notes": "SlimPAR Tri 7/12 IRC User Manual Rev. 6, pages 15-18, read 2026-08-26. Photo-optic table: beam angle 20 deg, field angle 34 deg, 1,073 lux @ 2 m (Tri 7); 42 W @ 120 V; 195 x 118 x 215 mm, 1.7 kg. The field angle is the manufacturer's own, not the 2x-beam assumption the generator falls back to. CONFLICT with repo: crates/ignition-viz/src/channel_map.rs estimates the 7ch layout as Dimmer, R, G, B, Strobe, Macro, Speed; the manual's 7-CH chart is R, G, B, Colour Macros, Strobe/Speed, Mode, Dimmer (dimmer LAST, at CH7). The venue console's own map should settle it; the repo's channel map is left as DMX truth per the README and the conflict is recorded here. Norco patches these at 20 deg, which matches the beam angle."
+}

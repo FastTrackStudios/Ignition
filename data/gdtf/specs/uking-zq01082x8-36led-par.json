@@ -29,7 +29,8 @@
       "R",
       "G",
       "B"
-    ]
+    ],
+    "field_angle_note": "Field angle not published anywhere found (beam 30 +/-5 deg only); the generator assumes 2x beam = 60 deg, which is where a lensless 36-LED par's 10% edge typically lands."
   },
   "movement": null,
   "wheels": null,

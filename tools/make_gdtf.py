@@ -746,7 +746,12 @@ class Generator:
             if field_angle:
                 beam.set("FieldAngle", fmt(field_angle))
             elif beam_angle:
-                beam.set("FieldAngle", fmt(beam_angle * 1.5))
+                # No published field angle: an LED par's 10% edge sits at
+                # roughly twice its 50% beam angle, so that is what the
+                # visualizer assumes for a profile with no FieldAngle, and
+                # the file states the same assumption rather than a
+                # different one.
+                beam.set("FieldAngle", fmt(beam_angle * 2.0))
             if number(optics.get("lumens_or_lux")):
                 beam.set("LuminousFlux", fmt(number(optics.get("lumens_or_lux"))))
             if number(phys.get("power_w")):

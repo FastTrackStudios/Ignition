@@ -720,11 +720,65 @@ impl Venue {
         }
         (min, max)
     }
+
+    /// The room's real extent: every room surface's full size, not the
+    /// centre `bounds()` frames cameras on. A beam runs to a wall, not
+    /// to the middle of one, so this is what sizes a throw. Falls back
+    /// to `bounds()` for a venue with no room geometry.
+    // r[impl viz.beam-reach] - throws are sized by the room's surfaces
+    pub fn room_extent(&self) -> (Point, Point) {
+        if self.room.is_empty() {
+            return self.bounds();
+        }
+        let mut min = Point::splat(f32::INFINITY);
+        let mut max = Point::splat(f32::NEG_INFINITY);
+        for g in &self.room {
+            let half = g.size.to_vec3().abs() * 0.5;
+            let centre = g.position.to_vec3();
+            min = min.min(centre - half);
+            max = max.max(centre + half);
+        }
+        (min, max)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// r[verify viz.beam-reach] - the room extent is the surfaces' full size
+    #[test]
+    fn the_room_extent_reaches_the_far_side_of_every_surface() {
+        let surface = |name: &str, p: [f32; 3], s: [f32; 3]| -> GeometryRecord {
+            serde_json::from_value(serde_json::json!({
+                "name": name,
+                "position": {"x": p[0], "y": p[1], "z": p[2]},
+                "eulers": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "size": {"x": s[0], "y": s[1], "z": s[2]},
+            }))
+            .expect("record")
+        };
+        let venue = Venue {
+            fixtures: vec![],
+            room: vec![
+                surface("Floor", [0.0, -5.0, 0.0], [10.0, 20.0, 0.0]),
+                surface("Ceiling", [0.0, -5.0, 3.0], [10.0, 20.0, 0.0]),
+            ],
+            screens: vec![],
+            props: vec![],
+            group_records: vec![],
+            palettes: Default::default(),
+            profile: Default::default(),
+            patch: Default::default(),
+            dmx: None,
+        };
+        let (min, max) = venue.room_extent();
+        assert_eq!(min, Point::new(-5.0, -15.0, 0.0));
+        assert_eq!(max, Point::new(5.0, 5.0, 3.0));
+        // Where `bounds()` stops at the centres.
+        let (bmin, bmax) = venue.bounds();
+        assert_eq!((bmin.x, bmax.y), (0.0, -5.0));
+    }
 
     #[test]
     fn parses_eos_range_strings_and_bare_numbers_into_channel_lists() {

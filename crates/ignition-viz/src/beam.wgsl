@@ -168,7 +168,17 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let clip_normal = -normalize(cross(dpdx(clip), dpdy(clip)));
     let angle_power = pow(max(dot(normalize(clip), clip_normal), 0.0), 4.0 * alignment);
 
-    let intensity = attenuation * angle_power;
+    // The mesh has a far cap at the throw distance, and an additive cap
+    // is a lit disc hanging in the air wherever the throw ends short of
+    // a surface. Fade the last stretch of the beam to nothing instead,
+    // so the beam ends by dying out rather than being cut off — a real
+    // beam has no far end, only a surface it lands on or a distance at
+    // which nothing of it is left.
+    // r[impl viz.beam-reach] - a beam fades out, it is never cut off
+    let length = max(beam_origin_length.w, 0.01);
+    let end_fade = 1.0 - smoothstep(0.7, 1.0, dist / length);
+
+    let intensity = attenuation * angle_power * end_fade;
 
     // --- ASLS's `computeFog` ---
     // `max(fogging(...), intensity)`: haze modulates a beam but never

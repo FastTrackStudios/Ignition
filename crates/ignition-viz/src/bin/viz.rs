@@ -38,7 +38,7 @@ fn main() -> anyhow::Result<()> {
     // (black plywood deck, black ceiling), and the fog absorbs some of
     // what does reach them. The *relative* brightness between fixtures
     // comes from their own wattage and beam angle now, not from this.
-    let mut exposure = 3000.0f32;
+    let mut exposure = 12.0f32;
     // Not zero. A real dark venue genuinely has no ambient fill, but a
     // visualizer the operator is *working* in is not a photograph: with
     // nothing lit you need to still see the stage, the truss and where
@@ -108,7 +108,7 @@ fn main() -> anyhow::Result<()> {
             "--height" => height = next("a number").parse()?,
             "--haze" => haze = next("a number, 0..2, 1.0 = normally hazed").parse()?,
             "--exposure" => {
-                exposure = next("a multiplier on real fixture output, e.g. 60").parse()?
+                exposure = next("a multiplier on real fixture candela, e.g. 12").parse()?
             }
             "--ambient" => ambient = next("a number 0..1").parse()?,
             "--max-universe" => max_universe = next("a number").parse()?,

@@ -11,6 +11,7 @@ Confidence: **manual found** = DMX chart taken from a manufacturer manual/profil
 | MBDMX-PLUS | `adj-mbdmx-plus.json` | ADJ / Eliminator Lighting MBDMX-PLUS (Heavy Duty DMX Mirror Ball Motor) | manual found | <https://www.adj.com/products/mbdmx-plus><br><https://manuals.plus/eliminator-lighting/mbdmx-plus-mirror-ball-motor-manual><br><https://manuals.plus/eliminator-lighting/mbdmx-plus-mirror-ball-motor-manual.pdf><br><https://www.adj.com/mb-dmx-ii><br><https://www.amazon.com/dp/B0CJLL2Q6H> |
 | 150W LED Beam Moving Head Light | `betopper-150w-beam.json` | Betopper (Shenzhen Ledy Optoelectronic) LB150 | manual found | <https://betopperdj.com/products/betopper-150w-led-beam-moving-head-light><br><https://cdn.shopify.com/s/files/1/0084/5230/9047/files/betopper_lb150_12ch.xml><br><https://cdn.shopify.com/s/files/1/0084/5230/9047/files/406-15012-002F_LB150_BETOPPER_latest_version.pdf><br><https://cdn.shopify.com/s/files/1/0084/5230/9047/files/LY-LB150-12CH.ssl2><br><https://betopperdj.com/pages/fixture-library-file><br><https://manuals.plus/asin/B0DBP5VQJX> |
 | Hurricane Haze 1DX | `chauvet-hurricane-haze-1dx.json` | Chauvet DJ Hurricane Haze 1DX (HHAZE1DX) | manual found | <https://www.chauvetdj.com/wp-content/uploads/2017/01/Hurricane_Haze_1DX_UM_Rev3.pdf><br><https://www.chauvetdj.com/products/hurricane-haze-1dx/><br><https://open-fixture-library.org/chauvet-dj/hurricane-haze-1dx><br><https://www.manualslib.com/manual/1561183/Chauvet-Dj-Hurricane-Haze-1dx.html> |
+| SlimPAR Tri 7 IRC | `chauvet-slimpar-tri-7-irc.json` | Chauvet DJ SlimPAR Tri 7 IRC (7 x 3W tri-colour par) | manual found | <https://www.chauvetdj.com/products/slimpar-tri-7-irc/><br><https://www.chauvetdj.com/wp-content/uploads/2015/12/SlimPAR_Tri_7__12_IRC_UM_Rev6_WO.pdf> |
 | RGBW Spot Light 6CH | `czgor-15w2p-pinspot.json` | Czgor 15w2p (15W RGBW LED Pinspot, DMX) | listing only | <https://www.amazon.com/dp/B0DFWBWF9W><br><https://www.amazon.com/dp/B0D13CT7NS><br><https://www.ebay.com/itm/167541127938> |
 | ENDYSHOW LED Stage Light Bar PL-32M | `endyshow-pl-32m.json` | ENDYSHOW (Guangzhou Xinyu Stage Lighting) PL-32M | listing only | <https://www.amazon.com/dp/B0D927F87V><br><https://www.amazon.com/dp/B0DRHTDJQ2><br><https://manuals.plus/asin/B0D927F87V><br><https://manuals.plus/asin/B0DRHTDJQ2> |
 | Base Hazer 1500W | `hazebase-base-hazer-1500.json` | Hazebase (Uta Raabe, Wedemark, Germany) base*hazer (original, 1500 W, 230 V/50 Hz) | manual found | <https://protolight.com/files/2019/08/HazeBase-Base-Hazer_Manual.pdf><br><https://www.scribd.com/document/324126443/User-Manual-Base-Hazer><br><https://hazebase.com/en/hazer/><br><https://www.hazebaseamerica.com/base_hazer_pro.php> |
@@ -35,6 +36,7 @@ Confidence: **manual found** = DMX chart taken from a manufacturer manual/profil
 - Betopper LB150 / U'King ZQ02341: colour and gobo slot names not published (color1..11).
 - Base Hazer 1500: weight not in manual (Pro figure used). No gdtf-share entries found for MBDMX-Plus, Base Hazer 1500 or Hurricane Haze 1DX (site needs login).
 - Rockstrip 252 beam angle; ZQ01334 lumens.
+- Field angles: only Chauvet publishes one (SlimPAR Tri 7 IRC 20/34 deg). U'King's pars state a beam angle only; the generator writes FieldAngle = 2x beam for those, which is where an LED par's 10% edge typically sits.
 
 ## Notable conflicts with the repo channel map
 
@@ -43,4 +45,5 @@ Confidence: **manual found** = DMX chart taken from a manufacturer manual/profil
 - Mini Gobo TY-30 11ch: attribute order matches; colour slots are 16-value steps in order white, red, pale blue, orange, blue, yellow, green, pink (repo guessed 8-value steps, different order). 9ch mode drops the fine channels.
 - Uking Par: the venue's 8ch RGBW par has White at CH5 with strobe/function/speed at CH6-8; the repo's 7ch OFL B262 map is the 36x1W RGB unit with no white.
 - Rockstrip 252: manual has 3/4/7/24/28ch, no 5ch mode. 7ch matches the repo.
+- SlimPAR Tri 7 IRC: the manual's 7-CH chart is R, G, B, Colour Macros, Strobe/Speed, Mode, Dimmer (dimmer at CH7); the repo's channel map estimates Dimmer first.
 - All others (MBDMX-Plus, Base Hazer, Hurricane Haze 1ch-only, 36 LED Par Can, ZQ01334, Solena Max Bar 28, Endyshow) match the repo order.

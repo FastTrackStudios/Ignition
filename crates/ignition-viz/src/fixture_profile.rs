@@ -469,9 +469,19 @@ pub struct BeamThrow {
 }
 
 impl BeamThrow {
+    /// Sized by the room's surfaces (`Venue::room_extent`), padded so a
+    /// fixture flush to a wall still has somewhere to throw, and capped
+    /// at the room's full diagonal — so no beam can end before the
+    /// surface it is aimed at. `bounds()` used to size this, and it is a
+    /// bound on object *centres*: a beam aimed at the far wall stopped
+    /// at the centre of the audience floor, with its cap hanging in the
+    /// air ("lights just stop in mid air or get cut off").
+    // r[impl viz.beam-reach] - a beam reaches the room's surface, never short of it
     pub fn for_venue(venue: &crate::venue::Venue) -> Self {
-        let (min, max) = venue.bounds();
-        let room_diag = ((max.x - min.x).powi(2) + (max.y - min.y).powi(2)).sqrt();
+        let (min, max) = venue.room_extent();
+        let pad = Vec3::splat(0.5);
+        let (min, max) = (min - pad, max + pad);
+        let room_diag = (max - min).length();
         // The room's own diagonal, not the 10m this used to clamp to.
         // That clamp dates from flat-brightness beam cones, where a long
         // beam was as bright at its far end as at its near end and a
@@ -495,6 +505,16 @@ impl BeamThrow {
             max,
             max_reach: room_diag.max(5.0),
         }
+    }
+
+    /// How far a fixture's spill light is allowed to reach: comfortably
+    /// past every surface in the room. Bevy's range is a hard cutoff on
+    /// both the lit surfaces and the volumetric shaft — `length * 1.2`
+    /// ended shafts short of the floor when the throw itself was short,
+    /// and 40 was fine for one room and wrong for the next.
+    // r[impl viz.beam-reach] - spill is cut by the walls, not by its range
+    pub fn spill_range(&self) -> f32 {
+        self.max_reach * 1.5
     }
 
     /// Distance from `origin` along `direction` to the first bounding-box
@@ -555,6 +575,15 @@ mod beam_throw_tests {
     fn a_level_beam_stops_at_the_wall_it_is_aimed_at() {
         let r = throw().reach(Vec3::new(0.0, -8.0, 3.0), Vec3::Y);
         assert!((r - 10.0).abs() < 1e-4, "{r}");
+    }
+
+    /// r[verify viz.beam-reach] - the spill's range is past the longest throw
+    #[test]
+    fn the_spill_range_is_comfortably_past_the_longest_throw() {
+        let t = throw();
+        assert!(t.spill_range() > t.max_reach);
+        let (a, b) = (Vec3::new(-4.0, -9.0, 5.5), Vec3::new(1.0, 2.0, -0.2).normalize());
+        assert!(t.spill_range() > t.reach(a, b));
     }
 
     #[test]
@@ -708,6 +737,17 @@ pub fn power_watts(manufacturer: &str, model: &str) -> f32 {
     // Unknown fixture: a mid-sized LED par's worth, so it reads as
     // present rather than either invisible or dominant.
     40.0
+}
+
+/// Widest a field half-angle is allowed to be: a Bevy spot light's
+/// outer cone stops just short of a hemisphere.
+pub const MAX_FIELD_HALF_ANGLE_DEG: f32 = 80.0;
+
+/// A fixture's field half-angle when nothing states one: twice the beam,
+/// where an LED par's 10% edge typically sits relative to its 50% edge.
+// r[impl viz.profile-optics] - field is 2x beam when nothing states one
+pub fn assumed_field_half_angle_deg(beam_half_deg: f32) -> f32 {
+    (beam_half_deg * 2.0).min(MAX_FIELD_HALF_ANGLE_DEG)
 }
 
 /// Peak luminous intensity in candela — lumens spread over the cone's

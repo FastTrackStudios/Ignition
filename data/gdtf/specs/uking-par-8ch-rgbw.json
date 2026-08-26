@@ -18,7 +18,8 @@
     "lumens_or_lux": "809 lux @ 5 m (ZQ01069); 900 lux @ 5 m (ZQ01061)",
     "source": "18x 8W RGBW 4-in-1 LEDs (marketing: 18x12W), 50,000 h",
     "led_count": 18,
-    "emitters": ["R", "G", "B", "W"]
+    "emitters": ["R", "G", "B", "W"],
+    "field_angle_note": "Field angle not published (25 deg beam only, ZQ01069 manual); the generator assumes 2x beam = 50 deg."
   },
   "movement": null,
   "wheels": null,

@@ -10,10 +10,11 @@
 use crate::beam::{BeamMaterial, beam_mesh, beam_transform, wedge_mesh};
 use crate::dmx::DmxUniverses;
 use crate::fixture_profile::{
-    BEAM_CONE_SEGMENTS, BeamThrow, BodyVisual, LUMENS_PER_WATT, SHAFT_CANDELA_THRESHOLD,
-    beam_half_angle_deg, peak_candela, power_watts, resolve_fixture,
+    BEAM_CONE_SEGMENTS, BeamThrow, BodyVisual, LUMENS_PER_WATT, MAX_FIELD_HALF_ANGLE_DEG,
+    SHAFT_CANDELA_THRESHOLD, assumed_field_half_angle_deg, beam_half_angle_deg, peak_candela,
+    power_watts, resolve_fixture,
 };
-use crate::gdtf_geometry::{self, GdtfLibrary, PanJoint, TiltJoint};
+use crate::gdtf_geometry::{self, GdtfFixture, GdtfLibrary, PanJoint, TiltJoint};
 use crate::venue::Venue;
 use crate::video::{ContentKind, VideoSource};
 use bevy::asset::RenderAssetUsages;
@@ -44,7 +45,21 @@ const MAX_RIG_DISTANCE: f32 = 0.6;
 /// Maps the operator's haze dial onto Bevy's `FogVolume::density_factor`,
 /// whose own default is 0.1. Above roughly 0.3 the room stops being a
 /// room: the fog absorbs its own light shafts and everything goes flat.
-const VOLUMETRIC_HAZE_SCALE: f32 = 0.11;
+///
+/// 0.11 while every spill light was cut off a few metres past its
+/// fixture, so only the air right under the rig was ever lit. Now the
+/// spill reaches the whole room the way light does, and forty-eight
+/// pars aimed across the house light every metre of air between the
+/// back wall and the stage; at 0.11 the shipped 1.6 put the house view
+/// behind a brown veil. Halved, so 1.6 lands near Bevy's own default.
+// r[impl viz.exposure] - haze is a density, calibrated against a lit room
+const VOLUMETRIC_HAZE_SCALE: f32 = 0.05;
+
+/// How strongly the haze scatters the light that crosses it: Bevy's own
+/// default. It sat at 0.6 while the spill lights were range-clipped;
+/// with the spill reaching the whole room, the density above is the
+/// dial that matters and this one is left at the engine's default.
+const HAZE_SCATTERING: f32 = 0.3;
 
 /// The same dial for the hand-drawn cone, whose brightness is a plain
 /// multiplier on an additive material rather than a density.
@@ -109,7 +124,7 @@ const RIG_DROP: f32 = 0.08;
 // surface texturing the old shader did (plank grain, ashlar blocks,
 // ceiling grid) has no equivalent yet and is tracked separately.
 const ROOM_COLOR: Color = Color::srgb(0.42, 0.44, 0.48);
-const CEILING_COLOR: Color = Color::srgb(0.045, 0.045, 0.05);
+const CEILING_COLOR: Color = Color::srgb(0.16, 0.16, 0.17);
 const COLUMN_COLOR: Color = Color::srgb(0.24, 0.235, 0.20);
 const COLUMN_CAP_COLOR: Color = Color::srgb(0.05, 0.05, 0.05);
 const PILLAR_COLOR: Color = Color::srgb(0.09, 0.07, 0.06);
@@ -271,10 +286,13 @@ pub struct BeamEmitter {
 pub struct EmitterState {
     /// `None` when the fixture is dark.
     pub color: Option<[f32; 3]>,
+    /// The beam half-angle: the 50% edge, the bright shaft.
     pub half_angle_deg: f32,
-    /// Inner cone angle as a fraction of the outer one. 0 is fully soft
-    /// (ASLS's unfocused default); nearer 1 is a hard-edged beam.
-    pub penumbra_inner: f32,
+    /// The field half-angle: the 10% edge, where the spill's outer cone
+    /// sits. A par's field is well outside its beam; a beam fixture's
+    /// barely is — that difference is what makes one a soft wash and the
+    /// other a hard shaft.
+    pub field_half_angle_deg: f32,
     /// The fixture's own luminous output at full, before exposure.
     pub lumens: f32,
 }
@@ -300,12 +318,43 @@ pub struct FixtureBody {
     pub material: Handle<StandardMaterial>,
 }
 
-/// The profile's own beam angle (full, degrees), on an emitter whose
-/// venue record carries none: a generated bar profile says 40 degrees
-/// where the patch says nothing, and the 25-degree fallback made every
-/// batten a narrow slot.
-#[derive(Component)]
-pub struct ProfileBeamAngle(pub f32);
+/// The profile's own optics, on every emitter of a fixture whose profile
+/// resolved: the `<Beam>` node's BeamAngle and FieldAngle as half-angles.
+/// The profile is the single source of truth for how wide a light is —
+/// the patch's `beam_angle_deg` is consulted only for a fixture with no
+/// profile at all (see `fixture_optics`).
+// r[impl viz.profile-optics] - the profile's angles ride on the emitter
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ProfileOptics {
+    pub beam_half_deg: f32,
+    pub field_half_deg: f32,
+}
+
+/// The one rule for how wide a fixture's light is. A resolved profile's
+/// `<Beam>` angles win outright; a fixture with no profile falls back to
+/// the patch's single angle as its beam, with the field assumed at
+/// twice that. The patch used to win whenever it carried a number — so
+/// a par patched at 30 degrees and profiled at 30/60 was drawn as a
+/// 30-degree hard cone, which is the "par cones too narrow" report.
+// r[impl viz.profile-optics] - profile first, patch only as the fallback
+pub fn fixture_optics(f: &crate::venue::FixtureRecord, profile: Option<&GdtfFixture>) -> ProfileOptics {
+    match profile.and_then(GdtfFixture::optics) {
+        Some((beam, field)) => {
+            let beam_half = (beam * 0.5).clamp(0.05, MAX_FIELD_HALF_ANGLE_DEG);
+            ProfileOptics {
+                beam_half_deg: beam_half,
+                field_half_deg: (field * 0.5).clamp(beam_half, MAX_FIELD_HALF_ANGLE_DEG),
+            }
+        }
+        None => {
+            let beam_half = beam_half_angle_deg(f.beam_angle_deg);
+            ProfileOptics {
+                beam_half_deg: beam_half,
+                field_half_deg: assumed_field_half_angle_deg(beam_half),
+            }
+        }
+    }
+}
 
 /// A fixture's beam cone — a child of its `BeamEmitter`.
 #[derive(Component)]
@@ -412,16 +461,17 @@ pub fn bar_strip(beams: &[(Vec3, Quat)]) -> Option<(Vec3, Quat, f32, f32)> {
     Some((centre, rot, length * 0.5 + pitch * 0.5, pitch))
 }
 
-/// Spawns a bar's one emitter: the strip's centre pose under the fixture
-/// root, a thin emissive face per cell tiling the strip, the wedge for
-/// its shaft, and one wide spill light. The spill is a single spot with
+/// Spawns a bar's one emitter: the strip's centre pose under the node
+/// the cells hang from (so the file's own tree carries it — see
+/// `GdtfNode::bar_cells`), a thin emissive face per cell tiling the
+/// strip, the wedge for its shaft, and one wide spill light. The spill is a single spot with
 /// no shadow map and no volumetric pass — a strip's wash has no cone to
 /// carve, and twelve shadowed spots was what drew the dots.
 // r[impl viz.bar-emitters] - the emissive face, the wedge and one spill per bar
 #[allow(clippy::too_many_arguments)]
 fn spawn_bar_emitter(
     commands: &mut Commands,
-    root: Entity,
+    parent: Entity,
     fixture: usize,
     name: &str,
     centre: Vec3,
@@ -433,7 +483,8 @@ fn spawn_bar_emitter(
     standard: &mut Assets<StandardMaterial>,
     beams: &mut Assets<BeamMaterial>,
     haze: f32,
-    profile_angle: Option<f32>,
+    optics: ProfileOptics,
+    spill_range: f32,
 ) {
     // A cell face is a square of the pitch, capped so a sparse bar does
     // not read as a slab; proud of the housing by the face's own depth.
@@ -450,7 +501,7 @@ fn spawn_bar_emitter(
             },
             Visibility::default(),
             Name::new(format!("{name} strip")),
-            ChildOf(root),
+            ChildOf(parent),
         ))
         .id();
 
@@ -473,14 +524,14 @@ fn spawn_bar_emitter(
         ));
         cell_materials.push(material);
     }
-    commands.entity(emitter).insert(BarEmitter {
-        half_length,
-        half_width,
-        cells: cell_materials,
-    });
-    if let Some(angle) = profile_angle {
-        commands.entity(emitter).insert(ProfileBeamAngle(angle));
-    }
+    commands.entity(emitter).insert((
+        BarEmitter {
+            half_length,
+            half_width,
+            cells: cell_materials,
+        },
+        optics,
+    ));
 
     // Drawn in both beam styles: Bevy's fog carves shafts from spot
     // lights, which are cones, so a strip's wedge has to be a mesh
@@ -507,7 +558,7 @@ fn spawn_bar_emitter(
         FixtureSpill,
         SpotLight {
             intensity: 0.0,
-            range: 40.0,
+            range: spill_range,
             shadow_maps_enabled: false,
             ..default()
         },
@@ -1131,16 +1182,20 @@ pub fn spawn_venue(
         // here, not of any one fixture, which is the whole reason this
         // reads better than a cone per beam: two beams crossing actually
         // brighten where they overlap.
-        let (min, max) = venue.bounds();
+        // The room's real extent, not the centre bounds — the fog has
+        // to reach past every wall, the fixtures and the floor, not
+        // stop at them.
+        // r[impl viz.beam-reach] - haze fills the whole room
+        let (min, max) = venue.room_extent();
         let center = (min + max) * 0.5;
-        // Generous over the venue's own bounds, which are a bound on
-        // object *centres* — the fog has to reach past the fixtures and
-        // the floor, not stop at them.
-        let size = (max - min).max(Vec3::splat(4.0)) * 1.6;
+        // Twice the room, so a beam that escapes through a gap in the
+        // venue's walls dies of distance long before it meets the
+        // volume's hard edge.
+        let size = (max - min).max(Vec3::splat(4.0)) * 1.3;
         commands.spawn((
             FogVolume {
                 density_factor: settings.haze * VOLUMETRIC_HAZE_SCALE,
-                scattering: 0.6,
+                scattering: HAZE_SCATTERING,
                 absorption: 0.05,
                 ..default()
             },
@@ -1163,15 +1218,6 @@ pub fn spawn_venue(
         }
         let manufacturer = f.manufacturer.as_deref().unwrap_or("");
         let model = f.model.as_deref().unwrap_or("");
-        let visual = resolve_fixture(
-            f.position.to_vec3(),
-            f.orientation(),
-            None,
-            manufacturer,
-            model,
-            None,
-            &throw,
-        );
         // A real fixture is a black box. The category tint (wash blue,
         // mover orange) is a reading aid, and it only makes sense next
         // to the glow it belongs with; with the glow off the housing is
@@ -1243,12 +1289,20 @@ pub fn spawn_venue(
         }
         let root = root_cmd.id();
 
-        // Where the beam comes from. The GDTF path gets it from the
-        // file's own `<Beam>` node; otherwise it is the head if the
-        // fixture has one, and the body if it does not.
+        // Where the beam comes from — one system: an emitter is a node
+        // of the fixture's transform tree and nothing else positions it.
+        // With a GDTF profile the emitter *is* the file's `<Beam>` node
+        // entity (a bar's strip hangs under the node its cells hang
+        // under), so the mount, every joint the file declares and any
+        // display scale carry it with no placement arithmetic here.
+        // Only a fixture with no profile at all takes the QLC+
+        // placeholder path below, whose emitter is the guessed head.
+        // r[impl viz.one-emitter-tree] - the emitter is a node of the tree
         let mut emitters: Vec<Entity> = Vec::new();
+        let optics = fixture_optics(f, gdtf);
 
         if let Some(gdtf) = gdtf {
+            let mut nodes: Vec<Entity> = Vec::new();
             gdtf_geometry::spawn_gdtf_tree(
                 &mut commands,
                 root,
@@ -1256,18 +1310,21 @@ pub fn spawn_venue(
                 &mut meshes,
                 &body_material,
                 &mut emitters,
+                &mut nodes,
             );
             // A row of cells is a strip, not a row of spots: the cell
             // nodes stay in the tree (they carry the file's placement)
             // but stop being emitters, and one linear emitter spanning
-            // them takes over.
+            // them takes over — under the cells' own parent, placed
+            // from the cells' local poses.
             // r[impl viz.bar-emitters] - a bar's cells fold into one strip
-            if let Some((centre, rot, half_length, pitch)) = bar_strip(&gdtf.root.beam_poses()) {
+            if let Some((parent_index, cells)) = gdtf.root.bar_cells()
+                && let Some((centre, rot, half_length, pitch)) = bar_strip(&cells)
+            {
                 emitters.clear();
-                let cells = gdtf.root.beam_poses();
                 spawn_bar_emitter(
                     &mut commands,
-                    root,
+                    nodes[parent_index],
                     index,
                     &f.name,
                     centre,
@@ -1279,11 +1336,24 @@ pub fn spawn_venue(
                     &mut standard,
                     &mut beams,
                     settings.haze,
-                    gdtf.beam_angle_deg
-                        .filter(|_| !f.beam_angle_deg.is_some_and(|a| a > 0.1)),
+                    optics,
+                    throw.spill_range(),
                 );
             }
         } else {
+            // No profile: the QLC+ category placeholder, with its
+            // guessed yoke split and mesh correction. Kept only for
+            // fixtures the library cannot resolve; a shipped venue
+            // resolves every fixture (see `viz.gdtf-aliases`).
+            let visual = resolve_fixture(
+                f.position.to_vec3(),
+                f.orientation(),
+                None,
+                manufacturer,
+                model,
+                None,
+                &throw,
+            );
             match &visual.body {
                 BodyVisual::Mesh {
                     asset,
@@ -1396,18 +1466,15 @@ pub fn spawn_venue(
 
         // Beam and spill exist from the start and are simply hidden while
         // the fixture is dark — cheaper and steadier than spawning and
-        // despawning entities as cues fade in and out.
-        // The profile's beam angle stands in for a patch that has none.
-        let profile_angle = gdtf
-            .and_then(|g| g.beam_angle_deg)
-            .filter(|_| !f.beam_angle_deg.is_some_and(|a| a > 0.1));
+        // despawning entities as cues fade in and out. Both are children
+        // of the emitter with an identity local transform: their world
+        // pose is the emitter's, by construction.
         for emitter in emitters {
-            commands
-                .entity(emitter)
-                .insert((BeamEmitter { fixture: index }, EmitterState::default()));
-            if let Some(angle) = profile_angle {
-                commands.entity(emitter).insert(ProfileBeamAngle(angle));
-            }
+            commands.entity(emitter).insert((
+                BeamEmitter { fixture: index },
+                EmitterState::default(),
+                optics,
+            ));
             if settings.beam_style == BeamStyle::Shader {
                 commands.spawn((
                     FixtureBeam,
@@ -1431,7 +1498,7 @@ pub fn spawn_venue(
             // to light what it points at. See `SHAFT_CANDELA_THRESHOLD`.
             let candela = peak_candela(
                 power_watts(manufacturer, model) * LUMENS_PER_WATT,
-                beam_half_angle_deg(f.beam_angle_deg),
+                optics.beam_half_deg,
             );
             let cuts_a_shaft =
                 settings.beam_style == BeamStyle::Volumetric && candela >= SHAFT_CANDELA_THRESHOLD;
@@ -1440,7 +1507,7 @@ pub fn spawn_venue(
                 FixtureSpill,
                 SpotLight {
                     intensity: 0.0,
-                    range: 40.0,
+                    range: throw.spill_range(),
                     // Shadow maps are what volumetric shafts are
                     // raymarched against, and they are the expensive
                     // part — so only the fixtures that actually cast a
@@ -1493,7 +1560,7 @@ pub fn update_live_fixtures(
             Without<PanJoint>,
         ),
     >,
-    mut emitters: Query<(&BeamEmitter, &mut EmitterState, Option<&ProfileBeamAngle>)>,
+    mut emitters: Query<(&BeamEmitter, &mut EmitterState, &ProfileOptics)>,
     child_of: Query<&ChildOf>,
     live_dmx: Res<LiveDmx>,
     time: Res<Time>,
@@ -1538,8 +1605,7 @@ pub fn update_live_fixtures(
             pan: Quat::from_axis_angle(Vec3::Z, live.pan_deg.to_radians()),
             tilt: Quat::from_axis_angle(Vec3::X, live.tilt_deg.to_radians()),
             color,
-            half_angle_deg: zoomed_half_angle_deg(beam_half_angle_deg(f.beam_angle_deg), live.zoom),
-            penumbra_inner: penumbra_inner_for(f.kind()),
+            zoom: live.zoom,
             lumens: power_watts(manufacturer, model) * LUMENS_PER_WATT,
         });
     }
@@ -1607,15 +1673,15 @@ pub fn update_live_fixtures(
         transform.rotation = live.tilt;
     }
 
-    for (emitter, mut state, profile_angle) in &mut emitters {
+    for (emitter, mut state, optics) in &mut emitters {
         match resolved.get(emitter.fixture).and_then(|o| o.as_ref()) {
             Some(live) => {
                 state.color = live.color;
-                state.half_angle_deg = match profile_angle {
-                    Some(angle) => beam_half_angle_deg(Some(angle.0)),
-                    None => live.half_angle_deg,
-                };
-                state.penumbra_inner = live.penumbra_inner;
+                // The emitter's own optics, zoomed by the wire.
+                state.half_angle_deg = zoomed_half_angle_deg(optics.beam_half_deg, live.zoom);
+                state.field_half_angle_deg =
+                    zoomed_half_angle_deg(optics.field_half_deg, live.zoom)
+                        .clamp(state.half_angle_deg, MAX_FIELD_HALF_ANGLE_DEG);
                 state.lumens = live.lumens;
             }
             None => state.color = None,
@@ -1627,8 +1693,7 @@ struct Live {
     pan: Quat,
     tilt: Quat,
     color: Option<[f32; 3]>,
-    half_angle_deg: f32,
-    penumbra_inner: f32,
+    zoom: Option<f32>,
     lumens: f32,
 }
 
@@ -1657,21 +1722,41 @@ pub fn zoomed_half_angle_deg(nominal_half_deg: f32, zoom: Option<f32>) -> f32 {
     }
 }
 
-/// How hard a fixture's cone edge is, as a fraction of its outer angle.
+/// What to hand a Bevy `SpotLight` so it throws the fixture's real
+/// peak intensity down its axis.
 ///
-/// A par or wash throws a soft-edged pool with no defined edge at all; a
-/// beam-type moving head throws a shaft you can see the sides of. Both
-/// are the same `SpotLight` with a different penumbra, which is how ASLS
-/// models it too — see `update_beams`.
-fn penumbra_inner_for(kind: crate::venue::FixtureKind) -> f32 {
-    match kind {
-        // Fully soft, ASLS's unfocused default.
-        crate::venue::FixtureKind::Wash | crate::venue::FixtureKind::Other => 0.0,
-        // Movers here are beam/gobo fixtures with a real optic; keep
-        // enough of an inner cone that the shaft has visible sides.
-        crate::venue::FixtureKind::Mover => 0.55,
-    }
+/// Bevy divides a spot light's `intensity` by 4π steradians whatever
+/// its cone — it does *not* concentrate the lumens into the cone. So
+/// fed raw lumens a 1.7-degree beam fixture and a 60-degree par of the
+/// same wattage were equally bright per direction, and the exposure
+/// had been wound up to 3000 to get the beams to read, which blew every
+/// par out to white. Instead the fixture's lumens are spread over its
+/// own field cone to get its candela, and the light is given the lumens
+/// an omnidirectional source of that candela would have.
+///
+/// `exposure` is then a plain multiplier on real photometry. At 1.0 a
+/// 36 W par (1,370 lm over a 60-degree field, ~1,600 cd) puts 180 lux
+/// on a stage 3 m away, which the camera's default exposure renders as
+/// a dim pool; the shipped default of 12 lifts that to a soft wash and
+/// leaves a 150 W beam fixture (capped at `MAX_CANDELA`) a hard,
+/// saturated shaft.
+// r[impl viz.exposure] - real candela in, one exposure dial
+pub fn spot_lumens(lumens: f32, field_half_angle_rad: f32, exposure: f32) -> f32 {
+    let candela = peak_candela(lumens, field_half_angle_rad.to_degrees()).min(MAX_CANDELA);
+    candela * 4.0 * core::f32::consts::PI * exposure
 }
+
+/// The most candela any fixture is allowed to put down its axis.
+///
+/// A 150 W beam fixture's real figure is around a million (the
+/// Betopper's datasheet says 125,000 lux at 3 m), and that is genuinely
+/// how a beam works: a few lumens in a 1.7-degree cone. But a renderer
+/// that has to show it *and* a 1,600 cd par in the same frame cannot
+/// hold four orders of magnitude — at the real number the beam lit the
+/// haze of the whole room to milk and its own shaft to a flat white
+/// slab. Capped at forty times a par: still unmistakably a hard shaft
+/// that saturates to white through its core, no longer a floodlight.
+const MAX_CANDELA: f32 = 60_000.0;
 
 /// Sizes, aims and colours every beam and spill from where its emitter
 /// actually ended up.
@@ -1816,55 +1901,48 @@ pub fn update_beams(
                         // own length as well as its spread — a cone is
                         // the only shape a spot light has, so it opens to
                         // where the wedge's long side reaches.
-                        let outer = match bar {
+                        // The spill's cone is the datasheet's: full to
+                        // the beam angle (the 50% edge), falling off to
+                        // nothing at the field angle (the 10% edge). A
+                        // par's field is twice its beam, so it is a
+                        // soft pool; a beam fixture's field is barely
+                        // wider, so it is a hard shaft. That difference
+                        // — not a per-category penumbra guess — is what
+                        // separates the two.
+                        // r[impl viz.profile-optics] - beam is the inner cone, field the outer
+                        let (inner, outer) = match bar {
+                            // A strip's one spill has to cover the
+                            // strip's own length as well as its spread
+                            // — a cone is the only shape a spot light
+                            // has, so it opens to where the wedge's
+                            // long side reaches. It keeps most of its
+                            // cone at full: its wash has to start at
+                            // the housing and run up the wall it stands
+                            // against, and a fully soft edge left the
+                            // wall dark until halfway up.
+                            // r[impl viz.bar-emitters] - a bar's wash begins at the bar
                             Some(bar) => {
-                                state
-                                    .half_angle_deg
+                                let outer = (state
+                                    .field_half_angle_deg
                                     .max(BAR_MIN_HALF_ANGLE_DEG)
                                     .to_radians()
-                                    + (bar.half_length / length.max(0.1)).atan()
+                                    + (bar.half_length / length.max(0.1)).atan())
+                                .min(core::f32::consts::FRAC_PI_2 - 0.01);
+                                (outer * BAR_INNER_FRACTION, outer)
                             }
-                            None => state.half_angle_deg.to_radians(),
-                        }
-                        .min(core::f32::consts::FRAC_PI_2 - 0.01);
+                            None => {
+                                let outer = state
+                                    .field_half_angle_deg
+                                    .to_radians()
+                                    .min(core::f32::consts::FRAC_PI_2 - 0.01);
+                                (state.half_angle_deg.to_radians().min(outer), outer)
+                            }
+                        };
                         light.outer_angle = outer;
-                        // A fully soft cone, not a hard-edged one. This
-                        // is ASLS's default: their focus channel drives
-                        // `SpotLight.penumbra` as `1.2 - 1.2*(focus/100)`
-                        // clamped to at least 0.3, so an unfocused
-                        // fixture is entirely penumbra. Three.js's
-                        // penumbra is the fraction of the cone that
-                        // falls off, and Bevy spells the same thing as
-                        // the gap between inner and outer angle — so
-                        // penumbra 1.0 is `inner_angle = 0`.
-                        //
-                        // This is most of what separates a par from a
-                        // beam fixture. Reported as "they don't have the
-                        // kind of direct beam lights that they are
-                        // showing right now": a hard inner cone made
-                        // every par read as a tight defined shaft
-                        // instead of a wash.
-                        // A strip keeps most of its cone at full: its
-                        // wash has to start at the housing and run up
-                        // the wall it stands against, and a fully soft
-                        // edge left the wall dark until halfway up.
-                        // r[impl viz.bar-emitters] - a bar's wash begins at the bar
-                        light.inner_angle = outer
-                            * if bar.is_some() {
-                                BAR_INNER_FRACTION
-                            } else {
-                                state.penumbra_inner
-                            };
-                        light.range = length * 1.2;
+                        light.inner_angle = inner;
+                        light.range = throw.spill_range();
                         light.color = Color::srgb(color[0], color[1], color[2]);
-                        // The fixture's own output, scaled only by the
-                        // global exposure. Bevy divides lumens by the
-                        // cone's solid angle to get radiance, so this is
-                        // what makes a narrow beam fixture cut a shaft
-                        // through the haze while a wide par of similar
-                        // wattage just lights what it points at — which
-                        // is what they actually do.
-                        light.intensity = state.lumens * settings.exposure;
+                        light.intensity = spot_lumens(state.lumens, outer, settings.exposure);
                     }
                     None => {
                         *visibility = Visibility::Hidden;
@@ -2106,6 +2184,210 @@ mod body_and_bar_tests {
             LinearRgba::BLACK,
             "on but dark: nothing"
         );
+    }
+
+    fn record(beam_angle_deg: Option<f32>) -> crate::venue::FixtureRecord {
+        serde_json::from_value(serde_json::json!({
+            "chan": 1, "name": "p", "tags": [], "patched": true,
+            "manufacturer": "uking", "model": "par",
+            "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "eulers": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "quat": {"w": 1.0, "x": 0.0, "y": 0.0, "z": 0.0},
+            "size": {"x": 0.2, "y": 0.2, "z": 0.2},
+            "beam_angle_deg": beam_angle_deg,
+        }))
+        .expect("record")
+    }
+
+    fn profile(beam: Option<f32>, field: Option<f32>) -> GdtfFixture {
+        GdtfFixture {
+            fixture_type_name: "x".into(),
+            dmx_mode_name: "x".into(),
+            root: gdtf_geometry::GdtfNode {
+                name: "Beam".into(),
+                shape: gdtf_geometry::GdtfShape::None,
+                local_pos: Vec3::ZERO,
+                local_rot: Quat::IDENTITY,
+                is_pan: false,
+                is_tilt: false,
+                is_beam: true,
+                children: vec![],
+            },
+            beam_angle_deg: beam,
+            field_angle_deg: field,
+        }
+    }
+
+    /// The profile wins whenever one resolves; the patch's angle is only
+    /// the fallback for a fixture with no profile.
+    // r[verify viz.profile-optics] - profile first, patch only as the fallback
+    #[test]
+    fn the_profiles_angles_win_over_the_patch() {
+        let patch_30 = record(Some(30.0));
+        assert_eq!(
+            fixture_optics(&patch_30, Some(&profile(Some(20.0), Some(34.0)))),
+            ProfileOptics {
+                beam_half_deg: 10.0,
+                field_half_deg: 17.0
+            },
+            "the datasheet's 20/34, not the patch's 30"
+        );
+        assert_eq!(
+            fixture_optics(&patch_30, Some(&profile(Some(20.0), None))),
+            ProfileOptics {
+                beam_half_deg: 10.0,
+                field_half_deg: 20.0
+            },
+            "no field in the file: twice the beam"
+        );
+        assert_eq!(
+            fixture_optics(&patch_30, Some(&profile(None, None))),
+            ProfileOptics {
+                beam_half_deg: 15.0,
+                field_half_deg: 30.0
+            },
+            "a profile with no angle at all defers to the patch"
+        );
+        assert_eq!(
+            fixture_optics(&patch_30, None),
+            ProfileOptics {
+                beam_half_deg: 15.0,
+                field_half_deg: 30.0
+            },
+            "no profile: the patch's 30 as the beam, field assumed"
+        );
+        let unknown = fixture_optics(&record(Some(0.0)), None);
+        assert_eq!(unknown.beam_half_deg, 12.5, "nothing anywhere: the old default");
+    }
+
+    /// Per-direction brightness, not raw lumens, is what the spot light
+    /// is fed — so a beam fixture out-shines a par by its optics, and
+    /// the cap keeps it from flooding the room.
+    // r[verify viz.exposure] - candela in, capped
+    #[test]
+    fn a_beam_fixture_is_brighter_per_direction_than_a_par_of_more_watts() {
+        let par = spot_lumens(36.0 * LUMENS_PER_WATT, 30f32.to_radians(), 1.0);
+        let beam = spot_lumens(150.0 * LUMENS_PER_WATT, 1.29f32.to_radians(), 1.0);
+        assert!(beam > par * 20.0, "beam {beam} vs par {par}");
+        // The cap: doubling the beam's wattage changes nothing.
+        let beam2 = spot_lumens(300.0 * LUMENS_PER_WATT, 1.29f32.to_radians(), 1.0);
+        assert_eq!(beam, beam2);
+        // And the par is uncapped, real photometry: ~1,600 cd.
+        let par_cd = par / (4.0 * core::f32::consts::PI);
+        assert!((1500.0..1800.0).contains(&par_cd), "{par_cd}");
+    }
+
+    /// The strip is spawned under the node its cells hang from, and its
+    /// world pose is that node's pose times the strip's centre — the
+    /// hierarchy places it, the same as a point emitter.
+    // r[verify viz.one-emitter-tree] - a bar's strip hangs where its cells hang
+    #[test]
+    fn a_bars_strip_hangs_under_the_cells_parent_and_lands_on_the_cells() {
+        use bevy::MinimalPlugins;
+        use bevy::app::App;
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../data/gdtf/American_DJ@Ultra_Bar_12@Close_-_Needs_Work_on_Strobes_and_Programs.gdtf",
+        );
+        if !path.exists() {
+            return;
+        }
+        let fixture = gdtf_geometry::import_geometry(&path, None).unwrap();
+        let (parent_index, cells) = fixture.root.bar_cells().expect("a bar");
+        let (centre, rot, half_length, pitch) = bar_strip(&cells).expect("a strip");
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::transform::TransformPlugin);
+        let mount = Transform {
+            translation: Vec3::new(2.0, -1.0, 0.0),
+            rotation: Quat::from_rotation_z(0.6) * Quat::from_rotation_x(-0.4),
+            scale: Vec3::ONE,
+        };
+        let material = Handle::<StandardMaterial>::default();
+        let world = app.world_mut();
+        let root = world.spawn((mount, Visibility::default())).id();
+        let mut emitters = Vec::new();
+        let mut nodes = Vec::new();
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, world);
+            let mut meshes = Assets::<Mesh>::default();
+            let mut standard = Assets::<StandardMaterial>::default();
+            let mut beams = Assets::<BeamMaterial>::default();
+            gdtf_geometry::spawn_gdtf_tree(
+                &mut commands,
+                root,
+                &fixture.root,
+                &mut meshes,
+                &material,
+                &mut emitters,
+                &mut nodes,
+            );
+            spawn_bar_emitter(
+                &mut commands,
+                nodes[parent_index],
+                0,
+                "bar",
+                centre,
+                rot,
+                half_length,
+                pitch,
+                &cells,
+                &mut meshes,
+                &mut standard,
+                &mut beams,
+                1.0,
+                ProfileOptics {
+                    beam_half_deg: 20.0,
+                    field_half_deg: 22.5,
+                },
+                30.0,
+            );
+        }
+        queue.apply(world);
+        app.update();
+        let world = app.world_mut();
+        let strip = world
+            .query_filtered::<Entity, With<BarEmitter>>()
+            .iter(world)
+            .next()
+            .expect("one strip");
+        assert_eq!(
+            world.entity(strip).get::<ChildOf>().unwrap().parent(),
+            nodes[parent_index],
+            "under the cells' parent, not the fixture root"
+        );
+        let parent_world = *world.entity(nodes[parent_index]).get::<GlobalTransform>().unwrap();
+        let expected = parent_world
+            * Transform {
+                translation: centre,
+                rotation: rot,
+                scale: Vec3::ONE,
+            };
+        let actual = world.entity(strip).get::<GlobalTransform>().unwrap();
+        assert!(actual.translation().distance(expected.translation()) < 1e-5);
+        // The strip's centre is the centre of the cells, in the world.
+        let mut cell_centre = Vec3::ZERO;
+        for e in &emitters {
+            cell_centre += world.entity(*e).get::<GlobalTransform>().unwrap().translation();
+        }
+        cell_centre /= emitters.len() as f32;
+        // The strip is centred between the end cells; the file's cells
+        // are a fraction of a millimetre off an even pitch.
+        assert!(
+            actual.translation().distance(cell_centre) < 2e-3,
+            "strip at {:?}, cells centred at {cell_centre:?}",
+            actual.translation()
+        );
+        // Every child of the strip (faces, wedge, spill) sits at the
+        // strip's own pose: only the faces are offset, along the strip.
+        let along = actual.rotation() * Vec3::X;
+        let children: Vec<Entity> = world.entity(strip).get::<Children>().unwrap().iter().collect();
+        for c in children {
+            let d = world.entity(c).get::<GlobalTransform>().unwrap().translation() - actual.translation();
+            let off_axis = d - along * d.dot(along);
+            assert!(off_axis.length() < 0.01, "{off_axis:?}");
+        }
     }
 
     fn ultra_bar_beams() -> Option<Vec<(Vec3, Quat)>> {

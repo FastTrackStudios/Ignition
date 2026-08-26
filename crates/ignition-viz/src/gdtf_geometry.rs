@@ -104,6 +104,59 @@ impl GdtfNode {
         }
     }
 
+    /// Where a bar's cells hang: the lowest node every `<Beam>` in the
+    /// tree sits under, as its index in pre-order (the order
+    /// `spawn_gdtf_tree` spawns entities in), with each cell's pose in
+    /// that node's own frame. `None` for a tree with no beam at all.
+    ///
+    /// The lowest common ancestor rather than a direct parent because a
+    /// file is free to group its cells — the Ultra Bar (and every
+    /// generated bar that borrows its geometry) nests twelve cells in
+    /// pairs, two levels down. A bar's one emitter is spawned under this
+    /// node so the strip is carried by the same transform tree as the
+    /// cells it stands in for: whatever joint or display scale moves
+    /// the cells moves the strip.
+    // r[impl viz.one-emitter-tree] - a bar's strip hangs where its cells hang
+    pub fn bar_cells(&self) -> Option<(usize, Vec<(Vec3, Quat)>)> {
+        let mut paths: Vec<Vec<usize>> = Vec::new();
+        self.collect_beam_paths(&mut Vec::new(), &mut paths);
+        let mut prefix = paths.first()?.clone();
+        for path in &paths[1..] {
+            let common = prefix.iter().zip(path).take_while(|(a, b)| a == b).count();
+            prefix.truncate(common);
+        }
+        let mut node = self;
+        let mut index = 0usize;
+        for &child in &prefix {
+            index += 1 + node.children[..child].iter().map(GdtfNode::len).sum::<usize>();
+            node = &node.children[child];
+        }
+        let mut cells = Vec::new();
+        for c in &node.children {
+            c.collect_beams(Vec3::ZERO, Quat::IDENTITY, &mut cells);
+        }
+        if node.is_beam {
+            cells.insert(0, (Vec3::ZERO, Quat::IDENTITY));
+        }
+        Some((index, cells))
+    }
+
+    fn collect_beam_paths(&self, path: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
+        if self.is_beam {
+            out.push(path.clone());
+        }
+        for (i, c) in self.children.iter().enumerate() {
+            path.push(i);
+            c.collect_beam_paths(path, out);
+            path.pop();
+        }
+    }
+
+    /// Nodes in this subtree, itself included.
+    fn len(&self) -> usize {
+        1 + self.children.iter().map(GdtfNode::len).sum::<usize>()
+    }
+
     /// Scales the whole tree about the root — every placement and every
     /// drawn part — for a profile the venue wants shown larger than
     /// life. Emitters move with their parts, so a beam still leaves the
@@ -223,19 +276,40 @@ pub struct GdtfFixture {
     pub dmx_mode_name: String,
     pub root: GdtfNode,
     /// The first `<Beam>` node's `BeamAngle` (full angle, degrees), when
-    /// the file states one above zero — the profile's own answer for a
-    /// venue record that carries no beam angle of its own.
+    /// the file states one above zero. The profile is the single source
+    /// of truth for how wide a fixture's light is: a patch's own angle
+    /// is only consulted when no profile resolves at all.
+    // r[impl viz.profile-optics] - the profile's <Beam> angles are the emitter's
     pub beam_angle_deg: Option<f32>,
+    /// The same node's `FieldAngle` (full, degrees) when it states one
+    /// wider than the beam angle — the 10% edge, where the beam angle is
+    /// the 50% edge. `None` when the file repeats the beam angle or
+    /// leaves the default: the visualizer then assumes twice the beam,
+    /// which is where an LED par's field typically lands.
+    pub field_angle_deg: Option<f32>,
 }
 
-/// The first `<Beam>` in the tree with a positive `BeamAngle`.
-fn first_beam_angle(g: &Geometry) -> Option<f32> {
+impl GdtfFixture {
+    /// Beam and field angles as full angles in degrees — the field
+    /// assumed at twice the beam when the file has no wider one. `None`
+    /// when the file states no beam angle.
+    // r[impl viz.profile-optics] - field is 2x beam when the file has none
+    pub fn optics(&self) -> Option<(f32, f32)> {
+        let beam = self.beam_angle_deg?;
+        Some((beam, self.field_angle_deg.unwrap_or(beam * 2.0)))
+    }
+}
+
+/// The first `<Beam>` in the tree with a positive `BeamAngle`, with its
+/// `FieldAngle` when that is genuinely wider.
+fn first_beam_angles(g: &Geometry) -> Option<(f32, Option<f32>)> {
     if let Geometry::Beam(b) = g
         && b.beam_angle > 0.1
     {
-        return Some(b.beam_angle as f32);
+        let field = (b.field_angle > b.beam_angle + 0.1).then_some(b.field_angle as f32);
+        return Some((b.beam_angle as f32, field));
     }
-    g.children().iter().find_map(first_beam_angle)
+    g.children().iter().find_map(first_beam_angles)
 }
 
 /// Reads a `.gdtf` file and builds the real geometry tree for one DMX
@@ -319,12 +393,16 @@ pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<G
         .unwrap_or(&fixture_type.short_name)
         .to_string();
     let dmx_mode_name = mode.name.as_deref().unwrap_or("").to_string();
-    let beam_angle_deg = first_beam_angle(root_geometry);
+    let (beam_angle_deg, field_angle_deg) = match first_beam_angles(root_geometry) {
+        Some((beam, field)) => (Some(beam), field),
+        None => (None, None),
+    };
     Ok(GdtfFixture {
         fixture_type_name,
         dmx_mode_name,
         root,
         beam_angle_deg,
+        field_angle_deg,
     })
 }
 
@@ -838,6 +916,10 @@ fn normalize(s: &str) -> String {
 /// `<DMXChannel>` `Geometry` associations, so a live reading rotates the
 /// node the manufacturer says it rotates — not a guessed split point the
 /// way the QLC+ placeholder mesh needs.
+///
+/// `nodes` receives every node's entity in pre-order — the order
+/// `GdtfNode::bar_cells` counts in — so a caller can hang something under
+/// a particular node of the file's tree after the fact.
 pub fn spawn_gdtf_tree(
     commands: &mut Commands,
     parent: Entity,
@@ -845,6 +927,7 @@ pub fn spawn_gdtf_tree(
     meshes: &mut Assets<Mesh>,
     material: &Handle<StandardMaterial>,
     emitters: &mut Vec<Entity>,
+    nodes: &mut Vec<Entity>,
 ) {
     let mut entity = commands.spawn((
         Transform {
@@ -863,6 +946,7 @@ pub fn spawn_gdtf_tree(
         entity.insert(TiltJoint);
     }
     let id = entity.id();
+    nodes.push(id);
 
     match node.shape {
         GdtfShape::Box { size } => {
@@ -910,7 +994,7 @@ pub fn spawn_gdtf_tree(
     }
 
     for child in &node.children {
-        spawn_gdtf_tree(commands, id, child, meshes, material, emitters);
+        spawn_gdtf_tree(commands, id, child, meshes, material, emitters, nodes);
     }
 }
 
@@ -1326,6 +1410,7 @@ mod tests {
             {
                 let mut commands = Commands::new(&mut queue, world);
                 let mut meshes = Assets::<Mesh>::default();
+                let mut nodes = Vec::new();
                 spawn_gdtf_tree(
                     &mut commands,
                     root,
@@ -1333,6 +1418,7 @@ mod tests {
                     &mut meshes,
                     &material,
                     &mut emitters,
+                    &mut nodes,
                 );
             }
             queue.apply(world);
@@ -1421,5 +1507,259 @@ mod tests {
             "the base sits above the tilt joint and must not move"
         );
         let _ = root;
+    }
+
+    /// Spawns a profile's tree under a root at `mount` in a headless app
+    /// with transform propagation and nothing else, and returns the app
+    /// with the emitters and the pre-order node entities.
+    fn spawn_in_app(
+        fixture: &GdtfFixture,
+        mount: Transform,
+    ) -> (bevy::app::App, Vec<Entity>, Vec<Entity>) {
+        use bevy::MinimalPlugins;
+        use bevy::app::App;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::transform::TransformPlugin);
+        let material = Handle::<StandardMaterial>::default();
+        let world = app.world_mut();
+        let root = world.spawn((mount, Visibility::default())).id();
+        let mut emitters = Vec::new();
+        let mut nodes = Vec::new();
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, world);
+            let mut meshes = Assets::<Mesh>::default();
+            spawn_gdtf_tree(
+                &mut commands,
+                root,
+                &fixture.root,
+                &mut meshes,
+                &material,
+                &mut emitters,
+                &mut nodes,
+            );
+        }
+        queue.apply(world);
+        (app, emitters, nodes)
+    }
+
+    /// The first `<Beam>`'s world pose composed by hand from the file's
+    /// tree: mount, then each node's local pose, with the pan and tilt
+    /// joints turned by `pan` and `tilt`. This is the arithmetic the
+    /// entity hierarchy is supposed to do for us.
+    fn expected_beam_pose(
+        node: &GdtfNode,
+        parent: Transform,
+        pan: Quat,
+        tilt: Quat,
+    ) -> Option<Transform> {
+        let mut local = Transform {
+            translation: node.local_pos,
+            rotation: node.local_rot,
+            scale: Vec3::ONE,
+        };
+        if node.is_pan {
+            local.rotation = pan;
+        }
+        if node.is_tilt {
+            local.rotation = tilt;
+        }
+        let world = parent * local;
+        if node.is_beam {
+            return Some(world);
+        }
+        node.children
+            .iter()
+            .find_map(|c| expected_beam_pose(c, world, pan, tilt))
+    }
+
+    fn set_joints(app: &mut bevy::app::App, pan: Quat, tilt: Quat) {
+        let world = app.world_mut();
+        let pans: Vec<Entity> = world
+            .query_filtered::<Entity, With<PanJoint>>()
+            .iter(world)
+            .collect();
+        for e in pans {
+            world.entity_mut(e).get_mut::<Transform>().unwrap().rotation = pan;
+        }
+        let tilts: Vec<Entity> = world
+            .query_filtered::<Entity, With<TiltJoint>>()
+            .iter(world)
+            .collect();
+        for e in tilts {
+            world.entity_mut(e).get_mut::<Transform>().unwrap().rotation = tilt;
+        }
+    }
+
+    fn assert_same_pose(actual: &GlobalTransform, expected: Transform, what: &str) {
+        let (_, rot, pos) = actual.to_scale_rotation_translation();
+        assert!(
+            pos.distance(expected.translation) < 1e-4,
+            "{what}: emitter at {pos:?}, beam node at {:?}",
+            expected.translation
+        );
+        assert!(
+            rot.angle_between(expected.rotation) < 1e-4,
+            "{what}: emitter aims {:?}, beam node {:?}",
+            rot * Vec3::NEG_Z,
+            expected.rotation * Vec3::NEG_Z
+        );
+    }
+
+    /// A par: the emitter's world transform is the beam node's, through
+    /// the mount alone.
+    // r[verify viz.one-emitter-tree] - a par's emitter is its <Beam> node, mounted
+    #[test]
+    fn a_pars_emitter_world_transform_is_its_beam_nodes() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../data/gdtf/generated/U_King@36_LED_Par_Can@ignition.gdtf");
+        if !path.exists() {
+            return;
+        }
+        let fixture = import_geometry(&path, None).unwrap();
+        let mount = Transform {
+            translation: Vec3::new(1.0, -8.3, 3.25),
+            rotation: Quat::from_rotation_x(72.4f32.to_radians()),
+            scale: Vec3::ONE,
+        };
+        let (mut app, emitters, _) = spawn_in_app(&fixture, mount);
+        assert_eq!(emitters.len(), 1);
+        app.update();
+        let expected =
+            expected_beam_pose(&fixture.root, mount, Quat::IDENTITY, Quat::IDENTITY).unwrap();
+        let actual = app.world().entity(emitters[0]).get::<GlobalTransform>().unwrap();
+        assert_same_pose(actual, expected, "par");
+    }
+
+    /// A mover at pan 90 / tilt 45: mount x pan joint x tilt joint x
+    /// beam-node local, and nothing else.
+    // r[verify viz.one-emitter-tree] - a mover's emitter follows its joints
+    #[test]
+    fn a_movers_emitter_follows_mount_pan_and_tilt_through_the_tree() {
+        let fixture = import_geometry(Path::new(MOVING_HEAD), None).unwrap();
+        let mount = Transform {
+            translation: Vec3::new(-2.0, 1.5, 0.0),
+            rotation: Quat::from_rotation_x(core::f32::consts::PI),
+            scale: Vec3::ONE,
+        };
+        let pan = Quat::from_rotation_z(90f32.to_radians());
+        let tilt = Quat::from_rotation_x(45f32.to_radians());
+        let (mut app, emitters, _) = spawn_in_app(&fixture, mount);
+        set_joints(&mut app, pan, tilt);
+        app.update();
+        let expected = expected_beam_pose(&fixture.root, mount, pan, tilt).unwrap();
+        let actual = app.world().entity(emitters[0]).get::<GlobalTransform>().unwrap();
+        assert_same_pose(actual, expected, "mover at pan 90 / tilt 45");
+        // And it genuinely moved: the aim is neither the mount's -Z nor
+        // the rest pose's.
+        let rest = expected_beam_pose(&fixture.root, mount, Quat::IDENTITY, Quat::IDENTITY)
+            .unwrap();
+        assert!(
+            (expected.rotation * Vec3::NEG_Z).dot(rest.rotation * Vec3::NEG_Z) < 0.9,
+            "the joints turned the beam"
+        );
+    }
+
+    /// A display-scaled mover: the scale is baked into the tree's
+    /// placements, so the emitter still lands on the (scaled) lens.
+    // r[verify viz.one-emitter-tree] - a scaled mover's emitter is still its beam node
+    #[test]
+    fn a_scaled_movers_emitter_is_still_its_beam_node() {
+        let mut fixture = import_geometry(Path::new(MOVING_HEAD), None).unwrap();
+        let rest_unscaled =
+            expected_beam_pose(&fixture.root, Transform::IDENTITY, Quat::IDENTITY, Quat::IDENTITY)
+                .unwrap();
+        fixture.root.scale_by(1.5);
+        let mount = Transform::from_translation(Vec3::new(0.5, 0.5, 2.0));
+        let pan = Quat::from_rotation_z(90f32.to_radians());
+        let tilt = Quat::from_rotation_x(45f32.to_radians());
+        let (mut app, emitters, _) = spawn_in_app(&fixture, mount);
+        set_joints(&mut app, pan, tilt);
+        app.update();
+        let expected = expected_beam_pose(&fixture.root, mount, pan, tilt).unwrap();
+        let actual = app.world().entity(emitters[0]).get::<GlobalTransform>().unwrap();
+        assert_same_pose(actual, expected, "scaled mover");
+        let rest_scaled =
+            expected_beam_pose(&fixture.root, Transform::IDENTITY, Quat::IDENTITY, Quat::IDENTITY)
+                .unwrap();
+        assert!(
+            (rest_scaled.translation - rest_unscaled.translation * 1.5)
+                .abs()
+                .max_element()
+                < 1e-5,
+            "the lens moved out by the display scale"
+        );
+    }
+
+    /// A bar's cells all hang from one node, and that node is what the
+    /// strip emitter is spawned under.
+    // r[verify viz.one-emitter-tree] - a bar's cells share one parent node
+    #[test]
+    fn a_bars_cells_are_siblings_under_one_node() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../data/gdtf/American_DJ@Ultra_Bar_12@Close_-_Needs_Work_on_Strobes_and_Programs.gdtf",
+        );
+        if !path.exists() {
+            return;
+        }
+        let fixture = import_geometry(&path, None).unwrap();
+        let (parent_index, cells) = fixture.root.bar_cells().expect("a bar");
+        assert_eq!(cells.len(), 12);
+        let (mut app, emitters, nodes) = spawn_in_app(&fixture, Transform::IDENTITY);
+        app.update();
+        let parent = nodes[parent_index];
+        let is_under = |world: &World, mut e: Entity| -> bool {
+            for _ in 0..16 {
+                let Some(c) = world.entity(e).get::<ChildOf>() else {
+                    return false;
+                };
+                if c.parent() == parent {
+                    return true;
+                }
+                e = c.parent();
+            }
+            false
+        };
+        for e in &emitters {
+            assert!(is_under(app.world(), *e), "every cell hangs under the one node");
+        }
+        // The Ultra Bar pairs its cells two levels down, all under the
+        // root: the lowest node over all twelve is the root itself, and
+        // no cell is a direct child of it.
+        assert_eq!(parent_index, 0);
+        assert!(fixture.root.children.iter().all(|c| !c.is_beam));
+        // The cells' poses are in that node's frame: composed with its
+        // world pose they land on the entities.
+        let world = app.world();
+        let ancestor = *world.entity(parent).get::<GlobalTransform>().unwrap();
+        for (e, (pos, _)) in emitters.iter().zip(&cells) {
+            let actual = world.entity(*e).get::<GlobalTransform>().unwrap().translation();
+            assert!(actual.distance(ancestor.transform_point(*pos)) < 1e-5);
+        }
+        // A par is not a bar.
+        let par = import_geometry(Path::new(MOVING_HEAD), None).unwrap();
+        assert!(par.root.bar_cells().is_some_and(|(_, c)| c.len() == 1));
+    }
+
+    /// The profile's angles, as the visualizer reads them.
+    // r[verify viz.profile-optics] - the generated pars carry beam and field
+    #[test]
+    fn the_shipped_pars_carry_the_datasheets_angles() {
+        let library = GdtfLibrary::load_default();
+        if library.is_empty() {
+            return;
+        }
+        let par = library.find("Uking", "Par").expect("resolves");
+        assert_eq!(par.optics(), Some((30.0, 60.0)), "36-LED par: 30 beam, field assumed 2x");
+        let slim = library
+            .find("Chauvet", "SlimPAR Tri 7 IRC 7ch")
+            .expect("resolves");
+        assert_eq!(slim.optics(), Some((20.0, 34.0)), "SlimPAR: the manual's 20/34");
+        let beam = library
+            .find("Betopper", "150W LED Beam Moving Head Light")
+            .expect("resolves");
+        let (b, f) = beam.optics().unwrap();
+        assert!((b - 1.72).abs() < 1e-3 && f > b && f < 4.0, "beam fixture {b}/{f}");
     }
 }

@@ -61,6 +61,42 @@ every joint and offset above it applies. No other node is an emitter: a
 `<Geometry>` with no model (a DMX socket, a power inlet) draws nothing and
 emits nothing.
 
+r[viz.one-emitter-tree]
+Every emitter MUST be a node of its fixture's transform tree, placed by that
+tree alone: the point emitter is the profile's `<Beam>` entity, a bar's strip
+emitter is a child of the node its cells hang from, placed from the cells'
+own local poses, and the beam cone, wedge, spill light and glow faces are
+children of the emitter with identity transforms. Aim is
+mount x pan joint x tilt joint x beam-node local, composed by transform
+propagation — no code recomputes an emitter's world pose from offsets, a
+guessed yoke split or a pre-rotation. Only a fixture with no profile at all
+takes the QLC+ placeholder path, whose emitter is the guessed head.
+
+r[viz.profile-optics]
+The resolved profile's `<Beam>` node is the single source of truth for how
+wide a fixture's light is: `BeamAngle` is the bright shaft (the 50% edge,
+the spill's inner cone), `FieldAngle` the spill's outer cone (the 10% edge),
+and a profile with no wider `FieldAngle` is read as a field of twice its
+beam. The patch's `beam_angle_deg` is consulted only for a fixture with no
+profile, as its beam with the same assumed field. A generated profile MUST
+carry the spec's `optics.beam_angle_deg` / `field_angle_deg`, writing
+2 x beam when the datasheet publishes no field.
+
+r[viz.beam-reach]
+A beam MUST NOT end in mid-air. Its throw is sized by the room's real
+surfaces (`Venue::room_extent`), not the object-centre bounds; a spill
+light's range reaches comfortably past every surface; the haze volume fills
+the whole room; and the drawn cone fades to nothing over its last stretch
+rather than ending in a lit cap.
+
+r[viz.exposure]
+A spill light MUST be fed the fixture's real peak candela (lumens over its
+field cone) — Bevy spreads a spot light's lumens over the full sphere
+whatever its cone, so raw lumens made a 1.7-degree beam and a 60-degree par
+equally bright per direction — scaled by one exposure dial that is a plain
+multiplier on real photometry. Candela is capped so a beam fixture reads as
+a hard shaft in the same frame as a par without flooding the haze.
+
 r[viz.bar-emitters]
 A profile with four or more `<Beam>` nodes on one line, firing the same way
 square to that line, is a **bar** and MUST be drawn as one linear source, not
