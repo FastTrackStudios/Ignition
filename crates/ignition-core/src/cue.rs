@@ -120,6 +120,23 @@ struct Stage {
     elapsed: f32,
 }
 
+/// The time a recipe should be evaluated at.
+///
+/// Looping phasers get the shared show clock, so two cues carrying the
+/// same chase stay in phase rather than each restarting it. One-shots
+/// get time since they were taken, because an envelope that finished
+/// before its own cue fired never plays at all.
+impl CuePlayer {
+    fn recipe_time(&self, id: usize) -> f32 {
+        match self.active.get(id) {
+            Some(recipe) if recipe.timing.once => {
+                self.clock - self.active_since.get(id).copied().unwrap_or(self.clock)
+            }
+            _ => self.clock,
+        }
+    }
+}
+
 impl Stage {
     fn progress(&self) -> f32 {
         if self.fade_secs > 0.0 {
@@ -151,6 +168,15 @@ pub struct CuePlayer {
     /// stage still points at them. Compacted on every `go()`, so a
     /// three-hour show does not accumulate one entry per recipe per cue.
     active: Vec<Recipe>,
+    /// Show time each active recipe was taken, parallel to `active`.
+    ///
+    /// Only one-shots read it. A looping phaser deliberately runs off
+    /// the shared monotonic clock, because that is what keeps two cues
+    /// carrying the same chase in phase with each other instead of each
+    /// restarting it. A one-shot needs the opposite: an envelope that
+    /// has already finished before its cue was taken is not an envelope,
+    /// it is a fixture sitting at its end value.
+    active_since: Vec<f32>,
     /// Oldest first. The last stage is the cue being moved into;
     /// everything before it is a fade still resolving.
     ///
@@ -173,6 +199,7 @@ impl CuePlayer {
             cues,
             current: None,
             active: Vec::new(),
+            active_since: Vec::new(),
             stack: Vec::new(),
             clock: 0.0,
         }
@@ -206,7 +233,8 @@ impl CuePlayer {
         for recipe in &cue.recipes {
             let id = self.active.len();
             self.active.push(recipe.clone());
-            for emit in expand_recipe(recipe, show, self.clock) {
+            self.active_since.push(self.clock);
+            for emit in expand_recipe(recipe, show, self.recipe_time(id)) {
                 let key = (emit.value.chan, emit.value.attr);
                 if emit.relative {
                     layers.modulated.insert(key, id);
@@ -432,7 +460,7 @@ impl CuePlayer {
             .chain(layers.modulated.values().copied());
         for id in referenced {
             resolved.entry(id).or_insert_with(|| {
-                expand_recipe(&self.active[id], show, self.clock)
+                expand_recipe(&self.active[id], show, self.recipe_time(id))
                     .into_iter()
                     .map(|e| ((e.value.chan, e.value.attr), e.value.value))
                     .collect()
@@ -646,6 +674,65 @@ mod tests {
             )],
             ..Default::default()
         }
+    }
+
+    /// A bump releases itself, which is the whole reason `once` exists.
+    /// Before it, a flash needed two cues — one to lift and one to put
+    /// out a beat later — so half the cue names in a show were "… out"
+    /// and the list said nothing a reader wanted to know.
+    #[test]
+    fn a_one_shot_bump_releases_itself() {
+        use crate::step::{Speed, Step, Timing};
+        let groups = pars();
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
+
+        let up = Step::new(vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.6)])]);
+        let down = Step::new(vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.0)])]);
+        let bump = Cue {
+            name: "· hit".to_string(),
+            recipes: vec![Recipe {
+                target: Selection::Group("Pars".to_string()),
+                steps: vec![up, down],
+                timing: Timing {
+                    speed: Speed::Bpm(60.0),
+                    measure: 1.0,
+                    once: true,
+                    ..Default::default()
+                },
+            }],
+            ..Default::default()
+        };
+
+        // A Delta modulates a tracked value, so there has to be a look
+        // for it to sit on — which is exactly how the show runs it: a
+        // section sets the level, the accent lifts it.
+        let mut player = CuePlayer::new(vec![recipe_cue("Look", 0.3), bump]);
+        player.go(&show);
+        player.go(&show);
+        let peak = player
+            .output(&show)
+            .get(&(1, Attribute::Dimmer))
+            .copied()
+            .unwrap_or_default();
+        assert!(peak > 0.5, "the bump never lifted: {peak}");
+
+        // A second later the envelope has run out and holds at zero.
+        player.tick(1.0);
+        let after = player
+            .output(&show)
+            .get(&(1, Attribute::Dimmer))
+            .copied()
+            .unwrap_or_default();
+        assert!((after - 0.3).abs() < 0.05, "the bump did not release to the look: {after}");
+
+        // And stays there rather than looping round for another flash.
+        player.tick(5.0);
+        let later = player
+            .output(&show)
+            .get(&(1, Attribute::Dimmer))
+            .copied()
+            .unwrap_or_default();
+        assert!((later - 0.3).abs() < 0.05, "the bump looped: {later}");
     }
 
     #[test]

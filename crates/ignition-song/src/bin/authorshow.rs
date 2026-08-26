@@ -20,8 +20,8 @@ use ignition_song::chart::{HitChart, HitClass};
 use ignition_core::preset::Ref;
 use ignition_core::selection::{Axis, Cmp, Dir, Order, Where};
 use ignition_core::{
-    Attribute, Bars, Cue, CueList, Play, Recipe, RecipeApply, Selection, SongMap, Speed, Step,
-    Timing, Waveform,
+    Attribute, Bars, Cue, CueList, Ease, Play, Recipe, RecipeApply, Selection, SongMap, Speed,
+    Step, Timing, Waveform,
 };
 
 fn main() -> anyhow::Result<()> {
@@ -55,7 +55,7 @@ fn main() -> anyhow::Result<()> {
         }
         eprintln!("{pulsed} pulse effects across the section looks");
 
-        let accents = accents(&song, &chart);
+        let accents = accents(&chart);
         eprintln!(
             "{} accent cues from {} charted hits in {} figures",
             accents.len() / 2,
@@ -629,12 +629,13 @@ fn pulses(chart: &HitChart, song: &SongMap, section: &str) -> Vec<Recipe> {
 
     let mut out = Vec::new();
     if let Some(slots) = pattern(chart, song, section, HitClass::Kick) {
-        // The soft tier goes to the back wall, not the floor. Routing it
-        // low was reading the note *name* as an instrument — a bass drum
-        // is felt low, so light it low — when the class means "the
-        // gentlest thing in the vocabulary". A soft glow behind the band
-        // is what that sounds like; a floor thumping on it is not.
-        out.push(pulse(back(), slots, kick_depth));
+        // The soft tier lives on the bar lights — Cody's call, and a
+        // good one: the strips are a layer of their own, so a verse can
+        // carry a gentle tick along the bars without touching the wash
+        // the vocal is lit by or the ceiling the backbeat uses. Three
+        // soft layers in three places read as texture; three in one
+        // place read as flicker.
+        out.push(pulse(strips(), slots, kick_depth));
     }
     if let Some(slots) = pattern(chart, song, section, HitClass::Snare) {
         out.push(pulse(ceiling(), slots, snare_depth));
@@ -644,10 +645,17 @@ fn pulses(chart: &HitChart, song: &SongMap, section: &str) -> Vec<Recipe> {
 
 /// Cues for the band hits — the events, as opposed to the pulse.
 ///
+/// One cue per hit, and no releases. A bump is one event with a shape,
+/// so the shape lives in the recipe as a one-shot envelope rather than
+/// in a second cue a beat later. Before that, every hit cost two cues
+/// and half the names in the list were "… out" — a cue list that could
+/// not be read at a glance and told an operator nothing, since nobody
+/// wants to press GO to end a flash.
+///
 /// A group is played *across* the rig; a lone hit is played on all of
-/// it. Both are `·`-named and non-blocking, so they add to whatever
+/// it. All are `·`-named and non-blocking, so they add to whatever
 /// section look is running rather than replacing it.
-fn accents(song: &SongMap, chart: &HitChart) -> Vec<Cue> {
+fn accents(chart: &HitChart) -> Vec<Cue> {
     let mut cues = Vec::new();
 
     for (index, group) in chart.groups.iter().enumerate() {
@@ -663,68 +671,78 @@ fn accents(song: &SongMap, chart: &HitChart) -> Vec<Cue> {
         }
         let count = moments.len();
         for (n, (at, level)) in moments.into_iter().enumerate() {
-            let label = format!("· fig {index} · {}/{count}", n + 1);
-            let target = zone(n, count);
-            cues.push(bump_cue(at, &label, target.clone(), level));
-            cues.push(release_cue(song, at, &label, target));
+            cues.push(bump_cue(
+                at,
+                &format!("· fig {index} · {}/{count}", n + 1),
+                zone(n, count),
+                level,
+            ));
         }
     }
 
-    // Ungrouped kick and snare are the pulse and already have their
-    // effect; giving them cues as well would flash twice for one hit.
+    // The soft tiers are the pulse and already have their effect; a cue
+    // as well would flash twice for one hit.
     for hit in chart
         .ungrouped()
         .filter(|h| !matches!(h.class, HitClass::Kick | HitClass::Snare))
     {
-        let name = format!("· {} {}.{:.2}", hit.class.label(), hit.at.bar, hit.at.beat);
-        cues.push(bump_cue(hit.at, &name, ceiling(), hit.intensity()));
-        cues.push(release_cue(song, hit.at, &name, ceiling()));
+        cues.push(bump_cue(
+            hit.at,
+            &format!("· {} {}.{:.2}", hit.class.label(), hit.at.bar, hit.at.beat),
+            ceiling(),
+            hit.intensity(),
+        ));
     }
 
     cues.sort_by(|a, b| a.at.partial_cmp(&b.at).unwrap_or(std::cmp::Ordering::Equal));
     cues
 }
 
+/// How long a bump takes to fall back, in beats.
+///
+/// Just under an eighth, so a figure written in eighths has each flash
+/// clear before the next arrives. Longer and the hits smear into one
+/// another; much shorter and the rig ticks rather than swells.
+const BUMP_BEATS: f32 = 0.45;
+
+/// One hit, as a cue that puts itself out.
 fn bump_cue(at: Bars, name: &str, target: Selection, level: f32) -> Cue {
+    // Snap up, fall back. `transition: 0.0` on the lift is what makes it
+    // a hit rather than a swell — a hit that eases in has already missed
+    // the moment it was for.
+    let up = Step {
+        apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, level)])],
+        width: 1.0,
+        transition: 0.0,
+        ease: Ease::default(),
+    };
+    let down = Step {
+        apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.0)])],
+        // Three times the lift's width and transitioning the whole way,
+        // so the fall is a fall and not a second snap.
+        width: 3.0,
+        transition: 1.0,
+        ease: Ease::default(),
+    };
     Cue {
         name: name.to_string(),
         fade_secs: 0.0,
         values: Vec::new(),
-        recipes: vec![bump(target, level)],
+        recipes: vec![Recipe {
+            target,
+            steps: vec![up, down],
+            timing: Timing {
+                speed: Speed::Master("Song".into()),
+                measure: BUMP_BEATS,
+                phase_spread_deg: 0.0,
+                // The envelope runs once and holds at zero, which for a
+                // Delta is the same as not being there.
+                once: true,
+                ..Default::default()
+            },
+        }],
         block: false,
         at: Some(at),
     }
 }
 
-/// The release, just short of the next eighth.
-///
-/// Not a whole beat: at eighth resolution that would run past the next
-/// hit of the same figure and cancel it, so the second hit of every pair
-/// would go missing. Not exactly half either — landing on the next hit's
-/// position leaves two cues sharing one spot, and which one a tracking
-/// player treats as current is then a matter of sort order rather than
-/// intent. Just before it, so the order is unambiguous.
-fn release_cue(song: &SongMap, at: Bars, name: &str, target: Selection) -> Cue {
-    let bpm = song.tempo.at(at).bpm;
-    Cue {
-        name: format!("{name} out"),
-        fade_secs: (0.35 * 60.0 / bpm) as f32,
-        values: Vec::new(),
-        recipes: vec![bump(target, 0.0)],
-        block: false,
-        at: Some(after(song, at, 0.45)),
-    }
-}
-
-/// The lift itself — a positive `Delta`, so it adds to the running look
-/// and leaves its colour alone: the same layering rule the chases use.
-fn bump(target: Selection, depth: f32) -> Recipe {
-    Recipe::new(target, RecipeApply::Delta(vec![(Attribute::Dimmer, depth)]))
-}
-
-/// `beats` past a position.
-fn after(song: &SongMap, at: Bars, beats: f64) -> Bars {
-    let bpm = song.tempo.at(at).bpm;
-    song.tempo
-        .position_at(song.tempo.seconds_at(at) + beats * 60.0 / bpm)
-}

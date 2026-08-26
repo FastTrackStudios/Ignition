@@ -178,6 +178,23 @@ pub struct Timing {
     pub phase_offset_deg: f32,
     #[serde(default)]
     pub direction: Direction,
+    /// Run the step list once and hold on the last step, instead of
+    /// looping.
+    ///
+    /// What makes a *bump* expressible. Without it the only way to flash
+    /// and come back was two cues — one to lift, one to release a beat
+    /// later — which doubles the cue list and says nothing a reader
+    /// wants to know: half the cue names in a show became "… out". A
+    /// bump is one event with a shape, and this lets the shape live in
+    /// the recipe where it belongs.
+    ///
+    /// Holding rather than stopping matters. A one-shot that wrapped
+    /// would strobe; one that vanished would leave the fixture wherever
+    /// the last frame caught it. Held on the final step, an envelope
+    /// ending at zero simply stops contributing, which for a `Delta` is
+    /// exactly nothing.
+    #[serde(default)]
+    pub once: bool,
 }
 
 impl Default for Timing {
@@ -188,6 +205,7 @@ impl Default for Timing {
             phase_spread_deg: 0.0,
             phase_offset_deg: 0.0,
             direction: Direction::default(),
+            once: false,
         }
     }
 }
@@ -227,12 +245,21 @@ impl Timing {
         let raw = self.cycles(secs, masters)
             + spread * (self.phase_spread_deg / 360.0)
             + self.phase_offset_deg / 360.0;
-        match self.direction {
+        let warped = match self.direction {
             Play::Bounce => {
                 let u = raw - raw.floor();
                 if u < 0.5 { u * 2.0 } else { 2.0 - u * 2.0 }
             }
             _ => raw,
+        };
+        if self.once {
+            // Just under one cycle, so `locate` stays inside the last
+            // step rather than wrapping to the first. Landing exactly on
+            // 1.0 would restart the envelope, which is the bug this mode
+            // exists to avoid.
+            warped.min(1.0 - f32::EPSILON)
+        } else {
+            warped
         }
     }
 }
@@ -496,5 +523,51 @@ mod tests {
         };
         assert_eq!(one_beat.cycles_at(4.0, 0, 1, &masters), 4.0);
         assert_eq!(four_beat.cycles_at(4.0, 0, 1, &masters), 1.0);
+    }
+}
+
+#[cfg(test)]
+mod once_tests {
+    use super::*;
+
+    fn timing(once: bool) -> Timing {
+        Timing {
+            speed: Speed::Bpm(60.0),
+            measure: 1.0,
+            once,
+            ..Default::default()
+        }
+    }
+
+    /// A looping phaser keeps going round; that is the point of one.
+    #[test]
+    fn a_looping_phaser_wraps() {
+        let t = timing(false);
+        let masters = SpeedMasters::default();
+        assert!(t.cycles_at(4.0, 0, 1, &masters) > 3.0);
+    }
+
+    /// A one-shot stops at the end of its first cycle and stays there,
+    /// which is what lets a bump release itself instead of needing a
+    /// second cue to put it out.
+    #[test]
+    fn a_one_shot_holds_at_the_end() {
+        let t = timing(true);
+        let masters = SpeedMasters::default();
+        let late = t.cycles_at(60.0, 0, 1, &masters);
+        assert!(late < 1.0, "wrapped to {late}");
+        assert!(late > 0.99, "did not reach the end: {late}");
+        // Still there much later — held, not restarted.
+        assert_eq!(late, t.cycles_at(600.0, 0, 1, &masters));
+    }
+
+    /// Before the end it behaves normally, or the envelope would be a
+    /// step rather than a shape.
+    #[test]
+    fn a_one_shot_runs_normally_until_it_ends() {
+        let t = timing(true);
+        let masters = SpeedMasters::default();
+        let half = t.cycles_at(0.5, 0, 1, &masters);
+        assert!((half - 0.5).abs() < 1e-4, "{half}");
     }
 }
