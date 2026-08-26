@@ -399,6 +399,28 @@ impl CuePlayer {
         self.clock
     }
 
+    /// Drives the show clock from an external timeline — the song.
+    ///
+    /// Free-running, the clock starts at zero when the app does and has
+    /// no relationship to the music: an effect written as "one cycle per
+    /// bar" then runs at the right *rate* with an arbitrary *phase*, so
+    /// a snare pulse written on beats two and four lands on whatever
+    /// beat the app happened to launch on. And because it advances every
+    /// frame regardless, the pulse went on flashing after the song was
+    /// stopped.
+    ///
+    /// Handing it the song's own position fixes both at once, and a
+    /// third thing for free: a scrub moves the clock with it, so effects
+    /// arrive already in the phase they would have had if the song had
+    /// played there.
+    ///
+    /// Fades are deliberately untouched — a two-second fade is two
+    /// *real* seconds whether or not a song is playing, so `tick` still
+    /// owns `Stage::elapsed`.
+    pub fn set_clock(&mut self, secs: f32) {
+        self.clock = secs;
+    }
+
     /// Drops fades that have finished. Once a stage is fully arrived,
     /// everything under it contributes nothing.
     fn collapse(&mut self) {

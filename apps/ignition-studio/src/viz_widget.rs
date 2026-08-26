@@ -413,6 +413,7 @@ fn follow_song(transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
     let Some(transport) = transport else { return };
     let position = transport.position();
     let bpm = transport.song().tempo.at(position).bpm as f32;
+    let secs = transport.seconds() as f32;
 
     let world = viz.app_mut().world_mut();
     let Some(mut playback) = world.remove_resource::<Playback>() else {
@@ -435,6 +436,12 @@ fn follow_song(transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
                 rig,
                 speeds,
             };
+            // The song *is* the clock while a transport is loaded. Left
+            // free-running, effects keep their rate but lose their
+            // phase — a pulse written on two and four lands wherever the
+            // app happened to start — and they go on running after the
+            // song stops, which is not what "synced to the music" means.
+            player.set_clock(secs);
             player.seek(position, &show);
         }
     }

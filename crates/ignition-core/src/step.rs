@@ -571,3 +571,57 @@ mod once_tests {
         assert!((half - 0.5).abs() < 1e-4, "{half}");
     }
 }
+
+#[cfg(test)]
+mod bar_phase_tests {
+    use super::*;
+
+    /// A one-bar, eight-step pattern must put step `i` on eighth `i` of
+    /// the bar when the clock is the song's own position.
+    ///
+    /// This is the "snare lights on beat 3" report. The pattern was
+    /// right — slots 2 and 6, which are beats 2 and 4 — and it landed
+    /// wrong because the clock it ran on had no relationship to the bar.
+    /// With the song driving the clock, cycle position *is* position in
+    /// the bar, and this pins that.
+    #[test]
+    fn a_one_bar_pattern_lands_on_its_own_eighths() {
+        let timing = Timing {
+            speed: Speed::Bpm(120.0),
+            measure: 4.0,
+            ..Default::default()
+        };
+        let masters = SpeedMasters::default();
+        let steps: Vec<Step> = (0..8).map(|_| Step::new(Vec::new())).collect();
+
+        // At 120 bpm a beat is 0.5 s, so beat 2 of bar 1 is 0.5 s in.
+        for (secs, want_slot) in [
+            (0.0, 0),  // beat 1
+            (0.5, 2),  // beat 2   <- the snare
+            (1.0, 4),  // beat 3
+            (1.5, 6),  // beat 4   <- the snare
+            (2.0, 0),  // beat 1 of the next bar, wrapped
+        ] {
+            let cycles = timing.cycles_at(secs, 0, 1, &masters);
+            let (_, step, _) = locate(&steps, cycles);
+            assert_eq!(step, want_slot, "at {secs}s");
+        }
+    }
+
+    /// Two bars in, the same pattern is in the same place — the phase
+    /// must not drift across bars.
+    #[test]
+    fn the_pattern_does_not_drift_across_bars() {
+        let timing = Timing {
+            speed: Speed::Bpm(120.0),
+            measure: 4.0,
+            ..Default::default()
+        };
+        let masters = SpeedMasters::default();
+        let steps: Vec<Step> = (0..8).map(|_| Step::new(Vec::new())).collect();
+        // Beat 2 of bar 1, and of bar 21.
+        let early = locate(&steps, timing.cycles_at(0.5, 0, 1, &masters)).1;
+        let late = locate(&steps, timing.cycles_at(0.5 + 40.0, 0, 1, &masters)).1;
+        assert_eq!(early, late);
+    }
+}
