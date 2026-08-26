@@ -9,6 +9,15 @@
 
 use ignition_core::{Fader, Selection};
 
+/// `Deselect` and `Section` have no control on the surface yet.
+///
+/// Kept rather than deleted because this enum is a *wire contract*: the
+/// widget handles both, and the surface that will send them — a clear
+/// key, a rehearsal jump — is UI work rather than a change here.
+/// Deleting them would mean re-deriving the handler when the control
+/// arrives, which is how a protocol loses the pieces nobody happened to
+/// need on the day.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Command {
     /// Pick the fixtures the next palette hit lands on.

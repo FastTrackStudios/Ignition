@@ -1785,7 +1785,6 @@ impl LaserProtocol {
 #[cfg(test)]
 mod tests {
     use crate::geometry::{BeamGeometry, ColorType, LaserGeometry};
-    use crate::values::{Matrix, Name};
 
     #[test]
     fn parse_laser_single_wavelength() {

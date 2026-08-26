@@ -24,7 +24,7 @@ use crate::cue::{Cue, CueValue};
 use crate::focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 use crate::group::Group;
 use crate::preset::{ColorPreset, Palettes, Ref};
-use crate::selection::{Rig, Selection, resolve, unresolved_names};
+use crate::selection::{Rig, Selection, resolve};
 use crate::step::{Play, Speed, SpeedMasters, Step, Timing, Waveform, locate};
 use ignition_proto::{Attribute, ChanId, ColorChannel};
 use serde::{Deserialize, Serialize};

@@ -597,6 +597,25 @@ fn Busking(surface: Surface) -> Element {
                             }
                         }
                     }
+                    // Role masters. Not a dimmer on the cue — the cue
+                    // list keeps saying what it was saying, and this
+                    // says how much of it reaches the rig. Pulling
+                    // Movers down for a ballad is a decision an operator
+                    // makes in the moment and should not have to edit a
+                    // show to express.
+                    div { class: "masters",
+                        for role in ["Wash", "Movers", "Bars"] {
+                            Fader {
+                                key: "{role}",
+                                label: role.to_string(),
+                                css: "#7a6f96".to_string(),
+                                initial: 1.0,
+                                on_change: move |v: f32| {
+                                    send(Command::Master(role.to_string(), v))
+                                },
+                            }
+                        }
+                    }
                     // The three an operator actually rides. RATE sets
                     // the tap tempo; SIZE and SPEED shape whatever is
                     // running against it.

@@ -27,7 +27,7 @@
 
 use crate::recipe::{Recipe, RecipeApply};
 use crate::selection::Selection;
-use crate::step::{Play, Speed, Step, Timing};
+use crate::step::{Speed, Step, Timing};
 use crate::Attribute;
 use ignition_proto::ColorChannel;
 

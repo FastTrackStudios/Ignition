@@ -335,7 +335,7 @@ impl Programmer {
         }
         // Resolve each named role once, not once per channel.
         let mut scale: HashMap<ChanId, f32> = HashMap::new();
-        let mut note = |role: &str, factor: f32, scale: &mut HashMap<ChanId, f32>| {
+        let note = |role: &str, factor: f32, scale: &mut HashMap<ChanId, f32>| {
             for chan in crate::selection::resolve_with(
                 &Selection::Role(role.to_string()),
                 show.groups,

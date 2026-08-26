@@ -20,7 +20,7 @@ use ignition_song::chart::{HitChart, HitClass};
 use ignition_core::preset::Ref;
 use ignition_core::selection::{Axis, Dir, Order, Where};
 use ignition_core::{
-    Attribute, Bars, Cue, CueList, Ease, Play, Recipe, RecipeApply, Selection, SongMap, Speed,
+    Attribute, Bars, Cue, CueList, Play, Recipe, RecipeApply, Selection, SongMap, Speed,
     Step, Timing, Waveform,
 };
 
@@ -739,13 +739,6 @@ fn accents(chart: &HitChart) -> Vec<Cue> {
     cues.sort_by(|a, b| a.at.partial_cmp(&b.at).unwrap_or(std::cmp::Ordering::Equal));
     cues
 }
-
-/// How long a bump takes to fall back, in beats.
-///
-/// Just under an eighth, so a figure written in eighths has each flash
-/// clear before the next arrives. Longer and the hits smear into one
-/// another; much shorter and the rig ticks rather than swells.
-const BUMP_BEATS: f32 = 0.45;
 
 /// One hit, as a cue that puts itself out.
 /// The lift a hit fires.

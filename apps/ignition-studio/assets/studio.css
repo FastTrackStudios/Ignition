@@ -64,3 +64,8 @@
 }
 .flashes .flash:hover { background: #363042; border-color: #4a4358; }
 .flashes .flash:active { background: #d8d0e8; color: #14121a; }
+
+/* Role masters, beside the effect controls. Same fader shape as the
+   rest — a master and an effect fader feel identical under a hand, and
+   what they do differently is the label's job, not the geometry's. */
+.masters { display: flex; gap: 6px; padding: 0 6px; }
