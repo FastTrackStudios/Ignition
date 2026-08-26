@@ -20,6 +20,12 @@ pub use focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 pub mod music;
 pub use music::{Bars, Section, SongMap, TempoMap, TempoPoint, TimeSignature};
 
+pub mod profile;
+pub use profile::{Bindings, Gap, Profile, Role, RoleKind};
+
+pub mod tricks;
+pub use tricks::{Trick, Units};
+
 pub mod trigger;
 pub use trigger::{Trigger, TriggerBus};
 

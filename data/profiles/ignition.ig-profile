@@ -1,0 +1,75 @@
+{
+  "name": "Ignition",
+  "version": 1,
+  "about": "The default profile. Three required layers, three required focus points, and one canvas where a room has screens. Everything else is optional or inherited, because every required role is a barrier to a room implementing this and a profile only a large rig can satisfy has failed at being a default.",
+
+  "roles": [
+    { "name": "Key",      "kind": "Group", "required": true,
+      "about": "Light on the performers' faces, from the front. Without it the audience cannot see who is playing, and no amount of colour elsewhere substitutes." },
+    { "name": "Wash",     "kind": "Group", "required": true,
+      "about": "The main colourable surface on stage. What carries the song's mood, and where a busking operator spends most of the night." },
+    { "name": "Back",     "kind": "Group", "required": true,
+      "about": "Anything behind the band — back wall, cyc, upstage bar. Separation from the background is the largest single difference between a rig that reads as designed and one that reads as switched on." },
+
+    { "name": "Movers",   "kind": "Group", "required": false,
+      "about": "Anything that pans and tilts." },
+    { "name": "Beams",    "kind": "Group", "required": false,
+      "about": "Hard-edged movers, where they are a separate package from wash movers." },
+    { "name": "Bars",     "kind": "Group", "required": false,
+      "about": "Pixel strips and battens — the accent layer, and where soft charted hits land." },
+    { "name": "Floor",    "kind": "Group", "required": false,
+      "about": "Uplight and the floor package." },
+    { "name": "Audience", "kind": "Group", "required": false,
+      "about": "Blinders and audience wash." },
+    { "name": "Drums",    "kind": "Group", "required": false,
+      "about": "The drum special." },
+    { "name": "Spot",     "kind": "Group", "required": false,
+      "about": "A solo or follow." },
+    { "name": "Haze",     "kind": "Group", "required": false,
+      "about": "Atmospherics. A beam is inert in clean air." },
+
+    { "name": "Vocal",    "kind": "Focus", "required": true,
+      "about": "The lead position. A room that cannot say where its singer stands cannot host a show written for one." },
+    { "name": "Stage",    "kind": "Focus", "required": true,
+      "about": "The whole performance area." },
+    { "name": "Audience", "kind": "Focus", "required": true,
+      "about": "Out over the room." },
+    { "name": "Band",     "kind": "Focus", "required": false,
+      "about": "The upstage area." },
+    { "name": "Drums",    "kind": "Focus", "required": false,
+      "about": "The kit." },
+    { "name": "Back Wall","kind": "Focus", "required": false,
+      "about": "The surface behind the band." },
+    { "name": "House",    "kind": "Focus", "required": false,
+      "about": "Deep audience, past the front rows." },
+
+    { "name": "Main",       "kind": "Canvas", "required": false,
+      "about": "The primary video surface. Required only of rooms that have screens at all — the show says 'play this on Main' and the venue decides whether that is one panel or three of unequal width." },
+    { "name": "Side Left",  "kind": "Canvas", "required": false,
+      "about": "An independent flanking surface." },
+    { "name": "Side Right", "kind": "Canvas", "required": false,
+      "about": "An independent flanking surface." }
+  ],
+
+  "colors": [
+    { "name": "Open", "red": 1.0,  "green": 1.0,  "blue": 1.0 },
+    { "name": "Warm", "red": 1.0,  "green": 0.72, "blue": 0.38 },
+    { "name": "Cool", "red": 0.72, "green": 0.84, "blue": 1.0 },
+    { "name": "Deep", "red": 0.08, "green": 0.14, "blue": 0.62 },
+    { "name": "Hot",  "red": 1.0,  "green": 0.16, "blue": 0.28 }
+  ],
+
+  "tricks": {
+    "odds":      [{ "Group": 2 }],
+    "thirds":    [{ "Group": 3 }],
+    "quarters":  [{ "Group": 4 }],
+    "pairs":     [{ "Block": 2 }],
+    "halves":    [{ "Wings": 2 }],
+    "mirror":    [{ "Wings": 2 }],
+    "reverse":   ["Reverse"],
+    "scatter":   [{ "Shuffle": 1741 }],
+    "paired odds": [{ "Block": 2 }, { "Group": 2 }]
+  },
+
+  "effects": {}
+}
