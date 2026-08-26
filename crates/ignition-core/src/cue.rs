@@ -844,6 +844,7 @@ mod tests {
                 once,
                 ..Default::default()
             },
+                tricks: Vec::new(),
         }
     }
 
@@ -870,6 +871,7 @@ mod tests {
                     once: true,
                     ..Default::default()
                 },
+                tricks: Vec::new(),
             }],
             ..Default::default()
         };
@@ -1043,6 +1045,7 @@ mod tests {
                 speed: Speed::Hz(1.0),
                 ..Default::default()
             },
+                tricks: Vec::new(),
         }
     }
 

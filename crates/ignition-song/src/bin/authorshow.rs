@@ -181,6 +181,7 @@ fn chase(target: Selection, depth: f32, bars: f32, spread: f32, play: Play) -> R
             direction: play,
             ..Default::default()
         },
+            tricks: Vec::new(),
     }
 }
 
@@ -198,6 +199,7 @@ fn gap_chase(target: Selection, bars: f32, play: Play) -> Recipe {
             direction: play,
             ..Default::default()
         },
+            tricks: Vec::new(),
     }
 }
 
@@ -212,6 +214,7 @@ fn swing(bars: f32, degrees: f32) -> Recipe {
             phase_spread_deg: 180.0,
             ..Default::default()
         },
+            tricks: Vec::new(),
     }
 }
 
@@ -610,6 +613,7 @@ fn pulse(target: Selection, slots: [bool; SLOTS], depth: f32) -> Recipe {
             phase_spread_deg: 0.0,
             ..Default::default()
         },
+            tricks: Vec::new(),
     }
 }
 
@@ -740,6 +744,7 @@ fn bump_cue(at: Bars, name: &str, target: Selection, level: f32) -> Cue {
                 once: true,
                 ..Default::default()
             },
+            tricks: Vec::new(),
         }],
         block: false,
         at: Some(at),

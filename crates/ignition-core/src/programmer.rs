@@ -335,6 +335,7 @@ mod tests {
                         -0.4,
                     )])])],
                     timing: Timing::default(),
+                    tricks: Vec::new(),
                 }),
                 level: 0.5,
             },
@@ -358,6 +359,7 @@ mod tests {
             palettes: crate::preset::Palettes::EMPTY,
             rig: &EMPTY_RIG,
             speeds: &masters,
+            roles: &crate::recipe::NO_ROLES,
         };
         let chase = |chan: ChanId| Recipe {
             target: Selection::Chans(vec![chan]),
@@ -369,6 +371,7 @@ mod tests {
                 speed: Speed::Master("Rate".into()),
                 ..Default::default()
             },
+            tricks: Vec::new(),
         };
         let mut p = Programmer::new();
         for (i, chan) in [1, 2].into_iter().enumerate() {

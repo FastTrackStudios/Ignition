@@ -178,6 +178,20 @@ pub enum Selection {
     /// `recipe::unresolved` for how a typo is surfaced without making
     /// the show fail.
     Group(String),
+    /// A **role** from the profile, resolved through the venue's binding
+    /// — `Key`, `Wash`, `Back`.
+    ///
+    /// The variant that makes a show portable, and the reason recipes
+    /// matter. `Group("Center Washers")` names a thing that exists at
+    /// exactly one address; `Role("Key")` names a job every venue fills,
+    /// and the venue says which of its fixtures fills it. A cue written
+    /// against roles plays in Norco, Riverside and Vegas without being
+    /// touched.
+    ///
+    /// An unbound role resolves to no fixtures, like an unknown group —
+    /// but unlike an unknown group it is a *reportable* gap, because the
+    /// profile said it should be there. See `profile::Profile::gaps`.
+    Role(String),
     /// An explicit, inline channel list — for a one-off that does not
     /// warrant naming a reusable group.
     Chans(Vec<ChanId>),
@@ -212,7 +226,44 @@ pub enum Selection {
 
 /// Resolves a selection to its ordered channel list.
 pub fn resolve(selection: &Selection, groups: &[Group], rig: &Rig) -> Vec<ChanId> {
+    resolve_with(selection, groups, rig, &())
+}
+
+/// What a `Role` resolves to at this venue.
+///
+/// A trait so `ignition-core` never has to know what a venue *is*: the
+/// venue crate owns loading and binding, and this is the one question
+/// selection resolution needs answered. `()` implements it as "no roles
+/// bound", which keeps every existing caller working and makes a
+/// role-free show behave exactly as it did.
+pub trait Roles {
+    fn role(&self, name: &str) -> Option<&Selection>;
+}
+
+impl Roles for () {
+    fn role(&self, _: &str) -> Option<&Selection> {
+        None
+    }
+}
+
+pub fn resolve_with(
+    selection: &Selection,
+    groups: &[Group],
+    rig: &Rig,
+    // `dyn` rather than a generic: `Show` holds this behind a reference
+    // so a venue can supply its bindings without `Show` — and therefore
+    // every function taking one — growing a type parameter that most
+    // callers would only ever instantiate as `()`.
+    roles: &dyn Roles,
+) -> Vec<ChanId> {
     match selection {
+        Selection::Role(name) => match roles.role(name) {
+            // Resolved against the same machinery, so a role may bind to
+            // an expression rather than a group — "washes downstage of
+            // the plaster line" is as valid a Key as one named group.
+            Some(bound) => resolve_with(bound, groups, rig, roles),
+            None => Vec::new(),
+        },
         Selection::Chans(chans) => dedup(chans.clone()),
         Selection::Group(name) => group::find(groups, name)
             .map(|g| dedup(g.chans.clone()))
@@ -236,31 +287,31 @@ pub fn resolve(selection: &Selection, groups: &[Group], rig: &Rig) -> Vec<ChanId
                 .collect()
         }
         Selection::Union(parts) => {
-            dedup(parts.iter().flat_map(|p| resolve(p, groups, rig)).collect())
+            dedup(parts.iter().flat_map(|p| resolve_with(p, groups, rig, roles)).collect())
         }
         Selection::Intersect(parts) => {
             let Some((first, rest)) = parts.split_first() else {
                 return Vec::new();
             };
-            let others: Vec<Vec<ChanId>> = rest.iter().map(|p| resolve(p, groups, rig)).collect();
-            resolve(first, groups, rig)
+            let others: Vec<Vec<ChanId>> = rest.iter().map(|p| resolve_with(p, groups, rig, roles)).collect();
+            resolve_with(first, groups, rig, roles)
                 .into_iter()
                 .filter(|c| others.iter().all(|o| o.contains(c)))
                 .collect()
         }
         Selection::Except { of, minus } => {
-            let drop = resolve(minus, groups, rig);
-            resolve(of, groups, rig)
+            let drop = resolve_with(minus, groups, rig, roles);
+            resolve_with(of, groups, rig, roles)
                 .into_iter()
                 .filter(|c| !drop.contains(c))
                 .collect()
         }
-        Selection::Where { of, filter } => resolve(of, groups, rig)
+        Selection::Where { of, filter } => resolve_with(of, groups, rig, roles)
             .into_iter()
             .filter(|c| rig.placement(*c).is_some_and(|p| filter.test(p.position)))
             .collect(),
         Selection::Order { of, by } => {
-            let mut chans = resolve(of, groups, rig);
+            let mut chans = resolve_with(of, groups, rig, roles);
             match by {
                 Order::Reverse => chans.reverse(),
                 // A fixture with no placement has no position to sort

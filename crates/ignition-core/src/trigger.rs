@@ -209,6 +209,7 @@ mod tests {
                 once: true,
                 ..Default::default()
             },
+                tricks: Vec::new(),
         }
     }
 

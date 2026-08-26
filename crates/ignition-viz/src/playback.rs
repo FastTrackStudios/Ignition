@@ -92,6 +92,7 @@ impl Playback {
             palettes: &venue.palettes,
             rig: &rig,
             speeds: &speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
         };
 
         let cues: Option<CuePlayer> = match cuelist.or(recipes) {
@@ -232,6 +233,7 @@ pub fn tick_playback(
         palettes,
         rig,
         speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
     };
     // The cue stack renders first and the programmer folds on top, which
     // is the whole point of the layer order: busking overrides playback,
@@ -306,6 +308,7 @@ pub fn operator_keys(
         palettes: &venue.palettes,
         rig,
         speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
     };
 
     // Stepping backwards re-runs the show from the top to the target,
@@ -367,6 +370,7 @@ mod accent_tests {
             palettes: &venue.palettes,
             rig: &rig,
             speeds: &speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
         };
 
         let figure = list

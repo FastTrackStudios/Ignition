@@ -78,6 +78,15 @@ pub struct Recipe {
     pub target: Selection,
     pub steps: Vec<Step>,
     pub timing: Timing,
+    /// How the target is cut before the steps meet it.
+    ///
+    /// Inline on the recipe rather than a separate stage, because that
+    /// is what a Trick *is*: grandMA3 carries them as columns on the
+    /// recipe line, and it is why one recipe there covers looks that
+    /// need a dozen here. `Block(2)` makes the phase spread land per
+    /// pair; `Group(2)` makes it land on odds and evens.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tricks: Vec<crate::tricks::Trick>,
 }
 
 impl Recipe {
@@ -87,6 +96,7 @@ impl Recipe {
             target,
             steps: vec![Step::new(vec![apply])],
             timing: Timing::default(),
+            tricks: Vec::new(),
         }
     }
 
@@ -114,6 +124,8 @@ struct RecipeWire {
     steps: Vec<Step>,
     #[serde(default, skip_serializing_if = "is_default_timing")]
     timing: Timing,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    tricks: Vec<crate::tricks::Trick>,
 }
 
 fn is_default_timing(t: &Timing) -> bool {
@@ -149,6 +161,7 @@ impl From<RecipeWire> for Recipe {
             target: w.target,
             steps,
             timing: w.timing,
+            tricks: w.tricks,
         }
     }
 }
@@ -170,6 +183,7 @@ impl From<Recipe> for RecipeWire {
             waveform: None,
             steps: if terse.is_some() { Vec::new() } else { r.steps },
             timing: r.timing,
+            tricks: r.tricks,
         }
     }
 }
@@ -191,7 +205,17 @@ pub struct Show<'a> {
     pub rig: &'a Rig,
     /// Named tempo sources every phaser in the show can slave to.
     pub speeds: &'a SpeedMasters,
+    /// What the venue binds each profile role to.
+    ///
+    /// The seam that makes a cue portable: a recipe targeting
+    /// `Role("Key")` resolves to whatever fixtures *this* room calls its
+    /// key light. Defaults to no bindings, so a show written against
+    /// venue group names behaves exactly as it did.
+    pub roles: &'a dyn crate::selection::Roles,
 }
+
+/// No role bindings — every `Selection::Role` resolves to nothing.
+pub static NO_ROLES: () = ();
 
 /// No tempo sources — every `Speed::Master` resolves to stopped.
 pub static NO_SPEEDS: std::sync::LazyLock<SpeedMasters> =
@@ -206,6 +230,7 @@ impl<'a> Show<'a> {
             palettes: Palettes::EMPTY,
             rig,
             speeds: &NO_SPEEDS,
+            roles: &NO_ROLES,
         }
     }
 }
@@ -306,8 +331,12 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Vec<Emit> {
     if recipe.steps.is_empty() {
         return out;
     }
-    let chans = resolve(&recipe.target, show.groups, show.rig);
-    let count = chans.len();
+    // Roles first, so a recipe targeting `Key` finds whatever this venue
+    // calls its key light, then Tricks, so the phase spread lands on the
+    // *units* the Tricks made rather than on raw fixtures.
+    let chans = crate::selection::resolve_with(&recipe.target, show.groups, show.rig, show.roles);
+    let units = crate::tricks::apply_all(&chans, &recipe.tricks);
+    let count = units.len();
     let phaser = recipe.is_phaser();
 
     // `Negative` inverts each attribute about its own swing, so the
@@ -316,7 +345,7 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Vec<Emit> {
     // of them.
     let swing = (recipe.timing.direction == Play::Negative).then(|| swing_of(recipe, show));
 
-    for (index, chan) in chans.into_iter().enumerate() {
+    for (index, unit) in units.0.iter().enumerate() {
         let (prev, cur, blend) = if !phaser {
             (0, 0, 1.0)
         } else if recipe.timing.direction == Play::Build {
@@ -340,39 +369,46 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Vec<Emit> {
             locate(&recipe.steps, cycles)
         };
 
-        let to = step_values(&recipe.steps[cur], chan, show);
-        // Resolving the outgoing step is only worth it mid-transition.
-        let from = if blend < 1.0 && prev != cur {
-            step_values(&recipe.steps[prev], chan, show)
-        } else {
-            Default::default()
-        };
+        // Phase was decided per *unit* above; values are still resolved
+        // per fixture, because a step can say something fixture-relative
+        // — a focus point is a different pan and tilt for every head
+        // pointing at it. So a blocked pair shares a moment and still
+        // aims individually, which is what blocking is supposed to mean.
+        for chan in unit.iter().copied() {
+            let to = step_values(&recipe.steps[cur], chan, show);
+            // Resolving the outgoing step is only worth it mid-transition.
+            let from = if blend < 1.0 && prev != cur {
+                step_values(&recipe.steps[prev], chan, show)
+            } else {
+                Default::default()
+            };
 
-        for (key, target) in &to {
-            // An attribute the outgoing step did not set has nothing to
-            // move away from, so it simply takes this step's value.
-            let value = match from.get(key) {
-                Some(start) => start + (target - start) * blend,
-                None => *target,
-            };
-            let value = match &swing {
-                // Reflect about the middle of this attribute's own
-                // range: the fixture that would have been brightest is
-                // now the dark one travelling across the rig.
-                Some(swing) => match swing.get(&key.0) {
-                    Some((lo, hi)) => lo + hi - value,
+            for (key, target) in &to {
+                // An attribute the outgoing step did not set has nothing
+                // to move away from, so it takes this step's value.
+                let value = match from.get(key) {
+                    Some(start) => start + (target - start) * blend,
+                    None => *target,
+                };
+                let value = match &swing {
+                    // Reflect about the middle of this attribute's own
+                    // range: the fixture that would have been brightest
+                    // is now the dark one travelling across the rig.
+                    Some(swing) => match swing.get(&key.0) {
+                        Some((lo, hi)) => lo + hi - value,
+                        None => value,
+                    },
                     None => value,
-                },
-                None => value,
-            };
-            out.push(Emit {
-                value: CueValue {
-                    chan,
-                    attr: key.0.clone(),
-                    value,
-                },
-                relative: key.1,
-            });
+                };
+                out.push(Emit {
+                    value: CueValue {
+                        chan,
+                        attr: key.0.clone(),
+                        value,
+                    },
+                    relative: key.1,
+                });
+            }
         }
     }
     out
@@ -712,6 +748,7 @@ mod tests {
             palettes: &pool,
             rig: &crate::selection::EMPTY_RIG,
             speeds: &NO_SPEEDS,
+            roles: &crate::recipe::NO_ROLES,
         };
         let emits = expand_recipe(&recipe, &show, 0.0);
         assert_eq!(emits.len(), 3);
@@ -742,6 +779,7 @@ mod tests {
             palettes: &pool,
             rig: &crate::selection::EMPTY_RIG,
             speeds: &NO_SPEEDS,
+            roles: &crate::recipe::NO_ROLES,
         };
         assert!(
             cue.recipes
@@ -773,6 +811,7 @@ mod tests {
                 speed: Speed::Hz(1.0),
                 ..Default::default()
             },
+            tricks: Vec::new(),
         }
     }
 
@@ -838,6 +877,7 @@ mod tests {
                 speed: Speed::Hz(1.0),
                 ..Default::default()
             },
+            tricks: Vec::new(),
         };
         let show = bare(&[]);
         let at = |t: f32| dimmer_of(&expand_recipe(&recipe, &show, t), 1).unwrap();
@@ -1035,6 +1075,7 @@ mod tests {
                 direction: play,
                 ..Default::default()
             },
+            tricks: Vec::new(),
         }
     }
 
@@ -1077,6 +1118,7 @@ mod tests {
                 direction: play,
                 ..Default::default()
             },
+            tricks: Vec::new(),
         }
     }
 

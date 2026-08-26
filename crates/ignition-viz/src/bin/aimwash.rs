@@ -41,7 +41,9 @@ const MIN_TILT: f64 = 40.0;
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
-    let path = args.next().context("usage: aimwash <fixtures.json> [--face M] [--min-tilt D] [--write]")?;
+    let path = args
+        .next()
+        .context("usage: aimwash <fixtures.json> [--face M] [--min-tilt D] [--write]")?;
     let (mut face, mut min_tilt, mut write) = (FACE, MIN_TILT, false);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -57,7 +59,10 @@ fn main() -> Result<()> {
     let list = fixtures.as_array_mut().context("expected an array")?;
 
     let mut changed = 0usize;
-    println!("{:>5} {:>7} {:>7} {:>9} {:>9}", "chan", "tilt", "new", "was@face", "role");
+    println!(
+        "{:>5} {:>7} {:>7} {:>9} {:>9}",
+        "chan", "tilt", "new", "was@face", "role"
+    );
     for fixture in list.iter_mut() {
         let Some(record) = Aim::read(fixture) else {
             continue;
@@ -71,7 +76,10 @@ fn main() -> Result<()> {
             continue;
         }
         if record.tilt < min_tilt {
-            println!("{:>5} {:>7.1} {:>7} {:>9} {:>9}", record.chan, record.tilt, "-", "-", "downlight");
+            println!(
+                "{:>5} {:>7.1} {:>7} {:>9} {:>9}",
+                record.chan, record.tilt, "-", "-", "downlight"
+            );
             continue;
         }
 
@@ -102,7 +110,10 @@ fn main() -> Result<()> {
     if write {
         // Trailing newline: the file is committed, and a diff whose last
         // line is "\ No newline at end of file" is noise every time.
-        std::fs::write(&path, format!("{}\n", serde_json::to_string_pretty(&fixtures)?))?;
+        std::fs::write(
+            &path,
+            format!("{}\n", serde_json::to_string_pretty(&fixtures)?),
+        )?;
         println!("\nre-aimed {changed} fixtures at {face} m -> {path}");
     } else {
         println!("\ndry run — pass --write to apply");

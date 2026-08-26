@@ -186,6 +186,7 @@ pub fn update_overlay(
         palettes: &venue.palettes,
         rig,
         speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
     };
 
     let current = player.current_index();

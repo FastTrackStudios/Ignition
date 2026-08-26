@@ -155,6 +155,7 @@ fn chase(measure: f64) -> Recipe {
             phase_spread_deg: 360.0,
             ..Default::default()
         },
+            tricks: Vec::new(),
     }
 }
 
