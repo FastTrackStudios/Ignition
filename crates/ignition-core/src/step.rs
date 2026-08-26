@@ -108,13 +108,36 @@ impl Default for Speed {
 }
 
 impl Speed {
+    /// The tempo an unset speed master runs at.
+    ///
+    /// Deliberately ordinary: fast enough that an envelope completes
+    /// promptly, slow enough that a chase which lost its master looks
+    /// wrong rather than looking broken.
+    pub const FALLBACK_BPM: f32 = 120.0;
+
     pub fn beats_per_second(&self, masters: &SpeedMasters) -> f32 {
         match self {
             Speed::Hz(h) => *h,
             Speed::Bpm(b) => b / 60.0,
             Speed::Secs(s) if *s > 0.0 => 1.0 / s,
             Speed::Secs(_) => 0.0,
-            Speed::Master(name) => masters.get(name).copied().unwrap_or(0.0) / 60.0,
+            // A master nobody has set falls back to a plausible tempo
+            // rather than to *stopped*, and the difference is a safety
+            // property rather than a nicety. Zero freezes anything slaved
+            // to it — which for a looping chase is merely still, and for
+            // a **one-shot is stuck at its lift**: a flash key fired
+            // before a transport loaded would hold the rig bright with no
+            // way to release it, which is precisely the failure one-shots
+            // exist to make impossible.
+            //
+            // A missing master is still reported — `recipe::unresolved`
+            // names it against every cue that asked for it — so this
+            // does not hide the mistake. It stops the mistake being a
+            // stuck light.
+            Speed::Master(name) => {
+                let bpm = masters.get(name).copied().unwrap_or(0.0);
+                (if bpm > 0.0 { bpm } else { Self::FALLBACK_BPM }) / 60.0
+            }
         }
     }
 }
@@ -420,13 +443,33 @@ mod tests {
         assert_eq!(Speed::Master("Song".into()).beats_per_second(&masters), 2.0);
     }
 
-    /// A master that is not wired up freezes rather than guessing.
+    /// A master that is not wired up runs at a fallback rather than
+    /// freezing.
+    ///
+    /// This test asserted the opposite, and the assumption behind it was
+    /// wrong in a way only a one-shot exposes. Freezing a *loop* is
+    /// harmless — it is merely still. Freezing a **one-shot** parks it
+    /// at its lift, so a flash key fired before a transport loaded would
+    /// hold the rig bright with no way to release it: exactly the stuck
+    /// light that one-shots exist to make impossible.
+    ///
+    /// The mistake is still reported — `recipe::unresolved` names a
+    /// missing master against every cue that asked for it. What changed
+    /// is that it is no longer reported *by leaving a light on*.
     #[test]
-    fn an_unknown_speed_master_stops() {
-        assert_eq!(
-            Speed::Master("Nope".into()).beats_per_second(&SpeedMasters::new()),
-            0.0
-        );
+    fn an_unknown_speed_master_falls_back_rather_than_freezing() {
+        let rate = Speed::Master("Nope".into()).beats_per_second(&SpeedMasters::new());
+        assert!(rate > 0.0, "an unset master froze the effect");
+        assert_eq!(rate, Speed::FALLBACK_BPM / 60.0);
+    }
+
+    /// A master set to zero is treated the same way, since "stopped" is
+    /// not a tempo somebody means to program.
+    #[test]
+    fn a_zero_master_also_falls_back() {
+        let mut masters = SpeedMasters::new();
+        masters.insert("Song".into(), 0.0);
+        assert!(Speed::Master("Song".into()).beats_per_second(&masters) > 0.0);
     }
 
     #[test]

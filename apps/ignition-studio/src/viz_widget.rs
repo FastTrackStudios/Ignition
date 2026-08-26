@@ -245,6 +245,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
             palettes,
             speeds,
             programmer,
+            profile,
             ..
         } = &mut playback;
         while let Ok(command) = commands.try_recv() {
@@ -266,13 +267,21 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                     Some(role) => programmer.solo(&role),
                     None => programmer.clear_solo(),
                 },
+                Command::Flash(role, kind) => {
+                    // Fired against the player's clock, which is the song
+                    // while a transport is loaded — so a hand-played
+                    // flash and a charted one are timed by the same
+                    // thing.
+                    let now = cues.as_ref().map(|c| c.clock()).unwrap_or_default();
+                    programmer.flash(ignition_core::Selection::Role(role), kind, now);
+                }
                 Command::Color(name) => {
                     let show = Show {
                         groups,
                         palettes,
                         rig,
                         speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: profile,
                     };
                     programmer.apply(RecipeApply::Color(Ref::Named(name)), &show);
                 }
@@ -282,7 +291,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: profile,
                     };
                     programmer.apply(RecipeApply::FocusPoint(Ref::Named(name)), &show);
                 }
@@ -292,7 +301,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: profile,
                     };
                     programmer.apply(RecipeApply::Dimmer(level), &show);
                 }
@@ -302,7 +311,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: profile,
                     };
                     programmer.release(&show);
                 }
@@ -313,7 +322,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                             palettes,
                             rig,
                             speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: profile,
                         };
                         player.go(&show);
                     }
@@ -325,7 +334,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                             palettes,
                             rig,
                             speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: profile,
                         };
                         // Take the song to the cue's own position, not
                         // to a section with the cue's name. Every cue is
@@ -439,6 +448,7 @@ fn follow_song(transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
             rig,
             palettes,
             speeds,
+            profile,
             ..
         } = &mut playback;
         speeds.insert("Song".to_string(), bpm);
@@ -448,7 +458,7 @@ fn follow_song(transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
                 palettes,
                 rig,
                 speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: profile,
             };
             // The song *is* the clock while a transport is loaded. Left
             // free-running, effects keep their rate but lose their

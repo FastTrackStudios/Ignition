@@ -579,6 +579,24 @@ fn Busking(surface: Surface) -> Element {
                             on_change: move |v: f32| send(Command::Level(i, v)),
                         }
                     }
+                    // Flash keys. Momentary by nature, and the same
+                    // bump a charted snare fires — one gesture arriving
+                    // from two places, not two features that resemble
+                    // each other.
+                    div { class: "flashes",
+                        for (label, kind) in [
+                            ("WHITE", ignition_core::BumpKind::White),
+                            ("BOOST", ignition_core::BumpKind::ColorBoost),
+                            ("BURST", ignition_core::BumpKind::Burst),
+                        ] {
+                            button {
+                                key: "{label}",
+                                class: "flash",
+                                onclick: move |_| send(Command::Flash("Wash".into(), kind)),
+                                "{label}"
+                            }
+                        }
+                    }
                     // The three an operator actually rides. RATE sets
                     // the tap tempo; SIZE and SPEED shape whatever is
                     // running against it.

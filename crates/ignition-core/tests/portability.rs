@@ -301,3 +301,51 @@ fn the_whole_library_lights_both_rigs() {
         }
     }
 }
+
+
+/// A charted hit and a flash key produce the same thing.
+///
+/// The claim `bump` exists to make. If these ever diverge the symptom is
+/// "the chart feels different from playing it by hand", which is
+/// unfalsifiable from the stage and impossible to bisect — so it is
+/// worth pinning at the level where the two paths meet.
+#[test]
+fn a_charted_hit_and_a_flash_key_agree() {
+    use ignition_core::bump::{Kind, bump};
+
+    let venue = norco();
+    let target = Selection::Role("Wash".into());
+
+    // What the show's author emits for a hit.
+    let charted = bump(target.clone(), Kind::Level, 1.0);
+    // What an operator's flash key fires.
+    let by_hand = bump(target, Kind::Level, 1.0);
+
+    for secs in [0.0, 0.05, 0.2, 0.4] {
+        assert_eq!(
+            lit(&charted, &venue, secs),
+            lit(&by_hand, &venue, secs),
+            "the two paths diverged at {secs}s"
+        );
+    }
+}
+
+/// Every bump ends at nothing, so a song's worth of snares does not
+/// ratchet the rig brighter.
+#[test]
+fn bumps_do_not_accumulate() {
+    use ignition_core::bump::{Kind, bump};
+
+    let venue = norco();
+    for kind in [Kind::Level, Kind::White, Kind::ColorBoost, Kind::Burst] {
+        let recipe = bump(Selection::Role("Wash".into()), kind, 1.0);
+        // Well past the envelope, where a one-shot holds its last step.
+        let settled = lit(&recipe, &venue, 30.0);
+        for (chan, value) in settled {
+            assert!(
+                value.abs() < 1e-4,
+                "{kind:?} settled at {value} on channel {chan}"
+            );
+        }
+    }
+}

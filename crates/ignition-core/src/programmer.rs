@@ -93,6 +93,15 @@ pub struct Programmer {
     /// solo that blacks the room reads as a fault, where one that leaves
     /// a floor under it reads as a decision.
     pub solo_floor: f32,
+    /// Bumps fired by hand and still ringing, with the show time each
+    /// started.
+    ///
+    /// Transient rather than a fader, because a flash key is an *event*.
+    /// Parked on a fader it would need a release to arrive, and a flash
+    /// whose release is dropped — a slipped hand, a lost MIDI note-off —
+    /// leaves the rig stuck bright. A one-shot with its own start time
+    /// cannot do that.
+    flashes: Vec<(Recipe, f32)>,
 }
 
 impl Programmer {
@@ -115,6 +124,31 @@ impl Programmer {
 
     pub fn clear_solo(&mut self) {
         self.solo = None;
+    }
+
+    /// Fires a bump by hand.
+    ///
+    /// `now` is show time, so the envelope runs from this moment rather
+    /// than from wherever the shared clock happens to be — the same rule
+    /// the cue player applies to one-shots, and for the same reason: an
+    /// envelope evaluated against a clock that started hours ago has
+    /// already finished before it is seen.
+    pub fn flash(&mut self, target: Selection, kind: crate::bump::Kind, now: f32) {
+        self.flashes
+            .push((crate::bump::bump(target, kind, 1.0), now));
+        // A cap rather than unbounded growth: `retire_flashes` clears
+        // finished ones every frame, so reaching this means something is
+        // not calling it, and dropping the oldest is better than growing
+        // for the rest of the night.
+        while self.flashes.len() > 16 {
+            self.flashes.remove(0);
+        }
+    }
+
+    /// Drops bumps whose envelope has run out.
+    pub fn retire_flashes(&mut self, show: &Show<'_>, now: f32) {
+        self.flashes
+            .retain(|(recipe, started)| recipe.timing.cycles(now - started, show.speeds) < 1.0);
     }
 
     /// Sets a role's intensity master, 0..=1.
@@ -258,6 +292,22 @@ impl Programmer {
                     under + emit.value.value * weight
                 } else {
                     under + (emit.value.value - under) * weight
+                };
+                base.insert(key, value);
+            }
+        }
+
+        // Flashes land *before* the masters, so pulling a role down
+        // quietens its flashes too — a master an operator has pulled
+        // should hold whatever arrives, including their own hand.
+        for (recipe, started) in &self.flashes {
+            for emit in expand_recipe(recipe, show, secs - started) {
+                let key = (emit.value.chan, emit.value.attr);
+                let under = base.get(&key).copied().unwrap_or(0.0);
+                let value = if emit.relative {
+                    under + emit.value.value
+                } else {
+                    emit.value.value
                 };
                 base.insert(key, value);
             }

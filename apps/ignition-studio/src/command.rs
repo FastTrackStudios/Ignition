@@ -37,6 +37,12 @@ pub enum Command {
     Master(String, f32),
     /// Play one role on its own; `None` clears.
     Solo(Option<String>),
+    /// Fire a bump by hand — a flash key.
+    ///
+    /// Carries the same shape a charted hit fires, so the two are one
+    /// gesture arriving from two places rather than two features that
+    /// happen to look alike.
+    Flash(String, ignition_core::BumpKind),
     Go,
     Cue(usize),
     /// Transport. The song is loaded once at startup; these move it.

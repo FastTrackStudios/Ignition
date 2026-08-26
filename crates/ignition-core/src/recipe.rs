@@ -450,7 +450,12 @@ pub fn unresolved(cues: &[Cue], show: &Show<'_>) -> Vec<String> {
     let mut out = Vec::new();
     for cue in cues {
         for recipe in &cue.recipes {
-            for problem in unresolved_names(&recipe.target, show.groups, show.rig) {
+            for problem in crate::selection::unresolved_names_with(
+                &recipe.target,
+                show.groups,
+                show.rig,
+                show.roles,
+            ) {
                 out.push(format!("cue {:?}: {problem}", cue.name));
             }
             if let Speed::Master(name) = &recipe.timing.speed

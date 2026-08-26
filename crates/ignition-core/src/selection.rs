@@ -362,8 +362,33 @@ fn dedup(chans: Vec<ChanId>) -> Vec<ChanId> {
 
 /// Every name in `selection` this venue cannot resolve.
 pub fn unresolved_names(selection: &Selection, groups: &[Group], rig: &Rig) -> Vec<String> {
+    unresolved_names_with(selection, groups, rig, &())
+}
+
+/// The same, including whether each **role** is bound.
+///
+/// A role that no venue binds resolves to no fixtures, exactly like an
+/// unknown group — but it is a different *kind* of problem and has to be
+/// reported as one. An empty group is usually a typo; an unbound role
+/// means this room has not implemented that part of the profile, and the
+/// fix is at the venue rather than in the show.
+///
+/// This is also the check that catches a whole show going dark. A cue
+/// list written entirely against roles, opened at a venue with no
+/// bindings, produces no light at all and no complaint — every recipe
+/// legitimately covers nothing. That happened, and it looked like a
+/// renderer fault rather than a missing file.
+pub fn unresolved_names_with(
+    selection: &Selection,
+    groups: &[Group],
+    rig: &Rig,
+    roles: &dyn Roles,
+) -> Vec<String> {
     let mut out = Vec::new();
     match selection {
+        Selection::Role(name) if roles.role(name).is_none() => {
+            out.push(format!("role {name:?} is not bound by this venue"));
+        }
         Selection::Group(name) if group::find(groups, name).is_none() => {
             out.push(format!("no group named {name:?}"));
         }
@@ -375,15 +400,15 @@ pub fn unresolved_names(selection: &Selection, groups: &[Group], rig: &Rig) -> V
         }
         Selection::Union(parts) | Selection::Intersect(parts) => {
             for p in parts {
-                out.extend(unresolved_names(p, groups, rig));
+                out.extend(unresolved_names_with(p, groups, rig, roles));
             }
         }
         Selection::Except { of, minus } => {
-            out.extend(unresolved_names(of, groups, rig));
-            out.extend(unresolved_names(minus, groups, rig));
+            out.extend(unresolved_names_with(of, groups, rig, roles));
+            out.extend(unresolved_names_with(minus, groups, rig, roles));
         }
         Selection::Where { of, .. } | Selection::Order { of, .. } => {
-            out.extend(unresolved_names(of, groups, rig));
+            out.extend(unresolved_names_with(of, groups, rig, roles));
         }
         _ => {}
     }
@@ -604,5 +629,52 @@ mod tests {
         let problems = unresolved_names(&sel, &groups(), &rig());
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("mvoer"), "{problems:?}");
+    }
+
+    /// An unbound role is reported, and says so in terms of the venue
+    /// rather than the show.
+    ///
+    /// This is the check that would have caught a whole show going dark.
+    /// A cue list written entirely against roles, opened at a venue that
+    /// binds none of them, lights nothing and complains about nothing —
+    /// every recipe legitimately covers no fixtures. It looked like a
+    /// renderer fault.
+    #[test]
+    fn an_unbound_role_is_reported() {
+        struct None_;
+        impl Roles for None_ {
+            fn role(&self, _: &str) -> Option<&Selection> {
+                Option::None
+            }
+        }
+        let problems = unresolved_names_with(
+            &Selection::Role("Key".into()),
+            &[],
+            &EMPTY_RIG,
+            &None_,
+        );
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].contains("Key"), "{problems:?}");
+        assert!(
+            problems[0].contains("venue"),
+            "the report must point at the venue, not the show: {problems:?}"
+        );
+    }
+
+    /// A bound role is not reported, however it is nested.
+    #[test]
+    fn a_bound_role_is_quiet_at_any_depth() {
+        struct Bound(Selection);
+        impl Roles for Bound {
+            fn role(&self, name: &str) -> Option<&Selection> {
+                (name == "Key").then_some(&self.0)
+            }
+        }
+        let bound = Bound(Selection::Chans(Vec::new()));
+        let nested = Selection::Order {
+            of: Box::new(Selection::Union(vec![Selection::Role("Key".into())])),
+            by: Order::Axis(Axis::X, Dir::Asc),
+        };
+        assert!(unresolved_names_with(&nested, &[], &EMPTY_RIG, &bound).is_empty());
     }
 }

@@ -20,6 +20,9 @@ pub use focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 pub mod music;
 pub use music::{Bars, Section, SongMap, TempoMap, TempoPoint, TimeSignature};
 
+pub mod bump;
+pub use bump::Kind as BumpKind;
+
 pub mod effects;
 
 pub mod profile;

@@ -256,6 +256,10 @@ pub fn tick_playback(
         None => Default::default(),
     };
     programmer.apply_to(&mut out, &show, *clock);
+    // After applying, not before: a flash fired this frame must be seen
+    // once before it can be retired, or a bump on a slow frame would be
+    // dropped without ever having been drawn.
+    programmer.retire_flashes(&show, *clock);
     apply_cue_output(&dmx.0, venue, &out);
 }
 
