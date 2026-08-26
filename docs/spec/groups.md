@@ -38,57 +38,13 @@ wash above 2 m" — and MUST then pick up a fixture added to the rig later witho
 being re-authored. This already exists as `Selection` and is the reason a
 generated show survives a re-patch.
 
-## Sub-selection
+## Sub-selection and spreading
 
-r[groups.subselect]
-A selection MUST be sub-addressable without authoring a new selection. The
-sub-address MUST be expressed against the selection's own order, so it composes
-with the spatial ordering that already exists rather than replacing it.
-
-r[groups.subselect.block]
-**Block** takes fixtures in contiguous runs of *n*: block 3 over twelve fixtures
-gives four runs of three, each run acting as one. This is how a rig of pixel
-bars behaves as a rig of four heads.
-
-r[groups.subselect.group]
-**Group** *n* deals fixtures round-robin into *n* sub-selections — MA3: "the
-first fixture goes into the first group, the second fixture into the next group,
-the third fixture in the first group, and so on". Group 2 is odds and evens.
-This is the difference between four blocks of three and three interleaved
-combs, and both are wanted; they MUST be distinct operations rather than one
-with a flag.
-
-r[groups.subselect.wings]
-**Wings** *n* divides the selection into *n* parts and mirrors alternate parts,
-so a symmetric rig can be driven from one half. A two-wing chase runs outward
-from centre in both directions from a single definition.
-
-r[groups.subselect.shuffle]
-**Shuffle** reorders a selection pseudo-randomly from a seed, and the same seed
-MUST always give the same order. MA3 stores a seed in `0..=32767` for exactly
-this: a shuffled look has to be reproducible or it cannot be programmed, only
-discovered.
-
-r[groups.subselect.composable]
-Sub-selections MUST compose with the existing algebra: the result of a block or
-a group is itself a selection that can be ordered, filtered, unioned, or
-sub-selected again. A sub-selection that is a special case understood only by
-effects would be a second, weaker selection language.
-
-## Distribution across a selection
-
-r[groups.spread]
-A value MAY be distributed across a selection rather than applied identically,
-by giving a **from** and a **to**. MA3's MAtricks layers do this for Fade, Delay,
-Speed and Phase; Ignition MUST support at least phase and delay, and SHOULD
-support any scalar attribute. This is what a fan of intensities or a staggered
-delay is, without authoring per fixture.
-
-r[groups.spread.is-not-an-effect]
-Distribution MUST be a property of how a value meets a selection, not a kind of
-effect. A static look with a delay fan and a running chase with the same fan
-should share one mechanism; making distribution an effect type would mean the
-static case cannot have it.
+Both moved to [tricks.md](tricks.md), which is the single authority on
+addressing part of a selection and on distributing a value across one. They
+began here, and splitting them out is the point: they turned out to be
+properties of *how a value meets a selection*, which is a bigger idea than
+groups and is carried by recipes rather than by group definitions.
 
 ## Group masters
 
