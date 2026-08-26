@@ -578,8 +578,11 @@ for c, x in enumerate(POLE_X, start=1):
     fixtures.append(fixture(
         16 + c, f"Pole {c} Mover",
         ["Luminaire_LED_Yoke_Spot", "Movers All", "Back Wall", f"Pole {c}"],
+        # U'King ZQ02341US, 150W. 2.8 degrees is the manufacturer's own
+        # figure — a true beam, an order tighter than the gobo heads it
+        # replaces, which is the whole point of the swap.
         "U'King 150W Moving Head Beam", (x, POLE_Y, MOVER_Z), None,
-        MOVER_SIZE, 8.0,
+        MOVER_SIZE, 2.8,
         hang=MOVER_HANG))
 
 # Three bars across the top of the back wall, aimed straight downstage.
@@ -651,8 +654,9 @@ for i, (side, target) in enumerate((
     fixtures.append(fixture(
         51 + i, f"Sizzle {side}",
         ["Luminaire_LED_Bar", "Luminaire_LED_Wash", "PA Pole", "Sizzle"],
+        # ENDYSHOW PL-32M, 50W RGBW, 35 degrees.
         "ENDYSHOW LED Stage Light Bar PL-32M",
-        (x, PA_Y, SIZZLE_Z), target, (0.90, 0.08, 0.08), 40.0))
+        (x, PA_Y, SIZZLE_Z), target, (0.90, 0.08, 0.08), 35.0))
 
 # --- Stage-ceiling beam, chans 91-98 --------------------------------
 # A second beam, same section and height as the house one, at the stage
@@ -720,8 +724,9 @@ for i, (x, y, where) in enumerate(FLOOR_MOVERS):
     fixtures.append(fixture(
         71 + i, f"Floor Mover {where}",
         ["Luminaire_LED_Yoke_Spot", "Movers All", "Floor Movers"],
+        # ZKYMZL TY-30 (mfr part RYON-30), 30W, 15 degrees.
         "Mini Gobo Moving Head Light", (x, y, 0.17), None,
-        MOVER_SIZE, 14.0, hang=MOVER_HANG))
+        MOVER_SIZE, 15.0, hang=MOVER_HANG))
 
 # --- Front of house (back-of-room wall), chans 41-49 -----------------
 # Two brackets flanking the arch, plus the one par mounted above the

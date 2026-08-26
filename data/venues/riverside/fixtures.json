@@ -624,7 +624,7 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 8.0,
+    "beam_angle_deg": 2.8,
     "universe": 1,
     "address": 444
   },
@@ -661,7 +661,7 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 8.0,
+    "beam_angle_deg": 2.8,
     "universe": 1,
     "address": 460
   },
@@ -698,7 +698,7 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 8.0,
+    "beam_angle_deg": 2.8,
     "universe": 1,
     "address": 476
   },
@@ -735,7 +735,7 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 8.0,
+    "beam_angle_deg": 2.8,
     "universe": 1,
     "address": 492
   },
@@ -1359,7 +1359,7 @@
       "y": 0.08,
       "z": 0.08
     },
-    "beam_angle_deg": 40.0,
+    "beam_angle_deg": 35.0,
     "universe": 1,
     "address": 362
   },
@@ -1396,7 +1396,7 @@
       "y": 0.08,
       "z": 0.08
     },
-    "beam_angle_deg": 40.0,
+    "beam_angle_deg": 35.0,
     "universe": 1,
     "address": 370
   },
@@ -1724,7 +1724,7 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 15.0,
     "universe": 1,
     "address": 400
   },
@@ -1760,7 +1760,7 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 15.0,
     "universe": 1,
     "address": 411
   },
@@ -1796,7 +1796,7 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 15.0,
     "universe": 1,
     "address": 422
   },
@@ -1832,7 +1832,7 @@
       "y": 0.24,
       "z": 0.34
     },
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 15.0,
     "universe": 1,
     "address": 433
   },

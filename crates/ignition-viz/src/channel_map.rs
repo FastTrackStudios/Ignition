@@ -82,7 +82,7 @@ pub fn wheel_slots_for(manufacturer: &str, model: &str) -> Vec<ColorWheelSlot> {
             ("Orange", 59, ORANGE),
         ]);
     }
-    if m == "u'king" || m == "uking" || mo.contains("150w moving head beam") {
+    if mo.contains("150w moving head beam") {
         // U'King ZQ02341 manual: 0-9 white, then seven colours in
         // 10-value steps (10-79). The manual does not name the colours;
         // the order is the family's usual one and is a guess until a
@@ -216,7 +216,7 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
             ],
         });
     }
-    if m == "u'king" || m == "uking" || mo.contains("150w moving head beam") {
+    if mo.contains("150w moving head beam") {
         // U'King ZQ02341 (Riverside's pole-top beams), per its manual:
         // Pan, Pan fine, Tilt, Tilt fine, Speed, Dimmer, Strobe, Colour,
         // Gobo, Prism, Macro, Reset. Same layout as the Betopper below
