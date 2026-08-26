@@ -38,6 +38,9 @@ name = "lyrics"
 name = "hits"
 
 [[bin]]
+name = "chart"
+
+[[bin]]
 name = "playsong"
 required-features = ["play"]
 

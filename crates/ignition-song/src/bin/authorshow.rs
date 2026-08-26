@@ -16,7 +16,7 @@
 //! gap travelling across the ceiling, the thing their docs point out
 //! that forward chasing cannot do — and the bridge **bounces**.
 
-use ignition_song::hits::{Hit, HitBand, Hits};
+use ignition_song::chart::{ChartHit, HitChart, HitClass};
 use ignition_core::preset::Ref;
 use ignition_core::selection::{Axis, Cmp, Dir, Order, Where};
 use ignition_core::{
@@ -28,7 +28,7 @@ fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
     let path = args
         .next()
-        .ok_or_else(|| anyhow::anyhow!("usage: authorshow <project file> [hits.json]"))?;
+        .ok_or_else(|| anyhow::anyhow!("usage: authorshow <project file>"))?;
     let song = ignition_song::load(&path)?;
     let mut list = author(&song);
 
@@ -37,17 +37,33 @@ fn main() -> anyhow::Result<()> {
     // Keeping them separable means a re-analysis cannot break a working
     // show, and the same authored show runs for a song nobody has
     // analysed yet.
-    if let Some(hits_path) = args.next() {
-        let hits: Hits = serde_json::from_str(&std::fs::read_to_string(&hits_path)?)?;
-        let accents = accents(&song, &hits);
+    // The chart is read from the project's own HITS track, so there is
+    // nothing to pass and nothing to keep in sync: edit the MIDI in
+    // REAPER, re-run this, and the show follows.
+    let chart = ignition_song::chart::read(&path, &song)?;
+    if !chart.is_empty() {
+        let accents = accents(&song, &chart);
         eprintln!(
-            "{} accent cues from {} hits",
+            "{} accent cues from {} charted hits in {} figures",
             accents.len() / 2,
-            hits.hits.len()
+            chart.hits.len(),
+            chart.groups.len()
         );
         list.cues.extend(accents);
-        list.cues
-            .sort_by(|x, y| x.at.partial_cmp(&y.at).unwrap_or(std::cmp::Ordering::Equal));
+        // Position first, then blocking cues ahead of accents at the
+        // same position. A section usually starts on a crash, so its
+        // cue and that crash's accent land on one downbeat — and a
+        // blocking cue is a complete statement that would wipe an
+        // accent placed before it. Ordering them explicitly is the
+        // difference between the crash reading on top of the new look
+        // and disappearing into it, which otherwise comes down to
+        // whether the sort happened to be stable.
+        list.cues.sort_by(|x, y| {
+            x.at
+                .partial_cmp(&y.at)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(y.block.cmp(&x.block))
+        });
     }
 
     println!("{}", serde_json::to_string_pretty(&list)?);
@@ -464,156 +480,135 @@ fn author(song: &SongMap) -> CueList {
     }
 }
 
-// ── accents, from the detected hits ───────────────────────────────────
+// ── accents, from the charted hits ───────────────────────────────────
 
-/// How hard a hit must be before it earns its own cue.
+/// How wide the wash rig is, in metres either side of centre.
 ///
-/// High deliberately. The detector finds about a thousand hits in this
-/// song and nearly all of them are real — hats, ghost notes, the
-/// eighth-note pulse. None of those want a light cue. A chase already
-/// carries the pulse, running off the `Song` speed master, and bumping
-/// on every eighth on top of that reads as flicker rather than accent.
-/// What a bump is *for* is the handful of moments the whole band hits
-/// together, and there are a dozen or so of those in any pop song.
-const ACCENT: f32 = 0.72;
+/// Zones are cut from this rather than from a fixture query, because a
+/// zone has to mean the same thing for a two-hit figure and a six-hit
+/// one — "stage left" is a place in the room, not "whichever third of
+/// the fixtures matched".
+const RIG_HALF_WIDTH: f64 = 5.0;
 
-/// Beats of quiet either side for a hit to count as isolated.
+/// A hit quiet enough to skip.
 ///
-/// A stab in a breakdown is worth the whole rig; the same strength
-/// inside a chorus is just the chorus being loud. Isolation is what
-/// separates them, and the detector cannot — it has no idea what a
-/// breakdown is — so it is decided here, from the neighbours.
-const ISOLATION_BEATS: f64 = 1.5;
+/// The chart is hand-written, so unlike the detector's output nearly
+/// everything in it is meant. The exception is the kick: it is on almost
+/// every beat, and a rig that moves on every kick never stops moving.
+/// Kicks earn their place inside a group, where they are part of a
+/// figure, and are ignored on their own.
+fn worth_a_cue(hit: &ChartHit) -> bool {
+    hit.group.is_some() || !matches!(hit.class, HitClass::Kick | HitClass::Snare)
+}
 
-/// How strong a neighbour has to be to spoil a hit's isolation.
+/// The `n`th of `count` zones across the rig, as a selection.
 ///
-/// Calibrated against this song rather than guessed, because the first
-/// guess was wrong in a way that hid itself: at 0.35 *nothing* in the
-/// track qualified as isolated, so the whole-rig stab branch was dead
-/// code that still looked reasonable. At 0.5 three moments qualify, at
-/// 0.6 eight. Three full-rig hits in a three-minute pop song is about
-/// right — a stab that happens eight times is not a stab any more.
-const NEIGHBOUR: f32 = 0.5;
-
-/// Bump cues on the song's biggest hits.
-///
-/// Each accent is a pair: a hard snap up, and a recovery a beat later.
-/// The cue system tracks and has no one-shot envelope — a two-step
-/// recipe would loop, which is a strobe rather than a bump — so a bump
-/// is spelled the way an operator busks it, as GO and GO again.
-///
-/// Both are `·`-named and therefore non-blocking, so an accent adds to
-/// whatever section look is running rather than replacing it. That is
-/// what lets this be generated separately from the show: it never has to
-/// know what it is landing on top of.
-fn accents(song: &SongMap, hits: &Hits) -> Vec<Cue> {
-    let mut chosen: Vec<&Hit> = Vec::new();
-    for hit in &hits.hits {
-        if hit.strength < ACCENT {
-            continue;
-        }
-        // One bump per moment. A band stab fires the detector more than
-        // once, and two cues at the same position would fight over the
-        // same fixtures at the same instant.
-        if chosen
-            .last()
-            .is_some_and(|last| beats_between(song, last.at, hit.at) < 1.0)
-        {
-            continue;
-        }
-        chosen.push(hit);
+/// This is the payoff of grouping. Three hits that are one idea become
+/// left, centre, right — a figure travelling across the stage — where
+/// three ungrouped hits could only ever be the same fixtures flashing
+/// three times. The information that makes the difference is not in the
+/// audio; it is in somebody having drawn one long note over the three.
+fn zone(n: usize, count: usize) -> Selection {
+    if count <= 1 {
+        return ceiling();
     }
+    let width = 2.0 * RIG_HALF_WIDTH / count as f64;
+    let min_x = -RIG_HALF_WIDTH + width * n as f64;
+    Selection::Where {
+        of: Box::new(Selection::Tag("Luminaire_LED_Wash".into())),
+        filter: Where::Within {
+            min: ignition_core::Vec3 {
+                x: min_x,
+                y: -30.0,
+                z: 2.0,
+            },
+            max: ignition_core::Vec3 {
+                x: min_x + width,
+                y: 30.0,
+                z: 30.0,
+            },
+        },
+    }
+}
 
+/// Cues for one charted figure.
+///
+/// A group is played *across* the rig; a lone hit is played on all of
+/// it. Both are `·`-named and non-blocking, so they add to whatever
+/// section look is running rather than replacing it.
+fn accents(song: &SongMap, chart: &HitChart) -> Vec<Cue> {
     let mut cues = Vec::new();
-    for (i, hit) in chosen.iter().enumerate() {
-        let isolated = is_isolated(song, hits, hit);
-        // What the hit *is* decides what it lights, which is the point
-        // of classifying the band at all. A kick is felt low and wide,
-        // so it takes the floor strips and the back wall; a cymbal is
-        // bright and overhead, so it takes the ceiling. Lighting both
-        // the same way throws away the one piece of information the
-        // detector worked hardest for.
-        let mut targets = match hit.band {
-            HitBand::Low => vec![strips(), back()],
-            HitBand::Mid => vec![ceiling(), back()],
-            HitBand::High => vec![ceiling()],
-        };
-        // An isolated stab gets the whole rig — that is the band
-        // stopping together, and it should read as the room stopping
-        // with them. A hit inside a busy chorus gets only its own
-        // fixtures, or it obliterates the look it is punctuating.
-        let depth = if isolated {
-            targets = vec![ceiling(), strips(), back()];
-            0.55
-        } else {
-            0.30
-        };
-        // Two decimals: at eighth resolution "6.4" and "6.3.50" are
-        // different places, and a name that rounds one onto the other
-        // makes the cue list lie about where its own cue is.
-        let name = format!(
-            "· hit {}.{:.2} {}",
-            hit.at.bar,
-            hit.at.beat,
-            if isolated { "stab" } else { "accent" }
-        );
-        let bpm = song.tempo.at(hit.at).bpm;
-        cues.push(Cue {
-            name: name.clone(),
-            fade_secs: 0.0,
-            values: Vec::new(),
-            recipes: targets
-                .iter()
-                .map(|t| bump(t.clone(), depth * hit.strength))
-                .collect(),
-            block: false,
-            at: Some(hit.at),
-        });
-        // Recover a beat later — unless the next accent is already
-        // there. Emitting both would put a zero and a lift at the same
-        // position, and which survived would come down to sort order:
-        // the new bump silently cancelled by the previous hit's
-        // recovery, on the beat where it mattered most.
-        let out_at = after(song, hit.at, 1.0);
-        if chosen
-            .get(i + 1)
-            .is_some_and(|next| beats_between(song, out_at, next.at).abs() < 0.25)
-        {
-            continue;
+
+    for (index, group) in chart.groups.iter().enumerate() {
+        // Several hits land together — a kick and a crash on the same
+        // eighth are one moment, and should light one zone, not two.
+        let mut moments: Vec<(Bars, f32)> = Vec::new();
+        for hit in chart.members(group) {
+            match moments.last_mut() {
+                Some((at, level)) if *at == hit.at => *level = level.max(hit.intensity()),
+                _ => moments.push((hit.at, hit.intensity())),
+            }
         }
-        cues.push(Cue {
-            name: format!("{name} out"),
-            // Recovery is a fade, not a snap: an instant drop reads as
-            // the light having failed rather than as the hit ending.
-            fade_secs: (0.5 * 60.0 / bpm) as f32,
-            values: Vec::new(),
-            recipes: targets.iter().map(|t| bump(t.clone(), 0.0)).collect(),
-            block: false,
-            at: Some(out_at),
-        });
+        let count = moments.len();
+        for (n, (at, level)) in moments.into_iter().enumerate() {
+            let target = zone(n, count);
+            cues.push(bump_cue(
+                song,
+                at,
+                &format!("· fig {index} · {}/{count}", n + 1),
+                target.clone(),
+                level,
+            ));
+            cues.push(release_cue(song, at, &format!("· fig {index} · {}/{count}", n + 1), target));
+        }
     }
+
+    for hit in chart.ungrouped().filter(|h| worth_a_cue(h)) {
+        let name = format!("· {} {}.{:.2}", hit.class.label(), hit.at.bar, hit.at.beat);
+        cues.push(bump_cue(song, hit.at, &name, ceiling(), hit.intensity()));
+        cues.push(release_cue(song, hit.at, &name, ceiling()));
+    }
+
+    cues.sort_by(|a, b| a.at.partial_cmp(&b.at).unwrap_or(std::cmp::Ordering::Equal));
     cues
+}
+
+fn bump_cue(song: &SongMap, at: Bars, name: &str, target: Selection, level: f32) -> Cue {
+    let _ = song;
+    Cue {
+        name: name.to_string(),
+        fade_secs: 0.0,
+        values: Vec::new(),
+        recipes: vec![bump(target, level)],
+        block: false,
+        at: Some(at),
+    }
+}
+
+/// The release, just short of the next eighth.
+///
+/// Not a whole beat: at eighth resolution that would run past the next
+/// hit of the same figure and cancel it, so the second hit of every pair
+/// would go missing. Not exactly half either — landing on the next hit's
+/// position leaves two cues sharing one spot, and which one a tracking
+/// player treats as current is then a matter of sort order rather than
+/// intent. Just before it, so the order is unambiguous.
+fn release_cue(song: &SongMap, at: Bars, name: &str, target: Selection) -> Cue {
+    let bpm = song.tempo.at(at).bpm;
+    Cue {
+        name: format!("{name} out"),
+        fade_secs: (0.35 * 60.0 / bpm) as f32,
+        values: Vec::new(),
+        recipes: vec![bump(target, 0.0)],
+        block: false,
+        at: Some(after(song, at, 0.45)),
+    }
 }
 
 /// The lift itself — a positive `Delta`, so it adds to the running look
 /// and leaves its colour alone: the same layering rule the chases use.
 fn bump(target: Selection, depth: f32) -> Recipe {
     Recipe::new(target, RecipeApply::Delta(vec![(Attribute::Dimmer, depth)]))
-}
-
-/// Is this hit standing on its own?
-fn is_isolated(song: &SongMap, hits: &Hits, hit: &Hit) -> bool {
-    !hits.hits.iter().any(|other| {
-        other.at != hit.at
-            && other.strength > NEIGHBOUR
-            && beats_between(song, other.at, hit.at).abs() < ISOLATION_BEATS
-    })
-}
-
-/// Signed distance between two positions, in beats.
-fn beats_between(song: &SongMap, from: Bars, to: Bars) -> f64 {
-    let bpm = song.tempo.at(from).bpm;
-    (song.tempo.seconds_at(to) - song.tempo.seconds_at(from)) * bpm / 60.0
 }
 
 /// `beats` past a position.
