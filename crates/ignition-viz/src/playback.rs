@@ -41,6 +41,19 @@ pub struct Playback {
     /// legitimately empty. Carrying it here is what stops that being a
     /// thing each construction site has to remember.
     pub profile: ignition_core::profile::VenueProfile,
+    /// A show clock held still, for a still.
+    ///
+    /// `--time T` means "render the show as it is at T", and it only
+    /// means that if the clock stops there. It used to *add* T once at
+    /// load and then let the clock run, which made a snapshot of any
+    /// transient impossible to take: the twenty settle frames Bevy needs
+    /// to warm its pipelines are longer than a bump, so every still of a
+    /// one-shot showed the moment *after* it. Fewer frames only trades
+    /// that for a picture of a scene that has not finished loading.
+    ///
+    /// Diagnosing a figure that "does nothing" is exactly the case, and
+    /// the tool could not answer it.
+    pub frozen_at: Option<f32>,
     /// Named tempo sources every phaser can slave to. Empty until
     /// something drives them — a tap-tempo key, or the session tempo map
     /// from the FastTrackStudio side.
@@ -195,6 +208,7 @@ impl Playback {
             rig,
             palettes: venue.palettes.clone(),
             profile: venue.profile.clone(),
+            frozen_at: effect_time,
             speeds: default_speeds(),
             taps: Vec::new(),
             programmer: Programmer::new(),
@@ -252,9 +266,15 @@ pub fn tick_playback(
         profile,
         programmer,
         clock,
+        frozen_at,
         ..
     } = &mut *playback;
-    *clock += dt;
+    // Held still for a still, so `--time` names a moment rather than an
+    // offset the settle frames then walk away from.
+    match *frozen_at {
+        Some(t) => *clock = t,
+        None => *clock += dt,
+    }
     let venue = &venue.0;
     let show = Show {
         groups,
@@ -268,7 +288,13 @@ pub fn tick_playback(
     // never the other way round.
     let mut out = match cues.as_mut() {
         Some(player) => {
-            player.tick(dt);
+            match *frozen_at {
+                // `set_clock` rather than `tick`, because ticking also
+                // advances fades — and a frozen still wants the cue
+                // fully arrived, not caught mid-crossfade.
+                Some(t) => player.set_clock(t),
+                None => player.tick(dt),
+            }
             player.output(&show)
         }
         None => Default::default(),
@@ -381,13 +407,13 @@ mod accent_tests {
     /// slot instead of adding to it.
     #[test]
     fn a_figure_lifts_the_look_it_lands_on() {
-        let venue = match Venue::load("data/venues/norco") {
+        let venue = match Venue::load("../../data/venues/norco") {
             Ok(v) => v,
             // The venue is repo data; if a test runner has no working
             // directory pointing at it, skip rather than fail.
             Err(_) => return,
         };
-        let list: CueList = match std::fs::read_to_string("data/songs/bye-bye-bye.json")
+        let list: CueList = match std::fs::read_to_string("../../data/songs/bye-bye-bye.json")
             .ok()
             .and_then(|t| serde_json::from_str(&t).ok())
         {
@@ -421,18 +447,24 @@ mod accent_tests {
         player.jump_to_end_of(figure, &show);
         let after = player.output(&show);
 
-        let lifted = after
+        // *Changed*, not *lifted*. A figure was a bump when this was
+        // written and is now a cutout, which mostly makes things darker
+        // — asserting "something got brighter" tests the old design and
+        // fails on a working new one.
+        let changed = after
             .iter()
             .filter(|((chan, attr), value)| {
                 *attr == Attribute::Dimmer
-                    && **value > before.get(&(*chan, attr.clone())).copied().unwrap_or(0.0) + 0.05
+                    && (**value - before.get(&(*chan, attr.clone())).copied().unwrap_or(0.0)).abs()
+                        > 0.05
             })
             .count();
         assert!(
-            lifted > 0,
+            changed > 0,
             "figure 0 changed nothing: {} channels before, {} after",
             before.len(),
             after.len()
         );
     }
 }
+

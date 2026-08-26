@@ -1636,7 +1636,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -1688,17 +1707,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -1760,7 +1780,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -1812,17 +1851,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -1884,7 +1924,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -1936,17 +1995,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -2778,7 +2838,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -2830,17 +2909,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -2902,7 +2982,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -2954,17 +3053,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -3026,7 +3126,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -3078,17 +3197,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -3509,7 +3629,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -3561,17 +3700,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -3633,7 +3773,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -3685,17 +3844,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -3757,7 +3917,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -3809,17 +3988,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -5788,7 +5968,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -5840,17 +6039,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 0.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -6323,7 +6523,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -6375,17 +6594,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 0.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -6447,7 +6667,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -6499,17 +6738,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -6571,7 +6811,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -6623,17 +6882,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -6695,7 +6955,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -6747,17 +7026,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -6878,7 +7158,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -6930,17 +7229,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -7002,7 +7302,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -7054,17 +7373,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -7126,7 +7446,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -7178,17 +7517,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -7250,7 +7590,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -7302,17 +7661,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 0.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -7374,7 +7734,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -7426,17 +7805,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 0.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -7675,7 +8055,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -7727,17 +8126,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -7799,7 +8199,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -7851,17 +8270,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -7923,7 +8343,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -7975,17 +8414,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -8047,7 +8487,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -8099,17 +8558,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -8171,7 +8631,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -8223,17 +8702,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -8295,7 +8775,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -8347,17 +8846,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -10117,7 +10617,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -10169,17 +10688,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -10241,7 +10761,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -10293,17 +10832,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -10365,7 +10905,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -10417,17 +10976,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -10834,7 +11394,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -10886,17 +11465,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -10958,7 +11538,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -11010,17 +11609,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -11082,7 +11682,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -11134,17 +11753,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -11265,7 +11885,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -11317,17 +11956,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666665,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -11389,7 +12029,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -11441,17 +12100,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -11513,7 +12173,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -11565,17 +12244,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -11637,7 +12317,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -11689,17 +12388,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 0.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -11907,7 +12607,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -11959,17 +12678,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 0.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -12031,7 +12751,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -12083,17 +12822,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 0.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -12155,7 +12895,26 @@
       "recipes": [
         {
           "target": {
-            "Role": "Wash"
+            "Union": [
+              {
+                "Role": "Wash"
+              },
+              {
+                "Role": "Key"
+              },
+              {
+                "Role": "Back"
+              },
+              {
+                "Role": "Bars"
+              },
+              {
+                "Role": "Movers"
+              },
+              {
+                "Role": "Drums"
+              }
+            ]
           },
           "steps": [
             {
@@ -12207,17 +12966,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 0.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.0,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -12343,17 +13103,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -5.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -3.333333333333333,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -12484,17 +13245,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -3.333333333333333,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": -1.6666666666666663,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -12625,17 +13387,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": -1.6666666666666665,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 2.220446049250313e-16,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -12766,17 +13529,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 0.0,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 1.6666666666666667,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -12907,17 +13671,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 1.666666666666667,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 3.333333333333334,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }
@@ -13048,17 +13813,18 @@
                 "Role": "Wash"
               },
               "filter": {
-                "Within": {
+                "Covers": {
                   "min": {
                     "x": 3.333333333333334,
                     "y": -30.0,
-                    "z": 2.0
+                    "z": 0.0
                   },
                   "max": {
                     "x": 5.000000000000001,
                     "y": 30.0,
-                    "z": 30.0
-                  }
+                    "z": 0.0
+                  },
+                  "height": 1.7
                 }
               }
             }

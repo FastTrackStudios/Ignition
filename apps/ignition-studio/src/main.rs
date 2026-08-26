@@ -316,6 +316,7 @@ fn app(surface: Surface) -> Element {
         div { class: "studio",
             CueList { cues: surface.cues.clone() }
             main { class: "stage",
+                Transport {}
                 div { class: "viewport", Viewport {} }
                 Busking { surface: surface.clone() }
             }
@@ -354,14 +355,19 @@ fn clock(secs: f32) -> String {
     format!("{}:{:02}", secs / 60, secs % 60)
 }
 
-/// The song position, as a bar that can be dragged.
+/// The transport bar across the top of the visualizer.
 ///
-/// Clicking anywhere on the track seeks there. The fill is driven by the
-/// transport's own position rather than by drag state, so it tracks the
-/// music while playing and does not fight the pointer: a scrub sends a
-/// command and the next published playhead moves the bar.
+/// Above the picture rather than beside the cue list, because that is
+/// where the eye already is. An operator watching the rig should not
+/// have to look away to see where the song is — and a progress bar
+/// tucked into a sidebar reads as a widget rather than as the timeline
+/// the whole show hangs on.
+///
+/// The bar is the full width of the view, so position on screen maps
+/// directly to position in the song: halfway across is halfway through,
+/// with no scaling to think about.
 #[component]
-fn Progress() -> Element {
+fn Transport() -> Element {
     let playhead = use_playhead();
     let seek = move |event: Event<MouseData>| {
         let x = event.data().element_coordinates().x;
@@ -369,30 +375,38 @@ fn Progress() -> Element {
     };
 
     rsx! {
-        div { class: "progress",
+        header { class: "transport-bar",
+            button {
+                class: if playhead().playing { "t-btn on" } else { "t-btn" },
+                onclick: move |_| send(Command::Play),
+                "▶"
+            }
+            button {
+                class: "t-btn",
+                onclick: move |_| send(Command::Stop),
+                "■"
+            }
+            span { class: "t-time", "{clock(playhead().secs)}" }
             div {
-                class: "track",
+                class: "t-track",
                 onclick: seek,
-                div {
-                    class: "fill",
-                    style: "width: {playhead().fraction() * 100.0}%",
-                }
+                div { class: "t-fill", style: "width: {playhead().fraction() * 100.0}%" }
             }
-            span { class: "time",
-                "{clock(playhead().secs)} / {clock(playhead().length)}"
-            }
+            span { class: "t-time dim", "{clock(playhead().length)}" }
         }
     }
 }
 
-/// The progress track's width in CSS pixels, matching `studio.css`.
+/// The transport track's width in CSS pixels, matching `studio.css`.
 ///
 /// Blitz reports pointer positions relative to the element but does not
 /// hand out the element's own width, so the click-to-seek maths needs
 /// the number from somewhere. Kept next to the component rather than
-/// only in the stylesheet so the two are at least adjacent when one
-/// changes.
-const TRACK_WIDTH: f64 = 240.0;
+/// only in the stylesheet, so the two are at least adjacent when one
+/// changes — and the track is a fixed width rather than `flex: 1` for
+/// exactly this reason: a bar that stretched would seek to the wrong
+/// place on any window that was not the size this number assumes.
+const TRACK_WIDTH: f64 = 980.0;
 
 /// The cue stack. Underneath the busking layer, not beside it: a cue
 /// fills in whatever the operator is not currently holding.
@@ -415,14 +429,6 @@ fn CueList(cues: Vec<String>) -> Element {
                     "GO"
                 }
             }
-            // Transport. Separate from GO on purpose: GO steps the list
-            // by hand, PLAY hands it to the song. Either drives the same
-            // cues, which is the point.
-            div { class: "transport",
-                button { class: "play", onclick: move |_| send(Command::Play), "▶ Play" }
-                button { class: "tile", onclick: move |_| send(Command::Stop), "■ Stop" }
-            }
-            Progress {}
             ol {
                 for (i, name) in cues.iter().enumerate() {
                     li {

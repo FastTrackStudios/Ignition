@@ -132,11 +132,77 @@ pub enum Where {
     Within { min: Vec3, max: Vec3 },
     /// Within `radius` metres of a point.
     Near { at: Vec3, radius: f64 },
+    /// Fixtures whose **beam lands** inside an axis-aligned box.
+    ///
+    /// Not where the fixture hangs — where its light arrives. The two
+    /// are different questions and confusing them produces a look that
+    /// is precisely wrong: selecting the wash fixtures positioned over
+    /// the left of the stage and turning everything else off lit the
+    /// *centre*, because those fixtures are aimed at the centre like
+    /// almost every front wash in every room.
+    ///
+    /// `Half`/`Within` ask about position and remain right for questions
+    /// about the rig — "the fixtures on the left-hand truss". This is
+    /// the question to ask about the *stage*: "whatever is lighting
+    /// downstage left".
+    ///
+    /// The beam is projected along the fixture's mount orientation to
+    /// `height`, which is where the answer is wanted — faces, not the
+    /// floor. A fixture pointing away from that plane is not covering
+    /// anything and is excluded.
+    Covers { min: Vec3, max: Vec3, height: f64 },
+}
+
+/// Where a fixture's beam axis crosses a horizontal plane.
+///
+/// The mount orientation aims the beam along its local -Z, which is the
+/// same convention the renderer uses (`mount * pan * tilt * -Z`) and the
+/// reason identity reads as "hung from the truss, pointing down".
+///
+/// `None` when the beam never reaches the plane — pointing up, or level
+/// enough that it would land somewhere absurd. A fixture that does not
+/// cross the plane is not covering anything on it, which is a different
+/// statement from covering it at a great distance.
+fn beam_landing(placement: &Placement, height: f64) -> Option<Vec3> {
+    let q = placement.orientation;
+    // Rotate (0, 0, -1) by the quaternion.
+    let (x, y, z, w) = (q.x, q.y, q.z, q.w);
+    let dir = Vec3 {
+        x: -2.0 * (x * z + w * y),
+        y: -2.0 * (y * z - w * x),
+        z: -(1.0 - 2.0 * (x * x + y * y)),
+    };
+    let drop = placement.position.z - height;
+    // Beam must be travelling toward the plane, and steeply enough that
+    // the answer means something: a beam within a few degrees of level
+    // lands hundreds of metres away, which is not "covering" anywhere.
+    if dir.z >= -1e-3 || drop <= 0.0 {
+        return None;
+    }
+    let t = drop / -dir.z;
+    Some(Vec3 {
+        x: placement.position.x + dir.x * t,
+        y: placement.position.y + dir.y * t,
+        z: height,
+    })
 }
 
 impl Where {
-    fn test(&self, p: Vec3) -> bool {
+    /// Takes the whole placement, not just the position, because
+    /// `Covers` asks where a fixture is *pointing* — a question a point
+    /// cannot answer.
+    fn test(&self, placement: &Placement) -> bool {
+        let p = placement.position;
         match self {
+            Where::Covers { min, max, height } => {
+                let Some(landing) = beam_landing(placement, *height) else {
+                    return false;
+                };
+                landing.x >= min.x
+                    && landing.x <= max.x
+                    && landing.y >= min.y
+                    && landing.y <= max.y
+            }
             Where::Half { axis, cmp, at } => cmp.test(axis.of(p), *at),
             Where::Within { min, max } => {
                 p.x >= min.x
@@ -146,6 +212,7 @@ impl Where {
                     && p.z >= min.z
                     && p.z <= max.z
             }
+            Where::Covers { .. } => false,
             Where::Near { at, radius } => {
                 let (dx, dy, dz) = (p.x - at.x, p.y - at.y, p.z - at.z);
                 (dx * dx + dy * dy + dz * dz) <= radius * radius
@@ -308,7 +375,7 @@ pub fn resolve_with(
         }
         Selection::Where { of, filter } => resolve_with(of, groups, rig, roles)
             .into_iter()
-            .filter(|c| rig.placement(*c).is_some_and(|p| filter.test(p.position)))
+            .filter(|c| rig.placement(*c).is_some_and(|p| filter.test(&p)))
             .collect(),
         Selection::Order { of, by } => {
             let mut chans = resolve_with(of, groups, rig, roles);

@@ -568,14 +568,22 @@ fn zone(n: usize, count: usize) -> Selection {
     let width = 2.0 * RIG_HALF_WIDTH / count as f64;
     let min_x = -RIG_HALF_WIDTH + width * n as f64;
     Selection::Where {
-        // The wash role, not the tag it happens to carry at Norco. A
-        // spatial filter over a role is still portable: every venue's
-        // coordinates mean metres from its own stage, so "the left third
-        // of the wash" is the left third wherever it is resolved.
         of: Box::new(wash()),
-        filter: Where::Within {
-            min: ignition_core::Vec3 { x: min_x, y: -30.0, z: 2.0 },
-            max: ignition_core::Vec3 { x: min_x + width, y: 30.0, z: 30.0 },
+        // Where the light *lands*, not where the fixture hangs.
+        //
+        // This was `Within` on the fixture's own position, and the look
+        // it produced was precisely wrong: selecting the washes hung
+        // over the left of the stage and killing everything else lit the
+        // *centre*, because those fixtures aim at the centre — as almost
+        // every front wash in every room does. "The left third of the
+        // stage" is a question about coverage, and a fixture's position
+        // cannot answer it.
+        filter: Where::Covers {
+            min: ignition_core::Vec3 { x: min_x, y: -30.0, z: 0.0 },
+            max: ignition_core::Vec3 { x: min_x + width, y: 30.0, z: 0.0 },
+            // Face height, because that is the third of the stage an
+            // audience sees lit — not the patch of floor in front of it.
+            height: 1.7,
         },
     }
 }
@@ -758,6 +766,17 @@ fn bump(target: Selection, depth: f32) -> Recipe {
     ignition_core::bump::bump(target, kind, depth)
 }
 
+/// Every lighting layer at once.
+///
+/// The cut has to take the *whole stage*, not the wash. Cutting only the
+/// wash left the key light and the movers untouched, so the singer
+/// stayed lit through every hit and the reveal read as nothing changing
+/// — which is exactly what it looked like: a stage that went slightly
+/// darker around an unchanged centre.
+fn everything() -> Selection {
+    Selection::Union(vec![wash(), key(), back(), bars(), movers(), drums()])
+}
+
 /// A hit that cuts the rig and reveals one zone.
 ///
 /// The strongest thing a figure can do, and completely different from a
@@ -796,7 +815,7 @@ fn cutout_cue(at: Bars, name: &str, zone: Selection, level: f32) -> Cue {
             .collect::<Vec<_>>()
     };
     let timed = |steps| Recipe {
-        target: wash(),
+        target: everything(),
         steps,
         timing: Timing {
             speed: Speed::Master("Song".into()),
@@ -814,10 +833,10 @@ fn cutout_cue(at: Bars, name: &str, zone: Selection, level: f32) -> Cue {
         recipes: vec![
             // Cut deep enough that what is left reads as the only thing
             // lit, rather than as the brightest of several.
-            timed(envelope(wash(), -0.95)),
+            timed(envelope(everything(), -0.95)),
             Recipe {
                 target: zone,
-                ..timed(envelope(wash(), level))
+                ..timed(envelope(everything(), level))
             },
         ],
         block: false,

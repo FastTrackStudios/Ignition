@@ -247,7 +247,28 @@ impl CuePlayer {
     /// Advances playback into the next cue, if there is one. No-op at the
     /// end of the list (matches a real console's "GO" on the last cue —
     /// nothing to advance into, stays put).
+    /// The index `go` would move to next.
+    fn next_index(&self) -> Option<usize> {
+        match self.current {
+            Some(i) if i + 1 < self.cues.len() => Some(i + 1),
+            Some(i) => Some(i),
+            None => (!self.cues.is_empty()).then_some(0),
+        }
+    }
+
     pub fn go(&mut self, show: &Show<'_>) {
+        self.take(show, true)
+    }
+
+    /// How far in the past a replayed one-shot is stamped.
+    ///
+    /// Long enough that any envelope at any tempo has finished, so
+    /// `contributing` drops it immediately. A plain number rather than
+    /// an infinity, which would make `clock - started` produce a NaN the
+    /// first time somebody did arithmetic on it.
+    const LONG_FINISHED: f32 = 3600.0;
+
+    fn take(&mut self, show: &Show<'_>, live: bool) {
         let next = self.current.map_or(0, |i| i + 1);
         if next >= self.cues.len() {
             return;
@@ -272,7 +293,15 @@ impl CuePlayer {
         for recipe in &cue.recipes {
             let id = self.active.len();
             self.active.push(recipe.clone());
-            self.active_since.push(self.clock);
+            // A replayed one-shot is stamped as long finished, so it
+            // contributes nothing and the value beneath it stands.
+            // Looping recipes are unaffected: they run on the shared
+            // clock and do not read this at all.
+            self.active_since.push(if live || !recipe.timing.once {
+                self.clock
+            } else {
+                self.clock - Self::LONG_FINISHED
+            });
             for emit in expand_recipe(recipe, show, self.recipe_time(id)) {
                 let key = (emit.value.chan, emit.value.attr);
                 if emit.relative {
@@ -317,7 +346,21 @@ impl CuePlayer {
         let target = index.min(self.cues.len().saturating_sub(1));
         while self.current != Some(target) {
             let before = self.current;
-            self.go(show);
+            // Every cue but the one being landed on is *replayed*, not
+            // taken. Replaying rebuilds the tracked state a live show
+            // would have arrived at; it must not re-perform the
+            // transient events along the way.
+            //
+            // This was the bug behind a figure that appeared to do
+            // nothing. Reaching `fig 0 · 2/3` replays `1/3`, and `go`
+            // stamps every one-shot with the clock *now* — so the first
+            // third's cut re-fired at the same instant as the second's.
+            // By the third hit all three zones were flashing together,
+            // which is the whole rig, which reads as nothing happening
+            // at all. The cutout was working perfectly; it was being
+            // played three times at once.
+            let live = self.next_index() == Some(target);
+            self.take(show, live);
             if let Some(stage) = self.stack.last_mut() {
                 stage.elapsed = stage.fade_secs;
             }
