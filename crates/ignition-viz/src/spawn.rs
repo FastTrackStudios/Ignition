@@ -71,7 +71,15 @@ const BAR_FACE_GLOW: f32 = 4.0;
 
 /// How much of a bar's spill cone stays at full before the edge falls
 /// off — see `update_beams`.
-const BAR_INNER_FRACTION: f32 = 0.7;
+const BAR_INNER_FRACTION: f32 = 0.9;
+/// The narrowest a strip's wash spreads on its short axis, as a half
+/// angle. A lensless LED bar floods 100-120 degrees across its width —
+/// that is why an uplight bar set against a wall washes it from the
+/// skirting up. The borrowed Ultra Bar profile says 40 degrees, and at
+/// 40 a bar 13 cm out from the wall did not touch it until 0.4 m up
+/// ("their light doesn't appear until like halfway up the wall").
+// r[impl viz.bar-emitters] - a bar floods across its width
+const BAR_MIN_HALF_ANGLE_DEG: f32 = 60.0;
 
 /// What a fixture's housing emits as spawned: nothing. A body is matte
 /// black until `update_fixture_bodies` decides otherwise, and with the
@@ -1755,7 +1763,7 @@ pub fn update_beams(
                                 bar.half_length,
                                 bar.half_width,
                                 length,
-                                state.half_angle_deg,
+                                state.half_angle_deg.max(BAR_MIN_HALF_ANGLE_DEG),
                             ));
                             wedge.built_for_length = length;
                         }
@@ -1810,7 +1818,10 @@ pub fn update_beams(
                         // where the wedge's long side reaches.
                         let outer = match bar {
                             Some(bar) => {
-                                state.half_angle_deg.to_radians()
+                                state
+                                    .half_angle_deg
+                                    .max(BAR_MIN_HALF_ANGLE_DEG)
+                                    .to_radians()
                                     + (bar.half_length / length.max(0.1)).atan()
                             }
                             None => state.half_angle_deg.to_radians(),
