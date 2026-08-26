@@ -5091,6 +5091,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignition-io"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ignition-proto"
 version = "0.1.0"
 dependencies = [
@@ -5157,6 +5165,7 @@ dependencies = [
  "gdtf",
  "hap-qt",
  "ignition-core",
+ "ignition-io",
  "ignition-proto",
  "image",
  "sacn",

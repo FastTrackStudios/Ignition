@@ -426,7 +426,7 @@ fn use_playhead() -> Signal<command::Playhead> {
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(33)).await;
             if let Some(rx) = STATE_RX.get() {
-                let latest = *rx.borrow();
+                let latest = rx.borrow().clone();
                 // Only write when it actually moved. A signal write is a
                 // re-render, and rewriting the same value 30 times a
                 // second would re-render the cue list forever.
@@ -615,6 +615,19 @@ fn Transport() -> Element {
             // the three levels as the recipes read them. Small, because
             // they are a meter and a trim, not a control the hand rides.
             // r[impl playback.sound-as-value] - the sound fade and the meters
+            // The transmitter: lit while bytes leave the socket, red
+            // when they cannot, and the per-universe detail beside it
+            // so a desk that is not sending is never quiet about it.
+            // r[impl dmx.output-toggle] - the OUTPUT key and its status
+            div { class: "t-output",
+                button {
+                    class: output_class(&playhead().output),
+                    title: "{playhead().output.lines.join(\"\\n\")}",
+                    onclick: move |_| send(Command::Output(!playhead().output.enabled)),
+                    "OUTPUT"
+                }
+                span { class: "t-label out-status", "{output_status(&playhead().output)}" }
+            }
             div { class: "t-sound",
                 span { class: "t-label", "SOUND FADE" }
                 HSlider {
@@ -637,6 +650,26 @@ fn Transport() -> Element {
             }
         }
     }
+}
+
+/// The OUTPUT key's class: `on` while sending, `err` when the socket
+/// or the bind failed — whatever the switch says, since a lit key over a
+/// dead socket is the lie the spec forbids.
+// r[impl dmx.output-toggle] - errored beats enabled on the key
+fn output_class(output: &ignition_viz::OutputSummary) -> &'static str {
+    if output.error.is_some() {
+        "t-key output err"
+    } else if output.enabled {
+        "t-key output on"
+    } else {
+        "t-key output"
+    }
+}
+
+/// The status beside the key — the overlay's own line, minus its `OUT`
+/// prefix, since the key already says that.
+fn output_status(output: &ignition_viz::OutputSummary) -> String {
+    output.line().trim_start_matches("OUT ").to_string()
 }
 
 /// The sound fade slider's travel in CSS pixels; see `.hslider` in
@@ -1378,6 +1411,14 @@ fn Viewport() -> Element {
             // 64 fog steps and no MSAA: the two dials that were most of
             // the frame, and neither shows through bloom.
             quality: RenderQuality::live(),
+            // Off until the OUTPUT key is pressed, or `IGNITION_OUTPUT=1`
+            // starts the desk sending. The transmitter is bound either
+            // way, so the key is instant.
+            // r[impl dmx.output-toggle] - the desk starts silent unless told otherwise
+            output: std::env::var("IGNITION_OUTPUT").is_ok_and(|v| v == "1"),
+            // `IGNITION_LOOPBACK=1` is read by the viz itself; see
+            // `ignition_viz::output::LoopbackSink` for what it is for.
+            loopback: false,
         };
         let rx = RX
             .lock()

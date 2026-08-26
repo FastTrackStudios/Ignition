@@ -1220,9 +1220,11 @@ pub fn update_live_fixtures(
     mut emitters: Query<(&BeamEmitter, &mut EmitterState)>,
     child_of: Query<&ChildOf>,
     live_dmx: Res<LiveDmx>,
+    time: Res<Time>,
 ) {
     let Some(_dmx) = dmx else { return };
     let venue = &venue.0;
+    let elapsed = time.elapsed_secs();
 
     // Resolve once, so every entity family below agrees on the same
     // frame's DMX rather than each re-reading it.
@@ -1238,7 +1240,13 @@ pub fn update_live_fixtures(
         // map) still emits — as white, since a hazer genuinely does haze
         // up whatever light is already in the air, and no beam at all
         // would read as broken.
-        let color = (live.dimmer > MIN_VISIBLE_DIMMER).then(|| {
+        // The strobe byte gates the frame like a shutter would: a rate
+        // from the wire, a square wave on the clock. Decoded, not read
+        // from the engine, so a strobe a cue asks for and a strobe the
+        // patch actually carries are the same thing on screen.
+        // r[impl viz.driven-by-dmx] - strobe and zoom come off the bytes too
+        let shutter_open = strobe_open(live.strobe, elapsed);
+        let color = (live.dimmer > MIN_VISIBLE_DIMMER && shutter_open).then(|| {
             if live.has_color {
                 [
                     live.color[0] * live.dimmer,
@@ -1254,7 +1262,7 @@ pub fn update_live_fixtures(
             pan: Quat::from_axis_angle(Vec3::Z, live.pan_deg.to_radians()),
             tilt: Quat::from_axis_angle(Vec3::X, live.tilt_deg.to_radians()),
             color,
-            half_angle_deg: beam_half_angle_deg(f.beam_angle_deg),
+            half_angle_deg: zoomed_half_angle_deg(beam_half_angle_deg(f.beam_angle_deg), live.zoom),
             penumbra_inner: penumbra_inner_for(f.kind()),
             lumens: power_watts(manufacturer, model) * LUMENS_PER_WATT,
         });
@@ -1343,6 +1351,31 @@ struct Live {
     half_angle_deg: f32,
     penumbra_inner: f32,
     lumens: f32,
+}
+
+/// Whether a strobing fixture is lit this frame. `None` (no strobe
+/// channel) and zero (shutter open) are always lit; above that the
+/// byte sets a rate from 1 to 25 Hz, and the shutter is open for half
+/// of each period.
+pub fn strobe_open(strobe: Option<f32>, elapsed_secs: f32) -> bool {
+    match strobe {
+        Some(rate) if rate > 0.001 => {
+            let hz = 1.0 + rate * 24.0;
+            (elapsed_secs * hz).fract() < 0.5
+        }
+        _ => true,
+    }
+}
+
+/// The cone a zoom byte draws: the fixture's nominal angle when the
+/// personality has no zoom, otherwise half of it at byte 0 through
+/// one and a half times it at byte 255. A stand-in for the optic's
+/// real range until profiles carry one, but it moves with the wire.
+pub fn zoomed_half_angle_deg(nominal_half_deg: f32, zoom: Option<f32>) -> f32 {
+    match zoom {
+        Some(z) => nominal_half_deg * (0.5 + z.clamp(0.0, 1.0)),
+        None => nominal_half_deg,
+    }
 }
 
 /// How hard a fixture's cone edge is, as a fraction of its outer angle.

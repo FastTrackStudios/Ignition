@@ -456,6 +456,14 @@ pub struct VenueManifest {
     /// The assets folder, relative to the venue directory.
     #[serde(default = "default_assets")]
     pub assets: String,
+    /// Where this room's universes go on the wire — protocol, priority,
+    /// targets — as `ignition_io::OutputConfig` JSON. Kept untyped here
+    /// so the core stays free of the transmit crate; `ignition-viz`
+    /// parses it. Absent means "every patched universe on sACN
+    /// multicast", decided by the loader. A show never carries this.
+    // r[impl dmx.venue-config] - the venue file owns the output config
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dmx: Option<serde_json::Value>,
     #[serde(flatten)]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -480,6 +488,7 @@ impl Default for VenueManifest {
             profile: String::new(),
             files: Default::default(),
             assets: default_assets(),
+            dmx: None,
             extra: Default::default(),
         }
     }

@@ -78,6 +78,9 @@ impl EmbeddedViz {
         let quality = config.quality;
         let size = (config.width.max(1), config.height.max(1));
         let assets_dir = config.assets_dir.clone();
+        // Bound here, on the host's universes, so the studio's OUTPUT
+        // key drives the same transmitter the windowed viz would.
+        let output = crate::app::bind_output(&config, &dmx);
 
         let adapter_info = gpu.adapter.get_info();
         let mut app = App::new();
@@ -131,6 +134,7 @@ impl EmbeddedViz {
             config,
             dmx,
             gdtf: Mutex::new(gdtf),
+            output: Mutex::new(Some(output)),
         })
         .insert_resource(playback);
 

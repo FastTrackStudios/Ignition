@@ -213,6 +213,7 @@ pub fn update_overlay(
     venue: Res<VenueRes>,
     mut playback: ResMut<Playback>,
     diagnostics: Res<bevy::diagnostic::DiagnosticsStore>,
+    output: Option<Res<crate::output::DmxOutput>>,
     mut text: Query<&mut Text, With<OverlayText>>,
 ) {
     let Ok(mut text) = text.single_mut() else {
@@ -288,6 +289,12 @@ pub fn update_overlay(
         playbacks.entries.iter().map(|e| (e.class, e.master)),
         programmer.parked.len(),
     ));
+    // Whether the bytes on this picture are leaving the socket. A desk
+    // that is silently not sending is worse than one not connected.
+    // r[impl dmx.output-toggle] - the transmit state is on the overlay
+    if let Some(output) = &output {
+        lines.push(output.summary().line());
+    }
     lines.push(format!(
         "page {}/{}   prog time {:.2} beats{}{}{}",
         programmer.page + 1,

@@ -29,7 +29,7 @@ use std::collections::BTreeMap;
 pub enum RoleKind {
     /// A layer of the rig — `Key`, `Wash`, `Back`.
     Group,
-// r[impl profile.areas.portable-question-is-focus] - "where is the talent" is a focus role, not an area
+    // r[impl profile.areas.portable-question-is-focus] - "where is the talent" is a focus role, not an area
     /// A place a mover can point — `Vocal`, `Stage`.
     Focus,
     /// A region of the stage where people stand — `Downstage Left`.

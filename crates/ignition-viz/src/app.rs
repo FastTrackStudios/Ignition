@@ -16,6 +16,7 @@
 
 use crate::beam::BeamPlugin;
 use crate::gdtf_geometry::GdtfLibrary;
+use crate::output::DmxOutput;
 use crate::playback::{Playback, operator_keys, tick_playback};
 use crate::spawn::{
     BeamStyle, CanvasClock, DmxRes, GdtfLibraryRes, LiveDmx, VenueRes, VizSettings, apply_ambient,
@@ -104,6 +105,15 @@ pub struct VizConfig {
     pub settle_frames: u32,
     /// How much GPU to spend per pixel — see `RenderQuality`.
     pub quality: RenderQuality,
+    /// Whether DMX leaves the socket. The transmitter is bound either
+    /// way, from the venue's config, so the switch is instant; this is
+    /// its starting position. Off by default: a visualizer on a laptop
+    /// should not take over a rig until asked.
+    // r[impl dmx.output-toggle] - the starting position of the switch
+    pub output: bool,
+    /// Attach the loopback sink — see `output::LoopbackSink` for why
+    /// this is a verification path and not the normal one.
+    pub loopback: bool,
 }
 
 /// The per-pixel cost dials: what a still can afford and a live view
@@ -163,6 +173,25 @@ pub struct VizPlugin {
     /// parsed GDTF library is neither cloneable nor cheap. A `Mutex`
     /// rather than a `Cell` because a `Plugin` must be `Sync`.
     pub gdtf: Mutex<Option<GdtfLibrary>>,
+    /// The transmitter, taken on `build` for the same reason — a
+    /// `Sender` owns threads and sockets and is not cloneable. `None`
+    /// means a viz that sends nothing (a snapshot, an export).
+    pub output: Mutex<Option<DmxOutput>>,
+}
+
+/// Binds the venue's output config, enabled per `config.output`, with
+/// the loopback sink when asked for. Errors land on the resource, to be
+/// shown; nothing here can fail the launch.
+// r[impl dmx.venue-config] - bound from the venue, at load
+pub fn bind_output(config: &VizConfig, dmx: &DmxUniverses) -> DmxOutput {
+    let source = "Ignition".to_string();
+    let output = DmxOutput::bind(&config.venue.output_config(), &source, config.output);
+    if crate::output::loopback_requested(config.loopback) {
+        tracing::info!("dmx output: loopback sink attached");
+        output.with_sink(Box::new(crate::output::LoopbackSink(dmx.clone())))
+    } else {
+        output
+    }
 }
 
 impl Plugin for VizPlugin {
@@ -199,6 +228,13 @@ impl Plugin for VizPlugin {
             // fixtures happens on the first busy cue. Sized up front, so
             // the corruption never happens rather than happening once.
             .init_resource::<LiveDmx>()
+            .insert_resource(
+                self.output
+                    .lock()
+                    .expect("dmx output lock")
+                    .take()
+                    .unwrap_or_default(),
+            )
             .add_systems(Startup, widen_light_clusters)
             // Frame timing for the overlay's FPS readout. Bevy's own
             // plugin rather than a hand-rolled delta average, because it
@@ -215,6 +251,10 @@ impl Plugin for VizPlugin {
                     apply_ambient,
                     operator_keys,
                     tick_playback,
+                    // The frame goes out from the same bytes the next
+                    // system decodes — after the encoder, before the
+                    // picture.
+                    crate::output::send_output,
                     resolve_live_dmx,
                     update_live_fixtures,
                     update_fixture_bodies,
@@ -270,10 +310,11 @@ pub fn run(config: VizConfig, playback: Playback, gdtf: Option<GdtfLibrary>) {
     let dmx = DmxUniverses::new();
     dmx::spawn_sacn_listener(dmx.clone(), config.max_universe);
     dmx::spawn_artnet_listener(dmx.clone());
+    let output = bind_output(&config, &dmx);
 
     match config.snapshot.clone() {
         Some(path) => run_snapshot(config, dmx, playback, gdtf, &path),
-        None => run_windowed(config, dmx, playback, gdtf),
+        None => run_windowed(config, dmx, playback, gdtf, output),
     }
 }
 
@@ -282,6 +323,7 @@ fn run_windowed(
     dmx: DmxUniverses,
     playback: Playback,
     gdtf: Option<GdtfLibrary>,
+    output: DmxOutput,
 ) {
     let (min, max) = config.venue.bounds();
     let view = config.view;
@@ -310,6 +352,7 @@ fn run_windowed(
             config,
             dmx,
             gdtf: Mutex::new(gdtf),
+            output: Mutex::new(Some(output)),
         })
         .insert_resource(playback)
         .add_systems(Startup, move |mut commands: Commands| {
@@ -367,6 +410,9 @@ impl Headless {
             config,
             dmx,
             gdtf: Mutex::new(gdtf),
+            // A still or an export sends nothing: there is no rig to
+            // drive from a frame rendered offline.
+            output: Mutex::new(None),
         })
         .insert_resource(playback);
 

@@ -2,5 +2,10 @@
   "version": 1,
   "name": "Riverside",
   "profile": "Ignition",
-  "assets": "assets"
+  "assets": "assets",
+  "dmx": {
+    "universes": {
+      "1": { "sacn": { "priority": 100 }, "artnet": { "net": 0, "subnet": 0, "universe": 0 } }
+    }
+  }
 }

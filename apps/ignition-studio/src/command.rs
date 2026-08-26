@@ -150,6 +150,10 @@ pub enum Command {
     /// 0–2. Zero is the raw meter; two seconds is a swell.
     // r[impl playback.sound-as-value] - the sound fade
     SoundFade(f32),
+    /// DMX out of the socket, on or off. The engine keeps running
+    /// either way; this is the switch on the transmitter.
+    // r[impl dmx.output-toggle] - the surface's OUTPUT key
+    Output(bool),
 }
 
 /// The keys beside RATE. `Tap` is a learn tap — averaged, so a hand a
@@ -203,7 +207,7 @@ pub fn channel() -> (Sender, Receiver) {
 /// cue clicked while the transport had moved several cues past it. So
 /// the player's own state comes back, and the UI renders that rather
 /// than anything it believes about itself.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Playhead {
     /// Index of the cue the player is actually standing on.
     pub cue: Option<usize>,
@@ -247,6 +251,10 @@ pub struct Playhead {
     /// draws.
     // r[impl playback.remote-feedback] - fader positions travel back
     pub levels: [f32; FADERS],
+    /// The transmitter's state — sending, which universes, at what
+    /// rate, and any socket error — as the engine sees it.
+    // r[impl dmx.output-toggle] - the transmit state travels back to the surface
+    pub output: ignition_viz::OutputSummary,
 }
 
 impl Playhead {

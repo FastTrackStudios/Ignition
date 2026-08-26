@@ -37,7 +37,9 @@ impl DmxUniverses {
         Self::default()
     }
 
-    fn write_universe(&self, universe: u16, values: &[u8]) {
+    /// Replaces a universe's frame — what a received packet does, and
+    /// what the loopback sink does with the frame that left the socket.
+    pub fn write_universe(&self, universe: u16, values: &[u8]) {
         let mut map = self.inner.write().expect("dmx universes lock poisoned");
         let frame = map.entry(universe).or_insert([0u8; UNIVERSE_LEN]);
         let n = values.len().min(UNIVERSE_LEN);
@@ -69,6 +71,17 @@ impl DmxUniverses {
                 *slot = value;
             }
         }
+    }
+
+    /// Every universe as it is right now — the frame the transmitter
+    /// sends. One read lock, one copy; the sender reorders and wraps
+    /// these bytes and decides nothing.
+    // r[impl dmx.one-frame] - the transmitter's frame is this snapshot, nothing else
+    pub fn snapshot(&self) -> HashMap<u16, [u8; UNIVERSE_LEN]> {
+        self.inner
+            .read()
+            .expect("dmx universes lock poisoned")
+            .clone()
     }
 
     /// Resolve one fixture's live attributes given where it's patched and
@@ -142,6 +155,9 @@ impl DmxUniverses {
                     }
                     resolved.has_color = true;
                 }
+                Attribute::Zoom => resolved.zoom = Some(v as f32 / 255.0),
+                Attribute::Strobe => resolved.strobe = Some(v as f32 / 255.0),
+                Attribute::GoboWheel { .. } => resolved.gobo = Some(v),
                 _ => {}
             }
         }
@@ -174,6 +190,15 @@ pub struct ResolvedAttributes {
     pub tilt_deg: f32,
     pub color: [f32; 3],
     pub has_color: bool,
+    /// The zoom byte as a fraction, when the personality has one.
+    /// Decoded from the wire like everything else, so a zoom the
+    /// encoder wrote is the zoom the beam draws.
+    pub zoom: Option<f32>,
+    /// The strobe byte as a fraction; zero is open.
+    pub strobe: Option<f32>,
+    /// The raw gobo-wheel byte. Carried so a snapshot of the decoded
+    /// frame is complete; the renderer has no gobo texture yet.
+    pub gobo: Option<u8>,
 }
 
 impl Default for ResolvedAttributes {
@@ -190,6 +215,9 @@ impl Default for ResolvedAttributes {
             tilt_deg: 0.0,
             color: [0.0, 0.0, 0.0],
             has_color: false,
+            zoom: None,
+            strobe: None,
+            gobo: None,
         }
     }
 }

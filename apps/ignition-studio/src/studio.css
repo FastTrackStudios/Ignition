@@ -272,6 +272,14 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .transport-bar .t-key:hover { background: #2c2c3a; }
 .transport-bar .t-key.on { background: #e8a040; border-color: #f0c070; color: #14121a; }
 
+/* The transmitter. Green when bytes are leaving the socket, red when
+   they cannot — an errored socket outranks the switch, because a lit
+   key over a dead socket is a desk silently not sending. */
+.transport-bar .t-output { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+.transport-bar .t-key.output.on { background: #3fae5a; border-color: #6fd08a; color: #0d140f; }
+.transport-bar .t-key.output.err { background: #c8383a; border-color: #ef6b6d; color: #fff; }
+.transport-bar .out-status { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* The sound fade and the three band meters. A trim and a meter, so
    they are small; the operator glances at them, and rides nothing. */
 .transport-bar .t-sound { display: flex; align-items: center; gap: 8px; margin-left: auto; }

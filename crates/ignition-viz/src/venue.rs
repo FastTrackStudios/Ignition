@@ -286,6 +286,11 @@ pub struct Venue {
     /// Every fixture's address and channel layout, resolved once on
     /// first use — see `PatchTable`.
     pub patch: std::sync::OnceLock<PatchTable>,
+    /// Where this room's universes go on the wire, from the manifest's
+    /// `dmx` key. `None` when the manifest has none; `output_config()`
+    /// is the answer either way.
+    // r[impl dmx.venue-config] - the room's network lives with the room
+    pub dmx: Option<ignition_io::OutputConfig>,
 }
 
 impl Venue {
@@ -297,6 +302,37 @@ impl Venue {
     /// studio's frame, for an answer that cannot change after load.
     pub fn patch(&self) -> &PatchTable {
         self.patch.get_or_init(|| PatchTable::build(self))
+    }
+
+    /// Every universe a patched fixture — primary or mirror — lands on,
+    /// ascending.
+    pub fn patched_universes(&self) -> Vec<u16> {
+        let mut universes: Vec<u16> = self
+            .fixtures
+            .iter()
+            .filter(|f| f.patched)
+            .flat_map(|f| {
+                f.dmx_address()
+                    .into_iter()
+                    .chain(f.mirrors.iter().cloned())
+                    .map(|a| a.universe)
+            })
+            .collect();
+        universes.sort_unstable();
+        universes.dedup();
+        universes
+    }
+
+    /// The output config to bind: the manifest's, or — for a venue
+    /// whose manifest says nothing — every patched universe on sACN
+    /// multicast at the default priority, which is what a rig with no
+    /// configuration expects to hear.
+    // r[impl dmx.venue-config] - absent config falls back to sACN multicast per patched universe
+    pub fn output_config(&self) -> ignition_io::OutputConfig {
+        match &self.dmx {
+            Some(config) => config.clone(),
+            None => default_output_config(&self.patched_universes()),
+        }
     }
 }
 
@@ -505,6 +541,22 @@ fn alias_focus(
     palettes
 }
 
+/// sACN multicast, priority 100, for each of `universes` — built as
+/// JSON and parsed, so the shape is the one the manifest would carry.
+pub fn default_output_config(universes: &[u16]) -> ignition_io::OutputConfig {
+    let entries: serde_json::Map<String, serde_json::Value> = universes
+        .iter()
+        .map(|u| {
+            (
+                u.to_string(),
+                serde_json::json!({ "sacn": { "priority": 100 } }),
+            )
+        })
+        .collect();
+    serde_json::from_value(serde_json::json!({ "universes": entries }))
+        .expect("the default output config is well-formed")
+}
+
 impl Venue {
     // r[impl files.venue] - the seven JSON files under data/venues/<name>/
     // r[impl profile.venue-declares-what-it-implements] - profile.json is optional
@@ -551,10 +603,23 @@ impl Venue {
         // and the profile lives in `profiles/` beside `venues/`, so
         // there is nothing to keep in sync.
         let palettes = inherit_colors(palettes, dir, &profile);
+        // The manifest's `dmx` block, typed here rather than in the
+        // core so the core never links the transmit crate. A block
+        // that is present but malformed is a load error: a venue that
+        // silently falls back to multicast is the "silently not
+        // sending" the spec warns about.
+        // r[impl dmx.venue-config] - parsed from the manifest, refused if malformed
+        let dmx = manifest
+            .dmx
+            .clone()
+            .map(serde_json::from_value::<ignition_io::OutputConfig>)
+            .transpose()
+            .map_err(|e| anyhow::anyhow!("{}: bad `dmx` block: {e}", dir.display()))?;
         Ok(Self {
             palettes,
             profile,
             patch: Default::default(),
+            dmx,
             fixtures: serde_json::from_str(&read("fixtures")?)?,
             room: serde_json::from_str(&read("room")?)?,
             screens: serde_json::from_str(&read("screens")?)?,
@@ -697,6 +762,7 @@ mod tests {
             palettes: Default::default(),
             profile: Default::default(),
             patch: Default::default(),
+            dmx: None,
             group_records: vec![GroupRecord {
                 target: "1".to_string(),
                 label: "Pars".to_string(),
@@ -729,6 +795,7 @@ mod tests {
             palettes: Default::default(),
             profile: Default::default(),
             patch: Default::default(),
+            dmx: None,
             group_records: vec![],
         };
 
@@ -769,6 +836,7 @@ mod tests {
             palettes: Default::default(),
             profile: Default::default(),
             patch: Default::default(),
+            dmx: None,
             group_records: vec![],
         };
         let patch = venue.patch().by_chan(9).unwrap();
@@ -832,5 +900,92 @@ mod tests {
         assert_eq!(with.fixtures.len(), bare.fixtures.len());
         assert_eq!(Venue::assets_dir(&tmp), tmp.join("models"));
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// r[verify dmx.venue-config] - the manifest's `dmx` block round-trips into the venue, typed
+    #[test]
+    fn the_venue_manifest_carries_the_output_config() {
+        use ignition_core::show_file::VenueManifest;
+        let json = serde_json::json!({
+            "version": 1,
+            "name": "Room",
+            "dmx": { "universes": {
+                "1": { "sacn": { "priority": 120 }, "artnet": { "net": 0, "subnet": 0, "universe": 0 } },
+                "3": { "sacn": { "priority": 100 } }
+            } }
+        });
+        let manifest: VenueManifest = serde_json::from_value(json).expect("parses");
+        let config: ignition_io::OutputConfig =
+            serde_json::from_value(manifest.dmx.clone().expect("dmx kept")).expect("typed");
+        assert_eq!(config.universes.len(), 2);
+        assert_eq!(
+            config.universes[&1].sacn.as_ref().map(|s| s.priority),
+            Some(120)
+        );
+        assert!(config.universes[&1].artnet.is_some());
+        assert!(config.universes[&3].artnet.is_none());
+        // And back out through the manifest unchanged.
+        let again: VenueManifest =
+            serde_json::from_str(&serde_json::to_string(&manifest).unwrap()).unwrap();
+        assert_eq!(again.dmx, manifest.dmx);
+        // `dmx` is a named field, not something `extra` swallowed.
+        assert!(!manifest.extra.contains_key("dmx"));
+    }
+
+    /// r[verify dmx.venue-config] - Norco's file names four universes on both protocols
+    #[test]
+    fn norco_declares_four_universes_on_sacn_and_artnet() {
+        let Ok(venue) = Venue::load(data("venues/norco")) else {
+            return;
+        };
+        let config = venue.output_config();
+        assert_eq!(
+            config.universes.keys().copied().collect::<Vec<_>>(),
+            [1, 2, 3, 4]
+        );
+        for (n, u) in &config.universes {
+            assert_eq!(u.sacn.as_ref().map(|s| s.priority), Some(100), "U{n} sACN");
+            assert_eq!(
+                u.artnet.as_ref().map(|a| a.universe),
+                Some((*n - 1) as u8),
+                "U{n} Art-Net"
+            );
+        }
+    }
+
+    /// r[verify dmx.venue-config] - no block means every patched universe on sACN multicast
+    #[test]
+    fn a_venue_without_a_dmx_block_falls_back_to_sacn_on_every_patched_universe() {
+        let record = |universe: u16, address: u16| -> FixtureRecord {
+            serde_json::from_value(serde_json::json!({
+                "chan": address, "name": "p", "tags": [], "patched": true,
+                "manufacturer": "uking", "model": "par",
+                "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "eulers": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "quat": {"w": 1.0, "x": 0.0, "y": 0.0, "z": 0.0},
+                "size": {"x": 0.2, "y": 0.2, "z": 0.2},
+                "universe": universe, "address": address,
+            }))
+            .expect("record")
+        };
+        let venue = Venue {
+            fixtures: vec![record(2, 1), record(2, 10), record(5, 1)],
+            room: vec![],
+            screens: vec![],
+            props: vec![],
+            group_records: vec![],
+            palettes: Default::default(),
+            profile: Default::default(),
+            patch: Default::default(),
+            dmx: None,
+        };
+        let config = venue.output_config();
+        assert_eq!(config.universes.keys().copied().collect::<Vec<_>>(), [2, 5]);
+        for u in config.universes.values() {
+            let sacn = u.sacn.as_ref().expect("sACN");
+            assert_eq!(sacn.priority, 100);
+            assert!(sacn.multicast, "multicast by default");
+            assert!(u.artnet.is_none());
+        }
     }
 }

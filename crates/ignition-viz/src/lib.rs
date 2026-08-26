@@ -25,6 +25,7 @@ pub mod gdtf_geometry;
 pub mod gdtf_import;
 pub mod obj_mesh;
 pub mod ofl_import;
+pub mod output;
 pub mod overlay;
 pub mod playback;
 pub mod props;
@@ -36,6 +37,7 @@ pub mod view;
 
 pub use app::{RenderQuality, VizConfig, run, run_export};
 pub use dmx::{DmxUniverses, ResolvedAttributes};
+pub use output::{DmxOutput, OutputSummary};
 pub use spawn::CanvasClock;
 pub use venue::Venue;
 pub use view::ViewPreset;

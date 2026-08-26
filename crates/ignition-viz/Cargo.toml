@@ -28,6 +28,7 @@ wgpu.workspace = true
 tracing = "0.1"
 gdtf = "0.3.0"
 ignition-core.workspace = true
+ignition-io.workspace = true
 ignition-proto.workspace = true
 # Held at 0.25.6 because blitz-dom (via the studio app) pins that
 # version exactly, and two copies of `image` in one tree is a silent

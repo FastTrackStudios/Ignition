@@ -463,7 +463,7 @@ impl FeedbackEncoder {
                 }
             }
         }
-        self.last_sent = Some((now, *state));
+        self.last_sent = Some((now, state.clone()));
         out
     }
 }
@@ -800,7 +800,7 @@ mod feedback {
                         return;
                     }
                     let now = started.elapsed().as_secs_f32();
-                    let latest = *state.borrow_and_update();
+                    let latest = state.borrow_and_update().clone();
                     for message in encoder.encode(now, &latest, want_osc, &devices) {
                         sinks.send(message);
                     }

@@ -8,6 +8,7 @@ members = [
     "crates/ignition-core",
     "crates/ignition-song",
     "crates/ignition-viz",
+    "crates/ignition-io",
     "apps/ignition-engine",
     "apps/ignition-studio",
 ]
@@ -25,6 +26,7 @@ ignition-proto = { path = "crates/ignition-proto" }
 ignition-core = { path = "crates/ignition-core" }
 ignition-song = { path = "crates/ignition-song" }
 ignition-viz = { path = "crates/ignition-viz" }
+ignition-io = { path = "crates/ignition-io" }
 
 # The DAW domain, from the sibling `daw` checkout.
 #

@@ -550,7 +550,13 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
             ],
         });
     }
-    if mo.contains("rockstrip 252") {
+    // The bare model name and its 7ch mode; the 3ch mode is a
+    // different personality (bare RGB, `channel_map_for`), and Norco
+    // patches two of those three addresses apart. Serving the 7ch map
+    // there put ch 97's red byte on ch 96's "dimmer" — caught by the
+    // DMX loopback test, which is what a byte-driven viz is for.
+    // r[impl viz.driven-by-dmx] - a patch mistake shows on the bytes
+    if mo.contains("rockstrip 252") && !mo.contains("3ch") {
         // 7ch: Red, Green, Blue, Dimmer, Shutter, Chase Mode, Control
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {

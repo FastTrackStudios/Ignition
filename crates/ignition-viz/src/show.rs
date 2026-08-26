@@ -383,6 +383,7 @@ mod tests {
             palettes: Default::default(),
             profile: Default::default(),
             patch: Default::default(),
+            dmx: None,
         }
     }
 
@@ -440,6 +441,7 @@ mod tests {
             palettes: Default::default(),
             profile: Default::default(),
             patch: Default::default(),
+            dmx: None,
         };
         let dmx = DmxUniverses::new();
         let mut output = HashMap::new();

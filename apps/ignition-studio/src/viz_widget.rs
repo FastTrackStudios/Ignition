@@ -405,6 +405,13 @@ fn drain(
                 Command::SoundFade(secs) => {
                     sound_fade.secs = secs.clamp(0.0, SoundFade::MAX_SECS);
                 }
+                // r[impl dmx.output-toggle] - flips the transmitter without touching the engine
+                Command::Output(on) => {
+                    if let Some(mut output) = world.get_resource_mut::<ignition_viz::DmxOutput>() {
+                        output.set_enabled(on);
+                    }
+                    tracing::info!(on, "studio: dmx output");
+                }
                 // r[impl playback.grand-master]
                 Command::Grand(level) => programmer.set_grand(level),
                 // r[impl playback.playback-master]
@@ -684,6 +691,13 @@ fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut Embedde
         next.secs = t.seconds() as f32;
         next.length = t.length() as f32;
         next.playing = t.is_playing();
+    }
+    if let Some(output) = viz
+        .app_mut()
+        .world()
+        .get_resource::<ignition_viz::DmxOutput>()
+    {
+        next.output = output.summary();
     }
     state.send_if_modified(|current| {
         if *current == next {

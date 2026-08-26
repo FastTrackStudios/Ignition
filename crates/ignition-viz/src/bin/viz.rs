@@ -80,6 +80,12 @@ fn main() -> anyhow::Result<()> {
     let mut fps = false;
     let mut eye: Option<Vec3> = None;
     let mut look: Option<Vec3> = None;
+    // `--output` sends DMX from the venue's config; off unless asked,
+    // since a laptop opening a window should not take over a rig.
+    let mut output = false;
+    // `--loopback` feeds the sent frame back into the universes — a
+    // verification path, see `ignition_viz::output::LoopbackSink`.
+    let mut loopback = false;
 
     let mut args = std::env::args().skip(1).peekable();
     while let Some(arg) = args.next() {
@@ -87,7 +93,11 @@ fn main() -> anyhow::Result<()> {
         // the export rate when followed by a number.
         let fps_number = arg == "--fps" && args.peek().is_some_and(|n| n.parse::<u32>().is_ok());
         let mut next = |what: &str| args.next().unwrap_or_else(|| panic!("{arg} needs {what}"));
+        if ignition_viz::output::parse_output_flag(&arg, &mut output) {
+            continue;
+        }
         match arg.as_str() {
+            "--loopback" => loopback = true,
             "--venue" => venue_dir = PathBuf::from(next("a path")),
             "--view" => view = next("house|stage|top"),
             "--width" => width = next("a number").parse()?,
@@ -264,6 +274,8 @@ fn main() -> anyhow::Result<()> {
         canvas_content,
         canvas_focus: Default::default(),
         assets_dir,
+        output,
+        loopback,
     };
     match export {
         Some(request) => run_export(config, playback, gdtf, &request)?,
