@@ -7,7 +7,7 @@
 //! *message*, which is what a hardware surface or a remote will send
 //! later without the UI having to change shape.
 
-use ignition_core::{FADERS, Fader, KeyAction, Recipe, Selection};
+use ignition_core::{Attribute, Class, FADERS, Fader, KeyAction, Recipe, Selection};
 
 /// `Deselect` and `Section` have no control on the surface yet.
 ///
@@ -119,6 +119,61 @@ pub enum Command {
     /// Move the playhead to a musical position — what clicking a hit in
     /// the list sends, since a hit is not a cue and has no index to GO.
     Locate(ignition_core::Bars),
+    /// The grand master, 0..=1: every intensity scaled last of all, so
+    /// the whole rig comes down with one hand and nothing else moves.
+    // r[impl playback.grand-master] - the surface's GM fader
+    Grand(f32),
+    /// One playback's own intensity master, by class — the song list
+    /// pulled under the look list without touching either's content.
+    // r[impl playback.playback-master] - the SONG and LOOK faders
+    PlaybackMaster(Class, f32),
+    /// Nail `attrs` of every fixture in `selection` at the value the
+    /// programmer is holding for it, above every playback and the hand.
+    /// A fixture the hand is not holding on an attribute is left alone:
+    /// a park is "keep it where I put it", and nothing was put.
+    // r[impl playback.park] - park from the selection
+    Park {
+        selection: Selection,
+        attrs: Vec<Attribute>,
+    },
+    // r[impl playback.park] - and unpark it
+    Unpark {
+        selection: Selection,
+        attrs: Vec<Attribute>,
+    },
+    /// A speed key on the `Tap` master: a learn tap, half, double or a
+    /// reset to the learned tempo. Its own command rather than a
+    /// `Key` on a slot because it lands on no fader.
+    // r[impl playback.speed-keys]
+    Speed(SpeedKey),
+    /// How long the sound-in's band levels take to settle, in seconds,
+    /// 0–2. Zero is the raw meter; two seconds is a swell.
+    // r[impl playback.sound-as-value] - the sound fade
+    SoundFade(f32),
+}
+
+/// The keys beside RATE. `Tap` is a learn tap — averaged, so a hand a
+/// little early on one beat does not throw every phaser slaved to it.
+// r[impl playback.speed-keys]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpeedKey {
+    Tap,
+    Half,
+    Double,
+    Reset,
+}
+
+impl SpeedKey {
+    /// The engine's key for this one.
+    pub fn action(self) -> KeyAction {
+        match self {
+            SpeedKey::Tap => KeyAction::Learn,
+            SpeedKey::Half => KeyAction::HalfSpeed,
+            SpeedKey::Double => KeyAction::DoubleSpeed,
+            SpeedKey::Reset => KeyAction::ResetSpeed,
+        }
+    }
 }
 
 /// Where a page turn goes. `Set` has no on-screen control — a remote's
@@ -174,8 +229,36 @@ pub struct Playhead {
     /// The `Tap` master as the engine has it — what the sound-in
     /// detector last decided, or the default.
     pub tap_bpm: f32,
-    /// The audio input's band levels, for the meters.
+    /// The audio input's band levels, for the meters — smoothed by the
+    /// sound fade, so the meters show what the recipes are reading.
     pub sound: [f32; 3],
+    /// The grand master as the engine holds it.
+    pub grand: f32,
+    /// The song and look playbacks' own masters, in that order.
+    pub playback_masters: [f32; 2],
+    /// How many fixture attributes are parked.
+    pub parked: usize,
+    /// The multiplier the half/double keys have on the `Tap` master.
+    pub tap_multiplier: f32,
+    /// Whether the song playback is paused.
+    pub paused: bool,
+    /// Every bank fader's level as the engine has it — what a motorised
+    /// surface is told after a page turn, and what a screen surface
+    /// draws.
+    // r[impl playback.remote-feedback] - fader positions travel back
+    pub levels: [f32; FADERS],
+}
+
+impl Playhead {
+    /// The song playback's master, for the surface.
+    pub fn song_master(&self) -> f32 {
+        self.playback_masters[0]
+    }
+
+    /// The look playback's master.
+    pub fn look_master(&self) -> f32 {
+        self.playback_masters[1]
+    }
 }
 
 impl Playhead {

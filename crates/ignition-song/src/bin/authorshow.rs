@@ -877,8 +877,14 @@ fn author(song: &SongMap) -> CueList {
         name: song.name.clone(),
         cues: a.cues,
         triggers: Vec::new(),
+        ..Default::default()
     };
     list.sort_by_position();
+    // Movers that re-aim are flagged from the recipes once the order is
+    // known, so a mover parked dark in the bridge swings before the chorus.
+    // r[impl cues.generator-emits-mib]
+    ignition_song::set_mib(&mut list);
+    ignition_song::set_class_timing(&mut list);
     list
 }
 
@@ -1228,11 +1234,41 @@ mod tests {
         assert_eq!(cue_at(&list, "PRE 2"), Bars::bar(48));
     }
 
+    /// r[verify cues.generator-emits-mib]
+    /// r[verify cues.mib.preference]
+    /// r[verify cues.timing.per-attribute]
+    #[test]
+    fn every_cue_that_reaims_the_movers_asks_for_mib_and_no_other_does() {
+        use ignition_core::cue::{Mib, MibMode};
+        let list = author(&arrangement(8.0));
+        let mut flagged = 0;
+        for (i, cue) in list.cues.iter().enumerate() {
+            if ignition_song::mib::reaims(&list, i) {
+                flagged += 1;
+                assert_ne!(cue.mib.mode, MibMode::None, "{}", cue.name);
+                assert_eq!(cue.mib.fade_beats, 2.0, "{}", cue.name);
+                assert_eq!(
+                    cue.mib.preference,
+                    if cue.block { 80 } else { 30 },
+                    "{}",
+                    cue.name
+                );
+            } else {
+                assert_eq!(cue.mib, Mib::default(), "{} moves no mover", cue.name);
+            }
+        }
+        assert!(flagged > 0, "the show re-aims its movers somewhere");
+        let ch = list.cues.iter().find(|c| c.name == "CH 1").unwrap();
+        assert_eq!(ch.timing.color, Some(0.0));
+        let vs = list.cues.iter().find(|c| c.name == "VS 1").unwrap();
+        assert_eq!(vs.timing.position, Some(4.0));
+    }
+
     /// r[verify song.relative-position]
     /// r[verify song.relative-position.resolved-on-load]
     #[test]
     fn the_file_repositions_itself_against_a_new_arrangement() {
-        let mut list = author(&arrangement(8.0));
+        let list = author(&arrangement(8.0));
         assert_eq!(cue_at(&list, "· Breakdown build"), Bars::bar(67));
         // What a loader does: the file round-trips through JSON with its
         // relative positions, and resolves against this week's map.

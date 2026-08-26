@@ -858,3 +858,301 @@ mod emitter_tests {
         assert!(w > 0.5, "{levels:?}");
     }
 }
+
+// --- Fixture profile: everything output needs to know about a type ------
+
+/// One slot on a colour wheel: the byte that selects it and the colour it
+/// makes. The colour is an `Intent` so the nearest-slot search
+/// (`ignition_core::color::nearest_wheel_slot`) can compare it with the
+/// preset's intent in xy — a cheap mover's gel-like wheel is a list of
+/// approximate chromaticities, a GDTF wheel a list of measured ones.
+// r[impl color.mix-or-wheel] - the per-model slot table
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColorWheelSlot {
+    pub name: String,
+    pub byte: u8,
+    pub color: ignition_core::color::Intent,
+}
+
+impl ColorWheelSlot {
+    pub fn xy(name: &str, byte: u8, x: f32, y: f32) -> Self {
+        Self {
+            name: name.to_string(),
+            byte,
+            color: ignition_core::color::Intent::Xy {
+                x,
+                y,
+                luminance: 1.0,
+            },
+        }
+    }
+}
+
+/// The colour space a fixture type's RGB-shaped channels are declared
+/// in: one of the spaces the core names, or GDTF's own primaries (a
+/// `Custom` space, or the ProPhoto / ANSI E1.54 presets), which the core
+/// does not carry by name and so are converted here from their xy.
+// r[impl color.spaces] - the fixture type's GDTF colour space
+#[derive(Debug, Clone, PartialEq)]
+pub enum DeclaredColorSpace {
+    Known(ignition_core::color::ColorSpace),
+    Primaries {
+        red: (f32, f32),
+        green: (f32, f32),
+        blue: (f32, f32),
+        white: (f32, f32),
+    },
+}
+
+impl Default for DeclaredColorSpace {
+    fn default() -> Self {
+        DeclaredColorSpace::Known(ignition_core::color::ColorSpace::Srgb)
+    }
+}
+
+impl DeclaredColorSpace {
+    /// `intent`, with an RGB triple re-read in this space. Anything but
+    /// an `Rgb` is already space-independent and passes through; an sRGB
+    /// space passes an `Rgb` through unchanged too.
+    // r[impl color.spaces] - an RGB intent is interpreted in the fixture's space
+    pub fn interpret(&self, intent: &ignition_core::color::Intent) -> ignition_core::color::Intent {
+        use ignition_core::color::{ColorSpace, Intent, Xyz};
+        let Intent::Rgb(rgb) = intent else {
+            return intent.clone();
+        };
+        let triple = [rgb.red, rgb.green, rgb.blue];
+        match self {
+            DeclaredColorSpace::Known(ColorSpace::Srgb) => intent.clone(),
+            DeclaredColorSpace::Known(space) => Intent::from_space(*space, triple),
+            DeclaredColorSpace::Primaries {
+                red,
+                green,
+                blue,
+                white,
+            } => {
+                // Standard RGB->XYZ from primaries: columns are the
+                // primaries' XYZ (at Y-free scale) scaled so the white
+                // point comes out at Y = 1.
+                let col = |(x, y): (f32, f32)| [x / y, 1.0, (1.0 - x - y) / y];
+                let [r, g, b] = [col(*red), col(*green), col(*blue)];
+                let w = col(*white);
+                // Solve [r g b] * s = w for the per-primary scales.
+                let m = [[r[0], g[0], b[0]], [r[1], g[1], b[1]], [r[2], g[2], b[2]]];
+                let s = solve3(m, w).unwrap_or([1.0, 1.0, 1.0]);
+                let [rr, gg, bb] = triple;
+                let xyz = Xyz {
+                    x: r[0] * s[0] * rr + g[0] * s[1] * gg + b[0] * s[2] * bb,
+                    y: r[1] * s[0] * rr + g[1] * s[1] * gg + b[1] * s[2] * bb,
+                    z: r[2] * s[0] * rr + g[2] * s[1] * gg + b[2] * s[2] * bb,
+                };
+                let xyy = xyz.to_xyy();
+                Intent::Xy {
+                    x: xyy.x,
+                    y: xyy.y,
+                    luminance: xyy.luminance,
+                }
+            }
+        }
+    }
+}
+
+/// Cramer's rule for a 3x3 system; `None` when singular.
+fn solve3(m: [[f32; 3]; 3], v: [f32; 3]) -> Option<[f32; 3]> {
+    let det = |m: [[f32; 3]; 3]| {
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+    };
+    let d = det(m);
+    if d.abs() < 1e-9 {
+        return None;
+    }
+    let mut out = [0.0; 3];
+    for (i, slot) in out.iter_mut().enumerate() {
+        let mut mi = m;
+        for row in 0..3 {
+            mi[row][i] = v[row];
+        }
+        *slot = det(mi) / d;
+    }
+    Some(out)
+}
+
+/// A fixture type as the output stage sees it: its channel layout, its
+/// colour system (emitters, wheel, which of the two a preset lands on,
+/// the space its RGB channels are declared in) and the value every
+/// attribute rests at.
+// r[impl color.mix-or-wheel] - preference per fixture type
+// r[impl color.spaces] - the fixture type's declared colour space
+// r[impl playback.defaults] - every attribute has a default
+#[derive(Debug, Clone, PartialEq)]
+pub struct FixtureProfile {
+    pub map: ignition_proto::ChannelMap,
+    pub emitters: Option<FixtureEmitters>,
+    pub wheel: Vec<ColorWheelSlot>,
+    pub color_preference: ignition_core::color::ColorPreference,
+    pub color_space: DeclaredColorSpace,
+    pub defaults: std::collections::HashMap<ignition_proto::Attribute, f32>,
+}
+
+impl FixtureProfile {
+    /// A profile from a channel map alone: emitters from the map's colour
+    /// channels (`typical_emitter`), no wheel table, mixing preferred where
+    /// mixing exists and the wheel otherwise, sRGB, and `rest_defaults`.
+    pub fn from_channel_map(map: ignition_proto::ChannelMap) -> Self {
+        let emitters = FixtureEmitters::from_channel_map(&map);
+        let defaults = rest_defaults(&map);
+        Self {
+            color_preference: preference_for(emitters.is_some(), false),
+            emitters,
+            wheel: Vec::new(),
+            color_space: DeclaredColorSpace::default(),
+            defaults,
+            map,
+        }
+    }
+
+    /// The same profile with a wheel table, re-deciding the preference
+    /// now that there is a wheel to prefer.
+    pub fn with_wheel(mut self, wheel: Vec<ColorWheelSlot>) -> Self {
+        self.color_preference = preference_for(self.emitters.is_some(), !wheel.is_empty());
+        self.wheel = wheel;
+        self
+    }
+
+    /// The wheel as `nearest_wheel_slot` wants it.
+    pub fn wheel_slots(&self) -> Vec<(u8, ignition_core::color::Intent)> {
+        self.wheel
+            .iter()
+            .map(|s| (s.byte, s.color.clone()))
+            .collect()
+    }
+
+    /// Whether this type can take a colour at all, one way or the other.
+    pub fn has_color(&self) -> bool {
+        self.emitters.is_some() || !self.wheel.is_empty()
+    }
+}
+
+/// Mixing where mixing exists, the wheel otherwise; a type with neither
+/// keeps the default (`Mix`) and never gets asked.
+// r[impl color.mix-or-wheel] - the default preference
+pub fn preference_for(mixes: bool, has_wheel: bool) -> ignition_core::color::ColorPreference {
+    use ignition_core::color::ColorPreference;
+    if !mixes && has_wheel {
+        ColorPreference::Wheel
+    } else {
+        ColorPreference::Mix
+    }
+}
+
+/// The rest value of every attribute a channel map carries, in the cue
+/// engine's own units: dimmer, strobe and colour off, pan and tilt at 0°
+/// (centre), zoom and focus mid-travel, iris open, wheels at their first
+/// slot. Fine channels are never programmed and get no default.
+// r[impl playback.defaults] - a sensible rest where the fixture type says nothing
+pub fn rest_defaults(
+    map: &ignition_proto::ChannelMap,
+) -> std::collections::HashMap<ignition_proto::Attribute, f32> {
+    use ignition_proto::Attribute::*;
+    map.channels
+        .iter()
+        .filter_map(|(_, attr)| {
+            let value = match attr {
+                Dimmer | Strobe | ColorAdd { .. } | ColorWheel { .. } | GoboWheel { .. } => 0.0,
+                Pan | Tilt => 0.0,
+                Zoom | Focus => 0.5,
+                Iris => 1.0,
+                Custom(_) => 0.0,
+                PanFine | TiltFine => return None,
+            };
+            Some((attr.clone(), value))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod profile_tests {
+    use super::*;
+    use ignition_core::color::ColorPreference;
+    use ignition_proto::Attribute;
+
+    /// r[verify playback.defaults] - every attribute a map carries rests somewhere sensible
+    #[test]
+    fn rest_defaults_cover_every_programmed_attribute() {
+        let map = ignition_proto::ChannelMap::new(
+            8,
+            vec![
+                (0, Attribute::Pan),
+                (1, Attribute::PanFine),
+                (2, Attribute::Tilt),
+                (3, Attribute::Dimmer),
+                (4, Attribute::Zoom),
+                (5, Attribute::Iris),
+                (6, Attribute::Strobe),
+                (7, Attribute::ColorWheel { slot: 0 }),
+            ],
+        );
+        let d = rest_defaults(&map);
+        assert_eq!(d[&Attribute::Pan], 0.0);
+        assert_eq!(d[&Attribute::Zoom], 0.5);
+        assert_eq!(d[&Attribute::Iris], 1.0);
+        assert_eq!(d[&Attribute::Strobe], 0.0);
+        assert_eq!(d[&Attribute::Dimmer], 0.0);
+        assert!(
+            !d.contains_key(&Attribute::PanFine),
+            "fine channels are derived"
+        );
+        assert_eq!(d.len(), 7);
+    }
+
+    /// r[verify color.mix-or-wheel] - the default preference follows what the type has
+    #[test]
+    fn preference_defaults_to_mix_where_mixing_exists_and_wheel_otherwise() {
+        assert_eq!(preference_for(true, true), ColorPreference::Mix);
+        assert_eq!(preference_for(true, false), ColorPreference::Mix);
+        assert_eq!(preference_for(false, true), ColorPreference::Wheel);
+        let rgbw = crate::channel_map::channel_map_for("x", "RGBW Spot Light 6ch").unwrap();
+        let p = FixtureProfile::from_channel_map(rgbw);
+        assert_eq!(p.color_preference, ColorPreference::Mix);
+        let mover = crate::channel_map::channel_map_for("Betopper", "150W Beam").unwrap();
+        let p = FixtureProfile::from_channel_map(mover)
+            .with_wheel(vec![ColorWheelSlot::xy("Red", 20, 0.68, 0.31)]);
+        assert_eq!(p.color_preference, ColorPreference::Wheel);
+        assert_eq!(p.wheel_slots()[0].0, 20);
+    }
+
+    /// r[verify color.spaces] - the same triple means a different colour in a wider space
+    #[test]
+    fn an_rgb_intent_is_read_in_the_declared_space() {
+        use ignition_core::color::{ColorSpace, Intent, Rgb};
+        let red = Intent::Rgb(Rgb::new(1.0, 0.0, 0.0));
+        assert_eq!(DeclaredColorSpace::default().interpret(&red), red);
+        let wide = DeclaredColorSpace::Known(ColorSpace::Rec2020).interpret(&red);
+        let Intent::Xy { x, .. } = wide else {
+            panic!("{wide:?}")
+        };
+        assert!(x > 0.7, "Rec.2020 red is further out than sRGB's 0.64: {x}");
+        // sRGB spelled out as primaries lands where the core's sRGB does.
+        let srgb_primaries = DeclaredColorSpace::Primaries {
+            red: (0.64, 0.33),
+            green: (0.30, 0.60),
+            blue: (0.15, 0.06),
+            white: (0.3127, 0.3290),
+        };
+        let teal = Intent::Rgb(Rgb::new(0.2, 0.7, 0.6));
+        let a = srgb_primaries.interpret(&teal).xyy().unwrap();
+        let b = teal.xyy().unwrap();
+        assert!(
+            (a.x - b.x).abs() < 2e-3 && (a.y - b.y).abs() < 2e-3,
+            "{a:?} vs {b:?}"
+        );
+        assert!((a.luminance - b.luminance).abs() < 2e-2, "{a:?} vs {b:?}");
+        // A CCT is not a triple and is never reinterpreted.
+        let cct = Intent::Cct {
+            kelvin: 3200.0,
+            tint: 0.0,
+        };
+        assert_eq!(srgb_primaries.interpret(&cct), cct);
+    }
+}

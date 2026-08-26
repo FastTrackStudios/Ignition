@@ -229,3 +229,55 @@ r[playback.master-modes]
 Role masters MUST implement the four modes of `r[groups.master.modes]`:
 positive (an upper limit), negative (an inhibit that wins where a fixture is
 in two), scaling, and additive (a hand lift over a running show).
+
+## Parking, masters and keys
+
+r[playback.park]
+An operator MUST be able to **park** a fixture, an attribute, or a DMX channel
+at a value that sits above every playback and the programmer, and unpark it.
+A motor screaming on one tilt is fixed at the desk in a second by parking it;
+without a park the only tool is a cue that everything else can override.
+
+r[playback.grand-master]
+There MUST be a **grand master** scaling every intensity last, after every
+other layer including parks of intensity, so the whole rig can be brought
+down with one hand. It MUST NOT scale anything but intensity.
+
+r[playback.playback-master]
+Every playback MUST have its own intensity master, so the song list can be
+pulled under a look list without touching either's content.
+
+r[playback.selection-master]
+A master MAY be keyed by a **selection** rather than a role — the fixtures in
+hand — so "the four movers I just grabbed" can be ridden without naming a
+role.
+
+r[playback.speed-keys]
+The `Tap` master MUST support **learn** (an averaged tap that converges rather
+than jitters), **half** and **double** keys, and a reset to the learned tempo.
+Riding a breakdown at half time and a drop at double is the whole point of
+tapping.
+
+r[playback.temp-and-pause]
+A key MUST support **temp** — the playback on, with its own fade times, while
+held — as the musical form of flash; and a playback MUST be pausable and
+resumable, and steppable backwards, without losing its place.
+
+r[playback.remote-feedback]
+Remote surfaces MUST receive **feedback**: fader positions, key states and the
+page over OSC (and MIDI where the device accepts it), so a motorised or
+screen surface shows what the engine holds. A surface that cannot show the
+state is one an operator cannot trust after a page change.
+
+r[playback.sound-as-value]
+Sound band levels MUST be usable as **values** inside a recipe — a relative
+level, a generator's range — with a smoothing (sound fade) so a kick reads as a
+lift and not as noise. This is the no-chart busking case: the bass drives the
+blinders.
+
+r[playback.defaults]
+Every fixture attribute MUST have a **default** — from the fixture type where
+it carries one, otherwise a sensible rest — and that default MUST be the floor
+a released attribute falls to, and what a list's implicit **cue zero**
+establishes before its first cue. A released zoom lands on the spot's default
+zoom, not on zero.

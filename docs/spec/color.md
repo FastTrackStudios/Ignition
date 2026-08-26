@@ -154,3 +154,24 @@ triple.
 r[color.cct]
 A colour preset MAY be a colour temperature, and a fixture with a white
 emitter or a CTO MUST prefer it over an RGB approximation.
+
+## Intent to output
+
+r[color.intent-to-output]
+A colour's **intent** MUST survive cooking: the value a cue carries for a
+fixture's colour is the intent (or a reference to it), and emitter levels are
+solved at output against that fixture — never the RGB triple re-derived from
+three floats. Otherwise "3200 K" on a six-emitter wash is whatever the RGB
+round trip gave.
+
+r[color.mix-or-wheel]
+A fixture with both a colour wheel and colour mixing, or with only a wheel,
+MUST reach a colour preset: mixing preferred where present, the nearest wheel
+slot otherwise, and the preference MUST be settable per fixture type. A
+gel-only spot participates in "Congo Blue" by taking its nearest gel.
+
+r[color.spaces]
+A colour MUST be interpretable in a declared colour space (the fixture type's
+GDTF colour space, sRGB, Rec.2020, or CIE xy directly), and constant
+brightness across a hue change MUST be available, so a colour chase does not
+pump in intensity as it walks the wheel.

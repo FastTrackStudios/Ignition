@@ -37,6 +37,8 @@ use std::sync::mpsc::{Receiver, SyncSender, TrySendError, sync_channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+pub mod export;
+
 #[cfg(feature = "ffmpeg")]
 mod ffmpeg;
 #[cfg(feature = "hap")]

@@ -22,6 +22,7 @@ use crate::spawn::{
     resolve_live_dmx, spawn_venue, update_beams, update_canvas_videos, update_fixture_bodies,
     update_live_fixtures,
 };
+use crate::video::export::{self, ExportRequest, FrameSchedule};
 use crate::view::ViewPreset;
 use crate::{DmxUniverses, Venue, dmx};
 use bevy::app::SubApps;
@@ -37,11 +38,13 @@ use bevy::render::render_resource::{
     Extent3d, PollType, TextureDimension, TextureFormat, TextureUsages,
 };
 use bevy::render::renderer::RenderDevice;
-use bevy::render::view::screenshot::{Screenshot, save_to_disk};
+use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
+use bevy::time::TimeUpdateStrategy;
 use bevy::window::ExitCondition;
 use bevy::winit::WinitPlugin;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::Duration;
 
 /// Everything the CLI can set. A plain struct, so `bin/viz.rs` stays
 /// argument parsing and nothing else.
@@ -315,91 +318,98 @@ fn run_windowed(
         .run();
 }
 
-/// No window, no winit — an offscreen image target, the loop pumped by
-/// hand, and the GPU polled between frames.
-fn run_snapshot(
-    config: VizConfig,
-    dmx: DmxUniverses,
-    playback: Playback,
-    gdtf: Option<GdtfLibrary>,
-    path: &Path,
-) {
-    let (min, max) = config.venue.bounds();
-    let view = config.view;
-    let free_camera = config.camera;
-    let quality = config.quality;
-    let (width, height) = (config.width, config.height);
-    let settle_frames = config.settle_frames.max(1);
+/// A headless app rendering into an offscreen image target, finished
+/// and cleaned up, its sub-apps handed back for a loop to pump by hand.
+/// Shared by the snapshot and the export.
+struct Headless {
+    subapps: SubApps,
+    target: RenderTarget,
+}
 
-    let assets_dir = config.assets_dir.clone();
-    let mut app = App::new();
-    app.add_plugins(
-        DefaultPlugins
-            .set(AssetPlugin {
-                file_path: assets_dir,
-                ..default()
-            })
-            .set(WindowPlugin {
-                // A lot of Bevy still expects the plugin to be present,
-                // just with nothing to show.
-                primary_window: None,
-                exit_condition: ExitCondition::DontExit,
-                ..default()
-            })
-            .set(RenderPlugin {
-                // Otherwise the first frames render with pipelines that
-                // have not finished compiling, and a snapshot can catch
-                // a scene mid-warm-up.
-                synchronous_pipeline_compilation: true,
-                ..default()
-            })
-            .disable::<WinitPlugin>(),
-    )
-    .add_plugins(VizPlugin {
-        config,
-        dmx,
-        gdtf: Mutex::new(gdtf),
-    })
-    .insert_resource(playback);
+impl Headless {
+    fn build(
+        config: VizConfig,
+        dmx: DmxUniverses,
+        playback: Playback,
+        gdtf: Option<GdtfLibrary>,
+    ) -> Self {
+        let (min, max) = config.venue.bounds();
+        let view = config.view;
+        let free_camera = config.camera;
+        let quality = config.quality;
+        let (width, height) = (config.width, config.height);
 
-    let mut target = Image::new_uninit(
-        Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD,
-    );
-    target.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
-    let target: RenderTarget = app
-        .world_mut()
-        .resource_mut::<Assets<Image>>()
-        .add(target)
-        .into();
+        let assets_dir = config.assets_dir.clone();
+        let mut app = App::new();
+        app.add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    file_path: assets_dir,
+                    ..default()
+                })
+                .set(WindowPlugin {
+                    // A lot of Bevy still expects the plugin to be present,
+                    // just with nothing to show.
+                    primary_window: None,
+                    exit_condition: ExitCondition::DontExit,
+                    ..default()
+                })
+                .set(RenderPlugin {
+                    // Otherwise the first frames render with pipelines that
+                    // have not finished compiling, and a snapshot can catch
+                    // a scene mid-warm-up.
+                    synchronous_pipeline_compilation: true,
+                    ..default()
+                })
+                .disable::<WinitPlugin>(),
+        )
+        .add_plugins(VizPlugin {
+            config,
+            dmx,
+            gdtf: Mutex::new(gdtf),
+        })
+        .insert_resource(playback);
 
-    let camera_target = target.clone();
-    app.add_systems(Startup, move |mut commands: Commands| {
-        // `RenderTarget` is its own component — adding it to the camera
-        // is what points it at the offscreen image instead of a window.
-        commands.spawn((
-            camera_bundle(view, free_camera, min, max, quality),
-            camera_target.clone(),
-        ));
-    });
+        let mut target = Image::new_uninit(
+            Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        target.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
+        let target: RenderTarget = app
+            .world_mut()
+            .resource_mut::<Assets<Image>>()
+            .add(target)
+            .into();
 
-    // No `run()`: the schedule runner is replaced by the loop below, so
-    // the app has to be finished and cleaned up by hand.
-    app.finish();
-    app.cleanup();
-    let mut subapps: SubApps = std::mem::take(app.sub_apps_mut());
+        let camera_target = target.clone();
+        app.add_systems(Startup, move |mut commands: Commands| {
+            // `RenderTarget` is its own component — adding it to the camera
+            // is what points it at the offscreen image instead of a window.
+            commands.spawn((
+                camera_bundle(view, free_camera, min, max, quality),
+                camera_target.clone(),
+            ));
+        });
 
-    let step = |subapps: &mut SubApps| {
-        subapps.update();
-        // Wait for the frame to actually finish on the GPU, so a capture
-        // requested this frame is complete before the next one starts.
-        subapps
+        // No `run()`: the schedule runner is replaced by the caller's
+        // loop, so the app has to be finished and cleaned up by hand.
+        app.finish();
+        app.cleanup();
+        let subapps: SubApps = std::mem::take(app.sub_apps_mut());
+        Self { subapps, target }
+    }
+
+    /// One frame, waited for on the GPU so a capture requested this
+    /// frame is complete before the next one starts.
+    fn step(&mut self) {
+        self.subapps.update();
+        self.subapps
             .main
             .world()
             .resource::<RenderDevice>()
@@ -409,37 +419,144 @@ fn run_snapshot(
                 timeout: None,
             })
             .expect("polling the render device");
-    };
+    }
 
+    fn target_image(&self) -> Handle<Image> {
+        self.target
+            .as_image()
+            .expect("offscreen target is an image")
+            .clone()
+    }
+}
+
+/// No window, no winit — an offscreen image target, the loop pumped by
+/// hand, and the GPU polled between frames.
+fn run_snapshot(
+    config: VizConfig,
+    dmx: DmxUniverses,
+    playback: Playback,
+    gdtf: Option<GdtfLibrary>,
+    path: &Path,
+) {
+    let settle_frames = config.settle_frames.max(1);
+    let mut headless = Headless::build(config, dmx, playback, gdtf);
     for _ in 0..settle_frames {
-        step(&mut subapps);
+        headless.step();
     }
     let out = path.to_path_buf();
-    subapps
+    let image = headless.target_image();
+    headless
+        .subapps
         .main
         .world_mut()
-        .spawn(Screenshot::image(
-            target
-                .as_image()
-                .expect("snapshot target is an image")
-                .clone(),
-        ))
+        .spawn(Screenshot::image(image))
         .observe(save_to_disk(out));
     // The capture is queued on the render world and the PNG encode runs
     // on a task pool thread, so the app has to keep stepping for a few
     // frames afterwards, and then outlive the encode itself — dropping
     // `subapps` takes the task pools down with it.
     for _ in 0..8 {
-        step(&mut subapps);
+        headless.step();
     }
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     while !path.exists() && std::time::Instant::now() < deadline {
-        step(&mut subapps);
+        headless.step();
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
     if !path.exists() {
         eprintln!("viz: snapshot never reached {}", path.display());
     }
+}
+
+/// Renders the show to a video file, frame by frame against the song's
+/// clock: Bevy's time is stepped by exactly one frame per update
+/// (`TimeUpdateStrategy::ManualDuration`), so the playback advances the
+/// same amount every frame however long the GPU took, and each frame is
+/// captured and handed to the sink before the next is started. The
+/// playback should already be located at the export's first bar
+/// (`Playback::load` with `bar`) and carry the song's BPM.
+///
+/// Like `run`, this owns the thread until the export is finished.
+// r[impl viz.export] - offline, frame by frame, at a chosen size
+pub fn run_export(
+    config: VizConfig,
+    playback: Playback,
+    gdtf: Option<GdtfLibrary>,
+    request: &ExportRequest,
+) -> anyhow::Result<()> {
+    let bpm = playback.speeds.get("Song").copied().unwrap_or(120.0) as f64;
+    let schedule = FrameSchedule::new(request, bpm);
+    let (width, height) = (config.width, config.height);
+    let settle_frames = config.settle_frames.max(1);
+    let mut sink = export::open_sink(request, width, height)?;
+    let frame_count = schedule.frame_count();
+    println!(
+        "exporting bars {}..{} at {} fps: {} frames of {}x{}",
+        schedule.from_bar, schedule.to_bar, schedule.fps, frame_count, width, height
+    );
+
+    let dmx = DmxUniverses::new();
+    let mut headless = Headless::build(config, dmx, playback, gdtf);
+    // Warm up with the clock stopped, so the first exported frame is
+    // frame 0 of the song range, not settle_frames later.
+    headless
+        .subapps
+        .main
+        .world_mut()
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::ZERO));
+    for _ in 0..settle_frames {
+        headless.step();
+    }
+
+    let (tx, rx) = std::sync::mpsc::channel::<Image>();
+    let dt = Duration::from_secs_f64(schedule.dt());
+    for frame in schedule.frames() {
+        // Frame 0 renders the located moment; every later frame first
+        // advances the clock by one dt.
+        let advance = if frame.index == 0 { Duration::ZERO } else { dt };
+        let image = headless.target_image();
+        let world = headless.subapps.main.world_mut();
+        world.insert_resource(TimeUpdateStrategy::ManualDuration(advance));
+        let tx = tx.clone();
+        world
+            .spawn(Screenshot::image(image))
+            .observe(move |captured: On<ScreenshotCaptured>| {
+                let _ = tx.send(captured.image.clone());
+            });
+        // The capture completes on the render world a frame or two
+        // later; keep stepping (with the clock held) until it lands so
+        // frames reach the sink in order.
+        let mut captured = None;
+        for _ in 0..32 {
+            headless.step();
+            headless
+                .subapps
+                .main
+                .world_mut()
+                .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::ZERO));
+            if let Ok(image) = rx.try_recv() {
+                captured = Some(image);
+                break;
+            }
+        }
+        let Some(image) = captured else {
+            anyhow::bail!("frame {} was never captured", frame.index);
+        };
+        let rgba = image
+            .try_into_dynamic()
+            .map_err(|e| anyhow::anyhow!("frame {}: {e:?}", frame.index))?
+            .to_rgba8();
+        sink.push(&frame, rgba.as_raw(), rgba.width(), rgba.height())?;
+        if frame.index % schedule.fps == 0 {
+            println!(
+                "  frame {}/{} — bar {} beat {:.2}",
+                frame.index, frame_count, frame.position.bar, frame.position.beat
+            );
+        }
+    }
+    sink.finish()?;
+    println!("export finished: {}", request.path.display());
+    Ok(())
 }
 
 /// The camera every mode uses: HDR so bloom has something above white to

@@ -34,7 +34,7 @@ pub mod venue;
 pub mod video;
 pub mod view;
 
-pub use app::{RenderQuality, VizConfig, run};
+pub use app::{RenderQuality, VizConfig, run, run_export};
 pub use dmx::{DmxUniverses, ResolvedAttributes};
 pub use spawn::CanvasClock;
 pub use venue::Venue;

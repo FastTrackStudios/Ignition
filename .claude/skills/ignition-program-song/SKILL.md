@@ -73,6 +73,14 @@ show is judged against. The rules below are its short form for authoring:
   out", …)`) before writing a step table, and use a named trick
   (`tricked(effect(...), profile trick)`) rather than a new selection for
   odds/evens/mirror patterns. Names and notes are in the profile.
+- **Move in black and per-class timing are derived, not typed.** After the
+  list is built, `ignition_song::set_mib` flags every cue whose focus for a
+  mover differs from the last cue that aimed it (`mib.mode = Early`, fade 2
+  beats; left at the default where the previous mover cue already parked
+  them at `Dimmer 0.0`, so the engine picks the dark window) with preference
+  80 on sections and 30 on `·` lifts; `set_class_timing` snaps colour into
+  choruses (`timing.color = 0`) and drifts position over a bar in verses and
+  bridges (`timing.position = 4`). Author the aims; do not hand-set `mib`.
 - **`Key` on the vocal**, always lit when someone is singing; `Open` or `Warm`.
   Verses: `Key` up, `Wash` low and `Cool`. Pre: build — level rising, one
   sustained effect. Chorus: everything, `Warm`/`Hot`, `Back` saturated,

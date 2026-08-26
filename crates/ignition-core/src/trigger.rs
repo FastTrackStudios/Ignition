@@ -264,7 +264,10 @@ impl TriggerBus {
                 continue;
             }
             let at = self.envelope_time(trigger, age, show);
-            for Emit { value, relative } in expand_recipe(&trigger.recipe, show, at) {
+            for Emit {
+                value, relative, ..
+            } in expand_recipe(&trigger.recipe, show, at)
+            {
                 if !relative {
                     continue;
                 }

@@ -29,6 +29,7 @@
 //! honest against it.
 
 use ignition_core::preset::Ref;
+use ignition_core::recipe::{Band, Random};
 use ignition_core::{Attribute, BumpKind, Recipe, RecipeApply, Selection, Speed};
 
 /// A fader as the surface presents it: what it does, and what colour to
@@ -244,10 +245,134 @@ pub fn movement_bank() -> Vec<FaderSpec> {
     ]
 }
 
+/// A role's attribute driven by a sound band: `low` in silence, `high`
+/// at full — the bass lifting the blinders. Relative where the band
+/// should ride *on top of* whatever the cue set rather than replace it.
+// r[impl playback.sound-as-value] - a band level as a fader's recipe
+fn sound(
+    target: Selection,
+    band: Band,
+    attr: Attribute,
+    low: f32,
+    high: f32,
+    relative: bool,
+) -> Recipe {
+    Recipe::new(
+        target,
+        RecipeApply::Sound {
+            band,
+            attr,
+            low,
+            high,
+            relative,
+        },
+    )
+}
+
+/// The third page: the no-chart busking case, where the room's own
+/// sound drives the rig.
+///
+/// Every fader here reads a band of the audio input as a *value* — a
+/// level, or a generator's range — through the sound fade the operator
+/// sets in the transport bar. Nothing on this page needs a song map or
+/// a chart; a support act with no show gets blinders on the kick and
+/// sparkle on the hats from the first bar. Same slot families as the
+/// other pages so a hand that has learned the shape is still right.
+// r[impl playback.sound-as-value] - a page of sound-driven faders
+pub fn sound_bank() -> Vec<FaderSpec> {
+    vec![
+        // 1. Faces breathe with the mids — the vocal range — but never
+        //    drop below a working level: a lift on the key, not a gate.
+        FaderSpec {
+            name: "KEY MID",
+            css: "#e8d8b8",
+            recipe: sound(role("Key"), Band::Mid, Attribute::Dimmer, 0.0, 0.3, true),
+        },
+        // 2. The wash lifts on the mids over whatever colour and level
+        //    the cue has it at — relative, so the look stays the look.
+        FaderSpec {
+            name: "WASH MID",
+            css: "#48c8d8",
+            recipe: sound(role("Wash"), Band::Mid, Attribute::Dimmer, 0.0, 0.5, true),
+        },
+        // 3. Sparkle whose density follows the highs: the hats bring
+        //    the twinkle up, and it settles to nothing in a breakdown.
+        FaderSpec {
+            name: "SPARK HI",
+            css: "#8fd0e8",
+            recipe: sparkle_on(Band::High),
+        },
+        // 4. Movers open on the mids.
+        FaderSpec {
+            name: "MOVE MID",
+            css: "#d8a848",
+            recipe: sound(
+                role("Movers"),
+                Band::Mid,
+                Attribute::Dimmer,
+                0.0,
+                1.0,
+                false,
+            ),
+        },
+        // 5. Bars flash on the highs.
+        FaderSpec {
+            name: "BARS HI",
+            css: "#d84898",
+            recipe: sound(role("Bars"), Band::High, Attribute::Dimmer, 0.0, 1.0, false),
+        },
+        // 6. The back wall thumps with the lows.
+        FaderSpec {
+            name: "BACK LOW",
+            css: "#5a48d8",
+            recipe: sound(role("Back"), Band::Low, Attribute::Dimmer, 0.1, 1.0, false),
+        },
+        // 7. Beams punch on the lows.
+        FaderSpec {
+            name: "BEAM LOW",
+            css: "#ffffff",
+            recipe: sound(role("Beams"), Band::Low, Attribute::Dimmer, 0.0, 1.0, false),
+        },
+        // 8. Blinders on the kick. The whole reason the page exists, at
+        //    the edge where a hand finds it.
+        FaderSpec {
+            name: "BLND LOW",
+            css: "#fff0c0",
+            recipe: sound(
+                role("Audience"),
+                Band::Low,
+                Attribute::Dimmer,
+                0.0,
+                1.0,
+                false,
+            ),
+        },
+    ]
+}
+
+/// A random twinkle on the wash whose *range* is a band's level: the
+/// generator rolls between zero and `low + level × (high − low)`, so at
+/// full the wash twinkles to full and in silence it lies still.
+// r[impl playback.sound-as-value] - a generator's range
+fn sparkle_on(band: Band) -> Recipe {
+    let mut recipe = Recipe::new(
+        role("Wash"),
+        RecipeApply::Random(Random {
+            attr: Attribute::Dimmer,
+            low: 0.0,
+            high: 1.0,
+            high_from_band: Some(band),
+            ..Random::default()
+        }),
+    );
+    recipe.timing.speed = Speed::Master("Rate".into());
+    recipe
+}
+
 /// Every page of the bank, in page order. Page one is what the app
 /// opens on.
 pub fn bank_pages() -> Vec<Vec<FaderSpec>> {
-    vec![default_bank(), movement_bank()]
+    vec![default_bank(), movement_bank(), sound_bank()]
 }
 
 /// The neutral stage-lit look — faces, wash and back at a working
@@ -450,6 +575,66 @@ mod tests {
         for name in ["Warm White", "Open White"] {
             assert!(colours.contains(&name), "profile has no colour {name:?}");
         }
+    }
+
+    /// Every fader on the sound page reads a band, on a role the
+    /// profile declares — the page is the no-chart case and has to
+    /// work at a venue that has bound only the required roles.
+    /// r[verify playback.sound-as-value]
+    #[test]
+    fn the_sound_page_reads_a_band_on_every_fader() {
+        let profile = profile();
+        let declared: Vec<&str> = profile.roles.iter().map(|r| r.name.as_str()).collect();
+        let page = sound_bank();
+        assert_eq!(page.len(), FADERS);
+        let mut bands = std::collections::BTreeSet::new();
+        for spec in &page {
+            assert!(spec.name.len() <= 8, "{:?} will wrap", spec.name);
+            let heard = spec
+                .recipe
+                .steps
+                .iter()
+                .flat_map(|s| s.apply.iter())
+                .any(|a| match a {
+                    RecipeApply::Sound { band, .. } => {
+                        bands.insert(format!("{band:?}"));
+                        true
+                    }
+                    RecipeApply::Random(r) => {
+                        if let Some(band) = r.high_from_band {
+                            bands.insert(format!("{band:?}"));
+                        }
+                        r.high_from_band.is_some()
+                    }
+                    _ => false,
+                });
+            assert!(heard, "{} reads no band", spec.name);
+            let mut roles = Vec::new();
+            roles_in(&spec.recipe.target, &mut roles);
+            assert!(!roles.is_empty(), "{} targets no role", spec.name);
+            for role in roles {
+                assert!(
+                    declared.contains(&role.as_str()),
+                    "{role:?} is not a profile role"
+                );
+            }
+        }
+        // The kick, the vocal and the hats are all used.
+        assert_eq!(bands.len(), 3, "{bands:?}");
+        // Blinders on the low band, the case the spec names.
+        let blind = page
+            .iter()
+            .find(|s| s.name.starts_with("BLND"))
+            .expect("blinders");
+        assert!(matches!(
+            blind.recipe.steps[0].apply[0],
+            RecipeApply::Sound {
+                band: Band::Low,
+                attr: Attribute::Dimmer,
+                ..
+            }
+        ));
+        assert_eq!(blind.recipe.target, role("Audience"));
     }
 
     #[test]

@@ -1,5 +1,5 @@
 {
-  "_comment": "Remote inputs for Ignition Studio — see apps/ignition-studio/src/remote.rs. `midi` is one controller or a list; every port present connects. A binding is a bare verb (go, look_go, play, stop, blind, highlight, lowlight, page_next, page_prev, release, rate, size, speed, program_time, dimmer) or an object: {fader: n}, {key: {index: n, action: Flash|Toggle|Swap|Kill|Black}}, {master: role}, {solo: role}, {page: n}. CC values map 0..127 onto the control's travel; notes are press and release.",
+  "_comment": "Remote inputs for Ignition Studio — see apps/ignition-studio/src/remote.rs. `midi` is one controller or a list; every port present connects. A binding is a bare verb (go, look_go, play, stop, blind, highlight, lowlight, page_next, page_prev, release, rate, size, speed, program_time, dimmer) or an object: {fader: n}, {key: {index: n, action: Flash|Toggle|Swap|Kill|Black}}, {master: role}, {solo: role}, {page: n}, {playback_master: Song|Look}, {load: n}, or the verbs grand, tap, half, double, reset_speed, pause, go_back, sound_fade. CC values map 0..127 onto the control's travel; notes are press and release. `feedback` at the top is where OSC feedback goes (/fader/N, /key/N, /page, /master/song, /master/look, /grand); a device with \"feedback\": true is sent its own CCs and notes back.",
 
   "midi": [
     {
@@ -10,8 +10,11 @@
 
         "16": { "master": "Key" }, "17": { "master": "Wash" },
         "18": { "master": "Movers" }, "19": { "master": "Bars" },
-        "20": "rate", "21": "size", "22": "speed", "23": "program_time"
+        "20": "rate", "21": "size", "22": "speed", "23": "program_time",
+        "24": "grand", "25": { "playback_master": "Song" }, "26": { "playback_master": "Look" },
+        "27": "sound_fade"
       },
+      "feedback": true,
       "notes": {
         "32": { "key": { "index": 0, "action": "Flash" } },
         "33": { "key": { "index": 1, "action": "Flash" } },
@@ -43,7 +46,9 @@
         "41": "play", "42": "stop", "45": "go", "44": "look_go",
         "46": "blind", "43": "release",
         "58": "page_prev", "59": "page_next",
-        "60": "highlight", "61": "lowlight", "62": "release"
+        "60": "highlight", "61": "lowlight", "62": "release",
+        "63": "tap", "56": "half", "57": "double", "47": "reset_speed",
+        "40": "pause", "30": "go_back"
       }
     },
     {
@@ -54,7 +59,8 @@
         "9": "rate",
         "11": { "master": "Key" }, "12": { "master": "Wash" },
         "13": { "master": "Movers" }, "14": { "master": "Bars" },
-        "15": "size", "16": "speed", "17": "program_time", "18": "dimmer"
+        "15": "size", "16": "speed", "17": "program_time", "18": "dimmer",
+        "19": "grand", "20": { "playback_master": "Song" }, "21": { "playback_master": "Look" }
       },
       "notes": {
         "8":  { "key": { "index": 0, "action": "Flash" } },
@@ -68,6 +74,8 @@
 
         "16": "go", "17": "look_go", "18": "play", "19": "stop",
         "20": "page_prev", "21": "page_next", "22": "blind", "23": "release",
+        "24": "tap", "25": "half", "26": "double", "27": "reset_speed",
+        "28": "pause", "29": "go_back",
 
         "0": { "key": { "index": 0, "action": "Toggle" } },
         "1": { "key": { "index": 1, "action": "Toggle" } },
@@ -97,11 +105,17 @@
       "/key/8": { "key": { "index": 7, "action": "Flash" } },
       "/master/key": { "master": "Key" }, "/master/wash": { "master": "Wash" },
       "/master/movers": { "master": "Movers" }, "/master/bars": { "master": "Bars" },
+      "/master/song": { "playback_master": "Song" }, "/master/look": { "playback_master": "Look" },
+      "/grand": "grand", "/sound_fade": "sound_fade",
+      "/tap": "tap", "/half": "half", "/double": "double", "/reset_speed": "reset_speed",
+      "/pause": "pause", "/go_back": "go_back",
       "/rate": "rate", "/size": "size", "/speed": "speed", "/prog": "program_time",
       "/go": "go", "/look": "look_go", "/play": "play", "/stop": "stop",
       "/page/next": "page_next", "/page/prev": "page_prev",
       "/blind": "blind", "/highlight": "highlight", "/lowlight": "lowlight",
       "/release": "release"
     }
-  }
+  },
+
+  "feedback": { "host": "127.0.0.1", "port": 9001 }
 }

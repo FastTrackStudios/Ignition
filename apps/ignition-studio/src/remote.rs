@@ -40,8 +40,8 @@
 // build with neither listener they are only reached by the tests.
 #![cfg_attr(not(any(feature = "midi", feature = "osc")), allow(dead_code))]
 
-use crate::command::{Command, PageMove, Sender};
-use ignition_core::KeyAction;
+use crate::command::{Command, PageMove, Playhead, Sender, SpeedKey};
+use ignition_core::{Class, KeyAction};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -61,6 +61,19 @@ pub struct RemoteConfig {
     pub midi: Vec<MidiConfig>,
     #[serde(default)]
     pub osc: Option<OscConfig>,
+    /// Where OSC feedback goes — the surface's own listening port, so
+    /// a motorised or screen surface shows what the engine holds.
+    // r[impl playback.remote-feedback] - OSC feedback destination
+    #[serde(default)]
+    pub feedback: Option<FeedbackConfig>,
+}
+
+/// The OSC feedback destination.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct FeedbackConfig {
+    pub host: String,
+    pub port: u16,
 }
 
 /// One MIDI controller.
@@ -81,6 +94,13 @@ pub struct MidiConfig {
     /// Only listen on this channel (1–16). `None` is any channel.
     #[serde(default)]
     pub channel: Option<u8>,
+    /// Echo the engine's state back to the device's output port as the
+    /// same CCs and notes its bindings listen on — a motorised fader
+    /// follows a page turn, a lit key shows a toggle. Off for a device
+    /// that would take its own echo as an input.
+    // r[impl playback.remote-feedback] - MIDI feedback where the device accepts it
+    #[serde(default)]
+    pub feedback: bool,
 }
 
 /// The OSC listener.
@@ -139,6 +159,24 @@ pub enum Binding {
     Solo(String),
     /// Clear the hand.
     Release,
+    /// The grand master, 0..=1.
+    Grand,
+    /// A playback's own intensity master, by class.
+    PlaybackMaster(Class),
+    /// A speed key on the `Tap` master: a learn tap, half, double or a
+    /// reset. `"tap"` is the one a foot switch wants.
+    Tap,
+    Half,
+    Double,
+    ResetSpeed,
+    /// Pause / resume the song playback in place.
+    Pause,
+    /// Step the song playback back one cue.
+    GoBack,
+    /// Load a cue as the next GO, by index.
+    Load(usize),
+    /// The sound fade, 0–2 s over the control's travel.
+    SoundFade,
 }
 
 /// A control's value, normalised: a level 0..=1 and whether the hand
@@ -233,7 +271,213 @@ pub fn translate(binding: &Binding, input: Input, toggles: &mut Toggles) -> Vec<
             .collect(),
         Binding::Solo(role) => vec![Command::Solo(press.then(|| role.clone()))],
         Binding::Release => press.then_some(Command::Release).into_iter().collect(),
+        Binding::Grand => vec![Command::Grand(input.value)],
+        Binding::PlaybackMaster(class) => vec![Command::PlaybackMaster(*class, input.value)],
+        Binding::Tap => press
+            .then_some(Command::Speed(SpeedKey::Tap))
+            .into_iter()
+            .collect(),
+        Binding::Half => press
+            .then_some(Command::Speed(SpeedKey::Half))
+            .into_iter()
+            .collect(),
+        Binding::Double => press
+            .then_some(Command::Speed(SpeedKey::Double))
+            .into_iter()
+            .collect(),
+        Binding::ResetSpeed => press
+            .then_some(Command::Speed(SpeedKey::Reset))
+            .into_iter()
+            .collect(),
+        Binding::Pause => press
+            .then_some(Command::Key {
+                index: 0,
+                action: KeyAction::Pause,
+                down: true,
+            })
+            .into_iter()
+            .collect(),
+        Binding::GoBack => press
+            .then_some(Command::Key {
+                index: 0,
+                action: KeyAction::GoBack,
+                down: true,
+            })
+            .into_iter()
+            .collect(),
+        Binding::Load(index) => press
+            .then_some(Command::Key {
+                index: *index,
+                action: KeyAction::Load,
+                down: true,
+            })
+            .into_iter()
+            .collect(),
+        Binding::SoundFade => vec![Command::SoundFade(input.value * 2.0)],
     }
+}
+
+// ── feedback ─────────────────────────────────────────────────────────
+
+/// One message back to a surface. Built by the pure encoders below,
+/// sent by the feedback thread; the encoders are what the tests cover.
+// r[impl playback.remote-feedback]
+#[derive(Debug, Clone, PartialEq)]
+pub enum Feedback {
+    /// An OSC float at an address.
+    Osc(String, f32),
+    /// Raw MIDI bytes for one device.
+    Midi { port: String, bytes: [u8; 3] },
+}
+
+/// OSC feedback is sent no more often than this.
+pub const FEEDBACK_HZ: f32 = 30.0;
+
+/// The OSC addresses a surface hears the engine's state on.
+///
+/// `/fader/N` and `/key/N` are 1-based like the input addresses the
+/// shipped mapping uses, so a TouchOSC page can bind one control to
+/// both directions.
+// r[impl playback.remote-feedback] - fader positions, key states and the page over OSC
+pub fn osc_messages(state: &Playhead) -> Vec<(String, f32)> {
+    let mut out = Vec::new();
+    for (i, level) in state.levels.iter().enumerate() {
+        out.push((format!("/fader/{}", i + 1), *level));
+    }
+    for (i, on) in state.toggled.iter().enumerate() {
+        out.push((format!("/key/{}", i + 1), if *on { 1.0 } else { 0.0 }));
+    }
+    out.push(("/page".to_string(), (state.page + 1) as f32));
+    out.push(("/master/song".to_string(), state.song_master()));
+    out.push(("/master/look".to_string(), state.look_master()));
+    out.push(("/grand".to_string(), state.grand));
+    out
+}
+
+/// The CCs and notes a device hears the engine's state on: the inverse
+/// of its own bindings, so whatever CC moves fader 3 is the CC fader 3
+/// is reported back on. Only bindings with a state to report are
+/// echoed; a verb has none.
+// r[impl playback.remote-feedback] - MIDI where the device accepts it
+pub fn midi_messages(device: &MidiConfig, state: &Playhead) -> Vec<[u8; 3]> {
+    if !device.feedback {
+        return Vec::new();
+    }
+    let channel = device.channel.unwrap_or(1).clamp(1, 16) - 1;
+    let level_of = |binding: &Binding| -> Option<f32> {
+        match binding {
+            Binding::Fader(i) => state.levels.get(*i).copied(),
+            Binding::Grand => Some(state.grand),
+            Binding::PlaybackMaster(Class::Song) => Some(state.song_master()),
+            Binding::PlaybackMaster(Class::Look) => Some(state.look_master()),
+            _ => None,
+        }
+    };
+    let mut out = Vec::new();
+    for (cc, binding) in &device.cc {
+        let (Ok(cc), Some(level)) = (cc.parse::<u8>(), level_of(binding)) else {
+            continue;
+        };
+        out.push([
+            0xb0 | channel,
+            cc,
+            (level.clamp(0.0, 1.0) * 127.0).round() as u8,
+        ]);
+    }
+    for (note, binding) in &device.notes {
+        let Ok(note) = note.parse::<u8>() else {
+            continue;
+        };
+        let on = match binding {
+            Binding::Key {
+                index,
+                action: KeyAction::Toggle,
+            } => state.toggled.get(*index).copied(),
+            Binding::Blind => Some(state.blind),
+            Binding::Pause => Some(state.paused),
+            _ => None,
+        };
+        if let Some(on) = on {
+            out.push([0x90 | channel, note, if on { 127 } else { 0 }]);
+        }
+    }
+    out
+}
+
+/// Which messages to send now, if any: nothing if the state has not
+/// changed since the last send, nothing if the last send was less than
+/// a thirtieth of a second ago. Only what *changed* goes, so a device
+/// with one motor per fader is not asked to move eight.
+///
+/// Time is a number of seconds rather than an `Instant` so the throttle
+/// is testable without sleeping.
+// r[impl playback.remote-feedback] - on every change, throttled
+#[derive(Debug, Clone, Default)]
+pub struct FeedbackEncoder {
+    last_sent: Option<(f32, Playhead)>,
+    /// Last values sent per OSC address / MIDI message key, to diff.
+    sent: BTreeMap<String, f32>,
+}
+
+impl FeedbackEncoder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Everything about `state` that differs from the last send, or
+    /// nothing if it is too soon. The first call sends everything.
+    pub fn encode(
+        &mut self,
+        now: f32,
+        state: &Playhead,
+        osc: bool,
+        devices: &[MidiConfig],
+    ) -> Vec<Feedback> {
+        if let Some((at, last)) = &self.last_sent {
+            if now - at < 1.0 / FEEDBACK_HZ {
+                return Vec::new();
+            }
+            if !feedback_differs(last, state) {
+                return Vec::new();
+            }
+        }
+        let mut out = Vec::new();
+        if osc {
+            for (address, value) in osc_messages(state) {
+                if self.sent.get(&address) != Some(&value) {
+                    self.sent.insert(address.clone(), value);
+                    out.push(Feedback::Osc(address, value));
+                }
+            }
+        }
+        for device in devices {
+            for bytes in midi_messages(device, state) {
+                let key = format!("{}:{:02x}:{}", device.port, bytes[0], bytes[1]);
+                let value = f32::from(bytes[2]);
+                if self.sent.get(&key) != Some(&value) {
+                    self.sent.insert(key, value);
+                    out.push(Feedback::Midi {
+                        port: device.port.clone(),
+                        bytes,
+                    });
+                }
+            }
+        }
+        self.last_sent = Some((now, *state));
+        out
+    }
+}
+
+/// Whether any of the state feedback reports has moved. The song clock
+/// moves every frame and is not reported, so it must not count.
+fn feedback_differs(a: &Playhead, b: &Playhead) -> bool {
+    a.levels != b.levels
+        || a.toggled != b.toggled
+        || a.page != b.page
+        || a.playback_masters != b.playback_masters
+        || a.grand != b.grand
+        || a.blind != b.blind
+        || a.paused != b.paused
 }
 
 /// A MIDI message this cares about, decoded from the wire bytes.
@@ -434,6 +678,136 @@ pub fn start(tx: Sender) {
     }
     if let Some(osc) = config.osc {
         osc_listener::start(osc, tx);
+    }
+}
+
+/// Starts the feedback thread, if the mapping asks for any: an OSC
+/// destination, or a MIDI device with `"feedback": true`. Reads the
+/// engine's published state and sends what changed, at most thirty
+/// times a second.
+// r[impl playback.remote-feedback]
+pub fn start_feedback(state: crate::command::StateRx) {
+    let path = std::env::var("IGNITION_REMOTE").unwrap_or_else(|_| DEFAULT_MAPPING.to_string());
+    let Some(config) = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|text| parse(&text).ok())
+    else {
+        return;
+    };
+    let devices: Vec<MidiConfig> = config.midi.iter().filter(|d| d.feedback).cloned().collect();
+    if config.feedback.is_none() && devices.is_empty() {
+        return;
+    }
+    feedback::start(config.feedback, devices, state);
+}
+
+mod feedback {
+    use super::{Feedback, FeedbackConfig, FeedbackEncoder, MidiConfig};
+    use crate::command::StateRx;
+
+    /// Where the messages go. Each half is compiled only with its
+    /// feature; without it the mapping's request is logged and dropped.
+    struct Sinks {
+        #[cfg(feature = "osc")]
+        osc: Option<(std::net::UdpSocket, std::net::SocketAddr)>,
+        #[cfg(feature = "midi")]
+        midi: Vec<(String, midir::MidiOutputConnection)>,
+    }
+
+    impl Sinks {
+        fn open(osc: Option<FeedbackConfig>, devices: &[MidiConfig]) -> Self {
+            #[cfg(not(feature = "osc"))]
+            if let Some(osc) = &osc {
+                tracing::info!(
+                    host = osc.host,
+                    port = osc.port,
+                    "osc: feedback mapped but this build has no `osc` feature"
+                );
+            }
+            #[cfg(not(feature = "midi"))]
+            for device in devices {
+                tracing::info!(
+                    port = device.port,
+                    "midi: feedback mapped but this build has no `midi` feature"
+                );
+            }
+            Self {
+                #[cfg(feature = "osc")]
+                osc: osc.and_then(|f| {
+                    use std::net::ToSocketAddrs;
+                    let addr = (f.host.as_str(), f.port).to_socket_addrs().ok()?.next()?;
+                    let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+                    tracing::info!(%addr, "osc: feedback to");
+                    Some((socket, addr))
+                }),
+                #[cfg(feature = "midi")]
+                midi: devices
+                    .iter()
+                    .filter_map(|device| {
+                        let output = midir::MidiOutput::new("ignition-studio feedback").ok()?;
+                        let ports = output.ports();
+                        let port = ports.iter().find(|p| {
+                            output
+                                .port_name(p)
+                                .is_ok_and(|name| name.contains(&device.port))
+                        })?;
+                        let connection = output.connect(port, "ignition-studio feedback").ok()?;
+                        tracing::info!(port = device.port, "midi: feedback connected");
+                        Some((device.port.clone(), connection))
+                    })
+                    .collect(),
+            }
+        }
+
+        fn send(&mut self, message: Feedback) {
+            match message {
+                #[cfg(feature = "osc")]
+                Feedback::Osc(address, value) => {
+                    if let Some((socket, addr)) = &self.osc {
+                        let packet = rosc::OscPacket::Message(rosc::OscMessage {
+                            addr: address,
+                            args: vec![rosc::OscType::Float(value)],
+                        });
+                        if let Ok(bytes) = rosc::encoder::encode(&packet) {
+                            let _ = socket.send_to(&bytes, addr);
+                        }
+                    }
+                }
+                #[cfg(feature = "midi")]
+                Feedback::Midi { port, bytes } => {
+                    if let Some((_, connection)) = self.midi.iter_mut().find(|(p, _)| *p == port) {
+                        let _ = connection.send(&bytes);
+                    }
+                }
+                #[allow(unreachable_patterns)]
+                _ => {}
+            }
+        }
+    }
+
+    pub fn start(osc: Option<FeedbackConfig>, devices: Vec<MidiConfig>, mut state: StateRx) {
+        std::thread::Builder::new()
+            .name("remote feedback".into())
+            .spawn(move || {
+                let want_osc = osc.is_some();
+                let mut sinks = Sinks::open(osc, &devices);
+                let mut encoder = FeedbackEncoder::new();
+                let started = std::time::Instant::now();
+                loop {
+                    // Wake on change; the encoder throttles. A closed
+                    // channel is the app going away.
+                    if state.has_changed().is_err() {
+                        return;
+                    }
+                    let now = started.elapsed().as_secs_f32();
+                    let latest = *state.borrow_and_update();
+                    for message in encoder.encode(now, &latest, want_osc, &devices) {
+                        sinks.send(message);
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+            })
+            .ok();
     }
 }
 
@@ -837,6 +1211,127 @@ mod tests {
         ));
         assert!(osc.commands_for("/go", Some(0.0), &mut toggles).is_empty());
         assert!(osc.commands_for("/nothing", None, &mut toggles).is_empty());
+    }
+
+    #[test]
+    fn the_new_verbs_translate_to_masters_speed_keys_and_transport() {
+        let mut toggles = Toggles::default();
+        assert!(matches!(
+            translate(&Binding::Grand, Input::cc(127), &mut toggles)[..],
+            [Command::Grand(v)] if (v - 1.0).abs() < 1e-6
+        ));
+        assert!(matches!(
+            translate(&Binding::PlaybackMaster(Class::Look), Input::cc(0), &mut toggles)[..],
+            [Command::PlaybackMaster(Class::Look, v)] if v == 0.0
+        ));
+        assert!(matches!(
+            translate(&Binding::Tap, Input::note(true), &mut toggles)[..],
+            [Command::Speed(SpeedKey::Tap)]
+        ));
+        assert!(translate(&Binding::Tap, Input::note(false), &mut toggles).is_empty());
+        assert!(matches!(
+            translate(&Binding::Pause, Input::note(true), &mut toggles)[..],
+            [Command::Key {
+                action: KeyAction::Pause,
+                down: true,
+                ..
+            }]
+        ));
+        assert!(matches!(
+            translate(&Binding::Load(4), Input::note(true), &mut toggles)[..],
+            [Command::Key {
+                index: 4,
+                action: KeyAction::Load,
+                ..
+            }]
+        ));
+        assert!(matches!(
+            translate(&Binding::SoundFade, Input::cc(127), &mut toggles)[..],
+            [Command::SoundFade(s)] if (s - 2.0).abs() < 1e-6
+        ));
+        let config = parse(
+            r#"{"osc": {"port": 1, "addresses": {"/tap": "tap", "/gm": "grand",
+                "/m/song": {"playback_master": "Song"}, "/load": {"load": 2}}},
+                "feedback": {"host": "127.0.0.1", "port": 9001},
+                "midi": {"port": "x", "feedback": true}}"#,
+        )
+        .expect("parses");
+        assert_eq!(config.feedback.as_ref().map(|f| f.port), Some(9001));
+        assert!(config.midi[0].feedback);
+    }
+
+    fn state() -> Playhead {
+        let mut state = Playhead {
+            page: 1,
+            grand: 0.5,
+            playback_masters: [1.0, 0.25],
+            ..Default::default()
+        };
+        state.levels[2] = 0.75;
+        state.toggled[3] = true;
+        state
+    }
+
+    /// r[verify playback.remote-feedback]
+    #[test]
+    fn osc_feedback_reports_faders_keys_page_and_masters() {
+        let messages = osc_messages(&state());
+        let get = |addr: &str| messages.iter().find(|(a, _)| a == addr).map(|(_, v)| *v);
+        assert_eq!(get("/fader/3"), Some(0.75));
+        assert_eq!(get("/fader/1"), Some(0.0));
+        assert_eq!(get("/key/4"), Some(1.0));
+        assert_eq!(get("/key/1"), Some(0.0));
+        assert_eq!(get("/page"), Some(2.0));
+        assert_eq!(get("/master/song"), Some(1.0));
+        assert_eq!(get("/master/look"), Some(0.25));
+        assert_eq!(get("/grand"), Some(0.5));
+    }
+
+    /// r[verify playback.remote-feedback]
+    #[test]
+    fn midi_feedback_is_the_inverse_of_the_device_bindings() {
+        let mut device = parse(MAPPING).unwrap().midi.remove(0);
+        assert!(
+            midi_messages(&device, &state()).is_empty(),
+            "off by default"
+        );
+        device.feedback = true;
+        device.cc.insert("9".into(), Binding::Grand);
+        let out = midi_messages(&device, &state());
+        // CC 0 is fader 0 (at 0), CC 7 is fader 7 (at 0), CC 9 the GM.
+        assert!(out.contains(&[0xb0, 0, 0]));
+        assert!(out.contains(&[0xb0, 9, 64]));
+        // Note 48 is the toggle on slot 0, which is off; a flash key
+        // has no state and is not echoed.
+        assert!(out.contains(&[0x90, 48, 0]));
+        assert!(!out.iter().any(|m| m[1] == 32 && m[0] == 0x90));
+        // A verb is not echoed either.
+        assert!(!out.iter().any(|m| m[1] == 23));
+    }
+
+    /// r[verify playback.remote-feedback]
+    #[test]
+    fn feedback_is_throttled_and_only_sends_what_changed() {
+        let mut encoder = FeedbackEncoder::new();
+        let first = encoder.encode(0.0, &state(), true, &[]);
+        assert!(first.len() > 8, "the first send is everything");
+        // Nothing changed: nothing sent, however long it has been.
+        assert!(encoder.encode(1.0, &state(), true, &[]).is_empty());
+        let mut moved = state();
+        moved.levels[0] = 0.5;
+        // Due — the last send was at 0.0 — and only the fader that
+        // moved goes.
+        let out = encoder.encode(1.01, &moved, true, &[]);
+        assert_eq!(out, vec![Feedback::Osc("/fader/1".into(), 0.5)]);
+        // Moved again, but too soon after that send.
+        moved.levels[0] = 0.6;
+        assert!(encoder.encode(1.02, &moved, true, &[]).is_empty());
+        // And it goes once the throttle opens.
+        let out = encoder.encode(1.1, &moved, true, &[]);
+        assert_eq!(out, vec![Feedback::Osc("/fader/1".into(), 0.6)]);
+        // The song clock moving is not a change worth a message.
+        moved.secs = 12.0;
+        assert!(encoder.encode(2.0, &moved, true, &[]).is_empty());
     }
 
     /// The file that ships has to parse, or the first night with a

@@ -133,7 +133,7 @@ fn flicker(
         attack,
         decay,
         seed,
-        absolute: false,
+        ..Default::default()
     }
 }
 
@@ -698,6 +698,7 @@ fn add_filtered(add: Add, skip_generated: bool) {
                 decay: 0.0,
                 seed: 4409,
                 absolute: true,
+                ..Default::default()
             }),
             beat(0.25, 0.0, Play::Forward),
             vec![Trick::Shuffle(4409)],

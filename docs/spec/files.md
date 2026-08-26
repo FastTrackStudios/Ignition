@@ -173,3 +173,16 @@ only be edited by unpacking and repacking will drift from what is in git.
 The manifest is `venue.ig-venue` in the directory: `{ "version", "name",
 "profile", "files": { optional overrides of the JSON file names }, "assets" }`.
 A directory with no manifest is the same venue with every default.
+
+## Patch details
+
+r[files.venue.multipatch]
+A venue MUST be able to patch one fixture to several DMX addresses
+(**multipatch**), so four house pars on one address are one fixture in the
+show and four on the wire.
+
+r[files.venue.dmx-curves]
+A venue's fixture type MAY carry an attribute **curve** — a lookup from the
+attribute's normalised value to the wire value — so a dimmer that is not
+linear, or a channel whose physical range is a subset, is corrected at output
+and HTP between two different types compares like with like.

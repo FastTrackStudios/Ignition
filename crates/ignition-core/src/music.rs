@@ -717,6 +717,7 @@ mod tests {
                 name: "hit".into(),
                 hold: false,
             }],
+            ..Default::default()
         };
         let positions = Positions::of(&list, &old);
         assert_eq!(positions.cues["CH 1"], Position::at("CH 1", 0));

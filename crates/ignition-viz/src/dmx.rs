@@ -277,6 +277,7 @@ mod tests {
 
     fn map(channels: Vec<(u16, Attribute)>) -> ChannelMap {
         ChannelMap {
+            curves: Default::default(),
             footprint: channels.len() as u16 + 1,
             channels,
         }

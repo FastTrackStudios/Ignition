@@ -22,6 +22,7 @@ Read in this order — each file assumes the ones above it.
 | [playback.md](playback.md) | **The priority stack.** Hand › masters › flashes › faders › triggers › cue player. Transient over sustained. HTP/LTP. Nothing merges at DMX. |
 | [triggers.md](triggers.md) | Hits the song fires. Crossing fires; stopped fires nothing; seek locates. Sum, retire, bound. |
 | [canvas.md](canvas.md) | Canvases as fixture grids: procedural content, bitmap channels driving any attribute, clips as one source among many. |
+| [visualizer.md](visualizer.md) | Rendering from DMX bytes, video export, gobo raster. |
 | [song.md](song.md) | The song level: bars not seconds, the song map from the DAW, the hit chart (pulses, hits, figures, zones), generation, transport. |
 
 Design history and prior art live in [`../domain/`](../domain/) and

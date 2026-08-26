@@ -286,6 +286,13 @@
       "resolved": {
         "bar": 3,
         "beat": 1.0
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -767,6 +774,13 @@
       "resolved": {
         "bar": 7,
         "beat": 1.0
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -1240,6 +1254,15 @@
       "resolved": {
         "bar": 11,
         "beat": 1.0
+      },
+      "timing": {
+        "position": 4.0,
+        "delay": {
+          "intensity": 0.0,
+          "colour": 0.0,
+          "position": 0.0,
+          "beam": 0.0
+        }
       }
     },
     {
@@ -1509,6 +1532,13 @@
       "resolved": {
         "bar": 19,
         "beat": 1.0
+      },
+      "mib": {
+        "mode": "Late",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -1916,6 +1946,22 @@
       "resolved": {
         "bar": 23,
         "beat": 1.0
+      },
+      "timing": {
+        "color": 0.0,
+        "delay": {
+          "intensity": 0.0,
+          "colour": 0.0,
+          "position": 0.0,
+          "beam": 0.0
+        }
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -2648,6 +2694,22 @@
       "resolved": {
         "bar": 32,
         "beat": 1.0
+      },
+      "timing": {
+        "position": 4.0,
+        "delay": {
+          "intensity": 0.0,
+          "colour": 0.0,
+          "position": 0.0,
+          "beam": 0.0
+        }
+      },
+      "mib": {
+        "mode": "Late",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -2920,6 +2982,13 @@
       "resolved": {
         "bar": 40,
         "beat": 1.0
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -3327,6 +3396,22 @@
       "resolved": {
         "bar": 44,
         "beat": 1.0
+      },
+      "timing": {
+        "color": 0.0,
+        "delay": {
+          "intensity": 0.0,
+          "colour": 0.0,
+          "position": 0.0,
+          "beam": 0.0
+        }
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -3695,6 +3780,22 @@
       "resolved": {
         "bar": 52,
         "beat": 1.0
+      },
+      "timing": {
+        "position": 4.0,
+        "delay": {
+          "intensity": 0.0,
+          "colour": 0.0,
+          "position": 0.0,
+          "beam": 0.0
+        }
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -3830,6 +3931,13 @@
       "resolved": {
         "bar": 57,
         "beat": 1.0
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -4375,6 +4483,22 @@
       "resolved": {
         "bar": 61,
         "beat": 1.0
+      },
+      "timing": {
+        "color": 0.0,
+        "delay": {
+          "intensity": 0.0,
+          "colour": 0.0,
+          "position": 0.0,
+          "beam": 0.0
+        }
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {
@@ -4461,6 +4585,13 @@
       "resolved": {
         "bar": 65,
         "beat": 1.0
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 30,
+        "multistep": "running"
       }
     },
     {
@@ -4678,6 +4809,13 @@
       "resolved": {
         "bar": 73,
         "beat": 1.0
+      },
+      "mib": {
+        "mode": "Early",
+        "fade_beats": 2.0,
+        "delay_beats": 0.0,
+        "preference": 80,
+        "multistep": "running"
       }
     },
     {

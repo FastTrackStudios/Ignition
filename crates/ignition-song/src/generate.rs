@@ -273,11 +273,16 @@ pub fn generate(song: &SongMap, roles: &Roles) -> CueList {
         .iter()
         .map(|section| cue_for(song, section, roles))
         .collect();
-    CueList {
+    let mut list = CueList {
         triggers: Vec::new(),
         name: song.name.clone(),
         cues,
-    }
+        ..Default::default()
+    };
+    // r[impl cues.generator-emits-mib] - flagged from the recipes, after the list is built
+    crate::mib::set_mib(&mut list);
+    crate::mib::set_class_timing(&mut list);
+    list
 }
 
 // r[impl song.generate] - one blocking cue per section at its start

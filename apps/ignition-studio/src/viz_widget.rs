@@ -56,6 +56,70 @@ pub struct VizWidget {
     transport: Option<SongTransport>,
     /// Where the show is, published back to the UI every frame.
     report: StateTx,
+    /// The sound-in's levels, raw as they arrived and smoothed by the
+    /// sound fade — see [`SoundFade`].
+    sound: SoundFade,
+}
+
+/// The sound fade: a one-pole smoother over the band levels, with the
+/// time constant the operator sets.
+///
+/// Here rather than in the engine because `Show::sound` is defined as
+/// *already smoothed* — a recipe stays a pure function of what it is
+/// handed, and the same recipe on the same levels is the same value
+/// everywhere. The host owns the time.
+// r[impl playback.sound-as-value] - the sound fade, smoothing the levels the recipes read
+#[derive(Debug, Clone, PartialEq)]
+pub struct SoundFade {
+    /// Seconds to settle, 0–2. Zero passes the raw meter through.
+    pub secs: f32,
+    /// What the input last reported.
+    pub raw: [f32; 3],
+    /// What the recipes read.
+    pub smoothed: [f32; 3],
+    last_step: Option<std::time::Instant>,
+}
+
+impl Default for SoundFade {
+    fn default() -> Self {
+        Self {
+            secs: 0.25,
+            raw: [0.0; 3],
+            smoothed: [0.0; 3],
+            last_step: None,
+        }
+    }
+}
+
+impl SoundFade {
+    /// The longest fade the slider offers.
+    pub const MAX_SECS: f32 = 2.0;
+
+    /// Advances the smoothing by `dt` seconds. A fade of zero snaps.
+    /// Exponential rather than linear so a kick reads as a lift with a
+    /// tail, which is what "fade" means at a desk.
+    pub fn step(&mut self, dt: f32) -> [f32; 3] {
+        let k = if self.secs <= 0.0 || dt <= 0.0 {
+            1.0
+        } else {
+            (1.0 - (-dt / self.secs).exp()).clamp(0.0, 1.0)
+        };
+        for (s, r) in self.smoothed.iter_mut().zip(self.raw) {
+            *s += k * (r - *s);
+        }
+        self.smoothed
+    }
+
+    /// Steps by the wall clock since the last call.
+    fn tick(&mut self) -> [f32; 3] {
+        let now = std::time::Instant::now();
+        let dt = self
+            .last_step
+            .map(|t| now.duration_since(t).as_secs_f32())
+            .unwrap_or(0.0);
+        self.last_step = Some(now);
+        self.step(dt)
+    }
 }
 
 enum State {
@@ -135,6 +199,7 @@ impl VizWidget {
             registered: None,
             transport,
             report,
+            sound: SoundFade::default(),
         }
     }
 }
@@ -197,7 +262,13 @@ impl Widget for VizWidget {
             tracing::debug!(width, height, "viz.embed: paint with no active viz");
             return scene;
         };
-        drain(&self.commands, viz, self.transport.as_ref());
+        drain(
+            &self.commands,
+            viz,
+            self.transport.as_ref(),
+            &mut self.sound,
+        );
+        smooth_sound(&mut self.sound, viz);
         follow_song(self.transport.as_ref(), viz);
         publish(&self.report, self.transport.as_ref(), viz);
         let rendered = viz.render(width, height);
@@ -248,7 +319,12 @@ impl Widget for VizWidget {
 ///
 /// Drained rather than blocked on: a dropped frame's worth of messages
 /// is better than a stalled frame, and the sender will send again.
-fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTransport>) {
+fn drain(
+    commands: &Receiver,
+    viz: &mut EmbeddedViz,
+    transport: Option<&SongTransport>,
+    sound_fade: &mut SoundFade,
+) {
     use ignition_core::{Class, RecipeApply, Show};
 
     let world = viz.app_mut().world_mut();
@@ -258,7 +334,6 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
     {
         let Playback {
             playbacks,
-            sound,
             groups,
             rig,
             palettes,
@@ -292,7 +367,20 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                     down,
                 } => {
                     if down {
-                        programmer.key_down(index, action);
+                        // A transport key lands on a playback, which the
+                        // programmer cannot reach; it hands the request back.
+                        // r[impl playback.temp-and-pause] - pause, go back, load
+                        if let Some(request) = programmer.key_down(index, action) {
+                            let show = Show {
+                                groups,
+                                palettes,
+                                rig,
+                                speeds,
+                                roles: profile,
+                                ..Show::new(groups, rig)
+                            };
+                            playbacks.transport(request, &show);
+                        }
                     } else {
                         programmer.key_up(index);
                     }
@@ -309,8 +397,51 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         speeds.insert("Tap".to_string(), bpm);
                     }
                 }
+                // Raw levels land on the fade, not the engine: what the
+                // engine reads is written by `smooth_sound` every frame.
                 Command::SoundLevels { low, mid, high } => {
-                    *sound = ignition_viz::playback::SoundLevels { low, mid, high };
+                    sound_fade.raw = [low, mid, high];
+                }
+                Command::SoundFade(secs) => {
+                    sound_fade.secs = secs.clamp(0.0, SoundFade::MAX_SECS);
+                }
+                // r[impl playback.grand-master]
+                Command::Grand(level) => programmer.set_grand(level),
+                // r[impl playback.playback-master]
+                Command::PlaybackMaster(class, level) => {
+                    for entry in playbacks.entries.iter_mut().filter(|e| e.class == class) {
+                        entry.master = level.clamp(0.0, 1.0);
+                    }
+                }
+                // r[impl playback.park] - at the programmer's held value per fixture
+                Command::Park { selection, attrs } => {
+                    let held: std::collections::HashMap<_, _> = programmer
+                        .captured()
+                        .into_iter()
+                        .map(|v| ((v.chan, v.attr), v.value))
+                        .collect();
+                    let chans = ignition_core::selection::resolve(&selection, groups, rig);
+                    let mut parked = 0usize;
+                    for chan in chans {
+                        for attr in &attrs {
+                            if let Some(value) = held.get(&(chan, attr.clone())) {
+                                programmer.park_chan(chan, attr.clone(), *value);
+                                parked += 1;
+                            }
+                        }
+                    }
+                    tracing::info!(parked, "studio: parked");
+                }
+                Command::Unpark { selection, attrs } => {
+                    for chan in ignition_core::selection::resolve(&selection, groups, rig) {
+                        for attr in &attrs {
+                            programmer.unpark_chan(chan, attr);
+                        }
+                    }
+                }
+                // r[impl playback.speed-keys]
+                Command::Speed(key) => {
+                    programmer.key_down(0, key.action());
                 }
                 Command::Rate(bpm) => {
                     speeds.insert("Rate".to_string(), bpm);
@@ -478,6 +609,19 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
     viz.app_mut().world_mut().insert_resource(playback);
 }
 
+/// Writes the smoothed band levels into the engine for this frame.
+///
+/// Every frame, even when nothing arrived: the fade is what makes a
+/// kick decay rather than vanish, and the decay happens between inputs.
+// r[impl playback.sound-as-value] - `Show.sound` is written every frame
+fn smooth_sound(fade: &mut SoundFade, viz: &mut EmbeddedViz) {
+    let [low, mid, high] = fade.tick();
+    let world = viz.app_mut().world_mut();
+    if let Some(mut playback) = world.get_resource_mut::<Playback>() {
+        playback.sound = ignition_viz::playback::SoundLevels { low, mid, high };
+    }
+}
+
 /// Reports where the show actually is, for the UI to render.
 ///
 /// The cue index comes from the **player**, not from what the sidebar
@@ -512,8 +656,29 @@ fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut Embedde
             next.toggled[i] = prog.is_toggled(i);
         }
         next.blind = prog.blind;
-        next.tap_bpm = p.speeds.get("Tap").copied().unwrap_or(0.0);
+        next.tap_bpm = prog
+            .tap
+            .bpm()
+            .or_else(|| p.speeds.get("Tap").copied())
+            .unwrap_or(0.0);
+        next.tap_multiplier = prog.tap.multiplier;
         next.sound = [p.sound.low, p.sound.mid, p.sound.high];
+        next.grand = prog.grand;
+        next.parked = prog.parked.len();
+        for i in 0..ignition_core::FADERS {
+            next.levels[i] = prog.faders[i].level;
+        }
+        for entry in &p.playbacks.entries {
+            let slot = match entry.class {
+                ignition_core::Class::Song => 0,
+                ignition_core::Class::Look => 1,
+                _ => continue,
+            };
+            next.playback_masters[slot] = entry.master;
+            if entry.class == ignition_core::Class::Song {
+                next.paused = entry.player.is_paused();
+            }
+        }
     }
     if let Some(t) = transport {
         next.secs = t.seconds() as f32;
@@ -588,4 +753,38 @@ fn follow_song(transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
         }
     }
     viz.app_mut().world_mut().insert_resource(playback);
+}
+
+#[cfg(test)]
+mod sound_fade_tests {
+    use super::SoundFade;
+
+    /// r[verify playback.sound-as-value]
+    #[test]
+    fn a_zero_fade_snaps_and_a_long_one_lags() {
+        let mut snap = SoundFade {
+            secs: 0.0,
+            raw: [1.0, 0.5, 0.0],
+            ..Default::default()
+        };
+        assert_eq!(snap.step(0.016), [1.0, 0.5, 0.0]);
+        let mut slow = SoundFade {
+            secs: 1.0,
+            raw: [1.0, 0.0, 0.0],
+            ..Default::default()
+        };
+        let first = slow.step(0.1)[0];
+        assert!(first > 0.0 && first < 0.2, "{first}");
+        // Approaches the raw level and never overshoots.
+        let mut last = first;
+        for _ in 0..100 {
+            let next = slow.step(0.1)[0];
+            assert!(next >= last && next <= 1.0);
+            last = next;
+        }
+        assert!(last > 0.99, "{last}");
+        // And decays when the input stops.
+        slow.raw = [0.0; 3];
+        assert!(slow.step(0.5)[0] < last);
+    }
 }

@@ -1132,6 +1132,7 @@ mod tests {
             name: "Song".into(),
             cues: vec![cue("A", vec![on(Selection::Role("Key".into()))])],
             triggers: vec![],
+            ..Default::default()
         };
         let doc = ShowDocument::new(
             list.clone(),
@@ -1183,6 +1184,7 @@ mod tests {
                 cue("Chorus", vec![on(Selection::Role("Back".into()))]),
             ],
             triggers: vec![],
+            ..Default::default()
         }
     }
 

@@ -17,10 +17,14 @@
 //! generic mesh, it just gets its live DMX behaviour from real data
 //! instead of a guess.
 
-use crate::fixture_profile::{FixtureEmitters, typical_emitter};
+use crate::fixture_profile::{
+    ColorWheelSlot, DeclaredColorSpace, FixtureEmitters, FixtureProfile, rest_defaults,
+    typical_emitter,
+};
 use gdtf::GdtfFile;
-use ignition_core::color::{Emitter, emitter};
+use ignition_core::color::{ColorSpace, Emitter, Intent, emitter};
 use ignition_proto::{Attribute, ChannelMap, ColorChannel};
+use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
 
@@ -41,6 +45,147 @@ pub struct GdtfChannelMap {
     /// for a fixture with no `ColorAdd_*` channels at all.
     // r[impl color.emitter-solve] - real emitter data from GDTF when present
     pub emitters: Option<FixtureEmitters>,
+    /// The colour wheel's slots, from the first `Color1` channel function
+    /// that links a wheel; empty when the mode has no wheel.
+    pub wheel: Vec<ColorWheelSlot>,
+    /// The fixture type's declared colour space (`PhysicalDescriptions/
+    /// ColorSpace`); sRGB when it declares none.
+    pub color_space: DeclaredColorSpace,
+    /// Each channel's `Default` (from its initial channel function),
+    /// in cue-engine units — degrees for pan/tilt, `0..=1` otherwise.
+    /// Channels whose function carries no usable default fall back to
+    /// `rest_defaults`.
+    pub defaults: HashMap<Attribute, f32>,
+}
+
+impl GdtfChannelMap {
+    /// The output-side profile this import describes.
+    // r[impl color.spaces] - the GDTF colour space reaches the solve
+    // r[impl playback.defaults] - GDTF defaults reach the floor
+    pub fn profile(&self) -> FixtureProfile {
+        let mut profile = FixtureProfile::from_channel_map(self.channel_map.clone())
+            .with_wheel(self.wheel.clone());
+        if self.emitters.is_some() {
+            profile.emitters = self.emitters.clone();
+        }
+        profile.color_space = self.color_space.clone();
+        profile.defaults = self.defaults.clone();
+        profile
+    }
+}
+
+/// A GDTF `DmxValue` as a fraction of its own byte width.
+fn dmx_fraction(value: gdtf::values::DmxValue) -> f32 {
+    let bits = 8 * value.bytes().get() as u32;
+    let max = ((1u64 << bits) - 1) as f64;
+    (value.value() as f64 / max) as f32
+}
+
+/// A GDTF `DmxValue` at 8 bits — its coarse byte.
+fn dmx_byte(value: gdtf::values::DmxValue) -> u8 {
+    (dmx_fraction(value) * 255.0).round().clamp(0.0, 255.0) as u8
+}
+
+/// A channel function's `Default` in cue-engine units for `attr`.
+fn default_for(attr: &Attribute, function: &gdtf::dmx_mode::ChannelFunction) -> f32 {
+    let f = dmx_fraction(function.default);
+    match attr {
+        Attribute::Pan => (f - 0.5) * 540.0,
+        Attribute::Tilt => (f - 0.5) * 270.0,
+        _ => f,
+    }
+}
+
+fn gdtf_color_space(fixture_type: &gdtf::fixture_type::FixtureType) -> DeclaredColorSpace {
+    use gdtf::physical_descriptions::ColorSpaceMode;
+    let Some(space) = &fixture_type.physical_descriptions.color_space else {
+        return DeclaredColorSpace::Known(ColorSpace::Srgb);
+    };
+    let xy = |c: &gdtf::values::ColorCie| (c.x as f32, c.y as f32);
+    match &space.mode {
+        ColorSpaceMode::Srgb => DeclaredColorSpace::Known(ColorSpace::Srgb),
+        ColorSpaceMode::ProPhoto => DeclaredColorSpace::Primaries {
+            red: (0.7347, 0.2653),
+            green: (0.1596, 0.8404),
+            blue: (0.0366, 0.0001),
+            white: (0.3457, 0.3585),
+        },
+        ColorSpaceMode::Ansi => DeclaredColorSpace::Primaries {
+            red: (0.7347, 0.2653),
+            green: (0.1596, 0.8404),
+            blue: (0.0366, 0.001),
+            white: (0.4254, 0.4044),
+        },
+        ColorSpaceMode::Custom {
+            red,
+            green,
+            blue,
+            white_point,
+        } => DeclaredColorSpace::Primaries {
+            red: xy(red),
+            green: xy(green),
+            blue: xy(blue),
+            white: xy(white_point),
+        },
+    }
+}
+
+/// The slots of the wheel `function` links, with the byte each slot's
+/// channel set starts at; evenly spaced when the function lists no sets.
+fn gdtf_wheel_slots(
+    fixture_type: &gdtf::fixture_type::FixtureType,
+    function: &gdtf::dmx_mode::ChannelFunction,
+) -> Vec<ColorWheelSlot> {
+    let Some(wheel) = function.wheel(fixture_type) else {
+        return Vec::new();
+    };
+    let slot_color = |slot: &gdtf::wheel::WheelSlot| -> Option<Intent> {
+        let gdtf::wheel::WheelSlotOptic::Color(c) = &slot.optic else {
+            return None;
+        };
+        Some(Intent::Xy {
+            x: c.x as f32,
+            y: c.y as f32,
+            luminance: 1.0,
+        })
+    };
+    let name = |slot: &gdtf::wheel::WheelSlot| {
+        slot.name
+            .as_ref()
+            .map(|n| n.to_string())
+            .unwrap_or_default()
+    };
+    let by_sets: Vec<ColorWheelSlot> = function
+        .channel_sets
+        .iter()
+        .filter_map(|set| {
+            // The parser has already made GDTF's 1-based WheelSlotIndex
+            // 0-based (see `ChannelSet::wheel_slot`).
+            let index = usize::try_from(set.wheel_slot_index?).ok()?;
+            let slot = wheel.slots.get(index)?;
+            Some(ColorWheelSlot {
+                name: name(slot),
+                byte: dmx_byte(set.dmx_from),
+                color: slot_color(slot)?,
+            })
+        })
+        .collect();
+    if !by_sets.is_empty() {
+        return by_sets;
+    }
+    let n = wheel.slots.len().max(1) as f32;
+    wheel
+        .slots
+        .iter()
+        .enumerate()
+        .filter_map(|(i, slot)| {
+            Some(ColorWheelSlot {
+                name: name(slot),
+                byte: ((i as f32 + 0.5) / n * 255.0).round() as u8,
+                color: slot_color(slot)?,
+            })
+        })
+        .collect()
 }
 
 /// Reads a `.gdtf` file and extracts the `ChannelMap` for one DMX mode.
@@ -80,6 +225,8 @@ pub fn channel_map_from_description(
 
     let mut channels = Vec::new();
     let mut emitters = Vec::new();
+    let mut defaults = HashMap::new();
+    let mut wheel = Vec::new();
     let mut footprint = 0u16;
     for ch in &mode.dmx_channels {
         // A GDTF channel with no `Offset` is a "virtual" channel (no real
@@ -101,6 +248,23 @@ pub fn channel_map_from_description(
         };
         let attr_name = logical.attribute.to_string();
         if let Some(attr) = map_attribute_name(&attr_name) {
+            let initial = ch
+                .initial_function()
+                .map(|(_, f)| f)
+                .or_else(|| logical.channel_functions.first());
+            if let Some(function) = initial
+                && !matches!(attr, Attribute::PanFine | Attribute::TiltFine)
+            {
+                defaults.insert(attr.clone(), default_for(&attr, function));
+            }
+            if matches!(attr, Attribute::ColorWheel { .. }) && wheel.is_empty() {
+                wheel = logical
+                    .channel_functions
+                    .iter()
+                    .map(|f| gdtf_wheel_slots(fixture_type, f))
+                    .find(|w| !w.is_empty())
+                    .unwrap_or_default();
+            }
             if let Attribute::ColorAdd { channel } = &attr {
                 let measured = logical
                     .channel_functions
@@ -124,14 +288,22 @@ pub fn channel_map_from_description(
         .to_string();
     let dmx_mode_name = mode.name.as_deref().unwrap_or("").to_string();
 
+    let channel_map = ChannelMap {
+        curves: Default::default(),
+        footprint,
+        channels,
+    };
+    for (attr, rest) in rest_defaults(&channel_map) {
+        defaults.entry(attr).or_insert(rest);
+    }
     Ok(GdtfChannelMap {
         fixture_type_name,
         dmx_mode_name,
-        channel_map: ChannelMap {
-            footprint,
-            channels,
-        },
+        channel_map,
         emitters,
+        wheel,
+        color_space: gdtf_color_space(fixture_type),
+        defaults,
     })
 }
 
@@ -353,6 +525,116 @@ mod tests {
           <DMXChannel DMXBreak="1" Offset="2" Highlight="255/1" Geometry="Body">
             <LogicalChannel Attribute="ColorAdd_G">
               <ChannelFunction Name="Green" Attribute="ColorAdd_G" DMXFrom="0/1" Emitter="LED Green"/>
+            </LogicalChannel>
+          </DMXChannel>
+        </DMXChannels>
+        <Relations/>
+        <FTMacros/>
+      </DMXMode>
+    </DMXModes>
+  </FixtureType>
+</GDTF>
+"#;
+
+    /// r[verify color.spaces] - a GDTF custom colour space reaches the profile
+    /// r[verify playback.defaults] - a channel function's Default reaches the profile
+    /// r[verify color.mix-or-wheel] - a GDTF wheel's slots reach the profile with their bytes
+    #[test]
+    fn colour_space_defaults_and_wheel_come_from_the_description() {
+        let description: gdtf::Description = SPACE_XML.parse().unwrap();
+        let result = channel_map_from_description(&description, None).unwrap();
+        let DeclaredColorSpace::Primaries { red, white, .. } = &result.color_space else {
+            panic!("custom space expected, got {:?}", result.color_space);
+        };
+        assert!((red.0 - 0.7).abs() < 1e-5 && (white.1 - 0.33).abs() < 1e-5);
+        assert!((result.defaults[&Attribute::Dimmer] - 0.0).abs() < 1e-6);
+        assert!((result.defaults[&Attribute::Zoom] - 0.5).abs() < 0.01);
+        assert!(
+            (result.defaults[&Attribute::Pan] - 0.0).abs() < 1.5,
+            "{:?}",
+            result.defaults
+        );
+        assert_eq!(result.wheel.len(), 2);
+        assert_eq!(result.wheel[0].name, "Open");
+        assert_eq!(result.wheel[1].byte, 20);
+        assert!(matches!(result.wheel[1].color, Intent::Xy { x, .. } if (x - 0.68).abs() < 1e-5));
+        let profile = result.profile();
+        assert_eq!(
+            profile.color_preference,
+            ignition_core::color::ColorPreference::Mix,
+            "mixing exists, so mixing is preferred"
+        );
+        // sRGB is what a description without a ColorSpace node means.
+        let description: gdtf::Description = EMITTER_XML.parse().unwrap();
+        let result = channel_map_from_description(&description, None).unwrap();
+        assert_eq!(
+            result.color_space,
+            DeclaredColorSpace::Known(ColorSpace::Srgb)
+        );
+    }
+
+    const SPACE_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<GDTF DataVersion="1.2">
+  <FixtureType Name="Space Test" ShortName="ST" LongName="Space Test" Manufacturer="Test" Description="" FixtureTypeID="00000000-0000-0000-0000-000000000002" RefFT="">
+    <AttributeDefinitions>
+      <ActivationGroups/>
+      <FeatureGroups>
+        <FeatureGroup Name="Color" Pretty="Color"><Feature Name="RGB"/><Feature Name="Color"/></FeatureGroup>
+        <FeatureGroup Name="Dimmer" Pretty="Dimmer"><Feature Name="Dimmer"/></FeatureGroup>
+        <FeatureGroup Name="Beam" Pretty="Beam"><Feature Name="Beam"/></FeatureGroup>
+        <FeatureGroup Name="Position" Pretty="Position"><Feature Name="PanTilt"/></FeatureGroup>
+      </FeatureGroups>
+      <Attributes>
+        <Attribute Name="Dimmer" Pretty="Dim" Feature="Dimmer.Dimmer" PhysicalUnit="LuminousIntensity"/>
+        <Attribute Name="Zoom" Pretty="Zoom" Feature="Beam.Beam" PhysicalUnit="Angle"/>
+        <Attribute Name="Pan" Pretty="P" Feature="Position.PanTilt" PhysicalUnit="Angle"/>
+        <Attribute Name="ColorAdd_R" Pretty="R" Feature="Color.RGB" PhysicalUnit="ColorComponent"/>
+        <Attribute Name="Color1" Pretty="C1" Feature="Color.Color" PhysicalUnit="None"/>
+      </Attributes>
+    </AttributeDefinitions>
+    <Wheels>
+      <Wheel Name="ColorWheel">
+        <Slot Name="Open" Color="0.3127,0.3290,1.000000"/>
+        <Slot Name="Red" Color="0.680000,0.310000,0.250000"/>
+      </Wheel>
+    </Wheels>
+    <PhysicalDescriptions>
+      <Emitters/>
+      <ColorSpace Mode="Custom" Red="0.700000,0.300000,1.000000" Green="0.200000,0.700000,1.000000" Blue="0.140000,0.060000,1.000000" WhitePoint="0.320000,0.330000,1.000000"/>
+    </PhysicalDescriptions>
+    <Models/>
+    <Geometries>
+      <Geometry Name="Body" Position="{1,0,0,0}{0,1,0,0}{0,0,1,0}{0,0,0,1}"/>
+    </Geometries>
+    <DMXModes>
+      <DMXMode Name="Default" Geometry="Body">
+        <DMXChannels>
+          <DMXChannel DMXBreak="1" Offset="1" Highlight="255/1" Geometry="Body" InitialFunction="Dimmer.Dimmer.Dimmer 1">
+            <LogicalChannel Attribute="Dimmer">
+              <ChannelFunction Name="Dimmer 1" Attribute="Dimmer" DMXFrom="0/1" Default="0/1"/>
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Offset="2" Highlight="255/1" Geometry="Body">
+            <LogicalChannel Attribute="Zoom">
+              <ChannelFunction Name="Zoom 1" Attribute="Zoom" DMXFrom="0/1" Default="128/1"/>
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Offset="3,4" Highlight="255/1" Geometry="Body">
+            <LogicalChannel Attribute="Pan">
+              <ChannelFunction Name="Pan 1" Attribute="Pan" DMXFrom="0/2" Default="32768/2"/>
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Offset="5" Highlight="255/1" Geometry="Body">
+            <LogicalChannel Attribute="ColorAdd_R">
+              <ChannelFunction Name="Red" Attribute="ColorAdd_R" DMXFrom="0/1" Default="0/1"/>
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Offset="6" Highlight="0/1" Geometry="Body">
+            <LogicalChannel Attribute="Color1">
+              <ChannelFunction Name="Wheel" Attribute="Color1" DMXFrom="0/1" Default="0/1" Wheel="ColorWheel">
+                <ChannelSet Name="Open" DMXFrom="0/1" WheelSlotIndex="1"/>
+                <ChannelSet Name="Red" DMXFrom="20/1" WheelSlotIndex="2"/>
+              </ChannelFunction>
             </LogicalChannel>
           </DMXChannel>
         </DMXChannels>

@@ -125,6 +125,7 @@ mod tests {
             name: "t".into(),
             cues,
             triggers: Vec::new(),
+            ..Default::default()
         }
     }
 

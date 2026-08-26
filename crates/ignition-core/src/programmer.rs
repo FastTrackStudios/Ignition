@@ -9,6 +9,8 @@
 //! cascade (`cue.rs`), in the same first-one-wins order:
 //!
 //! ```text
+//!   grand master                 <- scales every intensity, last of all
+//!   parks                        <- a value nailed down; above the hand
 //!   highlight / lowlight         <- finding a fixture; above even the hand
 //!   programmer direct values     <- hit a palette with a group selected
 //!   masters and solo             <- per-role limits, not values
@@ -143,6 +145,137 @@ pub enum KeyAction {
     /// This fader's intensity contribution zeroed while held; every
     /// other attribute it plays carries on.
     Black,
+    /// The musical flash: the fader's recipe brought to full over the
+    /// program time while held, and back over the same on release. A
+    /// flash snaps; a temp *arrives*, so a chorus lift can be a key.
+    // r[impl playback.temp-and-pause] - temp
+    Temp,
+    /// Pauses the Song playback in place; pressing again resumes it.
+    // r[impl playback.temp-and-pause] - pause / resume
+    Pause,
+    /// Loads a cue on the Song playback as the next GO, by the key's
+    /// slot index — key 3 loads cue 3.
+    Load,
+    /// Steps the Song playback back one cue, over its own times.
+    // r[impl playback.temp-and-pause] - steppable backwards
+    GoBack,
+    /// Speed keys on the `Tap` master — see `TapMaster`.
+    // r[impl playback.speed-keys]
+    Learn,
+    HalfSpeed,
+    DoubleSpeed,
+    ResetSpeed,
+}
+
+impl KeyAction {
+    /// Whether this key belongs to a fader slot (as opposed to the
+    /// transport or the tap master).
+    pub fn is_fader_key(self) -> bool {
+        matches!(
+            self,
+            KeyAction::Flash
+                | KeyAction::Toggle
+                | KeyAction::Swap
+                | KeyAction::Kill
+                | KeyAction::Black
+                | KeyAction::Temp
+        )
+    }
+}
+
+/// The tap-tempo master behind the `Tap` speed master.
+///
+/// Learn averages rather than takes the last interval, so a hand that
+/// is a little early on one beat does not throw every phaser slaved to
+/// it. Half and double are *multipliers on the learned tempo*, so
+/// tapping again while at half time learns the true tempo and keeps the
+/// half; reset drops back to the learned tempo at ×1.
+// r[impl playback.speed-keys]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TapMaster {
+    /// Show-clock times of the taps in the current run.
+    pub taps: Vec<f32>,
+    /// The tempo learned from the taps, BPM. `None` until two taps have
+    /// landed; the `Tap` master then keeps whatever it had.
+    pub learned: Option<f32>,
+    /// The multiplier the half/double keys have applied, ×1 at rest.
+    pub multiplier: f32,
+}
+
+impl Default for TapMaster {
+    fn default() -> Self {
+        Self {
+            taps: Vec::new(),
+            learned: None,
+            multiplier: 1.0,
+        }
+    }
+}
+
+impl TapMaster {
+    /// A gap longer than this starts a new run of taps.
+    pub const RESET_GAP: f32 = 2.0;
+    /// At most this many intervals are averaged, so the tempo follows a
+    /// band that drifts rather than being anchored by its first bar.
+    pub const WINDOW: usize = 8;
+
+    /// A tap at show time `now`. The tempo is the average of the last
+    /// four to eight intervals; fewer than four are averaged as they
+    /// come, so a tempo exists from the second tap.
+    // r[impl playback.speed-keys] - learn converges rather than jitters
+    pub fn tap(&mut self, now: f32) {
+        if let Some(last) = self.taps.last()
+            && (now - last > Self::RESET_GAP || now < *last)
+        {
+            self.taps.clear();
+        }
+        self.taps.push(now);
+        while self.taps.len() > Self::WINDOW + 1 {
+            self.taps.remove(0);
+        }
+        if self.taps.len() >= 2 {
+            let intervals = self.taps.len() - 1;
+            let span = self.taps[intervals] - self.taps[0];
+            if span > 0.0 {
+                self.learned = Some(60.0 * intervals as f32 / span);
+            }
+        }
+    }
+
+    // r[impl playback.speed-keys] - half
+    pub fn half(&mut self) {
+        self.multiplier *= 0.5;
+    }
+
+    // r[impl playback.speed-keys] - double
+    pub fn double(&mut self) {
+        self.multiplier *= 2.0;
+    }
+
+    /// Back to the learned tempo at ×1. The learned tempo is kept: reset
+    /// is "stop halving", not "forget the song".
+    // r[impl playback.speed-keys] - reset to the learned tempo
+    pub fn reset(&mut self) {
+        self.multiplier = 1.0;
+    }
+
+    /// The BPM the `Tap` master should carry, if a tempo has been
+    /// learned.
+    pub fn bpm(&self) -> Option<f32> {
+        self.learned.map(|b| b * self.multiplier)
+    }
+}
+
+/// A transport request a key made that the programmer cannot carry out
+/// itself, because it lands on a playback. Returned by `key_down` and
+/// handed to `Playbacks::transport` by the host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Transport {
+    /// Pause if running, resume if paused.
+    TogglePause,
+    /// Load the cue at this index as the next GO.
+    Load(usize),
+    GoBack,
 }
 
 /// The last show clock the programmer saw, updatable through `&self`.
@@ -227,6 +360,9 @@ pub struct Programmer {
     /// this, which is how the programmer knows when a fade started
     /// without being handed a clock on every gesture.
     now: Clock,
+    /// The Song tempo the last fold ran at, in beats per second — what a
+    /// key release between frames measures its temp against.
+    last_bps: Clock,
     /// Blind: values are held and shown in `preview_output` but do not
     /// reach `apply_to`.
     // r[impl playback.blind]
@@ -310,6 +446,45 @@ pub struct Programmer {
     /// a hand holds one key.
     // r[impl effects.bump.is-not-held] - the held look is the thing a bump is not
     held: Option<Recipe>,
+    /// Attributes nailed to a value above every playback and the hand.
+    ///
+    /// A motor screaming on one tilt is fixed at the desk in a second by
+    /// parking it. Applied last in the fold — after the hand and after
+    /// highlight — because the whole point is that nothing else can
+    /// move it. Only the grand master reaches past a park, and only for
+    /// intensity.
+    /// A `HashMap` rather than a `BTreeMap` only because `Attribute` is
+    /// not `Ord`; the fold does not depend on order, since parks never
+    /// overlap.
+    // r[impl playback.park]
+    pub parked: HashMap<(ChanId, Attribute), f32>,
+    /// Raw DMX channels parked at a byte, keyed `(universe, channel)`.
+    ///
+    /// Not applied here: this layer works in attribute space and a raw
+    /// channel has none. The DMX stage (the visualizer's encode) writes
+    /// these over the encoded frame, *after* encoding — so a parked
+    /// channel also ignores the grand master. That is what "park a DMX
+    /// channel" has to mean: the value on the wire.
+    // r[impl playback.park] - a DMX channel; applied after encode by the host
+    pub parked_dmx: BTreeMap<(u16, u16), u8>,
+    /// The grand master, 0..=1. Scales every intensity last of all —
+    /// after parks of intensity too — so the whole rig comes down with
+    /// one hand no matter what is holding a fixture. Nothing but the
+    /// dimmer is touched.
+    // r[impl playback.grand-master]
+    pub grand: f32,
+    /// Masters keyed by a selection rather than a role — "the four
+    /// movers I just grabbed". Same modes as `masters`, folded together
+    /// with them.
+    // r[impl playback.selection-master]
+    pub selection_masters: Vec<(Selection, Master)>,
+    /// The tap master behind the `Tap` speed master.
+    // r[impl playback.speed-keys]
+    pub tap: TapMaster,
+    /// Per-slot temp key state: when the key went down, and — once
+    /// released — the level it had reached and when.
+    temp_down: [Option<f32>; FADERS],
+    temp_release: [Option<(f32, f32)>; FADERS],
 }
 
 /// How close a latched fader has to come to the new page's level to
@@ -327,9 +502,101 @@ impl Programmer {
             rate: 1.0,
             solo_floor: 0.15,
             lowlight_floor: 0.1,
+            grand: 1.0,
             pages: vec![Default::default()],
             ..Self::default()
         }
+    }
+
+    // ── parks ────────────────────────────────────────────────────────
+
+    /// Parks one attribute of every fixture in `selection` at `value`.
+    // r[impl playback.park]
+    pub fn park(&mut self, selection: &Selection, attr: Attribute, value: f32, show: &Show<'_>) {
+        for chan in crate::selection::resolve_with(selection, show.groups, show.rig, show.roles) {
+            self.parked.insert((chan, attr.clone()), value);
+        }
+    }
+
+    /// Parks one attribute of one fixture.
+    pub fn park_chan(&mut self, chan: ChanId, attr: Attribute, value: f32) {
+        self.parked.insert((chan, attr), value);
+    }
+
+    /// Unparks one attribute of every fixture in `selection`.
+    // r[impl playback.park] - and unpark it
+    pub fn unpark(&mut self, selection: &Selection, attr: &Attribute, show: &Show<'_>) {
+        for chan in crate::selection::resolve_with(selection, show.groups, show.rig, show.roles) {
+            self.parked.remove(&(chan, attr.clone()));
+        }
+    }
+
+    pub fn unpark_chan(&mut self, chan: ChanId, attr: &Attribute) {
+        self.parked.remove(&(chan, attr.clone()));
+    }
+
+    /// Parks a raw DMX channel — see `parked_dmx`.
+    // r[impl playback.park] - a DMX channel
+    pub fn park_dmx(&mut self, universe: u16, channel: u16, value: u8) {
+        self.parked_dmx.insert((universe, channel), value);
+    }
+
+    pub fn unpark_dmx(&mut self, universe: u16, channel: u16) {
+        self.parked_dmx.remove(&(universe, channel));
+    }
+
+    /// Writes the DMX parks over an encoded universe. For the DMX
+    /// stage to call after encode; `channel` is 1-based as on the wire.
+    // r[impl playback.park] - a parked channel is the value on the wire
+    pub fn apply_parked_dmx(&self, universe: u16, frame: &mut [u8]) {
+        for ((u, channel), value) in &self.parked_dmx {
+            if *u == universe
+                && let Some(slot) = (*channel as usize)
+                    .checked_sub(1)
+                    .and_then(|i| frame.get_mut(i))
+            {
+                *slot = *value;
+            }
+        }
+    }
+
+    // ── masters ──────────────────────────────────────────────────────
+
+    /// Sets the grand master, 0..=1.
+    // r[impl playback.grand-master]
+    pub fn set_grand(&mut self, level: f32) {
+        self.grand = level.clamp(0.0, 1.0);
+    }
+
+    /// Sets a master on a selection, replacing one on an equal
+    /// selection.
+    // r[impl playback.selection-master]
+    pub fn set_selection_master(&mut self, selection: Selection, master: Master) {
+        match self
+            .selection_masters
+            .iter_mut()
+            .find(|(s, _)| *s == selection)
+        {
+            Some((_, m)) => *m = master,
+            None => self.selection_masters.push((selection, master)),
+        }
+    }
+
+    pub fn clear_selection_master(&mut self, selection: &Selection) {
+        self.selection_masters.retain(|(s, _)| s != selection);
+    }
+
+    /// The speed masters as this programmer's tap sees them: `base` with
+    /// `Tap` set to the learned tempo, when there is one. The host
+    /// builds its `Show::speeds` from this so the `Tap` master a recipe
+    /// names is the one the keys drive.
+    // r[impl playback.speed-keys] - the Tap master's value comes from the tap master
+    pub fn speeds_for(&self, base: &crate::step::SpeedMasters) -> crate::step::SpeedMasters {
+        let mut out = base.clone();
+        if let Some(bpm) = self.tap.bpm() {
+            out.insert("Tap".into(), bpm);
+        }
+        out
     }
 
     /// The show clock as of the last fold.
@@ -525,6 +792,7 @@ impl Programmer {
             return 1.0;
         }
         let bps = Speed::Master("Song".into()).beats_per_second(show.speeds);
+        self.last_bps.set(bps);
         if bps <= 0.0 {
             return 1.0;
         }
@@ -609,14 +877,48 @@ impl Programmer {
     // ── keys ─────────────────────────────────────────────────────────
 
     /// A playback key goes down on a fader.
+    ///
+    /// Speed keys land on the tap master here; transport keys (pause,
+    /// load, go back) are returned as a `Transport` for the host to hand
+    /// to `Playbacks::transport`, since the programmer does not own the
+    /// playbacks.
     // r[impl playback.keys]
-    pub fn key_down(&mut self, index: usize, action: KeyAction) {
+    // r[impl playback.speed-keys] - learn / half / double / reset keys
+    // r[impl playback.temp-and-pause] - temp, pause, go back keys
+    pub fn key_down(&mut self, index: usize, action: KeyAction) -> Option<Transport> {
+        match action {
+            KeyAction::Learn => {
+                self.tap.tap(self.now.get());
+                return None;
+            }
+            KeyAction::HalfSpeed => {
+                self.tap.half();
+                return None;
+            }
+            KeyAction::DoubleSpeed => {
+                self.tap.double();
+                return None;
+            }
+            KeyAction::ResetSpeed => {
+                self.tap.reset();
+                return None;
+            }
+            KeyAction::Pause => return Some(Transport::TogglePause),
+            KeyAction::Load => return Some(Transport::Load(index)),
+            KeyAction::GoBack => return Some(Transport::GoBack),
+            _ => {}
+        }
         if index >= FADERS {
-            return;
+            return None;
         }
         match action {
             KeyAction::Toggle => {
                 self.toggled[index] = !self.toggled[index];
+            }
+            KeyAction::Temp => {
+                self.keys_down[index] = Some(action);
+                self.temp_down[index] = Some(self.now.get());
+                self.temp_release[index] = None;
             }
             KeyAction::Kill => {
                 for i in 0..FADERS {
@@ -631,14 +933,39 @@ impl Programmer {
             KeyAction::Flash | KeyAction::Swap | KeyAction::Black => {
                 self.keys_down[index] = Some(action);
             }
+            _ => {}
         }
+        None
     }
 
-    /// The key on a fader comes up. Toggle and kill ignore this.
+    /// The key on a fader comes up. Toggle and kill ignore this. A temp
+    /// starts its way back from wherever it had got to.
     pub fn key_up(&mut self, index: usize) {
-        if let Some(slot) = self.keys_down.get_mut(index) {
-            *slot = None;
+        if index >= FADERS {
+            return;
         }
+        if matches!(self.keys_down[index], Some(KeyAction::Temp))
+            && let Some(started) = self.temp_down[index].take()
+        {
+            let now = self.now.get();
+            let reached = self.temp_progress(started, now);
+            self.temp_release[index] = Some((reached, now));
+        }
+        self.keys_down[index] = None;
+    }
+
+    /// How far a temp key has lifted its fader: 0 at the press, 1 once
+    /// the program time has elapsed. Uses the clock of the last fold,
+    /// which is the only one the programmer has between frames.
+    fn temp_progress(&self, started: f32, now: f32) -> f32 {
+        if self.program_time_beats <= 0.0 {
+            return 1.0;
+        }
+        let bps = self.last_bps.get();
+        if bps <= 0.0 {
+            return 1.0;
+        }
+        ((now - started) * bps / self.program_time_beats).clamp(0.0, 1.0)
     }
 
     pub fn is_toggled(&self, index: usize) -> bool {
@@ -758,6 +1085,20 @@ impl Programmer {
         if self.toggled[index] || matches!(self.keys_down[index], Some(KeyAction::Flash)) {
             level = 1.0;
         }
+        // A temp lifts the fader toward full over the program time and
+        // lets it back down over the same after release; the slot's own
+        // level is what it lifts from and returns to.
+        // r[impl playback.temp-and-pause] - temp
+        if let (Some(KeyAction::Temp), Some(started)) =
+            (self.keys_down[index], self.temp_down[index])
+        {
+            let t = self.progress(show, secs - started);
+            level += (1.0 - level) * t;
+        } else if let Some((reached, released)) = self.temp_release[index] {
+            let t = self.progress(show, secs - released);
+            let lift = reached * (1.0 - t);
+            level += (1.0 - level) * lift;
+        }
         match self.keys_down[index] {
             Some(KeyAction::Swap) => 1.0,
             _ if self
@@ -866,6 +1207,28 @@ impl Programmer {
         }
 
         self.apply_highlight(base, show);
+
+        // A park is the one thing nothing else moves — not a cue, not
+        // the hand, not a master. Written after all of them.
+        // r[impl playback.park] - above every playback and the programmer
+        for (key, value) in &self.parked {
+            base.insert(key.clone(), *value);
+        }
+
+        // The grand master, last of all: after the parks too, because
+        // the one hand that brings the whole rig down has to beat a
+        // parked intensity — that is the safety the spec asks for. A
+        // parked *DMX channel* is past its reach, being applied on the
+        // wire after encode.
+        // r[impl playback.grand-master] - every intensity, last, after parks of intensity
+        let grand = self.grand.clamp(0.0, 1.0);
+        if grand < 1.0 {
+            for ((_, attr), value) in base.iter_mut() {
+                if *attr == Attribute::Dimmer {
+                    *value *= grand;
+                }
+            }
+        }
     }
 
     /// Highlight the selection to open white at full, above everything;
@@ -916,7 +1279,7 @@ impl Programmer {
     // r[impl groups.master.modes] - scaling, positive, negative, additive
     // r[impl playback.master-modes]
     fn apply_masters(&self, base: &mut HashMap<(ChanId, Attribute), f32>, show: &Show<'_>) {
-        if self.masters.is_empty() && self.solo.is_none() {
+        if self.masters.is_empty() && self.selection_masters.is_empty() && self.solo.is_none() {
             return;
         }
         // Resolve each named role once, not once per channel.
@@ -933,9 +1296,22 @@ impl Programmer {
             )
         };
 
-        for (role, master) in &self.masters {
+        // Role masters and selection masters are the same thing keyed
+        // two ways; they fold into one set of per-fixture limits.
+        // r[impl playback.selection-master] - same modes, same fold as role masters
+        let by_role = self
+            .masters
+            .iter()
+            .map(|(role, master)| (role_chans(role), *master));
+        let by_selection = self.selection_masters.iter().map(|(selection, master)| {
+            (
+                crate::selection::resolve_with(selection, show.groups, show.rig, show.roles),
+                *master,
+            )
+        });
+        for (chans, master) in by_role.chain(by_selection) {
             let level = master.level.clamp(0.0, 1.0);
-            for chan in role_chans(role) {
+            for chan in chans {
                 match master.mode {
                     // Lowest wins where a fixture plays two roles — a
                     // head that is both Key and Wash should follow
@@ -1013,6 +1389,8 @@ impl Programmer {
             || self.faders.iter().any(|f| f.level > 0.0)
             || self.toggled.iter().any(|t| *t)
             || self.keys_down.iter().any(|k| k.is_some())
+            || !self.parked.is_empty()
+            || !self.parked_dmx.is_empty()
     }
 }
 
@@ -1899,6 +2277,287 @@ mod tests {
             (out[&(3, Attribute::Dimmer)] - 0.05).abs() < 1e-6,
             "already below the floor"
         );
+    }
+
+    // ── parks, grand master, selection masters ───────────────────────
+
+    /// A parked tilt ignores the cue, the hand and the masters.
+    /// r[verify playback.park]
+    #[test]
+    fn a_park_ignores_cues_hand_and_masters() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.park(&Selection::Chans(vec![1]), Attribute::Tilt, 12.0, &show);
+        p.park_chan(1, Attribute::Dimmer, 0.3);
+        p.set_master("Key", 0.0);
+        p.select(Selection::Chans(vec![1]));
+        p.apply(RecipeApply::Dimmer(1.0), &show);
+        p.apply(RecipeApply::Raw(vec![(Attribute::Tilt, 90.0)]), &show);
+        p.highlight = true;
+
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Tilt), -40.0); // the cue
+        out.insert((1, Attribute::Dimmer), 1.0);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Tilt)] - 12.0).abs() < 1e-6);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.3).abs() < 1e-6,
+            "a parked intensity beats the master, the hand and highlight"
+        );
+        assert!(p.is_active());
+
+        p.unpark(&Selection::Chans(vec![1]), &Attribute::Tilt, &show);
+        p.unpark_chan(1, &Attribute::Dimmer);
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Tilt), -40.0);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!(
+            (out[&(1, Attribute::Tilt)] - 90.0).abs() < 1e-6,
+            "the hand is back"
+        );
+    }
+
+    /// r[verify playback.park] - a DMX channel, on the wire
+    #[test]
+    fn a_dmx_park_writes_over_the_encoded_frame() {
+        let mut p = Programmer::new();
+        p.park_dmx(1, 3, 200);
+        p.park_dmx(2, 1, 9);
+        let mut frame = [0u8; 4];
+        p.apply_parked_dmx(1, &mut frame);
+        assert_eq!(frame, [0, 0, 200, 0]);
+        p.unpark_dmx(1, 3);
+        let mut frame = [0u8; 4];
+        p.apply_parked_dmx(1, &mut frame);
+        assert_eq!(frame, [0; 4]);
+        // Out of range is ignored rather than a panic.
+        p.park_dmx(1, 512, 1);
+        p.apply_parked_dmx(1, &mut frame);
+    }
+
+    /// The grand master scales every intensity last — parked intensity
+    /// too — and nothing but intensity.
+    /// r[verify playback.grand-master]
+    #[test]
+    fn the_grand_master_scales_every_intensity_last() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_grand(0.5);
+        p.park_chan(2, Attribute::Dimmer, 1.0);
+        p.select(Selection::Chans(vec![3]));
+        p.apply(RecipeApply::Dimmer(1.0), &show(&groups));
+
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.8);
+        out.insert((1, Attribute::Pan), 40.0);
+        p.apply_to(&mut out, &show(&groups), 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.4).abs() < 1e-6, "the cue");
+        assert!((out[&(2, Attribute::Dimmer)] - 0.5).abs() < 1e-6, "a park");
+        assert!(
+            (out[&(3, Attribute::Dimmer)] - 0.5).abs() < 1e-6,
+            "the hand"
+        );
+        assert!((out[&(1, Attribute::Pan)] - 40.0).abs() < 1e-6, "not pan");
+    }
+
+    /// r[verify playback.selection-master]
+    #[test]
+    fn a_selection_master_rides_the_fixtures_in_hand() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.set_selection_master(
+            Selection::Chans(vec![1, 2]),
+            Master {
+                mode: MasterMode::Scaling,
+                level: 0.5,
+            },
+        );
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 1.0);
+        out.insert((2, Attribute::Dimmer), 0.4);
+        out.insert((3, Attribute::Dimmer), 1.0);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 1e-6);
+        assert!((out[&(2, Attribute::Dimmer)] - 0.2).abs() < 1e-6);
+        assert!(
+            (out[&(3, Attribute::Dimmer)] - 1.0).abs() < 1e-6,
+            "not in hand"
+        );
+
+        // Same modes as a role master, and folded with them: the lowest
+        // scaling master wins on a shared fixture.
+        p.set_master("Key", 0.2);
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 1.0);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.2).abs() < 1e-6);
+
+        p.set_selection_master(
+            Selection::Chans(vec![1, 2]),
+            Master {
+                mode: MasterMode::Additive,
+                level: 0.9,
+            },
+        );
+        assert_eq!(p.selection_masters.len(), 1, "replaced, not added");
+        p.clear_selection_master(&Selection::Chans(vec![1, 2]));
+        assert!(p.selection_masters.is_empty());
+    }
+
+    // ── speed keys ───────────────────────────────────────────────────
+
+    /// r[verify playback.speed-keys] - learn, half, double, reset
+    #[test]
+    fn eight_taps_at_120_learn_120_and_half_is_60() {
+        let mut tap = TapMaster::default();
+        assert_eq!(tap.bpm(), None);
+        for i in 0..8 {
+            tap.tap(i as f32 * 0.5);
+        }
+        let bpm = tap.bpm().unwrap();
+        assert!((bpm - 120.0).abs() < 0.5, "{bpm}");
+        tap.half();
+        assert!((tap.bpm().unwrap() - 60.0).abs() < 0.5);
+        tap.double();
+        tap.double();
+        assert!((tap.bpm().unwrap() - 240.0).abs() < 0.5);
+        tap.reset();
+        assert!((tap.bpm().unwrap() - 120.0).abs() < 0.5);
+    }
+
+    /// One early tap moves the average a little, not the tempo a lot.
+    /// r[verify playback.speed-keys] - converges rather than jitters
+    #[test]
+    fn learn_averages_rather_than_takes_the_last_interval() {
+        let mut tap = TapMaster::default();
+        let mut t = 0.0;
+        for i in 0..8 {
+            tap.tap(t);
+            t += if i == 6 { 0.4 } else { 0.5 };
+        }
+        let bpm = tap.bpm().unwrap();
+        assert!((bpm - 120.0).abs() < 5.0, "{bpm}");
+        assert!(bpm > 120.0);
+    }
+
+    /// r[verify playback.speed-keys] - a gap starts over
+    #[test]
+    fn a_two_second_gap_starts_a_new_run() {
+        let mut tap = TapMaster::default();
+        for i in 0..4 {
+            tap.tap(i as f32 * 0.5);
+        }
+        tap.tap(10.0);
+        assert_eq!(tap.taps.len(), 1);
+        assert!(
+            (tap.bpm().unwrap() - 120.0).abs() < 0.5,
+            "the old tempo is kept"
+        );
+        tap.tap(11.0);
+        assert!((tap.bpm().unwrap() - 60.0).abs() < 0.5);
+    }
+
+    /// The keys reach the tap master, and its tempo reaches the `Tap`
+    /// speed master a recipe names.
+    /// r[verify playback.speed-keys]
+    #[test]
+    fn speed_keys_drive_the_tap_master() {
+        let mut p = Programmer::new();
+        for i in 0..5 {
+            p.set_now(i as f32 * 0.5);
+            assert_eq!(p.key_down(0, KeyAction::Learn), None);
+        }
+        p.key_down(0, KeyAction::HalfSpeed);
+        let speeds = p.speeds_for(&crate::step::SpeedMasters::new());
+        assert!((speeds["Tap"] - 60.0).abs() < 0.5);
+        p.key_down(0, KeyAction::DoubleSpeed);
+        p.key_down(0, KeyAction::ResetSpeed);
+        let speeds = p.speeds_for(&crate::step::SpeedMasters::from([(
+            "Song".to_string(),
+            90.0,
+        )]));
+        assert!((speeds["Tap"] - 120.0).abs() < 0.5);
+        assert_eq!(speeds["Song"], 90.0);
+        let untouched = Programmer::new().speeds_for(&crate::step::SpeedMasters::new());
+        assert!(!untouched.contains_key("Tap"), "no tempo learned, no Tap");
+    }
+
+    // ── temp / transport keys ────────────────────────────────────────
+
+    /// r[verify playback.temp-and-pause] - temp
+    #[test]
+    fn temp_arrives_over_the_program_time_and_leaves_over_the_same() {
+        let groups = groups();
+        let masters = crate::step::SpeedMasters::from([("Song".to_string(), 120.0)]);
+        let show = show_at(&groups, &masters);
+        let mut p = Programmer::new();
+        p.program_time_beats = 2.0; // one second
+        p.set_fader(0, dimmer_fader(1, 1.0, 0.2));
+        let at = |p: &Programmer, secs: f32| {
+            let mut out = base();
+            p.apply_to(&mut out, &show, secs);
+            out[&(1, Attribute::Dimmer)]
+        };
+        assert!((at(&p, 0.0) - 0.2).abs() < 1e-6);
+        p.set_now(10.0);
+        assert_eq!(p.key_down(0, KeyAction::Temp), None);
+        assert!((at(&p, 10.0) - 0.2).abs() < 1e-6, "starts where it was");
+        assert!((at(&p, 10.5) - 0.6).abs() < 1e-6, "halfway");
+        assert!((at(&p, 11.0) - 1.0).abs() < 1e-6, "full");
+        assert!((at(&p, 13.0) - 1.0).abs() < 1e-6, "and held");
+        p.key_up(0);
+        assert!(
+            (at(&p, 13.0) - 1.0).abs() < 1e-6,
+            "release starts from full"
+        );
+        assert!((at(&p, 13.5) - 0.6).abs() < 1e-6);
+        assert!((at(&p, 14.0) - 0.2).abs() < 1e-6, "back where it was");
+        assert_eq!(p.faders[0].level, 0.2, "the fader itself never moved");
+    }
+
+    /// A temp released mid-lift comes back from where it got to, not
+    /// from full.
+    #[test]
+    fn a_temp_released_early_returns_from_where_it_was() {
+        let groups = groups();
+        let masters = crate::step::SpeedMasters::from([("Song".to_string(), 120.0)]);
+        let show = show_at(&groups, &masters);
+        let mut p = Programmer::new();
+        p.program_time_beats = 2.0;
+        p.set_fader(0, dimmer_fader(1, 1.0, 0.0));
+        let at = |p: &Programmer, secs: f32| {
+            let mut out = base();
+            p.apply_to(&mut out, &show, secs);
+            out.get(&(1, Attribute::Dimmer)).copied().unwrap_or(0.0)
+        };
+        p.set_now(0.0);
+        p.key_down(0, KeyAction::Temp);
+        assert!((at(&p, 0.5) - 0.5).abs() < 1e-6);
+        p.key_up(0);
+        assert!((at(&p, 0.5) - 0.5).abs() < 1e-6, "no jump at release");
+        assert!((at(&p, 1.0) - 0.25).abs() < 1e-6);
+        assert!(at(&p, 1.5).abs() < 1e-6);
+    }
+
+    /// Transport keys are not fader keys: they come back as requests
+    /// for the playbacks, and touch no slot.
+    /// r[verify playback.temp-and-pause] - pause / go back keys
+    #[test]
+    fn transport_keys_are_handed_to_the_playbacks() {
+        let mut p = Programmer::new();
+        assert_eq!(
+            p.key_down(0, KeyAction::Pause),
+            Some(Transport::TogglePause)
+        );
+        assert_eq!(p.key_down(3, KeyAction::Load), Some(Transport::Load(3)));
+        assert_eq!(p.key_down(0, KeyAction::GoBack), Some(Transport::GoBack));
+        assert!(!p.is_active());
+        assert!(!KeyAction::Pause.is_fader_key());
+        assert!(KeyAction::Temp.is_fader_key());
     }
 
     fn roles() -> Bound {

@@ -195,6 +195,20 @@ fn inspect_line(chan: ignition_core::ChanId, report: &[(Class, Option<f32>)]) ->
     format!("ch {chan} dimmer:  {}", cells.join("   "))
 }
 
+/// The masters line: GM first, then every playback's own master in
+/// stack order, then how much is parked — or nothing about parks when
+/// nothing is, so the line stays short on an ordinary night.
+fn masters_line(grand: f32, masters: impl Iterator<Item = (Class, f32)>, parked: usize) -> String {
+    let mut line = format!("GM {:>3.0}%", grand * 100.0);
+    for (class, master) in masters {
+        line.push_str(&format!("   {class:?} {:>3.0}%", master * 100.0));
+    }
+    if parked > 0 {
+        line.push_str(&format!("   PARKED {parked}"));
+    }
+    line
+}
+
 pub fn update_overlay(
     venue: Res<VenueRes>,
     mut playback: ResMut<Playback>,
@@ -262,6 +276,18 @@ pub fn update_overlay(
     // The programmer's state that changes what the picture means: a
     // blind desk is showing a preview, and a program time is why a
     // punch did not snap.
+    // The masters above every playback: the grand master, and each
+    // list's own. Read here rather than inferred from the picture,
+    // because a rig at half is what both a GM at half and a cue at
+    // half look like.
+    // r[impl playback.grand-master] - shown
+    // r[impl playback.playback-master] - shown
+    // r[impl playback.park] - the parked count
+    lines.push(masters_line(
+        programmer.grand,
+        playbacks.entries.iter().map(|e| (e.class, e.master)),
+        programmer.parked.len(),
+    ));
     lines.push(format!(
         "page {}/{}   prog time {:.2} beats{}{}{}",
         programmer.page + 1,
@@ -339,6 +365,21 @@ mod inspect_tests {
     fn the_highest_asserting_class_is_marked_as_the_winner() {
         let line = inspect_line(7, &[(Class::Look, Some(0.5)), (Class::Song, Some(0.2))]);
         assert_eq!(line, "ch 7 dimmer:   Look 0.50   *Song 0.20");
+    }
+
+    /// r[verify playback.grand-master]
+    /// r[verify playback.playback-master]
+    /// r[verify playback.park]
+    #[test]
+    fn the_masters_line_shows_gm_each_playback_and_parks_only_when_any() {
+        let line = masters_line(
+            0.5,
+            [(Class::Look, 1.0), (Class::Song, 0.25)].into_iter(),
+            0,
+        );
+        assert_eq!(line, "GM  50%   Look 100%   Song  25%");
+        let line = masters_line(1.0, std::iter::empty(), 3);
+        assert_eq!(line, "GM 100%   PARKED 3");
     }
 
     #[test]

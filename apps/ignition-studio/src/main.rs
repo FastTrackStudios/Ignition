@@ -21,7 +21,7 @@ mod faders;
 mod remote;
 mod sound;
 mod viz_widget;
-use command::{Command, PageMove, Sender};
+use command::{Command, PageMove, Sender, SpeedKey};
 
 use viz_widget::VizWidget;
 
@@ -110,6 +110,9 @@ fn main() -> anyhow::Result<()> {
 
     let (state_tx, state_rx) = command::state_channel();
     *STATE_TX.lock().expect("fresh mutex") = Some(state_tx);
+    // The return path to the hardware: fader positions, key states and
+    // the page, back to whatever surface asked for them.
+    remote::start_feedback(state_rx.clone());
     let _ = STATE_RX.set(state_rx);
 
     let venue = Venue::load(venue_dir())?;
@@ -474,7 +477,10 @@ struct Desk {
     toggled: [bool; ignition_core::FADERS],
     blind: bool,
     tap_bpm: f32,
+    tap_multiplier: f32,
     sound: [f32; 3],
+    parked: usize,
+    paused: bool,
 }
 
 impl Desk {
@@ -486,7 +492,10 @@ impl Desk {
             toggled: playhead.toggled,
             blind: playhead.blind,
             tap_bpm: playhead.tap_bpm,
+            tap_multiplier: playhead.tap_multiplier,
             sound: playhead.sound,
+            parked: playhead.parked,
+            paused: playhead.paused,
         }
     }
 }
@@ -543,9 +552,19 @@ fn clock(secs: f32) -> String {
 #[component]
 fn Transport() -> Element {
     let playhead = use_playhead();
+    let desk = use_desk();
     let seek = move |event: Event<MouseData>| {
         let x = event.data().element_coordinates().x;
         send(Command::Scrub((x / TRACK_WIDTH) as f32));
+    };
+    // A transport key is a `Key` with no fader under it: the engine
+    // hands the request on to the song playback.
+    let key = |action: ignition_core::KeyAction, index: usize| {
+        send(Command::Key {
+            index,
+            action,
+            down: true,
+        })
     };
 
     rsx! {
@@ -567,6 +586,91 @@ fn Transport() -> Element {
                 div { class: "t-fill", style: "width: {playhead().fraction() * 100.0}%" }
             }
             span { class: "t-time dim", "{clock(playhead().length)}" }
+            // The song *playback*'s keys, distinct from the song's
+            // transport to their left: pause holds the cue list where
+            // it is without stopping the music, GO− steps it back over
+            // its own times, LOAD arms the next cue as the next GO.
+            // r[impl playback.temp-and-pause] - pause / resume and go back, on the surface
+            div { class: "t-keys",
+                button {
+                    class: if desk().paused { "t-key on" } else { "t-key" },
+                    onclick: move |_| key(ignition_core::KeyAction::Pause, 0),
+                    if desk().paused { "PAUSED" } else { "PAUSE" }
+                }
+                button {
+                    class: "t-key",
+                    onclick: move |_| key(ignition_core::KeyAction::GoBack, 0),
+                    "GO−"
+                }
+                button {
+                    class: "t-key",
+                    onclick: move |_| {
+                        let next = playhead().cue.map_or(0, |c| c + 1);
+                        key(ignition_core::KeyAction::Load, next)
+                    },
+                    "LOAD ▸"
+                }
+            }
+            // The sound-in: the fade the band levels settle over, and
+            // the three levels as the recipes read them. Small, because
+            // they are a meter and a trim, not a control the hand rides.
+            // r[impl playback.sound-as-value] - the sound fade and the meters
+            div { class: "t-sound",
+                span { class: "t-label", "SOUND FADE" }
+                HSlider {
+                    initial: 0.125,
+                    on_change: move |v: f32| send(Command::SoundFade(v * viz_widget::SoundFade::MAX_SECS)),
+                }
+                div { class: "meters",
+                    for (i, name) in ["LO", "MID", "HI"].into_iter().enumerate() {
+                        div { class: "meter", key: "{name}",
+                            div { class: "meter-track",
+                                div {
+                                    class: "meter-fill",
+                                    style: "height: {(desk().sound[i].clamp(0.0, 1.0) * 100.0) as u32}%",
+                                }
+                            }
+                            span { class: "meter-label", "{name}" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The sound fade slider's travel in CSS pixels; see `.hslider` in
+/// `studio.css` and the note on [`TRACK_WIDTH`] for why it is a number
+/// here rather than a measurement.
+const HSLIDER_WIDTH: f32 = 90.0;
+
+/// A small horizontal slider, for the trims that live in the transport
+/// bar. Same construction as [`Fader`] — divs, not a range input — for
+/// the same reasons, turned on its side.
+#[component]
+fn HSlider(initial: f32, on_change: EventHandler<f32>) -> Element {
+    let mut level = use_signal(|| initial);
+    let mut held = use_signal(|| false);
+    let mut set_from = move |x: f64| {
+        let v = (x as f32 / HSLIDER_WIDTH).clamp(0.0, 1.0);
+        level.set(v);
+        on_change.call(v);
+    };
+    rsx! {
+        div {
+            class: "hslider",
+            onpointerdown: move |e| {
+                held.set(true);
+                set_from(e.data.element_coordinates().x);
+            },
+            onpointermove: move |e| {
+                if held() {
+                    set_from(e.data.element_coordinates().x);
+                }
+            },
+            onpointerup: move |_| held.set(false),
+            onpointerleave: move |_| held.set(false),
+            div { class: "hfill", style: "width: {level() * 100.0}%" }
         }
     }
 }
@@ -800,6 +904,41 @@ fn Busking(surface: Surface) -> Element {
                     button { class: "tile warn", onclick: move |_| send(Command::Release), "Release" }
                     button { class: "tile warn", onclick: move |_| send(Command::ClearValues), "Clear" }
                 }
+                // Park: nail the selection's pan, tilt and dimmer at
+                // what the hand is holding, above every playback and
+                // the hand itself. A motor screaming on one tilt is
+                // fixed here in a second; nothing else on the surface
+                // can hold a value against a cue.
+                // r[impl playback.park] - park and unpark the selection
+                div { class: "row",
+                    button {
+                        class: "tile park",
+                        onclick: move |_| {
+                            if let Some(name) = selected() {
+                                send(Command::Park {
+                                    selection: Selection::Group(name),
+                                    attrs: PARK_ATTRS.to_vec(),
+                                });
+                            }
+                        },
+                        "PARK"
+                    }
+                    button {
+                        class: "tile park",
+                        onclick: move |_| {
+                            if let Some(name) = selected() {
+                                send(Command::Unpark {
+                                    selection: Selection::Group(name),
+                                    attrs: PARK_ATTRS.to_vec(),
+                                });
+                            }
+                        },
+                        "UNPARK"
+                    }
+                    if desk().parked > 0 {
+                        span { class: "parked-flag", "PARKED {desk().parked}" }
+                    }
+                }
                 // The programmer's modes. Blind is loud when on for the
                 // same reason solo is: a desk left blind is a desk whose
                 // every punch goes nowhere, and it has to look wrong.
@@ -854,6 +993,8 @@ fn Busking(surface: Surface) -> Element {
                             (ignition_core::KeyAction::Swap, "SWAP"),
                             (ignition_core::KeyAction::Kill, "KILL"),
                             (ignition_core::KeyAction::Black, "BLACK"),
+                            // r[impl playback.temp-and-pause] - temp as a key mode
+                            (ignition_core::KeyAction::Temp, "TEMP"),
                         ] {
                             button {
                                 key: "{label}",
@@ -943,6 +1084,35 @@ fn Busking(surface: Surface) -> Element {
                     // makes in the moment and should not have to edit a
                     // show to express.
                     div { class: "masters",
+                        // The grand master: every intensity, last of
+                        // all, after parks. The one fader that is
+                        // never on a page and never hidden.
+                        // r[impl playback.grand-master] - the GM fader
+                        Fader {
+                            label: "GM".to_string(),
+                            css: "#e05050".to_string(),
+                            initial: 1.0,
+                            on_change: move |v: f32| send(Command::Grand(v)),
+                        }
+                        // Each list's own master: the song list pulled
+                        // under the look list without editing either.
+                        // r[impl playback.playback-master] - SONG and LOOK faders
+                        Fader {
+                            label: "SONG".to_string(),
+                            css: "#c8a050".to_string(),
+                            initial: 1.0,
+                            on_change: move |v: f32| {
+                                send(Command::PlaybackMaster(ignition_core::Class::Song, v))
+                            },
+                        }
+                        Fader {
+                            label: "LOOK".to_string(),
+                            css: "#a0c850".to_string(),
+                            initial: 1.0,
+                            on_change: move |v: f32| {
+                                send(Command::PlaybackMaster(ignition_core::Class::Look, v))
+                            },
+                        }
                         for role in ["Key", "Wash", "Movers", "Bars"] {
                             Fader {
                                 key: "{role}",
@@ -959,12 +1129,45 @@ fn Busking(surface: Surface) -> Element {
                     // the tap tempo; SIZE and SPEED shape whatever is
                     // running against it.
                     div { class: "master",
-                        Fader {
-                            label: "RATE".to_string(),
-                            css: "#c08a3e".to_string(),
-                            initial: 0.4,
-                            // 40–220 BPM over the fader's travel.
-                            on_change: move |v: f32| send(Command::Rate(40.0 + v * 180.0)),
+                        div { class: "rate-slot",
+                            Fader {
+                                label: "RATE".to_string(),
+                                css: "#c08a3e".to_string(),
+                                initial: 0.4,
+                                // 40–220 BPM over the fader's travel.
+                                on_change: move |v: f32| send(Command::Rate(40.0 + v * 180.0)),
+                            }
+                            // The speed keys on the `Tap` master. TAP
+                            // learns — averaged, so one early tap does
+                            // not throw the phasers; ½ and ×2 ride a
+                            // breakdown and a drop; RESET is back to
+                            // the learned tempo at ×1.
+                            // r[impl playback.speed-keys] - learn, half, double, reset
+                            div { class: "speed-keys",
+                                button {
+                                    class: "speed-key tap",
+                                    onpointerdown: move |_| send(Command::Speed(SpeedKey::Tap)),
+                                    "TAP"
+                                }
+                                button {
+                                    class: if desk().tap_multiplier < 0.99 { "speed-key on" } else { "speed-key" },
+                                    onclick: move |_| send(Command::Speed(SpeedKey::Half)),
+                                    "½"
+                                }
+                                button {
+                                    class: if desk().tap_multiplier > 1.01 { "speed-key on" } else { "speed-key" },
+                                    onclick: move |_| send(Command::Speed(SpeedKey::Double)),
+                                    "×2"
+                                }
+                                button {
+                                    class: "speed-key",
+                                    onclick: move |_| send(Command::Speed(SpeedKey::Reset)),
+                                    "RESET"
+                                }
+                                span { class: "tap-readout",
+                                    if desk().tap_bpm > 0.0 { "{desk().tap_bpm as u32} bpm" } else { "— bpm" }
+                                }
+                            }
                         }
                         // Size, not a dimmer. At the bottom every effect
                         // is inert and the look underneath shows through
@@ -1000,6 +1203,16 @@ fn Busking(surface: Surface) -> Element {
         }
     }
 }
+
+/// What PARK and UNPARK act on: the three attributes a stuck fixture
+/// is most often stuck on. A colour park would be a surprise — the
+/// cue changes colour and one fixture does not — where a tilt park is
+/// the whole point.
+const PARK_ATTRS: [ignition_core::Attribute; 3] = [
+    ignition_core::Attribute::Pan,
+    ignition_core::Attribute::Tilt,
+    ignition_core::Attribute::Dimmer,
+];
 
 /// How tall a fader's track is, in CSS pixels.
 ///

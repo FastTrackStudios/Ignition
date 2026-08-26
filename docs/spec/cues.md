@@ -260,3 +260,53 @@ r[cues.command]
 A cue MAY carry **commands** the host executes when the cue is taken — send
 OSC, start a clip, fire a macro — separate from its lighting content, so the
 show file stays a light show and the integration lives at its edge.
+
+## Arrival curves and finer timing
+
+r[cues.transition-curve]
+A cue's fade MUST be shapeable per attribute class with a curve — linear,
+slow, fast, s-curve, swing — reusing the step ease. A mover reposition that
+swings into place reads as designed; a straight line reads as generated.
+
+r[cues.timing-overrides]
+A cue MAY carry timing overrides for a **selection** within it, so one fixture
+or a small group takes its own fade and delay while the rest of the cue keeps
+the class timing. Fans cover the gradient case; this covers the exception.
+
+r[cues.break]
+A cue MAY **break** tracking for a set of attributes: values from before it do
+not track through it for those attributes, even though it does not set them.
+
+r[cues.shield]
+When a generated cue is edited, the edit MUST be able to be **shielded** from
+the cues after it — a store mode that stops the change at the next cue where
+the intensity comes up from zero (shield ↑0) or is above zero (shield >0).
+This is the surgical form of cue-only.
+
+r[cues.wrap-and-restart]
+A list MAY **wrap** from its last cue to its first, and MUST declare how it
+**restarts** when re-enabled: from the first cue, from the current cue, or from
+the next.
+
+r[cues.mib.preference]
+A cue MAY carry a **preference** (0–100) for how good a moment it is to
+pre-position into, and pre-positioning MUST choose the best-rated dark window
+when several are available; **upon-go** (move with the next take after the
+fixture goes dark) MUST be a selectable mode beside early and late.
+
+r[cues.mib.hold]
+A fixture MAY be marked **hold** so it is never pre-positioned — a light that
+must stay where it is while dark, for a reveal.
+
+r[cues.mib.multistep]
+Whether a running effect keeps running or pauses while a fixture is dark and
+being pre-positioned MUST be selectable.
+
+r[cues.cook-merge]
+Cooking a recipe into direct values MUST support **merge** (keep direct
+values the recipe does not cover) as well as **overwrite**.
+
+r[cues.generator-emits-mib]
+A generated list MUST set pre-positioning on every cue whose position recipe
+differs from the previous cue's for a fixture that is dark at the boundary.
+The engine having MIB does nothing if the generator never asks for it.

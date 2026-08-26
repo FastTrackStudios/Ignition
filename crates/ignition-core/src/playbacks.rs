@@ -13,6 +13,7 @@
 //! change, and this module has to be testable without it.
 
 use crate::cue::CuePlayer;
+use crate::programmer::Transport;
 use crate::recipe::Show;
 use ignition_proto::{Attribute, ChanId};
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,31 @@ pub struct Playback {
     pub player: CuePlayer,
     /// A disabled playback is folded as though it were not there.
     pub enabled: bool,
+    /// This playback's own intensity master, 0..=1: every dimmer it
+    /// produces is scaled by it before the fold, so the song list can be
+    /// pulled under a look list without touching either's content.
+    /// Dimmer only, like every master.
+    // r[impl playback.playback-master]
+    pub master: f32,
+}
+
+impl Playback {
+    /// This entry's output with its master applied.
+    // r[impl playback.playback-master] - scaled per entry, inside the fold
+    fn scaled(
+        &self,
+        mut out: HashMap<(ChanId, Attribute), f32>,
+    ) -> HashMap<(ChanId, Attribute), f32> {
+        let master = self.master.clamp(0.0, 1.0);
+        if master < 1.0 {
+            for ((_, attr), value) in out.iter_mut() {
+                if *attr == Attribute::Dimmer {
+                    *value *= master;
+                }
+            }
+        }
+        out
+    }
 }
 
 /// Every cue player the engine is running.
@@ -61,8 +87,46 @@ impl Playbacks {
             class,
             player,
             enabled: true,
+            master: 1.0,
         });
         self.entries.len() - 1
+    }
+
+    /// Sets an entry's intensity master, 0..=1.
+    // r[impl playback.playback-master]
+    pub fn set_master(&mut self, index: usize, level: f32) {
+        if let Some(entry) = self.entries.get_mut(index) {
+            entry.master = level.clamp(0.0, 1.0);
+        }
+    }
+
+    /// The first enabled Song playback — where the transport keys land.
+    pub fn song_mut(&mut self) -> Option<&mut Playback> {
+        self.entries
+            .iter_mut()
+            .find(|p| p.class == Class::Song && p.enabled)
+    }
+
+    /// Carries out a transport request a key made (see
+    /// `Programmer::key_down`) on the Song playback. Pause toggles:
+    /// pressed once the list holds its place, pressed again it resumes
+    /// from there.
+    // r[impl playback.temp-and-pause] - pause / resume / go back on the Song list
+    pub fn transport(&mut self, request: Transport, show: &Show<'_>) {
+        let Some(song) = self.song_mut() else {
+            return;
+        };
+        match request {
+            Transport::TogglePause => {
+                if song.player.is_paused() {
+                    song.player.resume();
+                } else {
+                    song.player.pause();
+                }
+            }
+            Transport::Load(index) => song.player.load(index),
+            Transport::GoBack => song.player.go_back(show),
+        }
     }
 
     pub fn get(&self, index: usize) -> Option<&Playback> {
@@ -122,10 +186,53 @@ impl Playbacks {
         // order — that is what "later wins" means here.
         order.sort_by_key(|p| p.class);
 
+        self.fold(|entry| entry.scaled(entry.player.output_under(show, ringing)))
+    }
+
+    /// `output`, with every attribute nothing asserts falling to its
+    /// default — the floor a released attribute lands on, and what a
+    /// list's implicit cue zero establishes before its first cue.
+    ///
+    /// Each player is asked through `CuePlayer::output_with_defaults`,
+    /// so a fade *out of* a cue lands on the default rather than on
+    /// zero; then any default no player touched is filled in. `ringing`
+    /// is accepted for symmetry with `output` but the per-player call
+    /// does not take it: a hit lands over the defaults on the trigger
+    /// bus above this fold. The host
+    /// supplies `defaults` from the fixture types — the visualizer
+    /// builds them from each fixture's profile, since only it knows
+    /// what a spot's rest zoom is.
+    // r[impl playback.defaults] - the floor, and cue zero
+    pub fn output_with_defaults(
+        &self,
+        show: &Show<'_>,
+        _ringing: &HashSet<(ChanId, Attribute)>,
+        defaults: &HashMap<(ChanId, Attribute), f32>,
+    ) -> HashMap<(ChanId, Attribute), f32> {
+        let mut out = self.fold(|entry| {
+            let raw = entry.player.output_with_defaults(show, defaults);
+            entry.scaled(raw)
+        });
+        for (key, value) in defaults {
+            out.entry(key.clone()).or_insert(*value);
+        }
+        out
+    }
+
+    /// The class fold over every enabled entry, given how to read one.
+    fn fold(
+        &self,
+        read: impl Fn(&Playback) -> HashMap<(ChanId, Attribute), f32>,
+    ) -> HashMap<(ChanId, Attribute), f32> {
+        let mut order: Vec<&Playback> = self.entries.iter().filter(|p| p.enabled).collect();
+        // Stable, so two entries of one class keep their declaration
+        // order — that is what "later wins" means here.
+        order.sort_by_key(|p| p.class);
+
         let mut out: HashMap<(ChanId, Attribute), f32> = HashMap::new();
         let mut holder: HashMap<(ChanId, Attribute), Class> = HashMap::new();
         for entry in order {
-            for (key, value) in entry.player.output_under(show, ringing) {
+            for (key, value) in read(entry) {
                 let same_class = holder.get(&key) == Some(&entry.class);
                 let value = match out.get(&key) {
                     Some(under) if same_class && key.1 == Attribute::Dimmer => under.max(value),
@@ -155,7 +262,9 @@ impl Playbacks {
             .map(|p| {
                 (
                     p.class,
-                    p.player.output_under(show, ringing).get(key).copied(),
+                    p.scaled(p.player.output_under(show, ringing))
+                        .get(key)
+                        .copied(),
                 )
             })
             .collect()
@@ -278,6 +387,156 @@ mod tests {
             !out.contains_key(&(3, Attribute::Dimmer)),
             "nothing holds it"
         );
+    }
+
+    /// r[verify playback.playback-master]
+    #[test]
+    fn a_playback_master_scales_only_that_entrys_intensity() {
+        let groups = Vec::new();
+        let show = show(&groups);
+        let mut pb = Playbacks::new();
+        let look = pb.push(
+            Class::Look,
+            player(vec![cue(&[dimmer(1, 1.0), pan(1, 10.0)])], &show),
+        );
+        pb.push(Class::Show, player(vec![cue(&[dimmer(2, 1.0)])], &show));
+        pb.set_master(look, 0.5);
+        let out = pb.output(&show, &HashSet::new());
+        assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 1e-6);
+        assert_eq!(out[&(1, Attribute::Pan)], 10.0, "dimmer only");
+        assert_eq!(
+            out[&(2, Attribute::Dimmer)],
+            1.0,
+            "the other list untouched"
+        );
+    }
+
+    /// A master is applied before the fold, so a Song list pulled to
+    /// nothing lets the Look list beneath it show — the master is on the
+    /// entry's contribution, not on the merged output.
+    /// r[verify playback.playback-master]
+    #[test]
+    fn a_playback_master_is_applied_inside_the_fold() {
+        let groups = Vec::new();
+        let show = show(&groups);
+        let mut pb = Playbacks::new();
+        pb.push(Class::Look, player(vec![cue(&[dimmer(1, 0.6)])], &show));
+        let a = pb.push(Class::Look, player(vec![cue(&[dimmer(1, 1.0)])], &show));
+        pb.set_master(a, 0.2);
+        let out = pb.output(&show, &HashSet::new());
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.6).abs() < 1e-6,
+            "HTP within the class sees the scaled value"
+        );
+    }
+
+    /// r[verify playback.temp-and-pause] - pause, resume, go back
+    #[test]
+    fn transport_keys_land_on_the_song_list() {
+        let groups = Vec::new();
+        let show = show(&groups);
+        let mut pb = Playbacks::new();
+        pb.push(Class::Look, player(vec![cue(&[dimmer(9, 1.0)])], &show));
+        pb.push(
+            Class::Song,
+            player(
+                vec![
+                    cue(&[dimmer(1, 0.2)]),
+                    cue(&[dimmer(1, 0.5)]),
+                    cue(&[dimmer(1, 0.9)]),
+                ],
+                &show,
+            ),
+        );
+        pb.song_mut().unwrap().player.go(&show);
+        assert_eq!(pb.song_mut().unwrap().player.current_index(), Some(1));
+
+        pb.transport(Transport::GoBack, &show);
+        assert_eq!(
+            pb.song_mut().unwrap().player.current_index(),
+            Some(0),
+            "went back one"
+        );
+        assert_eq!(
+            pb.get(0).unwrap().player.current_index(),
+            Some(0),
+            "the look list did not move"
+        );
+
+        pb.transport(Transport::TogglePause, &show);
+        assert!(pb.song_mut().unwrap().player.is_paused());
+        pb.transport(Transport::TogglePause, &show);
+        assert!(
+            !pb.song_mut().unwrap().player.is_paused(),
+            "pressed again, it resumes"
+        );
+
+        pb.transport(Transport::Load(2), &show);
+        pb.song_mut().unwrap().player.go(&show);
+        assert_eq!(
+            pb.song_mut().unwrap().player.current_index(),
+            Some(2),
+            "GO after load goes to the loaded cue"
+        );
+    }
+
+    #[test]
+    fn transport_without_a_song_list_is_a_no_op() {
+        let groups = Vec::new();
+        let show = show(&groups);
+        let mut pb = Playbacks::new();
+        pb.push(Class::Look, player(vec![cue(&[dimmer(9, 1.0)])], &show));
+        pb.transport(Transport::GoBack, &show);
+        pb.transport(Transport::TogglePause, &show);
+        assert!(pb.song_mut().is_none());
+    }
+
+    /// A key nothing sets falls to its default; a key a cue sets is
+    /// the cue's.
+    /// r[verify playback.defaults]
+    #[test]
+    fn a_key_nothing_sets_falls_to_its_default() {
+        let groups = Vec::new();
+        let show = show(&groups);
+        let mut pb = Playbacks::new();
+        pb.push(Class::Song, player(vec![cue(&[dimmer(1, 0.7)])], &show));
+        let defaults = HashMap::from([
+            ((1, Attribute::Dimmer), 0.0),
+            ((1, Attribute::Zoom), 0.4),
+            ((2, Attribute::Zoom), 0.4),
+        ]);
+        let out = pb.output_with_defaults(&show, &HashSet::new(), &defaults);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.7).abs() < 1e-6,
+            "the cue's"
+        );
+        assert!(
+            (out[&(1, Attribute::Zoom)] - 0.4).abs() < 1e-6,
+            "the default"
+        );
+        assert!(
+            (out[&(2, Attribute::Zoom)] - 0.4).abs() < 1e-6,
+            "a fixture no cue touches"
+        );
+        assert!(
+            !pb.output(&show, &HashSet::new())
+                .contains_key(&(1, Attribute::Zoom)),
+            "without defaults nothing holds it"
+        );
+    }
+
+    /// Before the first GO, a list's output is cue zero: every default.
+    /// r[verify playback.defaults] - cue zero
+    #[test]
+    fn cue_zero_is_the_defaults() {
+        let groups = Vec::new();
+        let show = show(&groups);
+        let mut pb = Playbacks::new();
+        pb.push(Class::Song, CuePlayer::new(vec![cue(&[dimmer(1, 0.7)])]));
+        let defaults = HashMap::from([((1, Attribute::Dimmer), 0.0), ((1, Attribute::Zoom), 0.4)]);
+        let out = pb.output_with_defaults(&show, &HashSet::new(), &defaults);
+        assert_eq!(out[&(1, Attribute::Dimmer)], 0.0);
+        assert!((out[&(1, Attribute::Zoom)] - 0.4).abs() < 1e-6);
     }
 
     /// r[verify playback.inspectable]

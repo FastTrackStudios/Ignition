@@ -80,6 +80,7 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
         fixture_name,
         mode_name: resolved_mode_name,
         channel_map: ChannelMap {
+            curves: Default::default(),
             footprint,
             channels,
         },

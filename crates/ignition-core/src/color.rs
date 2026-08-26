@@ -536,6 +536,186 @@ impl Intent {
     }
 }
 
+// --- Colour spaces --------------------------------------------------------
+
+/// A colour space an RGB-shaped triple can be read in. The intent a
+/// preset stores is space-independent; this is how a triple that came
+/// from a fixture type's GDTF space, a Rec.2020 media file or a raw xy
+/// is given its real meaning before it is solved.
+// r[impl color.spaces]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ColorSpace {
+    /// Linear sRGB / Rec.709 primaries, D65 white.
+    Srgb,
+    /// ITU-R BT.2020 primaries, D65 white — the wide gamut a laser or
+    /// a saturated LED reaches and sRGB cannot name.
+    Rec2020,
+    /// The triple *is* CIE xyY: `(x, y, Y)`, no primaries at all.
+    Xy,
+}
+
+impl ColorSpace {
+    /// Linear XYZ tristimulus of a triple read in this space.
+    // r[impl color.spaces]
+    pub fn to_xyz(self, triple: [f32; 3]) -> Xyz {
+        let [a, b, c] = triple;
+        match self {
+            ColorSpace::Srgb => Rgb::new(a, b, c).to_xyz(),
+            ColorSpace::Rec2020 => Xyz {
+                x: 0.6369580 * a + 0.1446169 * b + 0.1688810 * c,
+                y: 0.2627002 * a + 0.6779981 * b + 0.0593017 * c,
+                z: 0.0000000 * a + 0.0280727 * b + 1.0609851 * c,
+            },
+            ColorSpace::Xy => Xyy {
+                x: a,
+                y: b,
+                luminance: c,
+            }
+            .to_xyz(),
+        }
+    }
+
+    /// A triple in this space for an XYZ — not clamped, so a colour
+    /// outside this space's gamut comes back with a channel below zero
+    /// or above one, and the caller can see that it did.
+    // r[impl color.spaces]
+    pub fn from_xyz(self, xyz: Xyz) -> [f32; 3] {
+        match self {
+            ColorSpace::Srgb => {
+                let rgb = xyz.to_rgb();
+                [rgb.red, rgb.green, rgb.blue]
+            }
+            ColorSpace::Rec2020 => [
+                1.7166512 * xyz.x - 0.3556708 * xyz.y - 0.2533663 * xyz.z,
+                -0.6666844 * xyz.x + 1.6164812 * xyz.y + 0.0157685 * xyz.z,
+                0.0176399 * xyz.x - 0.0427706 * xyz.y + 0.9421031 * xyz.z,
+            ],
+            ColorSpace::Xy => {
+                let xyy = xyz.to_xyy();
+                [xyy.x, xyy.y, xyy.luminance]
+            }
+        }
+    }
+
+    /// Whether a triple in this space is inside its gamut: every
+    /// channel in `0..=1` (for `Xy`, a chromaticity inside the unit
+    /// triangle with a luminance in `0..=1`).
+    pub fn contains(self, triple: [f32; 3]) -> bool {
+        const EPS: f32 = 1e-4;
+        let [a, b, c] = triple;
+        match self {
+            ColorSpace::Xy => {
+                a >= -EPS && b >= -EPS && a + b <= 1.0 + EPS && (-EPS..=1.0 + EPS).contains(&c)
+            }
+            _ => [a, b, c].iter().all(|v| (-EPS..=1.0 + EPS).contains(v)),
+        }
+    }
+}
+
+impl Intent {
+    /// A triple in `space` that reads as this intent, when its intent
+    /// converts (a gel not in the table yields `None`). Space-independent
+    /// intent in, a space's numbers out — the meeting point with a
+    /// fixture type's declared colour space. Not clamped.
+    // r[impl color.spaces]
+    pub fn in_space(&self, space: ColorSpace) -> Option<[f32; 3]> {
+        Some(space.from_xyz(self.xyy()?.to_xyz()))
+    }
+
+    /// An intent from a triple read in `space`: sRGB stays an `Rgb`
+    /// (the form every older file has), the rest become `Xy` so the
+    /// meaning survives outside sRGB's gamut.
+    // r[impl color.spaces]
+    pub fn from_space(space: ColorSpace, triple: [f32; 3]) -> Intent {
+        match space {
+            ColorSpace::Srgb => Intent::Rgb(Rgb::new(triple[0], triple[1], triple[2])),
+            _ => {
+                let xyy = space.to_xyz(triple).to_xyy();
+                Intent::Xy {
+                    x: xyy.x,
+                    y: xyy.y,
+                    luminance: xyy.luminance,
+                }
+            }
+        }
+    }
+
+    /// This intent at luminance `luminance` (CIE `Y`): the same
+    /// chromaticity, brighter or darker. Yields `Xy` unless nothing had
+    /// to change.
+    pub fn at_luminance(&self, luminance: f32) -> Option<Intent> {
+        let xyy = self.xyy()?;
+        if (xyy.luminance - luminance).abs() < 1e-6 {
+            return Some(self.clone());
+        }
+        Some(Intent::Xy {
+            x: xyy.x,
+            y: xyy.y,
+            luminance,
+        })
+    }
+}
+
+/// The same list of colours at one luminance — the *lowest* CIE `Y`
+/// among them — so a chase that walks them does not pump: red at full
+/// is a fifth the luminance of green at full, and a chase written as
+/// three saturated RGB triples reads as a throb of brightness unless
+/// every step is held to the dimmest one. A colour that cannot convert
+/// (an unknown gel) is passed through unchanged; a list at zero
+/// luminance is unchanged.
+// r[impl color.spaces] - constant brightness across a hue change
+pub fn constant_brightness(intents: &[Intent]) -> Vec<Intent> {
+    let floor = intents
+        .iter()
+        .filter_map(|i| i.xyy())
+        .map(|c| c.luminance)
+        .filter(|y| *y > 0.0)
+        .fold(f32::INFINITY, f32::min);
+    if !floor.is_finite() {
+        return intents.to_vec();
+    }
+    intents
+        .iter()
+        .map(|i| i.at_luminance(floor).unwrap_or_else(|| i.clone()))
+        .collect()
+}
+
+// --- Mix or wheel -----------------------------------------------------------
+
+/// How a fixture type that has both a colour wheel and colour mixing
+/// reaches a colour preset. Set per fixture type; the renderer applies
+/// it. A type with only one of the two has no choice to make.
+// r[impl color.mix-or-wheel] - the preference, settable per fixture type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ColorPreference {
+    /// Mix the colour on the emitters; the wheel stays open.
+    #[default]
+    Mix,
+    /// Take the nearest wheel slot; the mixing stays white.
+    Wheel,
+}
+
+/// The wheel slot whose colour is nearest `intent`, by CIE 1931 xy
+/// distance — how a gel-only spot joins in "Congo Blue" by taking its
+/// nearest gel. `None` for an empty wheel, or an intent that cannot
+/// convert. Ties go to the earlier slot; a slot whose own intent
+/// cannot convert is skipped.
+// r[impl color.mix-or-wheel] - the nearest slot for a wheel-only fixture
+pub fn nearest_wheel_slot(intent: &Intent, slots: &[(u8, Intent)]) -> Option<u8> {
+    let want = intent.xyy()?;
+    let mut best: Option<(u8, f32)> = None;
+    for (slot, colour) in slots {
+        let Some(c) = colour.xyy() else { continue };
+        let d = (c.x - want.x).powi(2) + (c.y - want.y).powi(2);
+        if best.is_none_or(|(_, bd)| d < bd) {
+            best = Some((*slot, d));
+        }
+    }
+    best.map(|(slot, _)| slot)
+}
+
 // --- Solve ---------------------------------------------------------------
 
 /// The default `quality` when a preset does not say — MA3's Q fader at
@@ -824,5 +1004,134 @@ mod tests {
             w.iter().map(|v| (v - mean).powi(2)).sum::<f32>()
         };
         assert!(spread(&broad) <= spread(&narrow) + 1e-6);
+    }
+
+    // --- Colour spaces and mix-or-wheel ---
+
+    /// r[verify color.spaces]
+    #[test]
+    fn srgb_round_trips_through_xyz() {
+        for triple in [
+            [1.0, 0.0, 0.0],
+            [0.2, 0.7, 0.4],
+            [1.0, 1.0, 1.0],
+            [0.0, 0.0, 0.3],
+        ] {
+            let back = ColorSpace::Srgb.from_xyz(ColorSpace::Srgb.to_xyz(triple));
+            for (a, b) in triple.iter().zip(&back) {
+                assert!((a - b).abs() < 1e-4, "{triple:?} -> {back:?}");
+            }
+            let back = ColorSpace::Rec2020.from_xyz(ColorSpace::Rec2020.to_xyz(triple));
+            for (a, b) in triple.iter().zip(&back) {
+                assert!((a - b).abs() < 1e-4, "rec2020 {triple:?} -> {back:?}");
+            }
+        }
+        // White is white in both: D65 at Y = 1.
+        let w = ColorSpace::Rec2020.to_xyz([1.0, 1.0, 1.0]);
+        let s = ColorSpace::Srgb.to_xyz([1.0, 1.0, 1.0]);
+        assert!((w.x - s.x).abs() < 1e-3 && (w.y - 1.0).abs() < 1e-3 && (w.z - s.z).abs() < 1e-3);
+        // Xy is xyY as it stands.
+        let xy = ColorSpace::Xy.from_xyz(ColorSpace::Xy.to_xyz([0.3, 0.4, 0.5]));
+        assert!(
+            (xy[0] - 0.3).abs() < 1e-5 && (xy[1] - 0.4).abs() < 1e-5 && (xy[2] - 0.5).abs() < 1e-5
+        );
+    }
+
+    /// r[verify color.spaces]
+    #[test]
+    fn rec2020_red_is_outside_srgb() {
+        let red = ColorSpace::Rec2020.to_xyz([1.0, 0.0, 0.0]);
+        let in_srgb = ColorSpace::Srgb.from_xyz(red);
+        assert!(!ColorSpace::Srgb.contains(in_srgb), "{in_srgb:?}");
+        assert!(in_srgb[1] < 0.0, "green goes negative: {in_srgb:?}");
+        // While sRGB red sits inside Rec.2020.
+        let srgb_red = ColorSpace::Srgb.to_xyz([1.0, 0.0, 0.0]);
+        assert!(ColorSpace::Rec2020.contains(ColorSpace::Rec2020.from_xyz(srgb_red)));
+        // An intent reads out in either space, and one made from a
+        // Rec.2020 triple keeps its chromaticity as xy.
+        let intent = Intent::from_space(ColorSpace::Rec2020, [1.0, 0.0, 0.0]);
+        assert!(matches!(intent, Intent::Xy { .. }));
+        let back = intent.in_space(ColorSpace::Rec2020).unwrap();
+        assert!((back[0] - 1.0).abs() < 1e-3 && back[1].abs() < 1e-3 && back[2].abs() < 1e-3);
+        assert!(!ColorSpace::Srgb.contains(intent.in_space(ColorSpace::Srgb).unwrap()));
+    }
+
+    /// r[verify color.spaces] - constant brightness
+    #[test]
+    fn constant_brightness_equalises_luminance() {
+        let chase = vec![
+            Intent::Rgb(Rgb::new(1.0, 0.0, 0.0)),
+            Intent::Rgb(Rgb::new(0.0, 1.0, 0.0)),
+            Intent::Rgb(Rgb::new(0.0, 0.0, 1.0)),
+        ];
+        let ys: Vec<f32> = chase.iter().map(|i| i.xyy().unwrap().luminance).collect();
+        assert!(ys[1] > ys[0] * 3.0, "green pumps over red: {ys:?}");
+        let even = constant_brightness(&chase);
+        let ys: Vec<f32> = even.iter().map(|i| i.xyy().unwrap().luminance).collect();
+        let floor = Rgb::new(0.0, 0.0, 1.0).to_xyz().y;
+        assert!(ys.iter().all(|y| (y - floor).abs() < 1e-5), "{ys:?}");
+        // Chromaticity is untouched.
+        for (a, b) in chase.iter().zip(&even) {
+            let (a, b) = (a.xyy().unwrap(), b.xyy().unwrap());
+            assert!((a.x - b.x).abs() < 1e-5 && (a.y - b.y).abs() < 1e-5);
+        }
+        // The dimmest one is returned as it was.
+        assert_eq!(even[2], chase[2]);
+        // Nothing to convert, nothing changes.
+        let unknown = vec![Intent::Gel {
+            manufacturer: "Nobody".into(),
+            number: "0".into(),
+        }];
+        assert_eq!(constant_brightness(&unknown), unknown);
+    }
+
+    /// r[verify color.mix-or-wheel]
+    #[test]
+    fn the_nearest_wheel_slot_is_by_xy_distance() {
+        let wheel = vec![
+            (0, Intent::Rgb(Rgb::WHITE)),
+            (1, Intent::Rgb(Rgb::new(1.0, 0.0, 0.0))),
+            (2, Intent::Rgb(Rgb::new(0.0, 1.0, 0.0))),
+            (3, Intent::Rgb(Rgb::new(0.0, 0.0, 1.0))),
+            (
+                4,
+                Intent::Gel {
+                    manufacturer: "Nobody".into(),
+                    number: "0".into(),
+                },
+            ),
+        ];
+        assert_eq!(
+            nearest_wheel_slot(&Intent::Rgb(Rgb::new(0.9, 0.1, 0.1)), &wheel),
+            Some(1)
+        );
+        assert_eq!(
+            nearest_wheel_slot(
+                &Intent::Cct {
+                    kelvin: 6500.0,
+                    tint: 0.0
+                },
+                &wheel
+            ),
+            Some(0)
+        );
+        // Congo Blue lands on the blue slot; luminance plays no part.
+        assert_eq!(
+            nearest_wheel_slot(
+                &Intent::Xy {
+                    x: 0.16,
+                    y: 0.05,
+                    luminance: 0.1
+                },
+                &wheel
+            ),
+            Some(3)
+        );
+        assert_eq!(nearest_wheel_slot(&Intent::Rgb(Rgb::WHITE), &[]), None);
+        assert_eq!(ColorPreference::default(), ColorPreference::Mix);
+        assert_eq!(
+            serde_json::to_string(&ColorPreference::Wheel).unwrap(),
+            r#""wheel""#
+        );
     }
 }

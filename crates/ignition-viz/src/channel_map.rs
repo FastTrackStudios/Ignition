@@ -20,8 +20,83 @@
 //! for those specific budget/no-name models (checked — see below). Treat
 //! unconfirmed entries as a working default, not ground truth.
 
-use crate::fixture_profile::FixtureEmitters;
+use crate::fixture_profile::{ColorWheelSlot, FixtureEmitters, FixtureProfile};
 use ignition_proto::{Attribute, ChannelMap, ColorChannel};
+
+/// The whole output-side profile of a hand-authored fixture type: its
+/// channel map, emitters, colour wheel and rest defaults. `None` for a
+/// type with no channel map at all.
+// r[impl color.mix-or-wheel] - wheel tables for the wheel movers
+// r[impl playback.defaults] - per-model rest values for the hand-authored maps
+pub fn profile_for(manufacturer: &str, model: &str) -> Option<FixtureProfile> {
+    let map = channel_map_for(manufacturer, model)?;
+    Some(FixtureProfile::from_channel_map(map).with_wheel(wheel_slots_for(manufacturer, model)))
+}
+
+/// Approximate CIE xy of the gels a budget mover's colour wheel carries.
+/// Nobody has measured these wheels; the values are the textbook
+/// chromaticities of the named colours, good enough to pick the right
+/// slot for a preset and nothing more.
+mod wheel_xy {
+    pub const WHITE: (f32, f32) = (0.313, 0.329);
+    pub const RED: (f32, f32) = (0.680, 0.310);
+    pub const GREEN: (f32, f32) = (0.210, 0.710);
+    pub const BLUE: (f32, f32) = (0.150, 0.060);
+    pub const YELLOW: (f32, f32) = (0.450, 0.480);
+    pub const MAGENTA: (f32, f32) = (0.350, 0.170);
+    pub const CYAN: (f32, f32) = (0.200, 0.320);
+    pub const ORANGE: (f32, f32) = (0.580, 0.400);
+    pub const PINK: (f32, f32) = (0.400, 0.250);
+}
+
+fn wheel(slots: &[(&str, u8, (f32, f32))]) -> Vec<ColorWheelSlot> {
+    slots
+        .iter()
+        .map(|(name, byte, (x, y))| ColorWheelSlot::xy(name, *byte, *x, *y))
+        .collect()
+}
+
+/// The colour-wheel slot table of a model that has a wheel; empty for
+/// every mixing fixture. Bytes are the centre of each slot's range on
+/// the wheel channel, per the fixture class's usual manual: the Riukoe
+/// / Lixada mini gobo heads step eight colours in ranges of 8, the
+/// Betopper beam nine colours in ranges of 10 (above those ranges both
+/// wheels carry split colours and then continuous rotation, which are
+/// not slots and are left out).
+// r[impl color.mix-or-wheel] - the Riukoe and Betopper wheel colours
+pub fn wheel_slots_for(manufacturer: &str, model: &str) -> Vec<ColorWheelSlot> {
+    use wheel_xy::*;
+    let m = manufacturer.to_ascii_lowercase();
+    let mo = model.to_ascii_lowercase();
+    if ((m == "riukoe" || m == "lixada") && mo.contains("gobo"))
+        || mo.contains("mini gobo moving head light")
+    {
+        return wheel(&[
+            ("White", 3, WHITE),
+            ("Red", 11, RED),
+            ("Green", 19, GREEN),
+            ("Blue", 27, BLUE),
+            ("Yellow", 35, YELLOW),
+            ("Magenta", 43, MAGENTA),
+            ("Cyan", 51, CYAN),
+            ("Orange", 59, ORANGE),
+        ]);
+    }
+    if m == "betopper" {
+        return wheel(&[
+            ("White", 4, WHITE),
+            ("Red", 14, RED),
+            ("Green", 24, GREEN),
+            ("Blue", 34, BLUE),
+            ("Yellow", 44, YELLOW),
+            ("Orange", 54, ORANGE),
+            ("Magenta", 64, MAGENTA),
+            ("Pink", 74, PINK),
+            ("Cyan", 84, CYAN),
+        ]);
+    }
+    Vec::new()
+}
 
 /// The colour emitters of a fixture type, derived from its channel map
 /// with `fixture_profile::typical_emitter`'s class-of-LED chromaticities:
@@ -57,6 +132,7 @@ fn rgb_par(footprint: u16, dimmer_channel: Option<u16>, rgb_start: u16) -> Chann
         },
     ));
     ChannelMap {
+        curves: Default::default(),
         footprint,
         channels,
     }
@@ -110,6 +186,7 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         // Dimmer, Speed, Special, Reset. The fine bytes are mapped so
         // pan and tilt travel at 16 bits — see `Attribute::PanFine`.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 11,
             channels: vec![
                 (0, Attribute::Pan),
@@ -130,6 +207,7 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         // Tilt fine, Speed, Dimmer, Strobe, Colour wheel, Gobo wheel,
         // Prism, Focus, Reset.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 12,
             channels: vec![
                 (0, Attribute::Pan),
@@ -180,6 +258,7 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         // exist for this fixture. `Dimmer` stands in for the haze-output
         // channel — there's no dedicated haze `Attribute` yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 1,
             channels: vec![(0, Attribute::Dimmer)],
         });
@@ -237,6 +316,24 @@ mod tests {
         assert!(emitters_for("Riukoe", "Gobo 11ch").is_none());
     }
 
+    /// r[verify color.mix-or-wheel] - the wheel movers carry a slot table, the pars none
+    #[test]
+    fn wheel_movers_carry_a_slot_table_and_prefer_it() {
+        use ignition_core::color::{ColorPreference, Intent, nearest_wheel_slot};
+        let riukoe = profile_for("Riukoe", "Gobo 11ch").unwrap();
+        assert_eq!(riukoe.wheel.len(), 8);
+        assert_eq!(riukoe.color_preference, ColorPreference::Wheel);
+        assert!(riukoe.emitters.is_none());
+        let betopper = profile_for("Betopper", "150W Beam").unwrap();
+        assert_eq!(betopper.wheel.len(), 9);
+        let blue = Intent::Rgb(ignition_core::color::Rgb::new(0.0, 0.0, 1.0));
+        assert_eq!(nearest_wheel_slot(&blue, &betopper.wheel_slots()), Some(34));
+        let par = profile_for("Uking", "Par").unwrap();
+        assert!(par.wheel.is_empty());
+        assert_eq!(par.color_preference, ColorPreference::Mix);
+        assert_eq!(par.defaults[&Attribute::Dimmer], 0.0);
+    }
+
     /// Locks in the correction from the real chauvet-dj/hurricane-haze-1dx.json
     /// profile: the fixture's only mode is 1 channel, not the originally-
     /// guessed 2ch (dimmer + fan).
@@ -276,6 +373,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 7ch: Dimmer, Red, Green, Blue, Shutter, Color Macros, Color Macors Speed
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 7,
             channels: vec![
                 (0, Attribute::Dimmer),
@@ -305,6 +403,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 2ch: Pump, Fan
         // 1 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 2,
             channels: vec![(0, Attribute::Dimmer)],
         });
@@ -313,6 +412,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 8ch: Total Dimmer, Red, Green, Blue, White, Total Strobe, Function Choice, Function Speed
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 8,
             channels: vec![
                 (0, Attribute::Dimmer),
@@ -348,6 +448,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 8ch: X, ÂµX, Y, ÂµY, Speed, Shutter, Dimmer, Special
         // 4 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 8,
             channels: vec![
                 (0, Attribute::Pan),
@@ -361,6 +462,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 2ch: Lamp, Rotation
         // 1 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 2,
             channels: vec![(0, Attribute::Dimmer)],
         });
@@ -368,6 +470,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
     if mo.contains("mini derby") {
         // 9ch: MODE, RED, GREEN, BLUE, LED COLOR CONTROL, LED STROBE, LED FADE, MOTOR SPEED, MOTOR SPIN SPEED
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 9,
             channels: vec![
                 (0, Attribute::Dimmer),
@@ -401,6 +504,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 11ch: X, ÂµX, Y, ÂµY, Color Wheel, Gobo, Shutter, Dimmer, Speed, Function, Dimmer Modes
         // 5 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 11,
             channels: vec![
                 (0, Attribute::Pan),
@@ -416,6 +520,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 6ch: Dimmer/Strobe/Effect, Red, Green, Blue, White, Macro
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 6,
             channels: vec![
                 (
@@ -449,6 +554,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 7ch: Red, Green, Blue, Dimmer, Shutter, Chase Mode, Control
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 7,
             channels: vec![
                 (
@@ -478,6 +584,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 6ch: Red, Green, Blue, Macros, Shutter, Selection Control
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 6,
             channels: vec![
                 (
@@ -506,6 +613,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 7ch: Dimmer, Red, Green, Blue, Shutter, Color Macros, Color Selection/Shade
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 7,
             channels: vec![
                 (0, Attribute::Dimmer),
@@ -535,6 +643,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 15ch: Dimmer, Strobe, 1. Warm White, 2. Warm White, 3. Warm White, 4. Warm White, 5. Warm White, 6. Warm White, Red, Green, Blue, Warm White Macro, Warm White Macro Speed, Auxiliary Light Effect, Auxiliary Light Effect Speed
         // 10 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
+            curves: Default::default(),
             footprint: 15,
             channels: vec![
                 (0, Attribute::Dimmer),

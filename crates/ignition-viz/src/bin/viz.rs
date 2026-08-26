@@ -3,6 +3,8 @@
 //! ```text
 //! viz --venue data/venues/norco
 //! viz --venue data/venues/norco --snapshot out.png --view house
+//! viz --venue data/venues/norco --cuelist data/songs/x.json --bpm 128 \
+//!     --export out.mp4 --from-bar 9 --to-bar 17 --fps 30 --width 1280 --height 720
 //! ```
 //!
 //! With no console on the network every fixture just renders dark — this
@@ -12,7 +14,8 @@ use bevy::math::Vec3;
 use ignition_viz::gdtf_geometry::GdtfLibrary;
 use ignition_viz::playback::Playback;
 use ignition_viz::spawn::BeamStyle;
-use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig, run};
+use ignition_viz::video::export::ExportRequest;
+use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig, run, run_export};
 use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
@@ -44,6 +47,12 @@ fn main() -> anyhow::Result<()> {
     let mut ambient = 0.15f32;
     let mut max_universe = 4u16;
     let mut snapshot: Option<PathBuf> = None;
+    // `--export out.mp4 --from-bar A --to-bar B`: the show rendered to a
+    // video offline, frame by frame against the song's clock.
+    let mut export: Option<PathBuf> = None;
+    let mut from_bar: Option<u32> = None;
+    let mut to_bar: Option<u32> = None;
+    let mut export_fps = 30u32;
     let mut settle_frames = 20u32;
     // On by default now that the people and mic stands have real shapes
     // rather than being placeholder boxes; `--hide-props` for a clean
@@ -72,8 +81,11 @@ fn main() -> anyhow::Result<()> {
     let mut eye: Option<Vec3> = None;
     let mut look: Option<Vec3> = None;
 
-    let mut args = std::env::args().skip(1);
+    let mut args = std::env::args().skip(1).peekable();
     while let Some(arg) = args.next() {
+        // `--fps` is two flags: the frame-rate readout in a window, and
+        // the export rate when followed by a number.
+        let fps_number = arg == "--fps" && args.peek().is_some_and(|n| n.parse::<u32>().is_ok());
         let mut next = |what: &str| args.next().unwrap_or_else(|| panic!("{arg} needs {what}"));
         match arg.as_str() {
             "--venue" => venue_dir = PathBuf::from(next("a path")),
@@ -87,6 +99,14 @@ fn main() -> anyhow::Result<()> {
             "--ambient" => ambient = next("a number 0..1").parse()?,
             "--max-universe" => max_universe = next("a number").parse()?,
             "--snapshot" => snapshot = Some(PathBuf::from(next("a path"))),
+            // A video of the show from one bar to another, at `--fps`
+            // and `--width`/`--height`, with the `--cuelist` and `--bpm`
+            // it should play. An H.264 `.mp4` when built with the
+            // `ffmpeg` feature; otherwise a PNG sequence in a directory.
+            "--export" => export = Some(PathBuf::from(next("a path"))),
+            "--from-bar" => from_bar = Some(next("a bar number, 1-based").parse()?),
+            "--to-bar" => to_bar = Some(next("a bar number, exclusive").parse()?),
+            "--fps" if fps_number => export_fps = next("frames per second").parse()?,
             "--settle-frames" => settle_frames = next("a number").parse()?,
             "--show-props" => show_props = true,
             "--hide-props" => show_props = false,
@@ -182,52 +202,73 @@ fn main() -> anyhow::Result<()> {
         None => None,
     };
 
-    let draw_overlay = overlay.unwrap_or(snapshot.is_none());
+    let export = match export {
+        Some(path) => {
+            let (Some(from_bar), Some(to_bar)) = (from_bar, to_bar) else {
+                anyhow::bail!("--export needs --from-bar and --to-bar");
+            };
+            anyhow::ensure!(to_bar > from_bar, "--to-bar must be after --from-bar");
+            anyhow::ensure!(
+                cuelist.is_some() || recipes.is_some(),
+                "--export needs a --cuelist"
+            );
+            Some(ExportRequest {
+                path,
+                from_bar,
+                to_bar,
+                fps: export_fps,
+            })
+        }
+        None => None,
+    };
+    let headless = snapshot.is_some() || export.is_some();
+    let draw_overlay = overlay.unwrap_or(!headless);
     let playback = Playback::load(
         &venue,
         cuelist.as_deref(),
         recipes.as_deref(),
         cue,
         effect_time,
-        bar,
+        // An export starts at its first bar.
+        export.as_ref().map(|e| e.from_bar).or(bar),
         song_bpm,
         None,
     )?;
 
     // A still keeps the quality every existing snapshot was made at; a
     // window gets the same dials as the studio.
-    let quality = if snapshot.is_some() {
+    let quality = if headless {
         RenderQuality::STILL
     } else {
         RenderQuality::live()
     };
-    run(
-        VizConfig {
-            quality,
-            venue,
-            view,
-            width,
-            height,
-            haze,
-            ambient,
-            max_universe,
-            snapshot,
-            settle_frames,
-            show_props,
-            camera: eye.zip(look),
-            overlay: draw_overlay,
-            fps,
-            exclude,
-            beam_style,
-            exposure,
-            screen_content,
-            canvas_content,
-            canvas_focus: Default::default(),
-            assets_dir,
-        },
-        playback,
-        gdtf,
-    );
+    let config = VizConfig {
+        quality,
+        venue,
+        view,
+        width,
+        height,
+        haze,
+        ambient,
+        max_universe,
+        snapshot,
+        settle_frames,
+        show_props,
+        camera: eye.zip(look),
+        overlay: draw_overlay,
+        fps,
+        exclude,
+        beam_style,
+        exposure,
+        screen_content,
+        canvas_content,
+        canvas_focus: Default::default(),
+        assets_dir,
+    };
+    match export {
+        Some(request) => run_export(config, playback, gdtf, &request)?,
+        None => run(config, playback, gdtf),
+    }
     Ok(())
 }
 

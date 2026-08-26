@@ -179,6 +179,23 @@ pub enum RecipeApply {
     /// Relative (`Delta` semantics) unless `absolute`.
     // r[impl effects.random]
     Random(Random),
+    /// A sound band level as a value: `attr` sits at
+    /// `low + level × (high − low)`, where `level` is the show's
+    /// smoothed level of `band` (`0..=1`). Silence is `low`; full is
+    /// `high`. `relative` makes it a `Delta` on top of the look rather
+    /// than a replacement — the bass *lifting* the blinders over
+    /// whatever the cue set. The no-chart busking case. The smoothing
+    /// (sound fade) is the host's, handed in as [`SoundLevels`], so the
+    /// same recipe on the same levels is the same value everywhere.
+    // r[impl playback.sound-as-value]
+    Sound {
+        band: Band,
+        attr: Attribute,
+        low: f32,
+        high: f32,
+        #[serde(default)]
+        relative: bool,
+    },
     /// Escape hatch for anything not modelled as its own `RecipeApply`
     /// variant yet — the same role `Attribute::Custom` plays one level
     /// down.
@@ -250,6 +267,72 @@ pub struct Random {
     /// Replace what is underneath rather than add to it.
     #[serde(default)]
     pub absolute: bool,
+    /// How much of a period each unit's phase may be offset by, `0..=1`
+    /// — MA3's *phase variance*. `1.0` (the default, and what every
+    /// file before this field got) scatters the units across the whole
+    /// period; `0.0` runs them in lock-step, every unit changing level
+    /// on the same frame with its own rolled level.
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub phase_var: f32,
+    /// The proportion of each period the unit is *on* — at its rolled
+    /// level — before it sits at `low` for the rest: MA3's *ratio*.
+    /// `1.0` (the default) never drops; `0.25` is a sparkle. Attack and
+    /// decay are fractions of the on-portion, so a decay still lands on
+    /// `low` at the moment the unit goes off.
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub ratio: f32,
+    /// ± spread on `ratio` per unit, so one candle burns longer than
+    /// the next.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub ratio_var: f32,
+    /// Each unit starts its level sequence at a different, seeded point
+    /// — MA3's *random start* — so two units at the same phase still
+    /// roll different levels in the same order the file was written.
+    /// Off, every unit's sequence begins at period zero.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub random_start: bool,
+    /// Let the sound's band level drive `high`: the range becomes
+    /// `[low, low + level × (high − low)]`, so a sparkle's brightness
+    /// breathes with the music and sits at `low` in silence. The host
+    /// smooths the level; see [`SoundLevels`].
+    // r[impl playback.sound-as-value] - a generator's range
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub high_from_band: Option<Band>,
+}
+
+fn one() -> f32 {
+    1.0
+}
+
+fn is_one(v: &f32) -> bool {
+    *v == 1.0
+}
+
+fn is_zero(v: &f32) -> bool {
+    *v == 0.0
+}
+
+impl Default for Random {
+    /// A full-range dimmer sparkle with nothing varied: the fields a
+    /// file may omit at the values omitting them gives.
+    fn default() -> Self {
+        Self {
+            attr: Attribute::Dimmer,
+            low: 0.0,
+            high: 1.0,
+            level_var: 0.0,
+            speed_var: 0.0,
+            attack: 0.0,
+            decay: 0.0,
+            seed: 0,
+            absolute: false,
+            phase_var: 1.0,
+            ratio: 1.0,
+            ratio_var: 0.0,
+            random_start: false,
+            high_from_band: None,
+        }
+    }
 }
 
 impl Random {
@@ -275,20 +358,57 @@ impl Random {
         base + (self.roll(unit, k, 2) * 2.0 - 1.0) * self.level_var
     }
 
+    /// This generator with its range breathing on the sound: `high`
+    /// pulled toward `low` by the band's level. Itself when no band is
+    /// named.
+    // r[impl playback.sound-as-value] - a generator's range
+    pub fn heard(&self, sound: &SoundLevels) -> std::borrow::Cow<'_, Random> {
+        use std::borrow::Cow;
+        match self.high_from_band {
+            None => Cow::Borrowed(self),
+            Some(band) => Cow::Owned(Random {
+                high: self.low + (self.high - self.low) * sound.level(band),
+                high_from_band: None,
+                ..self.clone()
+            }),
+        }
+    }
+
     /// The value for `unit` when the recipe's clock reads `cycles`.
+    ///
+    /// Still a pure function of (seed, unit, time): phase variance,
+    /// ratio variance and random start are all rolled from the seed
+    /// and the unit, never from a clock or a counter.
     // r[impl effects.random]
+    // r[impl effects.sync.pure-function]
     pub fn at(&self, unit: usize, cycles: f32) -> f32 {
         let rate = 1.0 + (self.roll(unit, 0, 3) * 2.0 - 1.0) * self.speed_var;
-        let local = cycles * rate.max(0.01) + self.roll(unit, 0, 4);
+        let phase = self.roll(unit, 0, 4) * self.phase_var.clamp(0.0, 1.0);
+        // A seeded whole-period offset so this unit reads a different
+        // stretch of its level sequence.
+        let start = if self.random_start {
+            (self.roll(unit, 0, 6) * 4096.0).floor()
+        } else {
+            0.0
+        };
+        let local = cycles * rate.max(0.01) + phase + start;
         let k = local.floor();
         let frac = local - k;
         let k = k as i64;
+        // The on-portion of this period for this unit; outside it the
+        // unit sits at `low`.
+        let ratio =
+            (self.ratio + (self.roll(unit, 0, 5) * 2.0 - 1.0) * self.ratio_var).clamp(0.0, 1.0);
+        if ratio <= 0.0 || frac >= ratio {
+            return self.low;
+        }
+        let frac = frac / ratio;
         let target = self.level(unit, k);
         let attack = self.attack.clamp(0.0, 1.0);
         let decay = self.decay.clamp(0.0, 1.0 - attack);
-        // Where the last period left off: at `low` if it decayed, else
-        // on its own level.
-        let prev = if decay > 0.0 {
+        // Where the last period left off: at `low` if it decayed or
+        // switched off, else on its own level.
+        let prev = if decay > 0.0 || ratio < 1.0 {
             self.low
         } else {
             self.level(unit, k - 1)
@@ -723,6 +843,10 @@ pub struct Show<'a> {
     // r[impl effects.masters.scale]
     // r[impl effects.masters.uniform] - one multiplier, one code path
     pub speed_scale: f32,
+    /// The smoothed sound band levels right now, from the host. Zeros
+    /// when nothing is listening.
+    // r[impl playback.sound-as-value]
+    pub sound: SoundLevels,
 }
 
 /// No shared Tricks — every `tricks_ref` resolves to nothing.
@@ -766,7 +890,14 @@ impl<'a> Show<'a> {
             named_tricks: &NO_NAMED_TRICKS,
             size: 1.0,
             speed_scale: 1.0,
+            sound: SoundLevels::default(),
         }
+    }
+
+    /// This show with the host's smoothed sound levels for this frame.
+    // r[impl playback.sound-as-value]
+    pub fn with_sound(&self, sound: SoundLevels) -> Show<'a> {
+        Show { sound, ..*self }
     }
 
     /// This show with the operator's size and speed scale applied — what
@@ -846,6 +977,57 @@ pub struct Emit {
     /// `true` for a `RecipeApply::Delta` — the caller adds this on top
     /// of whatever won the cascade rather than letting it compete.
     pub relative: bool,
+    /// The device-independent colour this value is one channel of, for
+    /// a colour emit (`ColorAdd{Red,Green,Blue}` from a `Color`,
+    /// `Colors` or `Split`): the preset's stored `Intent`, or
+    /// `Intent::Rgb` of the resolved triple when it stores none. The
+    /// player carries it to output so a fixture's emitters are solved
+    /// against *this*, never against the triple re-derived from three
+    /// floats. Every other emit carries `None`. Blending between two
+    /// steps of a colour phaser carries the intent of the **nearer**
+    /// step (the outgoing one below half-way, the incoming one from
+    /// half-way): a blend of two intents has no single meaning, and the
+    /// triple beside it is already interpolated for anything that wants
+    /// the in-between.
+    // r[impl color.intent-to-output] - the intent rides beside the triple
+    pub intent: Option<crate::color::Intent>,
+}
+
+/// The show's smoothed sound band levels, `0..=1` each, for
+/// `RecipeApply::Sound` and `Random::high_from_band`.
+///
+/// Smoothing (the "sound fade") is the **host's** job: whatever
+/// analyses audio hands the *already smoothed* levels in `Show::sound`
+/// every frame, so a kick reads as a lift and not as noise, and so a
+/// recipe stays a pure function of what it is handed. Zeros mean no
+/// sound — every sound-driven value sits at its `low`.
+// r[impl playback.sound-as-value] - the levels the recipe reads
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub struct SoundLevels {
+    pub low: f32,
+    pub mid: f32,
+    pub high: f32,
+}
+
+impl SoundLevels {
+    /// The level of one band, clamped to `0..=1`.
+    pub fn level(&self, band: Band) -> f32 {
+        match band {
+            Band::Low => self.low,
+            Band::Mid => self.mid,
+            Band::High => self.high,
+        }
+        .clamp(0.0, 1.0)
+    }
+}
+
+/// One of the three sound bands a recipe can read.
+// r[impl playback.sound-as-value]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Band {
+    Low,
+    Mid,
+    High,
 }
 
 /// A `RecipeApply::FocusDelta` the recipe could not resolve on its own,
@@ -981,6 +1163,8 @@ struct Resolved {
     relative: bool,
     point: Option<Vec3>,
     delta: Option<Vec3>,
+    /// The intent behind a colour's `values`, for the player.
+    intent: Option<crate::color::Intent>,
 }
 
 impl Resolved {
@@ -988,6 +1172,18 @@ impl Resolved {
         Self {
             values,
             relative,
+            ..Default::default()
+        }
+    }
+
+    /// A colour: its triple as values, its intent beside them. A
+    /// preset with no stored intent (a pre-intent file, or a `Spread`
+    /// blend of two) carries `Intent::Rgb` of its triple.
+    // r[impl color.intent-to-output]
+    fn colour(c: &ColorPreset) -> Self {
+        Self {
+            values: rgb_values(c),
+            intent: Some(c.intent()),
             ..Default::default()
         }
     }
@@ -1042,10 +1238,7 @@ fn apply_values(
         // r[impl color.recall-by-reference] - resolved from the palette at output time
         // r[impl color.scope.fallback-order] - the preset meets this fixture through its scope
         RecipeApply::Color(reference) => match show.palettes.resolve_color(reference) {
-            Some(c) => Resolved::values(
-                rgb_values(&scoped(&c, chan, show.model_of(chan).as_deref())),
-                false,
-            ),
+            Some(c) => Resolved::colour(&scoped(&c, chan, show.model_of(chan).as_deref())),
             None => Resolved::default(),
         },
         // r[impl color.multi]
@@ -1063,10 +1256,9 @@ fn apply_values(
                 })
                 .collect();
             match resolved {
-                Some(list) if !list.is_empty() => Resolved::values(
-                    rgb_values(&distribute_color(&list, *distribute, slot)),
-                    false,
-                ),
+                Some(list) if !list.is_empty() => {
+                    Resolved::colour(&distribute_color(&list, *distribute, slot))
+                }
                 _ => Resolved::default(),
             }
         }
@@ -1080,10 +1272,7 @@ fn apply_values(
                     .iter()
                     .map(|c| scoped(c, chan, model.as_deref()))
                     .collect();
-                Resolved::values(
-                    rgb_values(&distribute_color(&list, distribute, slot)),
-                    false,
-                )
+                Resolved::colour(&distribute_color(&list, distribute, slot))
             }
             None => Resolved::default(),
         },
@@ -1180,9 +1369,23 @@ fn apply_values(
                 .map(|o| v_add(o, *offset)),
         ),
         // r[impl effects.random]
-        RecipeApply::Random(random) => Resolved::values(
-            vec![(random.attr.clone(), random.at(slot.index, clock.cycles))],
-            !random.absolute,
+        RecipeApply::Random(random) => {
+            let random = random.heard(&show.sound);
+            Resolved::values(
+                vec![(random.attr.clone(), random.at(slot.index, clock.cycles))],
+                !random.absolute,
+            )
+        }
+        // r[impl playback.sound-as-value] - the band's smoothed level, as a value
+        RecipeApply::Sound {
+            band,
+            attr,
+            low,
+            high,
+            relative,
+        } => Resolved::values(
+            vec![(attr.clone(), low + (high - low) * show.sound.level(*band))],
+            *relative,
         ),
         RecipeApply::Raw(values) => Resolved::values(values.clone(), false),
         // r[impl effects.modulates-with-delta]
@@ -1213,6 +1416,9 @@ struct StepValues {
     focus_delta: Option<Vec3>,
     /// The room point the step aimed this channel at, delta folded in.
     point: Option<Vec3>,
+    /// The intent of the last colour apply in the step — the one whose
+    /// triple won `values`, since a later apply overwrites an earlier.
+    intent: Option<crate::color::Intent>,
 }
 
 fn step_values(step: &Step, chan: ChanId, slot: Slot, clock: Clock, show: &Show<'_>) -> StepValues {
@@ -1223,6 +1429,9 @@ fn step_values(step: &Step, chan: ChanId, slot: Slot, clock: Clock, show: &Show<
         let r = apply_values(apply, chan, slot, clock, show);
         for (attr, value) in r.values {
             out.values.insert((attr, r.relative), value);
+        }
+        if r.intent.is_some() {
+            out.intent = r.intent;
         }
         if r.point.is_some() {
             point = r.point;
@@ -1429,6 +1638,13 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
                 out.focus_points.push((chan, point));
             }
 
+            // The nearer step's intent rides on the colour emits.
+            // r[impl color.intent-to-output] - carried, not re-derived from the blended triple
+            let intent = if blend < 0.5 && from.intent.is_some() {
+                &from.intent
+            } else {
+                &to.intent
+            };
             // r[impl effects.interpolate]
             for (key, target) in &to.values {
                 // An attribute the outgoing step did not set has nothing
@@ -1479,11 +1695,22 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
                         value,
                     },
                     relative: key.1,
+                    intent: if is_colour(&key.0) {
+                        intent.clone()
+                    } else {
+                        None
+                    },
                 });
             }
         }
     }
     out
+}
+
+/// Whether an attribute is one channel of a colour — the emits an
+/// `Intent` rides beside.
+fn is_colour(attr: &Attribute) -> bool {
+    matches!(attr, Attribute::ColorAdd { .. })
 }
 
 /// The grid a recipe's selection is expanded on.
@@ -3307,6 +3534,7 @@ mod tests {
             decay: 0.3,
             seed,
             absolute,
+            ..Default::default()
         }
     }
 
@@ -4632,5 +4860,376 @@ mod pattern_and_control_tests {
             cook_cue(&cue_of(above), &Show::new(&[], &rig), 0.0).recipes,
             vec![Cook::Ok(3)]
         );
+    }
+}
+
+#[cfg(test)]
+mod intent_and_sound_tests {
+    use super::*;
+    use crate::color::{Intent, Rgb};
+    use crate::selection::FixtureInfo;
+
+    fn rig() -> Rig {
+        let fixture = |chan: ChanId| FixtureInfo {
+            chan,
+            placement: None,
+            manufacturer: "Uking".into(),
+            model: "Par".into(),
+            tags: Vec::new(),
+        };
+        Rig::new(vec![fixture(1), fixture(2), fixture(3), fixture(4)])
+    }
+
+    fn palette(presets: Vec<ColorPreset>) -> Palettes {
+        Palettes {
+            colors: presets,
+            splits: Vec::new(),
+            focus: Vec::new(),
+        }
+    }
+
+    fn colour_emits(emits: &[Emit], chan: ChanId) -> Vec<&Emit> {
+        emits
+            .iter()
+            .filter(|e| e.value.chan == chan && matches!(e.value.attr, Attribute::ColorAdd { .. }))
+            .collect()
+    }
+
+    /// r[verify color.intent-to-output]
+    #[test]
+    fn a_cct_preset_carries_its_intent_on_every_colour_emit() {
+        let warm = ColorPreset::from_intent(
+            "Warm",
+            Intent::Cct {
+                kelvin: 3200.0,
+                tint: 0.0,
+            },
+        )
+        .unwrap();
+        let palettes = palette(vec![warm]);
+        let rig = rig();
+        let mut show = Show::new(&[], &rig);
+        show.palettes = &palettes;
+        let recipe = Recipe::new(
+            Selection::Chans(vec![1, 2]),
+            RecipeApply::Color(Ref::Named("Warm".into())),
+        );
+        let emits = expand_recipe(&recipe, &show, 0.0);
+        let colour = colour_emits(&emits, 1);
+        assert_eq!(colour.len(), 3);
+        assert!(colour.iter().all(|e| matches!(
+            e.intent,
+            Some(Intent::Cct { kelvin, .. }) if (kelvin - 3200.0).abs() < 1e-6
+        )));
+        // A dimmer emit carries none.
+        let dim = Recipe::new(Selection::Chans(vec![1]), RecipeApply::Dimmer(0.5));
+        assert!(
+            expand_recipe(&dim, &show, 0.0)
+                .iter()
+                .all(|e| e.intent.is_none())
+        );
+    }
+
+    /// r[verify color.intent-to-output]
+    #[test]
+    fn an_rgb_only_preset_carries_its_triple_as_the_intent() {
+        let palettes = palette(vec![
+            ColorPreset::rgb("Red", 1.0, 0.0, 0.0),
+            ColorPreset::rgb("Blue", 0.0, 0.0, 1.0),
+        ]);
+        let rig = rig();
+        let mut show = Show::new(&[], &rig);
+        show.palettes = &palettes;
+        let single = Recipe::new(
+            Selection::Chans(vec![1]),
+            RecipeApply::Color(Ref::Named("Red".into())),
+        );
+        let emits = expand_recipe(&single, &show, 0.0);
+        assert!(
+            colour_emits(&emits, 1)
+                .iter()
+                .all(|e| e.intent == Some(Intent::Rgb(Rgb::new(1.0, 0.0, 0.0))))
+        );
+        // Through `Colors` too, each unit with the intent of the colour
+        // it was dealt.
+        let multi = Recipe::new(
+            Selection::Chans(vec![1, 2]),
+            RecipeApply::Colors {
+                colors: vec![Ref::Named("Red".into()), Ref::Named("Blue".into())],
+                distribute: Distribute::Cycle,
+            },
+        );
+        let emits = expand_recipe(&multi, &show, 0.0);
+        assert!(
+            colour_emits(&emits, 2)
+                .iter()
+                .all(|e| e.intent == Some(Intent::Rgb(Rgb::new(0.0, 0.0, 1.0))))
+        );
+        // Through a split as well.
+        let split = Recipe::new(
+            Selection::Chans(vec![1, 2]),
+            RecipeApply::Split(Ref::Inline(ColorSplit {
+                name: String::new(),
+                colors: vec![Ref::Named("Blue".into()), Ref::Named("Red".into())],
+                distribute: Distribute::Cycle,
+            })),
+        );
+        let emits = expand_recipe(&split, &show, 0.0);
+        assert!(
+            colour_emits(&emits, 1)
+                .iter()
+                .all(|e| e.intent == Some(Intent::Rgb(Rgb::new(0.0, 0.0, 1.0))))
+        );
+    }
+
+    /// r[verify color.intent-to-output] - the nearer step's intent between two
+    #[test]
+    fn a_colour_phaser_carries_the_nearer_steps_intent() {
+        let warm = ColorPreset::from_intent(
+            "Warm",
+            Intent::Cct {
+                kelvin: 3200.0,
+                tint: 0.0,
+            },
+        )
+        .unwrap();
+        let palettes = palette(vec![warm, ColorPreset::rgb("Red", 1.0, 0.0, 0.0)]);
+        let rig = rig();
+        let mut show = Show::new(&[], &rig);
+        show.palettes = &palettes;
+        let recipe = Recipe {
+            target: Selection::Chans(vec![1]),
+            steps: vec![
+                Step::new(vec![RecipeApply::Color(Ref::Named("Warm".into()))]),
+                Step::new(vec![RecipeApply::Color(Ref::Named("Red".into()))]),
+            ],
+            timing: Timing {
+                speed: Speed::Hz(1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        // Sample the whole cycle: every colour emit carries one of the
+        // two intents, never nothing and never a blend.
+        for i in 0..20 {
+            let emits = expand_recipe(&recipe, &show, i as f32 / 20.0);
+            for e in colour_emits(&emits, 1) {
+                assert!(
+                    matches!(e.intent, Some(Intent::Cct { .. }) | Some(Intent::Rgb(_))),
+                    "{:?}",
+                    e.intent
+                );
+            }
+        }
+    }
+
+    fn sound_show<'a>(rig: &'a Rig, low: f32) -> Show<'a> {
+        Show::new(&[], rig).with_sound(SoundLevels {
+            low,
+            mid: 0.0,
+            high: 0.0,
+        })
+    }
+
+    fn dimmer_of(emits: &[Emit], chan: ChanId) -> Option<&Emit> {
+        emits
+            .iter()
+            .find(|e| e.value.chan == chan && e.value.attr == Attribute::Dimmer)
+    }
+
+    /// r[verify playback.sound-as-value]
+    #[test]
+    fn a_sound_apply_sits_between_low_and_high_on_the_bands_level() {
+        let rig = rig();
+        let recipe = Recipe::new(
+            Selection::Chans(vec![1]),
+            RecipeApply::Sound {
+                band: Band::Low,
+                attr: Attribute::Dimmer,
+                low: 0.2,
+                high: 1.0,
+                relative: false,
+            },
+        );
+        let silent = expand_recipe(&recipe, &sound_show(&rig, 0.0), 0.0);
+        assert_eq!(dimmer_of(&silent, 1).unwrap().value.value, 0.2);
+        let half = expand_recipe(&recipe, &sound_show(&rig, 0.5), 0.0);
+        assert!((dimmer_of(&half, 1).unwrap().value.value - 0.6).abs() < 1e-6);
+        let loud = expand_recipe(&recipe, &sound_show(&rig, 1.0), 0.0);
+        assert_eq!(dimmer_of(&loud, 1).unwrap().value.value, 1.0);
+        assert!(!dimmer_of(&loud, 1).unwrap().relative);
+        // A different band reads its own level: mid is silent here.
+        let mid = Recipe::new(
+            Selection::Chans(vec![1]),
+            RecipeApply::Sound {
+                band: Band::Mid,
+                attr: Attribute::Dimmer,
+                low: 0.0,
+                high: 1.0,
+                relative: true,
+            },
+        );
+        let e = expand_recipe(&mid, &sound_show(&rig, 1.0), 0.0);
+        let e = dimmer_of(&e, 1).unwrap();
+        assert_eq!(e.value.value, 0.0);
+        assert!(e.relative, "a relative sound value is a delta");
+    }
+
+    /// r[verify playback.sound-as-value] - a generator's range
+    #[test]
+    fn a_generators_high_breathes_with_the_band() {
+        let rig = rig();
+        let random = Random {
+            attr: Attribute::Dimmer,
+            low: 0.0,
+            high: 1.0,
+            absolute: true,
+            high_from_band: Some(Band::Low),
+            ..Default::default()
+        };
+        let recipe = Recipe {
+            target: Selection::Chans(vec![1, 2, 3, 4]),
+            steps: vec![Step::new(vec![RecipeApply::Random(random.clone())])],
+            timing: Timing {
+                speed: Speed::Hz(2.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let silent = expand_recipe(&recipe, &sound_show(&rig, 0.0), 0.3);
+        assert!(
+            silent.iter().all(|e| e.value.value == 0.0),
+            "silence is low"
+        );
+        let loud = expand_recipe(&recipe, &sound_show(&rig, 1.0), 0.3);
+        let plain = Recipe {
+            steps: vec![Step::new(vec![RecipeApply::Random(Random {
+                high_from_band: None,
+                ..random
+            })])],
+            ..recipe.clone()
+        };
+        let unheard = expand_recipe(&plain, &sound_show(&rig, 0.0), 0.3);
+        assert_eq!(loud, unheard, "full level is the range as written");
+        let half = expand_recipe(&recipe, &sound_show(&rig, 0.5), 0.3);
+        for (a, b) in half.iter().zip(&loud) {
+            assert!((a.value.value - b.value.value * 0.5).abs() < 1e-6);
+        }
+    }
+
+    /// r[verify playback.sound-as-value] - the wire shape
+    #[test]
+    fn sound_applies_round_trip_as_json() {
+        let apply = RecipeApply::Sound {
+            band: Band::Low,
+            attr: Attribute::Dimmer,
+            low: 0.0,
+            high: 1.0,
+            relative: true,
+        };
+        let json = serde_json::to_string(&apply).unwrap();
+        assert_eq!(
+            json,
+            r#"{"Sound":{"band":"Low","attr":"Dimmer","low":0.0,"high":1.0,"relative":true}}"#
+        );
+        let back: RecipeApply = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, apply);
+        let terse: RecipeApply = serde_json::from_str(
+            r#"{"Sound":{"band":"High","attr":"Dimmer","low":0.0,"high":0.5}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            terse,
+            RecipeApply::Sound {
+                relative: false,
+                band: Band::High,
+                ..
+            }
+        ));
+        let r: Random = serde_json::from_str(
+            r#"{"attr":"Dimmer","low":0.0,"high":1.0,"high_from_band":"Mid"}"#,
+        )
+        .unwrap();
+        assert_eq!(r.high_from_band, Some(Band::Mid));
+    }
+
+    /// r[verify effects.random] - phase variance, ratio, random start
+    #[test]
+    fn random_extras_keep_determinism_and_default_to_the_old_shape() {
+        let base = Random {
+            attr: Attribute::Dimmer,
+            low: 0.0,
+            high: 1.0,
+            absolute: true,
+            seed: 7,
+            ..Default::default()
+        };
+        // Defaults: phase fully varied, ratio 1, no random start — the
+        // on-disk shape of a terse file is the pre-field behaviour.
+        let terse: Random =
+            serde_json::from_str(r#"{"attr":"Dimmer","low":0.0,"high":1.0}"#).unwrap();
+        assert_eq!(terse.phase_var, 1.0);
+        assert_eq!(terse.ratio, 1.0);
+        assert_eq!(terse.ratio_var, 0.0);
+        assert!(!terse.random_start);
+        let json = serde_json::to_string(&terse).unwrap();
+        assert!(!json.contains("high_from_band"), "{json}");
+
+        // Ratio 1.0 never drops to low: every sample sits at its rolled
+        // level, which with level_var 0 is in [low, high] and, over a
+        // long run, above low.
+        let samples: Vec<f32> = (0..400).map(|i| base.at(3, i as f32 * 0.137)).collect();
+        assert!(samples.iter().all(|v| (0.0..=1.0).contains(v)));
+        assert!(samples.iter().filter(|v| **v > 0.0).count() > 380);
+
+        // A ratio of 0.25 spends about three quarters of its time at low.
+        let sparse = Random {
+            ratio: 0.25,
+            ..base.clone()
+        };
+        let off = (0..4000)
+            .filter(|i| sparse.at(3, *i as f32 * 0.00731) == 0.0)
+            .count();
+        assert!((2600..3400).contains(&off), "{off}");
+
+        // Pure function of (seed, unit, t): same inputs, same answer,
+        // for every combination of the new fields.
+        for r in [
+            Random {
+                phase_var: 0.0,
+                ..base.clone()
+            },
+            Random {
+                ratio: 0.5,
+                ratio_var: 0.3,
+                ..base.clone()
+            },
+            Random {
+                random_start: true,
+                ..base.clone()
+            },
+        ] {
+            for t in [0.0, 0.4, 2.7, 91.3] {
+                assert_eq!(r.at(2, t), r.at(2, t));
+            }
+        }
+
+        // Phase variance 0: every unit changes level on the same frame.
+        let locked = Random {
+            phase_var: 0.0,
+            ..base.clone()
+        };
+        let before: Vec<f32> = (0..4).map(|u| locked.at(u, 0.99)).collect();
+        let after: Vec<f32> = (0..4).map(|u| locked.at(u, 1.01)).collect();
+        assert!(before.iter().zip(&after).all(|(a, b)| a != b));
+        // And they are still their own levels, not one shared roll.
+        assert!(after.iter().any(|v| *v != after[0]));
+
+        // Random start: a unit reads a different stretch of its sequence.
+        let started = Random {
+            random_start: true,
+            ..base.clone()
+        };
+        assert!((0..8).any(|u| started.at(u, 0.5) != base.at(u, 0.5)));
     }
 }

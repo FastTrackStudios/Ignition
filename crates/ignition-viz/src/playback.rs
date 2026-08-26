@@ -8,7 +8,7 @@
 //! through the same path, so the visualizer cannot accidentally look
 //! right for a local show and wrong for a real one.
 
-use crate::show::apply_cue_output;
+use crate::show::{OutputFrame, apply_output};
 use crate::spawn::{DmxRes, VenueRes};
 use crate::venue::Venue;
 use bevy::prelude::*;
@@ -96,6 +96,10 @@ pub struct Playback {
     /// Diagnosing a figure that "does nothing" is exactly the case, and
     /// the tool could not answer it.
     pub frozen_at: Option<f32>,
+    /// The rest value of every attribute of every patched fixture —
+    /// what a released attribute falls to. Built from the patch at load.
+    // r[impl playback.defaults]
+    pub defaults: HashMap<(ChanId, Attribute), f32>,
     /// Named tempo sources every phaser can slave to. Empty until
     /// something drives them — a tap-tempo key, or the session tempo map
     /// from the FastTrackStudio side.
@@ -201,7 +205,10 @@ impl Playback {
         // simply no shared tricks — a recipe naming one is then reported.
         let named_tricks = {
             let path = std::env::var("IGNITION_PROFILE").unwrap_or_else(|_| {
-                format!("data/profiles/{}.ig-profile", venue.profile.profile.to_lowercase())
+                format!(
+                    "data/profiles/{}.ig-profile",
+                    venue.profile.profile.to_lowercase()
+                )
             });
             match ignition_core::Profile::load(&path) {
                 Ok(profile) => profile.tricks,
@@ -346,6 +353,7 @@ impl Playback {
             named_tricks,
             focus_overrides: HashMap::new(),
             frozen_at: effect_time,
+            defaults: venue.patch().defaults(),
             speeds: default_speeds(),
             taps: Vec::new(),
             programmer: Programmer::new(),
@@ -419,8 +427,10 @@ pub fn tick_playback(
         programmer,
         clock,
         frozen_at,
+        defaults,
         triggers,
         last_cue,
+        sound,
         ..
     } = &mut *playback;
     // Held still for a still, so `--time` names a moment rather than an
@@ -430,18 +440,29 @@ pub fn tick_playback(
         None => *clock += dt,
     }
     let venue = &venue.0;
+    // The Tap master is whatever the operator learned (and halved or
+    // doubled), on top of the seeded masters; the smoothed band levels
+    // ride along so a sound-page recipe hears the room.
+    // r[impl playback.speed-keys] - the learned tempo reaches every recipe
+    // r[impl playback.sound-as-value] - the host hands smoothed levels in
+    let live_speeds = programmer.speeds_for(speeds);
     let show = Show {
         groups,
         palettes,
         rig,
-        speeds,
+        speeds: &live_speeds,
         roles: profile,
         library,
         bundles,
         named_tricks,
         focus_overrides,
         ..Show::new(groups, rig)
-    };
+    }
+    .with_sound(ignition_core::recipe::SoundLevels {
+        low: sound.low,
+        mid: sound.mid,
+        high: sound.high,
+    });
     // The cue stack renders first and the programmer folds on top, which
     // is the whole point of the layer order: busking overrides playback,
     // never the other way round.
@@ -483,7 +504,8 @@ pub fn tick_playback(
     // r[impl effects.size-scales-the-swing]
     // r[impl effects.masters.uniform]
     let scaled = programmer.show_for(&show);
-    let mut out = playbacks.output(&scaled, &keys);
+    let mut out = playbacks.output_with_defaults(&scaled, &keys, defaults);
+    let intents = output_intents(playbacks, &scaled);
     *last_ringing = keys;
     // Triggers above the show, below the hand. Summed, because two hits
     // landing together are two hits.
@@ -509,7 +531,33 @@ pub fn tick_playback(
     } else {
         out
     };
-    apply_cue_output(&dmx.0, venue, &frame);
+    apply_output(
+        &dmx.0,
+        venue,
+        &OutputFrame {
+            values: &frame,
+            intents: &intents,
+            parked_dmx: &programmer.parked_dmx,
+        },
+    );
+}
+
+/// The colour intent each fixture is meant to show, across the stack:
+/// every enabled player's intents in class order, so the Song's colour
+/// is what a fixture gets unless a later class (a look) names its own.
+// r[impl color.intent-to-output] - the intent survives to the output stage
+pub fn output_intents(
+    playbacks: &Playbacks,
+    show: &Show<'_>,
+) -> HashMap<ChanId, ignition_core::color::Intent> {
+    let mut order: Vec<&ignition_core::Playback> =
+        playbacks.entries.iter().filter(|p| p.enabled).collect();
+    order.sort_by_key(|p| p.class);
+    let mut out = HashMap::new();
+    for entry in order {
+        out.extend(entry.player.output_intents(show));
+    }
+    out
 }
 
 /// How long a gap before a tap-tempo run is treated as a fresh start
@@ -606,7 +654,15 @@ pub fn operator_keys(
         info!("cue -> {:?}", player.current_name());
     }
 
-    apply_cue_output(&dmx.0, venue, &player.output(&show));
+    apply_output(
+        &dmx.0,
+        venue,
+        &OutputFrame {
+            values: &player.output(&show),
+            intents: &player.output_intents(&show),
+            ..Default::default()
+        },
+    );
 }
 
 #[cfg(test)]

@@ -23,9 +23,11 @@
 //! fixture re-stated in every cue, just the deltas), and is why `target`
 //! below is cumulative across `go()` calls rather than reset per cue.
 
+use crate::color::Intent;
 use crate::focus::resolve_focus_delta;
 use crate::music::{Bars, Position, SongMap};
-use crate::recipe::{Emit, Expansion, Recipe, RecipeRef, Show, expand_recipe, expand_recipe_full};
+use crate::recipe::{Expansion, Recipe, RecipeRef, Show, expand_recipe, expand_recipe_full};
+use crate::step::Ease;
 use crate::tricks::Fan;
 use ignition_proto::{Attribute, ChanId, Vec3};
 use serde::{Deserialize, Serialize};
@@ -106,6 +108,20 @@ pub struct Cue {
     // r[impl cues.delay]
     #[serde(default, skip_serializing_if = "CueTiming::is_default")]
     pub timing: CueTiming,
+    /// A selection within the cue that takes its own timing — one
+    /// fixture or a small group on its own fade and delay while the rest
+    /// keep the class timing. Resolved against the show at take; a
+    /// fixture named by several takes the last.
+    // r[impl cues.timing-overrides]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub timing_overrides: Vec<TimingOverride>,
+    /// Attributes whose values from before this cue do **not** track
+    /// through it on the fixtures it covers, even though it does not
+    /// set them. Nothing is faded to rest on purpose; the source is
+    /// simply not carried.
+    // r[impl cues.break]
+    #[serde(default, rename = "break", skip_serializing_if = "Vec::is_empty")]
+    pub break_: Vec<Attribute>,
     /// Spread the delay and fade across the fixtures this cue covers, in
     /// the order its first recipe lists them — a static cue that wipes.
     // r[impl cues.fan]
@@ -266,6 +282,109 @@ pub struct CueTiming {
     pub beam: Option<f32>,
     #[serde(default)]
     pub delay: ClassDelays,
+    /// The shape of each class's fade — linear, slow, fast, s-curve,
+    /// swing — reusing the step ease. Linear unless said otherwise.
+    // r[impl cues.transition-curve]
+    #[serde(default, skip_serializing_if = "ClassEase::is_default")]
+    pub ease: ClassEase,
+}
+
+/// An ease per class. A mover that swings into place reads as designed;
+/// a straight line reads as generated.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+// r[impl cues.transition-curve]
+pub struct ClassEase {
+    #[serde(default)]
+    pub intensity: Ease,
+    #[serde(default)]
+    pub colour: Ease,
+    #[serde(default)]
+    pub position: Ease,
+    #[serde(default)]
+    pub beam: Ease,
+}
+
+impl ClassEase {
+    fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+
+    pub fn get(&self, class: AttrClass) -> Ease {
+        match class {
+            AttrClass::Intensity => self.intensity,
+            AttrClass::Colour => self.colour,
+            AttrClass::Position => self.position,
+            AttrClass::Beam => self.beam,
+        }
+    }
+
+    /// The same ease on every class.
+    pub fn all(ease: Ease) -> Self {
+        Self {
+            intensity: ease,
+            colour: ease,
+            position: ease,
+            beam: ease,
+        }
+    }
+}
+
+/// The named curves a fade is written with, as sugar over `Ease`.
+///
+/// `Ease` cannot overshoot — its output is clamped to the move — so
+/// `Swing` is the pendulum *arrival*: it leaves softly and lands at
+/// twice the linear slope, which is what a mover swinging into its
+/// mark looks like from the floor. `SCurve` is exactly `Sine`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+// r[impl cues.transition-curve] - the named forms
+pub enum CurveName {
+    #[default]
+    Linear,
+    /// Soft departure, linear arrival.
+    Slow,
+    /// Hard departure, linear arrival.
+    Fast,
+    /// Soft both ends — `Ease::Sine`.
+    SCurve,
+    /// Soft departure, hard arrival.
+    Swing,
+}
+
+impl CurveName {
+    pub fn ease(self) -> Ease {
+        match self {
+            CurveName::Linear => Ease::Linear,
+            CurveName::Slow => Ease::Curve {
+                accel: -1.0,
+                decel: 0.0,
+            },
+            CurveName::Fast => Ease::Curve {
+                accel: 1.0,
+                decel: 0.0,
+            },
+            CurveName::SCurve => Ease::Sine,
+            CurveName::Swing => Ease::Curve {
+                accel: -1.0,
+                decel: 1.0,
+            },
+        }
+    }
+}
+
+impl From<CurveName> for Ease {
+    fn from(name: CurveName) -> Ease {
+        name.ease()
+    }
+}
+
+/// Timing for a selection within a cue, looked up before the class
+/// timing for every fixture it resolves to.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// r[impl cues.timing-overrides]
+pub struct TimingOverride {
+    pub selection: crate::selection::Selection,
+    pub timing: CueTiming,
 }
 
 impl CueTiming {
@@ -301,6 +420,10 @@ pub struct CueFan {
 pub enum MibMode {
     /// As soon as the previous cue is taken.
     Early,
+    /// With the next take *after* the fixture goes dark — the cue that
+    /// darkens it never moves it; the one after does.
+    // r[impl cues.mib.preference] - upon-go beside early and late
+    UponGo,
     /// Timed to arrive just before this cue, when both cues carry a
     /// position; otherwise the same as `Early`.
     #[default]
@@ -308,7 +431,26 @@ pub enum MibMode {
     None,
 }
 
+/// Whether a running effect keeps running on a fixture while it is dark
+/// and being pre-positioned.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+// r[impl cues.mib.multistep]
+pub enum MultiStep {
+    /// The effect keeps its phase with the rest of the rig.
+    #[default]
+    Running,
+    /// The effect is frozen where it was when the fixture went dark, and
+    /// resumes when it comes up.
+    Paused,
+}
+
 /// Move-in-black settings on the cue whose fixtures come up from dark.
+///
+/// `mode`, `fade_beats`, `delay_beats`, `multistep` are read from the
+/// cue the fixture comes up *in*; `preference` and `hold` describe the
+/// cue as a dark window — how good a moment it is to move through, and
+/// whether its dark fixtures must stay where they are.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 // r[impl cues.mib.mode]
 // r[impl cues.mib.timing]
@@ -321,10 +463,29 @@ pub struct Mib {
     /// Beats after the previous cue's take before the move starts.
     #[serde(default)]
     pub delay_beats: f32,
+    /// How good a moment this cue is to pre-position *into* (0–100).
+    /// Among the cues a fixture is dark through, the best-rated one is
+    /// where the move happens.
+    // r[impl cues.mib.preference]
+    #[serde(default = "fifty")]
+    pub preference: u8,
+    /// The fixtures dark after this cue stay where they are — a light
+    /// that must not move while dark, for a reveal.
+    // r[impl cues.mib.hold]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hold: bool,
+    /// Whether an effect on a fixture being pre-positioned keeps running.
+    // r[impl cues.mib.multistep]
+    #[serde(default)]
+    pub multistep: MultiStep,
 }
 
 fn one_beat() -> f32 {
     1.0
+}
+
+fn fifty() -> u8 {
+    50
 }
 
 impl Default for Mib {
@@ -333,6 +494,9 @@ impl Default for Mib {
             mode: MibMode::Late,
             fade_beats: 1.0,
             delay_beats: 0.0,
+            preference: 50,
+            hold: false,
+            multistep: MultiStep::Running,
         }
     }
 }
@@ -379,9 +543,147 @@ pub struct CueList {
     // r[impl triggers.are-not-cues]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub triggers: Vec<crate::trigger::Trigger>,
+    /// GO on the last cue takes the first.
+    // r[impl cues.wrap-and-restart]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub wrap: bool,
+    /// Where the list goes on from when it is re-enabled.
+    // r[impl cues.wrap-and-restart]
+    #[serde(default, skip_serializing_if = "Restart::is_first")]
+    pub restart: Restart,
+}
+
+/// How a list restarts when re-enabled.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+// r[impl cues.wrap-and-restart]
+pub enum Restart {
+    #[default]
+    First,
+    Current,
+    Next,
+}
+
+impl Restart {
+    fn is_first(&self) -> bool {
+        *self == Restart::First
+    }
+}
+
+/// How an edit to a cue is stored against the cues after it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+// r[impl cues.shield]
+pub enum StoreMode {
+    /// The edit tracks forward as any value does.
+    Track,
+    /// The edit stops at the next cue: it restates what the edited
+    /// fixtures had before, for every key the edit changed.
+    CueOnly,
+    /// The edit stops at the first later cue where each edited
+    /// fixture's intensity comes up from zero.
+    ShieldFromZero,
+    /// The edit stops at the first later cue where each edited
+    /// fixture's intensity is above zero.
+    ShieldAboveZero,
 }
 
 impl CueList {
+    /// Replaces cue `index` with `edited`, and for the shielding modes
+    /// inserts the compensating restatements that stop the edit at the
+    /// cue the mode names — the surgical form of cue-only.
+    ///
+    /// Works on direct values: the keys whose value the edit changed or
+    /// added are restated, in the shielding cue, at what the show had
+    /// there before the edit — the old cue's own value, else the last
+    /// direct value tracked in from before it. A key nothing earlier set
+    /// has nothing to restate, and tracks. Recipe coverage is not
+    /// shielded.
+    // r[impl cues.shield]
+    pub fn store(&mut self, index: usize, edited: Cue, mode: StoreMode) {
+        if index >= self.cues.len() {
+            self.cues.push(edited);
+            return;
+        }
+        let old = std::mem::replace(&mut self.cues[index], edited);
+        if mode == StoreMode::Track {
+            return;
+        }
+        // What the show carried at the end of the old cue, for the keys
+        // the edit touched.
+        let mut carried = direct_state_through(&self.cues[..index]);
+        for v in &old.values {
+            carried.insert((v.chan, v.attr.clone()), v.value);
+        }
+        let changed: Vec<Restated> = self.cues[index]
+            .values
+            .iter()
+            .filter_map(|v| {
+                let key = (v.chan, v.attr.clone());
+                let was = carried.get(&key).copied()?;
+                ((was - v.value).abs() > 1e-6).then_some((key, was))
+            })
+            .collect();
+        if changed.is_empty() {
+            return;
+        }
+        // Intensity as the list carries it, cue by cue after the edit,
+        // to find each fixture's shielding cue.
+        let mut level = direct_state_through(&self.cues[..=index]);
+        let mut restate: HashMap<usize, Vec<Restated>> = HashMap::new();
+        let mut pending = changed;
+        for j in index + 1..self.cues.len() {
+            if pending.is_empty() {
+                break;
+            }
+            let cue = &self.cues[j];
+            let before: HashMap<ChanId, f32> = pending
+                .iter()
+                .map(|(key, _)| {
+                    let dim = level
+                        .get(&(key.0, Attribute::Dimmer))
+                        .copied()
+                        .unwrap_or(0.0);
+                    (key.0, dim)
+                })
+                .collect();
+            apply_direct_state(&mut level, cue);
+            let (kept, stopped): (Vec<_>, Vec<_>) = pending.into_iter().partition(|(key, _)| {
+                let now = level
+                    .get(&(key.0, Attribute::Dimmer))
+                    .copied()
+                    .unwrap_or(0.0);
+                let was = before[&key.0];
+                let stops = match mode {
+                    StoreMode::CueOnly => true,
+                    StoreMode::ShieldFromZero => was <= 0.0 && now > 0.0,
+                    StoreMode::ShieldAboveZero => now > 0.0,
+                    StoreMode::Track => false,
+                };
+                !stops
+            });
+            pending = kept;
+            restate.entry(j).or_default().extend(stopped);
+        }
+        for (j, keys) in restate {
+            let cue = &mut self.cues[j];
+            for (key, value) in keys {
+                if cue
+                    .values
+                    .iter()
+                    .any(|v| (v.chan, &v.attr) == (key.0, &key.1))
+                {
+                    continue; // the cue sets it itself; nothing to stop
+                }
+                cue.values.push(CueValue {
+                    chan: key.0,
+                    attr: key.1,
+                    value,
+                });
+            }
+        }
+    }
+
     /// Resolves every relative position in the list against `song`,
     /// caching the bars the player runs on, and re-sorts the cues so a
     /// cue that moved is found by `seek`. Returns the names whose
@@ -482,6 +784,13 @@ struct Layers {
     // r[impl focus.delta]
     // r[impl focus.orbit-in-metres]
     focus_modulated: HashMap<ChanId, Vec<usize>>,
+    /// Fixtures whose running effects are held at the show time given,
+    /// for as long as this stage's cue is the one showing: a dark
+    /// fixture being pre-positioned under a paused multistep. Not
+    /// carried to the next cue — the effect resumes with the take that
+    /// lights the fixture.
+    // r[impl cues.mib.multistep]
+    frozen: HashMap<ChanId, f32>,
 }
 
 /// A recipe some live stage still points at, and when it was taken.
@@ -522,10 +831,11 @@ struct Active {
 // r[impl cues.timing.per-attribute]
 // r[impl cues.delay]
 struct StageTiming {
-    /// `(delay, fade)` per class, indexed by `AttrClass::ALL` order.
-    class: [(f32, f32); 4],
-    /// The intensity fade for a dimmer going down.
-    dimmer_out: f32,
+    /// The cue's class timing.
+    base: ClassTable,
+    /// A selection's own class timing, looked up before `base`.
+    // r[impl cues.timing-overrides]
+    overrides: HashMap<ChanId, ClassTable>,
     /// A fan across the cue's fixtures: `(extra delay, fade override)`.
     // r[impl cues.fan]
     per_chan: HashMap<ChanId, (f32, Option<f32>)>,
@@ -536,18 +846,54 @@ struct StageTiming {
     span: f32,
 }
 
+/// One `CueTiming` in seconds.
+#[derive(Debug, Clone, Default)]
+struct ClassTable {
+    /// `(delay, fade)` per class, indexed by `AttrClass::ALL` order.
+    class: [(f32, f32); 4],
+    /// The intensity fade for a dimmer going down.
+    dimmer_out: f32,
+    /// The shape of each class's fade.
+    // r[impl cues.transition-curve]
+    ease: [Ease; 4],
+}
+
+impl ClassTable {
+    fn new(timing: &CueTiming, fade_secs: f32, spb: f32) -> Self {
+        let mut class = [(0.0, fade_secs); 4];
+        let mut ease = [Ease::Linear; 4];
+        for (i, c) in AttrClass::ALL.iter().enumerate() {
+            let fade = timing.fade_beats(*c).map_or(fade_secs, |b| b * spb);
+            class[i] = (timing.delay.get(*c) * spb, fade);
+            ease[i] = timing.ease.get(*c);
+        }
+        let dimmer_out = timing.dimmer_out.map_or(class[0].1, |b| b * spb);
+        Self {
+            class,
+            dimmer_out,
+            ease,
+        }
+    }
+
+    fn longest(&self) -> f32 {
+        self.class
+            .iter()
+            .map(|(d, f)| d + f)
+            .fold(self.class[0].0 + self.dimmer_out, f32::max)
+    }
+}
+
+fn class_index(attr: &Attribute) -> usize {
+    let class = AttrClass::of(attr);
+    AttrClass::ALL.iter().position(|c| *c == class).unwrap_or(0)
+}
+
 impl StageTiming {
     fn from_cue(cue: &Cue, bpm: f32) -> Self {
         let spb = 60.0 / bpm;
-        let mut class = [(0.0, cue.fade_secs); 4];
-        for (i, c) in AttrClass::ALL.iter().enumerate() {
-            let fade = cue.timing.fade_beats(*c).map_or(cue.fade_secs, |b| b * spb);
-            class[i] = (cue.timing.delay.get(*c) * spb, fade);
-        }
-        let dimmer_out = cue.timing.dimmer_out.map_or(class[0].1, |b| b * spb);
         let mut timing = Self {
-            class,
-            dimmer_out,
+            base: ClassTable::new(&cue.timing, cue.fade_secs, spb),
+            overrides: HashMap::new(),
             per_chan: HashMap::new(),
             per_key: HashMap::new(),
             span: 0.0,
@@ -558,21 +904,18 @@ impl StageTiming {
 
     fn recompute_span(&mut self) {
         let base = self
-            .class
-            .iter()
-            .map(|(d, f)| d + f)
-            .fold(self.class[0].0 + self.dimmer_out, f32::max);
+            .overrides
+            .values()
+            .map(ClassTable::longest)
+            .fold(self.base.longest(), f32::max);
         let fanned = self
             .per_chan
-            .values()
-            .map(|(extra, fade)| {
-                let longest = fade.map_or(
-                    self.class
-                        .iter()
-                        .map(|(d, f)| d + f)
-                        .fold(self.dimmer_out, f32::max),
-                    |f| self.class.iter().map(|(d, _)| d + f).fold(f, f32::max),
-                );
+            .iter()
+            .map(|(chan, (extra, fade))| {
+                let table = self.overrides.get(chan).unwrap_or(&self.base);
+                let longest = fade.map_or(table.longest(), |f| {
+                    table.class.iter().map(|(d, _)| d + f).fold(f, f32::max)
+                });
                 extra + longest
             })
             .fold(base, f32::max);
@@ -584,15 +927,16 @@ impl StageTiming {
     }
 
     /// `(delay, fade)` for one key, seconds.
+    // r[impl cues.timing-overrides] - override first, then the class
     fn for_key(&self, key: &(ChanId, Attribute), falling: bool) -> (f32, f32) {
         if let Some(own) = self.per_key.get(key) {
             return *own;
         }
-        let class = AttrClass::of(&key.1);
-        let index = AttrClass::ALL.iter().position(|c| *c == class).unwrap_or(0);
-        let (mut delay, mut fade) = self.class[index];
-        if class == AttrClass::Intensity && falling {
-            fade = self.dimmer_out;
+        let table = self.overrides.get(&key.0).unwrap_or(&self.base);
+        let index = class_index(&key.1);
+        let (mut delay, mut fade) = table.class[index];
+        if index == 0 && falling {
+            fade = table.dimmer_out;
         }
         if let Some((extra, over)) = self.per_chan.get(&key.0) {
             delay += extra;
@@ -601,6 +945,16 @@ impl StageTiming {
             }
         }
         (delay, fade)
+    }
+
+    /// The curve one key's fade runs on. A pre-position runs straight.
+    // r[impl cues.transition-curve]
+    fn ease_for(&self, key: &(ChanId, Attribute)) -> Ease {
+        if self.per_key.contains_key(key) {
+            return Ease::Linear;
+        }
+        let table = self.overrides.get(&key.0).unwrap_or(&self.base);
+        table.ease[class_index(&key.1)]
     }
 }
 
@@ -671,9 +1025,11 @@ impl Stage {
     /// How far one key has got, by its own class, fan and delay.
     // r[impl cues.timing.per-attribute] - progress is per key
     // r[impl cues.delay] - a delayed key holds until its delay has passed
+    // r[impl cues.transition-curve] - shaped by the class's curve
     fn progress_for(&self, key: &(ChanId, Attribute), falling: bool) -> f32 {
         let (delay, fade) = self.timing.for_key(key, falling);
-        progress_of(self.elapsed, delay, fade)
+        let t = progress_of(self.elapsed, delay, fade);
+        self.timing.ease_for(key).apply(t)
     }
 }
 
@@ -765,6 +1121,92 @@ fn covered_chans(cue: &Cue, show: &Show<'_>) -> Vec<ChanId> {
     order
 }
 
+/// How far ahead the pre-positioning look-ahead reads.
+const MAX_LOOKAHEAD: usize = 32;
+
+/// What one coming cue asks of its fixtures, for pre-positioning: who
+/// it lights, and the absolute non-intensity values it wants.
+// r[impl cues.mib] - the coming cue's wants
+struct CueLook {
+    lit: HashSet<ChanId>,
+    wanted: Vec<(ChanId, Attribute, f32)>,
+}
+
+impl CueLook {
+    fn of(cue: &Cue, show: &Show<'_>, clock: f32) -> Self {
+        let mut lit = HashSet::new();
+        let mut wanted = Vec::new();
+        let mut note = |value: &CueValue| {
+            if value.attr == Attribute::Dimmer {
+                if value.value > 0.0 {
+                    lit.insert(value.chan);
+                }
+            } else {
+                wanted.push((value.chan, value.attr.clone(), value.value));
+            }
+        };
+        for recipe in cue.resolved_recipes(show) {
+            for emit in expand_recipe(&recipe, show, clock) {
+                if !emit.relative {
+                    note(&emit.value);
+                }
+            }
+        }
+        for v in &cue.values {
+            note(v);
+        }
+        Self { lit, wanted }
+    }
+}
+
+/// Renumbers every recipe id a layer stack holds.
+fn renumber(layers: &mut Layers, map: impl Fn(usize) -> usize) {
+    for source in layers.tracked.values_mut() {
+        if let Source::Recipe(id) = source {
+            *id = map(*id);
+        }
+    }
+    for ids in layers.modulated.values_mut() {
+        for id in ids.iter_mut() {
+            *id = map(*id);
+        }
+    }
+    for id in layers.aim.values_mut() {
+        *id = map(*id);
+    }
+    for ids in layers.focus_modulated.values_mut() {
+        for id in ids.iter_mut() {
+            *id = map(*id);
+        }
+    }
+}
+
+/// One key a shield restates, and the value it restates.
+type Restated = ((ChanId, Attribute), f32);
+
+/// The direct values a run of cues carries to its end, by the list's
+/// own rules — a block starts over, a cue-only cue is skipped.
+// r[impl cues.shield] - the tracked state the shield reasons about
+fn direct_state_through(cues: &[Cue]) -> HashMap<(ChanId, Attribute), f32> {
+    let mut state = HashMap::new();
+    for cue in cues {
+        if cue.cue_only {
+            continue;
+        }
+        apply_direct_state(&mut state, cue);
+    }
+    state
+}
+
+fn apply_direct_state(state: &mut HashMap<(ChanId, Attribute), f32>, cue: &Cue) {
+    if cue.block {
+        state.clear();
+    }
+    for v in &cue.values {
+        state.insert((v.chan, v.attr.clone()), v.value);
+    }
+}
+
 /// How many overlapping fades to carry before the oldest is forced to
 /// finish. Only reachable by firing GO faster than fades complete,
 /// several times over; the alternative is an unbounded stack.
@@ -817,6 +1259,20 @@ pub struct CuePlayer {
     /// Commands of cues taken live since the host last drained them.
     // r[impl cues.command]
     commands: Vec<String>,
+    /// GO on the last cue takes the first.
+    // r[impl cues.wrap-and-restart]
+    wrap: bool,
+    /// Where `enable` goes on from.
+    // r[impl cues.wrap-and-restart]
+    restart: Restart,
+    /// Fades and the follow clock are stopped; the show clock is not.
+    // r[impl playback.temp-and-pause]
+    paused: bool,
+    /// A cue armed by `load`, which the next `go` takes.
+    armed: Option<usize>,
+    /// Where a disabled list left off, for `enable`.
+    resume_from: Option<usize>,
+    enabled: bool,
 }
 
 impl CuePlayer {
@@ -831,7 +1287,157 @@ impl CuePlayer {
             last_take_wall: None,
             bpm: 120.0,
             commands: Vec::new(),
+            wrap: false,
+            restart: Restart::First,
+            paused: false,
+            armed: None,
+            resume_from: None,
+            enabled: true,
         }
+    }
+
+    /// A player on a list, taking its wrap and restart with it.
+    // r[impl cues.wrap-and-restart]
+    pub fn from_list(list: &CueList) -> Self {
+        let mut player = Self::new(list.cues.clone());
+        player.wrap = list.wrap;
+        player.restart = list.restart;
+        player
+    }
+
+    pub fn set_wrap(&mut self, wrap: bool) {
+        self.wrap = wrap;
+    }
+
+    pub fn set_restart(&mut self, restart: Restart) {
+        self.restart = restart;
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Stops every running fade and the follow clock where they are.
+    /// The show clock keeps running, so a phaser stays in phase with
+    /// the song while the operator holds.
+    // r[impl playback.temp-and-pause]
+    pub fn pause(&mut self) {
+        self.paused = true;
+    }
+
+    /// Fades and follows go on from where `pause` held them.
+    // r[impl playback.temp-and-pause]
+    pub fn resume(&mut self) {
+        self.paused = false;
+    }
+
+    /// Arms cue `index` without taking it: the next `go` takes it, from
+    /// wherever the show is, with the tracked state that cue would have
+    /// had. Out of range clears the arming.
+    // r[impl playback.temp-and-pause] - stepping without losing the place
+    pub fn load(&mut self, index: usize) {
+        self.armed = (index < self.cues.len()).then_some(index);
+    }
+
+    /// The cue `load` armed, if any.
+    pub fn loaded(&self) -> Option<usize> {
+        self.armed
+    }
+
+    /// Steps back to the previous cue, crossfading into it with *its*
+    /// fade, from wherever the output is now. Before the first cue there
+    /// is nothing to go back to and the list clears.
+    // r[impl playback.temp-and-pause] - steppable backwards without losing the place
+    pub fn go_back(&mut self, show: &Show<'_>) {
+        match self.current {
+            Some(0) | None => {
+                self.reset();
+            }
+            Some(i) => self.jump_take(i - 1, show),
+        }
+    }
+
+    /// Takes the list off: output goes empty and where it was is kept
+    /// for `enable`.
+    // r[impl cues.wrap-and-restart]
+    pub fn disable(&mut self) {
+        if !self.enabled {
+            return;
+        }
+        self.enabled = false;
+        self.resume_from = self.current;
+        self.armed = None;
+        self.stack.clear();
+        self.active.clear();
+        self.current = None;
+    }
+
+    /// Puts the list back on, at the cue its restart names — the first,
+    /// the one it was on, or the one after — taken live with that
+    /// cue's fade.
+    // r[impl cues.wrap-and-restart]
+    pub fn enable(&mut self, show: &Show<'_>) {
+        if self.enabled {
+            return;
+        }
+        self.enabled = true;
+        if self.cues.is_empty() {
+            return;
+        }
+        let last = self.cues.len() - 1;
+        let target = match (self.restart, self.resume_from.take()) {
+            (Restart::First, _) | (_, None) => 0,
+            (Restart::Current, Some(i)) => i.min(last),
+            (Restart::Next, Some(i)) => {
+                if i >= last {
+                    if self.wrap { 0 } else { last }
+                } else {
+                    i + 1
+                }
+            }
+        };
+        self.jump_take(target, show);
+    }
+
+    /// Takes cue `index` from wherever the show is: the layers the cue
+    /// would have had are rebuilt from the top of the list, then pushed
+    /// as a live stage over the current output, so the crossfade runs
+    /// from what is showing rather than from dark.
+    fn jump_take(&mut self, index: usize, show: &Show<'_>) {
+        if index >= self.cues.len() {
+            return;
+        }
+        let mut scratch = CuePlayer::new(self.cues.clone());
+        scratch.clock = self.clock;
+        scratch.wall = self.wall;
+        if index > 0 {
+            scratch.jump_to_end_of(index - 1, show);
+        }
+        scratch.take(show, true);
+        let Some(mut stage) = scratch.stack.pop() else {
+            return;
+        };
+        let offset = self.active.len();
+        self.active.extend(scratch.active);
+        renumber(&mut stage.layers, |id| id + offset);
+        if let Some(base) = &mut stage.base {
+            renumber(base, |id| id + offset);
+        }
+        stage.elapsed = 0.0;
+        self.stack.push(stage);
+        while self.stack.len() > MAX_FADES {
+            self.stack.remove(0);
+        }
+        self.commands.extend(scratch.commands);
+        self.last_take_wall = Some(self.wall);
+        self.bpm = scratch.bpm;
+        self.current = Some(index);
+        self.collapse();
+        self.compact();
     }
 
     /// Host commands from every cue taken live since the last call.
@@ -893,16 +1499,30 @@ impl CuePlayer {
     /// end of the list (matches a real console's "GO" on the last cue —
     /// nothing to advance into, stays put).
     /// The index `go` would move to next.
+    // r[impl cues.wrap-and-restart] - past the last cue, the first when wrapping
     fn next_index(&self) -> Option<usize> {
+        if let Some(armed) = self.armed {
+            return Some(armed);
+        }
         match self.current {
             Some(i) if i + 1 < self.cues.len() => Some(i + 1),
+            Some(_) if self.wrap => Some(0),
             Some(i) => Some(i),
             None => (!self.cues.is_empty()).then_some(0),
         }
     }
 
     // r[impl song.two-ways] - GO by hand; `seek` is the clocked way onto the same list
+    // r[impl cues.wrap-and-restart] - wraps when the list says so
     pub fn go(&mut self, show: &Show<'_>) {
+        if let Some(armed) = self.armed.take() {
+            if self.current.map(|c| c + 1) == Some(armed) {
+                self.take(show, true);
+            } else {
+                self.jump_take(armed, show);
+            }
+            return;
+        }
         self.take(show, true)
     }
 
@@ -919,9 +1539,14 @@ impl CuePlayer {
     // r[impl recipes.cascade]
     // r[impl cues.fades-stack]
     fn take(&mut self, show: &Show<'_>, live: bool) {
-        let next = self.current.map_or(0, |i| i + 1);
+        let mut next = self.current.map_or(0, |i| i + 1);
         if next >= self.cues.len() {
-            return;
+            // r[impl cues.wrap-and-restart] - GO on the last cue takes the first
+            if self.wrap && !self.cues.is_empty() {
+                next = 0;
+            } else {
+                return;
+            }
         }
         let cue = self.cues[next].clone();
         let bpm = song_bpm(show);
@@ -945,6 +1570,28 @@ impl CuePlayer {
         } else {
             before.clone()
         };
+        // A pause on a running effect belongs to the dark window of the
+        // cue that was showing; this take is a new window.
+        layers.frozen.clear();
+
+        // Break: for these attributes, what came before does not track
+        // through this cue on the fixtures it covers. The source is
+        // dropped, not released — nothing is faded to rest on purpose;
+        // the cue simply does not carry it.
+        // r[impl cues.break]
+        if !cue.break_.is_empty() {
+            let covered: HashSet<ChanId> = covered_chans(&cue, show).into_iter().collect();
+            let broken =
+                |key: &(ChanId, Attribute)| cue.break_.contains(&key.1) && covered.contains(&key.0);
+            layers.tracked.retain(|key, _| !broken(key));
+            layers.modulated.retain(|key, _| !broken(key));
+            let focus_broken =
+                |chan: ChanId| broken(&(chan, Attribute::Pan)) || broken(&(chan, Attribute::Tilt));
+            layers.aim.retain(|chan, _| !focus_broken(*chan));
+            layers
+                .focus_modulated
+                .retain(|chan, _| !focus_broken(*chan));
+        }
 
         // Assert: what this cue would only track is re-taken as its
         // own. Recipe sources get a fresh entry stamped now, so a
@@ -991,6 +1638,17 @@ impl CuePlayer {
         // r[impl cues.fan]
         // r[impl cues.delay-to-phase]
         let mut timing = StageTiming::from_cue(&cue, bpm);
+        // A selection's own timing, resolved now against this show; a
+        // fixture several name takes the last.
+        // r[impl cues.timing-overrides]
+        for over in &cue.timing_overrides {
+            let table = ClassTable::new(&over.timing, cue.fade_secs, spb);
+            for chan in
+                crate::selection::resolve_with(&over.selection, show.groups, show.rig, show.roles)
+            {
+                timing.overrides.insert(chan, table.clone());
+            }
+        }
         let mut unit_delay: HashMap<ChanId, f32> = HashMap::new();
         if let Some(fan) = cue.fan {
             let order = covered_chans(&cue, show);
@@ -1122,59 +1780,94 @@ impl CuePlayer {
         // r[impl cues.mib]
         // r[impl cues.mib.mode]
         // r[impl cues.mib.timing]
-        if let Some(coming) = self.cues.get(next + 1)
-            && coming.mib.mode != MibMode::None
-        {
+        //
+        // The look-ahead: for each fixture dark after this cue, the
+        // first later cue that lights it is the one whose values are
+        // wanted, and the cues between are the dark window. The window
+        // rates its cues by preference, and the move happens in the
+        // best-rated one — this take only if this cue is it.
+        // r[impl cues.mib]
+        // r[impl cues.mib.mode]
+        // r[impl cues.mib.timing]
+        // r[impl cues.mib.preference] - the best-rated dark window
+        // r[impl cues.mib.hold] - a holding cue moves nothing
+        if !cue.mib.hold && next + 1 < self.cues.len() {
             let now = self.resolve(&layers, show, &HashSet::new());
-            let dark = |chan: ChanId| {
+            let dark_now = |chan: ChanId| {
                 now.get(&(chan, Attribute::Dimmer))
                     .is_none_or(|v| *v <= 0.0)
             };
-            let mut lit: HashSet<ChanId> = HashSet::new();
-            let mut wanted: Vec<(ChanId, Attribute, f32)> = Vec::new();
-            for recipe in coming.resolved_recipes(show) {
-                for Emit { value, relative } in expand_recipe(&recipe, show, self.clock) {
-                    if relative {
-                        continue;
-                    }
-                    if value.attr == Attribute::Dimmer {
-                        if value.value > 0.0 {
-                            lit.insert(value.chan);
-                        }
-                    } else {
-                        wanted.push((value.chan, value.attr, value.value));
-                    }
-                }
-            }
-            for v in &coming.values {
-                if v.attr == Attribute::Dimmer {
-                    if v.value > 0.0 {
-                        lit.insert(v.chan);
-                    }
-                } else {
-                    wanted.push((v.chan, v.attr.clone(), v.value));
-                }
-            }
-            let fade = coming.mib.fade_beats.max(0.0) * spb;
-            let mut delay = coming.mib.delay_beats.max(0.0) * spb;
-            if coming.mib.mode == MibMode::Late
-                && let (Some(here), Some(there)) = (cue.position(), coming.position())
-            {
-                // As late as its own fade allows: finish on the coming
-                // cue's downbeat, never earlier than its own delay.
-                let gap = beats_between(here, there, show.tempo) * spb;
-                delay = delay.max(gap - fade);
-            }
-            for (chan, attr, value) in wanted {
-                if !lit.contains(&chan) || !dark(chan) {
+            // Upon-go moves with the take *after* the fixture went dark:
+            // it must have been dark before this cue as well.
+            let dark_before: HashSet<ChanId> = if cue.block {
+                HashSet::new()
+            } else {
+                let was = self.resolve(&before, show, &HashSet::new());
+                was.iter()
+                    .filter(|((_, attr), v)| *attr == Attribute::Dimmer && **v <= 0.0)
+                    .map(|((chan, _), _)| *chan)
+                    .collect()
+            };
+            let looks: Vec<CueLook> = self.cues[next + 1..]
+                .iter()
+                .take(MAX_LOOKAHEAD)
+                .map(|c| CueLook::of(c, show, self.clock))
+                .collect();
+            let mut moved: HashSet<ChanId> = HashSet::new();
+            for (ahead, look) in looks.iter().enumerate() {
+                let coming = &self.cues[next + 1 + ahead];
+                if coming.mib.mode == MibMode::None {
+                    // This cue lights its fixtures in the light; they
+                    // are no longer dark for anything after it.
+                    moved.extend(look.lit.iter().copied());
                     continue;
                 }
-                let key = (chan, attr);
-                if now.get(&key).is_some_and(|v| (*v - value).abs() < 1e-6) {
-                    continue; // already there
+                // The window this fixture is dark through: this cue and
+                // every one before `coming`. The best-rated is where the
+                // move happens; a tie goes to the earliest.
+                let window =
+                    std::iter::once(&cue).chain(self.cues[next + 1..next + 1 + ahead].iter());
+                let best = window
+                    .enumerate()
+                    .max_by(|(ia, a), (ib, b)| {
+                        a.mib.preference.cmp(&b.mib.preference).then(ib.cmp(ia))
+                    })
+                    .map(|(i, _)| i);
+                let fade = coming.mib.fade_beats.max(0.0) * spb;
+                let mut delay = coming.mib.delay_beats.max(0.0) * spb;
+                if coming.mib.mode == MibMode::Late
+                    && let (Some(here), Some(there)) = (cue.position(), coming.position())
+                {
+                    // As late as its own fade allows: finish on the coming
+                    // cue's downbeat, never earlier than its own delay.
+                    let gap = beats_between(here, there, show.tempo) * spb;
+                    delay = delay.max(gap - fade);
                 }
-                timing.per_key.insert(key.clone(), (delay, fade));
-                layers.tracked.insert(key, Source::Direct(value));
+                for (chan, attr, value) in &look.wanted {
+                    let chan = *chan;
+                    if !look.lit.contains(&chan) || moved.contains(&chan) || !dark_now(chan) {
+                        continue;
+                    }
+                    // r[impl cues.mib.preference] - upon-go: the take after the one that darkened it
+                    if coming.mib.mode == MibMode::UponGo && !dark_before.contains(&chan) {
+                        continue;
+                    }
+                    if best != Some(0) {
+                        continue; // a better-rated cue in the window will
+                    }
+                    let key = (chan, attr.clone());
+                    if now.get(&key).is_some_and(|v| (*v - value).abs() < 1e-6) {
+                        continue; // already there
+                    }
+                    timing.per_key.insert(key.clone(), (delay, fade));
+                    layers.tracked.insert(key, Source::Direct(*value));
+                    // r[impl cues.mib.multistep] - paused holds the effect's phase while dark
+                    if coming.mib.multistep == MultiStep::Paused {
+                        layers.frozen.entry(chan).or_insert(self.clock);
+                    }
+                }
+                // Whatever this cue lights, later cues see lit.
+                moved.extend(look.lit.iter().copied());
             }
         }
         timing.recompute_span();
@@ -1321,8 +2014,12 @@ impl CuePlayer {
     }
 
     // r[impl cues.fade-is-wall-time] - fades advance on real elapsed seconds
+    // r[impl playback.temp-and-pause] - paused, fades and the follow clock hold; the show clock runs
     pub fn tick(&mut self, dt_secs: f32) {
         self.clock += dt_secs;
+        if self.paused {
+            return;
+        }
         self.wall += dt_secs;
         for stage in &mut self.stack {
             stage.elapsed += dt_secs;
@@ -1419,30 +2116,10 @@ impl CuePlayer {
             }
         }
         self.active = kept;
-        let renumber = |layers: &mut Layers| {
-            for source in layers.tracked.values_mut() {
-                if let Source::Recipe(id) = source {
-                    *id = remap[id];
-                }
-            }
-            for ids in layers.modulated.values_mut() {
-                for id in ids.iter_mut() {
-                    *id = remap[id];
-                }
-            }
-            for id in layers.aim.values_mut() {
-                *id = remap[id];
-            }
-            for ids in layers.focus_modulated.values_mut() {
-                for id in ids.iter_mut() {
-                    *id = remap[id];
-                }
-            }
-        };
         for stage in &mut self.stack {
-            renumber(&mut stage.layers);
+            renumber(&mut stage.layers, |id| remap[&id]);
             if let Some(base) = &mut stage.base {
-                renumber(base);
+                renumber(base, |id| remap[&id]);
             }
         }
     }
@@ -1496,11 +2173,53 @@ impl CuePlayer {
         show: &Show<'_>,
         transient: &HashSet<(ChanId, Attribute)>,
     ) -> HashMap<(ChanId, Attribute), f32> {
-        let mut out: HashMap<(ChanId, Attribute), f32> = HashMap::new();
+        self.fold(show, transient, &HashMap::new()).0
+    }
+
+    /// Output over a floor of defaults — the player's half of
+    /// `r[playback.defaults]`. A key nothing has set, or that a cue
+    /// released, reads its default rather than nothing; a released key
+    /// fades *to* its default over the class's timing; and before the
+    /// first cue the output *is* the defaults map — the list's implicit
+    /// cue zero.
+    // r[impl playback.defaults] - the floor a released attribute falls to, and cue zero
+    pub fn output_with_defaults(
+        &self,
+        show: &Show<'_>,
+        defaults: &HashMap<(ChanId, Attribute), f32>,
+    ) -> HashMap<(ChanId, Attribute), f32> {
+        self.fold(show, &HashSet::new(), defaults).0
+    }
+
+    /// The colour intent each fixture's winning colour source carries,
+    /// for a host to solve emitters against — never the RGB triple
+    /// re-derived from three floats. Mid-fade between two intents the
+    /// chromaticity and luminance crossfade in xyY; settled, the intent
+    /// is exactly what the preset stored. A fixture whose colour is a
+    /// direct value has no intent here and is solved from its triple.
+    // r[impl color.intent-to-output] - the intent survives to output
+    pub fn output_intents(&self, show: &Show<'_>) -> HashMap<ChanId, Intent> {
+        self.fold(show, &HashSet::new(), &HashMap::new()).1
+    }
+
+    /// The fold every output is: each stage in the stack resolved live
+    /// and crossfaded over the one before, with `defaults` as the
+    /// ground the first stage rises from and a leaving key falls to.
+    fn fold(
+        &self,
+        show: &Show<'_>,
+        transient: &HashSet<(ChanId, Attribute)>,
+        defaults: &HashMap<(ChanId, Attribute), f32>,
+    ) -> (HashMap<(ChanId, Attribute), f32>, HashMap<ChanId, Intent>) {
+        let mut out: HashMap<(ChanId, Attribute), f32> = defaults.clone();
         let mut aims: HashMap<ChanId, Vec3> = HashMap::new();
+        let mut intents: HashMap<ChanId, Intent> = HashMap::new();
         for stage in &self.stack {
-            let (target, target_aims) = self.resolve_with_aims(&stage.layers, show, transient);
-            let mut next = blend(&out, &target, stage);
+            let resolved = self.resolve_with_aims(&stage.layers, show, transient);
+            let (target, target_aims, target_intents) =
+                (resolved.values, resolved.aims, resolved.intents);
+            let mut next = blend(&out, &target, stage, defaults);
+            intents = blend_intents(&intents, &target_intents, stage);
             // A beam moving between two *points* travels the straight
             // line between them: the point is interpolated in the room
             // and solved per frame, instead of pan and tilt each
@@ -1539,7 +2258,7 @@ impl CuePlayer {
             out = next;
             aims = next_aims;
         }
-        out
+        (out, intents)
     }
 
     /// One recipe's current values, keyed by `(chan, attr)`.
@@ -1548,22 +2267,49 @@ impl CuePlayer {
     /// delay, each fixture reading the time since *its own* start, so
     /// the phase spread and the wipe agree about who is first.
     // r[impl cues.delay-to-phase]
-    fn expand_active(&self, id: usize, show: &Show<'_>) -> ActiveOut {
+    fn expand_active(
+        &self,
+        id: usize,
+        show: &Show<'_>,
+        frozen: &HashMap<ChanId, f32>,
+    ) -> ActiveOut {
         let active = &self.active[id];
         let secs = self.recipe_time(id);
         let collect = |at: f32| ActiveOut::from(expand_recipe_full(&active.recipe, show, at));
-        if active.unit_delay.is_empty() || !active.recipe.is_phaser() {
-            return collect(secs);
-        }
-        let mut out = collect(secs);
-        out.retain(|chan| !active.unit_delay.contains_key(&chan));
-        let mut delays: Vec<f32> = active.unit_delay.values().copied().collect();
-        delays.sort_by(|a, b| a.total_cmp(b));
-        delays.dedup();
-        for delay in delays {
-            let mut late = collect(secs - delay);
-            late.retain(|chan| active.unit_delay.get(&chan) == Some(&delay));
-            out.extend(late);
+        let mut out = if active.unit_delay.is_empty() || !active.recipe.is_phaser() {
+            collect(secs)
+        } else {
+            let mut out = collect(secs);
+            out.retain(|chan| !active.unit_delay.contains_key(&chan));
+            let mut delays: Vec<f32> = active.unit_delay.values().copied().collect();
+            delays.sort_by(|a, b| a.total_cmp(b));
+            delays.dedup();
+            for delay in delays {
+                let mut late = collect(secs - delay);
+                late.retain(|chan| active.unit_delay.get(&chan) == Some(&delay));
+                out.extend(late);
+            }
+            out
+        };
+        // A fixture whose effect is paused while dark reads the recipe
+        // at the moment it was frozen, its own delay still honoured.
+        // r[impl cues.mib.multistep] - paused holds the phase
+        if active.recipe.is_phaser() && frozen.keys().any(|chan| out.covers(*chan)) {
+            let mut times: Vec<(ChanId, f32)> = frozen
+                .iter()
+                .filter(|(chan, _)| out.covers(**chan))
+                .map(|(chan, at)| {
+                    let own = active.unit_delay.get(chan).copied().unwrap_or(0.0);
+                    (*chan, secs - (self.clock - at) - own)
+                })
+                .collect();
+            times.sort_by(|a, b| a.1.total_cmp(&b.1));
+            for (chan, at) in times {
+                out.retain(|c| c != chan);
+                let mut held = collect(at);
+                held.retain(|c| c == chan);
+                out.extend(held);
+            }
         }
         out
     }
@@ -1580,7 +2326,7 @@ impl CuePlayer {
         show: &Show<'_>,
         transient: &HashSet<(ChanId, Attribute)>,
     ) -> HashMap<(ChanId, Attribute), f32> {
-        self.resolve_with_aims(layers, show, transient).0
+        self.resolve_with_aims(layers, show, transient).values
     }
 
     /// `resolve`, plus the room point each aimed channel is looking at
@@ -1592,8 +2338,9 @@ impl CuePlayer {
         layers: &Layers,
         show: &Show<'_>,
         transient: &HashSet<(ChanId, Attribute)>,
-    ) -> (HashMap<(ChanId, Attribute), f32>, HashMap<ChanId, Vec3>) {
+    ) -> Resolved {
         let mut aims: HashMap<ChanId, Vec3> = HashMap::new();
+        let mut intents: HashMap<ChanId, Intent> = HashMap::new();
         // Resolve only the recipes something still points at, once each,
         // rather than once per attribute they cover.
         let mut resolved: HashMap<usize, ActiveOut> = HashMap::new();
@@ -1610,7 +2357,20 @@ impl CuePlayer {
         for id in referenced {
             resolved
                 .entry(id)
-                .or_insert_with(|| self.expand_active(id, show));
+                .or_insert_with(|| self.expand_active(id, show, &layers.frozen));
+        }
+
+        // The intent the winning colour source carries, per fixture.
+        // r[impl color.intent-to-output] - read off the winning source, never the triple
+        for (key, source) in &layers.tracked {
+            if AttrClass::of(&key.1) != AttrClass::Colour {
+                continue;
+            }
+            if let Source::Recipe(id) = source
+                && let Some(intent) = resolved[id].intents.get(&key.0)
+            {
+                intents.insert(key.0, intent.clone());
+            }
         }
 
         // r[impl playback.relative-on-unset-attribute]
@@ -1713,7 +2473,18 @@ impl CuePlayer {
                 aims.insert(*chan, crate::focus::v_add(point, delta));
             }
         }
-        (out, aims)
+        // A direct value on any colour channel is the triple winning
+        // the fixture's colour outright; no intent describes it.
+        for (key, source) in &layers.tracked {
+            if AttrClass::of(&key.1) == AttrClass::Colour && matches!(source, Source::Direct(_)) {
+                intents.remove(&key.0);
+            }
+        }
+        Resolved {
+            values: out,
+            aims,
+            intents,
+        }
     }
 
     /// The show as it looks right now, as direct values a host can record
@@ -1724,6 +2495,47 @@ impl CuePlayer {
     /// and never by recalling a value over it.
     // r[impl effects.stomp.freeze-is-explicit] - an explicit verb, not a side effect of a take
     // r[impl effects.stomp] - the running effect is left running; only the copy is static
+    /// Cooks the cue's recipes into direct values on the cue itself,
+    /// sampled at this instant — `Overwrite` replaces its direct values,
+    /// `Merge` keeps the ones the recipes do not cover. The recipes are
+    /// removed either way; the cue is static from here.
+    // r[impl cues.cook-merge]
+    // r[impl effects.stomp.freeze-is-explicit] - an explicit verb
+    pub fn freeze_into(&self, cue: &mut Cue, show: &Show<'_>, mode: CookMode) {
+        // The keys the cue's own recipes cover, sampled from the live
+        // output where the player has them (a modulation on top is part
+        // of the moment), else from the recipe itself.
+        let mut cooked: Vec<CueValue> = Vec::new();
+        let mut seen: HashSet<(ChanId, Attribute)> = HashSet::new();
+        let live = self.output(show);
+        for recipe in cue.resolved_recipes(show) {
+            for emit in expand_recipe(&recipe, show, self.clock) {
+                let key = (emit.value.chan, emit.value.attr.clone());
+                if !seen.insert(key.clone()) {
+                    continue;
+                }
+                let value = live.get(&key).copied().unwrap_or(emit.value.value);
+                cooked.push(CueValue {
+                    chan: key.0,
+                    attr: key.1,
+                    value,
+                });
+            }
+        }
+        cooked.sort_by(|a, b| {
+            (a.chan, format!("{:?}", a.attr)).cmp(&(b.chan, format!("{:?}", b.attr)))
+        });
+        match mode {
+            CookMode::Overwrite => cue.values = cooked,
+            CookMode::Merge => {
+                cue.values
+                    .retain(|v| !seen.contains(&(v.chan, v.attr.clone())));
+                cue.values.extend(cooked);
+            }
+        }
+        cue.recipes.clear();
+    }
+
     pub fn freeze(&self, show: &Show<'_>) -> Vec<CueValue> {
         let mut out: Vec<CueValue> = self
             .output(show)
@@ -1737,18 +2549,35 @@ impl CuePlayer {
     }
 }
 
+/// One layer stack resolved: the values, the room point each aimed
+/// channel looks at, and the colour intent each fixture's winning
+/// colour source carries.
+struct Resolved {
+    values: HashMap<(ChanId, Attribute), f32>,
+    aims: HashMap<ChanId, Vec3>,
+    intents: HashMap<ChanId, Intent>,
+}
+
 /// One recipe's current output, keyed for the cascade: its values, the
-/// room point it aimed each channel at, and the metre offset it offers
-/// each channel.
+/// room point it aimed each channel at, the metre offset it offers
+/// each channel, and the colour intent behind its colour values.
 #[derive(Debug, Default)]
 struct ActiveOut {
     values: HashMap<(ChanId, Attribute), f32>,
     points: HashMap<ChanId, Vec3>,
     deltas: HashMap<ChanId, Vec3>,
+    // r[impl color.intent-to-output] - kept beside the triple through the cascade
+    intents: HashMap<ChanId, Intent>,
 }
 
 impl From<Expansion> for ActiveOut {
     fn from(e: Expansion) -> Self {
+        let mut intents = HashMap::new();
+        for emit in &e.emits {
+            if let Some(intent) = &emit.intent {
+                intents.insert(emit.value.chan, intent.clone());
+            }
+        }
         Self {
             values: e
                 .emits
@@ -1761,6 +2590,7 @@ impl From<Expansion> for ActiveOut {
                 .into_iter()
                 .map(|d| (d.chan, d.delta))
                 .collect(),
+            intents,
         }
     }
 }
@@ -1770,13 +2600,34 @@ impl ActiveOut {
         self.values.retain(|key, _| keep(key.0));
         self.points.retain(|chan, _| keep(*chan));
         self.deltas.retain(|chan, _| keep(*chan));
+        self.intents.retain(|chan, _| keep(*chan));
     }
 
     fn extend(&mut self, other: ActiveOut) {
         self.values.extend(other.values);
         self.points.extend(other.points);
         self.deltas.extend(other.deltas);
+        self.intents.extend(other.intents);
     }
+
+    fn covers(&self, chan: ChanId) -> bool {
+        self.values.keys().any(|key| key.0 == chan)
+            || self.points.contains_key(&chan)
+            || self.deltas.contains_key(&chan)
+    }
+}
+
+/// How `freeze_into` writes the cooked values onto the cue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+// r[impl cues.cook-merge]
+pub enum CookMode {
+    /// The cooked values are the cue's direct values; whatever it had
+    /// is gone.
+    Overwrite,
+    /// The cooked values land over the cue's direct values, keeping
+    /// every direct value the recipes do not cover.
+    Merge,
 }
 
 /// Something with a zero, for summing stacked relative values.
@@ -1869,23 +2720,80 @@ impl CuePlayer {
 // r[impl playback.release-falls-through] - a key only the outgoing side has fades to rest
 // r[impl cues.timing.per-attribute] - each key crossfades on its own class timing
 // r[impl cues.delay]
+// r[impl playback.defaults] - a key rises from, and falls to, its default
 fn blend(
     prev: &HashMap<(ChanId, Attribute), f32>,
     next: &HashMap<(ChanId, Attribute), f32>,
     stage: &Stage,
+    defaults: &HashMap<(ChanId, Attribute), f32>,
 ) -> HashMap<(ChanId, Attribute), f32> {
     let mut out = HashMap::with_capacity(next.len().max(prev.len()));
+    let rest = |key: &(ChanId, Attribute)| defaults.get(key).copied();
     for (key, target) in next {
-        let from = prev.get(key).copied().unwrap_or(0.0);
+        let from = prev.get(key).copied().or_else(|| rest(key)).unwrap_or(0.0);
         let t = stage.progress_for(key, *target < from);
         out.insert(key.clone(), from + (target - from) * t);
     }
     for (key, leaving) in prev {
         if !next.contains_key(key) {
+            let floor = rest(key);
             let t = stage.progress_for(key, true);
             if t < 1.0 {
-                out.insert(key.clone(), leaving * (1.0 - t));
+                let to = floor.unwrap_or(0.0);
+                out.insert(key.clone(), leaving + (to - leaving) * t);
+            } else if let Some(floor) = floor {
+                out.insert(key.clone(), floor);
             }
+        }
+    }
+    out
+}
+
+/// Crossfades two frames of colour intents. Both sides present and
+/// expressible in xyY, the chromaticity and luminance interpolate; at
+/// either end the stored intent passes through untouched, so a settled
+/// `Cct` is still a `Cct`. A gel with no table entry cannot be blended
+/// and switches at half-way.
+// r[impl color.intent-to-output] - faded in xyY, never as three floats
+fn blend_intents(
+    prev: &HashMap<ChanId, Intent>,
+    next: &HashMap<ChanId, Intent>,
+    stage: &Stage,
+) -> HashMap<ChanId, Intent> {
+    let colour_key = |chan: ChanId| {
+        (
+            chan,
+            Attribute::ColorAdd {
+                channel: ignition_proto::ColorChannel::Red,
+            },
+        )
+    };
+    let mut out = HashMap::with_capacity(next.len().max(prev.len()));
+    for (chan, to) in next {
+        let t = stage.progress_for(&colour_key(*chan), false);
+        let blended = match prev.get(chan) {
+            Some(from) if t < 1.0 && *from != *to => {
+                if t <= 0.0 {
+                    from.clone()
+                } else {
+                    match (from.xyy(), to.xyy()) {
+                        (Some(a), Some(b)) => Intent::Xy {
+                            x: a.x + (b.x - a.x) * t,
+                            y: a.y + (b.y - a.y) * t,
+                            luminance: a.luminance + (b.luminance - a.luminance) * t,
+                        },
+                        _ if t < 0.5 => from.clone(),
+                        _ => to.clone(),
+                    }
+                }
+            }
+            _ => to.clone(),
+        };
+        out.insert(*chan, blended);
+    }
+    for (chan, leaving) in prev {
+        if !next.contains_key(chan) && stage.progress_for(&colour_key(*chan), true) < 1.0 {
+            out.insert(*chan, leaving.clone());
         }
     }
     out
@@ -3003,6 +3911,7 @@ mod tests {
                     mode,
                     fade_beats: 2.0, // 1 s
                     delay_beats: 0.0,
+                    ..Default::default()
                 },
                 ..cue(
                     "Aimed",
@@ -3792,6 +4701,7 @@ mod wave2_tests {
                 name: "stab".into(),
                 hold: false,
             }],
+            ..Default::default()
         };
         // Unresolved, the relative cues are invisible to the clock.
         assert_eq!(list.cues[0].position(), None);
@@ -4116,5 +5026,801 @@ mod focus_and_position_tests {
             frozen[0].value,
             "the effect went on running"
         );
+    }
+}
+
+/// Arrival curves and the finer timing — `docs/spec/cues.md`, plus the
+/// player halves of pause, defaults and colour intent.
+#[cfg(test)]
+mod arrival_tests {
+    use super::*;
+    use crate::group::Group;
+    use crate::preset::{ColorPreset, Palettes, Ref};
+    use crate::recipe::RecipeApply;
+    use crate::selection::Selection;
+    use crate::step::{SpeedMasters, Step, Timing};
+
+    fn cue(name: &str, fade_secs: f32, values: Vec<(ChanId, Attribute, f32)>) -> Cue {
+        Cue {
+            name: name.to_string(),
+            fade_secs,
+            values: values
+                .into_iter()
+                .map(|(chan, attr, value)| CueValue { chan, attr, value })
+                .collect(),
+            ..Default::default()
+        }
+    }
+
+    fn red() -> Attribute {
+        Attribute::ColorAdd {
+            channel: ignition_proto::ColorChannel::Red,
+        }
+    }
+
+    fn bare() -> Show<'static> {
+        Show::new(&[], &crate::selection::EMPTY_RIG)
+    }
+
+    fn show_120() -> SpeedMasters {
+        SpeedMasters::from([("Song".to_string(), 120.0)])
+    }
+
+    fn with_speeds(speeds: &SpeedMasters) -> Show<'_> {
+        let mut show = Show::new(&[], &crate::selection::EMPTY_RIG);
+        show.speeds = speeds;
+        show
+    }
+
+    fn get(player: &CuePlayer, show: &Show<'_>, chan: ChanId, attr: Attribute) -> f32 {
+        player
+            .output(show)
+            .get(&(chan, attr))
+            .copied()
+            .unwrap_or_default()
+    }
+
+    // ----- transition curves -----
+
+    /// r[verify cues.transition-curve]
+    #[test]
+    fn a_class_fades_on_its_own_curve_and_the_others_stay_linear() {
+        let show = bare();
+        let mut player = CuePlayer::new(vec![Cue {
+            timing: CueTiming {
+                ease: ClassEase {
+                    position: CurveName::SCurve.ease(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..cue(
+                "Swing in",
+                4.0,
+                vec![(1, Attribute::Dimmer, 1.0), (1, Attribute::Pan, 100.0)],
+            )
+        }]);
+        player.go(&show);
+        player.tick(1.0); // a quarter in
+        let dimmer = get(&player, &show, 1, Attribute::Dimmer);
+        let pan = get(&player, &show, 1, Attribute::Pan);
+        assert!(
+            (dimmer - 0.25).abs() < 1e-3,
+            "intensity should stay linear: {dimmer}"
+        );
+        assert!(pan < 20.0 && pan > 0.0, "an s-curve leaves softly: {pan}");
+        player.tick(1.0); // halfway — every symmetric curve crosses here
+        let pan = get(&player, &show, 1, Attribute::Pan);
+        assert!((pan - 50.0).abs() < 1e-2, "{pan}");
+        player.tick(2.0);
+        assert!((get(&player, &show, 1, Attribute::Pan) - 100.0).abs() < 1e-3);
+    }
+
+    /// Swing leaves softly and arrives hard: still well short of the
+    /// mark three quarters of the way through, and exactly on it at
+    /// the end — the pendulum landing, without turning back.
+    /// r[verify cues.transition-curve]
+    #[test]
+    fn swing_arrives_hard_and_settles_exactly() {
+        let swing = CurveName::Swing.ease();
+        let mut last = 0.0;
+        for i in 0..=100 {
+            let t = i as f32 / 100.0;
+            let v = swing.apply(t);
+            assert!(v >= last - 1e-6, "swing turned back at {t}: {v} < {last}");
+            last = v;
+        }
+        assert!(swing.apply(0.75) < 0.65, "{}", swing.apply(0.75));
+        assert!((swing.apply(1.0) - 1.0).abs() < 1e-6);
+        assert_eq!(CurveName::SCurve.ease(), Ease::Sine);
+        assert_eq!(CurveName::Linear.ease(), Ease::Linear);
+        // Sugar round-trips as a name in the file.
+        assert_eq!(
+            serde_json::to_string(&CurveName::Swing).unwrap(),
+            "\"swing\""
+        );
+    }
+
+    // ----- timing overrides -----
+
+    /// r[verify cues.timing-overrides]
+    #[test]
+    fn a_selection_takes_its_own_timing_while_the_rest_keep_the_class() {
+        let speeds = show_120();
+        let show = with_speeds(&speeds);
+        let mut player = CuePlayer::new(vec![Cue {
+            timing_overrides: vec![TimingOverride {
+                selection: Selection::Chans(vec![1]),
+                timing: CueTiming {
+                    dimmer_in: Some(1.0), // one beat: half a second
+                    ..Default::default()
+                },
+            }],
+            ..cue(
+                "Up",
+                4.0,
+                vec![(1, Attribute::Dimmer, 1.0), (2, Attribute::Dimmer, 1.0)],
+            )
+        }]);
+        player.go(&show);
+        player.tick(0.5);
+        let one = get(&player, &show, 1, Attribute::Dimmer);
+        let two = get(&player, &show, 2, Attribute::Dimmer);
+        assert!(
+            (one - 1.0).abs() < 1e-3,
+            "the override did not apply: {one}"
+        );
+        assert!(
+            (two - 0.125).abs() < 1e-3,
+            "the class timing was lost: {two}"
+        );
+        let json = serde_json::to_string(&player.cues()[0]).unwrap();
+        assert!(json.contains("timing_overrides"), "{json}");
+    }
+
+    // ----- break -----
+
+    /// r[verify cues.break]
+    #[test]
+    fn a_break_stops_an_attribute_tracking_through_a_cue_that_does_not_set_it() {
+        let show = bare();
+        let mut player = CuePlayer::new(vec![
+            cue(
+                "Aimed",
+                0.0,
+                vec![(1, Attribute::Dimmer, 1.0), (1, Attribute::Pan, 90.0)],
+            ),
+            Cue {
+                break_: vec![Attribute::Pan],
+                ..cue("Level only", 0.0, vec![(1, Attribute::Dimmer, 0.5)])
+            },
+            cue("Later", 0.0, vec![(1, Attribute::Dimmer, 0.7)]),
+        ]);
+        player.go(&show);
+        player.go(&show);
+        let out = player.output(&show);
+        assert!(
+            !out.contains_key(&(1, Attribute::Pan)),
+            "pan tracked through the break"
+        );
+        assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 1e-6);
+        player.go(&show);
+        assert!(!player.output(&show).contains_key(&(1, Attribute::Pan)));
+        let json = serde_json::to_string(&player.cues()[1]).unwrap();
+        assert!(json.contains(r#""break":["Pan"]"#), "{json}");
+    }
+
+    // ----- shield -----
+
+    /// Pre-positioning is off, so the pan read at each cue is the
+    /// tracked value and not a move in black toward the restatement.
+    fn reveal_list() -> CueList {
+        let still = |name: &str, values| Cue {
+            mib: Mib {
+                mode: MibMode::None,
+                ..Default::default()
+            },
+            ..cue(name, 0.0, values)
+        };
+        CueList {
+            cues: vec![
+                still(
+                    "Lit",
+                    vec![(1, Attribute::Dimmer, 1.0), (1, Attribute::Pan, 0.0)],
+                ),
+                still("Dark", vec![(1, Attribute::Dimmer, 0.0)]),
+                still("Still dark", vec![(2, Attribute::Dimmer, 1.0)]),
+                still("Back up", vec![(1, Attribute::Dimmer, 1.0)]),
+            ],
+            ..Default::default()
+        }
+    }
+
+    fn pan_after(list: &CueList, index: usize) -> f32 {
+        let show = bare();
+        let mut player = CuePlayer::from_list(list);
+        player.jump_to_end_of(index, &show);
+        get(&player, &show, 1, Attribute::Pan)
+    }
+
+    /// r[verify cues.shield]
+    #[test]
+    fn shield_from_zero_stops_the_edit_where_the_intensity_comes_up() {
+        let mut list = reveal_list();
+        let mut edited = list.cues[0].clone();
+        edited.values[1].value = 50.0;
+        list.store(0, edited, StoreMode::ShieldFromZero);
+        assert!((pan_after(&list, 0) - 50.0).abs() < 1e-6);
+        assert!(
+            (pan_after(&list, 1) - 50.0).abs() < 1e-6,
+            "tracks while dark"
+        );
+        assert!(
+            (pan_after(&list, 2) - 50.0).abs() < 1e-6,
+            "tracks while dark"
+        );
+        assert!(
+            (pan_after(&list, 3)).abs() < 1e-6,
+            "stops where it comes up"
+        );
+        assert!(
+            list.cues[3]
+                .values
+                .iter()
+                .any(|v| v.attr == Attribute::Pan && v.value == 0.0)
+        );
+        assert!(!list.cues[1].values.iter().any(|v| v.attr == Attribute::Pan));
+    }
+
+    /// r[verify cues.shield]
+    #[test]
+    fn shield_above_zero_stops_the_edit_at_the_next_lit_cue() {
+        let mut list = reveal_list();
+        // The fixture stays lit through cue 1 here.
+        list.cues[1].values.clear();
+        let mut edited = list.cues[0].clone();
+        edited.values[1].value = 50.0;
+        list.store(0, edited, StoreMode::ShieldAboveZero);
+        assert!((pan_after(&list, 0) - 50.0).abs() < 1e-6);
+        assert!(
+            (pan_after(&list, 1)).abs() < 1e-6,
+            "lit at cue 1: the edit stops there"
+        );
+        // Track leaves it to track.
+        let mut list = reveal_list();
+        let mut edited = list.cues[0].clone();
+        edited.values[1].value = 50.0;
+        list.store(0, edited, StoreMode::Track);
+        assert!((pan_after(&list, 3) - 50.0).abs() < 1e-6);
+        // Cue-only stops at the very next cue, lit or not.
+        let mut list = reveal_list();
+        let mut edited = list.cues[0].clone();
+        edited.values[1].value = 50.0;
+        list.store(0, edited, StoreMode::CueOnly);
+        assert!((pan_after(&list, 1)).abs() < 1e-6);
+    }
+
+    // ----- wrap and restart -----
+
+    fn three() -> CueList {
+        CueList {
+            cues: vec![
+                cue("A", 0.0, vec![(1, Attribute::Dimmer, 0.1)]),
+                cue("B", 0.0, vec![(1, Attribute::Dimmer, 0.2)]),
+                cue("C", 0.0, vec![(1, Attribute::Dimmer, 0.3)]),
+            ],
+            wrap: true,
+            ..Default::default()
+        }
+    }
+
+    /// r[verify cues.wrap-and-restart]
+    #[test]
+    fn a_wrapping_list_goes_from_its_last_cue_to_its_first() {
+        let show = bare();
+        let mut player = CuePlayer::from_list(&three());
+        for _ in 0..3 {
+            player.go(&show);
+        }
+        assert_eq!(player.current_index(), Some(2));
+        player.go(&show);
+        assert_eq!(player.current_index(), Some(0));
+        assert!((get(&player, &show, 1, Attribute::Dimmer) - 0.1).abs() < 1e-6);
+        let mut plain = CuePlayer::new(three().cues);
+        for _ in 0..4 {
+            plain.go(&show);
+        }
+        assert_eq!(plain.current_index(), Some(2), "wrap is opt-in");
+        let json = serde_json::to_string(&three()).unwrap();
+        assert!(
+            json.contains(r#""wrap":true"#) && !json.contains("restart"),
+            "{json}"
+        );
+    }
+
+    /// r[verify cues.wrap-and-restart]
+    #[test]
+    fn a_disabled_list_re_enables_where_its_restart_says() {
+        let show = bare();
+        for (restart, expect, level) in [
+            (Restart::First, 0, 0.1),
+            (Restart::Current, 1, 0.2),
+            (Restart::Next, 2, 0.3),
+        ] {
+            let mut list = three();
+            list.restart = restart;
+            let mut player = CuePlayer::from_list(&list);
+            player.go(&show);
+            player.go(&show);
+            player.disable();
+            assert!(player.output(&show).is_empty(), "disabled but showing");
+            assert!(!player.is_enabled());
+            player.enable(&show);
+            assert_eq!(player.current_index(), Some(expect), "{restart:?}");
+            let got = get(&player, &show, 1, Attribute::Dimmer);
+            assert!((got - level).abs() < 1e-6, "{restart:?}: {got}");
+        }
+        // Next off the last cue wraps when the list does.
+        let mut list = three();
+        list.restart = Restart::Next;
+        let mut player = CuePlayer::from_list(&list);
+        for _ in 0..3 {
+            player.go(&show);
+        }
+        player.disable();
+        player.enable(&show);
+        assert_eq!(player.current_index(), Some(0));
+    }
+
+    // ----- move in black -----
+
+    fn mover(mib: Mib) -> Vec<Cue> {
+        vec![
+            cue(
+                "Dark",
+                0.0,
+                vec![(1, Attribute::Dimmer, 0.0), (1, Attribute::Pan, 0.0)],
+            ),
+            cue("Other", 0.0, vec![(2, Attribute::Dimmer, 1.0)]),
+            Cue {
+                mib,
+                ..cue(
+                    "Aimed",
+                    0.0,
+                    vec![(1, Attribute::Dimmer, 1.0), (1, Attribute::Pan, 90.0)],
+                )
+            },
+        ]
+    }
+
+    fn early() -> Mib {
+        Mib {
+            mode: MibMode::Early,
+            fade_beats: 0.0,
+            ..Default::default()
+        }
+    }
+
+    /// The look-ahead reaches past an intervening cue, and moves in the
+    /// best-rated dark window: with the second cue preferred, the move
+    /// waits for it.
+    /// r[verify cues.mib.preference]
+    #[test]
+    fn the_move_happens_in_the_best_rated_dark_window() {
+        let speeds = show_120();
+        let show = with_speeds(&speeds);
+        let mut player = CuePlayer::new(mover(early()));
+        player.go(&show);
+        assert!(
+            (get(&player, &show, 1, Attribute::Pan) - 90.0).abs() < 1e-3,
+            "flat preference: moves at once"
+        );
+
+        let mut cues = mover(early());
+        cues[1].mib.preference = 90;
+        let mut player = CuePlayer::new(cues);
+        player.go(&show);
+        assert!(
+            get(&player, &show, 1, Attribute::Pan).abs() < 1e-6,
+            "moved in the worse window"
+        );
+        player.go(&show);
+        assert!((get(&player, &show, 1, Attribute::Pan) - 90.0).abs() < 1e-3);
+        assert!(get(&player, &show, 1, Attribute::Dimmer).abs() < 1e-6);
+        player.go(&show);
+        assert!((get(&player, &show, 1, Attribute::Dimmer) - 1.0).abs() < 1e-6);
+    }
+
+    /// r[verify cues.mib.preference]
+    #[test]
+    fn upon_go_moves_with_the_take_after_the_fixture_went_dark() {
+        let speeds = show_120();
+        let show = with_speeds(&speeds);
+        let mut player = CuePlayer::new(mover(Mib {
+            mode: MibMode::UponGo,
+            ..early()
+        }));
+        player.go(&show); // goes dark here: no move yet
+        assert!(get(&player, &show, 1, Attribute::Pan).abs() < 1e-6);
+        player.go(&show); // the next take moves it
+        assert!((get(&player, &show, 1, Attribute::Pan) - 90.0).abs() < 1e-3);
+    }
+
+    /// r[verify cues.mib.hold]
+    #[test]
+    fn a_holding_cue_never_pre_positions_its_dark_fixtures() {
+        let speeds = show_120();
+        let show = with_speeds(&speeds);
+        let mut cues = mover(early());
+        cues[0].mib.hold = true;
+        let mut player = CuePlayer::new(cues);
+        player.go(&show);
+        assert!(
+            get(&player, &show, 1, Attribute::Pan).abs() < 1e-6,
+            "moved under hold"
+        );
+        player.go(&show); // the next window does not hold
+        assert!((get(&player, &show, 1, Attribute::Pan) - 90.0).abs() < 1e-3);
+        let json = serde_json::to_string(&player.cues()[0]).unwrap();
+        assert!(json.contains(r#""hold":true"#), "{json}");
+    }
+
+    /// A colour chase on channel 1, once a second.
+    fn red_chase() -> Recipe {
+        Recipe {
+            target: Selection::Chans(vec![1]),
+            steps: vec![
+                Step::new(vec![RecipeApply::Raw(vec![(red(), 0.0)])]),
+                Step::new(vec![RecipeApply::Raw(vec![(red(), 1.0)])]),
+            ],
+            timing: Timing {
+                speed: crate::step::Speed::Hz(1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    /// r[verify cues.mib.multistep]
+    #[test]
+    fn a_paused_multistep_holds_the_effect_while_the_fixture_is_dark() {
+        let speeds = show_120();
+        let show = with_speeds(&speeds);
+        for (multistep, expect_still) in [(MultiStep::Running, false), (MultiStep::Paused, true)] {
+            let mut cues = mover(Mib {
+                multistep,
+                ..early()
+            });
+            cues.remove(1);
+            cues[0].recipes = vec![red_chase().into()];
+            let mut player = CuePlayer::new(cues);
+            player.go(&show);
+            player.tick(0.2); // step 0
+            let a = get(&player, &show, 1, red());
+            player.tick(0.5); // 0.7 s: step 1, unless held
+            let b = get(&player, &show, 1, red());
+            assert_eq!(
+                (a - b).abs() < 1e-6,
+                expect_still,
+                "{multistep:?}: {a} then {b}"
+            );
+            // Coming up, the effect runs again either way.
+            player.go(&show);
+            player.tick(0.3); // 1.0 s: step 0
+            let c = get(&player, &show, 1, red());
+            player.tick(0.5); // 1.5 s: step 1
+            let d = get(&player, &show, 1, red());
+            assert!((c - d).abs() > 1e-6, "{multistep:?}: still frozen once lit");
+        }
+    }
+
+    // ----- cook merge -----
+
+    /// r[verify cues.cook-merge]
+    #[test]
+    fn cooking_merges_or_overwrites_the_direct_values() {
+        let groups = vec![Group {
+            name: "Pars".into(),
+            chans: vec![1, 2],
+        }];
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
+        let template = Cue {
+            recipes: vec![
+                Recipe::new(Selection::Group("Pars".into()), RecipeApply::Dimmer(0.5)).into(),
+            ],
+            ..cue(
+                "Look",
+                0.0,
+                vec![(1, Attribute::Pan, 30.0), (1, Attribute::Dimmer, 0.9)],
+            )
+        };
+        let mut player = CuePlayer::new(vec![template.clone()]);
+        player.go(&show);
+        let mut merged = template.clone();
+        player.freeze_into(&mut merged, &show, CookMode::Merge);
+        assert!(merged.recipes.is_empty());
+        let find = |c: &Cue, chan, attr: Attribute| {
+            c.values
+                .iter()
+                .find(|v| v.chan == chan && v.attr == attr)
+                .map(|v| v.value)
+        };
+        assert_eq!(
+            find(&merged, 1, Attribute::Pan),
+            Some(30.0),
+            "merge lost a direct value"
+        );
+        assert_eq!(
+            find(&merged, 1, Attribute::Dimmer),
+            Some(0.9),
+            "the direct value still wins"
+        );
+        assert_eq!(find(&merged, 2, Attribute::Dimmer), Some(0.5));
+        let mut over = template.clone();
+        player.freeze_into(&mut over, &show, CookMode::Overwrite);
+        assert_eq!(find(&over, 1, Attribute::Pan), None);
+        assert_eq!(find(&over, 2, Attribute::Dimmer), Some(0.5));
+        assert_eq!(over.values.len(), 2);
+    }
+
+    // ----- pause, resume, go back, load -----
+
+    /// r[verify playback.temp-and-pause]
+    #[test]
+    fn pause_holds_the_fades_and_the_follow_clock_but_not_the_show_clock() {
+        let speeds = show_120();
+        let show = with_speeds(&speeds);
+        let mut player = CuePlayer::new(vec![
+            cue("Up", 2.0, vec![(1, Attribute::Dimmer, 1.0)]),
+            Cue {
+                trig: Trig::Follow { beats: 2.0 }, // one second
+                ..cue("Follow", 2.0, vec![(2, Attribute::Dimmer, 1.0)])
+            },
+        ]);
+        player.go(&show);
+        player.tick_with(0.5, &show);
+        let clock = player.clock();
+        player.pause();
+        player.tick_with(2.0, &show);
+        assert!(
+            (get(&player, &show, 1, Attribute::Dimmer) - 0.25).abs() < 1e-3,
+            "the fade moved"
+        );
+        assert_eq!(
+            player.current_index(),
+            Some(0),
+            "the follow fired while paused"
+        );
+        assert!(
+            (player.clock() - clock - 2.0).abs() < 1e-6,
+            "the show clock stopped"
+        );
+        player.resume();
+        player.tick_with(0.5, &show);
+        assert!((get(&player, &show, 1, Attribute::Dimmer) - 0.5).abs() < 1e-3);
+        assert_eq!(player.current_index(), Some(1), "the follow was due at 1 s");
+    }
+
+    /// r[verify playback.temp-and-pause]
+    #[test]
+    fn go_back_crossfades_into_the_previous_cue_with_its_own_fade() {
+        let show = bare();
+        let mut player = CuePlayer::new(vec![
+            cue(
+                "Bright",
+                2.0,
+                vec![(1, Attribute::Dimmer, 1.0), (2, Attribute::Dimmer, 0.4)],
+            ),
+            cue("Dim", 0.0, vec![(1, Attribute::Dimmer, 0.2)]),
+        ]);
+        player.go(&show);
+        player.go(&show);
+        player.tick(5.0);
+        assert!((get(&player, &show, 1, Attribute::Dimmer) - 0.2).abs() < 1e-6);
+        player.go_back(&show);
+        assert_eq!(player.current_index(), Some(0));
+        player.tick(1.0); // halfway through "Bright"'s two seconds, from 0.2
+        assert!((get(&player, &show, 1, Attribute::Dimmer) - 0.6).abs() < 1e-3);
+        assert!(
+            (get(&player, &show, 2, Attribute::Dimmer) - 0.4).abs() < 1e-3,
+            "tracked state was lost"
+        );
+        player.go_back(&show);
+        assert_eq!(player.current_index(), None);
+        assert!(player.output(&show).is_empty());
+    }
+
+    /// r[verify playback.temp-and-pause]
+    #[test]
+    fn load_arms_a_cue_that_the_next_go_takes_with_its_tracked_state() {
+        let show = bare();
+        let mut player = CuePlayer::new(vec![
+            cue("A", 0.0, vec![(1, Attribute::Dimmer, 0.1)]),
+            cue("B", 0.0, vec![(2, Attribute::Dimmer, 0.2)]),
+            cue("C", 0.0, vec![(3, Attribute::Dimmer, 0.3)]),
+        ]);
+        player.load(2);
+        assert_eq!(player.loaded(), Some(2));
+        assert!(player.output(&show).is_empty(), "load must not take");
+        player.go(&show);
+        assert_eq!(player.current_index(), Some(2));
+        assert_eq!(player.loaded(), None);
+        let out = player.output(&show);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.1).abs() < 1e-6,
+            "A did not track in"
+        );
+        assert!((out[&(2, Attribute::Dimmer)] - 0.2).abs() < 1e-6);
+        assert!((out[&(3, Attribute::Dimmer)] - 0.3).abs() < 1e-6);
+        player.go(&show);
+        assert_eq!(player.current_index(), Some(2), "past the end without wrap");
+    }
+
+    // ----- intent to output -----
+
+    fn warm_and_cool() -> Palettes {
+        Palettes {
+            colors: vec![
+                ColorPreset::from_intent(
+                    "Warm",
+                    Intent::Cct {
+                        kelvin: 3200.0,
+                        tint: 0.0,
+                    },
+                )
+                .unwrap(),
+                ColorPreset::from_intent(
+                    "Cool",
+                    Intent::Cct {
+                        kelvin: 6500.0,
+                        tint: 0.0,
+                    },
+                )
+                .unwrap(),
+            ],
+            ..Default::default()
+        }
+    }
+
+    fn colour_cue(name: &str, fade_secs: f32, preset: &str) -> Cue {
+        Cue {
+            name: name.into(),
+            fade_secs,
+            recipes: vec![
+                Recipe::new(
+                    Selection::Chans(vec![1]),
+                    RecipeApply::Color(Ref::Named(preset.into())),
+                )
+                .into(),
+            ],
+            ..Default::default()
+        }
+    }
+
+    /// r[verify color.intent-to-output]
+    #[test]
+    fn the_winning_colour_source_hands_its_intent_to_output() {
+        let palettes = warm_and_cool();
+        let mut show = bare();
+        show.palettes = &palettes;
+        let mut player = CuePlayer::new(vec![
+            colour_cue("Warm", 0.0, "Warm"),
+            colour_cue("Cool", 2.0, "Cool"),
+            cue("Direct", 0.0, vec![(1, red(), 1.0)]),
+        ]);
+        assert!(player.output_intents(&show).is_empty());
+        player.go(&show);
+        assert_eq!(
+            player.output_intents(&show).get(&1),
+            Some(&Intent::Cct {
+                kelvin: 3200.0,
+                tint: 0.0
+            }),
+            "settled, the preset's own intent"
+        );
+        player.go(&show);
+        player.tick(1.0);
+        let warm = Intent::Cct {
+            kelvin: 3200.0,
+            tint: 0.0,
+        }
+        .xyy()
+        .unwrap();
+        let cool = Intent::Cct {
+            kelvin: 6500.0,
+            tint: 0.0,
+        }
+        .xyy()
+        .unwrap();
+        match player.output_intents(&show).get(&1) {
+            Some(Intent::Xy { x, .. }) => {
+                let mid = (warm.x + cool.x) / 2.0;
+                assert!((x - mid).abs() < 1e-3, "mid-fade in xyY: {x} vs {mid}");
+            }
+            other => panic!("expected an xyY crossfade, got {other:?}"),
+        }
+        player.tick(1.0);
+        assert!(matches!(
+            player.output_intents(&show).get(&1),
+            Some(Intent::Cct { kelvin, .. }) if (*kelvin - 6500.0).abs() < 1e-3
+        ));
+        player.go(&show);
+        assert!(
+            !player.output_intents(&show).contains_key(&1),
+            "a direct triple carries no intent"
+        );
+    }
+
+    // ----- defaults floor -----
+
+    /// r[verify playback.defaults]
+    #[test]
+    fn a_released_or_unset_key_reads_its_default_and_cue_zero_is_the_defaults() {
+        let show = bare();
+        let defaults = HashMap::from([((1, Attribute::Zoom), 0.5), ((1, Attribute::Dimmer), 0.0)]);
+        let mut player = CuePlayer::new(vec![
+            cue("Wide", 2.0, vec![(1, Attribute::Zoom, 1.0)]),
+            Cue {
+                release: vec![Attribute::Zoom],
+                ..cue("Let go", 2.0, vec![(1, Attribute::Dimmer, 1.0)])
+            },
+        ]);
+        let zero = player.output_with_defaults(&show, &defaults);
+        assert_eq!(
+            zero.get(&(1, Attribute::Zoom)),
+            Some(&0.5),
+            "cue zero is the defaults"
+        );
+        assert!(player.output(&show).is_empty(), "plain output is untouched");
+        player.go(&show);
+        player.tick(1.0);
+        let z = player.output_with_defaults(&show, &defaults)[&(1, Attribute::Zoom)];
+        assert!(
+            (z - 0.75).abs() < 1e-3,
+            "rises from the default, not from zero: {z}"
+        );
+        player.tick(1.0);
+        player.go(&show);
+        player.tick(1.0);
+        let z = player.output_with_defaults(&show, &defaults)[&(1, Attribute::Zoom)];
+        assert!((z - 0.75).abs() < 1e-3, "falls toward the default: {z}");
+        player.tick(1.0);
+        let out = player.output_with_defaults(&show, &defaults);
+        assert_eq!(
+            out.get(&(1, Attribute::Zoom)),
+            Some(&0.5),
+            "lands on the default"
+        );
+        assert!(!player.output(&show).contains_key(&(1, Attribute::Zoom)));
+    }
+
+    // ----- file shape -----
+
+    #[test]
+    fn the_new_fields_default_and_stay_out_of_the_file() {
+        let cue = Cue::default();
+        let json = serde_json::to_string(&cue).unwrap();
+        for absent in [
+            "timing_overrides",
+            "break",
+            "ease",
+            "hold",
+            "multistep",
+            "preference",
+        ] {
+            assert!(!json.contains(absent), "{absent} in {json}");
+        }
+        let back: Cue = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, cue);
+        let mib: Mib = serde_json::from_str(r#"{"mode":"Early"}"#).unwrap();
+        assert_eq!(mib.preference, 50);
+        assert_eq!(mib.multistep, MultiStep::Running);
+        assert!(!mib.hold);
+        let list: CueList = serde_json::from_str(r#"{"cues":[]}"#).unwrap();
+        assert!(!list.wrap);
+        assert_eq!(list.restart, Restart::First);
+        let timing: CueTiming = serde_json::from_str(r#"{"ease":{"position":"Sine"}}"#).unwrap();
+        assert_eq!(timing.ease.position, Ease::Sine);
+        assert_eq!(timing.ease.intensity, Ease::Linear);
     }
 }

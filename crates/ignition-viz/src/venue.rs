@@ -80,6 +80,12 @@ pub struct FixtureRecord {
     /// generic default.
     #[serde(default)]
     pub beam_angle_deg: Option<f32>,
+    /// Further DMX addresses this one fixture also drives — four house
+    /// pars on one address are one fixture in the show and four on the
+    /// wire. Written with exactly the bytes the primary address gets.
+    // r[impl files.venue.multipatch] - the extra addresses of a multipatched fixture
+    #[serde(default)]
+    pub mirrors: Vec<ignition_proto::DmxAddress>,
 }
 
 fn default_patched() -> bool {
@@ -297,8 +303,24 @@ impl Venue {
 /// One patched fixture: its start address and its personality's layout.
 #[derive(Debug, Clone)]
 pub struct Patch {
+    /// The primary address — what the read side (`dmx.rs::resolve`)
+    /// decodes the fixture from.
     pub address: ignition_proto::DmxAddress,
+    /// Every further address the fixture is multipatched to.
+    // r[impl files.venue.multipatch]
+    pub mirrors: Vec<ignition_proto::DmxAddress>,
     pub map: ignition_proto::ChannelMap,
+    /// The output-side profile: emitters, wheel, preference, space, defaults.
+    pub profile: crate::fixture_profile::FixtureProfile,
+}
+
+impl Patch {
+    /// The primary address followed by every mirror — where a frame's
+    /// bytes for this fixture go.
+    // r[impl files.venue.multipatch] - the patch expands to all addresses
+    pub fn addresses(&self) -> impl Iterator<Item = &ignition_proto::DmxAddress> {
+        std::iter::once(&self.address).chain(self.mirrors.iter())
+    }
 }
 
 /// The venue's patch, indexed the two ways the visualizer needs it: by
@@ -319,8 +341,13 @@ impl PatchTable {
                 let manufacturer = f.manufacturer.as_deref().unwrap_or("");
                 let model = f.model.as_deref().unwrap_or("");
                 let address = f.dmx_address()?;
-                let map = crate::channel_map::channel_map_for(manufacturer, model)?;
-                Some(Patch { address, map })
+                let profile = crate::channel_map::profile_for(manufacturer, model)?;
+                Some(Patch {
+                    address,
+                    mirrors: f.mirrors.clone(),
+                    map: profile.map.clone(),
+                    profile,
+                })
             })
             .collect();
         let by_chan = venue
@@ -341,6 +368,28 @@ impl PatchTable {
     /// The patch for console channel `chan`.
     pub fn by_chan(&self, chan: u32) -> Option<&Patch> {
         self.by_chan.get(&chan).and_then(|i| self.get(*i))
+    }
+
+    /// Every patched `(chan, patch)`.
+    pub fn iter(&self) -> impl Iterator<Item = (u32, &Patch)> {
+        self.by_chan
+            .iter()
+            .filter_map(|(chan, i)| Some((*chan, self.get(*i)?)))
+    }
+
+    /// The rest value of every attribute of every patched fixture — the
+    /// floor a released attribute falls to and what cue zero establishes.
+    // r[impl playback.defaults] - the defaults map for the patched rig
+    pub fn defaults(&self) -> std::collections::HashMap<(u32, ignition_proto::Attribute), f32> {
+        self.iter()
+            .flat_map(|(chan, patch)| {
+                patch
+                    .profile
+                    .defaults
+                    .iter()
+                    .map(move |(attr, value)| ((chan, attr.clone()), *value))
+            })
+            .collect()
     }
 }
 
@@ -691,6 +740,46 @@ mod tests {
             venue.placement_of(999).is_none(),
             "no fixture on channel 999"
         );
+    }
+
+    /// r[verify files.venue.multipatch] - a record's mirrors reach the patch table
+    /// r[verify playback.defaults] - the rig's defaults come from each fixture's profile
+    #[test]
+    fn mirrors_and_defaults_come_through_the_patch_table() {
+        let record: FixtureRecord = serde_json::from_value(serde_json::json!({
+            "chan": 9,
+            "name": "House par",
+            "tags": [],
+            "manufacturer": "Uking",
+            "model": "Par",
+            "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "eulers": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "quat": {"w": 1.0, "x": 0.0, "y": 0.0, "z": 0.0},
+            "size": {"x": 0.2, "y": 0.2, "z": 0.2},
+            "universe": 1,
+            "address": 1,
+            "mirrors": [{"universe": 1, "start_channel": 200}, {"universe": 2, "start_channel": 8}],
+        }))
+        .expect("valid fixture record");
+        let venue = Venue {
+            fixtures: vec![record],
+            room: vec![],
+            screens: vec![],
+            props: vec![],
+            palettes: Default::default(),
+            profile: Default::default(),
+            patch: Default::default(),
+            group_records: vec![],
+        };
+        let patch = venue.patch().by_chan(9).unwrap();
+        let addresses: Vec<_> = patch
+            .addresses()
+            .map(|a| (a.universe, a.start_channel))
+            .collect();
+        assert_eq!(addresses, vec![(1, 1), (1, 200), (2, 8)]);
+        let defaults = venue.patch().defaults();
+        assert_eq!(defaults[&(9, ignition_proto::Attribute::Dimmer)], 0.0);
+        assert_eq!(defaults[&(9, ignition_proto::Attribute::Strobe)], 0.0);
     }
 
     fn data(rel: &str) -> std::path::PathBuf {

@@ -257,3 +257,58 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 
 /* GO on the look list, beside the song's GO. */
 .go.look { background: #2c3f5a; color: #cfe0f0; border-color: #3d5a80; margin-left: 4px; }
+
+/* ── Masters, parks, speed keys and the sound-in ─────────────────── */
+/* Transport keys for the song *playback*, beside the song's own
+   transport: pause holds the cue list, GO− steps it back, LOAD arms the
+   next cue. PAUSED is loud the way BLIND is — a paused list is one
+   whose every GO goes nowhere. */
+.transport-bar .t-keys { display: flex; gap: 4px; margin-left: 8px; }
+.transport-bar .t-key {
+  height: 26px; padding: 0 8px; font-size: 10px; letter-spacing: 0.06em;
+  border-radius: 4px; cursor: pointer; color: rgba(255, 255, 255, 0.78);
+  background: #23232e; border: 1px solid #33333f;
+}
+.transport-bar .t-key:hover { background: #2c2c3a; }
+.transport-bar .t-key.on { background: #e8a040; border-color: #f0c070; color: #14121a; }
+
+/* The sound fade and the three band meters. A trim and a meter, so
+   they are small; the operator glances at them, and rides nothing. */
+.transport-bar .t-sound { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.transport-bar .t-label { font-size: 9px; letter-spacing: 0.08em; color: #8a8a9a; }
+.hslider {
+  position: relative; width: 90px; height: 14px; border-radius: 7px;
+  background: #23232e; border: 1px solid #33333f; overflow: hidden; cursor: pointer;
+}
+.hfill { position: absolute; left: 0; top: 0; height: 100%; background: #6ea8c0; opacity: 0.7; }
+.meters { display: flex; gap: 4px; }
+.meter { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.meter-track {
+  position: relative; width: 10px; height: 22px; border-radius: 2px;
+  background: #23232e; border: 1px solid #33333f; overflow: hidden;
+}
+.meter-fill { position: absolute; left: 0; bottom: 0; width: 100%; background: #8fd0a0; }
+.meter-label { font-size: 7px; color: #8a8a9a; letter-spacing: 0.04em; }
+
+/* Park. Not a warning colour: a park is a fix, not a mistake. The
+   PARKED flag beside it is what says something on the rig is nailed. */
+.tile.park { background: #1a2a2a; border-color: #2a4a4a; color: #b0e0e0; }
+.tile.park:hover { background: #223a3a; }
+.parked-flag {
+  font-size: 9px; letter-spacing: 0.06em; color: #14121a; background: #60d0d0;
+  padding: 2px 6px; border-radius: 3px; align-self: center;
+}
+
+/* The speed keys under RATE. TAP is the big one — a foot or a fist
+   finds it; the others are a decision. */
+.rate-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.speed-keys { display: flex; flex-direction: column; gap: 3px; align-items: center; }
+.speed-key {
+  width: 44px; height: 18px; font-size: 9px; letter-spacing: 0.04em; border-radius: 4px;
+  cursor: pointer; color: rgba(255, 255, 255, 0.7); background: #1e1e26; border: 1px solid #2c2c36;
+}
+.speed-key:hover { background: #272733; }
+.speed-key.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.speed-key.tap { height: 24px; background: #3a2e1a; border-color: #6a5030; color: #f0d0a0; font-weight: 600; }
+.speed-key.tap:active { background: #f0d0a0; color: #14121a; }
+.tap-readout { font-size: 9px; color: #9a9aa6; }
