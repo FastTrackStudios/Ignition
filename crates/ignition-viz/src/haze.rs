@@ -19,6 +19,10 @@
 //! to a ninth. The picture is upsampled bilinearly. What that costs is
 //! sharpness where a shaft meets a wall, and at the studio's viewport
 //! that edge is already softened by bloom.
+//!
+//! The hand-drawn beams — a par's cone, a bar's wedge — ride the same
+//! camera (`fold_drawn_beams`): translucent fill at a fraction of the
+//! pixels, one composite for every kind of light in the air.
 
 use crate::spawn::VizSettings;
 use bevy::asset::embedded_asset;
@@ -64,6 +68,11 @@ pub struct HazeCamera {
 /// The full-screen composite quad, a child of the main camera.
 #[derive(Component)]
 pub struct HazeComposite;
+
+/// A drawn beam (`BeamMaterial` cone or wedge) that has been given its
+/// layer, so it is not sorted again.
+#[derive(Component)]
+pub struct HazeFolded;
 
 /// A black twin, so its original is not twinned again and the twin
 /// itself never is.
@@ -146,7 +155,7 @@ impl Plugin for HazePlugin {
             MaterialPlugin::<HazeCompositeMaterial>::default(),
         ))
         .add_systems(Startup, occluder_material)
-        .add_systems(Update, (spawn_haze_cameras, sort_occluders))
+        .add_systems(Update, (spawn_haze_cameras, sort_occluders, fold_drawn_beams))
         .add_systems(
             PostUpdate,
             follow_main_camera.before(bevy::transform::TransformSystems::Propagate),
@@ -383,6 +392,42 @@ fn sort_occluders(
         ));
         if let Some(skin) = skin {
             twin.insert(skin.clone());
+        }
+    }
+}
+
+/// Puts every hand-drawn beam — a par's cone, a bar's wedge — on the
+/// haze camera's layer, so it is drawn at the haze's fraction of the
+/// picture into the same texture the fog goes in, and reaches the
+/// picture through the one composite. Forty-eight cones at 5120x1440
+/// were two milliseconds of translucent fill; at a quarter of the size
+/// they are a fraction of that, and a cone is soft by nature — the
+/// bilinear upsample costs it nothing a viewer can see. The occluder
+/// twins on that layer hide a cone behind a wall the same as the room
+/// itself would have. With the fog on the main camera (a still, scale
+/// one) there is no haze camera and the beam stays where it was.
+// r[impl viz.performance-budget] - drawn cones ride the haze camera
+fn fold_drawn_beams(
+    mut commands: Commands,
+    beams: Query<Entity, (With<MeshMaterial3d<crate::beam::BeamMaterial>>, Without<HazeFolded>)>,
+    hazes: Query<(), With<HazeCamera>>,
+    views: Query<&HazeView>,
+) {
+    if beams.is_empty() {
+        return;
+    }
+    let folded = !hazes.is_empty();
+    // No haze camera yet: either one is about to be spawned for a view
+    // that wants one, in which case wait for it, or every view marches
+    // its fog at full size and the beams belong on the main layer.
+    if !folded && views.iter().any(|v| v.scale != 1) {
+        return;
+    }
+    for entity in &beams {
+        let mut e = commands.entity(entity);
+        e.insert(HazeFolded);
+        if folded {
+            e.insert(RenderLayers::layer(HAZE_LAYER));
         }
     }
 }

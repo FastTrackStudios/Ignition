@@ -1,6 +1,8 @@
 // The volumetric beam material — a port of ASLS Studio's own beam shader
 // (`src/plugins/visualizer/shaders/beam.fragment.glsl`, GPL-3.0, same
 // licence as this repo), read from their source rather than approximated.
+// One departure: the haze grain is two taps of value noise rather than
+// their four octaves of simplex — see `fogging` below.
 //
 // Everything a fragment needs is world-space, which is why there is no
 // custom vertex stage here: Bevy's standard mesh vertex shader already
@@ -25,89 +27,39 @@
 // x = haze, y = seconds (drifts the haze turbulence), zw spare.
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var<uniform> beam_params: vec4<f32>;
 
-// --- Ashima Arts / webgl-noise 3D simplex noise (MIT) ---------------
-// Mechanically translated GLSL -> WGSL. ASLS vendors the identical file;
-// the licence terms are the original's.
+// --- The haze's grain -------------------------------------------------
+// ASLS mottles a beam with four octaves of 3D simplex noise, and at
+// 5120x1440 forty-eight translucent cones of it cost the frame more
+// than the fog raymarch did. The picture wants far less: haze has no
+// edges, and what reads as "haze" on a cone is a slow, soft unevenness
+// across it. Two taps of hashed value noise — one coarse, one at twice
+// the frequency and half the weight — give that at a handful of ALU
+// per fragment, and no texture.
+// r[impl viz.performance-budget] - a par's cone is a cheap shader
 
-fn mod289_3(x: vec3<f32>) -> vec3<f32> {
-    return x - floor(x * (1.0 / 289.0)) * 289.0;
-}
-fn mod289_4(x: vec4<f32>) -> vec4<f32> {
-    return x - floor(x * (1.0 / 289.0)) * 289.0;
-}
-fn permute4(x: vec4<f32>) -> vec4<f32> {
-    return mod289_4(((x * 34.0) + 10.0) * x);
-}
-fn taylor_inv_sqrt4(r: vec4<f32>) -> vec4<f32> {
-    return 1.79284291400159 - 0.85373472095314 * r;
+fn hash2(p: vec2<f32>) -> f32 {
+    return fract(sin(dot(p, vec2<f32>(127.1, 311.7))) * 43758.5453);
 }
 
-fn snoise(v: vec3<f32>) -> f32 {
-    let c = vec2<f32>(1.0 / 6.0, 1.0 / 3.0);
-    let d = vec4<f32>(0.0, 0.5, 1.0, 2.0);
-
-    var i = floor(v + dot(v, c.yyy));
-    let x0 = v - i + dot(i, c.xxx);
-
-    let g = step(x0.yzx, x0.xyz);
-    let l = 1.0 - g;
-    let i1 = min(g.xyz, l.zxy);
-    let i2 = max(g.xyz, l.zxy);
-
-    let x1 = x0 - i1 + c.xxx;
-    let x2 = x0 - i2 + c.yyy;
-    let x3 = x0 - d.yyy;
-
-    i = mod289_3(i);
-    let p = permute4(permute4(permute4(i.z + vec4<f32>(0.0, i1.z, i2.z, 1.0)) + i.y + vec4<f32>(0.0, i1.y, i2.y, 1.0)) + i.x + vec4<f32>(0.0, i1.x, i2.x, 1.0));
-
-    let n_ = 0.142857142857;
-    let ns = n_ * d.wyz - d.xzx;
-
-    let j = p - 49.0 * floor(p * ns.z * ns.z);
-
-    let x_ = floor(j * ns.z);
-    let y_ = floor(j - 7.0 * x_);
-
-    let x = x_ * ns.x + ns.yyyy;
-    let y = y_ * ns.x + ns.yyyy;
-    let h = 1.0 - abs(x) - abs(y);
-
-    let b0 = vec4<f32>(x.xy, y.xy);
-    let b1 = vec4<f32>(x.zw, y.zw);
-
-    let s0 = floor(b0) * 2.0 + 1.0;
-    let s1 = floor(b1) * 2.0 + 1.0;
-    let sh = -step(h, vec4<f32>(0.0));
-
-    let a0 = b0.xzyw + s0.xzyw * sh.xxyy;
-    let a1 = b1.xzyw + s1.xzyw * sh.zzww;
-
-    var p0 = vec3<f32>(a0.xy, h.x);
-    var p1 = vec3<f32>(a0.zw, h.y);
-    var p2 = vec3<f32>(a1.xy, h.z);
-    var p3 = vec3<f32>(a1.zw, h.w);
-
-    let norm = taylor_inv_sqrt4(vec4<f32>(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
-    p0 *= norm.x;
-    p1 *= norm.y;
-    p2 *= norm.z;
-    p3 *= norm.w;
-
-    var m = max(0.5 - vec4<f32>(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), vec4<f32>(0.0));
-    m = m * m;
-    return 105.0 * dot(m * m, vec4<f32>(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
+// Bilinear value noise on a 2D lattice, smoothed with a quintic so the
+// lattice never shows as a grid.
+fn vnoise(p: vec2<f32>) -> f32 {
+    let i = floor(p);
+    let f = fract(p);
+    let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    let a = hash2(i);
+    let b = hash2(i + vec2<f32>(1.0, 0.0));
+    let c = hash2(i + vec2<f32>(0.0, 1.0));
+    let d = hash2(i + vec2<f32>(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
-/// Four-octave turbulence, ASLS's `fogging` and its weighting — a
-/// spatially varying density field, so a beam reads as mottled haze
-/// rather than a flat-shaded cone.
+/// Two-tap turbulence in ASLS's `fogging` range (roughly 0..1.5): the
+/// cone stays mottled, and the drift along the third axis becomes a
+/// drift of the lattice, so the grain still churns while a beam holds.
 fn fogging(coord: vec3<f32>) -> f32 {
-    var fog = abs(snoise(coord)) * 1.0;
-    fog += abs(snoise(coord * 2.0)) * 0.5;
-    fog += abs(snoise(coord * 4.0)) * 0.25;
-    fog += abs(snoise(coord * 8.0)) * 0.125;
-    return fog;
+    let p = coord.xy + vec2<f32>(coord.z * 0.37, coord.z * 0.61);
+    return vnoise(p) * 1.0 + vnoise(p * 2.0 + 17.0) * 0.5;
 }
 
 @fragment

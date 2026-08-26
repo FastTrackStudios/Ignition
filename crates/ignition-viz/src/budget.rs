@@ -35,13 +35,13 @@ pub fn shadow_budget_setting() -> usize {
 }
 
 /// Whether a shaft-cutter over the volumetric budget — a par, at Norco —
-/// is drawn in the air as the hand-drawn additive cone instead. Off by
-/// default: forty-eight translucent cones with a noise shader cost
-/// close to two milliseconds of GPU at 5120x1440, which is the margin
-/// the budget leaves, for cones the par's floor pool already implies.
-/// `IGNITION_PAR_CONES=1` turns them on.
+/// is drawn in the air as the hand-drawn additive cone. On by default:
+/// a par whose light shows on the floor and not in the haze reads as a
+/// dead fixture, and with `beam.wgsl`'s two-tap grain forty-eight cones
+/// fit the frame (see `r[viz.performance-budget]`).
+/// `IGNITION_PAR_CONES=0` turns them off, for comparing.
 pub fn par_cones() -> bool {
-    std::env::var("IGNITION_PAR_CONES").is_ok_and(|v| v == "1")
+    !std::env::var("IGNITION_PAR_CONES").is_ok_and(|v| v == "0")
 }
 
 /// `VOLUMETRIC_BUDGET`, or the environment's say.
@@ -53,21 +53,39 @@ pub fn volumetric_budget() -> usize {
 }
 
 /// Which of `candidates` get a shadow map: the `budget` brightest by
-/// peak candela among those that cut a shaft at all. Returns one flag
-/// per candidate, in order.
+/// peak candela among those that cut a shaft *and move*. Returns one
+/// flag per candidate, in order.
 ///
-/// Brightness per direction rather than "is a mover" because it is the
-/// same rule that decides whether a fixture cuts a shaft, and the
-/// fixtures whose shadows matter are exactly the ones whose shafts are
-/// hard enough to be cut: a 1.7-degree beam at eight million candela,
-/// a gobo mover at forty thousand. A 36 W par at six thousand is a wash
-/// on the floor, and nobody sees the silhouette it fails to throw.
-// r[impl viz.performance-budget] - shadows go to the brightest shaft-cutters
+/// A shadow map is for the silhouette a shaft cuts out of a person on
+/// its way past, and that silhouette is only ever seen moving: a
+/// mover's beam sweeping across the band. A fixed wash — a par, a
+/// SlimPAR on a truss — lands where it always lands, and the pool it
+/// makes reads the same with or without a shadow cut out of it. Four
+/// SlimPAR shadow views were a fifth of the frame at Norco for that
+/// nothing. So a fixture that cannot pan never has a shadow map,
+/// whatever its budget.
+// r[impl viz.performance-budget] - shadows go to the brightest moving shaft-cutters
 pub fn shadow_budget(candidates: &[ShadowCandidate], budget: usize) -> Vec<bool> {
+    ranked_budget(candidates, budget, |c| c.cuts_a_shaft && c.moves)
+}
+
+/// Which of `candidates` are volumetric — lit into the haze by the fog
+/// pass: the `budget` brightest among those that cut a shaft, moving
+/// or not. A par's cone in the haze is what the fog is for.
+// r[impl viz.performance-budget] - volumetric light goes to the brightest shaft-cutters
+pub fn volumetric_flags(candidates: &[ShadowCandidate], budget: usize) -> Vec<bool> {
+    ranked_budget(candidates, budget, |c| c.cuts_a_shaft)
+}
+
+fn ranked_budget(
+    candidates: &[ShadowCandidate],
+    budget: usize,
+    eligible: impl Fn(&ShadowCandidate) -> bool,
+) -> Vec<bool> {
     let mut ranked: Vec<(usize, f32)> = candidates
         .iter()
         .enumerate()
-        .filter(|(_, c)| c.cuts_a_shaft)
+        .filter(|(_, c)| eligible(c))
         .map(|(i, c)| (i, c.candela))
         .collect();
     // Brightest first; a tie keeps patch order, so the answer is stable
@@ -97,6 +115,9 @@ pub struct ShadowCandidate {
     /// light at all (`SHAFT_CANDELA_THRESHOLD`). A light that lights
     /// no air has no shaft for a shadow to cut.
     pub cuts_a_shaft: bool,
+    /// Whether the fixture pans or tilts. A fixed light's shadow never
+    /// moves, and is never missed.
+    pub moves: bool,
 }
 
 #[cfg(test)]
@@ -107,7 +128,26 @@ mod tests {
         ShadowCandidate {
             candela,
             cuts_a_shaft,
+            moves: true,
         }
+    }
+
+    fn fixed(candela: f32) -> ShadowCandidate {
+        ShadowCandidate {
+            candela,
+            cuts_a_shaft: true,
+            moves: false,
+        }
+    }
+
+    /// A wash never gets a shadow map, however bright and however much
+    /// room the budget has; it stays a volumetric light.
+    /// r[verify viz.performance-budget]
+    #[test]
+    fn a_fixed_wash_never_gets_a_shadow_map() {
+        let rig = vec![fixed(8_400.0), fixed(8_400.0), c(39_000.0, true)];
+        assert_eq!(shadow_budget(&rig, 12), vec![false, false, true]);
+        assert_eq!(volumetric_flags(&rig, 12), vec![true, true, true]);
     }
 
     /// Norco in miniature: pars at 6,400 cd, gobo movers at 39,000, the
@@ -143,7 +183,7 @@ mod tests {
         rig.extend(std::iter::repeat_n(c(8_400.0, true), 4));
         rig.extend(std::iter::repeat_n(c(39_000.0, true), 4));
         rig.extend(std::iter::repeat_n(c(8_000_000.0, true), 5));
-        let flags = shadow_budget(&rig, VOLUMETRIC_BUDGET);
+        let flags = volumetric_flags(&rig, VOLUMETRIC_BUDGET);
         assert_eq!(flags.iter().filter(|f| **f).count(), 13);
         assert!(flags[..48].iter().all(|f| !f));
     }

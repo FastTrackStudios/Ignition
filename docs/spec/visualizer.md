@@ -121,20 +121,33 @@ the bars on a strip chase, the beams strobing, the canvases on `proc:rainbow`,
 hazers up), measured through the studio's own embedded route by
 `viz --bench`. The frame is spent by rule, not by fixture count:
 
+The benchmark cue has **every light on the whole time**: every par and bar
+on a bed of at least half, with the chases riding on top of it and never
+taking a fixture to black — a frame measured with the pars chased to black
+is a frame measured with most of the rig off.
+
 - **Shadow maps** go to at most `SHADOW_BUDGET` spill lights, the brightest
-  per direction (peak candela) among those that cut a shaft. A wash keeps
-  its pool and its cone in the haze; it loses only the silhouette it would
-  have cut, which nobody sees.
+  per direction (peak candela) among those that cut a shaft **and move**. A
+  shadow map is for the silhouette a sweeping beam cuts out of a person; a
+  fixed wash's pool lands where it always lands, and it never gets one,
+  whatever the budget has room for. A wash keeps its pool and its cone in
+  the haze.
 - **Volumetric light** (the fog raymarch) goes to at most
-  `VOLUMETRIC_BUDGET` spill lights, ranked the same way. A cut never splits
-  a run of equal fixtures: a type is in or out as a whole. A shaft-cutter
-  over the budget keeps its pool and, if asked (`IGNITION_PAR_CONES=1`),
-  shows in the air as the hand-drawn additive cone instead.
+  `VOLUMETRIC_BUDGET` spill lights, ranked by brightness alone. A cut never
+  splits a run of equal fixtures: a type is in or out as a whole. A
+  shaft-cutter over the budget keeps its pool and **shows in the air as the
+  hand-drawn additive cone** — a par's light must be visible in the air, or
+  the par reads as dead. The cone is cheap by design: two taps of value
+  noise for its grain, not four octaves of simplex, and it is drawn on the
+  haze camera at the haze's fraction of the picture, never at full size.
+  `IGNITION_PAR_CONES=0` turns the cones off, for comparing.
 - **The haze is marched at a fraction of the picture's size** on a camera of
   its own and composited back — added, with the room behind it dimmed by the
   same transmittance the in-camera fog would have applied. The fraction is
   chosen so the haze camera stays under a fixed pixel budget
-  (`HAZE_PIXEL_BUDGET`) whatever the viewport; a still keeps full size.
+  (`HAZE_PIXEL_BUDGET`) whatever the viewport; a still keeps full size. The
+  drawn cones and the bars' wedges ride the same camera and reach the
+  picture through the same composite.
 - **Fixture housings cast no shadow and block no shaft**: a par's body is a
   hand's width across and hangs above every beam. Only the room, the risers,
   the props and the people are occluders.

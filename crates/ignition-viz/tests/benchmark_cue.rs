@@ -67,3 +67,52 @@ fn the_benchmark_cue_cooks_the_whole_rig_at_norco() {
     assert!(lit.len() >= 60, "only {} channels get a dimmer: {lit:?}", lit.len());
     assert!(moved.len() >= 8, "only {} movers move: {moved:?}", moved.len());
 }
+
+/// Played, the cue keeps every dimmer at least half up at every sample
+/// time: the chases and the strip chase ride a bed and never take a
+/// fixture to black. A benchmark frame is measured with all the lights
+/// on, or it is measuring the wrong thing.
+/// r[verify viz.performance-budget]
+#[test]
+fn the_benchmark_cue_never_takes_a_light_to_black() {
+    let Ok(venue) = Venue::load("../../data/venues/norco") else {
+        return;
+    };
+    let text = std::fs::read_to_string("../../data/songs/benchmark.json").unwrap();
+    let list: CueList = serde_json::from_str(&text).unwrap();
+    let groups = venue.groups();
+    let rig = venue.rig();
+    let speeds = SpeedMasters::from([("Song".to_string(), 140.0f32), ("Tap".to_string(), 120.0)]);
+    let library = ignition_core::effects::library();
+    let show = Show {
+        groups: &groups,
+        palettes: &venue.palettes,
+        rig: &rig,
+        speeds: &speeds,
+        roles: &venue.profile,
+        library: &library,
+        ..Show::new(&groups, &rig)
+    };
+    let mut player = ignition_core::CuePlayer::from_list(&list);
+    player.go(&show);
+    let mut lit_at_all = std::collections::BTreeSet::new();
+    // Thirty-two samples across two bars at 140 bpm — every phase of
+    // the half-bar chases and the one-bar rainbow.
+    for sample in 0..32 {
+        player.tick_with(0.107, &show);
+        let out = player.output(&show);
+        let mut dimmers = 0;
+        for ((chan, attr), value) in &out {
+            if *attr == Attribute::Dimmer {
+                dimmers += 1;
+                lit_at_all.insert(*chan);
+                assert!(
+                    *value >= 0.5,
+                    "sample {sample}: channel {chan:?} dimmer at {value}, below the bed"
+                );
+            }
+        }
+        assert!(dimmers >= 60, "sample {sample}: only {dimmers} dimmers in the output");
+    }
+    assert!(lit_at_all.len() >= 60);
+}

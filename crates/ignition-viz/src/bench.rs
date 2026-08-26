@@ -256,6 +256,14 @@ pub fn run_bench(
         wait();
         total.push(start.elapsed().as_secs_f64() * 1e3);
     }
+    // `IGNITION_BENCH_DUMP=1`: every frame's time in order, for seeing
+    // whether the tail is a rhythm (something periodic in the frame) or
+    // a scatter (the driver, the OS).
+    if std::env::var("IGNITION_BENCH_DUMP").is_ok_and(|v| v == "1") {
+        for (i, (t, c)) in total.iter().zip(&cpu).enumerate() {
+            println!("frame {i}: {t:.2} ms (cpu {c:.2})");
+        }
+    }
     let mut sorted = total.clone();
     sorted.sort_by(|a, b| a.total_cmp(b));
     let pct = |p: f64| sorted[((sorted.len() - 1) as f64 * p).round() as usize];

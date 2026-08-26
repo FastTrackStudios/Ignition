@@ -1296,12 +1296,13 @@ pub fn spawn_venue(
                     cuts_a_shaft: f.patched
                         && settings.beam_style == BeamStyle::Volumetric
                         && candela >= SHAFT_CANDELA_THRESHOLD,
+                    moves: fixture_moves(manufacturer, model, profile),
                 }
             })
             .collect();
         (
             crate::budget::shadow_budget(&candidates, crate::budget::shadow_budget_setting()),
-            crate::budget::shadow_budget(&candidates, crate::budget::volumetric_budget()),
+            crate::budget::volumetric_flags(&candidates, crate::budget::volumetric_budget()),
         )
     };
     let (shadowed, volumetric) = shadowed;
@@ -1591,7 +1592,7 @@ pub fn spawn_venue(
             // A shaft-cutter outside the volumetric budget — a par, at
             // Norco — can still show in the air, as the hand-drawn
             // additive cone: no shadow map, no raymarch, one translucent
-            // mesh. Opt-in, see `budget::par_cones`.
+            // mesh. On by default, see `budget::par_cones`.
             // r[impl viz.performance-budget] - over the volumetric budget, the cheap cone or nothing
             let drawn_cone = settings.beam_style == BeamStyle::Shader
                 || (cuts_a_shaft && !volumetric[index] && crate::budget::par_cones());
@@ -1645,6 +1646,19 @@ pub fn spawn_venue(
             }
         }
     }
+}
+
+/// Whether a fixture pans or tilts: its GDTF names a pan or tilt
+/// geometry, or its channel map carries the attribute.
+pub fn fixture_moves(manufacturer: &str, model: &str, profile: Option<&GdtfFixture>) -> bool {
+    fn any(node: &crate::gdtf_geometry::GdtfNode) -> bool {
+        node.is_pan || node.is_tilt || node.children.iter().any(any)
+    }
+    profile.is_some_and(|p| any(&p.root))
+        || crate::channel_map::channel_map_for(manufacturer, model).is_some_and(|map| {
+            map.offset_of(&ignition_proto::Attribute::Pan).is_some()
+                || map.offset_of(&ignition_proto::Attribute::Tilt).is_some()
+        })
 }
 
 /// Resolves every patched fixture against the current DMX state and
