@@ -15,11 +15,15 @@
 //! example gets dev-dependencies and says "tooling, not product" in the
 //! same move.
 //!
-//! Only the `effects` map is replaced. Everything else in the file is
-//! hand-authored and must survive, which is why this rewrites one key
-//! rather than serialising a `Profile` back out — a round trip would
-//! quietly drop any field the struct does not model yet.
+//! Only the `effects`, `effect_notes` and `bundles` maps are replaced.
+//! Everything else in the file is hand-authored and must survive, which
+//! is why this rewrites three keys rather than serialising a `Profile`
+//! back out — a round trip would quietly drop any field the struct does
+//! not model yet.
 
+// r[impl effects.library.profile-ships-it] - bakes the Rust library into the shipped profile file
+// r[impl effects.bundle] - the bundles ship in the profile beside the library
+// r[impl files.additive-evolution] - only the `effects`, `effect_notes` and `bundles` keys are rewritten, every other field survives
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = std::env::args()
         .nth(1)
@@ -28,10 +32,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut doc: serde_json::Value = serde_json::from_str(&text)?;
 
     let library = ignition_core::effects::library();
-    let count = library.len();
+    let notes = ignition_core::effects::notes();
+    let bundles = ignition_core::effects::bundles();
+    let (count, bundled) = (library.len(), bundles.len());
     doc["effects"] = serde_json::to_value(&library)?;
+    doc["effect_notes"] = serde_json::to_value(&notes)?;
+    doc["bundles"] = serde_json::to_value(&bundles)?;
 
     std::fs::write(&path, format!("{}\n", serde_json::to_string_pretty(&doc)?))?;
-    println!("baked {count} effects into {path}");
+    println!("baked {count} effects, their notes and {bundled} bundles into {path}");
     Ok(())
 }

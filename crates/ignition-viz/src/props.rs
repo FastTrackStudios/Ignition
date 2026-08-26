@@ -26,6 +26,293 @@ const MEN: [&str; 2] = ["people/man-casual.glb", "people/man-casual-2.glb"];
 /// The kit, relative to the asset root.
 const DRUM_KIT: &str = "props/drum-kit.glb";
 
+/// Which real dimension of the venue record drives a model's scale.
+///
+/// Height is the obvious default and is what a person, a kit and a
+/// speaker cabinet all want. A keyboard does not: its defining dimension
+/// is its *length*, and its height is dominated by whatever the artist
+/// put on top — this model's music rest is twice as tall as the body. Fit
+/// that by height and you get a keyboard four metres long.
+pub enum Fit {
+    /// `record.size.z` — the object's real height.
+    Height,
+    /// `record.size.x` — the object's real width, along the stage.
+    Width,
+}
+
+/// A downloaded model, and how to seat it in the world.
+///
+/// The third answer to "what shape is this", alongside the primitives and
+/// the two bespoke cases above. A PA cabinet, a stage keyboard and a
+/// monitor wedge are all recognisable objects with no moving parts and no
+/// silhouette worth solving — worth a real model, not worth a rig.
+///
+/// Every one is authored in arbitrary units and none is centred on its
+/// own origin, so a bounding box alone will not seat them. Each is scaled
+/// by one named real-world dimension and seated explicitly, the same
+/// treatment `spawn_drum_kit` gives the kit.
+pub struct GlbProp {
+    /// Path relative to the asset root.
+    path: &'static str,
+    /// Which record dimension `span` is measured against.
+    fit: Fit,
+    /// The model's own extent, in its own units, along the same real axis
+    /// `fit` names. Read from the file's baked scene bounds.
+    span: f32,
+    /// The point in the model's own (Y-up) coordinates that should land
+    /// on the venue record's position: horizontally the footprint centre,
+    /// vertically the model's **lowest** point, so the object stands on
+    /// the deck instead of sinking halfway through it.
+    base: Vec3,
+    /// Extra yaw, in radians, applied before `gltf_to_world`. Models do
+    /// not agree on which way is front, and two of these three are
+    /// authored with their long axis running the wrong way; this is where
+    /// that is absorbed rather than by rotating the venue record.
+    yaw: f32,
+    /// What holds it up. The model is lifted to the stand's height and
+    /// the stand itself is built from primitives.
+    stand: Stand,
+}
+
+/// What a prop stands on.
+///
+/// Both of these are a few straight tubes — exactly the case where a
+/// downloaded mesh buys nothing and a parametric shape tracks whatever
+/// height the record asks for. Same reasoning as the mic stands.
+pub enum Stand {
+    /// Stands on its own base; nothing is drawn.
+    Floor,
+    /// A keyboard X-stand: two crossed tubes, front and back.
+    X { height: f32 },
+    /// A speaker tripod: three splayed legs and a vertical pole, with the
+    /// cabinet flown on top. What a PA main actually sits on in a room
+    /// this size.
+    Tripod { height: f32 },
+}
+
+impl Stand {
+    fn height(&self) -> f32 {
+        match self {
+            Stand::Floor => 0.0,
+            Stand::X { height } | Stand::Tripod { height } => *height,
+        }
+    }
+}
+
+/// Set dressing that has a model, keyed by venue-record name prefix. The
+/// first matching prefix wins, so a longer name must precede any shorter
+/// one that prefixes it.
+///
+/// The numbers come from each file's own baked scene bounds:
+///
+/// ```text
+///                  size (x, y, z)              min y
+///   keyboard       1.226, 0.772, 3.810        -0.181
+///   pa-speaker     0.200, 0.427, 0.279        -0.323
+///   floor-monitor  0.382, 0.326, 0.620        -0.065
+/// ```
+const GLB_PROPS: &[(&str, GlbProp)] = &[
+    (
+        "Keyboard",
+        GlbProp {
+            path: "props/keyboard.glb",
+            // Length, not height — see `Fit`. The body runs along the
+            // model's Z.
+            fit: Fit::Width,
+            span: 3.810,
+            base: Vec3::new(0.076, -0.181, 0.164),
+            yaw: std::f32::consts::FRAC_PI_2,
+            // The model is the instrument alone. Nobody plays one off the
+            // floor, so it gets an X-stand.
+            stand: Stand::X { height: 0.72 },
+        },
+    ),
+    (
+        "PA ",
+        GlbProp {
+            path: "props/pa-speaker.glb",
+            fit: Fit::Height,
+            span: 0.427,
+            base: Vec3::new(0.064, -0.323, -0.021),
+            // Its baffle faces along the model's Z, so without this the
+            // cabinet plays into the wings.
+            yaw: std::f32::consts::FRAC_PI_2,
+            // Flown on a pole, in front of the stage — the cabinet's own
+            // record sits on the room floor and this lifts it.
+            stand: Stand::Tripod { height: 1.80 },
+        },
+    ),
+    (
+        "Monitor",
+        GlbProp {
+            path: "props/floor-monitor.glb",
+            // Its width runs along the model's Z, so it needs a quarter
+            // turn to sit across the front of the deck.
+            fit: Fit::Height,
+            span: 0.326,
+            base: Vec3::new(0.112, -0.065, 0.020),
+            yaw: std::f32::consts::FRAC_PI_2,
+            stand: Stand::Floor,
+        },
+    ),
+];
+
+/// The model for a prop name, if one is installed.
+pub fn glb_prop_for(name: &str) -> Option<&'static GlbProp> {
+    GLB_PROPS
+        .iter()
+        .find(|(prefix, _)| name.starts_with(prefix))
+        .map(|(_, prop)| prop)
+}
+
+/// Spawns one downloaded prop, scaled and seated on its venue record.
+///
+/// The venue states the object's real size in metres and knows nothing
+/// about the units the artist happened to model in — same contract the
+/// kit and the people already have.
+pub fn spawn_glb_prop(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    record: &GeometryRecord,
+    prop: &GlbProp,
+) {
+    let want = match prop.fit {
+        Fit::Height => record.size.z,
+        Fit::Width => record.size.x,
+    };
+    let scale = want / prop.span;
+    let rotation = record.orientation() * Quat::from_rotation_z(prop.yaw) * gltf_to_world();
+    let seat = record.position.to_vec3() + Vec3::Z * prop.stand.height();
+    commands.spawn((
+        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(prop.path))),
+        Transform {
+            translation: seat - rotation * (prop.base * scale),
+            rotation,
+            scale: Vec3::splat(scale),
+        },
+        Name::new(record.name.clone()),
+    ));
+    match prop.stand {
+        Stand::Floor => {}
+        Stand::X { height } => spawn_x_stand(commands, meshes, materials, record, height),
+        Stand::Tripod { height } => spawn_tripod(commands, meshes, materials, record, height),
+    }
+}
+
+/// A speaker tripod: a vertical pole and three splayed legs.
+fn spawn_tripod(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    record: &GeometryRecord,
+    height: f32,
+) {
+    let metal = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.06, 0.06, 0.07),
+        perceptual_roughness: 0.5,
+        metallic: 0.7,
+        ..default()
+    });
+    let root = commands
+        .spawn((
+            Transform {
+                translation: record.position.to_vec3(),
+                rotation: record.orientation(),
+                scale: Vec3::ONE,
+            },
+            Visibility::default(),
+            Name::new(format!("{} Stand", record.name)),
+        ))
+        .id();
+    let upright = Quat::from_rotation_arc(Vec3::Y, Vec3::Z);
+    // The pole, floor to cabinet.
+    commands.spawn((
+        Mesh3d(meshes.add(Cylinder::new(0.022, height))),
+        MeshMaterial3d(metal.clone()),
+        Transform {
+            translation: Vec3::Z * (height * 0.5),
+            rotation: upright,
+            ..default()
+        },
+        ChildOf(root),
+    ));
+    // Three legs, from a hub part-way up the pole out to the floor.
+    let hub = (height * 0.5).min(0.95);
+    let reach = 0.42;
+    let leg = meshes.add(Cylinder::new(0.016, 1.0));
+    for i in 0..3 {
+        let angle = std::f32::consts::TAU * (i as f32) / 3.0;
+        let foot = Vec3::new(angle.cos() * reach, angle.sin() * reach, 0.0);
+        let span = foot - Vec3::Z * hub;
+        commands.spawn((
+            Mesh3d(leg.clone()),
+            MeshMaterial3d(metal.clone()),
+            Transform {
+                translation: Vec3::Z * hub + span * 0.5,
+                rotation: Quat::from_rotation_arc(Vec3::Y, span.normalize()),
+                scale: Vec3::new(1.0, span.length(), 1.0),
+            },
+            ChildOf(root),
+        ));
+    }
+}
+
+/// The X-stand under a keyboard: two crossed tubes, twice, front and back.
+///
+/// Four primitives rather than a fifth downloaded model. A stand is a
+/// couple of straight tubes — exactly the case where a mesh buys nothing
+/// and a parametric shape tracks whatever height the record asks for.
+fn spawn_x_stand(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    record: &GeometryRecord,
+    height: f32,
+) {
+    let metal = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.07, 0.07, 0.08),
+        perceptual_roughness: 0.45,
+        metallic: 0.7,
+        ..default()
+    });
+    let half_w = (record.size.x * 0.34).max(0.18);
+    let half_d = (record.size.y * 0.45).max(0.12);
+    let tube = meshes.add(Cylinder::new(0.018, 1.0));
+    let root = commands
+        .spawn((
+            Transform {
+                translation: record.position.to_vec3(),
+                rotation: record.orientation(),
+                scale: Vec3::ONE,
+            },
+            Visibility::default(),
+            Name::new(format!("{} Stand", record.name)),
+        ))
+        .id();
+    for depth in [-half_d, half_d] {
+        for lean in [-1.0f32, 1.0] {
+            // One leg, from the deck on one side up to the top on the
+            // other. Bevy's cylinder stands on +Y and is unit-length, so
+            // it is aimed at the span and stretched to it.
+            let from = Vec3::new(lean * half_w, depth, 0.0);
+            let to = Vec3::new(-lean * half_w, depth, height);
+            let span = to - from;
+            commands.spawn((
+                Mesh3d(tube.clone()),
+                MeshMaterial3d(metal.clone()),
+                Transform {
+                    translation: from + span * 0.5,
+                    rotation: Quat::from_rotation_arc(Vec3::Y, span.normalize()),
+                    scale: Vec3::new(1.0, span.length(), 1.0),
+                },
+                ChildOf(root),
+            ));
+        }
+    }
+}
+
 /// Real height of a person, in metres — what the venue records measure
 /// and what the models are scaled to match.
 const MODEL_HEIGHT: f32 = 1.8;

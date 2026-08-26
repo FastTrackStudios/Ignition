@@ -25,14 +25,15 @@
 //! flash key does not hold the light, and for a rig driven mostly by a
 //! chart that is the right trade.
 
+use crate::Attribute;
 use crate::recipe::{Recipe, RecipeApply};
 use crate::selection::Selection;
 use crate::step::{Speed, Step, Timing};
-use crate::Attribute;
 use ignition_proto::ColorChannel;
 
 /// How a bump behaves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// r[impl effects.bump]
 pub enum Kind {
     /// Lift the level and let it fall. The plain one.
     Level,
@@ -66,12 +67,19 @@ impl Kind {
 /// Just under an eighth, so a figure written in eighths has each flash
 /// clear before the next arrives. Longer and hits smear into one
 /// another; much shorter and the rig ticks rather than punches.
+// r[impl effects.bump.fall-beats]
 pub const FALL_BEATS: f32 = 0.45;
 
 /// A bump on a selection.
 ///
 /// `depth` is 0..=1 — how hard. A charted hit passes its class weight;
 /// a flash key passes 1.
+// r[impl effects.bump]
+// r[impl effects.bump.one-object]
+// r[impl playback.flash-equals-hit]
+// r[impl effects.bump.is-not-held]
+// r[impl effects.bump.fall-beats]
+// r[impl recipes.one-shot]
 pub fn bump(target: Selection, kind: Kind, depth: f32) -> Recipe {
     let depth = depth.clamp(0.0, 1.0);
     Recipe {
@@ -81,29 +89,56 @@ pub fn bump(target: Selection, kind: Kind, depth: f32) -> Recipe {
             // Every emitter at once. A white bump has to *win* over the
             // colour beneath it, and adding to only red would tint
             // rather than flash.
+            // r[impl effects.bump.shape] - White drives every emitter
             Kind::White => envelope(vec![
                 (Attribute::Dimmer, 0.5 * depth),
-                (Attribute::ColorAdd { channel: ColorChannel::Red }, 0.9 * depth),
-                (Attribute::ColorAdd { channel: ColorChannel::Green }, 0.9 * depth),
-                (Attribute::ColorAdd { channel: ColorChannel::Blue }, 0.9 * depth),
-                (Attribute::ColorAdd { channel: ColorChannel::White }, 0.9 * depth),
+                (
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                    0.9 * depth,
+                ),
+                (
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
+                    0.9 * depth,
+                ),
+                (
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                    0.9 * depth,
+                ),
+                (
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::White,
+                    },
+                    0.9 * depth,
+                ),
             ]),
             // Dimmer only, and harder than `Level`. Pushing the level of
             // a saturated look *is* boosting its colour: the hue is
             // already there, and adding white emitters would wash it out
             // — which is the opposite of the intent.
+            // r[impl effects.bump.shape] - ColorBoost touches only the level
             Kind::ColorBoost => envelope(vec![(Attribute::Dimmer, 0.95 * depth)]),
             Kind::Burst => burst(depth),
         },
         timing: Timing {
+            // r[impl effects.bump.fall-beats] - measured in beats against Song
             speed: Speed::Master("Song".into()),
             measure: FALL_BEATS,
             // Runs once and holds at zero, which for a `Delta` is the
             // same as not being there. A looping bump is a strobe.
+            // r[impl effects.bump.is-not-held]
+            // r[impl effects.once]
             once: true,
             ..Default::default()
         },
         tricks: Vec::new(),
+        stack: false,
+        ..Default::default()
     }
 }
 
@@ -113,6 +148,9 @@ pub fn bump(target: Selection, kind: Kind, depth: f32) -> Recipe {
 /// already missed the moment it was for. The fall is three times as wide
 /// and transitions the whole way, so it is a fall rather than a second
 /// snap.
+// r[impl effects.bump.shape]
+// r[impl effects.delta-ends-at-nothing]
+// r[impl effects.modulates-with-delta]
 fn envelope(up: Vec<(Attribute, f32)>) -> Vec<Step> {
     let down = up.iter().map(|(a, _)| (a.clone(), 0.0)).collect();
     vec![
@@ -132,6 +170,8 @@ fn envelope(up: Vec<(Attribute, f32)>) -> Vec<Step> {
 }
 
 /// Hard on/off, four times, then out.
+// r[impl effects.bump] - Burst
+// r[impl effects.delta-ends-at-nothing]
 fn burst(depth: f32) -> Vec<Step> {
     let hit = |v: f32| Step {
         apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, v)])],
@@ -158,8 +198,8 @@ fn burst(depth: f32) -> Vec<Step> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::recipe::{Emit, Show, expand_recipe};
     use crate::group::Group;
+    use crate::recipe::{Emit, Show, expand_recipe};
     use crate::selection::EMPTY_RIG;
 
     fn show(groups: &[Group]) -> Show<'_> {
@@ -190,13 +230,17 @@ mod tests {
     /// Every bump is relative, so it adds to the look rather than
     /// replacing it. A bump that overwrote would take the colour with
     /// it and leave the rig somewhere the cue never asked for.
+    // r[verify effects.modulates-with-delta]
+    // r[verify effects.bump]
     #[test]
     fn every_bump_is_relative() {
         for kind in [Kind::Level, Kind::White, Kind::ColorBoost, Kind::Burst] {
             let recipe = bump(Selection::Group("Pars".into()), kind, 1.0);
             for step in &recipe.steps {
                 assert!(
-                    step.apply.iter().all(|a| matches!(a, RecipeApply::Delta(_))),
+                    step.apply
+                        .iter()
+                        .all(|a| matches!(a, RecipeApply::Delta(_))),
                     "{:?} is not relative",
                     kind
                 );
@@ -205,6 +249,7 @@ mod tests {
     }
 
     /// It lifts at the moment it fires — the whole point of a bump.
+    // r[verify effects.bump.shape]
     #[test]
     fn a_bump_lifts_immediately() {
         assert!(dimmer(&at(Kind::Level, 0.0)) > 0.5);
@@ -213,6 +258,7 @@ mod tests {
     /// A white bump touches every emitter, not just one. Adding to red
     /// alone would tint rather than flash, which inside a blue look
     /// reads as nothing happening.
+    // r[verify effects.bump.shape]
     #[test]
     fn a_white_bump_drives_every_emitter() {
         let emits = at(Kind::White, 0.0);
@@ -224,7 +270,9 @@ mod tests {
         ] {
             let attr = Attribute::ColorAdd { channel };
             assert!(
-                emits.iter().any(|e| e.value.attr == attr && e.value.value > 0.5),
+                emits
+                    .iter()
+                    .any(|e| e.value.attr == attr && e.value.value > 0.5),
                 "no lift on {channel:?}"
             );
         }
@@ -233,6 +281,7 @@ mod tests {
     /// A colour boost leaves the colour alone and pushes the level.
     /// Adding white emitters to a saturated look washes it out, which is
     /// the opposite of boosting it.
+    // r[verify effects.bump.shape]
     #[test]
     fn a_colour_boost_does_not_add_white() {
         let emits = at(Kind::ColorBoost, 0.0);
@@ -247,6 +296,7 @@ mod tests {
 
     /// Depth scales it, so a charted soft hit is softer than a hard one
     /// without being a different bump.
+    // r[verify effects.bump]
     #[test]
     fn depth_scales_the_lift() {
         let groups = pars();
@@ -259,6 +309,7 @@ mod tests {
     /// It ends at nothing. A bump that settled anywhere but zero would
     /// leave the rig permanently brighter every time one fired, and a
     /// song's worth of snares would ratchet the whole show up.
+    // r[verify effects.delta-ends-at-nothing]
     #[test]
     fn a_bump_ends_at_nothing() {
         let recipe = bump(Selection::Group("Pars".into()), Kind::Level, 1.0);
@@ -273,6 +324,8 @@ mod tests {
     /// One-shot, so it cannot get stuck on. A held flash key whose
     /// release never arrives — a slipped hand, a dropped note-off — is
     /// the failure this design refuses to have.
+    // r[verify effects.bump.is-not-held]
+    // r[verify effects.once]
     #[test]
     fn a_bump_cannot_stick_on() {
         let recipe = bump(Selection::Group("Pars".into()), Kind::Level, 1.0);

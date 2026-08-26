@@ -15,13 +15,17 @@
 //! Today the format is REAPER's. The `.daw` format is the target, and
 //! it goes through the same crate.
 
-#[cfg(feature = "play")]
 pub mod transport;
 #[cfg(feature = "play")]
 pub use transport::SongTransport;
+pub use transport::{SourceTransport, TapClock, TransportSource};
 
-pub mod generate;
+pub mod draft;
+pub mod timecode;
+pub use draft::{Edits, merge, reposition, reposition_from_sidecar};
+
 pub mod chart;
+pub mod generate;
 pub mod hits;
 pub mod lyrics;
 pub use generate::{Kind, Roles, generate};
@@ -31,6 +35,7 @@ use daw::file::{ReaperProject, parse_rpp_file};
 use ignition_core::{Bars, Section, SongMap, TempoMap, TempoPoint, TimeSignature};
 
 /// Reads a song map from a project file on disk.
+// r[impl song.map.imported]
 pub fn load(path: impl AsRef<std::path::Path>) -> Result<SongMap> {
     let path = path.as_ref();
     let text =
@@ -43,6 +48,7 @@ pub fn load(path: impl AsRef<std::path::Path>) -> Result<SongMap> {
 }
 
 /// Reads a song map from project text.
+// r[impl song.map.imported]
 pub fn from_rpp(text: &str, name: &str) -> Result<SongMap> {
     let parsed = parse_rpp_file(text).map_err(|e| anyhow::anyhow!("parsing project: {e:?}"))?;
     let project = ReaperProject::from_rpp_project(&parsed)
@@ -55,6 +61,7 @@ pub fn from_rpp(text: &str, name: &str) -> Result<SongMap> {
 /// A tempo *envelope* — a song that changes tempo — is not read yet;
 /// `TempoMap` already holds a list of points, so it is a matter of
 /// walking `project.tempo_envelope` rather than a change of shape.
+// r[impl song.tempo-map] - fractional tempo and signature read from the project header (single point today)
 fn tempo_map(project: &ReaperProject) -> TempoMap {
     match project.properties.tempo {
         Some((bpm, numerator, denominator, _flags)) => TempoMap::constant(
@@ -73,6 +80,9 @@ fn tempo_map(project: &ReaperProject) -> TempoMap {
 /// Regions rather than markers: a region has an end, and a section's
 /// *length* is the thing lighting cares about — "the chorus is eight
 /// bars" is a statement about a region.
+// r[impl song.map]
+// r[impl song.map.sections-from-regions]
+// r[impl song.map.bar-boundaries] - a fractional section loads unrounded; reporting it is not yet built
 fn song_map(project: &ReaperProject, name: &str) -> SongMap {
     let tempo = tempo_map(project);
     let mut sections: Vec<Section> = project
@@ -137,6 +147,7 @@ mod tests {
     }
 
     #[test]
+    /// r[verify song.tempo-map] - fractional tempo
     fn reads_the_songs_fractional_tempo() {
         let Some(song) = song() else { return };
         let point = song.tempo.at(Bars::START);
@@ -152,6 +163,7 @@ mod tests {
     /// the evidence that arranging in bars is how the material is
     /// actually shaped rather than a convenience.
     #[test]
+    /// r[verify song.map.bar-boundaries]
     fn every_section_is_a_whole_number_of_bars() {
         let Some(song) = song() else { return };
         assert_eq!(song.sections.len(), 14, "{:?}", names(&song));
@@ -174,6 +186,8 @@ mod tests {
     }
 
     #[test]
+    /// r[verify song.map]
+    /// r[verify song.map.sections-from-regions]
     fn sections_arrive_in_order_with_the_expected_shape() {
         let Some(song) = song() else { return };
         assert_eq!(
@@ -206,6 +220,48 @@ mod tests {
         assert_eq!(song.section_at(Bars::bar(23)).unwrap().name, "CH 1");
         assert_eq!(song.section_at(Bars::bar(30)).unwrap().name, "CH 1");
         assert_eq!(song.section_at(Bars::bar(31)).unwrap().name, "Break");
+    }
+
+    /// The shipped show is self-describing: every cue and trigger
+    /// carries its relative position, and re-resolving them against the
+    /// same arrangement lands on the bars the file already caches. This
+    /// is the load path a player takes.
+    /// r[verify song.relative-position.resolved-on-load]
+    /// r[verify song.relative-position]
+    #[test]
+    fn the_shipped_show_resolves_to_its_own_cached_bars() {
+        let Some(song) = song() else { return };
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/songs");
+        let raw = std::fs::read_to_string(format!("{dir}/bye-bye-bye.json")).unwrap();
+        let mut list: ignition_core::CueList = serde_json::from_str(&raw).unwrap();
+        let before: Vec<_> = list
+            .cues
+            .iter()
+            .map(|c| (c.name.clone(), c.position()))
+            .collect();
+        let triggers_before: Vec<_> = list.triggers.iter().map(|t| t.bars()).collect();
+        assert!(
+            list.cues
+                .iter()
+                .all(|c| !matches!(c.at, Some(ignition_core::music::Position::Absolute(_)))),
+            "every cue is placed relative to a section"
+        );
+        let unresolved = crate::reposition(&mut list, &song);
+        assert!(unresolved.is_empty(), "{unresolved:?}");
+        let after: Vec<_> = list
+            .cues
+            .iter()
+            .map(|c| (c.name.clone(), c.position()))
+            .collect();
+        assert_eq!(after, before);
+        let triggers_after: Vec<_> = list.triggers.iter().map(|t| t.bars()).collect();
+        assert_eq!(triggers_after, triggers_before);
+        // And the second PRE is addressed as the second PRE.
+        let pre2 = list.cues.iter().find(|c| c.name == "PRE 2").unwrap();
+        assert_eq!(
+            pre2.at,
+            Some(ignition_core::music::Position::nth("PRE", 1, 0))
+        );
     }
 
     fn names(song: &SongMap) -> Vec<String> {

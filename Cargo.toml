@@ -26,20 +26,28 @@ ignition-core = { path = "crates/ignition-core" }
 ignition-song = { path = "crates/ignition-song" }
 ignition-viz = { path = "crates/ignition-viz" }
 
-# The DAW domain, from the sibling FastTrackStudio checkout.
+# The DAW domain, from the sibling `daw` checkout.
 #
 # A **path** dependency, deliberately, and unusually for a cross-repo
 # link — FTS's own rule is tagged git deps between repos. The two are
 # coupled on purpose here: the end goal is lighting as a sub-project
 # *inside* a DAW project, which is not a relationship a version pin
 # describes well, and both trees are edited together. The cost is that
-# this line is machine-specific: Ignition and FastTrackStudio have to be
-# siblings on disk.
+# this line is machine-specific: Ignition and daw have to be siblings
+# on disk.
+#
+# The path moved in the August 2026 repo split: the daw domain left the
+# FastTrackStudio monorepo for its own repo, so this points at ../daw
+# rather than ../FastTrackStudio/crates/daw/daw. Swap it for
+# `{ git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.2",
+#    default-features = false, features = ["file"] }`
+# if this ever needs to build somewhere the sibling checkout is absent
+# (CI, a fresh clone).
 #
 # `file` is the only feature on: it brings `daw::file` (the RPP/`.daw`
 # parser) and nothing else. Transport and playback arrive with
 # `standalone-*` when there is a clock to drive.
-daw = { path = "../FastTrackStudio/crates/daw/daw", default-features = false, features = [
+daw = { path = "../daw/crates/daw/daw", default-features = false, features = [
     "file",
 ] }
 
@@ -93,3 +101,11 @@ gdtf = { path = "crates/gdtf-vendored" }
 [profile.dev]
 debug = "line-tables-only"
 split-debuginfo = "unpacked"
+
+# Dependencies at full optimisation even in dev. Bevy, wgpu and the
+# volumetric pass are all in the dependency graph, and unoptimised they
+# run the studio at a handful of frames a second — `just studio-dev`
+# was unusable for judging anything about motion. The workspace crates
+# keep the dev profile above, so a rebuild of our own code stays fast.
+[profile.dev.package."*"]
+opt-level = 3

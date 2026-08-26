@@ -7,6 +7,7 @@
 // they are the JSON's field layout (`{x, y, z}`, `{w, x, y, z}`) and
 // Deserialize impls, not a maths type.
 use bevy::math::{EulerRot, Quat as Rotation, Vec3 as Point};
+use ignition_core::show_file::VenueManifest;
 use serde::Deserialize;
 use std::path::Path;
 
@@ -47,6 +48,7 @@ fn euler_to_quat(e: Vec3) -> Rotation {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+// r[impl files.venue.fixtures] - type, position, orientation, patch and tags per fixture
 pub struct FixtureRecord {
     pub chan: Option<u32>,
     pub name: String,
@@ -174,6 +176,8 @@ impl FixtureKind {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+// r[impl files.venue.room]
+// r[impl files.venue.screens] - position, size, orientation and canvas per panel
 pub struct GeometryRecord {
     pub name: String,
     pub position: Vec3,
@@ -197,6 +201,7 @@ impl GeometryRecord {
 
     /// The canvas this screen belongs to — its own name when it is not
     /// part of a group.
+    // r[impl files.venue.canvases]
     pub fn canvas_name(&self) -> &str {
         self.canvas.as_deref().unwrap_or(&self.name)
     }
@@ -248,6 +253,9 @@ fn parse_channel_ranges(entries: &[ChannelListEntry]) -> Vec<u32> {
 }
 
 #[derive(Clone)]
+// r[impl files.venue] - fixtures, room, screens, props, groups, palettes and profile binding
+// r[impl files.vocabulary] - groups, palettes and canvases are the venue's vocabulary
+// r[impl profile.venue-declares-what-it-implements] - `profile` names the profile, and may be empty
 pub struct Venue {
     pub fixtures: Vec<FixtureRecord>,
     pub room: Vec<GeometryRecord>,
@@ -269,6 +277,71 @@ pub struct Venue {
     /// against its own group names. What it gives up is being *checked*,
     /// and being able to run a show written against roles.
     pub profile: ignition_core::profile::VenueProfile,
+    /// Every fixture's address and channel layout, resolved once on
+    /// first use — see `PatchTable`.
+    pub patch: std::sync::OnceLock<PatchTable>,
+}
+
+impl Venue {
+    /// Where every fixture sits on the wire, built once.
+    ///
+    /// Resolving a fixture's channel map means lowercasing its
+    /// manufacturer and model and walking a match; doing that per
+    /// fixture per attribute per frame was a measurable slice of the
+    /// studio's frame, for an answer that cannot change after load.
+    pub fn patch(&self) -> &PatchTable {
+        self.patch.get_or_init(|| PatchTable::build(self))
+    }
+}
+
+/// One patched fixture: its start address and its personality's layout.
+#[derive(Debug, Clone)]
+pub struct Patch {
+    pub address: ignition_proto::DmxAddress,
+    pub map: ignition_proto::ChannelMap,
+}
+
+/// The venue's patch, indexed the two ways the visualizer needs it: by
+/// position in `Venue::fixtures` (what an entity carries) and by
+/// console channel (what a cue targets).
+#[derive(Debug, Clone, Default)]
+pub struct PatchTable {
+    entries: Vec<Option<Patch>>,
+    by_chan: std::collections::HashMap<u32, usize>,
+}
+
+impl PatchTable {
+    fn build(venue: &Venue) -> Self {
+        let entries = venue
+            .fixtures
+            .iter()
+            .map(|f| {
+                let manufacturer = f.manufacturer.as_deref().unwrap_or("");
+                let model = f.model.as_deref().unwrap_or("");
+                let address = f.dmx_address()?;
+                let map = crate::channel_map::channel_map_for(manufacturer, model)?;
+                Some(Patch { address, map })
+            })
+            .collect();
+        let by_chan = venue
+            .fixtures
+            .iter()
+            .enumerate()
+            .filter_map(|(i, f)| f.chan.map(|c| (c, i)))
+            .collect();
+        Self { entries, by_chan }
+    }
+
+    /// The patch for the fixture at `index` in `Venue::fixtures`, if it
+    /// has an address and a known layout.
+    pub fn get(&self, index: usize) -> Option<&Patch> {
+        self.entries.get(index).and_then(|p| p.as_ref())
+    }
+
+    /// The patch for console channel `chan`.
+    pub fn by_chan(&self, chan: u32) -> Option<&Patch> {
+        self.by_chan.get(&chan).and_then(|i| self.get(*i))
+    }
 }
 
 /// Fills in any colour the venue did not define itself from its profile.
@@ -276,6 +349,7 @@ pub struct Venue {
 /// The venue always wins. A room whose fixtures render `Deep Blue`
 /// differently says so once, and every show using that name is right
 /// there without knowing anything happened.
+// r[impl default.colour-defaults-ship] - profile colour defaults inherited unless the venue overrides
 fn inherit_colors(
     mut palettes: ignition_core::Palettes,
     venue_dir: &Path,
@@ -284,10 +358,10 @@ fn inherit_colors(
     if binding.profile.is_empty() {
         return palettes;
     }
-    let path = venue_dir
-        .parent()
-        .and_then(|p| p.parent())
-        .map(|root| root.join("profiles").join(format!("{}.ig-profile", binding.profile.to_lowercase())));
+    let path = venue_dir.parent().and_then(|p| p.parent()).map(|root| {
+        root.join("profiles")
+            .join(format!("{}.ig-profile", binding.profile.to_lowercase()))
+    });
     let Some(path) = path else {
         return palettes;
     };
@@ -311,6 +385,26 @@ fn inherit_colors(
         }
     }
     tracing::debug!(inherited, "venue: colours inherited from profile");
+
+    // Splits inherit by the same rule. They are read from the profile
+    // file's own `splits` key rather than through `Profile`, which does
+    // not carry them yet: a split is palette vocabulary, and this is the
+    // one place the profile is opened as a palette.
+    // r[impl color.multi] - profile split defaults inherited unless the venue overrides
+    #[derive(serde::Deserialize, Default)]
+    struct ProfileSplits {
+        #[serde(default)]
+        splits: Vec<ignition_core::preset::ColorSplit>,
+    }
+    let profile_splits = serde_json::from_str::<ProfileSplits>(&raw).unwrap_or_default();
+    let mut inherited = 0usize;
+    for split in profile_splits.splits {
+        if !palettes.splits.iter().any(|s| s.name == split.name) {
+            palettes.splits.push(split);
+            inherited += 1;
+        }
+    }
+    tracing::debug!(inherited, "venue: colour splits inherited from profile");
     alias_focus(palettes, binding)
 }
 
@@ -326,6 +420,7 @@ fn inherit_colors(
 /// An alias never overwrites. A venue that genuinely has its own point
 /// called `Stage` keeps it, because the venue is the authority on its
 /// own room and a profile role is a request, not a claim.
+// r[impl profile.venue-binds] - focus roles bound to the venue's own points
 fn alias_focus(
     mut palettes: ignition_core::Palettes,
     binding: &ignition_core::profile::VenueProfile,
@@ -344,7 +439,11 @@ fn alias_focus(
             // A binding naming a point the venue does not have. Not
             // fatal — the role simply stays unresolved, and the static
             // check is where that gets reported by name.
-            tracing::warn!(role, own_name, "venue: focus binding points at a missing palette entry");
+            tracing::warn!(
+                role,
+                own_name,
+                "venue: focus binding points at a missing palette entry"
+            );
             continue;
         };
         palettes.focus.push(ignition_core::FocusPointPreset {
@@ -358,32 +457,43 @@ fn alias_focus(
 }
 
 impl Venue {
+    // r[impl files.venue] - the seven JSON files under data/venues/<name>/
+    // r[impl profile.venue-declares-what-it-implements] - profile.json is optional
+    // r[impl profile.venue-binds] - the binding loads with the venue, not with any show
     pub fn load(dir: impl AsRef<Path>) -> anyhow::Result<Self> {
         let dir = dir.as_ref();
-        let read = |name: &str| -> anyhow::Result<String> {
-            std::fs::read_to_string(dir.join(name))
-                .map_err(|e| anyhow::anyhow!("reading {}: {e}", dir.join(name).display()))
+        // A directory with a `venue.ig-venue` manifest, or a bare
+        // directory of the seven JSON files — the manifest only names
+        // them and the assets folder, so a bare directory is the same
+        // venue with every default. The directory stays the editable
+        // form either way; an archive is packaging, not format.
+        // r[impl files.directory-or-archive] - the manifest is optional and the directory is the format
+        // r[impl files.versioned] - a manifest from a newer build is refused by name
+        let manifest = VenueManifest::load_dir(dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let file = |key: &str| manifest.file(dir, key);
+        let read = |key: &str| -> anyhow::Result<String> {
+            std::fs::read_to_string(file(key))
+                .map_err(|e| anyhow::anyhow!("reading {}: {e}", file(key).display()))
         };
         // groups.json is optional — a venue extract without one (or an
         // older extract, predating this field) just has no named groups
         // to recipe-target by name; `RecipeTarget::Chans` still works.
-        let group_records = match std::fs::read_to_string(dir.join("groups.json")) {
+        let group_records = match std::fs::read_to_string(file("groups")) {
             Ok(raw) => serde_json::from_str(&raw)?,
             Err(_) => Vec::new(),
         };
         // palettes.json is optional for the same reason groups.json is —
         // a show can always write its colours and points out inline.
-        let palettes = match std::fs::read_to_string(dir.join("palettes.json")) {
+        let palettes = match std::fs::read_to_string(file("palettes")) {
             Ok(raw) => serde_json::from_str(&raw)?,
             Err(_) => ignition_core::Palettes::default(),
         };
         // profile.json is optional like the rest. A venue that has not
         // been bound to a profile yet is a venue somebody is still
-        // setting up, not an error.
-        let profile = match std::fs::read_to_string(dir.join("profile.json")) {
-            Ok(raw) => serde_json::from_str(&raw)?,
-            Err(_) => ignition_core::profile::VenueProfile::default(),
-        };
+        // setting up, not an error. `areas.json` — the blocking grid —
+        // is folded in beside it; both are the venue's own vocabulary.
+        let profile = ignition_core::show_file::load_venue_binding(dir)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
         // Colours declared by the profile are inherited unless the venue
         // overrides them, which is what keeps implementing a room cheap:
         // bind the groups, which genuinely differ per rig, and inherit
@@ -395,17 +505,33 @@ impl Venue {
         Ok(Self {
             palettes,
             profile,
-            fixtures: serde_json::from_str(&read("fixtures.json")?)?,
-            room: serde_json::from_str(&read("room.json")?)?,
-            screens: serde_json::from_str(&read("screens.json")?)?,
-            props: serde_json::from_str(&read("props.json")?)?,
+            patch: Default::default(),
+            fixtures: serde_json::from_str(&read("fixtures")?)?,
+            room: serde_json::from_str(&read("room")?)?,
+            screens: serde_json::from_str(&read("screens")?)?,
+            props: serde_json::from_str(&read("props")?)?,
             group_records,
         })
+    }
+
+    /// Where a venue directory's assets live — room models, fixture
+    /// geometry — `assets` under the venue unless its manifest says
+    /// otherwise, and always resolved against the venue directory so
+    /// the directory moves and copies as a unit. Read from the manifest
+    /// rather than stored, so a venue built in memory has no path to
+    /// carry.
+    // r[impl files.venue.assets] - resolved relative to the venue, never absolute
+    pub fn assets_dir(dir: impl AsRef<Path>) -> std::path::PathBuf {
+        let dir = dir.as_ref();
+        VenueManifest::load_dir(dir)
+            .unwrap_or_default()
+            .assets_dir(dir)
     }
 
     /// The venue's real groups, resolved into `ignition_core::Group`'s
     /// plain `(name, chans)` shape — what `ignition_core::recipe`'s
     /// `RecipeTarget::Group` actually resolves against.
+    // r[impl files.vocabulary] - named groups
     pub fn groups(&self) -> Vec<ignition_core::Group> {
         self.group_records
             .iter()
@@ -420,6 +546,7 @@ impl Venue {
     /// resolves against — position, model and tags per channel, which is
     /// what makes `Selection::Tag`/`Model` and the spatial filters and
     /// orders answerable. Built once by the loader, not per frame.
+    // r[impl files.venue.fixtures] - position, model and tags per channel, for spatial and capability selection
     pub fn rig(&self) -> ignition_core::Rig {
         ignition_core::Rig::new(
             self.fixtures
@@ -520,6 +647,7 @@ mod tests {
             props: vec![],
             palettes: Default::default(),
             profile: Default::default(),
+            patch: Default::default(),
             group_records: vec![GroupRecord {
                 target: "1".to_string(),
                 label: "Pars".to_string(),
@@ -551,6 +679,7 @@ mod tests {
             props: vec![],
             palettes: Default::default(),
             profile: Default::default(),
+            patch: Default::default(),
             group_records: vec![],
         };
 
@@ -562,5 +691,57 @@ mod tests {
             venue.placement_of(999).is_none(),
             "no fixture on channel 999"
         );
+    }
+
+    fn data(rel: &str) -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../data")
+            .join(rel)
+    }
+
+    /// r[verify files.directory-or-archive]
+    /// r[verify files.venue.assets]
+    /// r[verify files.venue]
+    #[test]
+    fn a_venue_directory_loads_with_its_manifest_and_assets_relative_to_it() {
+        let dir = data("venues/norco");
+        let venue = Venue::load(&dir).expect("norco loads");
+        assert_eq!(Venue::assets_dir(&dir), dir.join("assets"));
+        assert!(!venue.fixtures.is_empty());
+        assert_eq!(venue.profile.profile, "Ignition");
+        // areas.json is the venue's own blocking grid, folded in beside
+        // the binding.
+        assert!(venue.profile.areas.contains_key("Downstage Left"));
+    }
+
+    /// The manifest only names things: a directory without one is the
+    /// same venue with every default.
+    /// r[verify files.directory-or-archive]
+    /// r[verify files.additive-evolution]
+    #[test]
+    fn a_bare_directory_still_loads_and_an_override_is_honoured() {
+        let src = data("venues/riverside");
+        let tmp = std::env::temp_dir().join(format!("ig-venue-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        for f in ["room", "screens", "props", "profile", "groups", "palettes"] {
+            std::fs::copy(src.join(format!("{f}.json")), tmp.join(format!("{f}.json"))).unwrap();
+        }
+        // No manifest, fixtures under the default name.
+        std::fs::copy(src.join("fixtures.json"), tmp.join("fixtures.json")).unwrap();
+        let bare = Venue::load(&tmp).expect("a bare directory loads");
+        assert_eq!(Venue::assets_dir(&tmp), tmp.join("assets"));
+        // A manifest renaming fixtures and the assets folder, with a key
+        // this build has never heard of.
+        std::fs::rename(tmp.join("fixtures.json"), tmp.join("rig.json")).unwrap();
+        std::fs::write(
+            tmp.join(ignition_core::show_file::VENUE_MANIFEST_FILE),
+            r#"{"version":1,"name":"tmp","files":{"fixtures":"rig.json"},"assets":"models","surveyed":"2026-08"}"#,
+        )
+        .unwrap();
+        let with = Venue::load(&tmp).expect("a manifest directory loads");
+        assert_eq!(with.fixtures.len(), bare.fixtures.len());
+        assert_eq!(Venue::assets_dir(&tmp), tmp.join("models"));
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

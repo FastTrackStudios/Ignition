@@ -13,7 +13,7 @@
 
 use crate::spawn::VenueRes;
 use bevy::prelude::*;
-use ignition_core::{Cook, Show, Status};
+use ignition_core::{Attribute, Class, Cook, Show, Status};
 
 use crate::playback::Playback;
 
@@ -124,9 +124,20 @@ pub fn spawn_fps(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
 pub fn update_fps(
     diagnostics: Res<bevy::diagnostic::DiagnosticsStore>,
     mut text: Query<&mut Text, With<FpsText>>,
+    mut last_logged: Local<Option<std::time::Instant>>,
 ) {
+    let readout = fps_readout(&diagnostics);
     if let Ok(mut text) = text.single_mut() {
-        text.0 = fps_readout(&diagnostics);
+        text.0 = readout.clone();
+    }
+    // Once a second to the log as well, so the number can be read off
+    // stdout from a session nobody is watching — a headless-ish run, or
+    // one where the readout is behind another window.
+    let now = std::time::Instant::now();
+    let due = last_logged.is_none_or(|t| now.duration_since(t).as_secs_f32() >= 1.0);
+    if due {
+        *last_logged = Some(now);
+        tracing::info!(readout = %readout, "viz.fps");
     }
 }
 
@@ -160,6 +171,30 @@ fn fps_readout(diagnostics: &bevy::diagnostic::DiagnosticsStore) -> String {
     }
 }
 
+/// One line of "who won": every class lowest first, the winner marked.
+///
+/// The winner is the highest class that asserts the key — the same
+/// rule the fold used, restated here so the two cannot disagree without
+/// the test below noticing.
+fn inspect_line(chan: ignition_core::ChanId, report: &[(Class, Option<f32>)]) -> String {
+    let winner = report
+        .iter()
+        .rev()
+        .find(|(_, v)| v.is_some())
+        .map(|(class, _)| *class);
+    let cells: Vec<String> = report
+        .iter()
+        .map(|(class, value)| {
+            let mark = if Some(*class) == winner { '*' } else { ' ' };
+            match value {
+                Some(v) => format!("{mark}{class:?} {v:.2}"),
+                None => format!("{mark}{class:?} --"),
+            }
+        })
+        .collect();
+    format!("ch {chan} dimmer:  {}", cells.join("   "))
+}
+
 pub fn update_overlay(
     venue: Res<VenueRes>,
     mut playback: ResMut<Playback>,
@@ -170,14 +205,24 @@ pub fn update_overlay(
         return;
     };
     let Playback {
-        cues,
+        playbacks,
+        ringing,
         groups,
         rig,
         speeds,
         profile,
+        library,
+        bundles,
+        focus_overrides,
+        programmer,
         ..
     } = &mut *playback;
-    let Some(player) = cues.as_ref() else {
+    let Some(player) = playbacks
+        .entries
+        .iter()
+        .find(|p| p.class == Class::Song)
+        .map(|p| &p.player)
+    else {
         text.0 = "no show loaded — pass --recipes <path>".into();
         return;
     };
@@ -188,6 +233,10 @@ pub fn update_overlay(
         rig,
         speeds,
         roles: profile,
+        library,
+        bundles,
+        focus_overrides,
+        ..Show::new(groups, rig)
     };
 
     let current = player.current_index();
@@ -210,6 +259,43 @@ pub fn update_overlay(
         masters.sort();
         lines.push(masters.join("   "));
     }
+    // The programmer's state that changes what the picture means: a
+    // blind desk is showing a preview, and a program time is why a
+    // punch did not snap.
+    lines.push(format!(
+        "page {}/{}   prog time {:.2} beats{}{}{}",
+        programmer.page + 1,
+        programmer.pages.len().max(1),
+        programmer.program_time_beats,
+        if programmer.blind {
+            "   BLIND (preview)"
+        } else {
+            ""
+        },
+        if programmer.highlight {
+            "   HIGHLIGHT"
+        } else {
+            ""
+        },
+        if programmer.lowlight {
+            "   LOWLIGHT"
+        } else {
+            ""
+        },
+    ));
+    // Which playback won the selected fixture's dimmer, and what every
+    // player beneath would have produced — the question the priority
+    // model exists to make answerable.
+    // r[impl playback.inspectable] - shown for the selected fixture
+    if let Some(selection) = programmer.selection.as_ref()
+        && let Some(chan) = ignition_core::selection::resolve(selection, groups, rig)
+            .into_iter()
+            .next()
+    {
+        let key = (chan, Attribute::Dimmer);
+        let report = playbacks.inspect(&show, ringing, &key);
+        lines.push(inspect_line(chan, &report));
+    }
     lines.push(String::new());
 
     for (i, cue) in all.iter().enumerate().take(last).skip(first) {
@@ -226,7 +312,7 @@ pub fn update_overlay(
                     .iter()
                     .map(|c| match c {
                         Cook::Ok(n) => *n,
-                        Cook::Empty => 0,
+                        Cook::Empty | Cook::Disabled => 0,
                     })
                     .sum();
                 format!("{} recipes, {fixtures} fixtures", cook.recipes.len())
@@ -242,4 +328,22 @@ pub fn update_overlay(
     }
 
     text.0 = lines.join("\n");
+}
+
+#[cfg(test)]
+mod inspect_tests {
+    use super::*;
+
+    /// r[verify playback.inspectable]
+    #[test]
+    fn the_highest_asserting_class_is_marked_as_the_winner() {
+        let line = inspect_line(7, &[(Class::Look, Some(0.5)), (Class::Song, Some(0.2))]);
+        assert_eq!(line, "ch 7 dimmer:   Look 0.50   *Song 0.20");
+    }
+
+    #[test]
+    fn a_class_that_does_not_assert_the_key_cannot_win() {
+        let line = inspect_line(1, &[(Class::Look, Some(0.5)), (Class::Song, None)]);
+        assert_eq!(line, "ch 1 dimmer:  *Look 0.50    Song --");
+    }
 }

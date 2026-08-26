@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "Sunday 14th",
+  "profile": "../profiles/ignition.ig-profile",
+  "venue": "../venues/norco",
+  "songs": [
+    {
+      "file": "../songs/bye-bye-bye.json"
+    },
+    {
+      "file": "../songs/bye-bye-bye.json",
+      "layer": "../layers/bye-bye-bye.norco.ig-local"
+    }
+  ]
+}

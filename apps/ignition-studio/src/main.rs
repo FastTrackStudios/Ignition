@@ -13,13 +13,15 @@ use dioxus::prelude::*;
 use dioxus_native_dom::CustomWidgetAttr;
 use ignition_core::Selection;
 use ignition_viz::spawn::BeamStyle;
-use ignition_viz::{Venue, ViewPreset, VizConfig};
+use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig};
 use std::any::Any;
 
 mod command;
 mod faders;
+mod remote;
+mod sound;
 mod viz_widget;
-use command::{Command, Sender};
+use command::{Command, PageMove, Sender};
 
 use viz_widget::VizWidget;
 
@@ -29,7 +31,15 @@ use viz_widget::VizWidget;
 /// of this.
 const TAILWIND: Asset = asset!("/assets/tailwind.css");
 
-const VENUE: &str = "data/venues/norco";
+/// The room the studio opens, unless `IGNITION_VENUE` names another —
+/// e.g. `IGNITION_VENUE=data/venues/riverside`. A venue is data, and
+/// there is more than one of them now, so which room the surface is
+/// driving should not be a recompile.
+const DEFAULT_VENUE: &str = "data/venues/norco";
+
+fn venue_dir() -> String {
+    std::env::var("IGNITION_VENUE").unwrap_or_else(|_| DEFAULT_VENUE.to_string())
+}
 const SHOW: &str = "data/songs/bye-bye-bye.json";
 
 /// The project the show is synced to. Optional at runtime — if it will
@@ -90,6 +100,11 @@ fn main() -> anyhow::Result<()> {
     let _guard = runtime.enter();
 
     let (tx, rx) = command::channel();
+    // Hardware and the room, on their own threads, speaking the same
+    // messages the UI does. Each is optional at build time and at run
+    // time: a missing port or device logs and the surface carries on.
+    remote::start(tx.clone());
+    sound::start(tx.clone());
     let _ = TX.set(tx);
     *RX.lock().expect("fresh mutex") = Some(rx);
 
@@ -97,7 +112,7 @@ fn main() -> anyhow::Result<()> {
     *STATE_TX.lock().expect("fresh mutex") = Some(state_tx);
     let _ = STATE_RX.set(state_rx);
 
-    let venue = Venue::load(VENUE)?;
+    let venue = Venue::load(venue_dir())?;
     let surface = Surface {
         groups: busking_groups(&venue),
         colors: venue
@@ -116,6 +131,47 @@ fn main() -> anyhow::Result<()> {
                     (c.green * 255.0) as u8,
                     (c.blue * 255.0) as u8
                 ),
+            })
+            .collect(),
+        splits: venue
+            .palettes
+            .splits
+            .iter()
+            .filter_map(|split| {
+                let (colors, distribute) = venue
+                    .palettes
+                    .resolve_split(&ignition_core::Ref::Named(split.name.clone()))?;
+                let stops: Vec<String> = colors
+                    .iter()
+                    .map(|c| {
+                        format!(
+                            "rgb({} {} {})",
+                            (c.red * 255.0) as u8,
+                            (c.green * 255.0) as u8,
+                            (c.blue * 255.0) as u8
+                        )
+                    })
+                    .collect();
+                // Spread is a gradient; cycle and block are hard bands,
+                // which is also how they land on the rig.
+                let css = match distribute {
+                    ignition_core::Distribute::Spread => {
+                        format!("linear-gradient(90deg, {})", stops.join(", "))
+                    }
+                    _ => {
+                        let n = stops.len().max(1);
+                        let bands: Vec<String> = stops
+                            .iter()
+                            .enumerate()
+                            .map(|(i, c)| format!("{c} {}% {}%", i * 100 / n, (i + 1) * 100 / n))
+                            .collect();
+                        format!("linear-gradient(90deg, {})", bands.join(", "))
+                    }
+                };
+                Some(ColorChip {
+                    name: split.name.clone(),
+                    css,
+                })
             })
             .collect(),
         focus: venue
@@ -252,8 +308,29 @@ struct ColorChip {
 struct Surface {
     groups: Vec<String>,
     colors: Vec<ColorChip>,
+    /// Multi-colour palette entries, drawn as a split disc — the way a
+    /// grandMA3 colour preset holding several colours shows in its
+    /// picker.
+    splits: Vec<ColorChip>,
     focus: Vec<String>,
-    cues: Vec<String>,
+    cues: Vec<Row>,
+}
+
+/// One line of the cue list: a cue the operator can GO, or a hit the
+/// song fires. Hits are shown because an operator wants to see what is
+/// coming and what just landed; they are not in the GO order — see
+/// `docs/spec/triggers.md`.
+#[derive(Debug, Clone, PartialEq)]
+enum Row {
+    Cue {
+        index: usize,
+        name: String,
+    },
+    Hit {
+        index: usize,
+        name: String,
+        at: ignition_core::Bars,
+    },
 }
 
 /// The groups worth a button. The venue carries 127, most of them
@@ -285,19 +362,23 @@ fn busking_groups(venue: &Venue) -> Vec<String> {
 fn app(surface: Surface) -> Element {
     place_window();
 
-    // Load the eight faders once. They queue in the channel until the
-    // visualizer exists to drain them, so this does not have to wait for
-    // the widget to be built.
+    // Load every page of the bank once. They queue in the channel until
+    // the visualizer exists to drain them, so this does not have to wait
+    // for the widget to be built.
     use_hook(|| {
-        for (i, spec) in faders::defaults().into_iter().enumerate() {
-            send(Command::Fader(
-                i,
-                Box::new(ignition_core::Fader {
-                    name: spec.name.to_string(),
-                    recipe: Some(spec.recipe),
-                    level: 0.0,
-                }),
-            ));
+        for (page, bank) in faders::bank_pages().into_iter().enumerate() {
+            for (index, spec) in bank.into_iter().enumerate() {
+                send(Command::FaderOnPage {
+                    page,
+                    index,
+                    fader: Box::new(ignition_core::Fader {
+                        name: spec.name.to_string(),
+                        recipe: Some(spec.recipe),
+                        level: 0.0,
+                        ..Default::default()
+                    }),
+                });
+            }
         }
     });
 
@@ -353,6 +434,93 @@ fn use_playhead() -> Signal<command::Playhead> {
         }
     });
     playhead
+}
+
+/// Only the cue the player is standing on, as a signal.
+///
+/// Split from `use_playhead` deliberately: `secs` moves every poll while
+/// the song plays, and a component that reads the whole playhead
+/// re-renders with it. The cue list is a hundred-odd rows that only
+/// care which one is lit, so it depends on this and diffs only when the
+/// cue actually changes.
+/// Which hit is ringing, for the list. Written only on change, like
+/// `use_current_cue`, so the list does not re-render on every poll.
+fn use_ringing_hit() -> Signal<Option<usize>> {
+    let mut ringing = use_signal(|| None);
+    use_future(move || async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(33)).await;
+            if let Some(rx) = STATE_RX.get() {
+                let hit = rx.borrow().hit;
+                if hit != ringing() {
+                    ringing.set(hit);
+                }
+            }
+        }
+    });
+    ringing
+}
+
+/// The desk's own state — page, latches, blind — as a signal.
+///
+/// Split from the playhead for the same reason `use_current_cue` is:
+/// the fader column is eight faders and their keys, and it should not
+/// re-render on every tick of the song clock.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Desk {
+    page: usize,
+    pages: usize,
+    latched: [bool; ignition_core::FADERS],
+    toggled: [bool; ignition_core::FADERS],
+    blind: bool,
+    tap_bpm: f32,
+    sound: [f32; 3],
+}
+
+impl Desk {
+    fn of(playhead: &command::Playhead) -> Self {
+        Self {
+            page: playhead.page,
+            pages: playhead.pages.max(1),
+            latched: playhead.latched,
+            toggled: playhead.toggled,
+            blind: playhead.blind,
+            tap_bpm: playhead.tap_bpm,
+            sound: playhead.sound,
+        }
+    }
+}
+
+fn use_desk() -> Signal<Desk> {
+    let mut desk = use_signal(|| Desk::of(&command::Playhead::default()));
+    use_future(move || async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(33)).await;
+            if let Some(rx) = STATE_RX.get() {
+                let next = Desk::of(&rx.borrow());
+                if next != desk() {
+                    desk.set(next);
+                }
+            }
+        }
+    });
+    desk
+}
+
+fn use_current_cue() -> Signal<Option<usize>> {
+    let mut current = use_signal(|| None);
+    use_future(move || async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(33)).await;
+            if let Some(rx) = STATE_RX.get() {
+                let cue = rx.borrow().cue;
+                if cue != current() {
+                    current.set(cue);
+                }
+            }
+        }
+    });
+    current
 }
 
 /// mm:ss, for the transport readout.
@@ -417,13 +585,13 @@ const TRACK_WIDTH: f64 = 980.0;
 /// The cue stack. Underneath the busking layer, not beside it: a cue
 /// fills in whatever the operator is not currently holding.
 #[component]
-fn CueList(cues: Vec<String>) -> Element {
-    let playhead = use_playhead();
+fn CueList(cues: Vec<Row>) -> Element {
     // What the player is actually standing on, not what was last
     // clicked. A click still fires the cue; it just no longer decides
     // what the list *shows*, which is how the highlight used to end up
     // several sections behind the music.
-    let current = move || playhead().cue;
+    let current = use_current_cue();
+    let ringing = use_ringing_hit();
 
     rsx! {
         aside { class: "cues",
@@ -434,21 +602,44 @@ fn CueList(cues: Vec<String>) -> Element {
                     onclick: move |_| send(Command::Go),
                     "GO"
                 }
+                // GO on the look list — the list beneath the song's that
+                // the operator steps by hand. Empty tonight; the key is
+                // here so the class exists on the surface.
+                button {
+                    class: "go look",
+                    onclick: move |_| send(Command::LookGo),
+                    "LOOK"
+                }
             }
             ol {
-                for (i, name) in cues.iter().enumerate() {
-                    li {
-                        key: "{i}",
-                        class: if current() == Some(i) { "cue on" } else { "cue" },
-                        // One message: the widget takes the song to
-                        // this cue's own position. Sending a section
-                        // name as well only worked for the cues that
-                        // happened to be sections — an accent called
-                        // "· fig 0 · 1/3" is not one, so clicking it
-                        // moved the lights and left the song behind.
-                        onclick: move |_| send(Command::Cue(i)),
-                        span { class: "num", "{i}" }
-                        span { class: "name", "{name}" }
+                for (i, row) in cues.iter().enumerate() {
+                    match row {
+                        Row::Cue { index, name } => {
+                            let index = *index;
+                            rsx! {
+                                li {
+                                    key: "c{i}",
+                                    class: if current() == Some(index) { "cue on" } else { "cue" },
+                                    // One message: the widget takes the song to
+                                    // this cue's own position.
+                                    onclick: move |_| send(Command::Cue(index)),
+                                    span { class: "num", "{index}" }
+                                    span { class: "name", "{name}" }
+                                }
+                            }
+                        }
+                        Row::Hit { index, name, at } => {
+                            let (index, at) = (*index, *at);
+                            rsx! {
+                                li {
+                                    key: "h{i}",
+                                    class: if ringing() == Some(index) { "cue hit on" } else { "cue hit" },
+                                    onclick: move |_| send(Command::Locate(at)),
+                                    span { class: "num", "♪" }
+                                    span { class: "name", "{name}" }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -469,6 +660,15 @@ fn send(command: Command) {
 fn Busking(surface: Surface) -> Element {
     let mut selected = use_signal(|| Option::<String>::None);
     let mut soloed = use_signal(|| false);
+    let mut blind = use_signal(|| false);
+    let mut highlight = use_signal(|| false);
+    let mut lowlight = use_signal(|| false);
+    // What the per-fader keys do. One mode for the row rather than five
+    // keys under each fader: a hand learns one key per fader, and the
+    // mode is a decision made before the song, not during it.
+    let mut key_mode = use_signal(|| ignition_core::KeyAction::Flash);
+    let desk = use_desk();
+    let pages = faders::bank_pages();
 
     rsx! {
         section { class: "surface",
@@ -542,6 +742,18 @@ fn Busking(surface: Surface) -> Element {
                             span { class: "swatch-label", "{chip.name}" }
                         }
                     }
+                    for chip in surface.splits.iter().cloned() {
+                        button {
+                            key: "split-{chip.name}",
+                            class: "swatch split",
+                            onclick: {
+                                let name = chip.name.clone();
+                                move |_| send(Command::Split(name.clone()))
+                            },
+                            span { class: "disc", style: "background: {chip.css}" }
+                            span { class: "swatch-label", "{chip.name}" }
+                        }
+                    }
                 }
             }
 
@@ -588,35 +800,139 @@ fn Busking(surface: Surface) -> Element {
                     button { class: "tile warn", onclick: move |_| send(Command::Release), "Release" }
                     button { class: "tile warn", onclick: move |_| send(Command::ClearValues), "Clear" }
                 }
+                // The programmer's modes. Blind is loud when on for the
+                // same reason solo is: a desk left blind is a desk whose
+                // every punch goes nowhere, and it has to look wrong.
+                div { class: "row modes",
+                    button {
+                        class: if blind() { "tile mode blind on" } else { "tile mode" },
+                        onclick: move |_| {
+                            let next = !blind();
+                            blind.set(next);
+                            send(Command::Blind(next));
+                        },
+                        if blind() { "BLIND ●" } else { "BLIND" }
+                    }
+                    button {
+                        class: if highlight() { "tile mode on" } else { "tile mode" },
+                        onclick: move |_| {
+                            let next = !highlight();
+                            highlight.set(next);
+                            send(Command::Highlight(next));
+                        },
+                        "HIGHLT"
+                    }
+                    button {
+                        class: if lowlight() { "tile mode on" } else { "tile mode" },
+                        onclick: move |_| {
+                            let next = !lowlight();
+                            lowlight.set(next);
+                            send(Command::Lowlight(next));
+                        },
+                        "LOWLT"
+                    }
+                }
             }
 
             div { class: "col faders",
-                header { "Faders" }
-                div { class: "fader-row",
-                    for (i, spec) in faders::defaults().into_iter().enumerate() {
-                        Fader {
-                            key: "{i}",
-                            label: spec.name.to_string(),
-                            css: spec.css.to_string(),
-                            initial: 0.0,
-                            on_change: move |v: f32| send(Command::Level(i, v)),
-                        }
+                header {
+                    span { "Faders" }
+                    // The page strip. The eight physical faders carry
+                    // another eight assignments per page; a fader that
+                    // is up stays live on the old page's assignment —
+                    // drawn latched — until it is brought back to match.
+                    div { class: "pages",
+                        button { class: "page-btn", onclick: move |_| send(Command::Page(PageMove::Prev)), "◀" }
+                        span { class: "page-num", "page {desk().page + 1} / {desk().pages}" }
+                        button { class: "page-btn", onclick: move |_| send(Command::Page(PageMove::Next)), "▶" }
                     }
-                    // Flash keys. Momentary by nature, and the same
-                    // bump a charted snare fires — one gesture arriving
-                    // from two places, not two features that resemble
-                    // each other.
-                    div { class: "flashes",
-                        for (label, kind) in [
-                            ("WHITE", ignition_core::BumpKind::White),
-                            ("BOOST", ignition_core::BumpKind::ColorBoost),
-                            ("BURST", ignition_core::BumpKind::Burst),
+                    // Key mode for the row.
+                    div { class: "key-modes",
+                        for (mode, label) in [
+                            (ignition_core::KeyAction::Flash, "FLASH"),
+                            (ignition_core::KeyAction::Toggle, "TOGGLE"),
+                            (ignition_core::KeyAction::Swap, "SWAP"),
+                            (ignition_core::KeyAction::Kill, "KILL"),
+                            (ignition_core::KeyAction::Black, "BLACK"),
                         ] {
                             button {
                                 key: "{label}",
-                                class: "flash",
-                                onclick: move |_| send(Command::Flash("Wash".into(), kind)),
+                                class: if key_mode() == mode { "key-mode on" } else { "key-mode" },
+                                onclick: move |_| key_mode.set(mode),
                                 "{label}"
+                            }
+                        }
+                    }
+                    if desk().blind {
+                        span { class: "blind-flag", "BLIND — viewport is a preview" }
+                    }
+                }
+                div { class: "fader-row",
+                    for i in 0..ignition_core::FADERS {
+                        {
+                            // Labelled from the page the desk says it is
+                            // on, not the one last clicked: a MIDI page
+                            // key turns the strip too.
+                            let page = pages.get(desk().page).unwrap_or(&pages[0]);
+                            let spec = &page[i];
+                            let latched = desk().latched[i];
+                            let toggled = desk().toggled[i];
+                            rsx! {
+                                div { class: "fader-slot", key: "{i}",
+                                    Fader {
+                                        label: spec.name.to_string(),
+                                        css: spec.css.to_string(),
+                                        initial: 0.0,
+                                        latched,
+                                        on_change: move |v: f32| send(Command::Level(i, v)),
+                                    }
+                                    // The playback key under the fader.
+                                    // Held modes send the release; toggle
+                                    // and kill are a press.
+                                    button {
+                                        class: if toggled { "pkey on" } else { "pkey" },
+                                        onpointerdown: move |_| send(Command::Key { index: i, action: key_mode(), down: true }),
+                                        onpointerup: move |_| send(Command::Key { index: i, action: key_mode(), down: false }),
+                                        onpointerleave: move |_| send(Command::Key { index: i, action: key_mode(), down: false }),
+                                        "●"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Flash keys. Momentary by nature. The fired ones
+                    // are the same bump a charted snare fires — one
+                    // gesture arriving from two places, not two features
+                    // that resemble each other. The held ones (DROP,
+                    // PUNT) are on for exactly as long as the pointer is
+                    // down: the hand is the release, and `pointerleave`
+                    // counts as the hand coming off so a drag out of the
+                    // key cannot leave the stage in a punt.
+                    div { class: "flashes",
+                        for key in faders::flash_keys() {
+                            match key.action {
+                                faders::KeyAction::Flash(target, kind) => rsx! {
+                                    button {
+                                        key: "{key.label}",
+                                        class: "flash",
+                                        onpointerdown: move |_| {
+                                            send(Command::Flash(target.clone(), kind))
+                                        },
+                                        "{key.label}"
+                                    }
+                                },
+                                faders::KeyAction::Hold(recipe) => rsx! {
+                                    button {
+                                        key: "{key.label}",
+                                        class: if key.label == "PUNT" { "flash hold punt" } else { "flash hold" },
+                                        onpointerdown: move |_| {
+                                            send(Command::Hold(Some(Box::new(recipe.clone()))))
+                                        },
+                                        onpointerup: move |_| send(Command::Hold(None)),
+                                        onpointerleave: move |_| send(Command::Hold(None)),
+                                        "{key.label}"
+                                    }
+                                },
                             }
                         }
                     }
@@ -627,7 +943,7 @@ fn Busking(surface: Surface) -> Element {
                     // makes in the moment and should not have to edit a
                     // show to express.
                     div { class: "masters",
-                        for role in ["Wash", "Movers", "Bars"] {
+                        for role in ["Key", "Wash", "Movers", "Bars"] {
                             Fader {
                                 key: "{role}",
                                 label: role.to_string(),
@@ -668,6 +984,16 @@ fn Busking(surface: Surface) -> Element {
                             initial: 0.5,
                             on_change: move |v: f32| send(Command::EffectRate(0.5 + v * 1.5)),
                         }
+                        // Program time: how long every punch takes to
+                        // arrive, 0–4 beats. At the bottom a palette
+                        // snaps; a little way up a busk stays smooth
+                        // without every gesture being pre-timed.
+                        Fader {
+                            label: "PROG".to_string(),
+                            css: "#b06e8f".to_string(),
+                            initial: 0.0,
+                            on_change: move |v: f32| send(Command::ProgramTime(v * 4.0)),
+                        }
                     }
                 }
             }
@@ -691,7 +1017,13 @@ const TRACK: f32 = 190.0;
 /// colour at a glance from two metres away, which a native control
 /// cannot do.
 #[component]
-fn Fader(label: String, css: String, initial: f32, on_change: EventHandler<f32>) -> Element {
+fn Fader(
+    label: String,
+    css: String,
+    initial: f32,
+    #[props(default)] latched: bool,
+    on_change: EventHandler<f32>,
+) -> Element {
     let mut level = use_signal(|| initial);
     let mut held = use_signal(|| false);
 
@@ -705,7 +1037,11 @@ fn Fader(label: String, css: String, initial: f32, on_change: EventHandler<f32>)
     };
 
     rsx! {
-        div { class: "fader",
+        // Latched: the page turned under a fader that was up, and the
+        // old assignment is still playing at the old level until the
+        // hand brings this one back to match. Drawn hollow so the
+        // operator can see which faders are not yet theirs.
+        div { class: if latched { "fader latched" } else { "fader" },
             div {
                 class: "track",
                 onpointerdown: move |e| {
@@ -738,7 +1074,7 @@ fn Fader(label: String, css: String, initial: f32, on_change: EventHandler<f32>)
 fn Viewport() -> Element {
     let widget_attr = use_hook(|| {
         let config = VizConfig {
-            venue: Venue::load(VENUE).expect("venue already loaded once in main"),
+            venue: Venue::load(venue_dir()).expect("venue already loaded once in main"),
             view: ViewPreset::House,
             width: 1280,
             height: 800,
@@ -764,13 +1100,49 @@ fn Viewport() -> Element {
             // `CanvasClock::at(transport.position())` into the viz world
             // beside the cue seek it already does in `follow_song`, a
             // clip free-runs rather than scrubbing with the song.
+            //
+            // `IGNITION_CANVAS_MAIN` / `_SIDE_LEFT` / `_SIDE_RIGHT` name a
+            // clip or still to use instead — an absolute path, or one
+            // under the assets dir.
+            //
+            // The clips live in Cody's `Lighting Resources` folder (or
+            // wherever `IGNITION_CLIPS` points); the stills are the
+            // fallback when a clip is not on this machine, so the
+            // studio still opens with something on the wall.
             canvas_content: [
-                ("main", "screens/clip-particles.png"),
-                ("side-left", "screens/clip-astronaut.png"),
-                ("side-right", "screens/clip-astronaut.png"),
+                (
+                    "main",
+                    "IGNITION_CANVAS_MAIN",
+                    "RUN FOR YOUR LIFE - Looping Background Animation.mp4",
+                    "screens/clip-particles.png",
+                ),
+                (
+                    "side-left",
+                    "IGNITION_CANVAS_SIDE_LEFT",
+                    "Astronaut Blue Background Loop - Animation Videos _ No Copyright _ Visual Effects Video..mp4",
+                    "screens/clip-astronaut.png",
+                ),
+                (
+                    "side-right",
+                    "IGNITION_CANVAS_SIDE_RIGHT",
+                    "Astronaut Blue Background Loop - Animation Videos _ No Copyright _ Visual Effects Video..mp4",
+                    "screens/clip-astronaut.png",
+                ),
             ]
             .into_iter()
-            .map(|(canvas, path)| (canvas.to_string(), path.to_string()))
+            .map(|(canvas, var, clip, still)| (canvas.to_string(), canvas_source(var, clip, still)))
+            .collect(),
+            // The back wall shows a band of its clip; sit it a little
+            // below centre so the runner's face is in it.
+            // `IGNITION_CANVAS_MAIN_FOCUS=0.7` slides it further.
+            canvas_focus: [(
+                "main".to_string(),
+                std::env::var("IGNITION_CANVAS_MAIN_FOCUS")
+                    .ok()
+                    .and_then(|v| v.trim().parse().ok())
+                    .unwrap_or(0.56),
+            )]
+            .into_iter()
             .collect(),
             assets_dir: concat!(
                 env!("CARGO_MANIFEST_DIR"),
@@ -790,6 +1162,9 @@ fn Viewport() -> Element {
             // operator actually sees — the composite, not the renderer
             // in isolation. Standalone `viz --fps` measures the latter.
             fps: true,
+            // 64 fog steps and no MSAA: the two dials that were most of
+            // the frame, and neither shows through bloom.
+            quality: RenderQuality::live(),
         };
         let rx = RX
             .lock()
@@ -811,13 +1186,18 @@ fn Viewport() -> Element {
     });
 
     // Blitz repaints on demand and a `Widget` has no way to ask for a
-    // frame, so a signal ticking at ~60 Hz keeps the DOM dirty and the
-    // visualizer animating. Coarse, and the honest alternative is
-    // patching Blitz.
+    // frame, so a signal keeps the DOM dirty and the visualizer
+    // animating. It ticks when the widget says a frame is *done*, not on
+    // a timer: a timer started after a vsync-blocking present always
+    // fired a frame late, which halved the frame rate. The timeout is
+    // only for before the widget is painting at all (no device yet),
+    // when nothing would otherwise ask for the first frame.
     let mut frame = use_signal(|| 0u64);
     use_future(move || async move {
+        let done = viz_widget::FRAME_DONE.clone();
         loop {
-            tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+            let _ =
+                tokio::time::timeout(std::time::Duration::from_millis(100), done.notified()).await;
             frame += 1;
         }
     });
@@ -829,10 +1209,69 @@ fn Viewport() -> Element {
     }
 }
 
+/// Where the clips are. `IGNITION_CLIPS` overrides the folder.
+const CLIPS: &str = "/home/cody/Downloads/Lighting Resources";
+
+/// A canvas's source: the env override if set, else the named clip in
+/// the clips folder if it exists, else the still that ships in assets.
+fn canvas_source(var: &str, clip: &str, still: &str) -> String {
+    if let Ok(path) = std::env::var(var) {
+        return path;
+    }
+    let dir = std::env::var("IGNITION_CLIPS").unwrap_or_else(|_| CLIPS.to_string());
+    let path = std::path::Path::new(&dir).join(clip);
+    if path.is_file() {
+        return path.to_string_lossy().into_owned();
+    }
+    tracing::warn!(clip, dir, "clip not found; the canvas shows a still");
+    still.to_string()
+}
+
 /// Cue names for the list. The player inside the visualizer owns the
 /// real cues; this is only what to draw.
-fn load_cue_names(path: &str) -> anyhow::Result<Vec<String>> {
+fn load_cue_names(path: &str) -> anyhow::Result<Vec<Row>> {
     let raw = std::fs::read_to_string(path)?;
     let list: ignition_core::CueList = serde_json::from_str(&raw)?;
-    Ok(list.cues.into_iter().map(|c| c.name).collect())
+    let mut rows: Vec<(Option<ignition_core::Bars>, bool, Row)> = list
+        .cues
+        .into_iter()
+        .enumerate()
+        .map(|(index, c)| {
+            (
+                c.position(),
+                true,
+                Row::Cue {
+                    index,
+                    name: c.name,
+                },
+            )
+        })
+        .collect();
+    // A cutout is two triggers at one position; show it once.
+    let mut seen_at = std::collections::HashSet::new();
+    for (index, t) in list.triggers.into_iter().enumerate() {
+        let Some(at) = t.bars() else {
+            continue;
+        };
+        if t.name.ends_with(" cut") || !seen_at.insert((at.bar, at.beat.to_bits())) {
+            continue;
+        }
+        rows.push((
+            Some(at),
+            false,
+            Row::Hit {
+                index,
+                name: t.name,
+                at,
+            },
+        ));
+    }
+    // By position, cues before hits at the same one. Unpositioned cues
+    // keep their list order at the top.
+    rows.sort_by(|a, b| {
+        a.0.partial_cmp(&b.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(b.1.cmp(&a.1))
+    });
+    Ok(rows.into_iter().map(|(_, _, row)| row).collect())
 }

@@ -23,6 +23,7 @@ use std::path::Path;
 
 /// One lyric line, placed on the song.
 #[derive(Debug, Clone, PartialEq)]
+// r[impl song.lyrics] - Bars position, original seconds kept, blank lines kept
 pub struct LyricLine {
     /// Where the line lands musically. The authoritative time.
     pub at: Bars,
@@ -59,11 +60,12 @@ impl Lyrics {
     ///
     /// A line shows until the next one starts — including the blank ones,
     /// which is how the screen clears.
+    // r[impl song.lyrics] - a line holds until the next one
     pub fn line_at(&self, position: Bars) -> Option<&LyricLine> {
-        let index = match self
-            .lines
-            .binary_search_by(|l| l.at.partial_cmp(&position).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        let index = match self.lines.binary_search_by(|l| {
+            l.at.partial_cmp(&position)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }) {
             Ok(i) => i,
             Err(0) => return None,
             Err(i) => i - 1,
@@ -74,6 +76,7 @@ impl Lyrics {
 }
 
 /// Reads an `.lrc` and places it on `song`'s timeline.
+// r[impl song.lyrics]
 pub fn load(path: impl AsRef<Path>, song: &SongMap) -> Result<Lyrics> {
     let path = path.as_ref();
     let text = std::fs::read_to_string(path)
@@ -86,6 +89,7 @@ pub fn load(path: impl AsRef<Path>, song: &SongMap) -> Result<Lyrics> {
 /// The file's own `[offset:]` has already been folded into its times by
 /// the parser, so nothing is applied here — applying it twice is the
 /// classic way to end up a beat early on every line.
+// r[impl song.lyrics] - lines and words through the tempo map; `[offset:]` applied once, by the parser
 pub fn place(parsed: &lrc::Lrc, song: &SongMap) -> Lyrics {
     let bars_at = |secs: f32| song.tempo.position_at(secs as f64);
     Lyrics {
@@ -120,7 +124,13 @@ mod tests {
     fn song(bpm: f64) -> SongMap {
         SongMap {
             name: "test".into(),
-            tempo: TempoMap::constant(bpm, TimeSignature { numerator: 4, denominator: 4 }),
+            tempo: TempoMap::constant(
+                bpm,
+                TimeSignature {
+                    numerator: 4,
+                    denominator: 4,
+                },
+            ),
             sections: Vec::new(),
         }
     }
@@ -128,18 +138,24 @@ mod tests {
     /// The whole point: a second-timed file comes out bar-timed. At 120
     /// bpm a bar is 2 s, so 8 s is the top of bar 5.
     #[test]
+    /// r[verify song.lyrics]
     fn seconds_become_bars() {
         let parsed = lrc::parse("[00:08.00]Hey, hey\n");
         let placed = place(&parsed, &song(120.0));
         assert_eq!(placed.lines[0].at.bar, 5);
         // Beat 1.0 is the downbeat here — beats are 1-based, as they are
         // on a console and in a chart.
-        assert!((placed.lines[0].at.beat - 1.0).abs() < 1e-3, "{:?}", placed.lines[0].at);
+        assert!(
+            (placed.lines[0].at.beat - 1.0).abs() < 1e-3,
+            "{:?}",
+            placed.lines[0].at
+        );
     }
 
     /// A line holds until the next one starts, so a screen driven off
     /// `line_at` shows it for its whole duration rather than one frame.
     #[test]
+    /// r[verify song.lyrics] - a line holds until the next
     fn a_line_holds_until_the_next_one() {
         let parsed = lrc::parse("[00:08.00]first\n[00:16.00]second\n");
         let placed = place(&parsed, &song(120.0));
@@ -150,6 +166,7 @@ mod tests {
     /// Before the first line there is nothing to show — an intro must be
     /// blank, not showing the last line of the song.
     #[test]
+    /// r[verify song.lyrics]
     fn nothing_shows_before_the_first_line() {
         let parsed = lrc::parse("[00:08.00]first\n");
         let placed = place(&parsed, &song(120.0));
@@ -159,6 +176,7 @@ mod tests {
     /// The blank LRC lines clear the screen. Dropped instead of kept,
     /// the last line of a verse would hang through the instrumental.
     #[test]
+    /// r[verify song.lyrics] - a timed blank is kept
     fn a_blank_line_clears_the_screen() {
         let parsed = lrc::parse("[00:08.00]first\n[00:16.00]\n");
         let placed = place(&parsed, &song(120.0));

@@ -10,6 +10,8 @@ use ignition_proto::ChanId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// r[impl groups.order-is-data] - membership is an ordered Vec, not a set
+// r[impl groups.order-is-stable]
 pub struct Group {
     pub name: String,
     pub chans: Vec<ChanId>,

@@ -1,0 +1,449 @@
+[
+  {
+    "chan": 1,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 271,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 2,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 264,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 3,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 257,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 4,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 250,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 5,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 299,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 6,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 292,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 7,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 285,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 8,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 278,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 9,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 327,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 10,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 320,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 11,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 313,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 12,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 306,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 13,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 355,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 14,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 348,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 15,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 341,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 16,
+    "manufacturer": "",
+    "model": "Solena Professional Max Par 54 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 334,
+    "footprint": 7,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 17,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "patched": true,
+    "universe": 1,
+    "address": 433,
+    "footprint": 11,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 18,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "patched": true,
+    "universe": 1,
+    "address": 411,
+    "footprint": 11,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 19,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "patched": true,
+    "universe": 1,
+    "address": 400,
+    "footprint": 11,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 20,
+    "manufacturer": "",
+    "model": "Mini Gobo Moving Head Light",
+    "patched": true,
+    "universe": 1,
+    "address": 422,
+    "footprint": 11,
+    "source": "console-show.json"
+  },
+  {
+    "chan": 21,
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 1,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 22,
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 8,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 23,
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 15,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 31,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 22,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 32,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 29,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 33,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 36,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 34,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 43,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 35,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 50,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 36,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 57,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 37,
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 64,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 38,
+    "manufacturer": "Rockville",
+    "model": "Rockstrip 252 7ch",
+    "patched": true,
+    "universe": 1,
+    "address": 71,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 41,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 78,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 42,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 85,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 43,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 92,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 44,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 99,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 45,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 106,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 46,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 113,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 47,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 120,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  },
+  {
+    "chan": 48,
+    "manufacturer": "Uking",
+    "model": "Par",
+    "patched": true,
+    "universe": 1,
+    "address": 127,
+    "footprint": 7,
+    "provisional": true,
+    "notes": [
+      "No position->fixture link yet. See README."
+    ]
+  }
+]

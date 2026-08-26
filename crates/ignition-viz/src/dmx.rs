@@ -53,20 +53,22 @@ impl DmxUniverses {
     /// (even a single byte) means `resolve()` no longer treats it as
     /// never-received — correct for a cue engine actually driving that
     /// universe, same as a real packet arriving would.
+    // r[impl playback.no-merge-at-dmx] - a plain byte write; no priority or HTP lives here
     pub fn set_channel(&self, universe: u16, channel0: u16, value: u8) {
-        let mut map = self.inner.write().expect("dmx universes lock poisoned");
-        let frame = map.entry(universe).or_insert([0u8; UNIVERSE_LEN]);
-        if let Some(slot) = frame.get_mut(channel0 as usize) {
-            *slot = value;
-        }
+        self.set_channels([(universe, channel0, value)]);
     }
 
-    /// 0-based byte at `channel` (0..512) in `universe`, or 0 if nothing has
-    /// ever arrived for that universe/channel — the same "unpatched reads
-    /// as zero" behaviour a real DMX receiver has.
-    fn byte(&self, universe: u16, channel: u16) -> u8 {
-        let map = self.inner.read().expect("dmx universes lock poisoned");
-        map.get(&universe).map(|f| f[channel as usize]).unwrap_or(0)
+    /// Writes many `(universe, channel0, value)` bytes under one lock.
+    /// A cue frame is a few hundred bytes, and a lock per byte was a
+    /// few hundred lock round-trips per frame for no reason.
+    pub fn set_channels(&self, values: impl IntoIterator<Item = (u16, u16, u8)>) {
+        let mut map = self.inner.write().expect("dmx universes lock poisoned");
+        for (universe, channel0, value) in values {
+            let frame = map.entry(universe).or_insert([0u8; UNIVERSE_LEN]);
+            if let Some(slot) = frame.get_mut(channel0 as usize) {
+                *slot = value;
+            }
+        }
     }
 
     /// Resolve one fixture's live attributes given where it's patched and
@@ -86,27 +88,41 @@ impl DmxUniverses {
         // neutral) purely because nothing had ever been received — the
         // same class of bug the dimmer default-to-off fix addressed, one
         // level up: universe-level rather than per-attribute.
-        if !self
-            .inner
-            .read()
-            .expect("dmx universes lock poisoned")
-            .contains_key(&dmx.universe)
-        {
+        // One read lock for the whole fixture, not one per byte: this
+        // runs for every fixture every frame.
+        let universes = self.inner.read().expect("dmx universes lock poisoned");
+        let Some(frame) = universes.get(&dmx.universe) else {
             return ResolvedAttributes::default();
-        }
+        };
 
         let read = |offset: u16| -> u8 {
             let chan0 = dmx.start_channel.saturating_sub(1) + offset;
-            self.byte(dmx.universe, chan0)
+            frame.get(chan0 as usize).copied().unwrap_or(0)
         };
+        // Coarse byte high, fine byte low when the fixture has a fine
+        // channel; the plain 8-bit value otherwise. Either way the
+        // result is a fraction of the full 16-bit range, so the
+        // degrees formula is the same for both.
+        let read_wide = |coarse: u16, fine: Option<u16>| -> f32 {
+            match fine {
+                Some(fine) => u16::from_be_bytes([read(coarse), read(fine)]) as f32 / 65535.0,
+                None => read(coarse) as f32 / 255.0,
+            }
+        };
+        let pan_fine = map.offset_of(&Attribute::PanFine);
+        let tilt_fine = map.offset_of(&Attribute::TiltFine);
 
         let mut resolved = ResolvedAttributes::default();
         for (offset, attr) in &map.channels {
             let v = read(*offset);
             match attr {
                 Attribute::Dimmer => resolved.dimmer = v as f32 / 255.0,
-                Attribute::Pan => resolved.pan_deg = (v as f32 / 255.0 - 0.5) * 540.0,
-                Attribute::Tilt => resolved.tilt_deg = (v as f32 / 255.0 - 0.5) * 270.0,
+                Attribute::Pan => resolved.pan_deg = (read_wide(*offset, pan_fine) - 0.5) * 540.0,
+                Attribute::Tilt => {
+                    resolved.tilt_deg = (read_wide(*offset, tilt_fine) - 0.5) * 270.0
+                }
+                // Consumed alongside the coarse byte above.
+                Attribute::PanFine | Attribute::TiltFine => {}
                 Attribute::ColorAdd { channel } => {
                     let f = v as f32 / 255.0;
                     match channel {

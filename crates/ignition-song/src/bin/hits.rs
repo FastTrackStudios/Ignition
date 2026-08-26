@@ -22,12 +22,7 @@ fn main() -> Result<()> {
     let hits = ignition_song::hits::detect(audio, &song, 2)?;
 
     let total = hits.hits.len();
-    let count = |band| {
-        hits.hits
-            .iter()
-            .filter(|h| h.band == band)
-            .count()
-    };
+    let count = |band| hits.hits.iter().filter(|h| h.band == band).count();
     use ignition_song::hits::HitBand::{High, Low, Mid};
     println!(
         "{total} hits on 1/8 · low {} · mid {} · high {}",

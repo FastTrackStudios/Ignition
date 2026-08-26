@@ -1,8 +1,8 @@
 {
   "colors": [
-    { "name": "Open White",  "red": 1.00, "green": 1.00, "blue": 1.00 },
-    { "name": "Warm White",  "red": 1.00, "green": 0.82, "blue": 0.62 },
-    { "name": "Cool White",  "red": 0.82, "green": 0.90, "blue": 1.00 },
+    { "name": "Open White",  "red": 1.00, "green": 1.00, "blue": 1.00, "intent": { "cct": { "kelvin": 6500.0, "tint": 0.0 } } },
+    { "name": "Warm White",  "red": 1.00, "green": 0.82, "blue": 0.62, "intent": { "cct": { "kelvin": 3200.0, "tint": 0.0 } } },
+    { "name": "Cool White",  "red": 0.82, "green": 0.90, "blue": 1.00, "intent": { "cct": { "kelvin": 5600.0, "tint": 0.0 } } },
     { "name": "House Blue",  "red": 0.08, "green": 0.25, "blue": 1.00 },
     { "name": "Deep Blue",   "red": 0.02, "green": 0.06, "blue": 1.00 },
     { "name": "Congo",       "red": 0.25, "green": 0.00, "blue": 1.00 },
@@ -30,5 +30,94 @@
     { "name": "Back Wall",         "target": { "x":  0.00, "y":  2.90, "z": 1.60 } },
     { "name": "Audience Front",    "target": { "x":  0.00, "y": -6.00, "z": 1.50 } },
     { "name": "Audience Back",     "target": { "x":  0.00, "y": -12.00, "z": 1.60 } }
+  ],
+  "splits": [
+    {
+      "name": "Warm/Cool",
+      "colors": [
+        "Warm White",
+        "Cool White"
+      ],
+      "distribute": "cycle"
+    },
+    {
+      "name": "Fire",
+      "colors": [
+        "Red",
+        "Amber",
+        "Gold"
+      ],
+      "distribute": "spread"
+    },
+    {
+      "name": "Ocean",
+      "colors": [
+        "Deep Blue",
+        "Cyan",
+        "Turquoise"
+      ],
+      "distribute": "spread"
+    },
+    {
+      "name": "Sunset",
+      "colors": [
+        "Magenta",
+        "Amber"
+      ],
+      "distribute": "spread"
+    },
+    {
+      "name": "Ice",
+      "colors": [
+        "Sky",
+        "Cool White"
+      ],
+      "distribute": "cycle"
+    },
+    {
+      "name": "Congo Split",
+      "colors": [
+        "Congo",
+        "Magenta"
+      ],
+      "distribute": "block"
+    },
+    {
+      "name": "Rainbow",
+      "colors": [
+        "Red",
+        "Amber",
+        "Green",
+        "Cyan",
+        "Blue",
+        "Magenta"
+      ],
+      "distribute": "spread"
+    },
+    {
+      "name": "Hot/Deep",
+      "colors": [
+        "Hot",
+        "Deep"
+      ],
+      "distribute": "block"
+    },
+    {
+      "name": "Lavender Haze",
+      "colors": [
+        "Lavender",
+        "Purple",
+        "Pink"
+      ],
+      "distribute": "spread"
+    },
+    {
+      "name": "Two Tone",
+      "colors": [
+        "Deep",
+        "Hot"
+      ],
+      "distribute": "cycle"
+    }
   ]
 }

@@ -27,6 +27,10 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
        cursor: pointer; border-bottom: 1px solid #1c1c22; }
 .cue:hover { background: #1b1b21; }
 .cue.on { background: #23233a; color: #fff; }
+/* Hits: the song fires these, GO never does. Quiet until one lands. */
+.cue.hit { padding: 6px 14px; color: #6f6f80; font-size: 0.85em; }
+.cue.hit .num { color: #4a4a5c; }
+.cue.hit.on { background: #3a2f10; color: #ffe9a8; }
 .num { width: 22px; color: #6f6f7d; text-align: right; }
 .go { background: #2c4a2c; color: #cfe8cf; border: 1px solid #3d663d;
       border-radius: 5px; padding: 8px 18px; font-size: 11px; font-weight: bold;
@@ -189,3 +193,67 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
   border: 1px solid #33333f;
 }
 .transport-bar .t-btn:hover { background: #2c2c3a; }
+
+/* Held keys. Distinct from the fired ones because they behave
+   differently under a hand — down is on, up is off — and a key that
+   looks like a flash but stays on would be learned wrong. PUNT is the
+   one with glow tape on it: the key an operator finds without looking
+   when the show has gone wrong, so it is the one that looks different
+   from everything else on the surface. */
+.flashes .flash.hold { border-style: dashed; }
+.flashes .flash.punt {
+  color: #14121a;
+  background: #e8c860;
+  border: 1px solid #f0d880;
+  font-weight: 600;
+}
+.flashes .flash.punt:hover { background: #f0d878; }
+.flashes .flash.punt:active { background: #fff4c0; }
+
+/* ── Pages, keys and the programmer's modes ───────────────────────── */
+/* The page strip sits in the fader column's header, beside the key
+   mode for the row. Both are decisions made before a song, so they are
+   small; the faders and keys below are what the hand lives on. */
+.faders header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pages { display: flex; align-items: center; gap: 4px; }
+.page-btn {
+  width: 24px; height: 20px; font-size: 10px; border-radius: 4px; cursor: pointer;
+  color: rgba(255, 255, 255, 0.78); background: #23232e; border: 1px solid #33333f;
+}
+.page-btn:hover { background: #2c2c3a; }
+.page-num { font-size: 10px; letter-spacing: 0.06em; color: #b8b8c8; text-transform: none; }
+.key-modes { display: flex; gap: 3px; }
+.key-mode {
+  font-size: 9px; letter-spacing: 0.06em; padding: 3px 6px; border-radius: 4px; cursor: pointer;
+  color: rgba(255, 255, 255, 0.6); background: #1e1e26; border: 1px solid #2c2c36;
+}
+.key-mode.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.blind-flag { font-size: 9px; letter-spacing: 0.06em; color: #14121a; background: #e86060;
+              padding: 2px 6px; border-radius: 3px; text-transform: none; }
+
+/* A fader and its playback key, stacked. */
+.fader-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pkey {
+  width: 44px; height: 22px; font-size: 10px; border-radius: 5px; cursor: pointer;
+  color: rgba(255, 255, 255, 0.55); background: #2a2733; border: 1px solid #3a3546;
+}
+.pkey:hover { background: #363042; }
+.pkey:active { background: #d8d0e8; color: #14121a; }
+.pkey.on { background: #d8c060; border-color: #f0d880; color: #14121a; }
+
+/* Latched: the page turned under a fader that was up. The old
+   assignment is still playing and the fill is hollow until the hand
+   brings the fader back to match — MA3's fixed-executor pickup. */
+.fader.latched .track { border-style: dashed; border-color: #8a7a3a; }
+.fader.latched .fill { opacity: 0.2; }
+.fader.latched .fader-label { color: #d8c060; }
+
+/* The programmer's modes. Blind is loud when on: every punch on a
+   blind desk goes nowhere, and it has to look wrong. */
+.modes { margin-top: 6px; }
+.tile.mode { font-size: 9px; letter-spacing: 0.06em; padding: 5px 7px; }
+.tile.mode.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.tile.mode.blind.on { background: #7a2a2a; border-color: #e86060; color: #fff; }
+
+/* GO on the look list, beside the song's GO. */
+.go.look { background: #2c3f5a; color: #cfe0f0; border-color: #3d5a80; margin-left: 4px; }

@@ -1,180 +1,467 @@
-//! What the eight faders play when the app opens.
+//! The default busking bank: what the eight faders and the flash keys
+//! play when the app opens.
 //!
-//! Chosen so the surface is playable the moment it loads rather than
-//! being eight empty slots: four looks, three movement effects, one
-//! strobe. Every phaser here is slaved to the `Rate` master, so the one
-//! slider on the right retimes the whole surface at once — the thing
-//! this engine does that grandMA3's recipes cannot, because a phaser
-//! here *is* a recipe.
+//! Laid out the way a busking page is laid out on a real desk, not the
+//! way the engine is laid out. The conventions this follows, and where
+//! they come from:
 //!
-//! Absolute faders crossfade toward their look; `Delta` faders modulate
-//! whatever is underneath without needing to know what it is. That is
-//! why the chases can sit on top of a wash from another fader and not
-//! fight it — see `ignition_core::programmer`.
+//! * The first bank of faders holds *levels an operator rides*: a key
+//!   (front) level, then one fader per family of the rig carrying the
+//!   effect that family most often runs (Eos busking templates, the
+//!   Avolites and grandMA3 busking pages, Schiller's *Busking*). An
+//!   effect fader's level is that effect's intensity — how much of it is
+//!   in the room — and the crossfade-weight semantics of
+//!   `ignition_core::programmer` give exactly that.
+//! * Effect rate and size are *global* masters, not per fader; the
+//!   RATE / SIZE / SPEED faders on the right already are, so every
+//!   library effect here is re-slaved to the `Rate` master on the way
+//!   in, and one slider retimes the whole bank.
+//! * Flash keys are momentary and *fire* rather than hold: white flash,
+//!   a rig stab, a blinder hit. The two exceptions are the keys an
+//!   operator reaches for when the *show* is wrong — the rig drop and
+//!   the punt look — which are held for as long as the hand is down and
+//!   gone the moment it comes up.
+//! * The punt look is one key. Faces lit, warm, nothing moving — the
+//!   state a stage can always be dropped into.
+//!
+//! Every effect is referenced from the library **by name**. The library
+//! is curated elsewhere; the test at the bottom is what keeps this bank
+//! honest against it.
 
 use ignition_core::preset::Ref;
-use ignition_core::selection::{Axis, Cmp, Dir, Order, Where};
-use ignition_core::{Attribute, Recipe, RecipeApply, Selection, Speed, Timing, Vec3, Waveform};
+use ignition_core::{Attribute, BumpKind, Recipe, RecipeApply, Selection, Speed};
 
 /// A fader as the surface presents it: what it does, and what colour to
 /// draw it. The colour is presentation and deliberately not part of
 /// `ignition_core::Fader`.
 pub struct FaderSpec {
+    /// The label an operator reads at the desk. Short enough to sit
+    /// under a 44px track without wrapping — the family is the label
+    /// where the effect is the one that family runs, and the effect is
+    /// the label where it is not (CHASE and SPARKLE both ride the wash).
     pub name: &'static str,
     pub css: &'static str,
     pub recipe: Recipe,
 }
 
-/// The ceiling wash, ordered left to right by real position.
+/// A momentary key.
+pub struct KeySpec {
+    pub label: &'static str,
+    pub action: KeyAction,
+}
+
+/// What a key does while it is down.
+pub enum KeyAction {
+    /// Fires a bump — an envelope that retires itself.
+    Flash(Selection, BumpKind),
+    /// Holds a look at full until the key comes up.
+    Hold(Recipe),
+}
+
+fn role(name: &str) -> Selection {
+    Selection::Role(name.to_string())
+}
+
+/// The whole stage, as the roles that light it — not `Audience`, which
+/// a stab or a drop should leave alone.
+fn stage() -> Selection {
+    Selection::Union(vec![
+        role("Key"),
+        role("Wash"),
+        role("Back"),
+        role("Movers"),
+        role("Bars"),
+        role("Beams"),
+    ])
+}
+
+/// A library effect by name, re-slaved to the surface's `Rate` master
+/// so one slider retimes the whole bank.
 ///
-/// Spatial rather than by channel number, so the chase runs across the
-/// room even if the rig is re-patched — see `ignition_core::selection`.
-fn ceiling_left_to_right() -> Selection {
-    Selection::Order {
-        of: Box::new(ceiling()),
-        by: Order::Axis(Axis::X, Dir::Asc),
-    }
+/// Panics on a name the library does not have. That is deliberate: a
+/// bank that silently opened with an empty slot would be found out on a
+/// stage, and the test below finds it out at build time instead.
+fn effect(name: &str) -> Recipe {
+    let mut recipe = ignition_core::effects::library()
+        .remove(name)
+        .unwrap_or_else(|| panic!("no effect named {name:?} in the library"));
+    recipe.timing.speed = Speed::Master("Rate".into());
+    recipe
 }
 
-/// The ceiling wash, ordered outward from centre-front.
-fn ceiling_centre_out() -> Selection {
-    Selection::Order {
-        of: Box::new(ceiling()),
-        by: Order::Distance {
-            from: Vec3 {
-                x: 0.0,
-                y: -3.0,
-                z: 2.7,
-            },
-            dir: Dir::Asc,
-        },
-    }
-}
-
-/// Everything tagged as a wash that is hung above head height — which
-/// is the truss, and excludes the floor package.
-fn ceiling() -> Selection {
-    Selection::Where {
-        of: Box::new(Selection::Tag("Luminaire_LED_Wash".into())),
-        filter: Where::Half {
-            axis: Axis::Z,
-            cmp: Cmp::Gt,
-            at: 2.0,
-        },
-    }
-}
-
+/// A static look: a level and a colour on a role.
 fn look(target: Selection, colour: &str, level: f32) -> Recipe {
-    let mut recipe = Recipe::new(target.clone(), RecipeApply::Dimmer(level));
+    let mut recipe = Recipe::new(target, RecipeApply::Dimmer(level));
     recipe.steps[0]
         .apply
         .push(RecipeApply::Color(Ref::Named(colour.to_string())));
     recipe
 }
 
-/// A phaser on one attribute, slaved to the `Rate` master.
-fn chase(
-    target: Selection,
-    attr: Attribute,
-    base: f32,
-    size: f32,
-    shape: Waveform,
-    spread: f32,
-    measure: f32,
-) -> Recipe {
-    Recipe {
-        target,
-        // Relative, so a chase modulates whatever look is underneath
-        // instead of replacing it.
-        steps: shape.steps(attr, base, size, true),
-        timing: Timing {
-            speed: Speed::Master("Rate".into()),
-            measure,
-            phase_spread_deg: spread,
-            ..Default::default()
-        },
-            tricks: Vec::new(),
-    }
+/// A look on several roles at once — one recipe per role, folded into
+/// one target so it sits under a single key.
+fn stage_look(level: f32, colour: &str) -> Recipe {
+    look(
+        Selection::Union(vec![role("Key"), role("Wash"), role("Back")]),
+        colour,
+        level,
+    )
 }
 
-pub fn defaults() -> Vec<FaderSpec> {
+/// The eight faders, left to right.
+///
+/// The order is the order an operator's hand learns: the level they
+/// ride most on the left, the ones they reach for on a chorus in the
+/// middle, the ones that are a decision on the right.
+pub fn default_bank() -> Vec<FaderSpec> {
     vec![
+        // 1. Front light. On every busking page this is the first fader
+        //    — faces are what the audience came for, and the one level
+        //    that is never an effect. Absolute, so at full it *is* the
+        //    key light and at half it is halfway there from whatever
+        //    the cue stack has.
         FaderSpec {
-            name: "Warm",
-            css: "#e8b878",
-            recipe: look(ceiling(), "Warm White", 1.0),
+            name: "KEY",
+            css: "#e8d8b8",
+            recipe: look(role("Key"), "Warm White", 1.0),
         },
+        // 2–3. The wash: the travelling chase and the twinkle, the two
+        //    textures a wash runs most nights. Relative, so they ride on
+        //    whatever colour the cue has the wash in.
         FaderSpec {
-            name: "Cool",
-            css: "#9fc4e8",
-            recipe: look(ceiling(), "Cool White", 1.0),
-        },
-        FaderSpec {
-            name: "Back",
-            css: "#5a48d8",
-            recipe: look(Selection::Group("Back Wall Pars".into()), "Congo", 1.0),
-        },
-        FaderSpec {
-            name: "Strips",
-            css: "#d84898",
-            recipe: look(Selection::Group("Strips All".into()), "Magenta", 1.0),
-        },
-        FaderSpec {
-            name: "L→R",
+            name: "CHASE",
             css: "#48c8d8",
-            recipe: chase(
-                ceiling_left_to_right(),
-                Attribute::Dimmer,
-                -0.5,
-                0.5,
-                Waveform::Sine,
-                360.0,
-                1.0,
-            ),
+            recipe: effect("chase"),
         },
         FaderSpec {
-            name: "Bloom",
-            css: "#48d888",
-            recipe: chase(
-                ceiling_centre_out(),
-                Attribute::Dimmer,
-                -0.5,
-                0.5,
-                Waveform::Sine,
-                360.0,
-                2.0,
-            ),
+            name: "SPARKLE",
+            css: "#8fd0e8",
+            recipe: effect("sparkle"),
         },
+        // 4. Movers. Ballyhoo is what movers do when nobody has decided
+        //    what they should do — which is most of a busked set.
         FaderSpec {
-            name: "Swing",
+            name: "BALLY",
             css: "#d8a848",
-            // Pan only: paired with a Tilt phaser a quarter-cycle apart
-            // this would be a circle, but one axis reads better as a
-            // hand-playable fader.
-            recipe: chase(
-                Selection::Model("Moving Head".into()),
-                Attribute::Pan,
-                0.0,
-                25.0,
-                Waveform::Sine,
-                180.0,
-                4.0,
-            ),
+            recipe: effect("ballyhoo"),
         },
+        // 5. Bars (pixel strips). A chase along them is the one strip
+        //    effect that reads from the back of the room.
         FaderSpec {
-            name: "Strobe",
+            name: "BARS",
+            css: "#d84898",
+            recipe: effect("strip chase"),
+        },
+        // 6. Back wall, breathing. Slow, so it sits under a verse
+        //    without becoming the verse.
+        FaderSpec {
+            name: "BACK",
+            css: "#5a48d8",
+            recipe: effect("back breathe"),
+        },
+        // 7. Strobe. Far right of the effects, and the library's plain
+        //    strobe — random pops are a different, rarer thing. Pushed
+        //    up rather than fired, because on a fader the operator
+        //    chooses how much strobe, and a strobe at 30% on top of a
+        //    look is usable where a full strobe is a moment.
+        FaderSpec {
+            name: "STROBE",
             css: "#ffffff",
-            recipe: chase(
-                Selection::Tag("Luminaire_LED_Wash".into()),
-                Attribute::Dimmer,
-                0.0,
-                1.0,
-                Waveform::Square,
-                0.0,
-                // A quarter of a beat: fast enough to read as a strobe
-                // at any sane tempo, and still tied to the rate master.
-                0.25,
-            ),
+            recipe: effect("strobe"),
+        },
+        // 8. The audience. Blinders are the one fader an operator rides
+        //    *up* for a whole chorus and not an effect at all: a level,
+        //    open white. Last, at the edge, where a hand finds it in
+        //    the dark.
+        FaderSpec {
+            name: "BLIND",
+            css: "#fff0c0",
+            recipe: look(role("Audience"), "Open White", 1.0),
         },
     ]
+}
+
+/// The second page: movement and colour.
+///
+/// Page one is levels and textures an operator rides all night; this
+/// page is the things reached for on a chorus — the movers doing
+/// something, the wash changing colour, the beams and strips running.
+/// Same shape as page one so a hand that has learned "fader four is the
+/// movers" is still right after a page turn: the *family* stays in the
+/// slot, only what it plays changes.
+// r[impl playback.pages] - a second page of eight assignments
+pub fn movement_bank() -> Vec<FaderSpec> {
+    vec![
+        // 1. Movers, windmilling — the big shape.
+        FaderSpec {
+            name: "WINDMILL",
+            css: "#d8a848",
+            recipe: effect("windmill"),
+        },
+        // 2. Movers, a pan wave — the small shape, for a verse.
+        FaderSpec {
+            name: "PAN WAVE",
+            css: "#e0b860",
+            recipe: effect("pan wave"),
+        },
+        // 3–4. The wash in colour: a two-colour chase, then the
+        //    rainbow that reads from the back of the room.
+        FaderSpec {
+            name: "2 COLOUR",
+            css: "#d85a98",
+            recipe: effect("two colour chase"),
+        },
+        FaderSpec {
+            name: "RAINBOW",
+            css: "#8860d8",
+            recipe: effect("rainbow"),
+        },
+        // 5–6. Beams: zoom breathing and an iris chase, the two beam
+        //    textures that read through haze.
+        FaderSpec {
+            name: "ZOOM",
+            css: "#48c8d8",
+            recipe: effect("zoom pulse"),
+        },
+        FaderSpec {
+            name: "IRIS",
+            css: "#6ee0d0",
+            recipe: effect("iris chase"),
+        },
+        // 7. Bars, chasing — the same slot family as page one.
+        FaderSpec {
+            name: "STRIPS",
+            css: "#d84898",
+            recipe: effect("strip chase"),
+        },
+        // 8. Blinders chasing rather than held: still the audience, at
+        //    the edge where a hand finds it.
+        FaderSpec {
+            name: "BLINDERS",
+            css: "#fff0c0",
+            recipe: effect("blinder chase"),
+        },
+    ]
+}
+
+/// Every page of the bank, in page order. Page one is what the app
+/// opens on.
+pub fn bank_pages() -> Vec<Vec<FaderSpec>> {
+    vec![default_bank(), movement_bank()]
+}
+
+/// The neutral stage-lit look — faces, wash and back at a working
+/// level, warm, nothing moving. One key; held, not fired.
+pub fn punt_look() -> Recipe {
+    stage_look(0.6, "Warm White")
+}
+
+/// Everything on stage to zero while the key is down. A momentary
+/// blackout the operator plays against a drop, or holds through a
+/// mistake.
+pub fn rig_drop() -> Recipe {
+    Recipe::new(stage(), RecipeApply::Dimmer(0.0))
+}
+
+/// The flash keys, top to bottom.
+pub fn flash_keys() -> Vec<KeySpec> {
+    vec![
+        // The one accent that reads through any colour.
+        KeySpec {
+            label: "WHITE",
+            action: KeyAction::Flash(role("Wash"), BumpKind::White),
+        },
+        // A hit on the whole stage: what a snare wants.
+        KeySpec {
+            label: "STAB",
+            action: KeyAction::Flash(stage(), BumpKind::Level),
+        },
+        // Blinders into the crowd, and gone.
+        KeySpec {
+            label: "BLIND",
+            action: KeyAction::Flash(role("Audience"), BumpKind::White),
+        },
+        // The strobe as a moment rather than a level — a burst on the
+        // wash. Where a strobe fader is a decision, this is a reflex.
+        KeySpec {
+            label: "BURST",
+            action: KeyAction::Flash(role("Wash"), BumpKind::Burst),
+        },
+        // Held keys. Down is on; up is off; nothing lingers.
+        KeySpec {
+            label: "DROP",
+            action: KeyAction::Hold(rig_drop()),
+        },
+        KeySpec {
+            label: "PUNT",
+            action: KeyAction::Hold(punt_look()),
+        },
+    ]
+}
+
+/// Whether the stage look touches only the dimmer and colour — a punt
+/// that moved the movers would be a surprise, not a safe place.
+#[allow(dead_code)]
+fn is_static(recipe: &Recipe) -> bool {
+    recipe.steps.len() == 1
+        && recipe.steps[0].apply.iter().all(|a| {
+            matches!(
+                a,
+                RecipeApply::Dimmer(_) | RecipeApply::Color(_) | RecipeApply::Raw(_)
+            )
+        })
+        && !recipe.steps[0]
+            .apply
+            .iter()
+            .any(|a| matches!(a, RecipeApply::Raw(v) if v.iter().any(|(attr, _)| *attr == Attribute::Pan || *attr == Attribute::Tilt)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ignition_core::FADERS;
+
+    /// Every role name the bank refers to, walked out of its selections.
+    fn roles_in(selection: &Selection, out: &mut Vec<String>) {
+        match selection {
+            Selection::Role(name) => out.push(name.clone()),
+            Selection::Union(items) | Selection::Intersect(items) => {
+                items.iter().for_each(|s| roles_in(s, out))
+            }
+            Selection::Except { of, minus } => {
+                roles_in(of, out);
+                roles_in(minus, out);
+            }
+            Selection::Where { of, .. } | Selection::Order { of, .. } => roles_in(of, out),
+            _ => {}
+        }
+    }
+
+    fn profile() -> ignition_core::Profile {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/profiles/ignition.ig-profile"
+        );
+        serde_json::from_str(&std::fs::read_to_string(path).expect("profile file"))
+            .expect("profile parses")
+    }
+
+    #[test]
+    fn the_bank_fills_every_fader_and_no_more() {
+        for (page, bank) in bank_pages().iter().enumerate() {
+            assert_eq!(bank.len(), FADERS, "page {page}");
+        }
+    }
+
+    /// The library is curated by someone else; this is the contract.
+    #[test]
+    fn every_effect_the_bank_names_is_in_the_library() {
+        let library = ignition_core::effects::library();
+        for name in [
+            "chase",
+            "sparkle",
+            "ballyhoo",
+            "strip chase",
+            "back breathe",
+            "strobe",
+            "windmill",
+            "pan wave",
+            "two colour chase",
+            "rainbow",
+            "zoom pulse",
+            "iris chase",
+            "blinder chase",
+        ] {
+            assert!(library.contains_key(name), "library has no {name:?}");
+        }
+        // And building the bank does not panic.
+        let _ = bank_pages();
+        let _ = flash_keys();
+    }
+
+    /// Two pages, and a label an operator can read under a 44px track.
+    /// r[verify playback.pages]
+    #[test]
+    fn the_bank_has_a_second_page_with_short_labels() {
+        let pages = bank_pages();
+        assert!(pages.len() >= 2);
+        for bank in &pages {
+            for spec in bank {
+                assert!(spec.name.len() <= 8, "{:?} will wrap", spec.name);
+            }
+        }
+    }
+
+    #[test]
+    fn every_role_the_bank_uses_is_declared_by_the_profile() {
+        let profile = profile();
+        let declared: Vec<&str> = profile
+            .roles
+            .iter()
+            .filter(|r| r.kind == ignition_core::RoleKind::Group)
+            .map(|r| r.name.as_str())
+            .collect();
+        let mut used = Vec::new();
+        for spec in bank_pages().into_iter().flatten() {
+            roles_in(&spec.recipe.target, &mut used);
+        }
+        for key in flash_keys() {
+            match key.action {
+                KeyAction::Flash(sel, _) => roles_in(&sel, &mut used),
+                KeyAction::Hold(recipe) => roles_in(&recipe.target, &mut used),
+            }
+        }
+        // `Key`, `Wash` and `Back` are required by the profile; the rest
+        // are optional, and a fader on a role the venue has not bound
+        // resolves to nothing and simply does nothing — see
+        // `r[profile.required-and-optional]`.
+        for name in ["Key", "Wash", "Back", "Movers", "Bars", "Beams", "Audience"] {
+            used.push(name.to_string());
+        }
+        for role in used {
+            assert!(
+                declared.contains(&role.as_str()),
+                "role {role:?} is not in the default profile"
+            );
+        }
+    }
+
+    /// One slider retimes the whole bank: every effect on it is slaved
+    /// to the `Rate` master rather than to whatever the library chose.
+    #[test]
+    fn every_effect_fader_follows_the_rate_master() {
+        for spec in bank_pages().into_iter().flatten() {
+            if spec.recipe.steps.len() > 1 {
+                assert_eq!(
+                    spec.recipe.timing.speed,
+                    Speed::Master("Rate".into()),
+                    "{} is not on the Rate master",
+                    spec.name
+                );
+            }
+        }
+    }
+
+    /// The colours the looks name ship with the profile.
+    #[test]
+    fn the_looks_use_colours_the_profile_ships() {
+        let profile = profile();
+        let colours: Vec<&str> = profile.colors.iter().map(|c| c.name.as_str()).collect();
+        for name in ["Warm White", "Open White"] {
+            assert!(colours.contains(&name), "profile has no colour {name:?}");
+        }
+    }
+
+    #[test]
+    fn the_punt_look_is_static_and_lit() {
+        let punt = punt_look();
+        assert!(is_static(&punt));
+        assert!(
+            punt.steps[0]
+                .apply
+                .iter()
+                .any(|a| matches!(a, RecipeApply::Dimmer(l) if (*l - 0.6).abs() < 1e-6))
+        );
+        assert!(is_static(&rig_drop()));
+    }
 }

@@ -7,7 +7,7 @@
 //! *message*, which is what a hardware surface or a remote will send
 //! later without the UI having to change shape.
 
-use ignition_core::{Fader, Selection};
+use ignition_core::{FADERS, Fader, KeyAction, Recipe, Selection};
 
 /// `Deselect` and `Section` have no control on the surface yet.
 ///
@@ -25,6 +25,8 @@ pub enum Command {
     Deselect,
     /// A colour palette entry, by name.
     Color(String),
+    /// A colour split — a named multi-colour palette entry, by name.
+    Split(String),
     /// A focus palette entry, by name.
     Focus(String),
     /// Intensity for the current selection.
@@ -33,7 +35,46 @@ pub enum Command {
     Release,
     ClearValues,
     Fader(usize, Box<Fader>),
+    /// Assign a fader on a page that need not be the current one — how
+    /// the bank's second page is loaded before anyone has turned to it.
+    /// Pages that do not exist yet are created up to `page`.
+    FaderOnPage {
+        page: usize,
+        index: usize,
+        fader: Box<Fader>,
+    },
     Level(usize, f32),
+    /// A playback key on a fader: flash, toggle, swap, kill or black.
+    /// `down` is the hand going on or coming off — toggle and kill
+    /// ignore the release, the others are held.
+    Key {
+        index: usize,
+        action: KeyAction,
+        down: bool,
+    },
+    /// Turn the fader bank to another page. A fader that is up stays
+    /// live on its old assignment until it is brought back to match.
+    Page(PageMove),
+    /// How long a punched value takes to arrive, in beats. Zero snaps.
+    ProgramTime(f32),
+    /// Blind: the programmer's values are held and previewed in the
+    /// viewport but do not reach output.
+    Blind(bool),
+    /// The selection to open white at full, above every layer.
+    Highlight(bool),
+    /// Everything *not* selected capped low.
+    Lowlight(bool),
+    /// The `Tap` master, in BPM — what the sound-in's beat detector
+    /// drives, and what a tap key would. Distinct from `Rate`, which is
+    /// the surface's own master the bank is slaved to.
+    Tap(f32),
+    /// Band levels from the audio input, 0..=1 each. Stored on the
+    /// playback so a recipe can be driven by the kick later.
+    SoundLevels {
+        low: f32,
+        mid: f32,
+        high: f32,
+    },
     /// The master rate every fader's phaser is slaved to, in BPM.
     Rate(f32),
     /// How far every effect swings, 0..=1 — the control an operator
@@ -51,8 +92,21 @@ pub enum Command {
     /// Carries the same shape a charted hit fires, so the two are one
     /// gesture arriving from two places rather than two features that
     /// happen to look alike.
-    Flash(String, ignition_core::BumpKind),
+    ///
+    /// A selection rather than a role, because a stab is on the whole
+    /// rig and a blinder hit is on one role — the same key shape wants
+    /// both.
+    Flash(Selection, ignition_core::BumpKind),
+    /// Hold a look at full for as long as a key is down; `None` is the
+    /// key coming up. The punt look and the rig drop — the two keys an
+    /// operator reaches for when the *show* is wrong, which is why they
+    /// are held rather than fired: the hand is the release.
+    Hold(Option<Box<Recipe>>),
+    /// GO on the song list.
     Go,
+    /// GO on the look list — the list the operator steps through by
+    /// hand, beneath the song's.
+    LookGo,
     Cue(usize),
     /// Transport. The song is loaded once at startup; these move it.
     Play,
@@ -62,6 +116,20 @@ pub enum Command {
     /// Move the playhead to a fraction of the song, 0..=1 — what
     /// dragging the progress bar sends.
     Scrub(f32),
+    /// Move the playhead to a musical position — what clicking a hit in
+    /// the list sends, since a hit is not a cue and has no index to GO.
+    Locate(ignition_core::Bars),
+}
+
+/// Where a page turn goes. `Set` has no on-screen control — a remote's
+/// `{"page": n}` binding sends it — and is kept for the same wire-
+/// contract reason `Deselect` is.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageMove {
+    Next,
+    Prev,
+    Set(usize),
 }
 
 pub type Sender = std::sync::mpsc::Sender<Command>;
@@ -88,6 +156,26 @@ pub struct Playhead {
     pub secs: f32,
     pub length: f32,
     pub playing: bool,
+    /// Index into the show's triggers of the hit that fired last, while
+    /// it is still ringing. `None` between hits.
+    pub hit: Option<usize>,
+    /// Which page the fader bank is on, and how many there are.
+    pub page: usize,
+    pub pages: usize,
+    /// Slots still playing the previous page's fader because they were
+    /// up when the page turned — drawn as latched until the hand brings
+    /// the physical fader back to match.
+    pub latched: [bool; FADERS],
+    /// Slots latched on by a toggle key.
+    pub toggled: [bool; FADERS],
+    /// Whether the programmer is blind, so the surface can say so —
+    /// the viewport is showing a preview, not the output.
+    pub blind: bool,
+    /// The `Tap` master as the engine has it — what the sound-in
+    /// detector last decided, or the default.
+    pub tap_bpm: f32,
+    /// The audio input's band levels, for the meters.
+    pub sound: [f32; 3],
 }
 
 impl Playhead {

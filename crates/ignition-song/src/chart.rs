@@ -46,6 +46,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// The track a chart is read from.
+// r[impl song.chart]
 pub const TRACK: &str = "HITS";
 
 /// The `Connected` marker pitch.
@@ -67,6 +68,8 @@ const CONNECTED: u8 = 96;
 /// drum sits, when what was actually asked for is the gentlest thing in
 /// the vocabulary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+// r[impl song.chart.class]
+// r[impl song.chart.class-is-intensity]
 pub enum HitClass {
     /// The softest tier — a light touch, not a bass drum.
     Kick,
@@ -91,6 +94,7 @@ impl HitClass {
         }
     }
 
+    // r[impl song.chart.class] - pitches outside the schema are ignored
     fn from_pitch(pitch: u8) -> Option<Self> {
         Some(match pitch {
             48 => HitClass::Kick,
@@ -120,6 +124,7 @@ impl HitClass {
     /// wherever one is wanted — and anything that read as a "hit" on
     /// them would be a rig that never stops flashing. What they are for
     /// is pulse. The band hits are what land.
+    // r[impl song.chart.class-is-intensity] - fixed weight per class, soft tiers well under the band hits
     pub fn weight(self) -> f32 {
         match self {
             HitClass::Kick => 0.08,
@@ -152,6 +157,7 @@ impl ChartHit {
     /// reason, so scaling by them made later hits quietly weaker than
     /// identical earlier ones. A class already says how big a hit is.
     /// If a hit needs to be bigger, it should be a bigger class.
+    // r[impl song.chart.class-is-intensity] - class weight only, velocity not applied
     pub fn intensity(&self) -> f32 {
         self.class.weight()
     }
@@ -159,6 +165,7 @@ impl ChartHit {
 
 /// A run of hits that form one musical idea — one `Connected` note.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// r[impl song.chart.figure]
 pub struct Group {
     pub start: Bars,
     pub end: Bars,
@@ -194,10 +201,12 @@ impl HitChart {
 ///
 /// An absent track is not an error — most projects have no chart, and a
 /// show without one is still a show.
+// r[impl song.chart]
+// r[impl song.hits.detection-is-a-draft] - the chart is read from the project, and is the authority where it exists
 pub fn read(project: impl AsRef<Path>, song: &SongMap) -> Result<HitChart> {
     let path = project.as_ref();
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("reading {}", path.display()))?;
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let parsed = parse_rpp_file(&text).map_err(|e| anyhow::anyhow!("parsing project: {e:?}"))?;
     let project = ReaperProject::from_rpp_project(&parsed)
         .map_err(|e| anyhow::anyhow!("reading project: {e}"))?;
@@ -239,10 +248,7 @@ struct Note {
 /// Deltas are cumulative and per-*event*, not per-note, so the running
 /// clock has to advance on every event including the offs — dropping
 /// them would leave every note after the first at the wrong position.
-fn notes_of(
-    midi: &daw::file::types::item::MidiSource,
-    item_offset_secs: f64,
-) -> Vec<Note> {
+fn notes_of(midi: &daw::file::types::item::MidiSource, item_offset_secs: f64) -> Vec<Note> {
     let ppq = f64::from(midi.ticks_per_qn.max(1));
     let _ = item_offset_secs;
     let mut clock = 0u64;
@@ -280,6 +286,8 @@ fn notes_of(
 }
 
 /// Turns decoded notes into hits and the groups spanning them.
+// r[impl song.chart.class] - note positions through the tempo map from quarter-notes
+// r[impl song.chart.figure] - membership by overlap
 fn assemble(notes: Vec<Note>, song: &SongMap) -> HitChart {
     let at = |qn: f64| -> Bars {
         // Quarter notes from the project start, through the tempo map,
@@ -329,6 +337,7 @@ fn assemble(notes: Vec<Note>, song: &SongMap) -> HitChart {
 }
 
 /// Quarter notes from the project start, as seconds.
+// r[impl song.chart.class] - quarter-notes converted segment by segment through the tempo map
 fn qn_to_secs(qn: f64, song: &SongMap) -> f64 {
     // Walk the tempo map rather than assuming one tempo: quarter notes
     // are musical time and seconds are not, which is the whole reason
@@ -370,7 +379,13 @@ mod tests {
     fn song() -> SongMap {
         SongMap {
             name: "t".into(),
-            tempo: TempoMap::constant(120.0, TimeSignature { numerator: 4, denominator: 4 }),
+            tempo: TempoMap::constant(
+                120.0,
+                TimeSignature {
+                    numerator: 4,
+                    denominator: 4,
+                },
+            ),
             sections: Vec::new(),
         }
     }
@@ -388,6 +403,7 @@ mod tests {
     /// as one idea, which is what lets a programmer throw them left,
     /// centre and right instead of flashing three times in one place.
     #[test]
+    /// r[verify song.chart.figure]
     fn a_connected_note_gathers_its_hits() {
         let chart = assemble(
             vec![
@@ -407,6 +423,7 @@ mod tests {
     /// Hits outside every span stay ungrouped rather than being swept
     /// into the nearest one — an isolated stab is its own idea.
     #[test]
+    /// r[verify song.chart.figure]
     fn hits_outside_a_span_stay_ungrouped() {
         let chart = assemble(
             vec![
@@ -424,6 +441,7 @@ mod tests {
     /// become hits — the track is a place a person works, and a stray
     /// note should be ignored rather than lighting the room.
     #[test]
+    /// r[verify song.chart.class]
     fn unknown_pitches_are_ignored() {
         let chart = assemble(vec![note(0.0, 0.1, 42, 100)], &song());
         assert!(chart.is_empty());
@@ -433,9 +451,20 @@ mod tests {
     /// chart drift for reasons that are not musical, and scaling by them
     /// made late hits weaker than identical early ones.
     #[test]
+    /// r[verify song.chart.class-is-intensity]
     fn velocity_does_not_change_intensity() {
-        let soft = ChartHit { at: Bars::bar(1), class: HitClass::High, velocity: 40, group: None };
-        let hard = ChartHit { at: Bars::bar(1), class: HitClass::High, velocity: 127, group: None };
+        let soft = ChartHit {
+            at: Bars::bar(1),
+            class: HitClass::High,
+            velocity: 40,
+            group: None,
+        };
+        let hard = ChartHit {
+            at: Bars::bar(1),
+            class: HitClass::High,
+            velocity: 127,
+            group: None,
+        };
         assert_eq!(soft.intensity(), hard.intensity());
         assert!((hard.intensity() - HitClass::High.weight()).abs() < 1e-6);
     }
@@ -444,6 +473,7 @@ mod tests {
     /// both must stay well under a band hit — otherwise the rig never
     /// stops flashing and nothing reads as an accent.
     #[test]
+    /// r[verify song.chart.class-is-intensity]
     fn pulse_classes_stay_under_the_band_hits() {
         assert!(HitClass::Kick.weight() < HitClass::Snare.weight());
         assert!(HitClass::Snare.weight() < HitClass::Low.weight());

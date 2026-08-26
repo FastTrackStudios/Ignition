@@ -8,7 +8,6 @@
 //! and light: no geometry is rebuilt to move a mover.
 
 use crate::beam::{BeamMaterial, beam_mesh, beam_transform};
-use crate::channel_map::channel_map_for;
 use crate::dmx::DmxUniverses;
 use crate::fixture_profile::{
     BEAM_CONE_SEGMENTS, BeamThrow, BodyVisual, LUMENS_PER_WATT, SHAFT_CANDELA_THRESHOLD,
@@ -153,6 +152,10 @@ pub struct VizSettings {
     /// new syntax: a show file that had to declare which one it meant
     /// would be a show file that breaks when the content changes.
     pub canvas_content: std::collections::HashMap<String, String>,
+    /// Where each canvas's cover-crop is centred in its source, 0..=1
+    /// (top/left to bottom/right); absent means the middle. How a wide
+    /// canvas is told to show the band with the face in it.
+    pub canvas_focus: std::collections::HashMap<String, f32>,
     /// Where the asset server reads from — see `VizConfig::assets_dir`.
     ///
     /// Needed here because a clip is *not* loaded through the asset
@@ -415,10 +418,36 @@ impl CanvasClock {
     }
 }
 
-/// A canvas whose source is a clip rather than a still.
+/// What a moving canvas is showing: a decoded clip, or a generated
+/// picture. Both present against the same clock and hand over the same
+/// RGBA frames, which is what lets a show swap one for the other.
+// r[impl canvas.clip-is-a-source]
+enum CanvasSource {
+    Clip(VideoSource),
+    Procedural(crate::canvas::ProceduralSource),
+}
+
+impl CanvasSource {
+    fn size(&self) -> (u32, u32) {
+        match self {
+            CanvasSource::Clip(v) => v.size(),
+            CanvasSource::Procedural(p) => p.size(),
+        }
+    }
+
+    fn frame_at(&mut self, secs: f64) -> Option<&[u8]> {
+        match self {
+            CanvasSource::Clip(v) => v.frame_at(secs),
+            CanvasSource::Procedural(p) => p.frame_at(secs),
+        }
+    }
+}
+
+/// A canvas whose source moves — a clip or a procedural recipe — rather
+/// than a still.
 struct CanvasVideo {
     canvas: String,
-    source: VideoSource,
+    source: CanvasSource,
     image: Handle<Image>,
 }
 
@@ -456,9 +485,10 @@ fn blank_frame((width, height): (u32, u32)) -> Image {
 /// Puts the frame that belongs at the current clock into each playing
 /// canvas's texture.
 ///
-/// Nothing here decodes: `frame_at` only ever hands over what a worker
-/// thread has already produced, and answers `None` when that is what is
-/// on screen already. `None` is the *usual* answer — the visualizer runs
+/// Nothing here decodes: a clip's `frame_at` only ever hands over what a
+/// worker thread has already produced, and a procedural source renders
+/// at most `PROC_MAX_WIDTH` wide on the spot. Both answer `None` when
+/// what is on screen is already right. `None` is the *usual* answer — the visualizer runs
 /// at 120 fps and a clip at 30 — and it is what keeps this from
 /// re-uploading eight megabytes four times per clip frame.
 pub fn update_canvas_videos(
@@ -662,6 +692,15 @@ pub fn spawn_venue(
                 crate::props::spawn_drum_kit(&mut commands, &asset_server, g);
             } else if g.name.starts_with("Mic") {
                 crate::props::spawn_mic_stand(&mut commands, &mut meshes, &mut standard, g);
+            } else if let Some(prop) = crate::props::glb_prop_for(&g.name) {
+                crate::props::spawn_glb_prop(
+                    &mut commands,
+                    &asset_server,
+                    &mut meshes,
+                    &mut standard,
+                    g,
+                    prop,
+                );
             } else {
                 commands.spawn((
                     Mesh3d(unit_cube.clone()),
@@ -682,9 +721,20 @@ pub fn spawn_venue(
     // the difference between three screens playing one video and three
     // screens each playing their own copy.
     let slices = crate::canvas::slices(&venue.screens);
+    let aspects = crate::canvas::canvas_aspects(&venue.screens);
     let mut canvas_content: std::collections::HashMap<String, Handle<Image>> =
         std::collections::HashMap::new();
+    // Each canvas's source aspect, so a slice can be cover-fitted rather
+    // than stretched. A still whose size cannot be read is taken as
+    // 16:9, which every clip in the folder is.
+    let mut source_aspect: std::collections::HashMap<String, f32> =
+        std::collections::HashMap::new();
     let mut playing: Vec<CanvasVideo> = Vec::new();
+    // Two canvases showing the same clip share one decoder and one
+    // texture. The side TVs both play the same loop; decoding it twice
+    // was two threads and two uploads for one picture.
+    let mut by_path: std::collections::HashMap<String, Handle<Image>> =
+        std::collections::HashMap::new();
     for screen in &venue.screens {
         let canvas = screen.canvas_name().to_string();
         if canvas_content.contains_key(&canvas) {
@@ -695,19 +745,40 @@ pub fn spawn_venue(
             .get(&canvas)
             .or(settings.screen_content.as_ref());
         let Some(path) = path else { continue };
+        if let Some(handle) = by_path.get(path) {
+            canvas_content.insert(canvas.clone(), handle.clone());
+            if let Some(aspect) = playing.iter().find(|v| v.image == *handle).map(|v| {
+                let (w, h) = v.source.size();
+                w as f32 / h.max(1) as f32
+            }) {
+                source_aspect.insert(canvas, aspect);
+            }
+            continue;
+        }
         match crate::video::content_kind(path) {
             ContentKind::Still => {
+                let file = std::path::Path::new(&settings.assets_dir).join(path);
+                if let Ok((w, h)) = image::image_dimensions(&file)
+                    && h > 0
+                {
+                    source_aspect.insert(canvas.clone(), w as f32 / h as f32);
+                }
                 canvas_content.insert(canvas, asset_server.load(path.clone()));
             }
             ContentKind::Video => {
                 let file = std::path::Path::new(&settings.assets_dir).join(path);
                 match VideoSource::open(&file) {
                     Ok(source) => {
+                        let (w, h) = source.size();
+                        if h > 0 {
+                            source_aspect.insert(canvas.clone(), w as f32 / h as f32);
+                        }
                         let handle = images.add(blank_frame(source.size()));
                         canvas_content.insert(canvas.clone(), handle.clone());
+                        by_path.insert(path.clone(), handle.clone());
                         playing.push(CanvasVideo {
                             canvas,
-                            source,
+                            source: CanvasSource::Clip(source),
                             image: handle,
                         });
                     }
@@ -722,6 +793,34 @@ pub fn spawn_venue(
                     ),
                 }
             }
+            // r[impl canvas.procedural] - a sweep on the back wall with no clip
+            ContentKind::Procedural => match crate::canvas::parse_procedural(path) {
+                Ok(recipe) => {
+                    // Rendered at the canvas's own aspect, so the
+                    // cover-fit below is the identity and the picture
+                    // spans the panels edge to edge.
+                    let aspect = aspects.get(&canvas).copied().unwrap_or(16.0 / 9.0);
+                    let source = crate::canvas::ProceduralSource::new(recipe, aspect);
+                    let (w, h) = source.size();
+                    source_aspect.insert(canvas.clone(), w as f32 / h.max(1) as f32);
+                    let handle = images.add(blank_frame(source.size()));
+                    canvas_content.insert(canvas.clone(), handle.clone());
+                    // Not shared through `by_path`: two canvases of
+                    // different aspect asking for the same recipe want
+                    // two renders.
+                    playing.push(CanvasVideo {
+                        canvas,
+                        source: CanvasSource::Procedural(source),
+                        image: handle,
+                    });
+                }
+                Err(error) => tracing::warn!(
+                    canvas,
+                    content = path,
+                    error,
+                    "viz: canvas recipe did not parse; that screen stays dark"
+                ),
+            },
         }
     }
     commands.insert_resource(CanvasVideos(Mutex::new(playing)));
@@ -765,7 +864,19 @@ pub fn spawn_venue(
                         slices
                             .get(&g.name)
                             .copied()
-                            .unwrap_or(crate::canvas::Slice::FULL),
+                            .unwrap_or(crate::canvas::Slice::FULL)
+                            .cover_at(
+                                aspects.get(g.canvas_name()).copied().unwrap_or(16.0 / 9.0),
+                                source_aspect
+                                    .get(g.canvas_name())
+                                    .copied()
+                                    .unwrap_or(16.0 / 9.0),
+                                settings
+                                    .canvas_focus
+                                    .get(g.canvas_name())
+                                    .copied()
+                                    .unwrap_or(0.5),
+                            ),
                     )),
                 ),
                 MeshMaterial3d(display(&mut standard, content.clone())),
@@ -1108,24 +1219,20 @@ pub fn update_live_fixtures(
     >,
     mut emitters: Query<(&BeamEmitter, &mut EmitterState)>,
     child_of: Query<&ChildOf>,
+    live_dmx: Res<LiveDmx>,
 ) {
-    let Some(dmx) = dmx else { return };
+    let Some(_dmx) = dmx else { return };
     let venue = &venue.0;
 
     // Resolve once, so every entity family below agrees on the same
     // frame's DMX rather than each re-reading it.
     let mut resolved: Vec<Option<Live>> = (0..venue.fixtures.len()).map(|_| None).collect();
     for (index, f) in venue.fixtures.iter().enumerate() {
-        if !f.patched {
-            continue;
-        }
-        let manufacturer = f.manufacturer.as_deref().unwrap_or("");
-        let model = f.model.as_deref().unwrap_or("");
-        let (Some(addr), Some(map)) = (f.dmx_address(), channel_map_for(manufacturer, model))
-        else {
+        let Some(Some(live)) = live_dmx.0.get(index) else {
             continue;
         };
-        let live = dmx.0.resolve(&addr, &map);
+        let manufacturer = f.manufacturer.as_deref().unwrap_or("");
+        let model = f.model.as_deref().unwrap_or("");
 
         // A fixture with no colour channel at all (a hazer's plain Dimmer
         // map) still emits — as white, since a hazer genuinely does haze
@@ -1367,25 +1474,15 @@ pub fn update_beams(
 /// the rig reads as a rig at a glance — which fixtures are up, in what
 /// colour — rather than as a static model.
 pub fn update_fixture_bodies(
-    venue: Res<VenueRes>,
     dmx: Option<Res<DmxRes>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     bodies: Query<(&Fixture, &FixtureBody)>,
+    live_dmx: Res<LiveDmx>,
 ) {
-    let Some(dmx) = dmx else { return };
-    let venue = &venue.0;
+    let Some(_dmx) = dmx else { return };
 
     for (fixture, body) in &bodies {
-        let Some(record) = venue.fixtures.get(fixture.index) else {
-            continue;
-        };
-        let manufacturer = record.manufacturer.as_deref().unwrap_or("");
-        let model = record.model.as_deref().unwrap_or("");
-
-        let live = record
-            .dmx_address()
-            .zip(channel_map_for(manufacturer, model))
-            .map(|(addr, map)| dmx.0.resolve(&addr, &map));
+        let live = live_dmx.0.get(fixture.index).copied().flatten();
 
         let emissive = match live {
             Some(live) if live.dimmer > MIN_VISIBLE_DIMMER => {
@@ -1401,10 +1498,44 @@ pub fn update_fixture_bodies(
             _ => LinearRgba::BLACK,
         };
 
+        // `get_mut` marks the material modified whether or not anything
+        // changed, and a modified material is re-uploaded — 69 bodies
+        // re-uploaded every frame for a rig sitting still. Look first.
+        let unchanged = materials
+            .get(&body.material)
+            .is_some_and(|m| m.emissive == emissive);
+        if unchanged {
+            continue;
+        }
         if let Some(mut material) = materials.get_mut(&body.material) {
             material.emissive = emissive;
         }
     }
+}
+
+/// This frame's DMX, decoded once for every patched fixture.
+///
+/// `update_live_fixtures` and `update_fixture_bodies` both need it, and
+/// each used to resolve the whole rig for itself — twice the byte
+/// reads, twice the lock traffic, for the same answer.
+#[derive(Resource, Default)]
+pub struct LiveDmx(pub Vec<Option<crate::dmx::ResolvedAttributes>>);
+
+/// Decodes the rig's bytes for the frame. Runs ahead of everything that
+/// reads `LiveDmx`.
+pub fn resolve_live_dmx(venue: Res<VenueRes>, dmx: Option<Res<DmxRes>>, mut out: ResMut<LiveDmx>) {
+    let Some(dmx) = dmx else { return };
+    let venue = &venue.0;
+    let patch = venue.patch();
+    out.0.clear();
+    out.0
+        .extend(venue.fixtures.iter().enumerate().map(|(index, f)| {
+            if !f.patched {
+                return None;
+            }
+            let entry = patch.get(index)?;
+            Some(dmx.0.resolve(&entry.address, &entry.map))
+        }));
 }
 
 /// Applies the ambient dial to Bevy's global ambient light.

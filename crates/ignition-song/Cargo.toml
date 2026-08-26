@@ -17,7 +17,13 @@ default = []
 # song's shape is cheap and this is not: it pulls audio decoding, a
 # device backend and a render graph, none of which a tool that only
 # wants the section list should pay for.
-play = ["dep:daw-proto", "dep:tracing-subscriber", "dep:tokio", "daw/standalone-rpp"]
+play = ["dep:daw-proto", "dep:daw-audio-io", "dep:tracing-subscriber", "dep:tokio", "daw/standalone-rpp"]
+# MIDI Time Code from a MIDI input port. The decoder itself is always
+# built and tested; this only adds the port.
+mtc = ["dep:midir"]
+# LTC from an audio input. Likewise: the decoder is always built, the
+# cpal input stream is what this pays for.
+ltc = ["dep:cpal"]
 
 # Declared so `playsong` can carry `required-features`. Cargo builds
 # every `src/bin/*.rs` regardless of features otherwise, and a plain
@@ -48,6 +54,10 @@ required-features = ["play"]
 ignition-core.workspace = true
 daw.workspace = true
 daw-proto = { path = "../../../daw/crates/daw/proto", optional = true }
+# Only for `AudioIoPrefs`, to ask the output stream for a small buffer
+# — the playhead advances once per callback, so the buffer *is* the
+# clock's resolution.
+daw-audio-io = { path = "../../../daw/features/audio/daw-audio-io", optional = true }
 # The `.lrc` parser. keyflow-proto rather than keyflow-sync: sync is the
 # alignment crate and pulls audio decoding with it, which reading a text
 # file has no business costing. Syllable timing will come from sync
@@ -62,3 +72,5 @@ serde_json.workspace = true
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+midir = { version = "0.11", optional = true }
+cpal = { version = "0.18", optional = true }

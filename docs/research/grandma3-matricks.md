@@ -197,3 +197,105 @@ The thing to resist: implementing these as effect types. Every one of them is a
 property of *how a value meets a selection*. Built as effects, a static look
 cannot have them — and half of what makes an MA3 rig look programmed rather than
 chased is a static cue with a delay fan on it.
+
+## Named MAtricks idioms
+
+What working programmers actually keep as MAtricks pool items, Eos fan/effect
+groupings, Hog fan modes and MagicQ FX parts — and what each of them is *for*.
+Read on 2026-08-26:
+
+- grandMA3 help, [MAtricks and Shuffle](https://help.malighting.com/grandMA3/2.0/HTML/matricks.html)
+  — Blocks, Groups, Wings, Width, Shuffle (0–32767, "matching values produce
+  identical shuffled orders"), Shift ("shifted within the selection grid
+  positions" per axis, negative goes the other way), Invert per axis, and the
+  four layers: Fade, Delay, Speed, Phase from/to.
+- grandMA3 help, [MAtricks Transform](https://help.malighting.com/grandMA3/2.3/HTML/matricks_transform.html)
+  — Mirror "mirrors values depending on the other MAtricks settings, such as
+  Blocks, Groups, and Wings"; an odd count has a "center fixture marked as an
+  edge fixture" which "does not follow all values to keep the symmetry" (the
+  eleven-fixture circle: "will only tilt but not pan").
+- MA forum, [Reverse Selection and Invert Wings](https://forum.malighting.com/forum/thread/8669-reverse-selection-and-invert-wings/)
+  — Wings=2 is the "center out" idiom for colour bumps; "1 thru 0" delays get
+  normalised, so reversing is done with Invert / grid rotation rather than by
+  swapping from and to.
+- MA forum, [Modify selection order via MAtricks](https://forum.malighting.com/forum/thread/9084-modify-selection-order-via-matricks/)
+  — "MAtricks are not involved in inverting selection orders of fixtures";
+  order is the grid's job, MAtricks address the values. Ours differ here on
+  purpose: a Trick *is* a reorder, because a selection is the only type.
+- MA forum, [Checkerboard Odd/Even Selection](https://forum.malighting.com/forum/thread/9173-checkerboard-odd-even-selection/)
+  — odds/evens on a matrix is a MAtricks preset plus `Set + Next` on Y.
+- MA forum, [Width and phases in recipes](https://forum.malighting.com/forum/thread/7661-width-and-phases-in-recipes/)
+  — the odd/even dimmer chase recipe: width 100%, Groups 2, phase 0 thru 360;
+  a "1 in 3" chase is Groups 3.
+- Hog 4 help, [Fanning](https://www.etcconnect.com/webdocs/controls/hog4/content/06_FixtureParameters/Fanning.htm)
+  — Fan Normal (middle unchanged, ends opposite), From Start, From End, To
+  Center (ends "in the same direction"); Segmenting ("fanning is repeated for
+  each segment") and Buddying ("'gangs' that all take the same value").
+- Eos manual, [Fan](https://www.manualsdir.com/manuals/559096/etc-eos-family-v190.html?page=15)
+  — Mirror ("1 to 30%, 2 to 20%, 3 to 10%, 4 to 20%, 5 to 30%"), Repeat
+  (1,4,7,10 alike), Cluster (1-3 alike, 4-6 alike…), Random.
+- Eos community, [Create odds/evens effect](https://community.etcconnect.com/control_consoles/eos-family-consoles/f/eos-family/39781/create-odds---evens-effect)
+  and [Effect direction](https://community.etcconnect.com/control_consoles/eos-family-consoles/f/eos-family/32242/2-9-1-effect-direction)
+  — grouping 2 with trail solo; Offset with reverse / mirror in / mirror out.
+- ChamSys, [FX Engine](https://secure.chamsys.co.uk/docs/magicq/manual/FX_engine.html)
+  and the [manual's FX Parts/Segments page](https://www.manualsdir.com/manuals/760818/chamsys-magicq-user-manual.html?page=115)
+  — Parts "2s/3s" repeat the FX every n heads; Segments are "the number of
+  adjacent heads that have the same offset"; Spread 0 is everyone together.
+- Avolites Titan features page ([Wings](https://www.avolites.com/support/titan-features/))
+  — Wings divides the selection into sections where the outer ones are
+  "the opposite of" each other and the middle "does not change".
+
+The mapping onto Ignition's vocabulary — the same operation appears under
+four names, and it is worth having the table so nobody thinks Eos *Cluster*
+and MA *Blocks* are different ideas:
+
+| Idea | grandMA3 | Eos | Hog 4 | MagicQ | Ignition |
+|---|---|---|---|---|---|
+| contiguous runs move together | Blocks | Cluster | Buddying | Segments | `Block(n)` |
+| deal round-robin, pattern repeats every n | Groups | Repeat / grouping | Segmenting | Parts | `Group(n)` |
+| symmetric halves from one definition | Wings | Mirror in/out | — | direction symmetric | `Wings(n)` |
+| values symmetric about centre | Transform Mirror | Fan Mirror | Fan Normal / To Center | — | `Mirror` |
+| seeded random order | Shuffle | Random | — | — | `Shuffle(seed)` |
+| move the pattern along the rig | Shift | Offset | — | — | `Shift(n)` |
+| run it backwards | Invert X | Reverse | — | Invert | `Reverse` |
+| one from/to for phase, delay, fade, speed | layers | Fan | Fan | Spread | `Fan` |
+
+### The named library
+
+The `tricks` key of `data/profiles/ignition.ig-profile`. Every set is a
+chain of Trick ops; unit counts are for a twelve-fixture line.
+
+| Name | Ops | Units/12 | Stage use |
+|---|---|---|---|
+| odds | Group 2 | 2 | the odd/even dimmer chase; unit 0 is the odds |
+| evens | Group 2, Shift 1 | 2 | the same chase led by the evens, so two cues alternate |
+| pairs | Block 2 | 6 | a two-fixture-wide chase; pairs move together |
+| triples | Block 3 | 4 | a three-wide chase — cells on a batten |
+| quads | Block 4 | 3 | four-wide; the big slow sweep on a long truss |
+| halves | Wings 2 | 12 | historic name for centre out; kept for old shows |
+| thirds | Group 3 | 3 | the "1 in 3" stripe; every third fixture steps together |
+| quarters | Group 4 | 4 | a four-step comb — every fourth fixture |
+| paired odds | Block 2, Group 2 | 2 | checkerboard of pairs: two on, two off |
+| paired thirds | Block 2, Group 3 | 3 | the 1-in-3 stripe, two fixtures wide |
+| mirror | Mirror | 6 | a symmetric fan: ends in, both sides at once, from one from/to |
+| fan from centre | Mirror, Reverse | 6 | the same fan opening from the middle outward |
+| mirrored pairs | Block 2, Mirror | 3 | symmetric fan in two-wide steps |
+| mirrored wings | Wings 2, Mirror | 3 | each wing's outer end paired with the other's inner end — a crossing fan |
+| centre out | Wings 2 | 12 | a chase or colour wave that opens from centre |
+| ends in | Wings 2, Reverse | 12 | the same wave running into the middle |
+| four wings | Wings 4 | 12 | two symmetric waves side by side on a wide truss |
+| paired wings | Block 2, Wings 2 | 6 | centre-out wave two fixtures wide |
+| scatter | Shuffle 1741 | 12 | random-looking twinkle, recallable |
+| scatter b | Shuffle 907 | 12 | a second scatter so two layers do not line up |
+| paired scatter | Block 2, Shuffle 1741 | 6 | random order over pairs — a chunkier sparkle |
+| reverse | Reverse | 12 | run any of the above the other way |
+| shifted | Shift 1 | 12 | the same pattern one fixture along, for a second cue |
+| shifted back | Shift -1 | 12 | one fixture the other way |
+
+### What the one-dimensional model cannot say
+
+Y and Z axes (a matrix checkerboard, a Shuffle on X that leaves rows alone,
+grid rotation, Width) wait on the grid decision in item 5 above. Eos's
+*inverse channel selection* (the complement of the selection) is a selection
+op, not a Trick, and lives in the selection algebra. Hog's asymmetric fans
+(From Start / From End) are just which way round from and to are.

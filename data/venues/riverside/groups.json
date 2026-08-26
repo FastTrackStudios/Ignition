@@ -1,0 +1,151 @@
+[
+  {
+    "target": "1",
+    "label": "Back Wall Pars",
+    "channels": [
+      "1-16"
+    ]
+  },
+  {
+    "target": "2",
+    "label": "Pole 1",
+    "channels": [
+      "1-4"
+    ]
+  },
+  {
+    "target": "3",
+    "label": "Pole 2",
+    "channels": [
+      "5-8"
+    ]
+  },
+  {
+    "target": "4",
+    "label": "Pole 3",
+    "channels": [
+      "9-12"
+    ]
+  },
+  {
+    "target": "5",
+    "label": "Pole 4",
+    "channels": [
+      "13-16"
+    ]
+  },
+  {
+    "target": "6",
+    "label": "Par Row 1",
+    "channels": [
+      1,
+      5,
+      9,
+      13
+    ]
+  },
+  {
+    "target": "7",
+    "label": "Par Row 2",
+    "channels": [
+      2,
+      6,
+      10,
+      14
+    ]
+  },
+  {
+    "target": "8",
+    "label": "Par Row 3",
+    "channels": [
+      3,
+      7,
+      11,
+      15
+    ]
+  },
+  {
+    "target": "9",
+    "label": "Par Row 4",
+    "channels": [
+      4,
+      8,
+      12,
+      16
+    ]
+  },
+  {
+    "target": "10",
+    "label": "Movers",
+    "channels": [
+      "17-20"
+    ]
+  },
+  {
+    "target": "11",
+    "label": "Back Wall Bars",
+    "channels": [
+      "21-23"
+    ]
+  },
+  {
+    "target": "12",
+    "label": "Back Wall All",
+    "channels": [
+      "1-23"
+    ]
+  },
+  {
+    "target": "13",
+    "label": "Beam Pars",
+    "channels": [
+      "31-36"
+    ]
+  },
+  {
+    "target": "14",
+    "label": "Beam Strips",
+    "channels": [
+      "37-38"
+    ]
+  },
+  {
+    "target": "15",
+    "label": "Beam All",
+    "channels": [
+      "31-38"
+    ]
+  },
+  {
+    "target": "16",
+    "label": "FOH Pars",
+    "channels": [
+      "41-48"
+    ]
+  },
+  {
+    "target": "17",
+    "label": "Front Wash",
+    "channels": [
+      "41-48",
+      "31-36"
+    ]
+  },
+  {
+    "target": "18",
+    "label": "Strips All",
+    "channels": [
+      "21-23",
+      "37-38"
+    ]
+  },
+  {
+    "target": "19",
+    "label": "Pars All",
+    "channels": [
+      "1-16",
+      "31-36",
+      "41-48"
+    ]
+  }
+]

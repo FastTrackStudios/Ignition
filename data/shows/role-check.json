@@ -1,0 +1,50 @@
+{
+  "name": "Role Check",
+  "cues": [
+    { "name": "Blackout", "fade_secs": 0, "recipes": [] },
+
+    { "name": "Key on the vocal", "fade_secs": 0, "recipes": [
+      { "target": { "Role": "Key" }, "apply": { "Dimmer": 0.9 } },
+      { "target": { "Role": "Key" }, "apply": { "Color": "Warm White" } },
+      { "target": { "Role": "Key" }, "apply": { "FocusPoint": "Vocal" } }
+    ]},
+
+    { "name": "Wash over the stage", "fade_secs": 0, "recipes": [
+      { "target": { "Role": "Wash" }, "apply": { "Dimmer": 0.8 } },
+      { "target": { "Role": "Wash" }, "apply": { "Color": "Deep Blue" } },
+      { "target": { "Role": "Wash" }, "apply": { "FocusPoint": "Stage" } }
+    ]},
+
+    { "name": "Back wall", "fade_secs": 0, "recipes": [
+      { "target": { "Role": "Back" }, "apply": { "Dimmer": 0.9 } },
+      { "target": { "Role": "Back" }, "apply": { "Color": "Magenta" } }
+    ]},
+
+    { "name": "Bars", "fade_secs": 0, "recipes": [
+      { "target": { "Role": "Bars" }, "apply": { "Dimmer": 1.0 } },
+      { "target": { "Role": "Bars" }, "apply": { "Color": "Amber" } }
+    ]},
+
+    { "name": "Movers on the band", "fade_secs": 0, "recipes": [
+      { "target": { "Role": "Movers" }, "apply": { "Dimmer": 1.0 } },
+      { "target": { "Role": "Movers" }, "apply": { "Color": "Cyan" } },
+      { "target": { "Role": "Movers" }, "apply": { "FocusPoint": "Band" } }
+    ]},
+
+    { "name": "Everything", "fade_secs": 0, "recipes": [
+      { "target": { "Role": "Key" },    "apply": { "Dimmer": 0.75 } },
+      { "target": { "Role": "Key" },    "apply": { "Color": "Warm White" } },
+      { "target": { "Role": "Key" },    "apply": { "FocusPoint": "Vocal" } },
+      { "target": { "Role": "Wash" },   "apply": { "Dimmer": 0.8 } },
+      { "target": { "Role": "Wash" },   "apply": { "Color": "Deep Blue" } },
+      { "target": { "Role": "Wash" },   "apply": { "FocusPoint": "Stage" } },
+      { "target": { "Role": "Back" },   "apply": { "Dimmer": 0.9 } },
+      { "target": { "Role": "Back" },   "apply": { "Color": "Magenta" } },
+      { "target": { "Role": "Bars" },   "apply": { "Dimmer": 1.0 } },
+      { "target": { "Role": "Bars" },   "apply": { "Color": "Amber" } },
+      { "target": { "Role": "Movers" }, "apply": { "Dimmer": 1.0 } },
+      { "target": { "Role": "Movers" }, "apply": { "Color": "Cyan" } },
+      { "target": { "Role": "Movers" }, "apply": { "FocusPoint": "Band" } }
+    ]}
+  ]
+}

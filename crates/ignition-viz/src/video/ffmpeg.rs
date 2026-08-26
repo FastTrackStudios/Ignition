@@ -22,6 +22,9 @@ use super::{Decoder, Frame, Meta, VideoError};
 use ffmpeg_next as ffmpeg;
 use std::path::Path;
 
+/// Widest a decoded frame is kept, in pixels. See `open`.
+const MAX_DECODE_WIDTH: u32 = 640;
+
 fn init() -> Result<(), VideoError> {
     // `av_register_all` is gone in modern ffmpeg, but ffmpeg-next's
     // `init` still sets up logging and the device list, and it is not
@@ -56,15 +59,29 @@ pub(super) fn open(path: &Path) -> Result<(Meta, Box<dyn Decoder>), VideoError> 
         .decoder()
         .video()
         .map_err(backend)?;
-    let (width, height) = (decoder.width(), decoder.height());
-
-    // Same size in and out: this is a pixel-format conversion (YUV to
-    // RGBA), not a resize, so the interpolation flag never gets to do
-    // anything.
+    let (src_w, src_h) = (decoder.width(), decoder.height());
+    // Decode *down* to what a screen in the room can show. A TV is a
+    // few hundred pixels of the viewport; a 1080p RGBA frame is 8 MB,
+    // and three of them re-uploaded thirty times a second — each one a
+    // fresh GPU texture — took the studio from a hundred frames a
+    // second to six. `IGNITION_CLIP_WIDTH` raises the cap for a close
+    // shot.
+    let cap = std::env::var("IGNITION_CLIP_WIDTH")
+        .ok()
+        .and_then(|v| v.trim().parse::<u32>().ok())
+        .filter(|n| *n > 0)
+        .unwrap_or(MAX_DECODE_WIDTH);
+    let (width, height) = if src_w > cap && src_w > 0 {
+        // Even dimensions keep every YUV subsampling scheme happy.
+        let h = (u64::from(src_h) * u64::from(cap) / u64::from(src_w)) as u32;
+        (cap & !1, h.max(2) & !1)
+    } else {
+        (src_w, src_h)
+    };
     let scaler = ffmpeg::software::scaling::Context::get(
         decoder.format(),
-        width,
-        height,
+        src_w,
+        src_h,
         ffmpeg::format::Pixel::RGBA,
         width,
         height,

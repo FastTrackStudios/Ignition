@@ -135,3 +135,22 @@ A reference that does not resolve — a missing preset, a missing gel, a cycle �
 MUST be reported by the show's load-time check, naming the cue and the
 reference. It MUST NOT abort the load: the rest of the show still runs, which is
 what makes the check safe to run on a rig that is half-patched.
+
+## Colour intent and emitters
+
+r[color.intent]
+A colour MUST be storable as a device-independent **intent** beyond RGB — a
+CIE xy chromaticity with luminance, or a correlated colour temperature — so
+that "warm white at 3200 K" is one value on a par, a wash and an LED wall.
+
+r[color.emitter-solve]
+Turning intent into emitter levels MUST use the fixture type's emitter data
+(GDTF carries it) when present: a five-emitter wash reaches the intent with
+amber and lime, a three-emitter par with what it has, and the two match to the
+eye. The `quality` hint of `r[color.quality]` steers narrow-band against
+broadband mixing. Fixtures without emitter data MUST fall back to the RGB
+triple.
+
+r[color.cct]
+A colour preset MAY be a colour temperature, and a fixture with a white
+emitter or a CTO MUST prefer it over an RGB approximation.

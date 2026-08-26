@@ -141,3 +141,35 @@ independently. MA3 notes this as the reason to use XYZ: "when fixtures move from
 one position to another, they do it in a straight line from position A to B when
 using XYZ values." Independent pan/tilt interpolation makes the beam bow, which
 is visible on a slow move across a stage.
+
+## Shapes in the room
+
+The catalogue of mover patterns is written in pan/tilt degrees, which means a
+circle is a different circle at every venue: its size and even its shape
+depend on where each fixture hangs. grandMA3's XYZ layer draws the shape
+*in the room* and lets each fixture solve its own angles.
+
+r[focus.delta]
+A recipe MUST be able to apply a **relative offset in metres** to a fixture's
+focus (`FocusDelta`), added to whatever point the cascade has aimed it at
+before that point is resolved to pan/tilt. A fixture with no point focus (an
+orientation, or nothing) MUST ignore the delta rather than treat it as a
+point.
+
+r[focus.orbit-in-metres]
+A movement effect MAY be authored as a path in metres — a 2 m circle on the
+floor around the drummer — and MUST then produce that same path at every
+venue, each fixture solving its own angles per frame. This is the portable
+form of a mover pattern; a pattern in degrees is a look for one hang.
+
+r[focus.marker-moving]
+A named focus origin (`r[focus.relative-origin]`) MUST be updatable at run
+time, so a focus expressed against `Vocal` follows the singer when a tracker
+or an operator moves the marker. Everything expressed against it moves in the
+same frame.
+
+r[focus.magic]
+A focus preset MAY be a set of **keyframes** — up to five aims placed along the
+selection's order — from which every unit's aim is interpolated (MA3's MAgic
+presets). This generalises the two-point fan: five hand-set positions across
+a truss land on twelve, sixteen or twenty movers with no per-fixture values.

@@ -12,7 +12,7 @@ use bevy::math::Vec3;
 use ignition_viz::gdtf_geometry::GdtfLibrary;
 use ignition_viz::playback::Playback;
 use ignition_viz::spawn::BeamStyle;
-use ignition_viz::{Venue, ViewPreset, VizConfig, run};
+use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig, run};
 use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
@@ -191,10 +191,19 @@ fn main() -> anyhow::Result<()> {
         effect_time,
         bar,
         song_bpm,
+        None,
     )?;
 
+    // A still keeps the quality every existing snapshot was made at; a
+    // window gets the same dials as the studio.
+    let quality = if snapshot.is_some() {
+        RenderQuality::STILL
+    } else {
+        RenderQuality::live()
+    };
     run(
         VizConfig {
+            quality,
             venue,
             view,
             width,
@@ -213,6 +222,7 @@ fn main() -> anyhow::Result<()> {
             exposure,
             screen_content,
             canvas_content,
+            canvas_focus: Default::default(),
             assets_dir,
         },
         playback,

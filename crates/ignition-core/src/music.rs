@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 /// fractional so a hit on the *and* of 3 is `beat: 3.5` rather than a
 /// separate tick unit nobody says out loud.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+// r[impl song.position]
+// r[impl song.position.never-seconds] - the stored form is bars and beats
 pub struct Bars {
     pub bar: u32,
     #[serde(default = "one_beat")]
@@ -63,6 +65,7 @@ impl Default for TimeSignature {
 
 /// One tempo, from a musical position onward.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+// r[impl song.tempo-map] - fractional bpm with a time signature per point
 pub struct TempoPoint {
     pub at: Bars,
     /// Fractional on purpose. A project written at 86.28 BPM read as 86
@@ -80,6 +83,7 @@ pub struct TempoPoint {
 /// songs have one entry: a song that ritards is then a data problem
 /// rather than a redesign.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// r[impl song.tempo-map] - an ordered list, never a single number
 pub struct TempoMap {
     points: Vec<TempoPoint>,
 }
@@ -135,6 +139,8 @@ impl TempoMap {
     ///
     /// Walks the tempo points so a map with several tempos accumulates
     /// correctly rather than pretending the last one always applied.
+    // r[impl song.tempo-map] - accumulates segment by segment
+    // r[impl song.position.never-seconds] - seconds are derived at the moment of use, never stored
     pub fn seconds_at(&self, position: Bars) -> f64 {
         let mut seconds = 0.0;
         for (i, point) in self.points.iter().enumerate() {
@@ -154,6 +160,8 @@ impl TempoMap {
 
     /// The musical position at a number of seconds — the inverse of
     /// `seconds_at`, and what a transport's playhead becomes.
+    // r[impl song.tempo-map] - the inverse
+    // r[impl song.position.never-seconds] - a seconds source is converted on the way in
     pub fn position_at(&self, seconds: f64) -> Bars {
         let mut elapsed = 0.0;
         for (i, point) in self.points.iter().enumerate() {
@@ -186,6 +194,7 @@ fn beats_between(point: &TempoPoint, from: Bars, to: Bars) -> f64 {
 }
 
 /// A position `beats` further on from `from`, in one point's signature.
+// r[impl song.tempo-map] - invertible to within a nanobeat
 fn advance(point: &TempoPoint, from: Bars, beats: f64) -> Bars {
     let per_bar = point.time_signature.numerator.max(1) as f64;
     let flat = (from.bar as f64 - 1.0) * per_bar + (from.beat - 1.0) + beats;
@@ -231,6 +240,7 @@ impl Section {
 /// Imported from the project file rather than authored twice — moving a
 /// section in the DAW moves the lighting with it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// r[impl song.map]
 pub struct SongMap {
     pub name: String,
     pub tempo: TempoMap,
@@ -249,6 +259,209 @@ impl SongMap {
 
     pub fn section(&self, name: &str) -> Option<&Section> {
         self.sections.iter().find(|s| s.name == name)
+    }
+
+    /// The `ordinal`th section with this name, counting from 0.
+    ///
+    /// `section("PRE")` finds the first pre-chorus and leaves the second
+    /// unreachable; this is how the second one is named.
+    // r[impl song.relative-position.duplicate-names]
+    pub fn section_nth(&self, name: &str, ordinal: usize) -> Option<&Section> {
+        self.sections.iter().filter(|s| s.name == name).nth(ordinal)
+    }
+
+    /// Which occurrence of its own name a section is, counting from 0.
+    fn ordinal_of(&self, index: usize) -> usize {
+        let name = &self.sections[index].name;
+        self.sections[..index]
+            .iter()
+            .filter(|s| &s.name == name)
+            .count()
+    }
+}
+
+/// Where a cue sits, as the author wrote it.
+///
+/// A show stores this, not the bar it resolves to: "4 bars into `CH 1`"
+/// survives cutting two bars from the verse, and bar 27 does not. The
+/// resolved [`Bars`] is what the engine runs on and is derived on load.
+///
+/// The JSON is deliberately compatible with a bare [`Bars`]: a file
+/// that says `{"bar": 22, "beat": 1.0}` still loads, as `Absolute`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+// r[impl song.relative-position] - the stored form is relative to a section
+pub enum Position {
+    /// A bar number. What the older files say, and what a position
+    /// outside any section has to be.
+    Absolute(Bars),
+    /// The last bar of the `ordinal`th section named `section` — where a
+    /// build lands and a stab goes. Listed before `Relative` because the
+    /// untagged decoder tries variants in order and this one carries a
+    /// marker field the other does not.
+    LastBar {
+        section: String,
+        #[serde(default)]
+        ordinal: usize,
+        /// Always `true`; it is what tells the two relative forms apart
+        /// in JSON.
+        last_bar: bool,
+    },
+    /// `bars` whole bars and a `beat` into the `ordinal`th section named
+    /// `section`.
+    Relative {
+        section: String,
+        #[serde(default)]
+        ordinal: usize,
+        #[serde(default)]
+        bars: u32,
+        #[serde(default = "one_beat")]
+        beat: f64,
+    },
+}
+
+impl From<Bars> for Position {
+    fn from(bars: Bars) -> Self {
+        Position::Absolute(bars)
+    }
+}
+
+impl Position {
+    /// `bars` into the first section with this name.
+    pub fn at(section: &str, bars: u32) -> Self {
+        Self::nth(section, 0, bars)
+    }
+
+    /// `bars` into the `ordinal`th section with this name.
+    pub fn nth(section: &str, ordinal: usize, bars: u32) -> Self {
+        Self::Relative {
+            section: section.to_string(),
+            ordinal,
+            bars,
+            beat: 1.0,
+        }
+    }
+
+    /// The last bar of the first section with this name.
+    pub fn last_bar(section: &str) -> Self {
+        Self::LastBar {
+            section: section.to_string(),
+            ordinal: 0,
+            last_bar: true,
+        }
+    }
+
+    /// The bar this lands on in a given arrangement, or `None` when the
+    /// arrangement has no such section — a cue for a section the song no
+    /// longer has is dropped, not placed at bar 1.
+    // r[impl song.relative-position.resolved-on-load] - resolution is a function of the map, called by the loader
+    // r[impl song.relative-position.duplicate-names] - the ordinal picks the occurrence
+    pub fn resolve(&self, song: &SongMap) -> Option<Bars> {
+        match self {
+            Self::Absolute(bars) => Some(*bars),
+            Self::Relative {
+                section,
+                ordinal,
+                bars,
+                beat,
+            } => {
+                let s = song.section_nth(section, *ordinal)?;
+                Some(Bars::new(s.start.bar + bars, *beat))
+            }
+            Self::LastBar {
+                section, ordinal, ..
+            } => {
+                let s = song.section_nth(section, *ordinal)?;
+                Some(Bars::bar(s.start.bar + (s.bars.ceil() as u32).max(1) - 1))
+            }
+        }
+    }
+
+    /// The relative form of an absolute position — which section it
+    /// falls in, and how far in. A position outside every section stays
+    /// absolute, because there is nothing to be relative to.
+    ///
+    /// This is how positions that arrive absolute — a charted hit, a
+    /// hand-placed cue — are written down so they move with the section.
+    pub fn relative_to(song: &SongMap, at: Bars) -> Self {
+        let Some(index) = song
+            .sections
+            .iter()
+            .rposition(|s| s.start <= at && at < s.end(&song.tempo))
+        else {
+            return Self::Absolute(at);
+        };
+        let section = &song.sections[index];
+        Self::Relative {
+            section: section.name.clone(),
+            ordinal: song.ordinal_of(index),
+            bars: at.bar - section.start.bar,
+            beat: at.beat,
+        }
+    }
+}
+
+/// The relative positions of a cue list, kept beside it.
+///
+/// The form the `<song>.positions.json` sidecar took before `Cue.at`
+/// and `Trigger.at` carried a [`Position`] themselves. Kept so an older
+/// show plus its sidecar still loads: [`Positions::apply`] writes the
+/// sidecar's positions *into* the list and resolves them, after which
+/// the list is self-describing and the sidecar can be deleted.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Positions {
+    /// By cue name. Names in a list are unique, which is what lets the
+    /// sidecar survive the list being re-sorted or regenerated.
+    #[serde(default)]
+    pub cues: std::collections::BTreeMap<String, Position>,
+    /// One per trigger, in the list's order — triggers are named after
+    /// their bar, so a name is no key for them.
+    #[serde(default)]
+    pub triggers: Vec<Position>,
+}
+
+impl Positions {
+    /// The relative positions of every cue and trigger in a list, read
+    /// off their resolved bars against the song they were written for.
+    pub fn of(list: &crate::cue::CueList, song: &SongMap) -> Self {
+        let cues = list
+            .cues
+            .iter()
+            .filter_map(|c| {
+                c.position()
+                    .map(|at| (c.name.clone(), Position::relative_to(song, at)))
+            })
+            .collect();
+        let triggers = list
+            .triggers
+            .iter()
+            .map(|t| match t.bars() {
+                Some(at) => Position::relative_to(song, at),
+                None => t.at.clone(),
+            })
+            .collect();
+        Self { cues, triggers }
+    }
+
+    /// Writes the sidecar's positions into the list's own `at` fields
+    /// and resolves them against `song` — see
+    /// [`crate::cue::CueList::resolve_positions`], which this defers to.
+    ///
+    /// A cue whose position no longer resolves — its section was cut —
+    /// keeps the bar it had, and its name is returned so the caller can
+    /// say so. A cue the sidecar does not mention is left alone.
+    // r[impl song.relative-position.resolved-on-load]
+    // r[impl files.additive-evolution] - an old show plus its sidecar still loads
+    pub fn apply(&self, list: &mut crate::cue::CueList, song: &SongMap) -> Vec<String> {
+        for cue in list.cues.iter_mut() {
+            if let Some(position) = self.cues.get(&cue.name) {
+                cue.at = Some(position.clone());
+            }
+        }
+        for (trigger, position) in list.triggers.iter_mut().zip(&self.triggers) {
+            trigger.at = position.clone();
+        }
+        list.resolve_positions(song)
     }
 }
 
@@ -273,6 +486,7 @@ mod tests {
     /// against the seconds REAPER wrote. If the tempo were truncated to
     /// 86 these would be out by up to two thirds of a second — which is
     /// how the parser bug was found.
+    /// r[verify song.tempo-map] - fractional bpm
     #[test]
     fn real_section_starts_land_on_their_bars() {
         let map = bye_bye_bye();
@@ -291,6 +505,7 @@ mod tests {
         }
     }
 
+    /// r[verify song.tempo-map]
     #[test]
     fn position_and_seconds_are_inverses() {
         let map = bye_bye_bye();
@@ -302,6 +517,7 @@ mod tests {
         }
     }
 
+    /// r[verify song.position]
     #[test]
     fn a_fractional_beat_is_partway_into_the_bar() {
         let map = bye_bye_bye();
@@ -312,6 +528,7 @@ mod tests {
         assert!((got - beat * 2.5).abs() < 1e-9, "{got}");
     }
 
+    /// r[verify song.tempo-map]
     #[test]
     fn a_tempo_change_accumulates_rather_than_rewriting_history() {
         let map = TempoMap::new(vec![
@@ -344,6 +561,7 @@ mod tests {
         assert_eq!(chorus.end(&map), Bars::bar(31));
     }
 
+    /// r[verify song.map]
     #[test]
     fn a_song_map_finds_the_section_a_position_is_in() {
         let song = SongMap {
@@ -374,5 +592,144 @@ mod tests {
         assert!(song.section_at(Bars::bar(31)).is_none());
         // ...and neither is anything before the first.
         assert!(song.section_at(Bars::bar(1)).is_none());
+    }
+
+    fn arrangement(verse_bars: f64) -> SongMap {
+        SongMap {
+            name: "test".into(),
+            tempo: bye_bye_bye(),
+            sections: vec![
+                Section {
+                    name: "VS 1".into(),
+                    start: Bars::bar(1),
+                    bars: verse_bars,
+                },
+                Section {
+                    name: "PRE".into(),
+                    start: Bars::bar(1 + verse_bars as u32),
+                    bars: 4.0,
+                },
+                Section {
+                    name: "CH 1".into(),
+                    start: Bars::bar(5 + verse_bars as u32),
+                    bars: 8.0,
+                },
+                Section {
+                    name: "PRE".into(),
+                    start: Bars::bar(13 + verse_bars as u32),
+                    bars: 4.0,
+                },
+            ],
+        }
+    }
+
+    /// r[verify song.relative-position]
+    /// r[verify song.relative-position.resolved-on-load]
+    #[test]
+    fn a_relative_position_moves_with_its_section() {
+        let four_in = Position::at("CH 1", 4);
+        assert_eq!(four_in.resolve(&arrangement(8.0)), Some(Bars::bar(17)));
+        // Cut two bars from the verse: the same position, two bars earlier.
+        assert_eq!(four_in.resolve(&arrangement(6.0)), Some(Bars::bar(15)));
+        // The last bar of the pre-chorus.
+        assert_eq!(
+            Position::last_bar("PRE").resolve(&arrangement(8.0)),
+            Some(Bars::bar(12))
+        );
+        // A section the arrangement does not have resolves to nothing.
+        assert_eq!(Position::at("BR", 0).resolve(&arrangement(8.0)), None);
+    }
+
+    /// r[verify song.relative-position.duplicate-names]
+    #[test]
+    fn the_second_pre_is_reachable_by_ordinal() {
+        let song = arrangement(8.0);
+        assert_eq!(song.section_nth("PRE", 0).unwrap().start, Bars::bar(9));
+        assert_eq!(song.section_nth("PRE", 1).unwrap().start, Bars::bar(21));
+        assert!(song.section_nth("PRE", 2).is_none());
+        assert_eq!(
+            Position::nth("PRE", 1, 0).resolve(&song),
+            Some(Bars::bar(21))
+        );
+        // ...and an absolute bar in the second PRE reads back as it.
+        assert_eq!(
+            Position::relative_to(&song, Bars::new(22, 3.5)),
+            Position::Relative {
+                section: "PRE".into(),
+                ordinal: 1,
+                bars: 1,
+                beat: 3.5
+            }
+        );
+        // Outside every section there is nothing to be relative to.
+        assert_eq!(
+            Position::relative_to(&song, Bars::bar(40)),
+            Position::Absolute(Bars::bar(40))
+        );
+    }
+
+    /// r[verify song.relative-position] - the older absolute form still loads
+    #[test]
+    fn positions_round_trip_through_json_and_accept_a_bare_bar() {
+        let absolute: Position = serde_json::from_str(r#"{"bar":22,"beat":1.0}"#).unwrap();
+        assert_eq!(absolute, Position::Absolute(Bars::bar(22)));
+        let bare: Position = serde_json::from_str(r#"{"bar":22}"#).unwrap();
+        assert_eq!(bare, Position::Absolute(Bars::bar(22)));
+        for p in [
+            Position::at("CH 1", 4),
+            Position::nth("PRE", 1, 0),
+            Position::last_bar("Breakdown"),
+            Position::Absolute(Bars::new(3, 2.5)),
+        ] {
+            let json = serde_json::to_string(&p).unwrap();
+            let back: Position = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, p, "{json}");
+        }
+    }
+
+    /// r[verify song.relative-position.resolved-on-load]
+    #[test]
+    fn a_sidecar_repositions_a_list_against_a_new_arrangement() {
+        use crate::cue::{Cue, CueList};
+        use crate::trigger::Trigger;
+        let old = arrangement(8.0);
+        let mut list = CueList {
+            name: "t".into(),
+            cues: vec![
+                Cue {
+                    name: "CH 1".into(),
+                    at: Some(Bars::bar(13).into()),
+                    ..Default::default()
+                },
+                Cue {
+                    name: "PRE 2".into(),
+                    at: Some(Bars::bar(21).into()),
+                    ..Default::default()
+                },
+            ],
+            triggers: vec![Trigger {
+                at: Bars::new(14, 2.5).into(),
+                resolved: None,
+                recipe: crate::Recipe::new(
+                    crate::Selection::Group("wash".into()),
+                    crate::RecipeApply::Dimmer(1.0),
+                ),
+                name: "hit".into(),
+                hold: false,
+            }],
+        };
+        let positions = Positions::of(&list, &old);
+        assert_eq!(positions.cues["CH 1"], Position::at("CH 1", 0));
+        assert_eq!(positions.cues["PRE 2"], Position::nth("PRE", 1, 0));
+
+        // The verse loses two bars: everything after it moves up two.
+        let new = arrangement(6.0);
+        let unresolved = positions.apply(&mut list, &new);
+        assert!(unresolved.is_empty(), "{unresolved:?}");
+        assert_eq!(list.cues[0].position(), Some(Bars::bar(11)));
+        assert_eq!(list.cues[1].position(), Some(Bars::bar(19)));
+        assert_eq!(list.triggers[0].bars(), Some(Bars::new(12, 2.5)));
+        // And the list now carries the relative form itself.
+        assert_eq!(list.cues[0].at, Some(Position::at("CH 1", 0)));
     }
 }

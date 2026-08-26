@@ -1,0 +1,1518 @@
+{
+  "about": "The desk's own patch and fixture profiles, extracted read-only from 'Gearbox Lighting 5.0.dvc' (myDMX 5 / Daslight 5) by tools/dvc_parse.py. Ground truth for address, footprint, fixture type and channel layout. posx/posy are the desk's schematic 2D stage-view coordinates - good for ordering and grouping, not for distances.",
+  "groups": {
+    "WALL": [
+      250,
+      278,
+      306,
+      334,
+      257,
+      285,
+      313,
+      341,
+      264,
+      292,
+      320,
+      348,
+      271,
+      299,
+      327,
+      355
+    ],
+    "PARS": [
+      1,
+      8,
+      15,
+      22,
+      29,
+      36,
+      43,
+      50,
+      57,
+      64,
+      71,
+      78,
+      209,
+      225
+    ],
+    "REAR PARS": [
+      149,
+      156,
+      163,
+      170,
+      177,
+      184,
+      191,
+      198
+    ],
+    "CURTAIN BARS": [
+      100,
+      106
+    ],
+    "FLOOR BARS": [
+      92,
+      216
+    ],
+    "MOVERS": [
+      400,
+      411,
+      422,
+      433
+    ],
+    "MINI SPOTS": [
+      115,
+      123
+    ],
+    "DERBYS": [
+      131,
+      140
+    ],
+    "FOG": [
+      207
+    ],
+    "LASER": [],
+    "Endyshow Bars": [
+      362,
+      370,
+      378
+    ],
+    "Fancy Towers": [
+      232
+    ],
+    "Disco Ball + Spot": [
+      511,
+      85
+    ]
+  },
+  "profiles": [
+    {
+      "profile": "Solena Professional Max Par 54 RGB",
+      "uid": "7b691e20-7d8e-44e5-ae5c-1ac09e72041f",
+      "library": "_varied/Solena Professional Max Par 54 RGB.ssl2",
+      "footprint": 7,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "Dimmer",
+          "type": 7,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "Red",
+          "type": 25,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 2,
+          "name": "Green",
+          "type": 26,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "Blue",
+          "type": 27,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 4,
+          "name": "Shutter",
+          "type": 15,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "Color Macros",
+          "type": 0,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 6,
+          "name": "Color Selection/Shade",
+          "type": 0,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "36 LED Par Can",
+      "uid": "86388cc6-4c83-4b6c-ab68-45361715e52f",
+      "library": "_varied/36 LED Par Can.ssl2",
+      "footprint": 7,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "Dimmer",
+          "type": 7,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "Red",
+          "type": 25,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 2,
+          "name": "Green",
+          "type": 26,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "Blue",
+          "type": 27,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 4,
+          "name": "Shutter",
+          "type": 15,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "Color Macros",
+          "type": 0,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 6,
+          "name": "Color Macors Speed",
+          "type": 0,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "Solena Max Bar 28 RGB",
+      "uid": "b810777f-459b-4ff1-95dc-67e1297cfc49",
+      "library": "_varied/Solena Max Bar 28 RGB.ssl2",
+      "footprint": 6,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "Red",
+          "type": 25,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "Green",
+          "type": 26,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 2,
+          "name": "Blue",
+          "type": 27,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "Macros",
+          "type": 0,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 4,
+          "name": "Shutter",
+          "type": 15,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "Selection Control",
+          "type": 0,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "RockStrip 252",
+      "uid": "eff5bce7-31b1-4b44-81cb-31401a5c68a4",
+      "library": "_varied/RockStrip 252.ssl2",
+      "footprint": 7,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "Red",
+          "type": 25,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "Green",
+          "type": 26,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 2,
+          "name": "Blue",
+          "type": 27,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "Dimmer",
+          "type": 7,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 4,
+          "name": "Shutter",
+          "type": 15,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "Chase Mode",
+          "type": 0,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 6,
+          "name": "Control",
+          "type": 0,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "MINI DERBY",
+      "uid": "adfd6aa0-34c1-415b-9e72-a3e67c376a70",
+      "library": "_Imported/MINI DERBY.ssl2",
+      "footprint": 9,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "MODE",
+          "type": 7,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "RED",
+          "type": 7,
+          "type_index": 9,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 2,
+          "name": "GREEN",
+          "type": 7,
+          "type_index": 9,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "BLUE",
+          "type": 7,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 4,
+          "name": "LED COLOR CONTROL",
+          "type": 7,
+          "type_index": 2,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "LED STROBE",
+          "type": 7,
+          "type_index": 3,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 6,
+          "name": "LED FADE",
+          "type": 7,
+          "type_index": 4,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 7,
+          "name": "MOTOR SPEED",
+          "type": 7,
+          "type_index": 5,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 8,
+          "name": "MOTOR SPIN SPEED",
+          "type": 7,
+          "type_index": 6,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "Base Hazer 1500W",
+      "uid": "1eb5bce2-a251-493f-8870-6a54430c38d3",
+      "library": "Hazebase/Base Hazer 1500W.ssl2",
+      "footprint": 2,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "Pump",
+          "type": 24,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "Fan",
+          "type": 0,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "LED MINI BEAM WH",
+      "uid": "2b46bc69-1d7d-427f-8ee0-3a032a7fc4a5",
+      "library": "_Imported/LED MINI BEAM WH.ssl2",
+      "footprint": 8,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "X",
+          "type": 1,
+          "type_index": 0,
+          "coarse": true,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "\u00c2\u00b5X",
+          "type": 1,
+          "type_index": 0,
+          "coarse": false,
+          "fine": true
+        },
+        {
+          "offset": 2,
+          "name": "Y",
+          "type": 2,
+          "type_index": 0,
+          "coarse": true,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "\u00c2\u00b5Y",
+          "type": 2,
+          "type_index": 0,
+          "coarse": false,
+          "fine": true
+        },
+        {
+          "offset": 4,
+          "name": "Speed",
+          "type": 18,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "Shutter",
+          "type": 15,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 6,
+          "name": "Dimmer",
+          "type": 7,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 7,
+          "name": "Special",
+          "type": 0,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "Mini Gobo Moving Head Light",
+      "uid": "39ff1a6c-e565-4c85-ab2c-bc5dfdaa6766",
+      "library": "_varied/Mini Gobo Moving Head Light.ssl2",
+      "footprint": 11,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "X",
+          "type": 1,
+          "type_index": 0,
+          "coarse": true,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "\u00c2\u00b5X",
+          "type": 1,
+          "type_index": 0,
+          "coarse": false,
+          "fine": true
+        },
+        {
+          "offset": 2,
+          "name": "Y",
+          "type": 2,
+          "type_index": 0,
+          "coarse": true,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "\u00c2\u00b5Y",
+          "type": 2,
+          "type_index": 0,
+          "coarse": false,
+          "fine": true
+        },
+        {
+          "offset": 4,
+          "name": "Color Wheel",
+          "type": 0,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "Gobo",
+          "type": 8,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 6,
+          "name": "Shutter",
+          "type": 15,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 7,
+          "name": "Dimmer",
+          "type": 7,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 8,
+          "name": "Speed",
+          "type": 18,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 9,
+          "name": "Function",
+          "type": 0,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 10,
+          "name": "Dimmer Modes",
+          "type": 0,
+          "type_index": 2,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "ZQ01334",
+      "uid": "2112f2a0-688e-11f0-a4e6-4b4d9adfc32e-85e96ac9",
+      "library": "UKing/ZQ01334.ssl2",
+      "footprint": 15,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "Dimmer",
+          "type": 7,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "Strobe",
+          "type": 15,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 2,
+          "name": "1. Warm White",
+          "type": 43,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "2. Warm White",
+          "type": 43,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 4,
+          "name": "3. Warm White",
+          "type": 43,
+          "type_index": 2,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "4. Warm White",
+          "type": 43,
+          "type_index": 3,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 6,
+          "name": "5. Warm White",
+          "type": 43,
+          "type_index": 4,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 7,
+          "name": "6. Warm White",
+          "type": 43,
+          "type_index": 5,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 8,
+          "name": "Red",
+          "type": 25,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 9,
+          "name": "Green",
+          "type": 26,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 10,
+          "name": "Blue",
+          "type": 27,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 11,
+          "name": "Warm White Macro",
+          "type": 37,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 12,
+          "name": "Warm White Macro Speed",
+          "type": 18,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 13,
+          "name": "Auxiliary Light Effect",
+          "type": 37,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 14,
+          "name": "Auxiliary Light Effect Speed",
+          "type": 18,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "ENDYSHOW LED Stage Light Bar PL-32M",
+      "uid": "0872ab60-32b8-11f1-89db-81ff102b585c-59bdc02a",
+      "library": "_imported/ENDYSHOW LED Stage Light Bar PL-32M.ssl2",
+      "footprint": 8,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "Total Dimmer",
+          "type": 7,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "Red",
+          "type": 25,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 2,
+          "name": "Green",
+          "type": 26,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "Blue",
+          "type": 27,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 4,
+          "name": "White",
+          "type": 31,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "Total Strobe",
+          "type": 15,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 6,
+          "name": "Function Choice",
+          "type": 37,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 7,
+          "name": "Function Speed",
+          "type": 18,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "MBDMX-PLUS",
+      "uid": "edf7ea20-9c7c-11ef-86bc-2922bf7ea6fe-f13716fc",
+      "library": "Eliminator Lighting/MBDMX-PLUS.ssl2",
+      "footprint": 2,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "Lamp",
+          "type": 22,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "Rotation",
+          "type": 0,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    },
+    {
+      "profile": "RGBW Spot Light 6CH",
+      "uid": "812b1600-d625-11ea-8320-e1a925972789-911ed695",
+      "library": "_varied/RGBW Spot Light 6CH.ssl2",
+      "footprint": 6,
+      "channels": [
+        {
+          "offset": 0,
+          "name": "Dimmer/Strobe/Effect",
+          "type": 0,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 1,
+          "name": "Red",
+          "type": 25,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 2,
+          "name": "Green",
+          "type": 26,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 3,
+          "name": "Blue",
+          "type": 27,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 4,
+          "name": "White",
+          "type": 31,
+          "type_index": 0,
+          "coarse": false,
+          "fine": false
+        },
+        {
+          "offset": 5,
+          "name": "Macro",
+          "type": 0,
+          "type_index": 1,
+          "coarse": false,
+          "fine": false
+        }
+      ]
+    }
+  ],
+  "fixtures": [
+    {
+      "address": 1,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.1",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 420,
+      "posy": 200,
+      "angle": 0,
+      "uid": "a5468152-4fa5-44f8-bdf1-9f9ad3a9cac5"
+    },
+    {
+      "address": 8,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.2",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": -10,
+      "posy": -30,
+      "angle": 89,
+      "uid": "18043a60-7089-404e-943c-0f4cf23907ce"
+    },
+    {
+      "address": 15,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.3",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 499,
+      "posy": 1,
+      "angle": 0,
+      "uid": "cf466610-4733-4a75-80c1-decd4b3e2785"
+    },
+    {
+      "address": 22,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.4",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 545,
+      "posy": 2,
+      "angle": 0,
+      "uid": "56aa4ad3-a3a2-4ec6-a2c7-1cf0e9c9023f"
+    },
+    {
+      "address": 29,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.5",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 1010,
+      "posy": -20,
+      "angle": 88,
+      "uid": "2f4948d5-f18b-468a-9fa0-33824bc2e8a4"
+    },
+    {
+      "address": 36,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.6",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 660,
+      "posy": 200,
+      "angle": 0,
+      "uid": "c33c3c86-2f03-47df-9bc1-667f8c6e8621"
+    },
+    {
+      "address": 43,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.7",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 380,
+      "posy": 200,
+      "angle": 0,
+      "uid": "d6c5ede2-a1a3-40d2-a1e8-cfce2f127630"
+    },
+    {
+      "address": 50,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.8",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 460,
+      "posy": 200,
+      "angle": 0,
+      "uid": "6049749b-a1ac-4117-913a-d375aa6e7d20"
+    },
+    {
+      "address": 57,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.9",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 500,
+      "posy": 200,
+      "angle": 0,
+      "uid": "b4fc4c96-1ef2-4ff5-827e-a132dbdcf0ce"
+    },
+    {
+      "address": 64,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.10",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 540,
+      "posy": 200,
+      "angle": 0,
+      "uid": "52fcfce9-e4cf-4e03-994d-2820083fa2e0"
+    },
+    {
+      "address": 71,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.11",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 580,
+      "posy": 200,
+      "angle": 0,
+      "uid": "2afe3016-c330-4032-90d6-7e82fb7d9ca1"
+    },
+    {
+      "address": 78,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.12",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 620,
+      "posy": 200,
+      "angle": 0,
+      "uid": "24784fff-02cd-4c15-9a49-001b2f4efc5d"
+    },
+    {
+      "address": 85,
+      "universe": 1,
+      "name": "rgbw spot light 6ch",
+      "profile": "RGBW Spot Light 6CH",
+      "footprint": 6,
+      "posx": 570,
+      "posy": -350,
+      "angle": 0,
+      "uid": "8a673cd6-24d2-4cf4-9008-8c581d2d5d39"
+    },
+    {
+      "address": 92,
+      "universe": 1,
+      "name": "rockstrip 252.38",
+      "profile": "RockStrip 252",
+      "footprint": 7,
+      "posx": 390,
+      "posy": 131,
+      "angle": 0,
+      "uid": "00534764-5548-4ed4-82ce-75148932fd79"
+    },
+    {
+      "address": 100,
+      "universe": 1,
+      "name": "solena max bar 28 rgb.38",
+      "profile": "Solena Max Bar 28 RGB",
+      "footprint": 6,
+      "posx": 107,
+      "posy": -55,
+      "angle": 0,
+      "uid": "8d35aaa2-6434-4f9e-b334-abb4e1f25495"
+    },
+    {
+      "address": 106,
+      "universe": 1,
+      "name": "solena max bar 28 rgb.7",
+      "profile": "Solena Max Bar 28 RGB",
+      "footprint": 6,
+      "posx": 666,
+      "posy": -49,
+      "angle": 0,
+      "uid": "04669d09-9d98-4952-a08e-2fcccba7682d"
+    },
+    {
+      "address": 115,
+      "universe": 1,
+      "name": "led mini beam wh.18",
+      "profile": "LED MINI BEAM WH",
+      "footprint": 8,
+      "posx": 95,
+      "posy": 14,
+      "angle": 0,
+      "uid": "a1e265d3-35fb-4c53-be73-449fc502c5ec"
+    },
+    {
+      "address": 123,
+      "universe": 1,
+      "name": "led mini beam wh.19",
+      "profile": "LED MINI BEAM WH",
+      "footprint": 8,
+      "posx": 857,
+      "posy": 18,
+      "angle": 0,
+      "uid": "842e6d31-f570-4d66-bf87-317b9cbc3254"
+    },
+    {
+      "address": 131,
+      "universe": 1,
+      "name": "mini derby.20",
+      "profile": "MINI DERBY",
+      "footprint": 9,
+      "posx": 373,
+      "posy": 9,
+      "angle": 0,
+      "uid": "30359f7a-fce7-4812-9998-82baf82b8872"
+    },
+    {
+      "address": 140,
+      "universe": 1,
+      "name": "mini derby.21",
+      "profile": "MINI DERBY",
+      "footprint": 9,
+      "posx": 634,
+      "posy": 13,
+      "angle": 0,
+      "uid": "576aa7e7-3b7b-4b96-874f-ace43628ff18"
+    },
+    {
+      "address": 149,
+      "universe": 1,
+      "name": "36 led par can.19",
+      "profile": "36 LED Par Can",
+      "footprint": 7,
+      "posx": 260,
+      "posy": 280,
+      "angle": 0,
+      "uid": "777f8dba-c5f9-4449-9efa-e82985753117"
+    },
+    {
+      "address": 156,
+      "universe": 1,
+      "name": "36 led par can.20",
+      "profile": "36 LED Par Can",
+      "footprint": 7,
+      "posx": 300,
+      "posy": 280,
+      "angle": 0,
+      "uid": "1c0bdf0a-73e3-4c60-b49b-848f971f0cf8"
+    },
+    {
+      "address": 163,
+      "universe": 1,
+      "name": "36 led par can.21",
+      "profile": "36 LED Par Can",
+      "footprint": 7,
+      "posx": 340,
+      "posy": 280,
+      "angle": 0,
+      "uid": "632cdf2a-28e8-4486-8085-ea4acc85f705"
+    },
+    {
+      "address": 170,
+      "universe": 1,
+      "name": "36 led par can.22",
+      "profile": "36 LED Par Can",
+      "footprint": 7,
+      "posx": 380,
+      "posy": 280,
+      "angle": 0,
+      "uid": "563e03e2-38e8-45d6-89e5-6c9bd1e57894"
+    },
+    {
+      "address": 177,
+      "universe": 1,
+      "name": "36 led par can.23",
+      "profile": "36 LED Par Can",
+      "footprint": 7,
+      "posx": 630,
+      "posy": 280,
+      "angle": 0,
+      "uid": "6397a8a9-de7c-480c-aac1-c0f8fbf73b61"
+    },
+    {
+      "address": 184,
+      "universe": 1,
+      "name": "36 led par can.24",
+      "profile": "36 LED Par Can",
+      "footprint": 7,
+      "posx": 670,
+      "posy": 280,
+      "angle": 0,
+      "uid": "aebf4b24-5ed5-4a1e-9ce1-023f58186619"
+    },
+    {
+      "address": 191,
+      "universe": 1,
+      "name": "36 led par can.25",
+      "profile": "36 LED Par Can",
+      "footprint": 7,
+      "posx": 710,
+      "posy": 280,
+      "angle": 0,
+      "uid": "3b4a79ce-7e6e-4c24-a602-5e635c9a21a2"
+    },
+    {
+      "address": 198,
+      "universe": 1,
+      "name": "36 led par can.26",
+      "profile": "36 LED Par Can",
+      "footprint": 7,
+      "posx": 590,
+      "posy": 280,
+      "angle": 0,
+      "uid": "eaa8b913-4f62-4917-84e7-4a2f9d33b2f3"
+    },
+    {
+      "address": 207,
+      "universe": 1,
+      "name": "base hazer 1500w.27",
+      "profile": "Base Hazer 1500W",
+      "footprint": 2,
+      "posx": 1035,
+      "posy": -252,
+      "angle": 2,
+      "uid": "520c7bfb-9b5b-4c14-a420-8541e19a7ed4"
+    },
+    {
+      "address": 209,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.39",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 295,
+      "posy": 334,
+      "angle": 0,
+      "uid": "55a61014-5867-40a5-a7f7-33e222dd33c4"
+    },
+    {
+      "address": 216,
+      "universe": 1,
+      "name": "rockstrip 252.40",
+      "profile": "RockStrip 252",
+      "footprint": 7,
+      "posx": 400,
+      "posy": -55,
+      "angle": 0,
+      "uid": "89fdc7b1-4eb2-45eb-a288-448c6ece951b"
+    },
+    {
+      "address": 225,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.32",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 660,
+      "posy": 333,
+      "angle": 180,
+      "uid": "296844cd-44fc-487f-9af6-4c38c951d8a4"
+    },
+    {
+      "address": 232,
+      "universe": 1,
+      "name": "zq01334",
+      "profile": "ZQ01334",
+      "footprint": 15,
+      "posx": 1300,
+      "posy": -320,
+      "angle": 0,
+      "uid": "5fd90863-0dda-4d9c-87a6-9b304328b149"
+    },
+    {
+      "address": 250,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.52",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 430,
+      "posy": -230,
+      "angle": 0,
+      "uid": "c3a76a03-8d7b-496c-bdc1-14e1443837f2"
+    },
+    {
+      "address": 257,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.40",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 430,
+      "posy": -190,
+      "angle": 0,
+      "uid": "e2c7568d-7dd4-4504-bb29-a752e3545a2a"
+    },
+    {
+      "address": 264,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.41",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 430,
+      "posy": -150,
+      "angle": 0,
+      "uid": "ae9fd7d6-d39d-4ed7-b9f2-9aeeb923e7e3"
+    },
+    {
+      "address": 271,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.42",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 430,
+      "posy": -110,
+      "angle": 0,
+      "uid": "92c0f7a6-08c6-4a35-bba2-7768a372d6c3"
+    },
+    {
+      "address": 278,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.43",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 490,
+      "posy": -230,
+      "angle": 0,
+      "uid": "89fc41c3-eceb-4ec1-bd64-42edbd54c616"
+    },
+    {
+      "address": 285,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.44",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 490,
+      "posy": -190,
+      "angle": 0,
+      "uid": "cf22d457-3440-4897-927c-20ff81e793c9"
+    },
+    {
+      "address": 292,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.45",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 490,
+      "posy": -150,
+      "angle": 0,
+      "uid": "b9426849-7402-4cea-acfd-28fe92a2245a"
+    },
+    {
+      "address": 299,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.46",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 490,
+      "posy": -110,
+      "angle": 0,
+      "uid": "e221e3a3-d84f-49d9-94f1-344a534aafb8"
+    },
+    {
+      "address": 306,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.47",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 550,
+      "posy": -230,
+      "angle": 0,
+      "uid": "87c89fc3-7fdf-4d86-bdae-c187f0a2fc56"
+    },
+    {
+      "address": 313,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.48",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 550,
+      "posy": -190,
+      "angle": 0,
+      "uid": "11275b8e-6032-4873-92db-f57625c33603"
+    },
+    {
+      "address": 320,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.49",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 550,
+      "posy": -150,
+      "angle": 0,
+      "uid": "0373d53f-8112-4a1e-8dbc-a02aabe14579"
+    },
+    {
+      "address": 327,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.50",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 550,
+      "posy": -110,
+      "angle": 0,
+      "uid": "ee1b743f-f842-4a8c-ab5f-0d55fae932ee"
+    },
+    {
+      "address": 334,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.51",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 610,
+      "posy": -230,
+      "angle": 0,
+      "uid": "3ff2a10b-dc60-4194-a03d-f6c00a1d71ce"
+    },
+    {
+      "address": 341,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.52",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 610,
+      "posy": -190,
+      "angle": 0,
+      "uid": "0d374024-dd7d-452d-99db-4a67498d1f82"
+    },
+    {
+      "address": 348,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.38",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 610,
+      "posy": -150,
+      "angle": 0,
+      "uid": "6a174b3b-5b04-4c5c-a7ca-e0d5606d7838"
+    },
+    {
+      "address": 355,
+      "universe": 1,
+      "name": "solena professional max par 54 rgb.39",
+      "profile": "Solena Professional Max Par 54 RGB",
+      "footprint": 7,
+      "posx": 610,
+      "posy": -110,
+      "angle": 0,
+      "uid": "428690e3-382d-454c-aa56-1fecd221a2ca"
+    },
+    {
+      "address": 362,
+      "universe": 1,
+      "name": "Endy Show Pole L",
+      "profile": "ENDYSHOW LED Stage Light Bar PL-32M",
+      "footprint": 8,
+      "posx": 10,
+      "posy": 80,
+      "angle": 0,
+      "uid": "709c4c96-b3a1-46bd-ac8c-58bd01fa2542"
+    },
+    {
+      "address": 370,
+      "universe": 1,
+      "name": "Endyshow Pole R",
+      "profile": "ENDYSHOW LED Stage Light Bar PL-32M",
+      "footprint": 8,
+      "posx": 1000,
+      "posy": 70,
+      "angle": 0,
+      "uid": "d2cc8edb-1811-4474-acac-785279b4abc1"
+    },
+    {
+      "address": 378,
+      "universe": 1,
+      "name": "Endyshow Floor",
+      "profile": "ENDYSHOW LED Stage Light Bar PL-32M",
+      "footprint": 8,
+      "posx": 820,
+      "posy": 200,
+      "angle": 0,
+      "uid": "b52c892d-f750-4d26-9017-38aaf9d402f8"
+    },
+    {
+      "address": 400,
+      "universe": 1,
+      "name": "mini gobo moving head light.28",
+      "profile": "Mini Gobo Moving Head Light",
+      "footprint": 11,
+      "posx": 676,
+      "posy": 79,
+      "angle": 0,
+      "uid": "e46653f0-1e13-4650-8457-a8de30921fba"
+    },
+    {
+      "address": 411,
+      "universe": 1,
+      "name": "mini gobo moving head light.29",
+      "profile": "Mini Gobo Moving Head Light",
+      "footprint": 11,
+      "posx": 323,
+      "posy": 84,
+      "angle": 0,
+      "uid": "c592cbc4-18d1-4600-8a6e-b7e59315c7be"
+    },
+    {
+      "address": 422,
+      "universe": 1,
+      "name": "mini gobo moving head light.30",
+      "profile": "Mini Gobo Moving Head Light",
+      "footprint": 11,
+      "posx": 841,
+      "posy": 77,
+      "angle": 0,
+      "uid": "488f31a7-d95e-462b-8b11-7d75c44eeb7a"
+    },
+    {
+      "address": 433,
+      "universe": 1,
+      "name": "mini gobo moving head light.31",
+      "profile": "Mini Gobo Moving Head Light",
+      "footprint": 11,
+      "posx": 110,
+      "posy": 84,
+      "angle": 0,
+      "uid": "19d03592-f7d3-4bff-bec3-3b76e8e6c880"
+    },
+    {
+      "address": 511,
+      "universe": 1,
+      "name": "mbdmx-plus",
+      "profile": "MBDMX-PLUS",
+      "footprint": 2,
+      "posx": 520,
+      "posy": -350,
+      "angle": 0,
+      "uid": "a4bf54d6-26a7-4a6d-b930-54fb941d5e97"
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "_comment": "Remote inputs for Ignition Studio — see apps/ignition-studio/src/remote.rs. `midi` is one controller or a list; every port present connects. A binding is a bare verb (go, look_go, play, stop, blind, highlight, lowlight, page_next, page_prev, release, rate, size, speed, program_time, dimmer) or an object: {fader: n}, {key: {index: n, action: Flash|Toggle|Swap|Kill|Black}}, {master: role}, {solo: role}, {page: n}. CC values map 0..127 onto the control's travel; notes are press and release.",
+
+  "midi": [
+    {
+      "port": "nanoKONTROL",
+      "cc": {
+        "0": { "fader": 0 }, "1": { "fader": 1 }, "2": { "fader": 2 }, "3": { "fader": 3 },
+        "4": { "fader": 4 }, "5": { "fader": 5 }, "6": { "fader": 6 }, "7": { "fader": 7 },
+
+        "16": { "master": "Key" }, "17": { "master": "Wash" },
+        "18": { "master": "Movers" }, "19": { "master": "Bars" },
+        "20": "rate", "21": "size", "22": "speed", "23": "program_time"
+      },
+      "notes": {
+        "32": { "key": { "index": 0, "action": "Flash" } },
+        "33": { "key": { "index": 1, "action": "Flash" } },
+        "34": { "key": { "index": 2, "action": "Flash" } },
+        "35": { "key": { "index": 3, "action": "Flash" } },
+        "36": { "key": { "index": 4, "action": "Flash" } },
+        "37": { "key": { "index": 5, "action": "Flash" } },
+        "38": { "key": { "index": 6, "action": "Flash" } },
+        "39": { "key": { "index": 7, "action": "Flash" } },
+
+        "48": { "key": { "index": 0, "action": "Toggle" } },
+        "49": { "key": { "index": 1, "action": "Toggle" } },
+        "50": { "key": { "index": 2, "action": "Toggle" } },
+        "51": { "key": { "index": 3, "action": "Toggle" } },
+        "52": { "key": { "index": 4, "action": "Toggle" } },
+        "53": { "key": { "index": 5, "action": "Toggle" } },
+        "54": { "key": { "index": 6, "action": "Toggle" } },
+        "55": { "key": { "index": 7, "action": "Toggle" } },
+
+        "64": { "key": { "index": 0, "action": "Swap" } },
+        "65": { "key": { "index": 1, "action": "Swap" } },
+        "66": { "key": { "index": 2, "action": "Swap" } },
+        "67": { "key": { "index": 3, "action": "Swap" } },
+        "68": { "key": { "index": 4, "action": "Swap" } },
+        "69": { "key": { "index": 5, "action": "Swap" } },
+        "70": { "key": { "index": 6, "action": "Swap" } },
+        "71": { "key": { "index": 7, "action": "Swap" } },
+
+        "41": "play", "42": "stop", "45": "go", "44": "look_go",
+        "46": "blind", "43": "release",
+        "58": "page_prev", "59": "page_next",
+        "60": "highlight", "61": "lowlight", "62": "release"
+      }
+    },
+    {
+      "port": "X-TOUCH MINI",
+      "cc": {
+        "1": { "fader": 0 }, "2": { "fader": 1 }, "3": { "fader": 2 }, "4": { "fader": 3 },
+        "5": { "fader": 4 }, "6": { "fader": 5 }, "7": { "fader": 6 }, "8": { "fader": 7 },
+        "9": "rate",
+        "11": { "master": "Key" }, "12": { "master": "Wash" },
+        "13": { "master": "Movers" }, "14": { "master": "Bars" },
+        "15": "size", "16": "speed", "17": "program_time", "18": "dimmer"
+      },
+      "notes": {
+        "8":  { "key": { "index": 0, "action": "Flash" } },
+        "9":  { "key": { "index": 1, "action": "Flash" } },
+        "10": { "key": { "index": 2, "action": "Flash" } },
+        "11": { "key": { "index": 3, "action": "Flash" } },
+        "12": { "key": { "index": 4, "action": "Flash" } },
+        "13": { "key": { "index": 5, "action": "Flash" } },
+        "14": { "key": { "index": 6, "action": "Flash" } },
+        "15": { "key": { "index": 7, "action": "Flash" } },
+
+        "16": "go", "17": "look_go", "18": "play", "19": "stop",
+        "20": "page_prev", "21": "page_next", "22": "blind", "23": "release",
+
+        "0": { "key": { "index": 0, "action": "Toggle" } },
+        "1": { "key": { "index": 1, "action": "Toggle" } },
+        "2": { "key": { "index": 2, "action": "Toggle" } },
+        "3": { "key": { "index": 3, "action": "Toggle" } },
+        "4": { "key": { "index": 4, "action": "Toggle" } },
+        "5": { "key": { "index": 5, "action": "Toggle" } },
+        "6": { "key": { "index": 6, "action": "Toggle" } },
+        "7": { "key": { "index": 7, "action": "Toggle" } }
+      }
+    }
+  ],
+
+  "osc": {
+    "port": 9000,
+    "addresses": {
+      "/fader/1": { "fader": 0 }, "/fader/2": { "fader": 1 }, "/fader/3": { "fader": 2 },
+      "/fader/4": { "fader": 3 }, "/fader/5": { "fader": 4 }, "/fader/6": { "fader": 5 },
+      "/fader/7": { "fader": 6 }, "/fader/8": { "fader": 7 },
+      "/key/1": { "key": { "index": 0, "action": "Flash" } },
+      "/key/2": { "key": { "index": 1, "action": "Flash" } },
+      "/key/3": { "key": { "index": 2, "action": "Flash" } },
+      "/key/4": { "key": { "index": 3, "action": "Flash" } },
+      "/key/5": { "key": { "index": 4, "action": "Flash" } },
+      "/key/6": { "key": { "index": 5, "action": "Flash" } },
+      "/key/7": { "key": { "index": 6, "action": "Flash" } },
+      "/key/8": { "key": { "index": 7, "action": "Flash" } },
+      "/master/key": { "master": "Key" }, "/master/wash": { "master": "Wash" },
+      "/master/movers": { "master": "Movers" }, "/master/bars": { "master": "Bars" },
+      "/rate": "rate", "/size": "size", "/speed": "speed", "/prog": "program_time",
+      "/go": "go", "/look": "look_go", "/play": "play", "/stop": "stop",
+      "/page/next": "page_next", "/page/prev": "page_prev",
+      "/blind": "blind", "/highlight": "highlight", "/lowlight": "lowlight",
+      "/release": "release"
+    }
+  }
+}

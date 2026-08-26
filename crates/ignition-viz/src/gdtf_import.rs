@@ -17,7 +17,9 @@
 //! generic mesh, it just gets its live DMX behaviour from real data
 //! instead of a guess.
 
+use crate::fixture_profile::{FixtureEmitters, typical_emitter};
 use gdtf::GdtfFile;
+use ignition_core::color::{Emitter, emitter};
 use ignition_proto::{Attribute, ChannelMap, ColorChannel};
 use std::fs::File;
 use std::path::Path;
@@ -31,6 +33,14 @@ pub struct GdtfChannelMap {
     pub fixture_type_name: String,
     pub dmx_mode_name: String,
     pub channel_map: ChannelMap,
+    /// The mode's additive colour emitters, in `channel_map` order, with
+    /// the file's own measured chromaticity where
+    /// `PhysicalDescriptions/Emitters` carries one (linked from the
+    /// channel's `ChannelFunction Emitter=`), and the class-typical value
+    /// from `fixture_profile::typical_emitter` where it does not. `None`
+    /// for a fixture with no `ColorAdd_*` channels at all.
+    // r[impl color.emitter-solve] - real emitter data from GDTF when present
+    pub emitters: Option<FixtureEmitters>,
 }
 
 /// Reads a `.gdtf` file and extracts the `ChannelMap` for one DMX mode.
@@ -41,9 +51,17 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
     let file = File::open(path)?;
     let gdtf =
         GdtfFile::new(file).map_err(|e| anyhow::anyhow!("failed to parse GDTF file: {e}"))?;
+    channel_map_from_description(&gdtf.description, mode_name)
+}
 
-    let fixture_type = gdtf
-        .description
+/// `import_channel_map` on an already-parsed description — the file's
+/// `description.xml`, which is also what a test can hand over as a
+/// string without building a zip.
+pub fn channel_map_from_description(
+    description: &gdtf::Description,
+    mode_name: Option<&str>,
+) -> anyhow::Result<GdtfChannelMap> {
+    let fixture_type = description
         .fixture_types
         .first()
         .ok_or_else(|| anyhow::anyhow!("GDTF file defines no fixture types"))?;
@@ -61,6 +79,7 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
     };
 
     let mut channels = Vec::new();
+    let mut emitters = Vec::new();
     let mut footprint = 0u16;
     for ch in &mode.dmx_channels {
         // A GDTF channel with no `Offset` is a "virtual" channel (no real
@@ -82,9 +101,21 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
         };
         let attr_name = logical.attribute.to_string();
         if let Some(attr) = map_attribute_name(&attr_name) {
+            if let Attribute::ColorAdd { channel } = &attr {
+                let measured = logical
+                    .channel_functions
+                    .iter()
+                    .find_map(|f| f.emitter(fixture_type))
+                    .and_then(gdtf_emitter);
+                emitters.push((
+                    *channel,
+                    measured.unwrap_or_else(|| typical_emitter(*channel)),
+                ));
+            }
             channels.push((offset0, attr));
         }
     }
+    let emitters = (!emitters.is_empty()).then_some(FixtureEmitters { channels: emitters });
 
     let fixture_type_name = fixture_type
         .name
@@ -100,7 +131,46 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
             footprint,
             channels,
         },
+        emitters,
     })
+}
+
+/// Every emitter the file declares, whether or not a channel links to
+/// it — for a caller that wants the fixture's palette of sources
+/// without a DMX mode. Wavelength-only emitters (no `Color=`) have no
+/// chromaticity to give and are skipped.
+// r[impl color.emitter-solve] - GDTF PhysicalDescriptions/Emitters
+pub fn import_emitters(path: &Path) -> anyhow::Result<Vec<Emitter>> {
+    let file = File::open(path)?;
+    let gdtf =
+        GdtfFile::new(file).map_err(|e| anyhow::anyhow!("failed to parse GDTF file: {e}"))?;
+    let fixture_type = gdtf
+        .description
+        .fixture_types
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("GDTF file defines no fixture types"))?;
+    Ok(fixture_type
+        .physical_descriptions
+        .emitters
+        .iter()
+        .filter_map(gdtf_emitter)
+        .collect())
+}
+
+/// A GDTF `<Emitter Name= Color="x,y,Y">` as this project's emitter.
+/// GDTF's `Y` is relative to the fixture's luminous flux, which is the
+/// same "relative to full white" the solve wants.
+fn gdtf_emitter(e: &gdtf::physical_descriptions::Emitter) -> Option<Emitter> {
+    let gdtf::physical_descriptions::EmitterOptic::Color { color, .. } = &e.optic else {
+        return None;
+    };
+    let name = e.name.as_ref().map(|n| n.to_string()).unwrap_or_default();
+    Some(emitter(
+        &name,
+        color.x as f32,
+        color.y as f32,
+        color.z as f32,
+    ))
 }
 
 /// Maps a GDTF standard-attribute name (the `Attribute` XML value on a
@@ -199,6 +269,100 @@ mod tests {
         // from the resolved channel map, not silently mapped to offset 0.
         assert_eq!(result.channel_map.offset_of(&Attribute::Dimmer), None);
     }
+
+    /// The sample file declares an sRGB `ColorSpace` but no `Emitters`
+    /// node, so its four `ColorAdd_*` channels come back with the
+    /// class-typical chromaticities — enough for the solve to put a white
+    /// on its white.
+    #[test]
+    /// r[verify color.emitter-solve] - a GDTF import yields per-channel emitters
+    fn imports_emitters_for_each_color_channel() {
+        let result = import_channel_map(Path::new(SAMPLE), None).unwrap();
+        let emitters = result.emitters.expect("an RGBW fixture has emitters");
+        assert_eq!(
+            emitters
+                .channels
+                .iter()
+                .map(|(c, _)| *c)
+                .collect::<Vec<_>>(),
+            vec![
+                ColorChannel::Red,
+                ColorChannel::Green,
+                ColorChannel::Blue,
+                ColorChannel::White
+            ]
+        );
+        assert!(emitters.beyond_rgb());
+        assert!(import_emitters(Path::new(SAMPLE)).unwrap().is_empty());
+    }
+
+    /// A file that does carry `PhysicalDescriptions/Emitters` linked from
+    /// its channel functions: the measured chromaticity wins over the
+    /// typical one.
+    #[test]
+    /// r[verify color.emitter-solve] - measured GDTF emitter data reaches the profile
+    fn measured_emitters_override_the_typical_ones() {
+        let description: gdtf::Description = EMITTER_XML.parse().unwrap();
+        let result = channel_map_from_description(&description, None).unwrap();
+        let emitters = result.emitters.unwrap();
+        let (_, red) = &emitters.channels[0];
+        assert!(
+            (red.x - 0.700).abs() < 1e-4 && (red.y - 0.299).abs() < 1e-4,
+            "{red:?}"
+        );
+        assert_eq!(red.name, "LED Red");
+        assert!((red.max_lumens - 0.25).abs() < 1e-4);
+        let (_, green) = &emitters.channels[1];
+        assert_eq!(green.name, "LED Green");
+    }
+
+    /// A hand-written `description.xml` with two linked emitters.
+    const EMITTER_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<GDTF DataVersion="1.2">
+  <FixtureType Name="Emitter Test" ShortName="ET" LongName="Emitter Test" Manufacturer="Test" Description="" FixtureTypeID="00000000-0000-0000-0000-000000000001" RefFT="">
+    <AttributeDefinitions>
+      <ActivationGroups/>
+      <FeatureGroups>
+        <FeatureGroup Name="Color" Pretty="Color"><Feature Name="RGB"/></FeatureGroup>
+      </FeatureGroups>
+      <Attributes>
+        <Attribute Name="ColorAdd_R" Pretty="R" Feature="Color.RGB" PhysicalUnit="ColorComponent"/>
+        <Attribute Name="ColorAdd_G" Pretty="G" Feature="Color.RGB" PhysicalUnit="ColorComponent"/>
+      </Attributes>
+    </AttributeDefinitions>
+    <Wheels/>
+    <PhysicalDescriptions>
+      <Emitters>
+        <Emitter Name="LED Red" Color="0.700000,0.299000,0.250000" DominantWaveLength="625.000000"/>
+        <Emitter Name="LED Green" Color="0.170000,0.720000,0.600000" DominantWaveLength="525.000000"/>
+      </Emitters>
+      <ColorSpace Mode="sRGB"/>
+    </PhysicalDescriptions>
+    <Models/>
+    <Geometries>
+      <Geometry Name="Body" Position="{1,0,0,0}{0,1,0,0}{0,0,1,0}{0,0,0,1}"/>
+    </Geometries>
+    <DMXModes>
+      <DMXMode Name="Default" Geometry="Body">
+        <DMXChannels>
+          <DMXChannel DMXBreak="1" Offset="1" Highlight="255/1" Geometry="Body">
+            <LogicalChannel Attribute="ColorAdd_R">
+              <ChannelFunction Name="Red" Attribute="ColorAdd_R" DMXFrom="0/1" Emitter="LED Red"/>
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Offset="2" Highlight="255/1" Geometry="Body">
+            <LogicalChannel Attribute="ColorAdd_G">
+              <ChannelFunction Name="Green" Attribute="ColorAdd_G" DMXFrom="0/1" Emitter="LED Green"/>
+            </LogicalChannel>
+          </DMXChannel>
+        </DMXChannels>
+        <Relations/>
+        <FTMacros/>
+      </DMXMode>
+    </DMXModes>
+  </FixtureType>
+</GDTF>
+"#;
 
     #[test]
     fn unknown_mode_name_is_a_real_error_not_a_panic() {

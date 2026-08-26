@@ -86,6 +86,11 @@ pub enum ContentKind {
     Still,
     /// A clip, decoded by this module.
     Video,
+    /// Generated content — a `proc:` string naming a
+    /// `ignition_core::canvas::CanvasRecipe`, rendered by
+    /// `crate::canvas::ProceduralSource` on the same clock as a clip.
+    // r[impl canvas.clip-is-a-source] - a clip and a procedural source are two kinds of the same thing
+    Procedural,
 }
 
 /// Classifies a canvas source by extension.
@@ -94,6 +99,9 @@ pub enum ContentKind {
 /// error for a file it cannot load, which is a better failure than this
 /// module opening a decoder on a `.txt` and reporting something vaguer.
 pub fn content_kind(path: &str) -> ContentKind {
+    if path.starts_with(crate::canvas::PROC_PREFIX) {
+        return ContentKind::Procedural;
+    }
     let ext = Path::new(path)
         .extension()
         .and_then(|e| e.to_str())
@@ -285,6 +293,8 @@ impl VideoSource {
             // thing, and the cost is a few frames of decode after a
             // seek — which was being thrown away either way.
             if frame.generation == self.generation {
+                // The seek has landed; a later drift may ask again.
+                self.requested = None;
                 self.cursor.push(frame);
             }
         }
@@ -305,9 +315,17 @@ impl VideoSource {
         // for somewhere the worker is already on its way to would keep
         // resetting its decode, so the playhead has to have actually
         // moved before we ask again.
+        //
+        // And a request that has not landed yet stands for the whole
+        // stretch the clock will cover while it does. A seek on a clip
+        // with sparse keyframes decodes forward from the last one for
+        // a good fraction of a second; re-asking every frame the clock
+        // moved a 240th further threw that decode away each time, and
+        // the picture never advanced at all — one frame in two seconds
+        // of play, on a clip that decodes fine.
         if self
             .requested
-            .is_some_and(|prev| (prev - t).abs() < BACK_TOLERANCE)
+            .is_some_and(|prev| t + BACK_TOLERANCE >= prev && t < prev + LATE_TOLERANCE)
         {
             return;
         }
@@ -502,6 +520,15 @@ mod tests {
 
     /// The venue's own files are whatever the operator's exporter wrote,
     /// which on a Mac is as likely to be `.MOV` as `.mov`.
+    #[test]
+    fn a_proc_string_is_procedural_not_a_file() {
+        assert_eq!(content_kind("proc:rainbow"), ContentKind::Procedural);
+        assert_eq!(
+            content_kind(r#"proc:{"source":{"Solid":[1,0,0]}}"#),
+            ContentKind::Procedural
+        );
+    }
+
     #[test]
     fn extension_matching_ignores_case() {
         assert_eq!(content_kind("CLIPS/CITY.MOV"), ContentKind::Video);

@@ -10,15 +10,33 @@ repository.workspace = true
 # control; the Bevy visualizer is a texture composited into one DOM
 # element. See `crates/ignition-viz/src/embedded.rs` for why that is
 # possible at all.
+# Hardware and the room are opt-in: a default build needs no MIDI, OSC
+# or audio libraries, and a machine without them still runs the surface.
+#
+#   cargo build -p ignition-studio --features remote,sound
+[features]
+default = []
+# MIDI control change / note input, through `midir` — see `remote.rs`.
+midi = ["dep:midir"]
+# OSC over UDP, through `rosc` — see `remote.rs`.
+osc = ["dep:rosc"]
+remote = ["midi", "osc"]
+# An audio input driving the `Tap` master and band levels — `sound.rs`.
+sound = ["dep:cpal"]
+
 [dependencies]
 ignition-core.workspace = true
-ignition-viz.workspace = true
+serde.workspace = true
+midir = { version = "0.11", optional = true }
+rosc = { version = "0.11", optional = true }
+cpal = { version = "0.18", optional = true }
+ignition-viz = { workspace = true, features = ["ffmpeg"] }
 ignition-song = { workspace = true, features = ["play"] }
 bevy.workspace = true
 wgpu.workspace = true
 anyhow = "1"
 tracing = "0.1"
-tokio = { version = "1", features = ["time", "rt-multi-thread"] }
+tokio = { version = "1", features = ["time", "rt-multi-thread", "sync"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde_json.workspace = true
 

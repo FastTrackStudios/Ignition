@@ -18,8 +18,9 @@ use crate::beam::BeamPlugin;
 use crate::gdtf_geometry::GdtfLibrary;
 use crate::playback::{Playback, operator_keys, tick_playback};
 use crate::spawn::{
-    BeamStyle, CanvasClock, DmxRes, GdtfLibraryRes, VenueRes, VizSettings, apply_ambient,
-    spawn_venue, update_beams, update_canvas_videos, update_fixture_bodies, update_live_fixtures,
+    BeamStyle, CanvasClock, DmxRes, GdtfLibraryRes, LiveDmx, VenueRes, VizSettings, apply_ambient,
+    resolve_live_dmx, spawn_venue, update_beams, update_canvas_videos, update_fixture_bodies,
+    update_live_fixtures,
 };
 use crate::view::ViewPreset;
 use crate::{DmxUniverses, Venue, dmx};
@@ -81,6 +82,9 @@ pub struct VizConfig {
     /// Per-canvas sources — `--canvas main=clips/city.png`. A canvas
     /// with no entry falls back to `screen_content`.
     pub canvas_content: std::collections::HashMap<String, String>,
+    /// Where each canvas's crop is centred in its source, 0..=1; see
+    /// `VizSettings::canvas_focus`.
+    pub canvas_focus: std::collections::HashMap<String, f32>,
     /// Root directory the asset server loads from.
     pub assets_dir: String,
     /// How beams are drawn — see `BeamStyle`.
@@ -95,6 +99,54 @@ pub struct VizConfig {
     /// first DMX packets to arrive; grabbing frame 0 catches a half-built
     /// scene and a dark rig.
     pub settle_frames: u32,
+    /// How much GPU to spend per pixel — see `RenderQuality`.
+    pub quality: RenderQuality,
+}
+
+/// The per-pixel cost dials: what a still can afford and a live view
+/// cannot.
+///
+/// The volumetric pass raymarches every pixel `fog_steps` times, and
+/// MSAA multiplies every fragment by its sample count. Together they
+/// were most of the frame in the studio, where the picture has to
+/// arrive every 8 ms; a snapshot has all day and keeps the old numbers
+/// so stills do not change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderQuality {
+    /// `VolumetricFog::step_count`.
+    pub fog_steps: u32,
+    /// Whether the camera multisamples. Bloom and fog blur beam edges
+    /// enough that turning it off is hard to see and easy to measure.
+    pub msaa: bool,
+}
+
+impl RenderQuality {
+    /// What a headless still renders at: the quality every existing
+    /// snapshot was made with.
+    pub const STILL: Self = Self {
+        fog_steps: 192,
+        msaa: true,
+    };
+
+    /// What a window or the studio renders at. `IGNITION_FOG_STEPS`
+    /// overrides the step count, for comparing on a given GPU without a
+    /// rebuild.
+    pub fn live() -> Self {
+        let fog_steps = std::env::var("IGNITION_FOG_STEPS")
+            .ok()
+            .and_then(|v| v.trim().parse::<u32>().ok())
+            .filter(|n| *n > 0)
+            // 128 rather than 64: at 64 the raymarch quantises a mover's
+            // cone into rings and dots, which reads as a broken beam
+            // rather than a cheaper one. 128 is the fewest that stays a
+            // solid shaft at the studio's viewport; the frame budget is
+            // spent on that before anything else.
+            .unwrap_or(128);
+        Self {
+            fog_steps,
+            msaa: false,
+        }
+    }
 }
 
 /// The visualizer itself: resources, the venue spawn, and the per-frame
@@ -126,6 +178,7 @@ impl Plugin for VizPlugin {
                 exposure: self.config.exposure,
                 screen_content: self.config.screen_content.clone(),
                 canvas_content: self.config.canvas_content.clone(),
+                canvas_focus: self.config.canvas_focus.clone(),
                 assets_dir: self.config.assets_dir.clone(),
             })
             // Free-running by default, which is what the standalone
@@ -142,6 +195,7 @@ impl Plugin for VizPlugin {
             // for a few frames" — which on a venue with seventy-odd
             // fixtures happens on the first busy cue. Sized up front, so
             // the corruption never happens rather than happening once.
+            .init_resource::<LiveDmx>()
             .add_systems(Startup, widen_light_clusters)
             // Frame timing for the overlay's FPS readout. Bevy's own
             // plugin rather than a hand-rolled delta average, because it
@@ -158,6 +212,7 @@ impl Plugin for VizPlugin {
                     apply_ambient,
                     operator_keys,
                     tick_playback,
+                    resolve_live_dmx,
                     update_live_fixtures,
                     update_fixture_bodies,
                 )
@@ -228,6 +283,7 @@ fn run_windowed(
     let (min, max) = config.venue.bounds();
     let view = config.view;
     let free_camera = config.camera;
+    let quality = config.quality;
     let (width, height) = (config.width, config.height);
     let assets_dir = config.assets_dir.clone();
 
@@ -254,7 +310,7 @@ fn run_windowed(
         })
         .insert_resource(playback)
         .add_systems(Startup, move |mut commands: Commands| {
-            commands.spawn(camera_bundle(view, free_camera, min, max));
+            commands.spawn(camera_bundle(view, free_camera, min, max, quality));
         })
         .run();
 }
@@ -271,6 +327,7 @@ fn run_snapshot(
     let (min, max) = config.venue.bounds();
     let view = config.view;
     let free_camera = config.camera;
+    let quality = config.quality;
     let (width, height) = (config.width, config.height);
     let settle_frames = config.settle_frames.max(1);
 
@@ -327,7 +384,7 @@ fn run_snapshot(
         // `RenderTarget` is its own component — adding it to the camera
         // is what points it at the offscreen image instead of a window.
         commands.spawn((
-            camera_bundle(view, free_camera, min, max),
+            camera_bundle(view, free_camera, min, max, quality),
             camera_target.clone(),
         ));
     });
@@ -407,9 +464,15 @@ pub(crate) fn camera_bundle(
     free: Option<(Vec3, Vec3)>,
     min: Vec3,
     max: Vec3,
+    quality: RenderQuality,
 ) -> impl Bundle {
     (
         Camera3d::default(),
+        if quality.msaa {
+            Msaa::default()
+        } else {
+            Msaa::Off
+        },
         // Where shadow level-of-detail is measured from. Bevy warns when
         // point or spot lights exist and nothing declares one — which is
         // every frame here, since a lighting rig is nothing but point and
@@ -441,12 +504,13 @@ pub(crate) fn camera_bundle(
         VolumetricFog {
             // No environment map, so nothing should be lit by one.
             ambient_intensity: 0.0,
-            // Well above the default 64. A church auditorium is ~20m
-            // deep and a beam crosses most of it, so the default step
-            // spacing lands visibly wide and every shaft comes out in
-            // stair-steps. Cost is per-pixel raymarching, which is worth
-            // it here: beams *are* the picture.
-            step_count: 192,
+            // A still goes well above the default 64: a church
+            // auditorium is ~20m deep and a beam crosses most of it, so
+            // the default spacing lands visibly wide and every shaft
+            // comes out in stair-steps. Cost is per-pixel raymarching,
+            // which a live view cannot afford three times over — see
+            // `RenderQuality`.
+            step_count: quality.fog_steps,
             // No jitter. It offsets each ray's start depth to trade
             // banding for noise, and Bevy's own docs say it is meant for
             // use *with* temporal antialiasing — which resolves that

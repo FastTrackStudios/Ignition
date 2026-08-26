@@ -1,0 +1,11 @@
+{
+  "about": "Riverside's blocking grid \u2014 where people actually stand on a 19' 8\" x 12' deck. Six areas: a downstage line for the front of the band and an upstage line for the back line and the kit. Generic shows reach the talent through the profile's focus roles; these are for this room's own programming and for busking.",
+  "areas": {
+    "Downstage Left": "Vocal Stage Left",
+    "Downstage Centre": "Vocal Centre",
+    "Downstage Right": "Vocal Stage Right",
+    "Upstage Left": "Upstage Left",
+    "Upstage Centre": "Upstage Centre",
+    "Upstage Right": "Upstage Right"
+  }
+}

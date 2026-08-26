@@ -44,6 +44,13 @@ pub enum Attribute {
     Dimmer,
     Pan,
     Tilt,
+    /// The low byte of a 16-bit pan, on fixtures that have one. Never
+    /// programmed directly: a cue writes `Pan` in degrees and the patch
+    /// splits it across both bytes at output time — an 8-bit pan on a
+    /// 540° yoke steps 2.1° at a time, which is a visible lurch.
+    PanFine,
+    /// The low byte of a 16-bit tilt — see `PanFine`.
+    TiltFine,
     ColorAdd {
         channel: ColorChannel,
     },

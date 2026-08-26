@@ -30,6 +30,7 @@ use ignition_core::{
 /// wrote. `VS 1`, `Verse 2` and `V3` are all verses; nobody should have
 /// to tag them again for the lighting to know.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// r[impl song.map.kind]
 pub enum Kind {
     CountIn,
     Intro,
@@ -48,6 +49,7 @@ pub enum Kind {
 /// Order matters here: `Breakdown` has to be tested before `Break`, and
 /// `Bridge`/`BR` before anything starting with `B`. Getting that wrong
 /// is silent — the section still generates a cue, just the wrong one.
+// r[impl song.map.kind]
 pub fn kind_of(name: &str) -> Kind {
     // The first run of letters, not every letter: section names carry a
     // number or a letter to tell repeats apart — `VS 1`, `CH 3`, `IN A`
@@ -155,11 +157,15 @@ fn chase(measure: f64) -> Recipe {
             phase_spread_deg: 360.0,
             ..Default::default()
         },
-            tricks: Vec::new(),
+        tricks: Vec::new(),
+        stack: false,
+        ..Default::default()
     }
 }
 
 /// The recipes a section of each kind starts with.
+// r[impl song.generate] - recipes chosen by section kind, against roles
+// r[impl song.generate.recipes-not-channels]
 fn look_for(kind: Kind, roles: &Roles) -> Vec<Recipe> {
     let (wash, key, back, strips, movers) = (
         roles.wash.clone(),
@@ -241,6 +247,8 @@ fn look_for(kind: Kind, roles: &Roles) -> Vec<Recipe> {
 /// snaps in one beat snaps at 200 BPM too. Converted through the tempo
 /// map at generate time, because `Cue::fade_secs` is what the fade
 /// engine understands.
+// r[impl song.generate.fades-in-beats]
+// r[impl cues.fade-in-beats]
 fn fade_beats(kind: Kind) -> f64 {
     match kind {
         // Arrivals land. A chorus that fades in has already missed.
@@ -258,6 +266,7 @@ fn fade_beats(kind: Kind) -> f64 {
 /// delta from whatever came before, because sections get reordered,
 /// repeated and skipped and a tracked leftover from a bridge showing up
 /// in a chorus is exactly the bug that makes people distrust the desk.
+// r[impl song.generate]
 pub fn generate(song: &SongMap, roles: &Roles) -> CueList {
     let cues = song
         .sections
@@ -265,11 +274,17 @@ pub fn generate(song: &SongMap, roles: &Roles) -> CueList {
         .map(|section| cue_for(song, section, roles))
         .collect();
     CueList {
+        triggers: Vec::new(),
         name: song.name.clone(),
         cues,
     }
 }
 
+// r[impl song.generate] - one blocking cue per section at its start
+// r[impl song.generate.fades-in-beats] - beats to seconds through the tempo map at generate time
+// r[impl cues.fade-in-beats]
+// r[impl cues.sections-block]
+// r[impl cues.position] - `at` carries the section start
 fn cue_for(song: &SongMap, section: &Section, roles: &Roles) -> Cue {
     let kind = kind_of(&section.name);
     let point = song.tempo.at(section.start);
@@ -278,9 +293,10 @@ fn cue_for(song: &SongMap, section: &Section, roles: &Roles) -> Cue {
         name: section.name.clone(),
         fade_secs,
         values: Vec::new(),
-        recipes: look_for(kind, roles),
+        recipes: look_for(kind, roles).into_iter().map(Into::into).collect(),
         block: true,
-        at: Some(section.start),
+        at: Some(section.start.into()),
+        ..Default::default()
     }
 }
 
@@ -321,6 +337,7 @@ mod tests {
     /// The names an arranger actually writes, including the ones whose
     /// prefixes collide.
     #[test]
+    /// r[verify song.map.kind]
     fn section_names_read_as_parts_of_a_song() {
         for (name, kind) in [
             ("Count-In", Kind::CountIn),
@@ -344,13 +361,16 @@ mod tests {
     }
 
     #[test]
+    /// r[verify song.generate]
+    /// r[verify cues.sections-block]
+    /// r[verify cues.position]
     fn every_section_becomes_a_positioned_cue() {
         let song = song();
         let list = generate(&song, &Roles::default());
         assert_eq!(list.cues.len(), song.sections.len());
         for (cue, section) in list.cues.iter().zip(&song.sections) {
             assert_eq!(cue.name, section.name);
-            assert_eq!(cue.at, Some(section.start));
+            assert_eq!(cue.position(), Some(section.start));
             assert!(cue.block, "a section is a whole statement, not a delta");
             assert!(!cue.recipes.is_empty(), "{} has no look", cue.name);
         }
@@ -359,6 +379,8 @@ mod tests {
     /// Fades are authored in beats and converted, so the same show holds
     /// at another tempo.
     #[test]
+    /// r[verify song.generate.fades-in-beats]
+    /// r[verify cues.fade-in-beats]
     fn fade_times_are_musical() {
         let list = generate(&song(), &Roles::default());
         let beat = 60.0 / 86.28;
@@ -371,11 +393,13 @@ mod tests {
     /// The generated show is built from recipes, which is what makes it
     /// survive a rig change — no cue should carry a bare channel list.
     #[test]
+    /// r[verify song.generate.recipes-not-channels]
+    /// r[verify cues.recipes-not-values]
     fn the_draft_is_recipes_not_channels() {
         let list = generate(&song(), &Roles::default());
         for cue in &list.cues {
             assert!(cue.values.is_empty(), "{} has direct values", cue.name);
-            for recipe in &cue.recipes {
+            for recipe in cue.recipes.iter().filter_map(|r| r.inline()) {
                 assert!(
                     !matches!(recipe.target, Selection::Chans(_)),
                     "{} targets channels directly",

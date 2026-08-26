@@ -26,6 +26,7 @@ use std::path::Path;
 
 /// One hit, placed on the grid.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+// r[impl song.hits.detected]
 pub struct Hit {
     /// The grid position it snapped to — the authoritative time.
     pub at: Bars,
@@ -62,6 +63,7 @@ impl From<Band> for HitBand {
 
 /// Every hit in a song, plus the dynamic curve behind them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+// r[impl song.hits.detected] - per-bar dynamics curve
 pub struct Hits {
     pub song: String,
     /// Grid divisions per beat the hits were snapped to — 2 is eighths.
@@ -77,9 +79,7 @@ pub struct Hits {
 impl Hits {
     /// Hits at or after `from` and before `to`.
     pub fn between(&self, from: Bars, to: Bars) -> impl Iterator<Item = &Hit> {
-        self.hits
-            .iter()
-            .filter(move |h| h.at >= from && h.at < to)
+        self.hits.iter().filter(move |h| h.at >= from && h.at < to)
     }
 
     /// The strongest hit in a bar range, if any — what an accent cue is
@@ -101,20 +101,20 @@ impl Hits {
 /// Analyses an audio file and places its hits on `song`'s grid.
 ///
 /// `grid` is divisions per beat: 2 for eighths, 4 for sixteenths.
+// r[impl song.hits.detected]
 pub fn detect(audio: impl AsRef<Path>, song: &SongMap, grid: u32) -> Result<Hits> {
     let path = audio.as_ref();
-    let (samples, sample_rate) = fts_sample::load_mono_f32(
-        path,
-        None,
-        fts_sample::ResampleQuality::default(),
-    )
-    .with_context(|| format!("decoding {}", path.display()))?;
+    let (samples, sample_rate) =
+        fts_sample::load_mono_f32(path, None, fts_sample::ResampleQuality::default())
+            .with_context(|| format!("decoding {}", path.display()))?;
 
     let analysis = analyze(&samples, &Config::for_rate(f64::from(sample_rate)));
     Ok(place(&analysis, song, grid))
 }
 
 /// Places a finished analysis on the grid.
+// r[impl song.hits.detected]
+// r[impl song.hits.grid-snapped] - eighths by default, per-bar dynamics at the midpoint
 pub fn place(analysis: &Analysis, song: &SongMap, grid: u32) -> Hits {
     let grid = grid.max(1);
     let hits = analysis
@@ -155,6 +155,7 @@ pub fn place(analysis: &Analysis, song: &SongMap, grid: u32) -> Hits {
 /// Done in beats-from-the-start rather than within the bar, so a hit
 /// that snaps forward off the end of a bar lands on the next downbeat
 /// instead of on "beat 5", a position that does not exist.
+// r[impl song.hits.grid-snapped]
 fn snap(position: Bars, song: &SongMap, grid: u32) -> Bars {
     let seconds = song.tempo.seconds_at(position);
     let point = song.tempo.at(position);
@@ -189,7 +190,13 @@ mod tests {
     fn song(bpm: f64) -> SongMap {
         SongMap {
             name: "test".into(),
-            tempo: TempoMap::constant(bpm, TimeSignature { numerator: 4, denominator: 4 }),
+            tempo: TempoMap::constant(
+                bpm,
+                TimeSignature {
+                    numerator: 4,
+                    denominator: 4,
+                },
+            ),
             sections: Vec::new(),
         }
     }
@@ -198,6 +205,7 @@ mod tests {
     /// early — the window latency the detector always carries — must
     /// land on the beat, not just before it.
     #[test]
+    /// r[verify song.hits.grid-snapped]
     fn a_late_or_early_hit_snaps_to_the_eighth() {
         let song = song(120.0);
         // 1.5 s is beat 4 of bar 1; test it arriving 20 ms either side.
@@ -212,6 +220,7 @@ mod tests {
     /// a hit just before the end of a bar snaps *forwards* onto the next
     /// downbeat, not onto a beat 5 that does not exist.
     #[test]
+    /// r[verify song.hits.grid-snapped] - snaps in beats from the song start, across the barline
     fn snapping_forward_crosses_the_barline() {
         let song = song(120.0);
         // Bar 2 starts at 2.0 s; arrive 20 ms early.
@@ -224,6 +233,7 @@ mod tests {
     /// position and must survive snapping rather than collapse onto the
     /// beat before it.
     #[test]
+    /// r[verify song.hits.grid-snapped] - eighths keep the off-beat
     fn the_off_beat_survives() {
         let song = song(120.0);
         // 0.25 s past the downbeat of bar 1 is the "and" of beat 1.
@@ -238,9 +248,27 @@ mod tests {
             song: "t".into(),
             grid: 2,
             hits: vec![
-                Hit { at: Bars::bar(1), secs: 0.0, strength: 0.3, band: HitBand::Low, dynamics: 0.5 },
-                Hit { at: Bars::bar(2), secs: 2.0, strength: 0.9, band: HitBand::High, dynamics: 0.6 },
-                Hit { at: Bars::bar(9), secs: 9.0, strength: 1.0, band: HitBand::Low, dynamics: 0.9 },
+                Hit {
+                    at: Bars::bar(1),
+                    secs: 0.0,
+                    strength: 0.3,
+                    band: HitBand::Low,
+                    dynamics: 0.5,
+                },
+                Hit {
+                    at: Bars::bar(2),
+                    secs: 2.0,
+                    strength: 0.9,
+                    band: HitBand::High,
+                    dynamics: 0.6,
+                },
+                Hit {
+                    at: Bars::bar(9),
+                    secs: 9.0,
+                    strength: 1.0,
+                    band: HitBand::Low,
+                    dynamics: 0.9,
+                },
             ],
             dynamics_by_bar: Vec::new(),
         };

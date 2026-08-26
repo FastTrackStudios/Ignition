@@ -13,9 +13,7 @@
 
 use ignition_core::recipe::{Emit, Show, expand_recipe};
 use ignition_core::selection::Roles;
-use ignition_core::{
-    Attribute, Group, Recipe, RecipeApply, Selection, Speed, Step, Timing, Trick,
-};
+use ignition_core::{Attribute, Group, Recipe, RecipeApply, Selection, Speed, Step, Timing, Trick};
 use std::collections::BTreeMap;
 
 /// The profile's colours, which every venue inherits.
@@ -26,10 +24,9 @@ use std::collections::BTreeMap;
 /// unresolvable colour is not a colour — which makes an empty palette a
 /// silent way to test nothing.
 fn profile_palettes() -> ignition_core::Palettes {
-    let raw = std::fs::read_to_string("../../data/profiles/ignition.ig-profile")
-        .unwrap_or_default();
-    let profile: ignition_core::profile::Profile =
-        serde_json::from_str(&raw).unwrap_or_default();
+    let raw =
+        std::fs::read_to_string("../../data/profiles/ignition.ig-profile").unwrap_or_default();
+    let profile: ignition_core::profile::Profile = serde_json::from_str(&raw).unwrap_or_default();
     ignition_core::Palettes {
         colors: profile.colors,
         ..Default::default()
@@ -60,9 +57,7 @@ impl Venue {
                 .collect(),
             bindings: roles
                 .iter()
-                .map(|(role, group)| {
-                    ((*role).to_string(), Selection::Group((*group).to_string()))
-                })
+                .map(|(role, group)| ((*role).to_string(), Selection::Group((*group).to_string())))
                 .collect(),
         }
     }
@@ -91,10 +86,7 @@ fn norco() -> Venue {
 /// names. This is the venue a show has never seen.
 fn riverside() -> Venue {
     Venue::new(
-        &[
-            ("FOH Bar", &[101, 102, 103]),
-            ("Cyc", &[110]),
-        ],
+        &[("FOH Bar", &[101, 102, 103]), ("Cyc", &[110])],
         &[("Key", "FOH Bar"), ("Wash", "FOH Bar"), ("Back", "Cyc")],
     )
 }
@@ -107,6 +99,7 @@ fn lit(recipe: &Recipe, venue: &Venue, secs: f32) -> Vec<(u32, f32)> {
         rig: &ignition_core::selection::EMPTY_RIG,
         speeds: &ignition_core::recipe::NO_SPEEDS,
         roles: venue,
+        ..Show::new(&venue.groups, &ignition_core::selection::EMPTY_RIG)
     };
     let mut out: Vec<(u32, f32)> = expand_recipe(recipe, &show, secs)
         .into_iter()
@@ -118,12 +111,12 @@ fn lit(recipe: &Recipe, venue: &Venue, secs: f32) -> Vec<(u32, f32)> {
 }
 
 /// A recipe written against a role lights both rooms, untouched.
+/// r[verify profile.resolution-by-role]
+/// r[verify files.no-fixture-identity]
+/// r[verify recipes.template]
 #[test]
 fn one_recipe_lights_two_different_rigs() {
-    let recipe = Recipe::new(
-        Selection::Role("Key".into()),
-        RecipeApply::Dimmer(0.8),
-    );
+    let recipe = Recipe::new(Selection::Role("Key".into()), RecipeApply::Dimmer(0.8));
 
     let at_norco = lit(&recipe, &norco(), 0.0);
     let at_riverside = lit(&recipe, &riverside(), 0.0);
@@ -140,6 +133,8 @@ fn one_recipe_lights_two_different_rigs() {
 /// An unbound role lights nothing rather than erroring, and nothing else
 /// in the cue is affected. A room with no follow spot plays the show
 /// without one — see `r[files.graceful-degradation]`.
+/// r[verify files.graceful-degradation]
+/// r[verify effects.library.missing-role-is-empty] - empty; reporting is not checked here
 #[test]
 fn an_unbound_role_is_empty_not_fatal() {
     let recipe = Recipe::new(Selection::Role("Spot".into()), RecipeApply::Dimmer(1.0));
@@ -183,6 +178,8 @@ fn a_blocked_chase_moves_in_pairs() {
             ..Default::default()
         },
         tricks: vec![Trick::Block(2)],
+        stack: false,
+        ..Default::default()
     };
 
     let out = lit(&recipe, &norco(), 0.0);
@@ -213,6 +210,7 @@ fn a_blocked_chase_moves_in_pairs() {
 
 /// A role may bind to an expression, not just a group — so one venue's
 /// key light can be "these two bars" without the show knowing.
+/// r[verify profile.venue-binds]
 #[test]
 fn a_role_may_bind_to_an_expression() {
     let mut venue = norco();
@@ -226,7 +224,6 @@ fn a_role_may_bind_to_an_expression() {
     let recipe = Recipe::new(Selection::Role("Key".into()), RecipeApply::Dimmer(0.5));
     assert_eq!(lit(&recipe, &venue, 0.0).len(), 12);
 }
-
 
 /// Distinct channels an effect touches, whatever attribute it sets.
 ///
@@ -242,6 +239,7 @@ fn touched(recipe: &Recipe, venue: &Venue, secs: f32) -> Vec<u32> {
         rig: &ignition_core::selection::EMPTY_RIG,
         speeds: &ignition_core::recipe::NO_SPEEDS,
         roles: venue,
+        ..Show::new(&venue.groups, &ignition_core::selection::EMPTY_RIG)
     };
     let mut chans: Vec<u32> = expand_recipe(recipe, &show, secs)
         .into_iter()
@@ -261,6 +259,8 @@ fn touched(recipe: &Recipe, venue: &Venue, secs: f32) -> Vec<u32> {
 /// It catches the failure mode that unit tests cannot — an effect whose
 /// target, Tricks and spread are each individually fine but which
 /// resolves to nothing once composed against a rig of three.
+/// r[verify effects.library.roles-only]
+/// r[verify files.graceful-degradation]
 #[test]
 fn the_whole_library_lights_both_rigs() {
     let library = ignition_core::effects::library();
@@ -302,13 +302,14 @@ fn the_whole_library_lights_both_rigs() {
     }
 }
 
-
 /// A charted hit and a flash key produce the same thing.
 ///
 /// The claim `bump` exists to make. If these ever diverge the symptom is
 /// "the chart feels different from playing it by hand", which is
 /// unfalsifiable from the stage and impossible to bisect — so it is
 /// worth pinning at the level where the two paths meet.
+/// r[verify playback.flash-equals-hit]
+/// r[verify effects.bump.one-object]
 #[test]
 fn a_charted_hit_and_a_flash_key_agree() {
     use ignition_core::bump::{Kind, bump};
@@ -332,6 +333,7 @@ fn a_charted_hit_and_a_flash_key_agree() {
 
 /// Every bump ends at nothing, so a song's worth of snares does not
 /// ratchet the rig brighter.
+/// r[verify effects.delta-ends-at-nothing]
 #[test]
 fn bumps_do_not_accumulate() {
     use ignition_core::bump::{Kind, bump};

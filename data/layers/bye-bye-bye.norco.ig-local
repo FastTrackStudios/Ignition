@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "song": "../songs/bye-bye-bye.json",
+  "venue": "norco",
+  "about": "Norco's upstage right is behind a pillar; the encore playthrough pushes the pillar pars instead. A layer may name anything the venue has — 'Pillar Pars' is not in the profile, and that is the point.",
+  "add_cues": [
+    {
+      "name": "Pillar Fill",
+      "fade_secs": 1.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Group": "Pillar Pars"
+          },
+          "apply": {
+            "Dimmer": 0.6
+          }
+        }
+      ]
+    }
+  ]
+}

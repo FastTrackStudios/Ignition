@@ -1,0 +1,125 @@
+{
+  "colors": [],
+  "focus": [
+    {
+      "name": "Vocal Centre",
+      "target": {
+        "x": 0.0,
+        "y": -1.0788,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Vocal Stage Left",
+      "target": {
+        "x": 2.0381,
+        "y": -1.0788,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Vocal Stage Right",
+      "target": {
+        "x": -2.0381,
+        "y": -1.0788,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Upstage Centre",
+      "target": {
+        "x": 0.0,
+        "y": 0.7288,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Upstage Left",
+      "target": {
+        "x": 2.0381,
+        "y": 0.7288,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Upstage Right",
+      "target": {
+        "x": -2.0381,
+        "y": 0.7288,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Drums",
+      "target": {
+        "x": -1.8842,
+        "y": 0.5628,
+        "z": 1.2
+      }
+    },
+    {
+      "name": "Guitar",
+      "target": {
+        "x": 0.0,
+        "y": 0.7288,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Keys",
+      "target": {
+        "x": 2.0381,
+        "y": 0.7288,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Bass",
+      "target": {
+        "x": -2.0381,
+        "y": -1.0788,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Lead Vocal",
+      "target": {
+        "x": 0.0,
+        "y": -1.0788,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Stage Wide",
+      "target": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.2
+      }
+    },
+    {
+      "name": "Back Wall",
+      "target": {
+        "x": 0.0,
+        "y": 1.8288,
+        "z": 2.0
+      }
+    },
+    {
+      "name": "Audience Front",
+      "target": {
+        "x": 0.0,
+        "y": -3.8288,
+        "z": 1.6
+      }
+    },
+    {
+      "name": "Audience Back",
+      "target": {
+        "x": 0.0,
+        "y": -5.8152,
+        "z": 1.6
+      }
+    }
+  ]
+}

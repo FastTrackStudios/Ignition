@@ -135,6 +135,11 @@ A show MUST record which song it is written against — enough to find the
 project and to know its tempo map — without embedding the project. The audio and
 the arrangement belong to the DAW session; duplicating them here creates two
 sources of truth for where bar 33 is.
+Today this is a header on the cue-list document — `version`, `profile`, and
+`song: { project, name }` — sitting beside `cues` and `triggers` in the same
+JSON (`ignition_core::show_file::ShowDocument`). Every header key is optional,
+so a file written before the header existed still loads, and a reader that only
+knows `CueList` still reads a file written with it.
 
 r[files.show.many-per-song]
 Several shows MUST be able to reference one song, so a different room or a
@@ -165,3 +170,6 @@ A venue MAY be a directory with a manifest rather than a single file, since it
 references assets. An archive form for transport is a packaging concern, not a
 format one, and the directory MUST remain the editable form — a venue that can
 only be edited by unpacking and repacking will drift from what is in git.
+The manifest is `venue.ig-venue` in the directory: `{ "version", "name",
+"profile", "files": { optional overrides of the JSON file names }, "assets" }`.
+A directory with no manifest is the same venue with every default.

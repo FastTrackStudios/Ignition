@@ -19,10 +19,104 @@
 
 use crate::venue::GeometryRecord;
 use bevy::prelude::*;
+use ignition_core::canvas::CanvasRecipe;
+use ignition_core::step::SpeedMasters;
 use std::collections::HashMap;
+
+/// What a canvas content string starts with to mean "generate this"
+/// rather than "load this file".
+pub const PROC_PREFIX: &str = "proc:";
+
+/// The widest a procedural frame is rendered. It is sampled by three
+/// TVs' worth of quad, not read up close, and it is rasterised on the
+/// CPU every frame — 320 wide is smooth on a gradient and cheap enough
+/// to never be the thing that drops a frame.
+pub const PROC_MAX_WIDTH: u32 = 320;
+
+/// Reads a `proc:` content string.
+///
+/// Two spellings: `proc:<name>` for one of the built-in recipes
+/// (`rainbow`, `wipe`, `noise`, `bands`, `sparkle`), or `proc:{...}` —
+/// a JSON `CanvasRecipe` literal, which is what a show file carries.
+// r[impl canvas.procedural] - a gradient or a wipe needs no file, only a string
+pub fn parse_procedural(content: &str) -> Result<CanvasRecipe, String> {
+    let body = content
+        .strip_prefix(PROC_PREFIX)
+        .ok_or_else(|| format!("not a procedural source: {content}"))?
+        .trim();
+    if body.starts_with('{') {
+        serde_json::from_str(body).map_err(|e| format!("canvas recipe JSON: {e}"))
+    } else {
+        ignition_core::canvas::named(body)
+            .ok_or_else(|| format!("no built-in canvas recipe named {body:?}"))
+    }
+}
+
+/// A generated canvas source, presented against the same clock as a
+/// clip and handing over frames of the same shape.
+///
+/// Nothing here knows about Bevy: `frame_at` returns bytes, and
+/// `spawn.rs` copies them into the canvas `Image` exactly as it does a
+/// decoded video frame. Which is the point — cover-fit, slices, and the
+/// texture path are shared, so a screen cannot tell a sweep from a clip.
+// r[impl canvas.clip-is-a-source] - same clock, same frame shape, same texture path
+pub struct ProceduralSource {
+    recipe: CanvasRecipe,
+    width: u32,
+    height: u32,
+    masters: SpeedMasters,
+    frame: Vec<u8>,
+    last_cycles: Option<f32>,
+}
+
+impl ProceduralSource {
+    /// A source sized to `canvas_aspect` (width over height) at
+    /// `PROC_MAX_WIDTH`, so cover-fitting it to its canvas is a no-op
+    /// and every pixel rendered lands on a panel.
+    pub fn new(recipe: CanvasRecipe, canvas_aspect: f32) -> Self {
+        let aspect = if canvas_aspect.is_finite() && canvas_aspect > 0.0 {
+            canvas_aspect
+        } else {
+            16.0 / 9.0
+        };
+        let width = PROC_MAX_WIDTH;
+        let height = ((width as f32 / aspect).round() as u32).clamp(1, PROC_MAX_WIDTH * 4);
+        Self {
+            recipe,
+            width,
+            height,
+            masters: SpeedMasters::new(),
+            frame: Vec::new(),
+            last_cycles: None,
+        }
+    }
+
+    /// The speed masters the recipe's `Speed::Master` resolves against.
+    pub fn set_masters(&mut self, masters: SpeedMasters) {
+        self.masters = masters;
+    }
+
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
+    /// The frame for song position `secs`, or `None` when the clock
+    /// has not moved the picture since the last one — a stopped
+    /// transport must not re-upload the same texture every render.
+    pub fn frame_at(&mut self, secs: f64) -> Option<&[u8]> {
+        let cycles = self.recipe.cycles_at(secs as f32, &self.masters);
+        if self.last_cycles == Some(cycles) {
+            return None;
+        }
+        self.last_cycles = Some(cycles);
+        self.frame = self.recipe.render(self.width, self.height, cycles);
+        Some(self.frame.as_slice())
+    }
+}
 
 /// The piece of a canvas one panel shows, in UV space.
 #[derive(Debug, Clone, Copy, PartialEq)]
+// r[impl files.venue.screens] - slices are derived from real panel geometry, not stored
 pub struct Slice {
     pub u0: f32,
     pub v0: f32,
@@ -39,20 +133,105 @@ impl Slice {
         v1: 1.0,
     };
 
-    /// UVs for a unit quad, in Bevy's vertex order: top-left,
-    /// bottom-left, bottom-right, top-right.
+    /// UVs for a unit quad, in Bevy's `Rectangle` vertex order:
+    /// **top-right, top-left, bottom-left, bottom-right** (see
+    /// `bevy_mesh::primitives::dim2::RectangleMeshBuilder`).
     ///
-    /// V is flipped relative to world Z because texture V grows
-    /// downward — get this backwards and the image is upside down,
-    /// which on a test card is obvious and on a gradient is not.
+    /// This used to assume top-left first, which is one vertex out —
+    /// and one vertex out on a quad is the picture rolled ninety
+    /// degrees on every screen in the room, a test card reading
+    /// top-to-bottom. V is flipped relative to world Z because texture V
+    /// grows downward.
     pub fn uvs(&self) -> [[f32; 2]; 4] {
         [
+            [self.u1, 1.0 - self.v1],
             [self.u0, 1.0 - self.v1],
             [self.u0, 1.0 - self.v0],
             [self.u1, 1.0 - self.v0],
-            [self.u1, 1.0 - self.v1],
         ]
     }
+}
+
+impl Slice {
+    /// This slice, of a source **cover-fitted** to its canvas.
+    ///
+    /// A canvas is three TVs wide and one high; a clip is 16:9. Mapping
+    /// the whole clip onto the whole canvas squashes it to a strip that
+    /// reads as rotated. Cover-fitting scales the source uniformly until
+    /// it fills the canvas and crops what overflows, centred — so a
+    /// wide canvas shows the middle band of the clip and a tall one the
+    /// middle column, and nothing is ever stretched. `canvas_aspect` and
+    /// `source_aspect` are width over height.
+    // r[impl files.venue.canvases] - a canvas shows a centred crop of its source, never a stretch
+    pub fn cover(self, canvas_aspect: f32, source_aspect: f32) -> Slice {
+        self.cover_at(canvas_aspect, source_aspect, 0.5)
+    }
+
+    /// `cover`, with the crop centred on `focus` (0 = the source's top
+    /// or left edge, 1 = its bottom or right) rather than its middle —
+    /// so a wide canvas can show the band with the face in it. The band
+    /// is kept inside the source, so a focus near an edge pins to it.
+    pub fn cover_at(self, canvas_aspect: f32, source_aspect: f32, focus: f32) -> Slice {
+        if !(canvas_aspect > 0.0) || !(source_aspect > 0.0) {
+            return self;
+        }
+        let focus = focus.clamp(0.0, 1.0);
+        let band = |t: f32, f: f32| {
+            let centre = focus.clamp(f * 0.5, 1.0 - f * 0.5);
+            centre + (t - 0.5) * f
+        };
+        if source_aspect < canvas_aspect {
+            // The source is taller than the canvas: full width, a
+            // horizontal band of the source's height.
+            let f = source_aspect / canvas_aspect;
+            Slice {
+                u0: self.u0,
+                u1: self.u1,
+                v0: band(self.v0, f),
+                v1: band(self.v1, f),
+            }
+        } else {
+            let f = canvas_aspect / source_aspect;
+            Slice {
+                u0: band(self.u0, f),
+                u1: band(self.u1, f),
+                v0: self.v0,
+                v1: self.v1,
+            }
+        }
+    }
+}
+
+/// Each canvas's aspect, width over height, from the panels' real
+/// geometry — a lone panel's own size, or the bounding box of a group.
+pub fn canvas_aspects(screens: &[GeometryRecord]) -> HashMap<String, f32> {
+    let mut groups: HashMap<&str, Vec<&GeometryRecord>> = HashMap::new();
+    for screen in screens {
+        groups.entry(screen.canvas_name()).or_default().push(screen);
+    }
+    groups
+        .into_iter()
+        .map(|(canvas, members)| {
+            let x0 = members
+                .iter()
+                .map(|m| m.position.x as f32 - m.size.x * 0.5)
+                .fold(f32::INFINITY, f32::min);
+            let x1 = members
+                .iter()
+                .map(|m| m.position.x as f32 + m.size.x * 0.5)
+                .fold(f32::NEG_INFINITY, f32::max);
+            let z0 = members
+                .iter()
+                .map(|m| m.position.z as f32)
+                .fold(f32::INFINITY, f32::min);
+            let z1 = members
+                .iter()
+                .map(|m| m.position.z as f32 + m.size.y)
+                .fold(f32::NEG_INFINITY, f32::max);
+            let aspect = (x1 - x0).max(f32::EPSILON) / (z1 - z0).max(f32::EPSILON);
+            (canvas.to_string(), aspect)
+        })
+        .collect()
 }
 
 /// Works out each screen's slice of its canvas.
@@ -66,6 +245,8 @@ impl Slice {
 /// moved is more honest than assuming. A single-panel canvas is always
 /// the whole image, so a lone screen never gets a degenerate slice out
 /// of a zero-width bounding box.
+// r[impl files.venue.screens]
+// r[impl files.venue.canvases] - the venue decides how many panels a canvas has and how wide each is
 pub fn slices(screens: &[GeometryRecord]) -> HashMap<String, Slice> {
     let mut groups: HashMap<&str, Vec<&GeometryRecord>> = HashMap::new();
     for screen in screens {
@@ -126,6 +307,51 @@ pub fn sliced_quad(slice: Slice) -> Mesh {
 mod tests {
     use super::*;
     use crate::venue::Vec3 as VenueVec3;
+    use ignition_core::canvas::Procedural;
+    use ignition_core::step::{Speed, Timing};
+
+    /// A frame comes out of a procedural source with no Bevy, no file
+    /// and no clock of its own — sized to the canvas, RGBA, and only
+    /// re-rendered when the picture actually moved.
+    #[test]
+    /// r[verify canvas.procedural]
+    /// r[verify canvas.clip-is-a-source]
+    fn a_procedural_source_renders_a_frame_offline() {
+        let recipe = CanvasRecipe {
+            source: Procedural::Wipe {
+                color: [1.0; 3],
+                width: 0.2,
+                direction: Default::default(),
+            },
+            timing: Timing {
+                speed: Speed::Hz(1.0),
+                ..Timing::default()
+            },
+        };
+        let mut src = ProceduralSource::new(recipe, 8.33 / 0.8);
+        let (w, h) = src.size();
+        assert_eq!(w, PROC_MAX_WIDTH);
+        assert!(h > 0 && h < w);
+        let first = src.frame_at(0.0).expect("a first frame").to_vec();
+        assert_eq!(first.len(), (w * h * 4) as usize);
+        assert!(first.iter().any(|&p| p == 255));
+        // Same time, same picture — nothing to upload.
+        assert!(src.frame_at(0.0).is_none());
+        // Time moved: a different picture.
+        let later = src.frame_at(0.4).expect("a moved frame");
+        assert_ne!(later, first.as_slice());
+    }
+
+    #[test]
+    /// r[verify canvas.procedural]
+    fn proc_strings_parse_by_name_or_as_json() {
+        assert!(parse_procedural("proc:rainbow").is_ok());
+        let json = r#"proc:{"source":{"Gradient":{"colors":[[1,0,0],[0,0,1]],"angle_deg":0}},"timing":{"speed":{"Master":"Song"},"measure":4}}"#;
+        let r = parse_procedural(json).expect("a JSON recipe");
+        assert_eq!(r.timing.speed, Speed::Master("Song".into()));
+        assert!(parse_procedural("proc:nope").is_err());
+        assert!(parse_procedural("clips/city.mp4").is_err());
+    }
 
     fn screen(name: &str, x: f32, width: f32, canvas: Option<&str>) -> GeometryRecord {
         GeometryRecord {
@@ -148,6 +374,7 @@ mod tests {
     /// A screen on its own canvas shows the whole source, the way every
     /// screen did before canvases existed.
     #[test]
+    /// r[verify files.venue.canvases]
     fn a_lone_screen_gets_the_whole_image() {
         let got = slices(&[screen("TV", 0.0, 1.4, None)]);
         assert_eq!(got["TV"], Slice::FULL);
@@ -158,6 +385,8 @@ mod tests {
     /// it must take a wider slice, and the gaps must consume canvas so
     /// the image continues behind the bezels.
     #[test]
+    /// r[verify files.venue.screens]
+    /// r[verify files.venue.canvases]
     fn unequal_panels_take_slices_matching_their_real_width() {
         let got = slices(&[
             screen("L", -3.5, 1.33, Some("main")),
@@ -184,6 +413,7 @@ mod tests {
     /// Panels in the middle of a canvas sit where they physically are,
     /// so the centre TV's slice is centred.
     #[test]
+    /// r[verify files.venue.screens]
     fn the_middle_panel_is_centred_in_the_canvas() {
         let got = slices(&[
             screen("L", -3.5, 1.33, Some("main")),
@@ -198,6 +428,7 @@ mod tests {
     /// Separate canvases do not interact — the side screens each show
     /// their own whole source however far apart they are.
     #[test]
+    /// r[verify files.venue.canvases]
     fn separate_canvases_are_independent() {
         let got = slices(&[
             screen("SL", 4.9, 1.44, Some("side-left")),
@@ -207,6 +438,73 @@ mod tests {
         assert_eq!(got["SL"], Slice::FULL);
         assert_eq!(got["SR"], Slice::FULL);
         assert_eq!(got["C"], Slice::FULL);
+    }
+
+    /// A 16:9 clip on a canvas ten times wider than it is tall shows
+    /// its middle band at full width, never a squash.
+    #[test]
+    fn a_wide_canvas_shows_the_middle_band_of_a_clip() {
+        let s = Slice::FULL.cover(10.0, 16.0 / 9.0);
+        assert!(
+            (s.u0 - 0.0).abs() < 1e-6 && (s.u1 - 1.0).abs() < 1e-6,
+            "{s:?}"
+        );
+        let f = (16.0 / 9.0) / 10.0;
+        assert!((s.v0 - (0.5 - f / 2.0)).abs() < 1e-5, "{s:?}");
+        assert!((s.v1 - (0.5 + f / 2.0)).abs() < 1e-5, "{s:?}");
+    }
+
+    /// A portrait clip on a landscape TV fills the width and shows its
+    /// middle band — never squashed, never rolled.
+    #[test]
+    fn a_tall_clip_on_a_wide_panel_is_cropped_not_rotated() {
+        let s = Slice::FULL.cover(16.0 / 9.0, 9.0 / 16.0);
+        assert!((s.u0).abs() < 1e-6 && (s.u1 - 1.0).abs() < 1e-6, "{s:?}");
+        assert!(s.v0 > 0.3 && s.v1 < 0.7, "{s:?}");
+    }
+
+    /// A focus below the middle slides the band down, and it never
+    /// leaves the source.
+    #[test]
+    fn a_focus_moves_the_band_and_stays_inside_the_frame() {
+        let mid = Slice::FULL.cover_at(10.0, 16.0 / 9.0, 0.5);
+        let low = Slice::FULL.cover_at(10.0, 16.0 / 9.0, 0.65);
+        assert!(low.v0 > mid.v0 && (low.v1 - low.v0 - (mid.v1 - mid.v0)).abs() < 1e-5);
+        let edge = Slice::FULL.cover_at(10.0, 16.0 / 9.0, 1.0);
+        assert!((edge.v1 - 1.0).abs() < 1e-5, "{edge:?}");
+    }
+
+    /// A wider-than-canvas source shows its middle columns.
+    #[test]
+    fn a_wide_clip_on_a_squarer_canvas_is_cropped_sideways() {
+        let s = Slice::FULL.cover(1.0, 2.0);
+        assert!((s.v0).abs() < 1e-6 && (s.v1 - 1.0).abs() < 1e-6, "{s:?}");
+        assert!(
+            (s.u0 - 0.25).abs() < 1e-6 && (s.u1 - 0.75).abs() < 1e-6,
+            "{s:?}"
+        );
+    }
+
+    /// A panel's own slice is cropped consistently with its neighbours,
+    /// so the three pieces still join into one picture.
+    #[test]
+    fn covered_slices_still_tile() {
+        let a = Slice {
+            u0: 0.0,
+            u1: 0.5,
+            v0: 0.0,
+            v1: 1.0,
+        }
+        .cover(8.0, 2.0);
+        let b = Slice {
+            u0: 0.5,
+            u1: 1.0,
+            v0: 0.0,
+            v1: 1.0,
+        }
+        .cover(8.0, 2.0);
+        assert!((a.u1 - b.u0).abs() < 1e-6);
+        assert!((a.v0 - b.v0).abs() < 1e-6 && (a.v1 - b.v1).abs() < 1e-6);
     }
 
     /// V is flipped on the way into UVs, because texture V grows
@@ -223,9 +521,10 @@ mod tests {
         let uvs = slice.uvs();
         // Top-left of the quad samples the *upper* part of the texture,
         // which is the lower V.
-        assert_eq!(uvs[0], [0.25, 0.5]);
-        assert_eq!(uvs[1], [0.25, 1.0]);
-        assert_eq!(uvs[2], [0.75, 1.0]);
-        assert_eq!(uvs[3], [0.75, 0.5]);
+        // Bevy's order: top-right, top-left, bottom-left, bottom-right.
+        assert_eq!(uvs[0], [0.75, 0.5]);
+        assert_eq!(uvs[1], [0.25, 0.5]);
+        assert_eq!(uvs[2], [0.25, 1.0]);
+        assert_eq!(uvs[3], [0.75, 1.0]);
     }
 }

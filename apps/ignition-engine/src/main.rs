@@ -17,6 +17,7 @@ struct FixtureRecord {
     patched: bool,
 }
 
+// r[impl files.venue] - smoke check only: reads fixtures.json and screens.json from the venue directory
 fn main() {
     let path = "data/venues/norco/fixtures.json";
     let raw = fs::read_to_string(path).unwrap_or_else(|e| {

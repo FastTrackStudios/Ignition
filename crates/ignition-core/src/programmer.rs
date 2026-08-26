@@ -9,8 +9,11 @@
 //! cascade (`cue.rs`), in the same first-one-wins order:
 //!
 //! ```text
+//!   highlight / lowlight         <- finding a fixture; above even the hand
 //!   programmer direct values     <- hit a palette with a group selected
-//!   programmer faders            <- the eight assignable recipes
+//!   masters and solo             <- per-role limits, not values
+//!   flashes, the held look
+//!   programmer faders            <- the eight assignable recipes, per page
 //!   ---- everything below is the cue player ----
 //!   direct values on the cue
 //!   recipes on the cue
@@ -18,13 +21,20 @@
 //!
 //! Which is why the cascade was worth building properly: busking did not
 //! need a new engine, only two more layers and something to own them.
+//!
+//! Everything the operator punches — a palette, a fader move — arrives
+//! over the **program time** (`r[playback.program-time]`), so the
+//! programmer keeps a small per-key crossfade and needs to know the show
+//! clock. It learns it from `apply_to`, which is called every frame.
 
 use crate::cue::CueValue;
 use crate::recipe::{Recipe, RecipeApply, Show, expand_recipe};
 use crate::selection::{Selection, resolve};
-use ignition_proto::{Attribute, ChanId};
+use crate::step::Speed;
+use ignition_proto::{Attribute, ChanId, ColorChannel};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 /// How many assignable faders the surface has.
 ///
@@ -33,7 +43,7 @@ use std::collections::HashMap;
 pub const FADERS: usize = 8;
 
 /// One assignable fader.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Fader {
     pub name: String,
     /// What this fader plays. `None` is an unassigned fader, which is
@@ -41,10 +51,144 @@ pub struct Fader {
     pub recipe: Option<Recipe>,
     /// 0.0–1.0.
     pub level: f32,
+    /// A multiple of the recipe's speed master — half, double, ×3 —
+    /// applied to this fader only. `1.0` is the master's own tempo.
+    ///
+    /// `Speed::Scaled` does not exist in `step.rs` at the time of
+    /// writing, so this scales the *clock* handed to the recipe, the
+    /// same mechanism `Programmer::rate` uses for every fader at once.
+    /// The two multiply.
+    // r[impl playback.speed-scale] - per-fader clock scale; Speed::Scaled is not yet a variant
+    #[serde(default = "one")]
+    pub speed_scale: f32,
+}
+
+fn one() -> f32 {
+    1.0
+}
+
+impl Default for Fader {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            recipe: None,
+            level: 0.0,
+            speed_scale: 1.0,
+        }
+    }
+}
+
+/// How a role master constrains its role's intensity.
+///
+/// Four modes, per `r[groups.master.modes]`, because "a master at 50%"
+/// means four different things and conflating any two of them is how a
+/// master at 100% ends up either a no-op or a full-on.
+// r[impl groups.master.modes]
+// r[impl playback.master-modes]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum MasterMode {
+    /// An upper limit: `min(value, level)`. Where a fixture is in two
+    /// positive-master roles the *higher* limit applies — MA3's HTP
+    /// limiter — so a fixture is only capped by the most generous of
+    /// its roles.
+    Positive,
+    /// An inhibit: `min(value, level)`, and where a fixture is in two
+    /// roles the *lowest* wins. This is the one to reach for when a
+    /// master has to hold no matter what else the fixture belongs to.
+    Negative,
+    /// Multiply — a fixture at 50% under a master at 50% outputs 25%.
+    /// The default, and what a control that looks like a fader does.
+    /// Lowest wins across two roles, per `r[playback.masters-scale]`.
+    #[default]
+    Scaling,
+    /// A hand lift over a running show: the role's dimmer is HTP-merged
+    /// with `level`, so the master can *raise* a fixture the show left
+    /// dark. Fixtures of the role with no dimmer in the output are
+    /// given one at `level`.
+    Additive,
+}
+
+/// One role master.
+// r[impl groups.master]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Master {
+    pub mode: MasterMode,
+    /// 0.0–1.0.
+    pub level: f32,
+}
+
+impl Default for Master {
+    fn default() -> Self {
+        Self {
+            mode: MasterMode::Scaling,
+            level: 1.0,
+        }
+    }
+}
+
+/// What a playback key does while it is down.
+// r[impl playback.keys]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum KeyAction {
+    /// The fader at full while held, back where it was on release.
+    Flash,
+    /// Latches the fader at full; pressing again unlatches. Release is
+    /// ignored.
+    Toggle,
+    /// This fader at full and every other fader suppressed while held.
+    Swap,
+    /// This fader to full and every other fader's level set to zero.
+    /// Not held — it is a move, not a gesture.
+    Kill,
+    /// This fader's intensity contribution zeroed while held; every
+    /// other attribute it plays carries on.
+    Black,
+}
+
+/// The last show clock the programmer saw, updatable through `&self`.
+///
+/// Atomic rather than a `Cell` because the programmer lives in a
+/// visualizer resource that has to be `Sync`; the bits of an `f32` in a
+/// `u32` are the whole trick.
+#[derive(Default)]
+struct Clock(AtomicU32);
+
+impl Clock {
+    fn get(&self) -> f32 {
+        f32::from_bits(self.0.load(Ordering::Relaxed))
+    }
+
+    fn set(&self, secs: f32) {
+        self.0.store(secs.to_bits(), Ordering::Relaxed);
+    }
+}
+
+impl Clone for Clock {
+    fn clone(&self) -> Self {
+        Self(AtomicU32::new(self.0.load(Ordering::Relaxed)))
+    }
+}
+
+impl std::fmt::Debug for Clock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.get())
+    }
+}
+
+/// One value the operator's hand is holding, mid-crossfade or settled.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Held {
+    target: f32,
+    /// Where the fade started from. `None` means "from whatever the
+    /// layers beneath were producing", resolved at fold time — the
+    /// programmer cannot know that at the moment of the punch.
+    from: Option<f32>,
+    started: f32,
 }
 
 /// The live programmer.
 #[derive(Debug, Clone, Default)]
+// r[impl effects.live-control-on-programmer]
 pub struct Programmer {
     /// What the operator currently has selected. Palette hits apply to
     /// this; with nothing selected they do nothing, the same as on a
@@ -52,8 +196,48 @@ pub struct Programmer {
     pub selection: Option<Selection>,
     /// Values the operator set by hand. Top layer — these beat both the
     /// faders and everything the cue stack is doing.
-    values: HashMap<(ChanId, Attribute), f32>,
+    // r[impl playback.hand-wins]
+    values: HashMap<(ChanId, Attribute), Held>,
+    /// The eight faders as they are *playing*. Normally a mirror of
+    /// `pages[page]`; differs only where a slot is latched to the
+    /// previous page's assignment (see `set_page`).
     pub faders: [Fader; FADERS],
+    /// Every page of assignments. `faders` plays one of them.
+    // r[impl playback.pages]
+    pub pages: Vec<[Fader; FADERS]>,
+    /// Which page the surface is on.
+    pub page: usize,
+    /// Slots still playing the previous page's fader because they were
+    /// up when the page changed — MA3 calls this a fixed executor
+    /// awaiting fader pickup. Cleared when the physical fader is
+    /// brought to match the new page's level.
+    latched: [bool; FADERS],
+    /// Per-slot level glides in flight: where the level came from and
+    /// when it left, for the program time.
+    level_fades: [Option<(f32, f32)>; FADERS],
+    /// Keys currently down, by slot.
+    keys_down: [Option<KeyAction>; FADERS],
+    /// Slots latched on by a `Toggle` key.
+    toggled: [bool; FADERS],
+    /// How long a punched value takes to arrive, in beats of `Song`.
+    /// Zero snaps.
+    // r[impl playback.program-time]
+    pub program_time_beats: f32,
+    /// The last show clock `apply_to` saw. A punch is stamped with
+    /// this, which is how the programmer knows when a fade started
+    /// without being handed a clock on every gesture.
+    now: Clock,
+    /// Blind: values are held and shown in `preview_output` but do not
+    /// reach `apply_to`.
+    // r[impl playback.blind]
+    pub blind: bool,
+    /// The current selection to open white at full, above everything.
+    // r[impl playback.highlight]
+    pub highlight: bool,
+    /// Everything *not* selected capped at `lowlight_floor`.
+    // r[impl playback.highlight] - lowlight
+    pub lowlight: bool,
+    pub lowlight_floor: f32,
     /// How far every effect swings, 0..=1.
     ///
     /// The control an operator holds for most of a night. Distinct from
@@ -67,21 +251,32 @@ pub struct Programmer {
     /// At zero every effect is inert and whatever is beneath shows
     /// through unchanged — which is what makes this a *withdrawal*
     /// rather than a blackout.
+    // r[impl recipes.size]
+    // r[impl recipes.size.is-not-intensity]
+    // r[impl recipes.live-control-is-not-stored] - operator state, not on the recipe
+    // r[impl effects.live-control-on-programmer]
     pub size: f32,
     /// A multiplier on every effect's rate, against its speed master.
     ///
     /// The tap master already sets the tempo; this is how one operator
     /// runs the rig at half or double it without a second recipe for
     /// every entry in the library.
+    // r[impl recipes.rate]
+    // r[impl recipes.live-control-is-not-stored]
+    // r[impl effects.live-control-on-programmer]
     pub rate: f32,
     /// Per-role intensity masters, by role name.
     ///
     /// A busking operator's grip on a rig a cue list is otherwise
     /// driving: pull `Movers` down for a ballad without editing a cue.
-    /// Scaling rather than limiting, per `r[groups.master.modes]` — a
-    /// fixture at 50% under a master at 50% outputs 25%, which is what
-    /// an operator expects from something that behaves like a fader.
-    pub masters: std::collections::BTreeMap<String, f32>,
+    /// Each carries a mode, per `r[groups.master.modes]`; the default is
+    /// scaling, which is what an operator expects from something that
+    /// behaves like a fader.
+    // r[impl groups.master]
+    // r[impl groups.master.modes]
+    // r[impl playback.masters-scale]
+    // r[impl playback.master-modes]
+    pub masters: BTreeMap<String, Master>,
     /// A role played on its own, everything else pulled down.
     ///
     /// What a solo button does. Not a selection — selection is what the
@@ -101,8 +296,26 @@ pub struct Programmer {
     /// whose release is dropped — a slipped hand, a lost MIDI note-off —
     /// leaves the rig stuck bright. A one-shot with its own start time
     /// cannot do that.
+    // r[impl effects.bump.is-not-held]
+    // r[impl triggers.own-clock] - each flash carries its own start time
     flashes: Vec<(Recipe, f32)>,
+    /// A look held under a key for exactly as long as the key is down —
+    /// the punt look, or a momentary rig drop.
+    ///
+    /// Not a fader, because a fader is *positioned* and this is *held*:
+    /// the operator's hand is the release, and a punt look that stayed
+    /// on after the hand left would be a cue, not a punt. Not a flash
+    /// either, because a flash has an envelope and retires itself, and
+    /// this has to stay for as long as the trouble lasts. One slot, since
+    /// a hand holds one key.
+    // r[impl effects.bump.is-not-held] - the held look is the thing a bump is not
+    held: Option<Recipe>,
 }
+
+/// How close a latched fader has to come to the new page's level to
+/// pick it up. Wide enough that a hand finds it, narrow enough that
+/// sweeping through does not.
+const PICKUP: f32 = 0.05;
 
 impl Programmer {
     pub fn new() -> Self {
@@ -113,8 +326,21 @@ impl Programmer {
             size: 1.0,
             rate: 1.0,
             solo_floor: 0.15,
+            lowlight_floor: 0.1,
+            pages: vec![Default::default()],
             ..Self::default()
         }
+    }
+
+    /// The show clock as of the last fold.
+    pub fn now(&self) -> f32 {
+        self.now.get()
+    }
+
+    /// Stamps the clock without folding — for a caller that punches
+    /// values before the first frame, or between frames.
+    pub fn set_now(&mut self, secs: f32) {
+        self.now.set(secs);
     }
 
     /// Puts a role on its own until cleared.
@@ -133,6 +359,9 @@ impl Programmer {
     /// the cue player applies to one-shots, and for the same reason: an
     /// envelope evaluated against a clock that started hours ago has
     /// already finished before it is seen.
+    // r[impl playback.flash-equals-hit] - built by the same `bump::bump` a charted hit uses
+    // r[impl effects.bump.one-object]
+    // r[impl effects.bump.is-not-held]
     pub fn flash(&mut self, target: Selection, kind: crate::bump::Kind, now: f32) {
         self.flashes
             .push((crate::bump::bump(target, kind, 1.0), now));
@@ -145,15 +374,38 @@ impl Programmer {
         }
     }
 
+    /// Holds a look at full until `release_hold` — a key that is down.
+    pub fn hold(&mut self, recipe: Recipe) {
+        self.held = Some(recipe);
+    }
+
+    pub fn release_hold(&mut self) {
+        self.held = None;
+    }
+
+    pub fn is_holding(&self) -> bool {
+        self.held.is_some()
+    }
+
     /// Drops bumps whose envelope has run out.
+    // r[impl recipes.finished-one-shot-withdraws] - flashes
     pub fn retire_flashes(&mut self, show: &Show<'_>, now: f32) {
         self.flashes
             .retain(|(recipe, started)| recipe.timing.cycles(now - started, show.speeds) < 1.0);
     }
 
-    /// Sets a role's intensity master, 0..=1.
+    /// Sets a role's intensity master, 0..=1, keeping its mode (scaling
+    /// for a role that had none).
+    // r[impl groups.master]
     pub fn set_master(&mut self, role: &str, level: f32) {
-        self.masters.insert(role.to_string(), level.clamp(0.0, 1.0));
+        self.masters.entry(role.to_string()).or_default().level = level.clamp(0.0, 1.0);
+    }
+
+    /// Sets a role master's mode, keeping its level.
+    // r[impl groups.master.modes]
+    // r[impl playback.master-modes]
+    pub fn set_master_mode(&mut self, role: &str, mode: MasterMode) {
+        self.masters.entry(role.to_string()).or_default().mode = mode;
     }
 
     pub fn select(&mut self, selection: Selection) {
@@ -165,15 +417,16 @@ impl Programmer {
     }
 
     /// Everything the operator has set by hand, as cue values — this is
-    /// what "record" writes into a cue.
+    /// what "record" writes into a cue. The *target* of any fade still
+    /// in flight, because that is what the operator asked for.
     pub fn captured(&self) -> Vec<CueValue> {
         let mut out: Vec<CueValue> = self
             .values
             .iter()
-            .map(|((chan, attr), value)| CueValue {
+            .map(|((chan, attr), held)| CueValue {
                 chan: *chan,
                 attr: attr.clone(),
-                value: *value,
+                value: held.target,
             })
             .collect();
         // Stable order so a recorded cue does not churn in git purely
@@ -206,28 +459,76 @@ impl Programmer {
 
     pub fn clear_faders(&mut self) {
         self.faders = Default::default();
+        self.latched = [false; FADERS];
+        self.level_fades = Default::default();
+        self.keys_down = [None; FADERS];
+        self.toggled = [false; FADERS];
+        if let Some(page) = self.pages.get_mut(self.page) {
+            *page = Default::default();
+        }
     }
 
     /// Applies a palette (or anything else a recipe can express) to the
-    /// current selection, as direct values.
+    /// current selection, as direct values, arriving over the program
+    /// time from wherever the output was.
     ///
     /// Resolved immediately rather than stored as a recipe, because this
     /// is the operator's hand on the desk: what they see now is what
     /// they get, and a template that re-resolved under them mid-song
     /// would be a surprise, not a feature.
+    // r[impl playback.program-time] - a palette punch
     pub fn apply(&mut self, apply: RecipeApply, show: &Show<'_>) {
         let Some(selection) = &self.selection else {
             return;
         };
+        let now = self.now.get();
         let recipe = Recipe::new(selection.clone(), apply);
         for emit in expand_recipe(&recipe, show, 0.0) {
             let key = (emit.value.chan, emit.value.attr);
-            if emit.relative {
-                *self.values.entry(key).or_insert(0.0) += emit.value.value;
+            let previous = self.values.get(&key).copied();
+            let target = if emit.relative {
+                previous.map(|h| h.target).unwrap_or(0.0) + emit.value.value
             } else {
-                self.values.insert(key, emit.value.value);
-            }
+                emit.value.value
+            };
+            // A fade from a value already held starts from where that
+            // fade *is*, not where it was going, so two quick punches
+            // do not jump.
+            let from = previous.map(|h| self.settle(&h, show, now, None));
+            self.values.insert(
+                key,
+                Held {
+                    target,
+                    from,
+                    started: now,
+                },
+            );
         }
+    }
+
+    /// Where a held value is right now.
+    fn settle(&self, held: &Held, show: &Show<'_>, now: f32, under: Option<f32>) -> f32 {
+        let progress = self.progress(show, now - held.started);
+        if progress >= 1.0 {
+            // Exactly the target once arrived — a lerp that lands a
+            // float's width off would make "record" and the stage
+            // disagree about what the operator set.
+            return held.target;
+        }
+        let from = held.from.or(under).unwrap_or(held.target);
+        from + (held.target - from) * progress
+    }
+
+    /// How far through the program time `elapsed` seconds is, 0..=1.
+    fn progress(&self, show: &Show<'_>, elapsed: f32) -> f32 {
+        if self.program_time_beats <= 0.0 {
+            return 1.0;
+        }
+        let bps = Speed::Master("Song".into()).beats_per_second(show.speeds);
+        if bps <= 0.0 {
+            return 1.0;
+        }
+        (elapsed * bps / self.program_time_beats).clamp(0.0, 1.0)
     }
 
     /// Releases the current selection's hold on one attribute family —
@@ -241,20 +542,164 @@ impl Programmer {
         self.values.retain(|(chan, _), _| !chans.contains(chan));
     }
 
+    /// Assigns a fader on the current page, and makes it live. Clears a
+    /// latch on that slot: an explicit assignment is not a pickup
+    /// problem.
     pub fn set_fader(&mut self, index: usize, fader: Fader) {
-        if let Some(slot) = self.faders.get_mut(index) {
-            *slot = fader;
+        if index >= FADERS {
+            return;
+        }
+        if let Some(page) = self.pages.get_mut(self.page) {
+            page[index] = fader.clone();
+        }
+        self.faders[index] = fader;
+        self.latched[index] = false;
+        self.level_fades[index] = None;
+    }
+
+    /// Moves a fader. The level arrives over the program time.
+    ///
+    /// On a latched slot the previous page's fader keeps playing at its
+    /// old level until this one comes within `PICKUP` of the new page's
+    /// level, at which point the new assignment takes over and follows
+    /// the hand.
+    // r[impl playback.pages] - fader pickup
+    // r[impl playback.program-time] - a fader take
+    pub fn set_level(&mut self, index: usize, level: f32) {
+        if index >= FADERS {
+            return;
+        }
+        let level = level.clamp(0.0, 1.0);
+        if self.latched[index] {
+            let stored = self.pages.get(self.page).map(|p| p[index].level);
+            match stored {
+                Some(stored) if (stored - level).abs() <= PICKUP => {
+                    self.faders[index] = self.pages[self.page][index].clone();
+                    self.latched[index] = false;
+                }
+                _ => return,
+            }
+        }
+        let now = self.now.get();
+        let was = self.faders[index].level;
+        if self.program_time_beats > 0.0 && (was - level).abs() > f32::EPSILON {
+            self.level_fades[index] = Some((was, now));
+        } else {
+            self.level_fades[index] = None;
+        }
+        self.faders[index].level = level;
+        if let Some(page) = self.pages.get_mut(self.page) {
+            page[index].level = level;
         }
     }
 
-    pub fn set_level(&mut self, index: usize, level: f32) {
-        if let Some(slot) = self.faders.get_mut(index) {
-            slot.level = level.clamp(0.0, 1.0);
+    /// Per-fader speed scale — see `Fader::speed_scale`.
+    // r[impl playback.speed-scale]
+    pub fn set_speed_scale(&mut self, index: usize, scale: f32) {
+        if index >= FADERS {
+            return;
+        }
+        let scale = scale.max(0.0);
+        self.faders[index].speed_scale = scale;
+        if let Some(page) = self.pages.get_mut(self.page) {
+            page[index].speed_scale = scale;
         }
     }
+
+    // ── keys ─────────────────────────────────────────────────────────
+
+    /// A playback key goes down on a fader.
+    // r[impl playback.keys]
+    pub fn key_down(&mut self, index: usize, action: KeyAction) {
+        if index >= FADERS {
+            return;
+        }
+        match action {
+            KeyAction::Toggle => {
+                self.toggled[index] = !self.toggled[index];
+            }
+            KeyAction::Kill => {
+                for i in 0..FADERS {
+                    let level = if i == index { 1.0 } else { 0.0 };
+                    self.faders[i].level = level;
+                    self.level_fades[i] = None;
+                    if let Some(page) = self.pages.get_mut(self.page) {
+                        page[i].level = level;
+                    }
+                }
+            }
+            KeyAction::Flash | KeyAction::Swap | KeyAction::Black => {
+                self.keys_down[index] = Some(action);
+            }
+        }
+    }
+
+    /// The key on a fader comes up. Toggle and kill ignore this.
+    pub fn key_up(&mut self, index: usize) {
+        if let Some(slot) = self.keys_down.get_mut(index) {
+            *slot = None;
+        }
+    }
+
+    pub fn is_toggled(&self, index: usize) -> bool {
+        self.toggled.get(index).copied().unwrap_or(false)
+    }
+
+    /// Whether a slot is still playing the previous page's fader.
+    pub fn is_latched(&self, index: usize) -> bool {
+        self.latched.get(index).copied().unwrap_or(false)
+    }
+
+    // ── pages ────────────────────────────────────────────────────────
+
+    /// Adds an empty page at the end and returns its index.
+    // r[impl playback.pages]
+    pub fn add_page(&mut self) -> usize {
+        self.pages.push(Default::default());
+        self.pages.len() - 1
+    }
+
+    pub fn next_page(&mut self) {
+        if !self.pages.is_empty() {
+            self.set_page((self.page + 1) % self.pages.len());
+        }
+    }
+
+    pub fn prev_page(&mut self) {
+        if !self.pages.is_empty() {
+            self.set_page((self.page + self.pages.len() - 1) % self.pages.len());
+        }
+    }
+
+    /// Changes page. A fader that is up stays live on its old
+    /// assignment — latched — until `set_level` brings it to match the
+    /// new page's level; a fader at rest takes the new page's fader
+    /// immediately.
+    // r[impl playback.pages] - a fader that is up stays live
+    pub fn set_page(&mut self, page: usize) {
+        if page >= self.pages.len() || page == self.page {
+            return;
+        }
+        self.page = page;
+        for i in 0..FADERS {
+            let live = self.faders[i].level > 0.0 || self.level_fades[i].is_some();
+            if live {
+                self.latched[i] = true;
+            } else {
+                self.faders[i] = self.pages[page][i].clone();
+                self.latched[i] = false;
+                self.level_fades[i] = None;
+            }
+            // A held key belongs to the hand, not the page; a toggle
+            // latch belongs to the slot and is released by the change.
+            self.toggled[i] = false;
+        }
+    }
+
+    // ── the fold ─────────────────────────────────────────────────────
 
     /// Folds the programmer's layers onto whatever the cue stack
-    /// produced.
+    /// produced. Does nothing when blind — see `preview_output`.
     ///
     /// A fader's level is a **crossfade weight**, not a multiplier. That
     /// one choice makes absolute and relative recipes behave the way an
@@ -263,35 +708,131 @@ impl Programmer {
     /// `Delta` pulse up fades the modulation in. A multiplier would
     /// dim the colour toward black instead, which is not what the
     /// control looks like it does.
+    // r[impl playback.stack] - layers 1-4 (hand, masters, flashes, faders); triggers and the cue player are folded by the caller
+    // r[impl playback.busking-over-show] - everything here lands on top of the cue player's output
+    // r[impl playback.hand-wins] - direct values are written last
+    // r[impl playback.blind] - a blind programmer does not reach output
+    // r[impl recipes.size] - fader swing scaled by `size`
+    // r[impl recipes.rate] - fader clock scaled by `rate`
+    // r[impl effects.size-scales-the-swing] - size travels on the `Show`, so the expansion scales it
+    // r[impl effects.masters.scale] - rate is operator state here, applied to every master through the `Show`
+    // r[impl effects.masters.uniform] - faders and the cue player read the same two numbers
     pub fn apply_to(
         &self,
         base: &mut HashMap<(ChanId, Attribute), f32>,
         show: &Show<'_>,
         secs: f32,
     ) {
-        for fader in &self.faders {
-            let (Some(recipe), level) = (&fader.recipe, fader.level) else {
+        self.now.set(secs);
+        if self.blind {
+            return;
+        }
+        self.fold(base, show, secs);
+    }
+
+    /// What the output *would* be with this programmer folded in, blind
+    /// or not — for the visualizer's preview. Does not touch `base` or
+    /// the clock.
+    // r[impl playback.blind] - held values are shown in the preview
+    pub fn preview_output(
+        &self,
+        base: &HashMap<(ChanId, Attribute), f32>,
+        show: &Show<'_>,
+        secs: f32,
+    ) -> HashMap<(ChanId, Attribute), f32> {
+        let mut out = base.clone();
+        self.fold(&mut out, show, secs);
+        out
+    }
+
+    /// A fader's level as it is playing right now: its glide, then any
+    /// key on it, then a swap held elsewhere.
+    fn playing_level(&self, index: usize, show: &Show<'_>, secs: f32) -> f32 {
+        let fader = &self.faders[index];
+        let mut level = match self.level_fades[index] {
+            Some((from, started)) => {
+                from + (fader.level - from) * self.progress(show, secs - started)
+            }
+            None => fader.level,
+        };
+        if self.toggled[index] || matches!(self.keys_down[index], Some(KeyAction::Flash)) {
+            level = 1.0;
+        }
+        match self.keys_down[index] {
+            Some(KeyAction::Swap) => 1.0,
+            _ if self
+                .keys_down
+                .iter()
+                .any(|k| matches!(k, Some(KeyAction::Swap))) =>
+            {
+                0.0
+            }
+            _ => level,
+        }
+    }
+
+    /// The show as this programmer's size and rate see it — what every
+    /// fader expands through, and what a host should hand its cue
+    /// player, so one control reaches both.
+    // r[impl effects.masters.scale]
+    // r[impl effects.masters.uniform]
+    // r[impl recipes.size]
+    // r[impl recipes.rate]
+    pub fn show_for<'a>(&self, show: &Show<'a>) -> Show<'a> {
+        show.scaled(
+            show.size * self.size.clamp(0.0, 1.0),
+            show.speed_scale * self.rate.max(0.0),
+        )
+    }
+
+    fn fold(&self, base: &mut HashMap<(ChanId, Attribute), f32>, show: &Show<'_>, secs: f32) {
+        // Size and rate are applied where every recipe is expanded, not
+        // here, so a fader and a cue-player effect obey the same control
+        // the same way.
+        let show = &self.show_for(show);
+        for (index, fader) in self.faders.iter().enumerate() {
+            let Some(recipe) = &fader.recipe else {
                 continue;
             };
+            let level = self.playing_level(index, show, secs);
             if level <= 0.0 {
                 continue;
             }
-            // Rate scales the clock the recipe is evaluated at, not its
-            // measure — so it stretches an effect that is already
-            // running rather than restarting it, which is what a fader
-            // has to do to be usable while the show is on.
-            let at = secs * self.rate.max(0.0);
+            let black = matches!(self.keys_down[index], Some(KeyAction::Black));
+            // The fader's own speed scale stretches the clock the recipe
+            // is evaluated at; the programmer's rate reaches it through
+            // the show's speed scale, as it reaches every other recipe.
+            let at = secs * fader.speed_scale.max(0.0);
             for emit in expand_recipe(recipe, show, at) {
+                if black && emit.value.attr == Attribute::Dimmer {
+                    continue;
+                }
                 let key = (emit.value.chan, emit.value.attr);
                 let under = base.get(&key).copied().unwrap_or(0.0);
-                // Size and the fader's own level multiply. The fader
-                // says how much of *this* effect; size says how much of
-                // every effect at once.
-                let weight = level * self.size.clamp(0.0, 1.0);
+                // The fader says how much of *this* effect; size (how
+                // much of every effect at once) has already scaled the
+                // swing inside the expansion.
+                let weight = level;
                 let value = if emit.relative {
                     under + emit.value.value * weight
                 } else {
                     under + (emit.value.value - under) * weight
+                };
+                base.insert(key, value);
+            }
+        }
+
+        // The held look lands over the faders at full weight: a punt
+        // look is the operator saying "not whatever that was", and it
+        // has to beat the effects that were running. Under the masters,
+        // like everything else that is not the operator's direct hand.
+        if let Some(recipe) = &self.held {
+            for emit in expand_recipe(recipe, show, secs) {
+                let key = (emit.value.chan, emit.value.attr);
+                let value = if emit.relative {
+                    base.get(&key).copied().unwrap_or(0.0) + emit.value.value
+                } else {
+                    emit.value.value
                 };
                 base.insert(key, value);
             }
@@ -317,54 +858,113 @@ impl Programmer {
 
         // The operator's hand wins over everything, including their own
         // faders and their own masters — pulling a master down and then
-        // setting a level by hand should give the level they set.
-        for (key, value) in &self.values {
-            base.insert(key.clone(), *value);
+        // setting a level by hand should give the level they set. Each
+        // value glides in from what was underneath it at the punch.
+        for (key, held) in &self.values {
+            let under = base.get(key).copied();
+            base.insert(key.clone(), self.settle(held, show, secs, under));
+        }
+
+        self.apply_highlight(base, show);
+    }
+
+    /// Highlight the selection to open white at full, above everything;
+    /// lowlight the rest to the floor.
+    // r[impl playback.highlight]
+    fn apply_highlight(&self, base: &mut HashMap<(ChanId, Attribute), f32>, show: &Show<'_>) {
+        if !(self.highlight || self.lowlight) {
+            return;
+        }
+        let Some(selection) = &self.selection else {
+            return;
+        };
+        let selected: HashSet<ChanId> =
+            crate::selection::resolve_with(selection, show.groups, show.rig, show.roles)
+                .into_iter()
+                .collect();
+        if self.lowlight {
+            let floor = self.lowlight_floor.clamp(0.0, 1.0);
+            for ((chan, attr), value) in base.iter_mut() {
+                if *attr == Attribute::Dimmer && !selected.contains(chan) {
+                    *value = value.min(floor);
+                }
+            }
+        }
+        if self.highlight {
+            for chan in selected {
+                base.insert((chan, Attribute::Dimmer), 1.0);
+                for channel in [ColorChannel::Red, ColorChannel::Green, ColorChannel::Blue] {
+                    base.insert((chan, Attribute::ColorAdd { channel }), 1.0);
+                }
+            }
         }
     }
 
-    /// Scales intensity per role, and applies a solo.
+    /// Constrains intensity per role, and applies a solo.
     ///
     /// Dimmer only, deliberately. A master that scaled pan would drag
     /// every mover toward its home position as it came down, and a
     /// master that scaled colour would desaturate the rig — neither is
     /// what "quieter" means.
+    ///
+    /// Order on one fixture: scaling multiplies, then the positive and
+    /// negative limits cap, then an additive master HTP-merges. Across
+    /// two roles: scaling and negative take the lowest, positive the
+    /// highest, additive the highest.
+    // r[impl playback.masters-scale] - lowest scaling master wins on a shared fixture
+    // r[impl groups.master]
+    // r[impl groups.master.modes] - scaling, positive, negative, additive
+    // r[impl playback.master-modes]
     fn apply_masters(&self, base: &mut HashMap<(ChanId, Attribute), f32>, show: &Show<'_>) {
         if self.masters.is_empty() && self.solo.is_none() {
             return;
         }
         // Resolve each named role once, not once per channel.
         let mut scale: HashMap<ChanId, f32> = HashMap::new();
-        let note = |role: &str, factor: f32, scale: &mut HashMap<ChanId, f32>| {
-            for chan in crate::selection::resolve_with(
+        let mut positive: HashMap<ChanId, f32> = HashMap::new();
+        let mut negative: HashMap<ChanId, f32> = HashMap::new();
+        let mut additive: HashMap<ChanId, f32> = HashMap::new();
+        let role_chans = |role: &str| {
+            crate::selection::resolve_with(
                 &Selection::Role(role.to_string()),
                 show.groups,
                 show.rig,
                 show.roles,
-            ) {
-                // Lowest wins where a fixture plays two roles — a head
-                // that is both Key and Wash should follow whichever of
-                // them the operator pulled down, or a master would be
-                // defeated by any other role the fixture happens to
-                // belong to.
-                let slot = scale.entry(chan).or_insert(1.0);
-                *slot = slot.min(factor);
-            }
+            )
         };
 
-        for (role, level) in &self.masters {
-            note(role, *level, &mut scale);
+        for (role, master) in &self.masters {
+            let level = master.level.clamp(0.0, 1.0);
+            for chan in role_chans(role) {
+                match master.mode {
+                    // Lowest wins where a fixture plays two roles — a
+                    // head that is both Key and Wash should follow
+                    // whichever of them the operator pulled down, or a
+                    // master would be defeated by any other role the
+                    // fixture happens to belong to.
+                    MasterMode::Scaling => {
+                        let slot = scale.entry(chan).or_insert(1.0);
+                        *slot = slot.min(level);
+                    }
+                    MasterMode::Negative => {
+                        let slot = negative.entry(chan).or_insert(1.0);
+                        *slot = slot.min(level);
+                    }
+                    // The most generous limit applies.
+                    MasterMode::Positive => {
+                        let slot = positive.entry(chan).or_insert(0.0);
+                        *slot = slot.max(level);
+                    }
+                    MasterMode::Additive => {
+                        let slot = additive.entry(chan).or_insert(0.0);
+                        *slot = slot.max(level);
+                    }
+                }
+            }
         }
 
         if let Some(solo) = &self.solo {
-            let lit: std::collections::HashSet<ChanId> = crate::selection::resolve_with(
-                &Selection::Role(solo.clone()),
-                show.groups,
-                show.rig,
-                show.roles,
-            )
-            .into_iter()
-            .collect();
+            let lit: HashSet<ChanId> = role_chans(solo).into_iter().collect();
             // Everything already carrying a dimmer that is *not* soloed
             // goes down to the floor. Taken from the base rather than
             // from the rig, so a fixture that was dark stays dark
@@ -377,6 +977,15 @@ impl Programmer {
             }
         }
 
+        // An additive master lifts fixtures the show left without a
+        // dimmer at all — that is what "a hand lift over a running
+        // show" has to mean for a fixture the show is not using.
+        for (chan, level) in &additive {
+            if *level > 0.0 {
+                base.entry((*chan, Attribute::Dimmer)).or_insert(0.0);
+            }
+        }
+
         for ((chan, attr), value) in base.iter_mut() {
             if *attr != Attribute::Dimmer {
                 continue;
@@ -384,13 +993,26 @@ impl Programmer {
             if let Some(factor) = scale.get(chan) {
                 *value *= *factor;
             }
+            if let Some(cap) = positive.get(chan) {
+                *value = value.min(*cap);
+            }
+            if let Some(cap) = negative.get(chan) {
+                *value = value.min(*cap);
+            }
+            if let Some(lift) = additive.get(chan) {
+                *value = value.max(*lift);
+            }
         }
     }
 
     /// Whether anything is being held. Drives the "clear" affordance —
     /// a desk that always looks armed teaches operators to ignore it.
     pub fn is_active(&self) -> bool {
-        !self.values.is_empty() || self.faders.iter().any(|f| f.level > 0.0)
+        !self.values.is_empty()
+            || self.held.is_some()
+            || self.faders.iter().any(|f| f.level > 0.0)
+            || self.toggled.iter().any(|t| *t)
+            || self.keys_down.iter().any(|k| k.is_some())
     }
 }
 
@@ -400,7 +1022,7 @@ mod tests {
     use crate::group::Group;
     use crate::preset::{ColorPreset, Ref};
     use crate::selection::EMPTY_RIG;
-    use crate::step::{Speed, Step, Timing};
+    use crate::step::{Step, Timing};
 
     fn groups() -> Vec<Group> {
         vec![Group {
@@ -436,6 +1058,8 @@ mod tests {
         assert!(captured.iter().all(|v| v.value == 0.7));
     }
 
+    /// r[verify playback.hand-wins]
+    /// r[verify playback.busking-over-show]
     #[test]
     fn the_operators_hand_beats_the_cue_stack() {
         let groups = groups();
@@ -471,9 +1095,23 @@ mod tests {
                     red: 1.0,
                     green: 0.0,
                     blue: 0.0,
+                    ..Default::default()
                 })),
             )),
             level,
+            ..Default::default()
+        }
+    }
+
+    fn dimmer_fader(chan: ChanId, value: f32, level: f32) -> Fader {
+        Fader {
+            name: "Dim".into(),
+            recipe: Some(Recipe::new(
+                Selection::Chans(vec![chan]),
+                RecipeApply::Dimmer(value),
+            )),
+            level,
+            ..Default::default()
         }
     }
 
@@ -524,8 +1162,11 @@ mod tests {
                     )])])],
                     timing: Timing::default(),
                     tricks: Vec::new(),
+                    stack: false,
+                    ..Default::default()
                 }),
                 level: 0.5,
+                ..Default::default()
             },
         );
         let mut out = base();
@@ -535,21 +1176,8 @@ mod tests {
         assert!((out[&(1, Attribute::Dimmer)] - 0.8).abs() < 0.001);
     }
 
-    /// One rate source retiming every fader at once is the thing this
-    /// design has that grandMA3 does not — a speed master drives *every*
-    /// recipe here, because a phaser is a recipe.
-    #[test]
-    fn one_speed_master_drives_every_fader() {
-        let groups = groups();
-        let masters = crate::step::SpeedMasters::from([("Rate".to_string(), 120.0)]);
-        let show = Show {
-            groups: &groups,
-            palettes: crate::preset::Palettes::EMPTY,
-            rig: &EMPTY_RIG,
-            speeds: &masters,
-            roles: &crate::recipe::NO_ROLES,
-        };
-        let chase = |chan: ChanId| Recipe {
+    fn chase(chan: ChanId) -> Recipe {
+        Recipe {
             target: Selection::Chans(vec![chan]),
             steps: vec![
                 Step::new(vec![RecipeApply::Raw(vec![(Attribute::Dimmer, 0.0)])]),
@@ -560,7 +1188,30 @@ mod tests {
                 ..Default::default()
             },
             tricks: Vec::new(),
-        };
+            stack: false,
+            ..Default::default()
+        }
+    }
+
+    fn show_at<'a>(groups: &'a [Group], masters: &'a crate::step::SpeedMasters) -> Show<'a> {
+        Show {
+            groups,
+            palettes: crate::preset::Palettes::EMPTY,
+            rig: &EMPTY_RIG,
+            speeds: masters,
+            roles: &crate::recipe::NO_ROLES,
+            ..Show::new(groups, &EMPTY_RIG)
+        }
+    }
+
+    /// One rate source retiming every fader at once is the thing this
+    /// design has that grandMA3 does not — a speed master drives *every*
+    /// recipe here, because a phaser is a recipe.
+    #[test]
+    fn one_speed_master_drives_every_fader() {
+        let groups = groups();
+        let masters = crate::step::SpeedMasters::from([("Rate".to_string(), 120.0)]);
+        let show = show_at(&groups, &masters);
         let mut p = Programmer::new();
         for (i, chan) in [1, 2].into_iter().enumerate() {
             p.set_fader(
@@ -569,6 +1220,7 @@ mod tests {
                     name: "Chase".into(),
                     recipe: Some(chase(chan)),
                     level: 1.0,
+                    ..Default::default()
                 },
             );
         }
@@ -589,9 +1241,45 @@ mod tests {
         );
     }
 
+    /// A fader at double speed reaches its second step when the master's
+    /// own tempo is still on its first.
+    /// r[verify playback.speed-scale]
+    #[test]
+    fn a_fader_can_run_at_a_multiple_of_its_master() {
+        let groups = groups();
+        let masters = crate::step::SpeedMasters::from([("Rate".to_string(), 120.0)]);
+        let show = show_at(&groups, &masters);
+        let mut p = Programmer::new();
+        p.set_fader(
+            0,
+            Fader {
+                name: "Chase".into(),
+                recipe: Some(chase(1)),
+                level: 1.0,
+                ..Default::default()
+            },
+        );
+        p.set_fader(
+            1,
+            Fader {
+                name: "Chase x2".into(),
+                recipe: Some(chase(2)),
+                level: 1.0,
+                speed_scale: 2.0,
+            },
+        );
+        // At 2 cycles/sec, 0.2s is 0.4 cycles: step 0 at x1, step 1 at x2.
+        let mut out = base();
+        p.apply_to(&mut out, &show, 0.2);
+        assert_eq!(out[&(1, Attribute::Dimmer)], 0.0);
+        assert_eq!(out[&(2, Attribute::Dimmer)], 1.0);
+    }
+
     // ── live control ─────────────────────────────────────────────────
 
     /// A role master scales that role's fixtures and nothing else.
+    /// r[verify groups.master]
+    /// r[verify playback.masters-scale]
     #[test]
     fn a_master_scales_only_its_own_role() {
         let groups = groups();
@@ -606,13 +1294,19 @@ mod tests {
         p.apply_to(&mut out, &show, 0.0);
 
         assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 1e-6);
-        assert!((out[&(9, Attribute::Dimmer)] - 1.0).abs() < 1e-6, "an unrelated fixture moved");
+        assert!(
+            (out[&(9, Attribute::Dimmer)] - 1.0).abs() < 1e-6,
+            "an unrelated fixture moved"
+        );
     }
 
     /// Scaling, not limiting. A fixture at half under a master at half
     /// is a quarter — which is what an operator expects from something
     /// that behaves like a fader, and is the distinction
     /// `r[groups.master.modes]` exists to pin.
+    /// r[verify groups.master.modes] - scaling
+    /// r[verify playback.masters-scale]
+    /// r[verify playback.master-modes] - scaling
     #[test]
     fn a_master_scales_rather_than_limits() {
         let groups = groups();
@@ -625,6 +1319,107 @@ mod tests {
         out.insert((1, Attribute::Dimmer), 0.5);
         p.apply_to(&mut out, &show, 0.0);
         assert!((out[&(1, Attribute::Dimmer)] - 0.25).abs() < 1e-6);
+    }
+
+    /// A positive master caps: a fixture under the cap is untouched, one
+    /// over it is held at the cap.
+    /// r[verify groups.master.modes] - limiting
+    /// r[verify playback.master-modes] - positive
+    #[test]
+    fn a_positive_master_limits_rather_than_scales() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.set_master("Key", 0.6);
+        p.set_master_mode("Key", MasterMode::Positive);
+
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 0.5);
+        out.insert((2, Attribute::Dimmer), 1.0);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.5).abs() < 1e-6,
+            "under the cap"
+        );
+        assert!(
+            (out[&(2, Attribute::Dimmer)] - 0.6).abs() < 1e-6,
+            "at the cap"
+        );
+    }
+
+    /// r[verify playback.master-modes] - negative
+    #[test]
+    fn a_negative_master_inhibits() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.set_master("Key", 0.3);
+        p.set_master_mode("Key", MasterMode::Negative);
+
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 1.0);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.3).abs() < 1e-6);
+    }
+
+    /// An additive master lifts: HTP with the show, so it raises what is
+    /// below it, leaves what is above it, and lights what the show left
+    /// dark.
+    /// r[verify playback.master-modes] - additive
+    #[test]
+    fn an_additive_master_lifts_by_htp() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.set_master("Key", 0.5);
+        p.set_master_mode("Key", MasterMode::Additive);
+
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 0.2);
+        out.insert((2, Attribute::Dimmer), 0.9);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 1e-6, "lifted");
+        assert!(
+            (out[&(2, Attribute::Dimmer)] - 0.9).abs() < 1e-6,
+            "left alone"
+        );
+        assert!(
+            (out[&(3, Attribute::Dimmer)] - 0.5).abs() < 1e-6,
+            "a fixture the show left dark is lit"
+        );
+    }
+
+    /// A fixture in two roles: under two positive masters the more
+    /// generous limit applies; under two negative ones the stricter
+    /// does. That is the whole difference between the two.
+    /// r[verify playback.master-modes] - two roles
+    /// r[verify playback.masters-scale] - lowest applies
+    #[test]
+    fn positive_takes_the_higher_limit_and_negative_the_lower() {
+        let groups = groups();
+        let venue = two_roles();
+        let show = show_with_roles(&groups, &venue);
+
+        let run = |mode: MasterMode| {
+            let mut p = Programmer::new();
+            p.set_master("Key", 0.3);
+            p.set_master_mode("Key", mode);
+            p.set_master("Wash", 0.8);
+            p.set_master_mode("Wash", mode);
+            let mut out = HashMap::new();
+            out.insert((2, Attribute::Dimmer), 1.0); // Key and Wash
+            p.apply_to(&mut out, &show, 0.0);
+            out[&(2, Attribute::Dimmer)]
+        };
+        assert!((run(MasterMode::Positive) - 0.8).abs() < 1e-6);
+        assert!((run(MasterMode::Negative) - 0.3).abs() < 1e-6);
+        assert!(
+            (run(MasterMode::Scaling) - 0.3).abs() < 1e-6,
+            "the lowest scaling master applies"
+        );
     }
 
     /// Dimmer only. A master that scaled pan would drag every mover
@@ -646,6 +1441,7 @@ mod tests {
     /// Solo pulls everything else down to the floor, and leaves what is
     /// already dark dark — a solo that lifted unlit fixtures to the
     /// floor level would turn a blackout into a dim wash.
+    /// r[verify playback.masters-scale] - solo
     #[test]
     fn solo_pulls_down_everything_else() {
         let groups = groups();
@@ -661,11 +1457,17 @@ mod tests {
 
         assert!((out[&(1, Attribute::Dimmer)] - 1.0).abs() < 1e-6);
         assert!((out[&(9, Attribute::Dimmer)] - p.solo_floor).abs() < 1e-6);
-        assert!(p.solo_floor > 0.0, "a solo that blacks the room reads as a fault");
+        assert!(
+            p.solo_floor > 0.0,
+            "a solo that blacks the room reads as a fault"
+        );
     }
 
     /// Size withdraws an effect without touching what is under it. This
     /// is the difference from a master, and the reason both exist.
+    /// r[verify recipes.size]
+    /// r[verify recipes.size.is-not-intensity]
+    /// r[verify effects.size-scales-the-swing]
     #[test]
     fn size_flattens_the_effect_and_leaves_the_look() {
         let groups = groups();
@@ -680,6 +1482,8 @@ mod tests {
             )])])],
             timing: Timing::default(),
             tricks: Vec::new(),
+            stack: false,
+            ..Default::default()
         };
 
         let mut p = Programmer::new();
@@ -689,6 +1493,7 @@ mod tests {
                 name: "Chase".into(),
                 recipe: Some(chase(1)),
                 level: 1.0,
+                ..Default::default()
             },
         );
 
@@ -709,6 +1514,393 @@ mod tests {
         );
     }
 
+    /// The programmer's rate and size reach a fader's effect through the
+    /// show it expands with — the same two numbers a host hands the cue
+    /// player — so a master-slaved chase on a fader doubles with rate.
+    /// r[verify effects.masters.scale]
+    /// r[verify effects.masters.uniform]
+    /// r[verify recipes.rate]
+    #[test]
+    fn rate_and_size_reach_every_recipe_through_the_show() {
+        let groups = groups();
+        let masters = crate::step::SpeedMasters::from([("Rate".to_string(), 120.0)]);
+        let show = show_at(&groups, &masters);
+        let mut p = Programmer::new();
+        p.set_fader(
+            0,
+            Fader {
+                name: "Chase".into(),
+                recipe: Some(chase(1)),
+                level: 1.0,
+                ..Default::default()
+            },
+        );
+        // 2 cycles/sec: 0.2 s is step 0; at double rate it is step 1.
+        let mut out = base();
+        p.apply_to(&mut out, &show, 0.2);
+        assert_eq!(out[&(1, Attribute::Dimmer)], 0.0);
+        p.rate = 2.0;
+        let mut out = base();
+        p.apply_to(&mut out, &show, 0.2);
+        assert_eq!(out[&(1, Attribute::Dimmer)], 1.0);
+
+        p.size = 0.25;
+        let scaled = p.show_for(&show);
+        assert_eq!(scaled.speed_scale, 2.0);
+        assert_eq!(scaled.size, 0.25);
+        // Compounds with what the host already set, rather than replacing it.
+        let host = show.scaled(0.5, 3.0);
+        let scaled = p.show_for(&host);
+        assert_eq!(scaled.speed_scale, 6.0);
+        assert_eq!(scaled.size, 0.125);
+    }
+
+    /// A held look beats the faders while the key is down and is gone
+    /// the moment it is released — there is no envelope to wait out.
+    #[test]
+    fn a_held_look_wins_over_the_faders_and_leaves_on_release() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_fader(0, colour_fader(1.0));
+        p.hold(Recipe::new(
+            Selection::Chans(vec![1]),
+            RecipeApply::Dimmer(0.6),
+        ));
+
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.0);
+        p.apply_to(&mut out, &show(&groups), 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.6).abs() < 1e-6);
+        assert!(p.is_active());
+
+        p.release_hold();
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.0);
+        p.apply_to(&mut out, &show(&groups), 0.0);
+        assert_eq!(out[&(1, Attribute::Dimmer)], 0.0);
+    }
+
+    // ── keys ─────────────────────────────────────────────────────────
+
+    fn dimmer_of(p: &Programmer, groups: &[Group], chan: ChanId) -> f32 {
+        let mut out = base();
+        p.apply_to(&mut out, &show(groups), 0.0);
+        out.get(&(chan, Attribute::Dimmer)).copied().unwrap_or(0.0)
+    }
+
+    /// r[verify playback.keys] - flash
+    #[test]
+    fn flash_holds_the_fader_at_full_and_gives_it_back() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_fader(0, dimmer_fader(1, 1.0, 0.25));
+        assert!((dimmer_of(&p, &groups, 1) - 0.25).abs() < 1e-6);
+        p.key_down(0, KeyAction::Flash);
+        assert!((dimmer_of(&p, &groups, 1) - 1.0).abs() < 1e-6);
+        p.key_up(0);
+        assert!((dimmer_of(&p, &groups, 1) - 0.25).abs() < 1e-6);
+        assert_eq!(p.faders[0].level, 0.25, "the fader itself never moved");
+    }
+
+    /// r[verify playback.keys] - toggle
+    #[test]
+    fn toggle_latches_until_pressed_again() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_fader(0, dimmer_fader(1, 1.0, 0.0));
+        p.key_down(0, KeyAction::Toggle);
+        p.key_up(0);
+        assert!(p.is_toggled(0));
+        assert!(
+            (dimmer_of(&p, &groups, 1) - 1.0).abs() < 1e-6,
+            "still on after release"
+        );
+        p.key_down(0, KeyAction::Toggle);
+        assert!(!p.is_toggled(0));
+        assert_eq!(dimmer_of(&p, &groups, 1), 0.0);
+    }
+
+    /// r[verify playback.keys] - swap
+    #[test]
+    fn swap_takes_this_fader_to_full_and_suppresses_the_others_while_held() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_fader(0, dimmer_fader(1, 1.0, 0.5));
+        p.set_fader(1, dimmer_fader(2, 1.0, 0.5));
+        p.key_down(0, KeyAction::Swap);
+        assert!((dimmer_of(&p, &groups, 1) - 1.0).abs() < 1e-6);
+        assert_eq!(dimmer_of(&p, &groups, 2), 0.0);
+        p.key_up(0);
+        assert!((dimmer_of(&p, &groups, 1) - 0.5).abs() < 1e-6);
+        assert!(
+            (dimmer_of(&p, &groups, 2) - 0.5).abs() < 1e-6,
+            "back after release"
+        );
+    }
+
+    /// r[verify playback.keys] - kill
+    #[test]
+    fn kill_moves_the_faders_and_stays_moved() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_fader(0, dimmer_fader(1, 1.0, 0.5));
+        p.set_fader(1, dimmer_fader(2, 1.0, 0.5));
+        p.key_down(0, KeyAction::Kill);
+        p.key_up(0);
+        assert_eq!(p.faders[0].level, 1.0);
+        assert_eq!(p.faders[1].level, 0.0);
+        assert!((dimmer_of(&p, &groups, 1) - 1.0).abs() < 1e-6);
+        assert_eq!(dimmer_of(&p, &groups, 2), 0.0);
+    }
+
+    /// Black zeroes only the intensity this fader contributes; its colour
+    /// carries on, and so does every other fader.
+    /// r[verify playback.keys] - black
+    #[test]
+    fn black_zeroes_this_faders_intensity_only() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_fader(0, dimmer_fader(1, 1.0, 1.0));
+        p.set_fader(1, colour_fader(1.0));
+        p.set_fader(2, dimmer_fader(2, 1.0, 1.0));
+        p.key_down(0, KeyAction::Black);
+        let mut out = base();
+        p.apply_to(&mut out, &show(&groups), 0.0);
+        assert!(!out.contains_key(&(1, Attribute::Dimmer)));
+        let red = Attribute::ColorAdd {
+            channel: ColorChannel::Red,
+        };
+        assert!((out[&(1, red)] - 1.0).abs() < 1e-6, "colour carries on");
+        assert!(
+            (out[&(2, Attribute::Dimmer)] - 1.0).abs() < 1e-6,
+            "other faders carry on"
+        );
+        p.key_up(0);
+        assert!((dimmer_of(&p, &groups, 1) - 1.0).abs() < 1e-6);
+    }
+
+    // ── pages ────────────────────────────────────────────────────────
+
+    /// r[verify playback.pages]
+    #[test]
+    fn a_fader_at_rest_takes_the_new_pages_assignment() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_fader(0, dimmer_fader(1, 1.0, 0.0));
+        let two = p.add_page();
+        p.set_page(two);
+        p.set_fader(0, dimmer_fader(2, 1.0, 0.0));
+        p.set_level(0, 1.0);
+        assert!((dimmer_of(&p, &groups, 2) - 1.0).abs() < 1e-6);
+        assert_eq!(dimmer_of(&p, &groups, 1), 0.0);
+
+        // Back on page one, fader zero is up on page two's assignment,
+        // so it is latched; bringing it to page one's level (zero)
+        // picks page one back up.
+        p.set_page(0);
+        assert!(p.is_latched(0));
+        assert!(
+            (dimmer_of(&p, &groups, 2) - 1.0).abs() < 1e-6,
+            "still playing page two"
+        );
+        p.set_level(0, 0.5);
+        assert!(p.is_latched(0), "sweeping past does not pick up");
+        assert!((dimmer_of(&p, &groups, 2) - 1.0).abs() < 1e-6);
+        p.set_level(0, 0.0);
+        assert!(!p.is_latched(0));
+        assert_eq!(dimmer_of(&p, &groups, 2), 0.0);
+        assert_eq!(p.faders[0].recipe, p.pages[0][0].recipe);
+    }
+
+    /// A fader that is up keeps playing its old assignment across a
+    /// page change until it is brought back to match.
+    /// r[verify playback.pages] - a fader that is up stays live
+    #[test]
+    fn a_fader_that_is_up_stays_live_until_picked_up() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.set_fader(0, dimmer_fader(1, 1.0, 0.0));
+        p.set_level(0, 0.8);
+        let two = p.add_page();
+        p.set_page(two);
+        p.pages[two][0] = dimmer_fader(2, 1.0, 0.8);
+        assert!(p.is_latched(0));
+        assert!(
+            (dimmer_of(&p, &groups, 1) - 0.8).abs() < 1e-6,
+            "page one still plays"
+        );
+        assert_eq!(dimmer_of(&p, &groups, 2), 0.0);
+        p.set_level(0, 0.82);
+        assert!(!p.is_latched(0), "within pickup of the stored level");
+        assert!((dimmer_of(&p, &groups, 2) - 0.82).abs() < 1e-6);
+        assert_eq!(dimmer_of(&p, &groups, 1), 0.0);
+    }
+
+    #[test]
+    fn next_and_prev_wrap() {
+        let mut p = Programmer::new();
+        p.add_page();
+        p.add_page();
+        p.next_page();
+        assert_eq!(p.page, 1);
+        p.next_page();
+        p.next_page();
+        assert_eq!(p.page, 0);
+        p.prev_page();
+        assert_eq!(p.page, 2);
+    }
+
+    // ── program time ─────────────────────────────────────────────────
+
+    /// A palette punch over two beats at 120 BPM is a one-second fade:
+    /// halfway at half a second, arrived at one.
+    /// r[verify playback.program-time]
+    #[test]
+    fn a_palette_punch_is_halfway_at_half_the_program_time() {
+        let groups = groups();
+        let masters = crate::step::SpeedMasters::from([("Song".to_string(), 120.0)]);
+        let show = show_at(&groups, &masters);
+        let mut p = Programmer::new();
+        p.program_time_beats = 2.0;
+        p.set_now(10.0);
+        p.select(Selection::Chans(vec![1]));
+        p.apply(RecipeApply::Dimmer(1.0), &show);
+
+        let at = |secs: f32| {
+            let mut out = base();
+            out.insert((1, Attribute::Dimmer), 0.2); // what the show had it at
+            p.apply_to(&mut out, &show, secs);
+            out[&(1, Attribute::Dimmer)]
+        };
+        assert!(
+            (at(10.0) - 0.2).abs() < 1e-6,
+            "starts from what was underneath"
+        );
+        assert!((at(10.5) - 0.6).abs() < 1e-6, "halfway");
+        assert!((at(11.0) - 1.0).abs() < 1e-6, "arrived");
+        assert!((at(12.0) - 1.0).abs() < 1e-6, "and stays");
+        assert_eq!(p.captured()[0].value, 1.0, "record captures the target");
+    }
+
+    /// r[verify playback.program-time] - a fader take
+    #[test]
+    fn a_fader_take_glides_over_the_program_time() {
+        let groups = groups();
+        let masters = crate::step::SpeedMasters::from([("Song".to_string(), 120.0)]);
+        let show = show_at(&groups, &masters);
+        let mut p = Programmer::new();
+        p.program_time_beats = 2.0;
+        p.set_fader(0, dimmer_fader(1, 1.0, 0.0));
+        p.set_level(0, 1.0);
+        let at = |secs: f32| {
+            let mut out = base();
+            p.apply_to(&mut out, &show, secs);
+            out[&(1, Attribute::Dimmer)]
+        };
+        assert!((at(0.5) - 0.5).abs() < 1e-6);
+        assert!((at(1.0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn zero_program_time_snaps() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.select(Selection::Chans(vec![1]));
+        p.apply(RecipeApply::Dimmer(1.0), &show(&groups));
+        assert!((dimmer_of(&p, &groups, 1) - 1.0).abs() < 1e-6);
+    }
+
+    // ── blind ────────────────────────────────────────────────────────
+
+    /// r[verify playback.blind]
+    #[test]
+    fn blind_holds_values_off_the_output_but_in_the_preview() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.blind = true;
+        p.select(Selection::Chans(vec![1]));
+        p.apply(RecipeApply::Dimmer(1.0), &show(&groups));
+        p.set_fader(0, dimmer_fader(2, 1.0, 1.0));
+
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.3);
+        p.apply_to(&mut out, &show(&groups), 0.0);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.3).abs() < 1e-6,
+            "the hand did not reach output"
+        );
+        assert!(!out.contains_key(&(2, Attribute::Dimmer)), "nor the fader");
+
+        let preview = p.preview_output(&out, &show(&groups), 0.0);
+        assert!((preview[&(1, Attribute::Dimmer)] - 1.0).abs() < 1e-6);
+        assert!((preview[&(2, Attribute::Dimmer)] - 1.0).abs() < 1e-6);
+        assert_eq!(p.captured().len(), 1, "still held for record");
+
+        p.blind = false;
+        let mut out = base();
+        p.apply_to(&mut out, &show(&groups), 0.0);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 1.0).abs() < 1e-6,
+            "un-blind and it lands"
+        );
+    }
+
+    // ── highlight / lowlight ─────────────────────────────────────────
+
+    /// Highlight beats the hand and the masters: it is for finding a
+    /// fixture, and a fixture a master has pulled to nothing cannot be
+    /// found.
+    /// r[verify playback.highlight]
+    #[test]
+    fn highlight_puts_the_selection_at_open_white_above_everything() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.set_master("Key", 0.0);
+        p.select(Selection::Chans(vec![1]));
+        p.apply(RecipeApply::Dimmer(0.2), &show);
+        p.highlight = true;
+
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 0.5);
+        out.insert((2, Attribute::Dimmer), 0.5);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 1.0).abs() < 1e-6);
+        for channel in [ColorChannel::Red, ColorChannel::Green, ColorChannel::Blue] {
+            assert!((out[&(1, Attribute::ColorAdd { channel })] - 1.0).abs() < 1e-6);
+        }
+        assert_eq!(
+            out[&(2, Attribute::Dimmer)],
+            0.0,
+            "unselected still under its master"
+        );
+    }
+
+    /// r[verify playback.highlight] - lowlight
+    #[test]
+    fn lowlight_dims_everything_not_selected_to_the_floor() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        p.select(Selection::Chans(vec![1]));
+        p.lowlight = true;
+
+        let mut out = base();
+        out.insert((1, Attribute::Dimmer), 0.7);
+        out.insert((2, Attribute::Dimmer), 0.7);
+        out.insert((3, Attribute::Dimmer), 0.05);
+        p.apply_to(&mut out, &show(&groups), 0.0);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.7).abs() < 1e-6,
+            "selected untouched"
+        );
+        assert!((out[&(2, Attribute::Dimmer)] - p.lowlight_floor).abs() < 1e-6);
+        assert!(
+            (out[&(3, Attribute::Dimmer)] - 0.05).abs() < 1e-6,
+            "already below the floor"
+        );
+    }
+
     fn roles() -> Bound {
         let mut bound = Bound::default();
         bound
@@ -717,8 +1909,14 @@ mod tests {
         bound
     }
 
+    fn two_roles() -> Bound {
+        let mut bound = roles();
+        bound.0.insert("Wash".into(), Selection::Chans(vec![2, 4]));
+        bound
+    }
+
     #[derive(Default)]
-    struct Bound(std::collections::BTreeMap<String, Selection>);
+    struct Bound(BTreeMap<String, Selection>);
 
     impl crate::selection::Roles for Bound {
         fn role(&self, name: &str) -> Option<&Selection> {
@@ -733,6 +1931,7 @@ mod tests {
             rig: &EMPTY_RIG,
             speeds: &crate::recipe::NO_SPEEDS,
             roles,
+            ..Show::new(groups, &EMPTY_RIG)
         }
     }
 }

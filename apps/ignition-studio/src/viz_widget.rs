@@ -7,7 +7,7 @@
 //! copy — the 3D view is a `<div>` as far as the rest of the UI is
 //! concerned, and HTML can sit above or below it.
 
-use crate::command::{Command, Playhead, Receiver, StateTx};
+use crate::command::{Command, PageMove, Playhead, Receiver, StateTx};
 use anyrender::{PaintRef, PaintScene, RenderContext, ResourceId, Scene};
 use blitz_dom::Widget;
 use blitz_dom::node::ComputedStyles;
@@ -19,6 +19,19 @@ use ignition_viz::embedded::{EmbeddedViz, HostGpu};
 use ignition_viz::playback::Playback;
 use peniko::kurbo::{Affine, Rect};
 use peniko::{Fill, ImageBrush, ImageSampler};
+use std::sync::{Arc, LazyLock};
+use tokio::sync::Notify;
+
+/// Fires once per painted frame, the moment the visualizer has stepped.
+///
+/// Blitz redraws only when the DOM changes, and the presentation is
+/// vsync-blocking FIFO, so a redraw that is asked for on a *timer* is
+/// asked for late: the timer starts after present returns, and by the
+/// time it fires the next vblank has gone. Every frame missed its slot
+/// and the studio ran at exactly half the refresh rate. Waking the
+/// ticker from here instead means the next DOM write — and the redraw
+/// request it carries — is already queued while this frame presents.
+pub static FRAME_DONE: LazyLock<Arc<Notify>> = LazyLock::new(|| Arc::new(Notify::new()));
 
 /// Everything needed to build the visualizer once a device shows up.
 ///
@@ -76,19 +89,22 @@ impl VizWidget {
         config.width = width;
         config.height = height;
 
-        let playback = match &self.show {
-            Some((path, cue)) => Playback::load(
-                &config.venue,
-                None,
-                Some(std::path::Path::new(path)),
-                Some(*cue),
-                None,
-                None,
-                None,
-            )
-            .unwrap_or_default(),
-            None => Playback::default(),
-        };
+        // Loaded through `load` even with no show, so the look list the
+        // operator GOes through exists either way.
+        let show = self.show.as_ref();
+        // The transport's song map resolves the show's relative
+        // positions on load, so the cues land on *this* arrangement.
+        let playback = Playback::load(
+            &config.venue,
+            None,
+            show.map(|(path, _)| std::path::Path::new(path)),
+            show.map(|(_, cue)| *cue),
+            None,
+            None,
+            None,
+            self.transport.as_ref().map(|t| t.song()),
+        )
+        .unwrap_or_default();
         let viz = EmbeddedViz::new(*config, Default::default(), playback, None, *gpu);
         tracing::info!(width, height, "viz.embed: built on the host device");
         self.state = State::Active(Box::new(viz));
@@ -184,7 +200,9 @@ impl Widget for VizWidget {
         drain(&self.commands, viz, self.transport.as_ref());
         follow_song(self.transport.as_ref(), viz);
         publish(&self.report, self.transport.as_ref(), viz);
-        let Some(texture) = viz.render(width, height) else {
+        let rendered = viz.render(width, height);
+        FRAME_DONE.notify_one();
+        let Some(texture) = rendered else {
             tracing::debug!(width, height, "viz.embed: no target texture yet");
             return scene;
         };
@@ -231,7 +249,7 @@ impl Widget for VizWidget {
 /// Drained rather than blocked on: a dropped frame's worth of messages
 /// is better than a stalled frame, and the sender will send again.
 fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTransport>) {
-    use ignition_core::{RecipeApply, Show};
+    use ignition_core::{Class, RecipeApply, Show};
 
     let world = viz.app_mut().world_mut();
     let Some(mut playback) = world.remove_resource::<Playback>() else {
@@ -239,7 +257,8 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
     };
     {
         let Playback {
-            cues,
+            playbacks,
+            sound,
             groups,
             rig,
             palettes,
@@ -257,6 +276,42 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                 Command::ClearValues => programmer.clear_values(),
                 Command::Level(index, level) => programmer.set_level(index, level),
                 Command::Fader(index, fader) => programmer.set_fader(index, *fader),
+                Command::FaderOnPage { page, index, fader } => {
+                    while programmer.pages.len() <= page {
+                        programmer.add_page();
+                    }
+                    if page == programmer.page {
+                        programmer.set_fader(index, *fader);
+                    } else if let Some(slot) = programmer.pages[page].get_mut(index) {
+                        *slot = *fader;
+                    }
+                }
+                Command::Key {
+                    index,
+                    action,
+                    down,
+                } => {
+                    if down {
+                        programmer.key_down(index, action);
+                    } else {
+                        programmer.key_up(index);
+                    }
+                }
+                Command::Page(PageMove::Next) => programmer.next_page(),
+                Command::Page(PageMove::Prev) => programmer.prev_page(),
+                Command::Page(PageMove::Set(page)) => programmer.set_page(page),
+                Command::ProgramTime(beats) => programmer.program_time_beats = beats.max(0.0),
+                Command::Blind(on) => programmer.blind = on,
+                Command::Highlight(on) => programmer.highlight = on,
+                Command::Lowlight(on) => programmer.lowlight = on,
+                Command::Tap(bpm) => {
+                    if bpm.is_finite() && bpm > 0.0 {
+                        speeds.insert("Tap".to_string(), bpm);
+                    }
+                }
+                Command::SoundLevels { low, mid, high } => {
+                    *sound = ignition_viz::playback::SoundLevels { low, mid, high };
+                }
                 Command::Rate(bpm) => {
                     speeds.insert("Rate".to_string(), bpm);
                 }
@@ -267,13 +322,18 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                     Some(role) => programmer.solo(&role),
                     None => programmer.clear_solo(),
                 },
-                Command::Flash(role, kind) => {
+                Command::Hold(Some(recipe)) => programmer.hold(*recipe),
+                Command::Hold(None) => programmer.release_hold(),
+                Command::Flash(target, kind) => {
                     // Fired against the player's clock, which is the song
                     // while a transport is loaded — so a hand-played
                     // flash and a charted one are timed by the same
                     // thing.
-                    let now = cues.as_ref().map(|c| c.clock()).unwrap_or_default();
-                    programmer.flash(ignition_core::Selection::Role(role), kind, now);
+                    let now = playbacks
+                        .of_class(Class::Song)
+                        .map(|c| c.clock())
+                        .unwrap_or_default();
+                    programmer.flash(target, kind, now);
                 }
                 Command::Color(name) => {
                     let show = Show {
@@ -281,9 +341,21 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
-            roles: profile,
+                        roles: profile,
+                        ..Show::new(groups, rig)
                     };
                     programmer.apply(RecipeApply::Color(Ref::Named(name)), &show);
+                }
+                Command::Split(name) => {
+                    let show = Show {
+                        groups,
+                        palettes,
+                        rig,
+                        speeds,
+                        roles: profile,
+                        ..Show::new(groups, rig)
+                    };
+                    programmer.apply(RecipeApply::Split(Ref::Named(name)), &show);
                 }
                 Command::Focus(name) => {
                     let show = Show {
@@ -291,7 +363,8 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
-            roles: profile,
+                        roles: profile,
+                        ..Show::new(groups, rig)
                     };
                     programmer.apply(RecipeApply::FocusPoint(Ref::Named(name)), &show);
                 }
@@ -301,7 +374,8 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
-            roles: profile,
+                        roles: profile,
+                        ..Show::new(groups, rig)
                     };
                     programmer.apply(RecipeApply::Dimmer(level), &show);
                 }
@@ -311,30 +385,46 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
-            roles: profile,
+                        roles: profile,
+                        ..Show::new(groups, rig)
                     };
                     programmer.release(&show);
                 }
                 Command::Go => {
-                    if let Some(player) = cues.as_mut() {
+                    if let Some(player) = playbacks.of_class(Class::Song) {
                         let show = Show {
                             groups,
                             palettes,
                             rig,
                             speeds,
-            roles: profile,
+                            roles: profile,
+                            ..Show::new(groups, rig)
+                        };
+                        player.go(&show);
+                    }
+                }
+                Command::LookGo => {
+                    if let Some(player) = playbacks.of_class(Class::Look) {
+                        let show = Show {
+                            groups,
+                            palettes,
+                            rig,
+                            speeds,
+                            roles: profile,
+                            ..Show::new(groups, rig)
                         };
                         player.go(&show);
                     }
                 }
                 Command::Cue(index) => {
-                    if let Some(player) = cues.as_mut() {
+                    if let Some(player) = playbacks.of_class(Class::Song) {
                         let show = Show {
                             groups,
                             palettes,
                             rig,
                             speeds,
-            roles: profile,
+                            roles: profile,
+                            ..Show::new(groups, rig)
                         };
                         // Take the song to the cue's own position, not
                         // to a section with the cue's name. Every cue is
@@ -343,7 +433,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         // for the nineteen cues that were sections, and
                         // the accents, being called things like
                         // "· fig 0 · 1/3", simply failed.
-                        if let Some(at) = player.cues().get(index).and_then(|c| c.at)
+                        if let Some(at) = player.cues().get(index).and_then(|c| c.position())
                             && let Some(transport) = transport
                         {
                             transport.locate(at);
@@ -377,6 +467,11 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         transport.scrub(fraction);
                     }
                 }
+                Command::Locate(position) => {
+                    if let Some(transport) = transport {
+                        transport.locate(position);
+                    }
+                }
             }
         }
     }
@@ -395,24 +490,36 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
 /// is `PartialEq` for exactly this: seconds change constantly while
 /// playing, so the UI does re-render then, but a stopped show settles.
 fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
-    let cue = viz
-        .app_mut()
-        .world()
-        .get_resource::<Playback>()
-        .and_then(|p| p.cues.as_ref())
+    let playback = viz.app_mut().world().get_resource::<Playback>();
+    let cue = playback
+        .and_then(|p| p.song())
         .and_then(|player| player.current_index());
-    let next = match transport {
-        Some(t) => Playhead {
-            cue,
-            secs: t.seconds() as f32,
-            length: t.length() as f32,
-            playing: t.is_playing(),
-        },
-        None => Playhead {
-            cue,
-            ..Default::default()
-        },
+    let hit = playback.and_then(|p| p.triggers.last_fired_index());
+    // The desk's own state, so the surface draws what the engine has
+    // rather than what it last sent — a page turn from a MIDI key has
+    // to move the strip on screen too.
+    let mut next = Playhead {
+        cue,
+        hit,
+        ..Default::default()
     };
+    if let Some(p) = playback {
+        let prog = &p.programmer;
+        next.page = prog.page;
+        next.pages = prog.pages.len().max(1);
+        for i in 0..ignition_core::FADERS {
+            next.latched[i] = prog.is_latched(i);
+            next.toggled[i] = prog.is_toggled(i);
+        }
+        next.blind = prog.blind;
+        next.tap_bpm = p.speeds.get("Tap").copied().unwrap_or(0.0);
+        next.sound = [p.sound.low, p.sound.mid, p.sound.high];
+    }
+    if let Some(t) = transport {
+        next.secs = t.seconds() as f32;
+        next.length = t.length() as f32;
+        next.playing = t.is_playing();
+    }
     state.send_if_modified(|current| {
         if *current == next {
             false
@@ -438,27 +545,38 @@ fn follow_song(transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
     let secs = transport.seconds() as f32;
 
     let world = viz.app_mut().world_mut();
+    // The screens scrub with the song too: a clip's frame is a function
+    // of the transport, never of its own wall clock.
+    world.insert_resource(ignition_viz::CanvasClock::at(f64::from(secs)));
     let Some(mut playback) = world.remove_resource::<Playback>() else {
         return;
     };
     {
         let Playback {
-            cues,
+            playbacks,
             groups,
             rig,
             palettes,
             speeds,
             profile,
+            triggers,
             ..
         } = &mut playback;
         speeds.insert("Song".to_string(), bpm);
-        if let Some(player) = cues.as_mut() {
+        // The same transport, the same frame, so a section cue and the
+        // hit on its downbeat land together. A backwards move is a
+        // locate inside `advance`; a stopped playhead fires nothing.
+        // r[impl triggers.wired]
+        // r[impl song.transport.position-per-frame]
+        triggers.advance(position, secs);
+        if let Some(player) = playbacks.of_class(ignition_core::Class::Song) {
             let show = Show {
                 groups,
                 palettes,
                 rig,
                 speeds,
-            roles: profile,
+                roles: profile,
+                ..Show::new(groups, rig)
             };
             // The song *is* the clock while a transport is loaded. Left
             // free-running, effects keep their rate but lose their

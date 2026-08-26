@@ -131,6 +131,9 @@ r[profile.show-check-before-doors]
 Opening a show MUST check every song against the profile and the profile against
 the venue, and MUST report every gap in one place before anything runs. A gap
 found at the desk during the first song is a gap found too late.
+`igcheck <show.ig-show>` prints that report; `ignition_core::show_file::
+check_ig_show` is the check behind it, and `igcheck --venue <dir> --profile
+<file>` runs the venue half alone.
 
 r[profile.show-many-per-song]
 The same `.ignition` file MUST be usable in any number of shows, and a show MUST
@@ -196,6 +199,9 @@ A show MAY have a **venue layer**: a separate artifact, bound to one
 `.ignition` file and one venue, that overrides or adds to it. It MUST be a
 separate file. Merged into the show it would destroy the property the show
 exists to have; merged into the venue it would apply to every song.
+On disk it is an `.ig-local`: `{ "version", "song", "venue", "override_cues":
+{ name: cue }, "add_cues": [cue] }`, named from the `.ig-show`'s song entry as
+`"layer"`.
 
 r[profile.venue-layer.optional]
 The generic show MUST be complete and playable without any venue layer. A layer

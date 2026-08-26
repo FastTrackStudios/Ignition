@@ -12,14 +12,41 @@ use crate::show::apply_cue_output;
 use crate::spawn::{DmxRes, VenueRes};
 use crate::venue::Venue;
 use bevy::prelude::*;
-use ignition_core::{CueList, CuePlayer, Group, Palettes, Programmer, Rig, Show, SpeedMasters};
+use ignition_core::{
+    Attribute, Bars, ChanId, Class, CueList, CuePlayer, Group, Palettes, Playbacks, Programmer,
+    Rig, Show, SongMap, SpeedMasters, TriggerBus,
+};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
+
+/// What the audio input last measured: RMS per band, 0..=1.
+///
+/// Held on the playback rather than the programmer because it is an
+/// *input*, like a transport position — a recipe driven by the kick
+/// reads it, the operator does not set it.
+// r[impl playback.sound-in] - band levels reach the engine
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct SoundLevels {
+    pub low: f32,
+    pub mid: f32,
+    pub high: f32,
+}
 
 /// A loaded show, if the CLI was given one.
 #[derive(Resource, Default)]
 pub struct Playback {
-    /// Cues stepped by GO — space, same convention as a real console.
-    pub cues: Option<CuePlayer>,
+    /// Every cue player, each in its class. The song list — the show the
+    /// CLI or the studio loaded — is one entry; a `Look` list the
+    /// operator steps through by hand is another, empty until a look is
+    /// pushed onto it. `output` folds them per class.
+    // r[impl playback.several-players] - the viz loop runs a Playbacks, not one player
+    pub playbacks: Playbacks,
+    /// The trigger keys ringing on the last fold, kept so the overlay
+    /// can re-ask the same question the fold answered — which class
+    /// won a key, and what each would have produced.
+    pub ringing: HashSet<(ChanId, Attribute)>,
+    /// The audio input's band levels, if a sound-in is running.
+    pub sound: SoundLevels,
     /// The venue's groups, resolved once. Recipes are resolved every
     /// frame now (see `docs/domain/cue-building-architecture.md`), and
     /// re-parsing 127 channel-range strings per frame to do it would be
@@ -41,6 +68,21 @@ pub struct Playback {
     /// legitimately empty. Carrying it here is what stops that being a
     /// thing each construction site has to remember.
     pub profile: ignition_core::profile::VenueProfile,
+    /// The effects library a cue's `RecipeRef::Named` resolves through,
+    /// and the bundles beside it — the shipped library the profile
+    /// file is baked from, so a show naming `"circle"` finds it.
+    // r[impl effects.library.by-name] - the host supplies the library
+    // r[impl effects.bundle]
+    pub library: BTreeMap<String, ignition_core::Recipe>,
+    pub bundles: BTreeMap<String, ignition_core::profile::Bundle>,
+    /// The profile's named Tricks, so a recipe may say `"tricks_ref":
+    /// "mirror"` and get the shared definition.
+    // r[impl tricks.shared-or-inline] - the shared half, from the profile
+    pub named_tricks: BTreeMap<String, Vec<ignition_core::Trick>>,
+    /// Focus markers moved off their palette value — by a tracker, an
+    /// operator — consulted before the palette every frame.
+    // r[impl focus.marker-moving] - the host's per-frame override map
+    pub focus_overrides: HashMap<String, ignition_proto::Vec3>,
     /// A show clock held still, for a still.
     ///
     /// `--time T` means "render the show as it is at T", and it only
@@ -70,9 +112,43 @@ pub struct Playback {
     /// Show clock for the programmer's own faders, which run whether or
     /// not a cue stack is loaded.
     clock: f32,
+    /// The song's hits. Advanced by whoever moves the transport, folded
+    /// above the cue player and below the programmer.
+    // r[impl triggers.layer]
+    pub triggers: TriggerBus,
+    /// The cue the player stood on last frame, so a cue being taken can
+    /// release whatever the triggers were holding.
+    last_cue: Option<usize>,
 }
 
 impl Playback {
+    /// The song list — the entry `--cue`, `--bar`, GO and the transport
+    /// address. `None` when no show was loaded.
+    pub fn song(&self) -> Option<&CuePlayer> {
+        self.playbacks
+            .entries
+            .iter()
+            .find(|p| p.class == Class::Song)
+            .map(|p| &p.player)
+    }
+
+    pub fn song_mut(&mut self) -> Option<&mut CuePlayer> {
+        self.playbacks.of_class(Class::Song)
+    }
+
+    /// The look list — empty until the operator pushes something onto
+    /// it, but always present so GO on it has somewhere to land.
+    pub fn look_mut(&mut self) -> Option<&mut CuePlayer> {
+        self.playbacks.of_class(Class::Look)
+    }
+
+    /// A fresh playback with no show: an empty song list would be a
+    /// lie, so only the look list exists.
+    fn empty() -> Playbacks {
+        let mut playbacks = Playbacks::new();
+        playbacks.push(Class::Look, CuePlayer::new(Vec::new()));
+        playbacks
+    }
     /// Loads whichever show files the CLI was given.
     ///
     /// `cuelist` and `recipes` are the same format now and either flag
@@ -86,6 +162,11 @@ impl Playback {
     /// rather than starting it — how you capture a programmed look
     /// headlessly without a keyboard to press GO with. Likewise
     /// `effect_time` freezes a running effect at a chosen moment.
+    // r[impl cues.cooked-status] - every cue is cooked on load and the report logged
+    // r[impl cues.dead-cue-warns] - cues that select nothing are warned by name; the load continues
+    // r[impl cues.seek] - `--bar` seeks the player to a musical position
+    // r[impl effects.masters.song] - `--bpm` seeds the Song master when no transport is present
+    // r[impl song.relative-position.resolved-on-load] - positions resolve against the song map here
     pub fn load(
         venue: &Venue,
         cuelist: Option<&Path>,
@@ -94,6 +175,7 @@ impl Playback {
         effect_time: Option<f32>,
         bar: Option<u32>,
         song_bpm: Option<f32>,
+        song: Option<&SongMap>,
     ) -> anyhow::Result<Self> {
         anyhow::ensure!(
             cuelist.is_none() || recipes.is_none(),
@@ -108,17 +190,53 @@ impl Playback {
         if let Some(bpm) = song_bpm {
             speeds.insert("Song".to_string(), bpm);
         }
+        // The library is the built-in one the profile file is baked
+        // from (`bake-profile`), so no second file has to be found
+        // from a venue that only knows its own directory.
+        let library = ignition_core::effects::library();
+        let bundles = ignition_core::effects::bundles();
+        // The named tricks come from the profile file the venue implements.
+        // The venue knows the profile's *name*; the file is looked up under
+        // `data/profiles/` (or `IGNITION_PROFILE`), and a missing file is
+        // simply no shared tricks — a recipe naming one is then reported.
+        let named_tricks = {
+            let path = std::env::var("IGNITION_PROFILE").unwrap_or_else(|_| {
+                format!("data/profiles/{}.ig-profile", venue.profile.profile.to_lowercase())
+            });
+            match ignition_core::Profile::load(&path) {
+                Ok(profile) => profile.tricks,
+                Err(error) => {
+                    tracing::debug!(%error, path, "no profile file for named tricks");
+                    BTreeMap::new()
+                }
+            }
+        };
         let show = Show {
             groups: &groups,
             palettes: &venue.palettes,
             rig: &rig,
             speeds: &speeds,
             roles: &venue.profile,
+            library: &library,
+            bundles: &bundles,
+            named_tricks: &named_tricks,
+            tempo: song.map(|s| &s.tempo),
+            ..Show::new(&groups, &rig)
         };
 
+        let mut triggers = TriggerBus::default();
         let cues: Option<CuePlayer> = match cuelist.or(recipes) {
             Some(path) => {
-                let list: CueList = read_json(path, "a cue list")?;
+                let mut list: CueList = read_json(path, "a cue list")?;
+                // A cue written "4 bars into the chorus" lands on this
+                // arrangement's chorus, not the one it was authored
+                // against. Only possible with a song map; without one
+                // the stored bar is what plays.
+                if let Some(song) = song {
+                    for problem in list.resolve_positions(song) {
+                        tracing::warn!("{problem}");
+                    }
+                }
                 for problem in ignition_core::unresolved(&list.cues, &show) {
                     tracing::warn!("{problem}");
                 }
@@ -173,6 +291,7 @@ impl Playback {
                         tracing::warn!(name = %cook.name, "selects nothing");
                     }
                 }
+                triggers = TriggerBus::new(list.triggers);
                 Some(CuePlayer::new(list.cues))
             }
             None => None,
@@ -185,8 +304,14 @@ impl Playback {
             // the point of positioned cues.
             match bar {
                 Some(bar) => {
-                    player.seek(ignition_core::Bars::bar(bar), &show);
+                    player.seek(Bars::bar(bar), &show);
                     println!("bar {bar} -> {:?}", player.current_name());
+                    // A still of a hit: land just before the bar and
+                    // step onto it, so a trigger exactly on the bar
+                    // fires at clock zero and `--time` names how far
+                    // into its envelope the picture is taken.
+                    triggers.locate(Bars::new(bar.saturating_sub(1).max(1), 4.99));
+                    triggers.advance(Bars::bar(bar), 0.0);
                 }
                 None => {
                     let index = jump_to_cue.unwrap_or(0);
@@ -202,17 +327,31 @@ impl Playback {
         if let (Some(player), Some(t)) = (cues.as_mut(), effect_time) {
             player.advance_clock(t);
         }
+        // Song on top, the look list beneath it; the look list is what
+        // an operator GOes through by hand under a running chart.
+        let mut playbacks = Self::empty();
+        if let Some(player) = cues {
+            playbacks.push(Class::Song, player);
+        }
         Ok(Self {
-            cues,
+            playbacks,
+            ringing: HashSet::new(),
+            sound: SoundLevels::default(),
             groups,
             rig,
             palettes: venue.palettes.clone(),
             profile: venue.profile.clone(),
+            library,
+            bundles,
+            named_tricks,
+            focus_overrides: HashMap::new(),
             frozen_at: effect_time,
             speeds: default_speeds(),
             taps: Vec::new(),
             programmer: Programmer::new(),
             clock: 0.0,
+            triggers,
+            last_cue: None,
         })
     }
 }
@@ -224,6 +363,9 @@ impl Playback {
 /// have to tap four times to find out whether their chase works. The
 /// `T` key retunes it; `unresolved()` still reports any *other* master
 /// a show names, which is the case that really is a wiring mistake.
+// r[impl effects.masters.registry] - the named registry every effect references
+// r[impl effects.masters.tap] - `Tap` seeded so a tap-driven show runs at once
+// r[impl effects.masters.song] - `Song` seeded until a transport supplies it
 fn default_speeds() -> SpeedMasters {
     SpeedMasters::from([
         ("Tap".to_string(), 120.0),
@@ -248,6 +390,11 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path, what: &str) -> anyhow:
 }
 
 /// Advances whatever is loaded and writes the result into the universes.
+// r[impl playback.stack] - cue player first, programmer folded on top
+// r[impl playback.busking-over-show]
+// r[impl cues.fade-is-wall-time] - `tick(dt)` advances fades in real seconds; a frozen still uses `set_clock` so the show clock moves without the fades
+// r[impl triggers.retire] - flashes are retired after the frame that read them
+// r[impl effects.bump.is-not-held] - a flash is a one-shot that retires itself
 pub fn tick_playback(
     time: Res<Time>,
     venue: Res<VenueRes>,
@@ -258,15 +405,22 @@ pub fn tick_playback(
     // Split the borrow: resolving needs the groups while the player is
     // held mutably.
     let Playback {
-        cues,
+        playbacks,
+        ringing: last_ringing,
         groups,
         rig,
         speeds,
         palettes,
         profile,
+        library,
+        bundles,
+        named_tricks,
+        focus_overrides,
         programmer,
         clock,
         frozen_at,
+        triggers,
+        last_cue,
         ..
     } = &mut *playback;
     // Held still for a still, so `--time` names a moment rather than an
@@ -281,30 +435,81 @@ pub fn tick_playback(
         palettes,
         rig,
         speeds,
-            roles: profile,
+        roles: profile,
+        library,
+        bundles,
+        named_tricks,
+        focus_overrides,
+        ..Show::new(groups, rig)
     };
     // The cue stack renders first and the programmer folds on top, which
     // is the whole point of the layer order: busking overrides playback,
     // never the other way round.
-    let mut out = match cues.as_mut() {
-        Some(player) => {
-            match *frozen_at {
-                // `set_clock` rather than `tick`, because ticking also
-                // advances fades — and a frozen still wants the cue
-                // fully arrived, not caught mid-crossfade.
-                Some(t) => player.set_clock(t),
-                None => player.tick(dt),
-            }
-            player.output(&show)
-        }
-        None => Default::default(),
-    };
+    // Triggers first, because the cue player needs to know which keys
+    // are ringing: a transient outranks a sustained effect across
+    // layers, so the chase under a hit steps aside for its duration.
+    //
+    // On the *player's* clock, not the wall clock: the bus is advanced
+    // by whoever drives the transport, stamping each hit with the song
+    // time it fired at, and the player's clock is that same song time
+    // when a transport exists. Read against the wall clock a hit fired
+    // at 61 s looked minus fifty-six seconds old, never retired, and
+    // rang for the rest of the session — a white flash every frame with
+    // nothing playing.
+    // A new cue releases every held hit: the look has moved on.
+    let song = playbacks.of_class(Class::Song);
+    let now_cue = song.as_ref().and_then(|p| p.current_index());
+    if now_cue != *last_cue {
+        triggers.release();
+        *last_cue = now_cue;
+    }
+    let trigger_clock = song.map_or(*clock, |p| p.clock());
+    let ringing = triggers.output(&show, trigger_clock);
+    match *frozen_at {
+        // `set_clock` rather than `tick`, because ticking also advances
+        // fades — and a frozen still wants the cue fully arrived, not
+        // caught mid-crossfade.
+        Some(t) => playbacks.set_clock(t),
+        None => playbacks.tick(dt),
+    }
+    // Every player at once, folded by class — the song over the look
+    // list — with the dimmer HTP inside a class and everything else
+    // LTP. The ringing keys are kept for the overlay's inspector.
+    // r[impl triggers.transient-class] - the ringing keys are the transient set every player resolves around
+    let keys: HashSet<(ChanId, Attribute)> = ringing.keys().cloned().collect();
+    // The operator's SIZE and RATE apply to the show's effects as well
+    // as the faders: one control, every effect. Hits stay unscaled — a
+    // hit is a moment, not a swing.
+    // r[impl effects.size-scales-the-swing]
+    // r[impl effects.masters.uniform]
+    let scaled = programmer.show_for(&show);
+    let mut out = playbacks.output(&scaled, &keys);
+    *last_ringing = keys;
+    // Triggers above the show, below the hand. Summed, because two hits
+    // landing together are two hits.
+    // r[impl playback.stack] - layer 5, the song's transients
+    // r[impl playback.triggers-sum]
+    for (key, delta) in ringing {
+        *out.entry(key).or_insert(0.0) += delta;
+    }
     programmer.apply_to(&mut out, &show, *clock);
     // After applying, not before: a flash fired this frame must be seen
     // once before it can be retired, or a bump on a slow frame would be
     // dropped without ever having been drawn.
     programmer.retire_flashes(&show, *clock);
-    apply_cue_output(&dmx.0, venue, &out);
+    // r[impl triggers.retire]
+    triggers.retire(&show, trigger_clock);
+    // Blind: `apply_to` left the programmer out of `out`, which is what
+    // the rig would get. The viewport shows the *preview* instead — the
+    // look the operator is building on top of the running show — since
+    // seeing it is the whole point of going blind with a visualizer.
+    // r[impl playback.blind] - the viz draws the preview while blind
+    let frame: HashMap<(ChanId, Attribute), f32> = if programmer.blind {
+        programmer.preview_output(&out, &show, *clock)
+    } else {
+        out
+    };
+    apply_cue_output(&dmx.0, venue, &frame);
 }
 
 /// How long a gap before a tap-tempo run is treated as a fresh start
@@ -312,6 +517,8 @@ pub fn tick_playback(
 const TAP_TIMEOUT: f32 = 3.0;
 
 /// The operator keys. Space is GO, the way it is on every console.
+// r[impl effects.masters.tap] - four taps retune the `Tap` master
+// r[impl cues.seek] - stepping back re-runs the list from the top to the target
 pub fn operator_keys(
     keys: Res<ButtonInput<KeyCode>>,
     venue: Res<VenueRes>,
@@ -327,15 +534,19 @@ pub fn operator_keys(
     }
 
     let Playback {
-        cues,
+        playbacks,
         groups,
         rig,
         speeds,
         taps,
         profile,
+        library,
+        bundles,
+        named_tricks,
+        focus_overrides,
         ..
     } = &mut *playback;
-    let Some(player) = cues.as_mut() else {
+    let Some(player) = playbacks.of_class(Class::Song) else {
         return;
     };
 
@@ -367,7 +578,12 @@ pub fn operator_keys(
         palettes: &venue.palettes,
         rig,
         speeds,
-            roles: profile,
+        roles: profile,
+        library,
+        bundles,
+        named_tricks,
+        focus_overrides,
+        ..Show::new(groups, rig)
     };
 
     // Stepping backwards re-runs the show from the top to the target,
@@ -398,15 +614,16 @@ mod accent_tests {
     use super::*;
     use ignition_core::Attribute;
 
-    /// A figure's bump must visibly lift the fixtures it lands on.
+    /// A figure's first moment must visibly change the fixtures it lands
+    /// on, against the real show and the real room.
     ///
-    /// This is the "fig 0 did nothing" report, pinned. Those cues were
-    /// present, resolved to the right fixtures and carried the right
-    /// level — and produced no change on stage, because the accent's
-    /// delta replaced the section's running chase in a single modulator
-    /// slot instead of adding to it.
+    /// This is the "fig 0 did nothing" report, pinned. It was a cue
+    /// when first written and is a trigger now; either way, the frame
+    /// with the figure ringing has to differ from the frame without.
+    // r[verify song.chart.accents-are-additive]
+    // r[verify triggers.crossing-fires]
     #[test]
-    fn a_figure_lifts_the_look_it_lands_on() {
+    fn a_figure_changes_the_look_it_lands_on() {
         let venue = match Venue::load("../../data/venues/norco") {
             Ok(v) => v,
             // The venue is repo data; if a test runner has no working
@@ -430,27 +647,30 @@ mod accent_tests {
             rig: &rig,
             speeds: &speeds,
             roles: &venue.profile,
+            ..Show::new(&groups, &rig)
         };
 
         let figure = list
-            .cues
+            .triggers
             .iter()
-            .position(|c| c.name.starts_with("· fig 0 · 1/"))
+            .find(|t| t.name == "fig 0 · 1/3")
             .expect("the show has figure 0");
+        let at = figure
+            .bars()
+            .expect("the shipped show carries resolved bars");
 
-        // The look immediately before it, and then the accent on top.
         let mut player = CuePlayer::new(list.cues.clone());
-        player.jump_to_end_of(figure - 1, &show);
+        player.seek(at, &show);
         let before = player.output(&show);
 
-        let mut player = CuePlayer::new(list.cues.clone());
-        player.jump_to_end_of(figure, &show);
-        let after = player.output(&show);
+        let mut bus = TriggerBus::new(list.triggers.clone());
+        bus.locate(Bars::new(at.bar, at.beat - 0.25));
+        bus.advance(at, 0.0);
+        let mut after = before.clone();
+        for (key, delta) in bus.output(&show, 0.02) {
+            *after.entry(key).or_insert(0.0) += delta;
+        }
 
-        // *Changed*, not *lifted*. A figure was a bump when this was
-        // written and is now a cutout, which mostly makes things darker
-        // — asserting "something got brighter" tests the old design and
-        // fails on a working new one.
         let changed = after
             .iter()
             .filter(|((chan, attr), value)| {
@@ -467,4 +687,3 @@ mod accent_tests {
         );
     }
 }
-

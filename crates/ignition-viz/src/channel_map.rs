@@ -20,7 +20,18 @@
 //! for those specific budget/no-name models (checked — see below). Treat
 //! unconfirmed entries as a working default, not ground truth.
 
+use crate::fixture_profile::FixtureEmitters;
 use ignition_proto::{Attribute, ChannelMap, ColorChannel};
+
+/// The colour emitters of a fixture type, derived from its channel map
+/// with `fixture_profile::typical_emitter`'s class-of-LED chromaticities:
+/// the RGBW pars and the Endyshow bar mix with a white, the RGB pars and
+/// strips with their three primaries, and a colour-wheel mover (Riukoe,
+/// Betopper) has none — its wheel mapping is untouched.
+// r[impl color.emitter-solve] - per-model emitter data for the hand-authored maps
+pub fn emitters_for(manufacturer: &str, model: &str) -> Option<FixtureEmitters> {
+    FixtureEmitters::from_channel_map(&channel_map_for(manufacturer, model)?)
+}
 
 fn rgb_par(footprint: u16, dimmer_channel: Option<u16>, rgb_start: u16) -> ChannelMap {
     let mut channels = Vec::new();
@@ -58,6 +69,12 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
     let m = manufacturer.to_ascii_lowercase();
     let mo = model.to_ascii_lowercase();
 
+    // Confirmed layouts first. Riverside's are read from its own desk, so
+    // they outrank every "typical for this class of fixture" guess below.
+    if let Some(cm) = riverside_channel_map(model) {
+        return Some(cm);
+    }
+
     if m == "uking" && mo.contains("par") {
         // CONFIRMED against the real fixture's own published profile:
         // github.com/OpenLightingProject/open-fixture-library
@@ -90,15 +107,15 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         // matching "11ch" in the model name exactly. Layout estimated per
         // the common cheap mini-moving-head convention: Pan, Pan fine,
         // Tilt, Tilt fine, Colour wheel, Gobo wheel, Shutter/strobe,
-        // Dimmer, Speed, Special, Reset. Only the coarse Pan/Tilt/Dimmer
-        // bytes are read today (see `dmx.rs`'s 8-bit resolution) — the fine
-        // bytes exist in the footprint so the *next* fixture's addressing
-        // stays correct, they just aren't consumed for extra precision yet.
+        // Dimmer, Speed, Special, Reset. The fine bytes are mapped so
+        // pan and tilt travel at 16 bits — see `Attribute::PanFine`.
         return Some(ChannelMap {
             footprint: 11,
             channels: vec![
                 (0, Attribute::Pan),
+                (1, Attribute::PanFine),
                 (2, Attribute::Tilt),
+                (3, Attribute::TiltFine),
                 (4, Attribute::ColorWheel { slot: 0 }),
                 (5, Attribute::GoboWheel { slot: 0 }),
                 (6, Attribute::Strobe),
@@ -116,7 +133,9 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
             footprint: 12,
             channels: vec![
                 (0, Attribute::Pan),
+                (1, Attribute::PanFine),
                 (2, Attribute::Tilt),
+                (3, Attribute::TiltFine),
                 (5, Attribute::Dimmer),
                 (6, Attribute::Strobe),
                 (7, Attribute::ColorWheel { slot: 0 }),
@@ -126,24 +145,25 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
     }
     if m == "rockville" && mo.contains("rockstrip") {
         if mo.contains("7ch") {
-            // Confirmed by name. Layout estimated: Dimmer, R, G, B, White,
-            // Strobe, Program — same "generic budget-par 7ch" convention
-            // originally used for the Uking par below, which turned out to
-            // be wrong when checked against that fixture's real published
-            // profile (no White channel at all — see the Uking Par entry
-            // above). Rockville has no fixture in the Open Fixture Library
-            // to check this one against (only "rockpar50" exists there,
-            // not this "Rockstrip 252" model), so this guess is now flagged
-            // as suspect rather than treated as a safe default — the same
-            // wrong assumption may well be baked in here too.
-            let mut cm = rgb_par(7, Some(0), 1);
-            cm.channels.push((
-                4,
-                Attribute::ColorAdd {
-                    channel: ColorChannel::White,
-                },
-            ));
-            cm.channels.push((5, Attribute::Strobe));
+            // CONFIRMED, and the suspicion recorded here was justified: the
+            // estimate really was wrong. This entry used to read Dimmer, R,
+            // G, B, White, Strobe, Program — the "generic budget-par 7ch"
+            // convention — and flagged itself as suspect because that same
+            // assumption had already proved wrong for the Uking par.
+            //
+            // Riverside's console carries this exact fixture in its own
+            // library, and the desk's profile says the real 7ch layout is
+            // R, G, B, Dimmer, Shutter, Chase Mode, Control: colour comes
+            // FIRST, the dimmer is fourth, and there is no White channel at
+            // all. See `data/venues/riverside/console-show.json`, and
+            // `riverside_channel_map` below, which serves the same fixture
+            // when it is patched under its bare model name.
+            //
+            // The old layout put colour one address high and drove Strobe
+            // with the blue value — every Rockstrip in the rig lit wrong.
+            let mut cm = rgb_par(7, None, 0);
+            cm.channels.push((3, Attribute::Dimmer));
+            cm.channels.push((4, Attribute::Strobe));
             return Some(cm);
         }
         if mo.contains("3ch") {
@@ -206,6 +226,17 @@ mod tests {
         );
     }
 
+    /// r[verify color.emitter-solve] - RGBW pars carry a white emitter; wheel movers none
+    #[test]
+    fn emitters_match_each_model_class() {
+        let bar = emitters_for("Endyshow", "Endyshow LED Stage Light Bar PL-32M").unwrap();
+        assert_eq!(bar.channels.len(), 4);
+        assert!(bar.channels.iter().any(|(c, _)| *c == ColorChannel::White));
+        let par = emitters_for("Chauvet", "SlimPAR 7ch").unwrap();
+        assert_eq!(par.channels.len(), 3);
+        assert!(emitters_for("Riukoe", "Gobo 11ch").is_none());
+    }
+
     /// Locks in the correction from the real chauvet-dj/hurricane-haze-1dx.json
     /// profile: the fixture's only mode is 1 channel, not the originally-
     /// guessed 2ch (dimmer + fan).
@@ -216,4 +247,318 @@ mod tests {
         assert_eq!(cm.footprint, 1);
         assert_eq!(cm.offset_of(&Attribute::Dimmer), Some(0));
     }
+}
+
+/// Riverside's fixture types — every one CONFIRMED, and by the strongest
+/// source there is: the venue's own console.
+///
+/// These are not estimates from "the general class of fixture". They were
+/// read straight out of the desk's showfile, where each type carries its
+/// own `SSLLIBRARY`/`SSLMODE`/`SSLCHANNEL` profile inline — the exact
+/// layout the desk puts on the wire. The extract is committed at
+/// `data/venues/riverside/console-show.json`, generated read-only by
+/// `tools/dvc_parse.py`, so every line here is checkable against a file
+/// rather than against a memory of one.
+///
+/// Channel *order* is the showfile's document order. `SSLCHANNELTYPEINDEX`
+/// looks like an offset and is not — it disambiguates several channels of
+/// the same type, and reading it as one silently scrambles the map. The
+/// fine half of a 16-bit pair (`SSLCHANNELLSB`) is skipped, matching how
+/// `dmx.rs` reads 8-bit coarse values today; it still occupies its address
+/// so the next fixture stays correctly patched.
+///
+/// Matched on model alone: the showfile records a library path
+/// (`_varied/Solena Professional Max Par 54 RGB.ssl2`), not a separate
+/// manufacturer field, so that is what the venue's patch carries.
+fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
+    let mo = model.to_ascii_lowercase();
+    if mo.contains("36 led par can") {
+        // 7ch: Dimmer, Red, Green, Blue, Shutter, Color Macros, Color Macors Speed
+        // 2 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 7,
+            channels: vec![
+                (0, Attribute::Dimmer),
+                (
+                    1,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                ),
+                (
+                    2,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
+                ),
+                (
+                    3,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                ),
+                (4, Attribute::Strobe),
+            ],
+        });
+    }
+    if mo.contains("base hazer 1500w") {
+        // 2ch: Pump, Fan
+        // 1 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 2,
+            channels: vec![(0, Attribute::Dimmer)],
+        });
+    }
+    if mo.contains("endyshow led stage light bar pl-32m") {
+        // 8ch: Total Dimmer, Red, Green, Blue, White, Total Strobe, Function Choice, Function Speed
+        // 2 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 8,
+            channels: vec![
+                (0, Attribute::Dimmer),
+                (
+                    1,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                ),
+                (
+                    2,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
+                ),
+                (
+                    3,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                ),
+                (
+                    4,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::White,
+                    },
+                ),
+                (5, Attribute::Strobe),
+            ],
+        });
+    }
+    if mo.contains("led mini beam wh") {
+        // 8ch: X, ÂµX, Y, ÂµY, Speed, Shutter, Dimmer, Special
+        // 4 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 8,
+            channels: vec![
+                (0, Attribute::Pan),
+                (2, Attribute::Tilt),
+                (5, Attribute::Strobe),
+                (6, Attribute::Dimmer),
+            ],
+        });
+    }
+    if mo.contains("mbdmx-plus") {
+        // 2ch: Lamp, Rotation
+        // 1 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 2,
+            channels: vec![(0, Attribute::Dimmer)],
+        });
+    }
+    if mo.contains("mini derby") {
+        // 9ch: MODE, RED, GREEN, BLUE, LED COLOR CONTROL, LED STROBE, LED FADE, MOTOR SPEED, MOTOR SPIN SPEED
+        return Some(ChannelMap {
+            footprint: 9,
+            channels: vec![
+                (0, Attribute::Dimmer),
+                (
+                    1,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                ),
+                (
+                    2,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
+                ),
+                (
+                    3,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                ),
+                (4, Attribute::Dimmer),
+                (5, Attribute::Strobe),
+                (6, Attribute::Dimmer),
+                (7, Attribute::Dimmer),
+                (8, Attribute::Dimmer),
+            ],
+        });
+    }
+    if mo.contains("mini gobo moving head light") {
+        // 11ch: X, ÂµX, Y, ÂµY, Color Wheel, Gobo, Shutter, Dimmer, Speed, Function, Dimmer Modes
+        // 5 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 11,
+            channels: vec![
+                (0, Attribute::Pan),
+                (2, Attribute::Tilt),
+                (4, Attribute::ColorWheel { slot: 0 }),
+                (5, Attribute::GoboWheel { slot: 0 }),
+                (6, Attribute::Strobe),
+                (7, Attribute::Dimmer),
+            ],
+        });
+    }
+    if mo.contains("rgbw spot light 6ch") {
+        // 6ch: Dimmer/Strobe/Effect, Red, Green, Blue, White, Macro
+        // 2 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 6,
+            channels: vec![
+                (
+                    1,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                ),
+                (
+                    2,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
+                ),
+                (
+                    3,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                ),
+                (
+                    4,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::White,
+                    },
+                ),
+            ],
+        });
+    }
+    if mo.contains("rockstrip 252") {
+        // 7ch: Red, Green, Blue, Dimmer, Shutter, Chase Mode, Control
+        // 2 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 7,
+            channels: vec![
+                (
+                    0,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                ),
+                (
+                    1,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
+                ),
+                (
+                    2,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                ),
+                (3, Attribute::Dimmer),
+                (4, Attribute::Strobe),
+            ],
+        });
+    }
+    if mo.contains("solena max bar 28 rgb") {
+        // 6ch: Red, Green, Blue, Macros, Shutter, Selection Control
+        // 2 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 6,
+            channels: vec![
+                (
+                    0,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                ),
+                (
+                    1,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
+                ),
+                (
+                    2,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                ),
+                (4, Attribute::Strobe),
+            ],
+        });
+    }
+    if mo.contains("solena professional max par 54 rgb") {
+        // 7ch: Dimmer, Red, Green, Blue, Shutter, Color Macros, Color Selection/Shade
+        // 2 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 7,
+            channels: vec![
+                (0, Attribute::Dimmer),
+                (
+                    1,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                ),
+                (
+                    2,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
+                ),
+                (
+                    3,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                ),
+                (4, Attribute::Strobe),
+            ],
+        });
+    }
+    if mo.contains("zq01334") {
+        // 15ch: Dimmer, Strobe, 1. Warm White, 2. Warm White, 3. Warm White, 4. Warm White, 5. Warm White, 6. Warm White, Red, Green, Blue, Warm White Macro, Warm White Macro Speed, Auxiliary Light Effect, Auxiliary Light Effect Speed
+        // 10 channel(s) have no modelled Attribute yet.
+        return Some(ChannelMap {
+            footprint: 15,
+            channels: vec![
+                (0, Attribute::Dimmer),
+                (1, Attribute::Strobe),
+                (
+                    8,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Red,
+                    },
+                ),
+                (
+                    9,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Green,
+                    },
+                ),
+                (
+                    10,
+                    Attribute::ColorAdd {
+                        channel: ColorChannel::Blue,
+                    },
+                ),
+            ],
+        });
+    }
+    None
 }

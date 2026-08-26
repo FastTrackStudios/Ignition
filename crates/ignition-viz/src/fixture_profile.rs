@@ -739,3 +739,122 @@ pub const SHAFT_CANDELA_THRESHOLD: f32 = 20_000.0;
 /// their one instanced cylinder; here every distinct (radius, length)
 /// pair is its own mesh asset, so it is not quite free.
 pub const BEAM_CONE_SEGMENTS: u32 = 48;
+
+// --- Emitters -------------------------------------------------------------
+
+/// The colour emitters a fixture type mixes with, in the order its
+/// `ChannelMap` lists them — what `ignition_core::color::solve` needs to
+/// turn a colour intent into this fixture's levels
+/// (`show.rs::apply_cue_output`).
+///
+/// A real GDTF profile carries measured chromaticities
+/// (`gdtf_import::import_emitters`); every hand-authored map in
+/// `channel_map.rs` gets `typical_emitter`'s class-of-LED values instead,
+/// which are close enough that a pale colour on an RGBW par lands on its
+/// white and a saturated one on its primaries.
+#[derive(Debug, Clone, PartialEq)]
+// r[impl color.emitter-solve] - the fixture type's emitter data
+pub struct FixtureEmitters {
+    pub channels: Vec<(ignition_proto::ColorChannel, ignition_core::color::Emitter)>,
+}
+
+/// A typical LED of this colour: chromaticity from the common
+/// stage-LED bins (red 625 nm, green 525 nm, blue 465 nm, amber 595 nm,
+/// 400 nm UV, a lime phosphor, a ~5600 K white), output relative to the
+/// white.
+pub fn typical_emitter(channel: ignition_proto::ColorChannel) -> ignition_core::color::Emitter {
+    use ignition_core::color::emitter;
+    use ignition_proto::ColorChannel::*;
+    match channel {
+        Red => emitter("Red", 0.690, 0.310, 0.25),
+        Green => emitter("Green", 0.200, 0.700, 0.60),
+        Blue => emitter("Blue", 0.140, 0.060, 0.10),
+        White => emitter("White", 0.330, 0.340, 1.00),
+        Amber => emitter("Amber", 0.580, 0.415, 0.40),
+        Uv => emitter("UV", 0.170, 0.010, 0.02),
+        Lime => emitter("Lime", 0.380, 0.560, 0.80),
+    }
+}
+
+impl FixtureEmitters {
+    /// Every `ColorAdd` channel in `map`, with a typical emitter for
+    /// each — `None` for a fixture with no additive colour at all (a
+    /// colour-wheel mover, a hazer).
+    pub fn from_channel_map(map: &ignition_proto::ChannelMap) -> Option<FixtureEmitters> {
+        let channels: Vec<_> = map
+            .channels
+            .iter()
+            .filter_map(|(_, attr)| match attr {
+                ignition_proto::Attribute::ColorAdd { channel } => {
+                    Some((*channel, typical_emitter(*channel)))
+                }
+                _ => None,
+            })
+            .collect();
+        (!channels.is_empty()).then_some(FixtureEmitters { channels })
+    }
+
+    /// Whether solving is worth it: any emitter that is not one of the
+    /// three the RGB triple already addresses directly.
+    pub fn beyond_rgb(&self) -> bool {
+        use ignition_proto::ColorChannel::*;
+        self.channels
+            .iter()
+            .any(|(c, _)| !matches!(c, Red | Green | Blue))
+    }
+
+    pub fn emitters(&self) -> Vec<ignition_core::color::Emitter> {
+        self.channels.iter().map(|(_, e)| e.clone()).collect()
+    }
+
+    /// Levels per channel for `intent`, in `channels` order.
+    // r[impl color.emitter-solve]
+    pub fn solve(
+        &self,
+        intent: &ignition_core::color::Intent,
+        quality: f32,
+    ) -> Vec<(ignition_proto::ColorChannel, f32)> {
+        let levels = ignition_core::color::solve(intent, &self.emitters(), quality);
+        self.channels
+            .iter()
+            .zip(levels)
+            .map(|((c, _), v)| (*c, v))
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod emitter_tests {
+    use super::*;
+    use ignition_core::color::{Intent, Rgb};
+    use ignition_proto::ColorChannel;
+
+    #[test]
+    /// r[verify color.emitter-solve] - an RGBW map yields four emitters, an RGB map three
+    fn emitters_follow_the_channel_map() {
+        let rgbw = crate::channel_map::channel_map_for("x", "RGBW Spot Light 6ch").unwrap();
+        let e = FixtureEmitters::from_channel_map(&rgbw).unwrap();
+        assert_eq!(e.channels.len(), 4);
+        assert!(e.beyond_rgb());
+        let par = crate::channel_map::channel_map_for("Uking", "Par").unwrap();
+        let e = FixtureEmitters::from_channel_map(&par).unwrap();
+        assert_eq!(e.channels.len(), 3);
+        assert!(!e.beyond_rgb());
+        let mover = crate::channel_map::channel_map_for("Betopper", "150W Beam").unwrap();
+        assert!(FixtureEmitters::from_channel_map(&mover).is_none());
+    }
+
+    #[test]
+    /// r[verify color.cct] - white on an RGBW fixture goes to the white emitter
+    fn white_on_rgbw_uses_the_white() {
+        let rgbw = crate::channel_map::channel_map_for("x", "RGBW Spot Light 6ch").unwrap();
+        let e = FixtureEmitters::from_channel_map(&rgbw).unwrap();
+        let levels = e.solve(&Intent::Rgb(Rgb::WHITE), 0.5);
+        let w = levels
+            .iter()
+            .find(|(c, _)| *c == ColorChannel::White)
+            .map(|(_, v)| *v)
+            .unwrap();
+        assert!(w > 0.5, "{levels:?}");
+    }
+}

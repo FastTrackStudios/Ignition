@@ -74,7 +74,11 @@ Shuffling one axis MUST NOT silently disturb the others. Where a multi-axis
 shuffle needs to preserve cross-axis alignment, that MUST be an explicit choice
 rather than a side effect. (grandMA3 has Auto/Linked/Unlinked modes here; their
 documented behaviour could not be confirmed, so this is ours to define rather
-than to copy — see the research note.)
+than to copy — see the research note.) Ignition's definition: a Shuffle **on an
+axis** permutes whole lines along that axis — shuffling Y moves rows as rows and
+every column keeps its order — so cross-axis alignment is preserved by
+construction; scrambling every cell is the separate, explicit choice of a
+Shuffle with no axis, which acts on the flattened selection.
 
 r[tricks.shift]
 **Shift(n)** MUST reposition the selection within its grid, so a pattern can be
@@ -139,3 +143,19 @@ object and **inline** on the recipe. The reference is how a rig-wide layout
 change is one edit across every recipe using it; inline is how one recipe
 deviates without polluting the shared object. Supporting only the inline form
 means a layout change is a sweep through the whole show.
+
+## Inverting and shaping
+
+r[tricks.invert]
+A Trick MUST be able to invert relative values per unit by attribute style —
+pan, tilt, pan and tilt, or all — see `r[effects.invert]`. It composes with
+Block, Group, Wings and Mirror, so "odd movers circle the other way" is
+`Group(2)` then `Invert(pan)`.
+
+r[tricks.fan.shapes]
+A spread MUST support the Align shapes and curves of `r[effects.align]`, and
+the same `Fan` MUST serve phase, delay, fade, speed and any scalar value.
+
+r[tricks.keyframes]
+A spread MAY be given more than two keyframes placed along the selection, per
+`r[focus.magic]`, with the same shapes and curves between each pair.

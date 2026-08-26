@@ -20,6 +20,8 @@ fn venue() -> Venue {
 /// The whole point of Decision 4: a chase that runs left to right
 /// because the room says so, not because someone hand-listed channels in
 /// the right order.
+/// r[verify profile.spatial-grid-is-derived] - the order comes from surveyed positions, not a hand-built list
+/// r[verify groups.derived]
 #[test]
 fn ordering_the_ceiling_washers_by_x_is_monotonic_in_real_space() {
     let venue = venue();
@@ -89,6 +91,8 @@ fn ordering_the_ceiling_washers_by_x_is_monotonic_in_real_space() {
 
 /// A height filter has to separate the truss from the floor package, or
 /// every "ceiling" recipe quietly includes the floor movers.
+/// r[verify groups.derived]
+/// r[verify files.capability-over-name] - "above 2 m" without naming a group
 #[test]
 fn a_height_filter_separates_the_truss_from_the_floor_package() {
     let venue = venue();
@@ -135,6 +139,7 @@ fn a_height_filter_separates_the_truss_from_the_floor_package() {
 
 /// Model matching has to find the movers without anyone naming a group,
 /// which is what makes a recipe survive being carried to another rig.
+/// r[verify files.capability-over-name]
 #[test]
 fn a_model_selector_finds_the_real_moving_heads() {
     let venue = venue();

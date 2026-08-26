@@ -75,6 +75,7 @@ impl EmbeddedViz {
         let (min, max) = config.venue.bounds();
         let view = config.view;
         let free_camera = config.camera;
+        let quality = config.quality;
         let size = (config.width.max(1), config.height.max(1));
         let assets_dir = config.assets_dir.clone();
 
@@ -137,7 +138,7 @@ impl EmbeddedViz {
         let camera_target: RenderTarget = target.clone().into();
         app.add_systems(Startup, move |mut commands: Commands| {
             commands.spawn((
-                camera_bundle(view, free_camera, min, max),
+                camera_bundle(view, free_camera, min, max, quality),
                 camera_target.clone(),
             ));
         });
