@@ -18,6 +18,24 @@ use ignition_core::{
 };
 use std::collections::BTreeMap;
 
+/// The profile's colours, which every venue inherits.
+///
+/// Loaded from the shipped file rather than invented, so a colour effect
+/// naming `Deep` is tested against the value a real venue would resolve.
+/// Without palettes a colour effect emits nothing at all — correctly, an
+/// unresolvable colour is not a colour — which makes an empty palette a
+/// silent way to test nothing.
+fn profile_palettes() -> ignition_core::Palettes {
+    let raw = std::fs::read_to_string("../../data/profiles/ignition.ig-profile")
+        .unwrap_or_default();
+    let profile: ignition_core::profile::Profile =
+        serde_json::from_str(&raw).unwrap_or_default();
+    ignition_core::Palettes {
+        colors: profile.colors,
+        ..Default::default()
+    }
+}
+
 /// A venue: what it calls its groups, and which of them play which role.
 struct Venue {
     groups: Vec<Group>,
@@ -82,9 +100,10 @@ fn riverside() -> Venue {
 }
 
 fn lit(recipe: &Recipe, venue: &Venue, secs: f32) -> Vec<(u32, f32)> {
+    let palettes = profile_palettes();
     let show = Show {
         groups: &venue.groups,
-        palettes: ignition_core::Palettes::EMPTY,
+        palettes: &palettes,
         rig: &ignition_core::selection::EMPTY_RIG,
         speeds: &ignition_core::recipe::NO_SPEEDS,
         roles: venue,
@@ -209,6 +228,30 @@ fn a_role_may_bind_to_an_expression() {
 }
 
 
+/// Distinct channels an effect touches, whatever attribute it sets.
+///
+/// Separate from `lit`, which filters to Dimmer because it is asking
+/// about *levels*. A colour effect sets ColorAdd and no dimmer at all,
+/// so asking the level question of one gives the answer "nothing" about
+/// an effect that is working perfectly well.
+fn touched(recipe: &Recipe, venue: &Venue, secs: f32) -> Vec<u32> {
+    let palettes = profile_palettes();
+    let show = Show {
+        groups: &venue.groups,
+        palettes: &palettes,
+        rig: &ignition_core::selection::EMPTY_RIG,
+        speeds: &ignition_core::recipe::NO_SPEEDS,
+        roles: venue,
+    };
+    let mut chans: Vec<u32> = expand_recipe(recipe, &show, secs)
+        .into_iter()
+        .map(|Emit { value, .. }| value.chan)
+        .collect();
+    chans.sort();
+    chans.dedup();
+    chans
+}
+
 /// Every shipped effect produces output at a big rig and a small one.
 ///
 /// The library is the payoff of the whole design, so this is the test
@@ -240,10 +283,10 @@ fn the_whole_library_lights_both_rigs() {
             // Sampled across a cycle: a phaser can legitimately sit at
             // zero delta at one instant, and testing a single moment
             // would fail on that rather than on anything real.
-            let any = (0..8).any(|i| !lit(recipe, &venue, i as f32 * 0.25).is_empty());
+            let any = (0..8).any(|i| !touched(recipe, &venue, i as f32 * 0.25).is_empty());
             assert!(any, "effect {name:?} produced nothing at {label}");
 
-            let out = lit(recipe, &venue, 0.0);
+            let out = touched(recipe, &venue, 0.0);
             let covered = if target == "Back" {
                 if label == "Norco" { 4 } else { 1 }
             } else {

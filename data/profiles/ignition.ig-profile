@@ -2,172 +2,172 @@
   "about": "The default profile. Three required layers, three required focus points, and one canvas where a room has screens. Everything else is optional or inherited, because every required role is a barrier to a room implementing this and a profile only a large rig can satisfy has failed at being a default. Stage areas are deliberately NOT declared here: a club has three and a stadium with a thrust and a B-stage has fifteen, so no central list is right. The portable 'where is the talent' question is answered by the Vocal / Stage / Band focus roles; the venue owns its own blocking grid.",
   "colors": [
     {
+      "blue": 1.0,
+      "green": 1.0,
       "name": "Open White",
-      "red": 1.0,
-      "green": 1.0,
-      "blue": 1.0
+      "red": 1.0
     },
     {
-      "name": "Warm White",
-      "red": 1.0,
+      "blue": 0.55,
       "green": 0.78,
-      "blue": 0.55
+      "name": "Warm White",
+      "red": 1.0
     },
     {
-      "name": "Cool White",
-      "red": 0.78,
+      "blue": 1.0,
       "green": 0.87,
-      "blue": 1.0
+      "name": "Cool White",
+      "red": 0.78
     },
     {
+      "blue": 0.45,
+      "green": 0.85,
       "name": "Straw",
-      "red": 1.0,
-      "green": 0.85,
-      "blue": 0.45
+      "red": 1.0
     },
     {
-      "name": "Gold",
-      "red": 1.0,
+      "blue": 0.22,
       "green": 0.7,
-      "blue": 0.22
+      "name": "Gold",
+      "red": 1.0
     },
     {
-      "name": "Amber",
-      "red": 1.0,
+      "blue": 0.1,
       "green": 0.55,
-      "blue": 0.1
+      "name": "Amber",
+      "red": 1.0
     },
     {
-      "name": "Deep Amber",
-      "red": 1.0,
+      "blue": 0.04,
       "green": 0.36,
-      "blue": 0.04
+      "name": "Deep Amber",
+      "red": 1.0
     },
     {
-      "name": "Red",
-      "red": 1.0,
+      "blue": 0.03,
       "green": 0.05,
-      "blue": 0.03
+      "name": "Red",
+      "red": 1.0
     },
     {
-      "name": "Deep Red",
-      "red": 0.62,
+      "blue": 0.02,
       "green": 0.0,
-      "blue": 0.02
+      "name": "Deep Red",
+      "red": 0.62
     },
     {
+      "blue": 0.45,
+      "green": 0.06,
       "name": "Magenta",
-      "red": 1.0,
-      "green": 0.06,
-      "blue": 0.45
+      "red": 1.0
     },
     {
+      "blue": 0.6,
+      "green": 0.45,
       "name": "Pink",
-      "red": 1.0,
-      "green": 0.45,
-      "blue": 0.6
+      "red": 1.0
     },
     {
-      "name": "Lavender",
-      "red": 0.68,
+      "blue": 0.92,
       "green": 0.5,
-      "blue": 0.92
+      "name": "Lavender",
+      "red": 0.68
     },
     {
+      "blue": 0.85,
+      "green": 0.1,
       "name": "Purple",
-      "red": 0.45,
-      "green": 0.1,
-      "blue": 0.85
+      "red": 0.45
     },
     {
+      "blue": 1.0,
+      "green": 0.72,
       "name": "Sky",
-      "red": 0.45,
-      "green": 0.72,
-      "blue": 1.0
+      "red": 0.45
     },
     {
-      "name": "Blue",
-      "red": 0.1,
+      "blue": 1.0,
       "green": 0.32,
-      "blue": 1.0
+      "name": "Blue",
+      "red": 0.1
     },
     {
-      "name": "Deep Blue",
-      "red": 0.05,
+      "blue": 0.75,
       "green": 0.12,
-      "blue": 0.75
+      "name": "Deep Blue",
+      "red": 0.05
     },
     {
-      "name": "Congo",
-      "red": 0.18,
+      "blue": 0.72,
       "green": 0.02,
-      "blue": 0.72
+      "name": "Congo",
+      "red": 0.18
     },
     {
-      "name": "Indigo",
-      "red": 0.25,
+      "blue": 0.6,
       "green": 0.06,
-      "blue": 0.6
+      "name": "Indigo",
+      "red": 0.25
     },
     {
-      "name": "House Blue",
-      "red": 0.06,
+      "blue": 0.42,
       "green": 0.1,
-      "blue": 0.42
+      "name": "House Blue",
+      "red": 0.06
     },
     {
+      "blue": 0.95,
+      "green": 0.85,
       "name": "Cyan",
-      "red": 0.0,
-      "green": 0.85,
-      "blue": 0.95
+      "red": 0.0
     },
     {
-      "name": "Turquoise",
-      "red": 0.0,
+      "blue": 0.65,
       "green": 0.8,
-      "blue": 0.65
+      "name": "Turquoise",
+      "red": 0.0
     },
     {
-      "name": "Green",
-      "red": 0.1,
+      "blue": 0.2,
       "green": 0.85,
-      "blue": 0.2
+      "name": "Green",
+      "red": 0.1
     },
     {
-      "name": "Deep Green",
-      "red": 0.02,
+      "blue": 0.12,
       "green": 0.45,
-      "blue": 0.12
+      "name": "Deep Green",
+      "red": 0.02
     },
     {
-      "name": "Open",
-      "red": 1.0,
+      "blue": 1.0,
       "green": 1.0,
-      "blue": 1.0
+      "name": "Open",
+      "red": 1.0
     },
     {
-      "name": "Warm",
-      "red": 1.0,
+      "blue": 0.38,
       "green": 0.72,
-      "blue": 0.38
+      "name": "Warm",
+      "red": 1.0
     },
     {
-      "name": "Cool",
-      "red": 0.72,
+      "blue": 1.0,
       "green": 0.84,
-      "blue": 1.0
+      "name": "Cool",
+      "red": 0.72
     },
     {
-      "name": "Deep",
-      "red": 0.08,
+      "blue": 0.62,
       "green": 0.14,
-      "blue": 0.62
+      "name": "Deep",
+      "red": 0.08
     },
     {
-      "name": "Hot",
-      "red": 1.0,
+      "blue": 0.28,
       "green": 0.16,
-      "blue": 0.28
+      "name": "Hot",
+      "red": 1.0
     }
   ],
   "effects": {
@@ -223,6 +223,43 @@
         }
       ]
     },
+    "audience blind": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Dimmer": 1.0
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Dimmer": 0.0
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 3.0
+        }
+      ],
+      "target": {
+        "Role": "Audience"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 2.0,
+        "once": true,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
     "back breathe": {
       "steps": [
         {
@@ -262,6 +299,648 @@
       "timing": {
         "direction": "Forward",
         "measure": 32.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "ballyhoo": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  11.313708305358887
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  25.86862564086914
+                ],
+                [
+                  "Tilt",
+                  16.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  19.79899024963379
+                ],
+                [
+                  "Tilt",
+                  11.313708305358887
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -10.71513557434082
+                ],
+                [
+                  "Tilt",
+                  -1.3987644251756137e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -28.0
+                ],
+                [
+                  "Tilt",
+                  -11.31371021270752
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -10.71513557434082
+                ],
+                [
+                  "Tilt",
+                  -16.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  19.79899024963379
+                ],
+                [
+                  "Tilt",
+                  -11.31371021270752
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  25.868621826171875
+                ],
+                [
+                  "Tilt",
+                  2.7975288503512274e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.677933015453164e-7
+                ],
+                [
+                  "Tilt",
+                  11.313708305358887
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -25.868621826171875
+                ],
+                [
+                  "Tilt",
+                  16.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -19.79899024963379
+                ],
+                [
+                  "Tilt",
+                  11.313700675964355
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  10.71514892578125
+                ],
+                [
+                  "Tilt",
+                  -0.000015640385754522868
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  28.0
+                ],
+                [
+                  "Tilt",
+                  -11.313712120056152
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  10.715147972106934
+                ],
+                [
+                  "Tilt",
+                  -16.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -19.799009323120117
+                ],
+                [
+                  "Tilt",
+                  -11.31369686126709
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -25.868621826171875
+                ],
+                [
+                  "Tilt",
+                  5.595057700702455e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "ballyhoo tight": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  6.3639607429504395
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  12.93431282043457
+                ],
+                [
+                  "Tilt",
+                  9.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  9.899495124816895
+                ],
+                [
+                  "Tilt",
+                  6.3639607429504395
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -5.35756778717041
+                ],
+                [
+                  "Tilt",
+                  -7.868050033721374e-7
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -14.0
+                ],
+                [
+                  "Tilt",
+                  -6.363962173461914
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -5.35756778717041
+                ],
+                [
+                  "Tilt",
+                  -9.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  9.899495124816895
+                ],
+                [
+                  "Tilt",
+                  -6.363962173461914
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  12.934310913085938
+                ],
+                [
+                  "Tilt",
+                  1.5736100067442749e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -3.338966507726582e-7
+                ],
+                [
+                  "Tilt",
+                  6.3639607429504395
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -12.934310913085938
+                ],
+                [
+                  "Tilt",
+                  9.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -9.899495124816895
+                ],
+                [
+                  "Tilt",
+                  6.363956451416016
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  5.357574462890625
+                ],
+                [
+                  "Tilt",
+                  -8.797716873232275e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  14.0
+                ],
+                [
+                  "Tilt",
+                  -6.3639631271362305
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  5.357573986053467
+                ],
+                [
+                  "Tilt",
+                  -9.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -9.899504661560059
+                ],
+                [
+                  "Tilt",
+                  -6.363954544067383
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -12.934310913085938
+                ],
+                [
+                  "Tilt",
+                  3.1472200134885497e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
         "once": false,
         "phase_offset_deg": 0.0,
         "phase_spread_deg": 0.0,
@@ -316,6 +995,58 @@
           "Master": "Song"
         }
       }
+    },
+    "bar sparkle": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.25
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Bars"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 2.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Shuffle": 907
+        }
+      ]
     },
     "bar tick": {
       "steps": [
@@ -552,7 +1283,54 @@
         }
       }
     },
-    "circle pan": {
+    "chase eighths": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.75
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 2.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "circle": {
       "steps": [
         {
           "apply": [
@@ -560,12 +1338,16 @@
               "Delta": [
                 [
                   "Pan",
-                  20.0
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  18.0
                 ]
               ]
             }
           ],
-          "ease": "Sine",
+          "ease": "Linear",
           "transition": 1.0,
           "width": 1.0
         },
@@ -575,12 +1357,603 @@
               "Delta": [
                 [
                   "Pan",
-                  -20.0
+                  6.888302326202393
+                ],
+                [
+                  "Tilt",
+                  16.629831314086914
                 ]
               ]
             }
           ],
-          "ease": "Sine",
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  12.727921485900879
+                ],
+                [
+                  "Tilt",
+                  12.727921485900879
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  16.629831314086914
+                ],
+                [
+                  "Tilt",
+                  6.888298988342285
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  18.0
+                ],
+                [
+                  "Tilt",
+                  -1.5736100067442749e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  16.629831314086914
+                ],
+                [
+                  "Tilt",
+                  -6.888301849365234
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  12.727921485900879
+                ],
+                [
+                  "Tilt",
+                  -12.727924346923828
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  6.888298988342285
+                ],
+                [
+                  "Tilt",
+                  -16.62983512878418
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -1.5736100067442749e-6
+                ],
+                [
+                  "Tilt",
+                  -18.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.888301849365234
+                ],
+                [
+                  "Tilt",
+                  -16.62982940673828
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -12.727924346923828
+                ],
+                [
+                  "Tilt",
+                  -12.727917671203613
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -16.62983512878418
+                ],
+                [
+                  "Tilt",
+                  -6.888293743133545
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -18.0
+                ],
+                [
+                  "Tilt",
+                  3.1472200134885497e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -16.62982940673828
+                ],
+                [
+                  "Tilt",
+                  6.888307571411133
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -12.727917671203613
+                ],
+                [
+                  "Tilt",
+                  12.727928161621094
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.888301849365234
+                ],
+                [
+                  "Tilt",
+                  16.629833221435547
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "circle tight": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  9.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  3.4441511631011963
+                ],
+                [
+                  "Tilt",
+                  8.314915657043457
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  6.3639607429504395
+                ],
+                [
+                  "Tilt",
+                  6.3639607429504395
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  8.314915657043457
+                ],
+                [
+                  "Tilt",
+                  3.4441494941711426
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  9.0
+                ],
+                [
+                  "Tilt",
+                  -7.868050033721374e-7
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  8.314915657043457
+                ],
+                [
+                  "Tilt",
+                  -3.444150924682617
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  6.3639607429504395
+                ],
+                [
+                  "Tilt",
+                  -6.363962173461914
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  3.4441494941711426
+                ],
+                [
+                  "Tilt",
+                  -8.31491756439209
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -7.868050033721374e-7
+                ],
+                [
+                  "Tilt",
+                  -9.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -3.444150924682617
+                ],
+                [
+                  "Tilt",
+                  -8.31491470336914
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.363962173461914
+                ],
+                [
+                  "Tilt",
+                  -6.363958835601807
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -8.31491756439209
+                ],
+                [
+                  "Tilt",
+                  -3.4441468715667725
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -9.0
+                ],
+                [
+                  "Tilt",
+                  1.5736100067442749e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -8.31491470336914
+                ],
+                [
+                  "Tilt",
+                  3.4441537857055664
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.363958835601807
+                ],
+                [
+                  "Tilt",
+                  6.363964080810547
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -3.444150924682617
+                ],
+                [
+                  "Tilt",
+                  8.314916610717773
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
           "transition": 1.0,
           "width": 1.0
         }
@@ -599,20 +1972,101 @@
         }
       }
     },
-    "circle tilt": {
+    "colour cycle": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Color": "Red"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Amber"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Green"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Cyan"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Blue"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Magenta"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 32.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "converge": {
       "steps": [
         {
           "apply": [
             {
               "Delta": [
                 [
+                  "Pan",
+                  0.0
+                ],
+                [
                   "Tilt",
-                  20.0
+                  0.0
                 ]
               ]
             }
           ],
-          "ease": "Sine",
+          "ease": "Linear",
           "transition": 1.0,
           "width": 1.0
         },
@@ -621,13 +2075,609 @@
             {
               "Delta": [
                 [
+                  "Pan",
+                  11.480504035949707
+                ],
+                [
                   "Tilt",
-                  -20.0
+                  0.0
                 ]
               ]
             }
           ],
-          "ease": "Sine",
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  21.21320343017578
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  27.716384887695312
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  30.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  27.716384887695312
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  21.21320343017578
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  11.480498313903809
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -2.6226832687825663e-6
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -11.48050308227539
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -21.213207244873047
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -27.71639060974121
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -30.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -27.71638298034668
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -21.21319580078125
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -11.48050308227539
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 180.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Wings": 2
+        }
+      ]
+    },
+    "cross": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  9.949769973754883
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  18.384775161743164
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  24.02086639404297
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  26.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  24.02086639404297
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  18.384775161743164
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  9.9497652053833
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -2.272992105645244e-6
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -9.949769020080566
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -18.38477897644043
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -24.020872116088867
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -26.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -24.02086639404297
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -18.384769439697266
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -9.949769020080566
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
           "transition": 1.0,
           "width": 1.0
         }
@@ -639,12 +2689,17 @@
         "direction": "Forward",
         "measure": 8.0,
         "once": false,
-        "phase_offset_deg": 90.0,
-        "phase_spread_deg": 0.0,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 180.0,
         "speed": {
           "Master": "Song"
         }
-      }
+      },
+      "tricks": [
+        {
+          "Group": 2
+        }
+      ]
     },
     "dark chase": {
       "steps": [
@@ -693,12 +2748,62 @@
         }
       }
     },
+    "empty out": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.8500000238418579
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Build",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        "Reverse"
+      ]
+    },
     "fan": {
       "apply": {
         "Delta": [
           [
             "Pan",
-            30.0
+            28.0
           ]
         ]
       },
@@ -716,20 +2821,24 @@
         }
       }
     },
-    "figure eight tilt": {
+    "fan breathe": {
       "steps": [
         {
           "apply": [
             {
               "Delta": [
                 [
+                  "Pan",
+                  0.0
+                ],
+                [
                   "Tilt",
-                  15.0
+                  0.0
                 ]
               ]
             }
           ],
-          "ease": "Sine",
+          "ease": "Linear",
           "transition": 1.0,
           "width": 1.0
         },
@@ -738,13 +2847,283 @@
             {
               "Delta": [
                 [
+                  "Pan",
+                  8.419035911560059
+                ],
+                [
                   "Tilt",
-                  -15.0
+                  0.0
                 ]
               ]
             }
           ],
-          "ease": "Sine",
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  15.55634880065918
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  20.325349807739258
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  22.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  20.325349807739258
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  15.55634880065918
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  8.419032096862793
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -1.923301169881597e-6
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -8.419034957885742
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -15.556351661682129
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -20.325353622436523
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -22.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -20.325347900390625
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -15.556344032287598
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -8.419034957885742
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
           "transition": 1.0,
           "width": 1.0
         }
@@ -754,16 +3133,16 @@
       },
       "timing": {
         "direction": "Forward",
-        "measure": 4.0,
+        "measure": 32.0,
         "once": false,
-        "phase_offset_deg": 90.0,
-        "phase_spread_deg": 0.0,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 300.0,
         "speed": {
           "Master": "Song"
         }
       }
     },
-    "mirror sweep": {
+    "figure eight": {
       "steps": [
         {
           "apply": [
@@ -771,12 +3150,16 @@
               "Delta": [
                 [
                   "Pan",
-                  30.0
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  0.0
                 ]
               ]
             }
           ],
-          "ease": "Sine",
+          "ease": "Linear",
           "transition": 1.0,
           "width": 1.0
         },
@@ -786,12 +3169,282 @@
               "Delta": [
                 [
                   "Pan",
-                  -30.0
+                  7.653669357299805
+                ],
+                [
+                  "Tilt",
+                  8.485280990600586
                 ]
               ]
             }
           ],
-          "ease": "Sine",
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  14.142135620117188
+                ],
+                [
+                  "Tilt",
+                  12.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  18.477590560913086
+                ],
+                [
+                  "Tilt",
+                  8.485280990600586
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  20.0
+                ],
+                [
+                  "Tilt",
+                  -1.0490732620382914e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  18.477590560913086
+                ],
+                [
+                  "Tilt",
+                  -8.485282897949219
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  14.142135620117188
+                ],
+                [
+                  "Tilt",
+                  -12.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  7.653665542602539
+                ],
+                [
+                  "Tilt",
+                  -8.485278129577637
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -1.748455588312936e-6
+                ],
+                [
+                  "Tilt",
+                  2.098146524076583e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -7.653668403625488
+                ],
+                [
+                  "Tilt",
+                  8.485280990600586
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -14.14213752746582
+                ],
+                [
+                  "Tilt",
+                  12.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -18.47759437561035
+                ],
+                [
+                  "Tilt",
+                  8.485275268554688
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -20.0
+                ],
+                [
+                  "Tilt",
+                  -2.861971211132186e-7
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -18.477588653564453
+                ],
+                [
+                  "Tilt",
+                  -8.485283851623535
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -14.142130851745605
+                ],
+                [
+                  "Tilt",
+                  -12.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -7.653668403625488
+                ],
+                [
+                  "Tilt",
+                  -8.485280990600586
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
           "transition": 1.0,
           "width": 1.0
         }
@@ -804,16 +3457,409 @@
         "measure": 16.0,
         "once": false,
         "phase_offset_deg": 0.0,
-        "phase_spread_deg": 360.0,
+        "phase_spread_deg": 0.0,
         "speed": {
           "Master": "Song"
         }
-      },
-      "tricks": [
+      }
+    },
+    "heartbeat": {
+      "steps": [
         {
-          "Wings": 2
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.3499999940395355
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.3499999940395355
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 5.0
         }
-      ]
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "nod": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  3.0614676475524902
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  5.656854152679443
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  7.391036033630371
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  8.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  7.391036033630371
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  5.656854152679443
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  3.0614662170410156
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -6.993822125878069e-7
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -3.061467409133911
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -5.65685510635376
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -7.391037464141846
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -8.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -7.391035556793213
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -5.6568522453308105
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -3.061467409133911
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 2.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
     },
     "open out": {
       "steps": [
@@ -867,6 +3913,327 @@
         }
       ]
     },
+    "pan wave": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  7.653669357299805
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  14.142135620117188
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  18.477590560913086
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  20.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  18.477590560913086
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  14.142135620117188
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  7.653665542602539
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -1.748455588312936e-6
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -7.653668403625488
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -14.14213752746582
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -18.47759437561035
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -20.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -18.477588653564453
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -14.142130851745605
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -7.653668403625488
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
     "pulse": {
       "steps": [
         {
@@ -909,6 +4276,83 @@
         "once": false,
         "phase_offset_deg": 0.0,
         "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "rainbow": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Color": "Red"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Amber"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Green"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Cyan"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Blue"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Magenta"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 32.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
         "speed": {
           "Master": "Song"
         }
@@ -1050,7 +4494,7 @@
         }
       }
     },
-    "sweep": {
+    "sway": {
       "steps": [
         {
           "apply": [
@@ -1058,7 +4502,733 @@
               "Delta": [
                 [
                   "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  9.567086219787598
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  17.677669525146484
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  23.096986770629883
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
                   25.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  23.096986770629883
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  17.677669525146484
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  9.567081451416016
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -2.185569428547751e-6
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -9.567085266113281
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -17.677671432495117
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -23.09699249267578
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -25.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -23.096986770629883
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -17.677663803100586
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -9.567085266113281
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "tilt wave": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  6.888302326202393
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  12.727921485900879
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  16.629831314086914
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  18.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  16.629831314086914
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  12.727921485900879
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  6.888298988342285
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -1.5736100067442749e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -6.888301849365234
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -12.727924346923828
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -16.62983512878418
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -18.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -16.62982940673828
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -12.727917671203613
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  -6.888301849365234
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "two tone": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Color": "Deep"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Hot"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 180.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Group": 2
+        }
+      ]
+    },
+    "warm cool split": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Color": "Warm"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Cool"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 180.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Group": 2
+        }
+      ]
+    },
+    "wave": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
                 ]
               ]
             }
@@ -1072,8 +5242,413 @@
             {
               "Delta": [
                 [
+                  "Dimmer",
+                  -0.6000000238418579
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "white flash": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Color": "Open White"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Color": "Deep"
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 7.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "windmill": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
                   "Pan",
-                  -25.0
+                  0.0
+                ],
+                [
+                  "Tilt",
+                  16.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  6.1229352951049805
+                ],
+                [
+                  "Tilt",
+                  14.782072067260742
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  11.313708305358887
+                ],
+                [
+                  "Tilt",
+                  11.313708305358887
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  14.782072067260742
+                ],
+                [
+                  "Tilt",
+                  6.122932434082031
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  16.0
+                ],
+                [
+                  "Tilt",
+                  -1.3987644251756137e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  14.782072067260742
+                ],
+                [
+                  "Tilt",
+                  -6.122934818267822
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  11.313708305358887
+                ],
+                [
+                  "Tilt",
+                  -11.31371021270752
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  6.122932434082031
+                ],
+                [
+                  "Tilt",
+                  -14.782074928283691
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -1.3987644251756137e-6
+                ],
+                [
+                  "Tilt",
+                  -16.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.122934818267822
+                ],
+                [
+                  "Tilt",
+                  -14.782071113586426
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -11.31371021270752
+                ],
+                [
+                  "Tilt",
+                  -11.313704490661621
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -14.782074928283691
+                ],
+                [
+                  "Tilt",
+                  -6.122927665710449
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -16.0
+                ],
+                [
+                  "Tilt",
+                  2.7975288503512274e-6
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -14.782071113586426
+                ],
+                [
+                  "Tilt",
+                  6.1229400634765625
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -11.313704490661621
+                ],
+                [
+                  "Tilt",
+                  11.313714027404785
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -6.122934818267822
+                ],
+                [
+                  "Tilt",
+                  14.782073974609375
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "zoom breathe": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Zoom",
+                  0.15000000596046448
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Zoom",
+                  -0.15000000596046448
                 ]
               ]
             }
@@ -1088,10 +5663,57 @@
       },
       "timing": {
         "direction": "Forward",
-        "measure": 16.0,
+        "measure": 32.0,
         "once": false,
         "phase_offset_deg": 0.0,
-        "phase_spread_deg": 180.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "zoom pulse": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Zoom",
+                  0.25
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Zoom",
+                  -0.25
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
         "speed": {
           "Master": "Song"
         }
@@ -1113,7 +5735,7 @@
       "required": true
     },
     {
-      "about": "Anything behind the band \u2014 back wall, cyc, upstage bar. Separation from the background is the largest single difference between a rig that reads as designed and one that reads as switched on.",
+      "about": "Anything behind the band — back wall, cyc, upstage bar. Separation from the background is the largest single difference between a rig that reads as designed and one that reads as switched on.",
       "kind": "Group",
       "name": "Back",
       "required": true
@@ -1131,7 +5753,7 @@
       "required": false
     },
     {
-      "about": "Pixel strips and battens \u2014 the accent layer, and where soft charted hits land.",
+      "about": "Pixel strips and battens — the accent layer, and where soft charted hits land.",
       "kind": "Group",
       "name": "Bars",
       "required": false
@@ -1209,7 +5831,7 @@
       "required": false
     },
     {
-      "about": "The primary video surface. Required only of rooms that have screens at all \u2014 the show says 'play this on Main' and the venue decides whether that is one panel or three of unequal width.",
+      "about": "The primary video surface. Required only of rooms that have screens at all — the show says 'play this on Main' and the venue decides whether that is one panel or three of unequal width.",
       "kind": "Canvas",
       "name": "Main",
       "required": false

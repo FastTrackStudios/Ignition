@@ -59,6 +59,77 @@ fn delta(attr: Attribute, v: f32) -> Step {
     Step::new(vec![RecipeApply::Delta(vec![(attr, v)])])
 }
 
+
+/// A parametric position table — the generator most mover effects are.
+///
+/// Both axes in **one** recipe. The first version of this library shipped
+/// `circle pan` and `circle tilt` as a pair, which is how a console with
+/// only per-attribute effects has to do it — and it is a bad deal here:
+/// a programmer picks two things that are meaningless apart, and losing
+/// one silently turns a circle into a diagonal sweep that looks
+/// deliberate enough that nobody notices. A step table can hold Pan and
+/// Tilt together, so the shape is one object.
+///
+/// `pan_cycles` and `tilt_cycles` are how many times each axis goes
+/// round per cycle of the effect, which is the whole vocabulary:
+///
+/// - 1 and 1, a quarter out of phase → a **circle**
+/// - 1 and 2 → a **figure of eight**
+/// - 3 and 2 → a **ballyhoo**, the classic excitement move, because the
+///   ratio does not resolve quickly and the beam never quite repeats
+/// - 1 and 0 → a flat **sweep**
+///
+/// `resolution` is how many steps the curve is drawn with. Sixteen is
+/// smooth enough that the interpolation between steps does the rest, and
+/// small enough that the table stays readable in the profile.
+fn orbit(
+    pan_amp: f32,
+    tilt_amp: f32,
+    pan_cycles: f32,
+    tilt_cycles: f32,
+    tilt_phase_deg: f32,
+) -> Vec<Step> {
+    const RESOLUTION: usize = 16;
+    let tau = std::f32::consts::TAU;
+    (0..RESOLUTION)
+        .map(|i| {
+            let t = i as f32 / RESOLUTION as f32;
+            let pan = pan_amp * (tau * pan_cycles * t).sin();
+            let tilt =
+                tilt_amp * (tau * tilt_cycles * t + tilt_phase_deg.to_radians()).sin();
+            Step {
+                apply: vec![RecipeApply::Delta(vec![
+                    (Attribute::Pan, pan),
+                    (Attribute::Tilt, tilt),
+                ])],
+                width: 1.0,
+                // Fully transitioning, because a position effect is a
+                // *path*: snapping between sixteen points would be a
+                // stutter rather than a curve.
+                transition: 1.0,
+                ..Step::new(Vec::new())
+            }
+        })
+        .collect()
+}
+
+/// A mover recipe from an orbit.
+fn mover(steps: Vec<Step>, bars: f32, spread: f32) -> Recipe {
+    Recipe {
+        target: role("Movers"),
+        steps,
+        timing: beat(bars, spread, Play::Forward),
+        tricks: Vec::new(),
+    }
+}
+
+/// A step setting an absolute colour by name.
+fn hue(name: &str) -> Step {
+    Step::new(vec![RecipeApply::Color(crate::preset::Ref::Named(
+        name.into(),
+    ))])
+}
+
 /// Every effect in the default library.
 ///
 /// Keyed by the name a programmer types. Names are lower case and plain
@@ -235,90 +306,275 @@ pub fn library() -> BTreeMap<String, Recipe> {
         },
     );
 
-    // ── movement ─────────────────────────────────────────────────────
 
-    // Pan spread across the movers with no motion of its own — a static
-    // fan, which is a *look* rather than an effect and is here because
-    // it is the shape everything else is built on.
+    // A smooth travelling swell rather than a hard chase — the same
+    // spread, a sine instead of two steps, and it reads as a wave
+    // passing through the rig rather than a light moving along it.
+    add(
+        "wave",
+        Recipe {
+            target: role("Wash"),
+            steps: Waveform::Sine.steps(Attribute::Dimmer, -0.3, 0.3, true),
+            timing: beat(2.0, 360.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // Eighth-note chase, for a chorus that wants driving rather than
+    // moving.
+    add(
+        "chase eighths",
+        Recipe {
+            target: role("Wash"),
+            steps: vec![delta(Attribute::Dimmer, 0.0), delta(Attribute::Dimmer, -0.75)],
+            timing: beat(0.5, 360.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // Two quick pulses then a rest — a heartbeat, which is the one
+    // rhythmic intensity figure that does not read as a chase.
+    add(
+        "heartbeat",
+        Recipe {
+            target: role("Wash"),
+            steps: vec![
+                Step { apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.35)])], width: 1.0, transition: 0.0, ..Step::new(Vec::new()) },
+                Step { apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.0)])], width: 1.0, transition: 1.0, ..Step::new(Vec::new()) },
+                Step { apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.35)])], width: 1.0, transition: 0.0, ..Step::new(Vec::new()) },
+                Step { apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.0)])], width: 5.0, transition: 1.0, ..Step::new(Vec::new()) },
+            ],
+            timing: beat(2.0, 0.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // The rig emptying rather than filling — `Build` run backwards, for
+    // the end of a section.
+    add(
+        "empty out",
+        Recipe {
+            target: role("Wash"),
+            steps: vec![delta(Attribute::Dimmer, 0.0), delta(Attribute::Dimmer, -0.85)],
+            timing: beat(2.0, 360.0, Play::Build),
+            tricks: vec![Trick::Reverse],
+        },
+    );
+
+    // A shuffled, sparse twinkle on the bars, where a wash would be too
+    // broad to read as detail.
+    add(
+        "bar sparkle",
+        Recipe {
+            target: role("Bars"),
+            steps: vec![delta(Attribute::Dimmer, 0.25), delta(Attribute::Dimmer, 0.0)],
+            timing: beat(0.5, 360.0, Play::Forward),
+            tricks: vec![Trick::Shuffle(907)],
+        },
+    );
+
+    // Blinders. Absolute and brief, aimed out rather than at the stage —
+    // the one effect whose whole job is to stop the audience seeing the
+    // band for a moment.
+    add(
+        "audience blind",
+        Recipe {
+            target: role("Audience"),
+            steps: vec![
+                Step { apply: vec![RecipeApply::Dimmer(1.0)], width: 1.0, transition: 0.0, ..Step::new(Vec::new()) },
+                Step { apply: vec![RecipeApply::Dimmer(0.0)], width: 3.0, transition: 1.0, ..Step::new(Vec::new()) },
+            ],
+            timing: Timing { once: true, ..beat(0.5, 0.0, Play::Forward) },
+            tricks: Vec::new(),
+        },
+    );
+
+    // ── mover position ───────────────────────────────────────────────
+    //
+    // Every one of these is `orbit` with different numbers, which is the
+    // point: a mover pattern is a Lissajous figure, and naming the
+    // useful ones beats exposing four sliders nobody can picture.
+
+    // The workhorse. Slow, wide, and it reads as motion without reading
+    // as an effect — the thing to leave running under a whole verse.
+    add("circle", mover(orbit(18.0, 18.0, 1.0, 1.0, 90.0), 4.0, 0.0));
+
+    // Same shape, tighter and quicker, for a chorus.
+    add("circle tight", mover(orbit(9.0, 9.0, 1.0, 1.0, 90.0), 2.0, 0.0));
+
+    // The spokes. One circle, phase-spread all the way round the
+    // selection, so the rig looks like a wheel turning rather than like
+    // several heads doing the same thing.
+    add("windmill", mover(orbit(16.0, 16.0, 1.0, 1.0, 90.0), 4.0, 360.0));
+
+    // Tilt at twice pan: the beam crosses itself at the middle.
+    add("figure eight", mover(orbit(20.0, 12.0, 1.0, 2.0, 0.0), 4.0, 0.0));
+
+    // Three against two never resolves quickly, so the beam keeps
+    // arriving somewhere it has not just been. That is what a ballyhoo
+    // is for, and why the ratio matters more than the speed.
+    add("ballyhoo", mover(orbit(28.0, 16.0, 3.0, 2.0, 45.0), 2.0, 0.0));
+
+    // The same idea at half the size and twice the rate — a nervous,
+    // close-in version for a breakdown.
+    add("ballyhoo tight", mover(orbit(14.0, 9.0, 3.0, 2.0, 45.0), 1.0, 0.0));
+
+    // Pan only. Flat, slow, and the least demanding thing a mover can
+    // do while still being alive.
+    add("sway", mover(orbit(25.0, 0.0, 1.0, 0.0, 0.0), 4.0, 0.0));
+
+    // Pan only, spread across the rig: a wave rolling along the truss.
+    add("pan wave", mover(orbit(20.0, 0.0, 1.0, 0.0, 0.0), 2.0, 360.0));
+
+    // Tilt only, spread: beams rolling up and over, which reads
+    // completely differently from the same wave on pan.
+    add("tilt wave", mover(orbit(0.0, 18.0, 0.0, 1.0, 0.0), 2.0, 360.0));
+
+    // A quick nod. Short and shallow — punctuation, not a look.
+    add("nod", mover(orbit(0.0, 8.0, 0.0, 1.0, 0.0), 0.5, 0.0));
+
+    // Mirrored halves opening and closing. `Wings(2)` is what makes one
+    // definition symmetric; without it this is just everything sweeping
+    // the same way.
+    add(
+        "converge",
+        Recipe {
+            tricks: vec![Trick::Wings(2)],
+            ..mover(orbit(30.0, 0.0, 1.0, 0.0, 0.0), 4.0, 180.0)
+        },
+    );
+
+    // Odds one way, evens the other. The cheapest mover effect that
+    // reads as designed rather than as a sweep, and it survives any rig
+    // size because `Group(2)` is a proportion.
+    add(
+        "cross",
+        Recipe {
+            tricks: vec![Trick::Group(2)],
+            ..mover(orbit(26.0, 0.0, 1.0, 0.0, 0.0), 2.0, 180.0)
+        },
+    );
+
+    // A static fan — a *look* rather than an effect, and here because it
+    // is the shape most of the others are built on top of.
     add(
         "fan",
         Recipe {
             target: role("Movers"),
             steps: vec![Step::new(vec![RecipeApply::Delta(vec![(
                 Attribute::Pan,
-                30.0,
+                28.0,
             )])])],
-            timing: Timing {
-                phase_spread_deg: 360.0,
-                ..beat(1.0, 360.0, Play::Forward)
-            },
+            timing: beat(1.0, 360.0, Play::Forward),
             tricks: Vec::new(),
         },
     );
 
-    // A slow pan swing, a whole number of bars per sweep so it lands
-    // with the music instead of drifting against it.
+    // The fan, breathing open and shut.
+    add("fan breathe", mover(orbit(22.0, 0.0, 1.0, 0.0, 0.0), 8.0, 300.0));
+
+    // ── beam ─────────────────────────────────────────────────────────
+
+    // Zoom pumping with the music. Relative, so it rides whatever zoom
+    // the look established rather than resetting it.
     add(
-        "sweep",
+        "zoom pulse",
         Recipe {
             target: role("Movers"),
-            steps: Waveform::Sine.steps(Attribute::Pan, 0.0, 25.0, true),
+            steps: Waveform::Sine.steps(Attribute::Zoom, 0.0, 0.25, true),
+            timing: beat(1.0, 0.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // Slow enough to be felt rather than seen.
+    add(
+        "zoom breathe",
+        Recipe {
+            target: role("Movers"),
+            steps: Waveform::Sine.steps(Attribute::Zoom, 0.0, 0.15, true),
+            timing: beat(8.0, 0.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // ── colour ───────────────────────────────────────────────────────
+    //
+    // Absolute, unavoidably: a colour effect is *setting* the colour, so
+    // there is nothing to be relative to. They therefore replace whatever
+    // colour the look established, which is what they are for — but it
+    // does mean stacking two of them is last-wins rather than a blend.
+
+    // The rig walking through the spectrum together.
+    add(
+        "colour cycle",
+        Recipe {
+            target: role("Wash"),
+            steps: vec![hue("Red"), hue("Amber"), hue("Green"), hue("Cyan"), hue("Blue"), hue("Magenta")],
+            timing: beat(8.0, 0.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // The same table spread across the selection, so the spectrum is
+    // laid out *along the rig* at any one moment and then travels.
+    add(
+        "rainbow",
+        Recipe {
+            target: role("Wash"),
+            steps: vec![hue("Red"), hue("Amber"), hue("Green"), hue("Cyan"), hue("Blue"), hue("Magenta")],
+            timing: beat(8.0, 360.0, Play::Forward),
+            tricks: Vec::new(),
+        },
+    );
+
+    // Two colours trading on odds and evens — the most useful colour
+    // effect there is, and the one that survives being run under
+    // everything else.
+    add(
+        "two tone",
+        Recipe {
+            target: role("Wash"),
+            steps: vec![hue("Deep"), hue("Hot")],
+            timing: beat(2.0, 180.0, Play::Forward),
+            tricks: vec![Trick::Group(2)],
+        },
+    );
+
+    // Warm against cool, which is the same trick with the temperature
+    // rather than the hue and reads far calmer.
+    add(
+        "warm cool split",
+        Recipe {
+            target: role("Wash"),
+            steps: vec![hue("Warm"), hue("Cool")],
             timing: beat(4.0, 180.0, Play::Forward),
-            tricks: Vec::new(),
+            tricks: vec![Trick::Group(2)],
         },
     );
 
-    // The classic, and the reason phase offset exists as a separate
-    // layer from phase spread: a circle is two sine waves a quarter
-    // cycle apart, on Pan and Tilt. No dedicated "position effect" type
-    // is needed, and pairing any two attributes this way gives the same
-    // trick for free.
+    // A single white frame in a coloured look — the cheapest accent
+    // there is, and it wants a *narrow* window or it stops being one.
     add(
-        "circle pan",
+        "white flash",
         Recipe {
-            target: role("Movers"),
-            steps: Waveform::Sine.steps(Attribute::Pan, 0.0, 20.0, true),
+            target: role("Wash"),
+            steps: vec![
+                Step {
+                    apply: vec![RecipeApply::Color(crate::preset::Ref::Named("Open White".into()))],
+                    width: 1.0,
+                    transition: 0.0,
+                    ..Step::new(Vec::new())
+                },
+                Step {
+                    apply: vec![RecipeApply::Color(crate::preset::Ref::Named("Deep".into()))],
+                    width: 7.0,
+                    transition: 0.0,
+                    ..Step::new(Vec::new())
+                },
+            ],
             timing: beat(2.0, 0.0, Play::Forward),
             tricks: Vec::new(),
-        },
-    );
-    add(
-        "circle tilt",
-        Recipe {
-            target: role("Movers"),
-            steps: Waveform::Sine.steps(Attribute::Tilt, 0.0, 20.0, true),
-            timing: Timing {
-                // The quarter cycle that turns two swings into a circle.
-                phase_offset_deg: 90.0,
-                ..beat(2.0, 0.0, Play::Forward)
-            },
-            tricks: Vec::new(),
-        },
-    );
-
-    // A figure of eight is the same pair with tilt at twice the rate.
-    add(
-        "figure eight tilt",
-        Recipe {
-            target: role("Movers"),
-            steps: Waveform::Sine.steps(Attribute::Tilt, 0.0, 15.0, true),
-            timing: Timing {
-                phase_offset_deg: 90.0,
-                ..beat(1.0, 0.0, Play::Forward)
-            },
-            tricks: Vec::new(),
-        },
-    );
-
-    // Movers thrown apart in mirrored halves, so the rig opens rather
-    // than all sweeping the same way.
-    add(
-        "mirror sweep",
-        Recipe {
-            target: role("Movers"),
-            steps: Waveform::Sine.steps(Attribute::Pan, 0.0, 30.0, true),
-            timing: beat(4.0, 360.0, Play::Forward),
-            tricks: vec![Trick::Wings(2)],
         },
     );
 
@@ -425,38 +681,107 @@ mod tests {
         }
     }
 
-    /// Effects layer, so all but the deliberate exceptions are relative.
+    /// Effects layer, so an intensity effect is relative unless there is
+    /// a reason it cannot be.
     ///
-    /// `strobe` is absolute on purpose — a strobe that only modulated
-    /// would still show what was under it — and naming the exception
-    /// here is what stops the next one being added by accident.
+    /// Two kinds of exception, and keeping them apart is the point.
+    /// **Colour effects are absolute by nature**: setting a colour has
+    /// nothing to be relative to, so they replace whatever the look
+    /// established — which is what they are for, and also why stacking
+    /// two is last-wins rather than a blend. The **named** exceptions are
+    /// intensity effects that are deliberately absolute: a strobe that
+    /// merely modulated would still show what was under it, and blinders
+    /// that merely modulated would not blind.
+    ///
+    /// Listing them exactly is what stops the next accidental absolute —
+    /// an effect that quietly stops layering is very hard to notice from
+    /// the stage, because it looks like it is working.
     #[test]
-    fn effects_are_relative_except_where_named() {
-        let absolute: Vec<String> = library()
-            .into_iter()
-            .filter(|(_, r)| {
-                r.steps.iter().any(|s| {
-                    s.apply
-                        .iter()
-                        .any(|a| !matches!(a, RecipeApply::Delta(_)))
-                })
-            })
-            .map(|(name, _)| name)
-            .collect();
-        assert_eq!(absolute, vec!["strobe".to_string()]);
+    fn intensity_effects_are_relative_except_where_named() {
+        const DELIBERATELY_ABSOLUTE: [&str; 2] = ["strobe", "audience blind"];
+
+        let mut unexpected: Vec<String> = Vec::new();
+        for (name, recipe) in library() {
+            let sets_colour = recipe.steps.iter().any(|s| {
+                s.apply
+                    .iter()
+                    .any(|a| matches!(a, RecipeApply::Color(_)))
+            });
+            let absolute = recipe.steps.iter().any(|s| {
+                s.apply
+                    .iter()
+                    .any(|a| !matches!(a, RecipeApply::Delta(_)))
+            });
+            if absolute && !sets_colour && !DELIBERATELY_ABSOLUTE.contains(&name.as_str()) {
+                unexpected.push(name);
+            }
+        }
+        assert!(
+            unexpected.is_empty(),
+            "these stopped layering without being declared: {unexpected:?}"
+        );
     }
 
-    /// A circle is two swings a quarter cycle apart. If the offset were
-    /// ever lost the pair would become one diagonal sweep, which looks
-    /// deliberate enough that nobody would notice it was wrong.
+    /// A circle is one recipe whose steps carry both axes, a quarter
+    /// cycle apart. Shipped as a pan/tilt *pair* — which is how a console
+    /// with per-attribute effects has to do it — losing one silently
+    /// turns the circle into a diagonal sweep that looks deliberate
+    /// enough that nobody notices.
     #[test]
-    fn the_circle_pair_is_a_quarter_cycle_apart() {
-        let lib = library();
-        let pan = &lib["circle pan"];
-        let tilt = &lib["circle tilt"];
-        assert_eq!(pan.timing.phase_offset_deg, 0.0);
-        assert_eq!(tilt.timing.phase_offset_deg, 90.0);
-        assert_eq!(pan.timing.measure, tilt.timing.measure);
+    fn a_circle_is_one_recipe_carrying_both_axes() {
+        let circle = &library()["circle"];
+        assert!(circle.steps.len() > 8, "too coarse to read as a curve");
+        for step in &circle.steps {
+            let attrs: Vec<&Attribute> = step
+                .apply
+                .iter()
+                .flat_map(|a| match a {
+                    RecipeApply::Delta(pairs) => pairs.iter().map(|(a, _)| a).collect(),
+                    _ => Vec::new(),
+                })
+                .collect();
+            assert!(attrs.contains(&&Attribute::Pan), "a step with no pan");
+            assert!(attrs.contains(&&Attribute::Tilt), "a step with no tilt");
+        }
+    }
+
+    /// The quarter-cycle offset is what makes it a circle rather than a
+    /// line, and it lives in the table now. Pan peaks a quarter of the
+    /// way round; tilt peaks at the start.
+    #[test]
+    fn the_circles_axes_are_a_quarter_cycle_apart() {
+        let circle = &library()["circle"];
+        let axis = |step: &Step, want: &Attribute| -> f32 {
+            step.apply
+                .iter()
+                .filter_map(|a| match a {
+                    RecipeApply::Delta(pairs) => {
+                        pairs.iter().find(|(at, _)| at == want).map(|(_, v)| *v)
+                    }
+                    _ => None,
+                })
+                .next()
+                .unwrap_or_default()
+        };
+        let quarter = circle.steps.len() / 4;
+        // Pan starts at zero and is at its widest a quarter round.
+        assert!(axis(&circle.steps[0], &Attribute::Pan).abs() < 1e-4);
+        assert!(axis(&circle.steps[quarter], &Attribute::Pan).abs() > 10.0);
+        // Tilt does the opposite, which is exactly the offset.
+        assert!(axis(&circle.steps[0], &Attribute::Tilt).abs() > 10.0);
+        assert!(axis(&circle.steps[quarter], &Attribute::Tilt).abs() < 1e-4);
+    }
+
+    /// A ballyhoo's axes must not share a simple ratio, or the beam
+    /// resolves into a repeating shape and stops reading as excitement.
+    #[test]
+    fn a_ballyhoo_does_not_resolve_quickly() {
+        let ballyhoo = &library()["ballyhoo"];
+        let circle = &library()["circle"];
+        assert_ne!(
+            ballyhoo.steps, circle.steps,
+            "the ballyhoo is drawing a circle"
+        );
     }
 
     /// A bump runs once and holds. Looping, it is a strobe.
@@ -471,7 +796,7 @@ mod tests {
     /// meant to move and has one step would silently sit still.
     #[test]
     fn the_moving_effects_have_more_than_one_step() {
-        for name in ["chase", "pulse", "build", "sweep", "sparkle"] {
+        for name in ["chase", "pulse", "build", "sway", "sparkle", "circle", "ballyhoo"] {
             assert!(
                 library()[name].steps.len() > 1,
                 "{name:?} has one step and cannot move"
