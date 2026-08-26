@@ -82,9 +82,8 @@ impl Playback {
         let groups = venue.groups();
         let rig = venue.rig();
         let mut speeds = default_speeds();
-        // Without a transport there is nothing driving the song's tempo,
-        // so a chase written against it holds still. `--bpm` is how a
-        // still frame of a synced show gets its effects moving.
+        // `--bpm` replaces the seeded placeholder; the transport does the
+        // same at run time.
         if let Some(bpm) = song_bpm {
             speeds.insert("Song".to_string(), bpm);
         }
@@ -184,7 +183,19 @@ impl Playback {
 /// `T` key retunes it; `unresolved()` still reports any *other* master
 /// a show names, which is the case that really is a wiring mistake.
 fn default_speeds() -> SpeedMasters {
-    SpeedMasters::from([("Tap".to_string(), 120.0)])
+    SpeedMasters::from([
+        ("Tap".to_string(), 120.0),
+        // `Song` is seeded for the same reason `Tap` is, and the cost of
+        // not doing it was louder. Every accent in a generated show runs
+        // off the song's tempo, so with no entry here the load-time
+        // check reported "no speed master" once per cue — eighty lines
+        // of warning about a master that the transport supplies a moment
+        // later, drowning the report that a *real* wiring mistake would
+        // appear in. A show opened without a transport now also runs its
+        // song-slaved effects at a plausible tempo instead of freezing
+        // them.
+        ("Song".to_string(), 120.0),
+    ])
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path, what: &str) -> anyhow::Result<T> {
@@ -318,4 +329,73 @@ pub fn operator_keys(
     }
 
     apply_cue_output(&dmx.0, venue, &player.output(&show));
+}
+
+#[cfg(test)]
+mod accent_tests {
+    use super::*;
+    use ignition_core::Attribute;
+
+    /// A figure's bump must visibly lift the fixtures it lands on.
+    ///
+    /// This is the "fig 0 did nothing" report, pinned. Those cues were
+    /// present, resolved to the right fixtures and carried the right
+    /// level — and produced no change on stage, because the accent's
+    /// delta replaced the section's running chase in a single modulator
+    /// slot instead of adding to it.
+    #[test]
+    fn a_figure_lifts_the_look_it_lands_on() {
+        let venue = match Venue::load("data/venues/norco") {
+            Ok(v) => v,
+            // The venue is repo data; if a test runner has no working
+            // directory pointing at it, skip rather than fail.
+            Err(_) => return,
+        };
+        let list: CueList = match std::fs::read_to_string("data/songs/bye-bye-bye.json")
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+        {
+            Some(l) => l,
+            None => return,
+        };
+
+        let groups = venue.groups();
+        let rig = venue.rig();
+        let speeds = default_speeds();
+        let show = Show {
+            groups: &groups,
+            palettes: &venue.palettes,
+            rig: &rig,
+            speeds: &speeds,
+        };
+
+        let figure = list
+            .cues
+            .iter()
+            .position(|c| c.name.starts_with("· fig 0 · 1/"))
+            .expect("the show has figure 0");
+
+        // The look immediately before it, and then the accent on top.
+        let mut player = CuePlayer::new(list.cues.clone());
+        player.jump_to_end_of(figure - 1, &show);
+        let before = player.output(&show);
+
+        let mut player = CuePlayer::new(list.cues.clone());
+        player.jump_to_end_of(figure, &show);
+        let after = player.output(&show);
+
+        let lifted = after
+            .iter()
+            .filter(|((chan, attr), value)| {
+                *attr == Attribute::Dimmer
+                    && **value > before.get(&(*chan, attr.clone())).copied().unwrap_or(0.0) + 0.05
+            })
+            .count();
+        assert!(
+            lifted > 0,
+            "figure 0 changed nothing: {} channels before, {} after",
+            before.len(),
+            after.len()
+        );
+    }
 }

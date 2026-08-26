@@ -415,18 +415,13 @@ fn CueList(cues: Vec<String>) -> Element {
                     li {
                         key: "{i}",
                         class: if current() == Some(i) { "cue on" } else { "cue" },
-                        onclick: {
-                            let name = name.clone();
-                            move |_| {
-                                // Locate the song too. A cue in a
-                                // generated show *is* a section, so
-                                // clicking one is how a rehearsal says
-                                // "from the last chorus" — and if there
-                                // is no transport, the cue still fires.
-                                send(Command::Section(name.clone()));
-                                send(Command::Cue(i));
-                            }
-                        },
+                        // One message: the widget takes the song to
+                        // this cue's own position. Sending a section
+                        // name as well only worked for the cues that
+                        // happened to be sections — an accent called
+                        // "· fig 0 · 1/3" is not one, so clicking it
+                        // moved the lights and left the song behind.
+                        onclick: move |_| send(Command::Cue(i)),
                         span { class: "num", "{i}" }
                         span { class: "name", "{name}" }
                     }

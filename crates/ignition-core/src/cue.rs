@@ -109,7 +109,20 @@ struct Layers {
     /// values do not compete for the slot — they add on top of whatever
     /// won it — so they get their own map. One modulator per attribute,
     /// latest cue wins, same rule as everything else.
-    modulated: HashMap<(ChanId, Attribute), usize>,
+    /// Every relative recipe touching a key, in the order taken.
+    ///
+    /// A list rather than one winner, and that is the difference between
+    /// an accent working and doing nothing. With a single slot, a bump
+    /// laid over a running chase *replaced* it — so a hit on fixtures
+    /// already being chased produced no lift at all, and once the bump's
+    /// envelope held at zero it went on owning the slot and the chase
+    /// stayed dead for the rest of the section. Modulation is supposed
+    /// to be the layer that composes; one winner is the one rule that
+    /// stops it composing.
+    ///
+    /// Growth is bounded by the cascade: a blocking cue starts from
+    /// empty layers, so this only accumulates within a section.
+    modulated: HashMap<(ChanId, Attribute), Vec<usize>>,
 }
 
 /// One cue's worth of state, plus how far into its own fade it is.
@@ -237,7 +250,12 @@ impl CuePlayer {
             for emit in expand_recipe(recipe, show, self.recipe_time(id)) {
                 let key = (emit.value.chan, emit.value.attr);
                 if emit.relative {
-                    layers.modulated.insert(key, id);
+                    let slot = layers.modulated.entry(key).or_default();
+                    // A recipe re-taken by a later cue moves to the end
+                    // rather than stacking on itself — re-stating a
+                    // chase should not double it.
+                    slot.retain(|existing| *existing != id);
+                    slot.push(id);
                 } else {
                     layers.tracked.insert(key, Source::Recipe(id));
                 }
@@ -384,7 +402,7 @@ impl CuePlayer {
                         Source::Recipe(id) => Some(*id),
                         Source::Direct(_) => None,
                     })
-                    .chain(stage.layers.modulated.values().copied())
+                    .chain(stage.layers.modulated.values().flatten().copied())
             })
             .collect();
         if live.len() == self.active.len() {
@@ -405,8 +423,10 @@ impl CuePlayer {
                     *id = remap[id];
                 }
             }
-            for id in stage.layers.modulated.values_mut() {
-                *id = remap[id];
+            for ids in stage.layers.modulated.values_mut() {
+                for id in ids.iter_mut() {
+                    *id = remap[id];
+                }
             }
         }
     }
@@ -457,7 +477,7 @@ impl CuePlayer {
                 Source::Recipe(id) => Some(*id),
                 Source::Direct(_) => None,
             })
-            .chain(layers.modulated.values().copied());
+            .chain(layers.modulated.values().flatten().copied());
         for id in referenced {
             resolved.entry(id).or_insert_with(|| {
                 expand_recipe(&self.active[id], show, self.recipe_time(id))
@@ -484,12 +504,15 @@ impl CuePlayer {
             // winner, not as another competitor for the slot. That is
             // what "-40% dimmer, and the colour is not my business"
             // means mechanically.
-            let modulation = layers
+            // Summed, so a bump lands *on top of* whatever chase is
+            // already running rather than taking its place.
+            let modulation: f32 = layers
                 .modulated
                 .get(key)
-                .and_then(|id| resolved[id].get(key))
-                .copied()
-                .unwrap_or(0.0);
+                .into_iter()
+                .flatten()
+                .filter_map(|id| resolved[id].get(key))
+                .sum();
             out.insert(key.clone(), value + modulation);
         }
         out
@@ -674,6 +697,68 @@ mod tests {
             )],
             ..Default::default()
         }
+    }
+
+    /// A bump over a running chase must *add* to it.
+    ///
+    /// The failure this pins was invisible in the cue list and obvious
+    /// on stage: figures landing on fixtures that were already being
+    /// chased did nothing at all, because the accent replaced the chase
+    /// in the single modulator slot instead of stacking on it — and then
+    /// went on holding that slot at zero, so the chase stayed dead for
+    /// the rest of the section too.
+    #[test]
+    fn a_bump_adds_to_a_running_chase_rather_than_replacing_it() {
+        use crate::step::{Speed, Step, Timing};
+        let groups = pars();
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
+
+        let flat = |v: f32| {
+            Recipe {
+                target: Selection::Group("Pars".to_string()),
+                steps: vec![Step::new(vec![RecipeApply::Delta(vec![(
+                    Attribute::Dimmer,
+                    v,
+                )])])],
+                timing: Timing {
+                    speed: Speed::Bpm(60.0),
+                    ..Default::default()
+                },
+            }
+        };
+
+        // A section look with a steady +0.2 modulation on it.
+        let look = Cue {
+            name: "Look".to_string(),
+            recipes: vec![
+                Recipe::new(
+                    Selection::Group("Pars".to_string()),
+                    RecipeApply::Dimmer(0.3),
+                ),
+                flat(0.2),
+            ],
+            block: true,
+            ..Default::default()
+        };
+        // ...and an accent adding another +0.5 on top.
+        let accent = Cue {
+            name: "· hit".to_string(),
+            recipes: vec![flat(0.5)],
+            block: false,
+            ..Default::default()
+        };
+
+        let mut player = CuePlayer::new(vec![look, accent]);
+        player.go(&show);
+        let base = player.output(&show)[&(1, Attribute::Dimmer)];
+        assert!((base - 0.5).abs() < 1e-4, "look alone should be 0.3+0.2: {base}");
+
+        player.go(&show);
+        let both = player.output(&show)[&(1, Attribute::Dimmer)];
+        assert!(
+            (both - 1.0).abs() < 1e-4,
+            "the accent replaced the chase instead of adding: {both}"
+        );
     }
 
     /// A bump releases itself, which is the whole reason `once` exists.

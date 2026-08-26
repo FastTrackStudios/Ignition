@@ -314,6 +314,18 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                             rig,
                             speeds,
                         };
+                        // Take the song to the cue's own position, not
+                        // to a section with the cue's name. Every cue is
+                        // written at a musical position, so every cue is
+                        // seekable — which section names only managed
+                        // for the nineteen cues that were sections, and
+                        // the accents, being called things like
+                        // "· fig 0 · 1/3", simply failed.
+                        if let Some(at) = player.cues().get(index).and_then(|c| c.at)
+                            && let Some(transport) = transport
+                        {
+                            transport.locate(at);
+                        }
                         player.jump_to_end_of(index, &show);
                     }
                 }
