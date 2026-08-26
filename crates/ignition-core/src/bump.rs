@@ -32,7 +32,7 @@ use crate::step::{Speed, Step, Timing};
 use ignition_proto::ColorChannel;
 
 /// How a bump behaves.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 // r[impl effects.bump]
 pub enum Kind {
     /// Lift the level and let it fall. The plain one.

@@ -112,3 +112,40 @@ fixtures are black, lit only by the rig around them. A **fixture body glow**
 option, off unless asked for (`viz --body-glow`, the studio's GLOW key,
 `IGNITION_BODY_GLOW=1`), lets a lit fixture's housing glow the colour it is
 putting out, as a way of reading which fixtures are on.
+
+r[viz.performance-budget]
+The studio's viewport MUST hold **120 frames per second at 5120×1440** on the
+reference GPU (an RTX 4080) on the benchmark cue (`data/songs/benchmark.json`
+at Norco: every mover in a fast figure, every par on a chase and a rainbow,
+the bars on a strip chase, the beams strobing, the canvases on `proc:rainbow`,
+hazers up), measured through the studio's own embedded route by
+`viz --bench`. The frame is spent by rule, not by fixture count:
+
+- **Shadow maps** go to at most `SHADOW_BUDGET` spill lights, the brightest
+  per direction (peak candela) among those that cut a shaft. A wash keeps
+  its pool and its cone in the haze; it loses only the silhouette it would
+  have cut, which nobody sees.
+- **Volumetric light** (the fog raymarch) goes to at most
+  `VOLUMETRIC_BUDGET` spill lights, ranked the same way. A cut never splits
+  a run of equal fixtures: a type is in or out as a whole. A shaft-cutter
+  over the budget keeps its pool and, if asked (`IGNITION_PAR_CONES=1`),
+  shows in the air as the hand-drawn additive cone instead.
+- **The haze is marched at a fraction of the picture's size** on a camera of
+  its own and composited back — added, with the room behind it dimmed by the
+  same transmittance the in-camera fog would have applied. The fraction is
+  chosen so the haze camera stays under a fixed pixel budget
+  (`HAZE_PIXEL_BUDGET`) whatever the viewport; a still keeps full size.
+- **Fixture housings cast no shadow and block no shaft**: a par's body is a
+  hand's width across and hangs above every beam. Only the room, the risers,
+  the props and the people are occluders.
+- **The render world runs on its own thread** in the studio (Bevy's
+  pipelined rendering), so a paint costs the main world's update plus the
+  wait for the previous frame's render, not the two added together. The
+  target texture reaches the host through a mailbox the render thread
+  posts to, never through a readback or a copy.
+- **Nothing per-frame allocates or uploads for a rig standing still**: a
+  bar's cell materials change only when the colour does; a wedge is rebuilt
+  only when its length does; a procedural canvas rasters on a worker and
+  uploads only a fresh frame.
+- **One mesh asset per fixture model**, shared by every fixture of that
+  type, so the engine batches them.

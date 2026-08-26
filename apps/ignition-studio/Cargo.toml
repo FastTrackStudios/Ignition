@@ -24,8 +24,17 @@ remote = ["midi", "osc"]
 # An audio input driving the `Tap` master and band levels — `sound.rs`.
 sound = ["dep:cpal"]
 
+[dev-dependencies]
+tokio-tungstenite = "0.28"
+futures-util = "0.3"
+
 [dependencies]
 ignition-core.workspace = true
+ignition-live-ui.workspace = true
+# The Live view to an iPad: HTTP for the wasm bundle, a WebSocket for
+# the commands and the playhead — `live_web.rs`. Opt-in at run time
+# (`IGNITION_LIVE=1`), always compiled: hyper was already in the tree.
+axum = { version = "0.8", default-features = false, features = ["http1", "ws", "tokio"] }
 serde.workspace = true
 midir = { version = "0.11", optional = true }
 rosc = { version = "0.11", optional = true }
@@ -36,7 +45,7 @@ bevy.workspace = true
 wgpu.workspace = true
 anyhow = "1"
 tracing = "0.1"
-tokio = { version = "1", features = ["time", "rt-multi-thread", "sync"] }
+tokio = { version = "1", features = ["time", "rt-multi-thread", "sync", "net", "macros"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde_json.workspace = true
 

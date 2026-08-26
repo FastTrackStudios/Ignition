@@ -1,0 +1,21 @@
+/* What studio.css gives the desk and the browser has to be given here:
+   the page, and the two controls the Live view borrows from the
+   transport bar. Everything else is live.css, shared verbatim. */
+html, body { height: 100%; margin: 0; overflow: hidden;
+             background: #0b0b0d; color: #e6e6e6;
+             font-family: -apple-system, system-ui, sans-serif; font-size: 13px;
+             overscroll-behavior: none; }
+#main { height: 100%; }
+.page { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+.page > .views { flex: 1; min-height: 0; }
+.connecting { display: flex; align-items: center; justify-content: center; height: 100vh;
+              font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: #8d8d99; }
+.offline { position: fixed; top: 0; left: 0; right: 0; padding: 6px 12px; text-align: center;
+           background: #5a2a2a; color: #ffd0d0; font-size: 12px; letter-spacing: 0.08em;
+           text-transform: uppercase; z-index: 10; }
+.hslider {
+  position: relative; width: 90px; height: 14px; border-radius: 7px;
+  background: #23232e; border: 1px solid #33333f; overflow: hidden; cursor: pointer;
+}
+.hfill { position: absolute; left: 0; top: 0; height: 100%; background: #6ea8c0; opacity: 0.7; }
+button { font: inherit; color: inherit; }

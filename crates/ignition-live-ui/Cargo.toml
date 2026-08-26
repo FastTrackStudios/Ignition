@@ -1,0 +1,28 @@
+[package]
+name = "ignition-live-ui"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+# The Live / Program / Library views of the studio, as a library that
+# compiles for the desktop (Blitz) and for the browser (wasm32) alike.
+# Nothing here touches a window, a socket or a Bevy app: components
+# send `Command`s through `send` and read the `Playhead` the host
+# feeds them. The studio mounts these natively; `ignition-live-web`
+# mounts the same components on an iPad. r[impl studio.touch.ipad]
+
+[dependencies]
+ignition-core.workspace = true
+ignition-proto.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow = "1"
+tracing = "0.1"
+# Same rev as the studio — the two have to agree on one Dioxus.
+dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false, features = ["lib"] }
+
+[lib]
+name = "ignition_live_ui"
+path = "src/lib.rs"

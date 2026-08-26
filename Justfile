@@ -40,6 +40,17 @@ tailwind:
     tailwindcss -i apps/ignition-studio/tailwind.css \
         -o apps/ignition-studio/assets/tailwind.css
 
+# The Live view for an iPad: the same components as the desk, built
+# for the browser and copied to where the studio serves them from
+# (`apps/ignition-live-web/dist`, at `/` on `IGNITION_LIVE_PORT`).
+# Then `IGNITION_LIVE=1 just studio` and open the URL it prints.
+# See docs/ops/ipad-live.md. r[impl studio.touch.ipad]
+live-web:
+    NO_DOWNLOADS=1 dx build -p ignition-live-web --platform web --release
+    rm -rf apps/ignition-live-web/dist
+    mkdir -p apps/ignition-live-web/dist
+    cp -r target/dx/ignition-live-web/release/web/public/. apps/ignition-live-web/dist/
+
 # Windowed, for when fullscreen is in the way.
 studio-windowed *ARGS:
     IGNITION_FULLSCREEN=0 just studio {{ARGS}}

@@ -1,0 +1,28 @@
+[package]
+name = "ignition-live-web"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+# The Live view in a browser — an iPad on the venue's Wi-Fi. The
+# components are `ignition-live-ui`'s, unchanged; this crate is the
+# WebSocket bridge to the studio and the page around them. Built with
+# `just live-web` (dx, wasm32) and served by the studio at `/`.
+# r[impl studio.touch.ipad]
+
+[dependencies]
+ignition-live-ui.workspace = true
+ignition-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", features = ["web"] }
+wasm-bindgen = "0.2"
+futures-channel = "0.3"
+futures-util = { version = "0.3", default-features = false }
+web-sys = { version = "0.3", features = ["WebSocket", "MessageEvent", "CloseEvent", "Window", "Location"] }
+
+[[bin]]
+name = "ignition-live-web"
+path = "src/main.rs"

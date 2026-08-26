@@ -18,14 +18,14 @@ use ignition_core::CueList;
 
 /// One scene of the desk: its index in the cue list — what `DeskScene`
 /// fires — and the name without its bank prefix.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Scene {
     pub index: usize,
     pub name: String,
 }
 
 /// A bank of the old desk: what one page of its buttons held.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Bank {
     pub name: String,
     pub scenes: Vec<Scene>,

@@ -26,6 +26,9 @@ artnet_protocol = "0.4.4"
 bevy.workspace = true
 wgpu.workspace = true
 tracing = "0.1"
+# The bench runs with no host and no Bevy `LogPlugin` (the embedded path
+# disables it, since a host owns the subscriber), so it installs one itself.
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 gdtf = "0.3.0"
 # GLB decoding for the 3D model files inside a .gdtf zip (and nothing
 # else: no image decoding, no file-system import). Same version Bevy's own

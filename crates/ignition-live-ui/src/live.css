@@ -177,3 +177,29 @@
 .prog-label { width: 64px; min-height: 48px; display: flex; align-items: center;
               font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #8d8d99; }
 .prog-note { font-size: 11px; color: #8d8d99; align-self: center; }
+
+/* ── Touch ─────────────────────────────────────────────────────────── */
+/* A finger, not a mouse: every target grows past the desk's 44px, a
+   drag on a track moves the fader rather than the page, and nothing
+   selects or flashes blue under a long press. r[impl studio.touch] */
+@media (pointer: coarse) {
+  .view-key, .look-key, .macro-key, .desk-scene, .desk-bank-head, .desk-off,
+  .ptile, .tap-key, .tkey, .page-tab, .key-mode, .lib-body, .browse { min-height: 52px; }
+  .ptile { min-width: 96px; }
+  .hslider { height: 28px; border-radius: 14px; }
+  .ttrack, .hslider { touch-action: none; }
+  .views, .views * { -webkit-user-select: none; user-select: none;
+                     -webkit-tap-highlight-color: transparent; }
+  .ptile:hover, .lib-body:hover { background: #1b1b22; }
+}
+
+/* An iPad's logical width (1024 / 1180 px) is narrower than the desk;
+   the side columns give and the fader column scrolls sideways rather
+   than the whole page. r[impl studio.touch.ipad] */
+@media (max-width: 1280px) {
+  .live-col.scenes { flex: 0 0 220px; }
+  .live-col.right { flex: 0 0 280px; }
+  .tfader-row { overflow-x: auto; }
+  .tslot, .tfader { width: 80px; }
+  .ttrack { width: 56px; }
+}

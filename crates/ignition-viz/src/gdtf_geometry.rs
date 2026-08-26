@@ -920,11 +920,55 @@ fn normalize(s: &str) -> String {
 /// `nodes` receives every node's entity in pre-order — the order
 /// `GdtfNode::bar_cells` counts in — so a caller can hang something under
 /// a particular node of the file's tree after the fact.
+/// Mesh assets shared across every fixture of a type.
+///
+/// A profile's tree is one `GdtfNode` per model, and every fixture of
+/// that type is spawned from the same tree — so the mesh a node carries
+/// is the same mesh for all forty-eight pars, and adding it to
+/// `Assets<Mesh>` once per fixture made forty-eight GPU copies that the
+/// engine could not batch. Keyed on the node's own address (the library
+/// outlives the spawn) and the split, so the same model split the same
+/// way is one asset and one instanced draw.
+// r[impl viz.performance-budget] - one mesh asset per fixture model
+pub struct SharedMeshes<'a> {
+    pub assets: &'a mut Assets<Mesh>,
+    cache: HashMap<(usize, u64), Handle<Mesh>>,
+}
+
+impl<'a> SharedMeshes<'a> {
+    pub fn new(assets: &'a mut Assets<Mesh>) -> Self {
+        Self {
+            assets,
+            cache: HashMap::new(),
+        }
+    }
+
+    /// The handle for `key`, building the mesh with `build` only the
+    /// first time it is asked for.
+    pub fn get_or_add(&mut self, key: (usize, u64), build: impl FnOnce() -> Mesh) -> Handle<Mesh> {
+        if let Some(handle) = self.cache.get(&key) {
+            return handle.clone();
+        }
+        let handle = self.assets.add(build());
+        self.cache.insert(key, handle.clone());
+        handle
+    }
+
+    /// How many distinct meshes have been shared so far.
+    pub fn len(&self) -> usize {
+        self.cache.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.cache.is_empty()
+    }
+}
+
 pub fn spawn_gdtf_tree(
     commands: &mut Commands,
     parent: Entity,
     node: &GdtfNode,
-    meshes: &mut Assets<Mesh>,
+    meshes: &mut SharedMeshes<'_>,
     material: &Handle<StandardMaterial>,
     emitters: &mut Vec<Entity>,
     nodes: &mut Vec<Entity>,
@@ -950,8 +994,11 @@ pub fn spawn_gdtf_tree(
 
     match node.shape {
         GdtfShape::Box { size } => {
+            let key = (node as *const GdtfNode as usize, 0);
             commands.spawn((
-                Mesh3d(meshes.add(Cuboid::from_size(size.max(Vec3::splat(0.005))))),
+                Mesh3d(meshes.get_or_add(key, || {
+                    Cuboid::from_size(size.max(Vec3::splat(0.005))).into()
+                })),
                 MeshMaterial3d(material.clone()),
                 Transform::default(),
                 ChildOf(id),
@@ -960,8 +1007,11 @@ pub fn spawn_gdtf_tree(
         GdtfShape::Cylinder { height, radius } => {
             // Bevy's cylinder stands on +Y; this project's world and
             // GDTF's own geometry are Z-up, so it is laid over.
+            let key = (node as *const GdtfNode as usize, 0);
             commands.spawn((
-                Mesh3d(meshes.add(Cylinder::new(radius.max(0.005), height.max(0.005)))),
+                Mesh3d(meshes.get_or_add(key, || {
+                    Cylinder::new(radius.max(0.005), height.max(0.005)).into()
+                })),
                 MeshMaterial3d(material.clone()),
                 Transform::from_rotation(Quat::from_rotation_arc(Vec3::Y, Vec3::Z)),
                 ChildOf(id),
@@ -970,8 +1020,9 @@ pub fn spawn_gdtf_tree(
         // Already in the node's Z-up frame and at the model's size: the
         // body material is the venue's, never the file's.
         GdtfShape::Mesh(ref mesh) => {
+            let key = (node as *const GdtfNode as usize, 0);
             commands.spawn((
-                Mesh3d(meshes.add(mesh.clone())),
+                Mesh3d(meshes.get_or_add(key, || mesh.clone())),
                 MeshMaterial3d(material.clone()),
                 Transform::default(),
                 ChildOf(id),
@@ -1415,7 +1466,7 @@ mod tests {
                     &mut commands,
                     root,
                     &fixture.root,
-                    &mut meshes,
+                    &mut SharedMeshes::new(&mut meshes),
                     &material,
                     &mut emitters,
                     &mut nodes,
@@ -1534,7 +1585,7 @@ mod tests {
                 &mut commands,
                 root,
                 &fixture.root,
-                &mut meshes,
+                &mut SharedMeshes::new(&mut meshes),
                 &material,
                 &mut emitters,
                 &mut nodes,

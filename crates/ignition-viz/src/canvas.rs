@@ -103,14 +103,35 @@ impl ProceduralSource {
     /// The frame for song position `secs`, or `None` when the clock
     /// has not moved the picture since the last one — a stopped
     /// transport must not re-upload the same texture every render.
+    ///
+    /// Renders on the calling thread. The visualizer uses `advance` and
+    /// `render_cycles` instead, so the raster runs on a worker and the
+    /// frame is never held up by it.
     pub fn frame_at(&mut self, secs: f64) -> Option<&[u8]> {
+        let cycles = self.advance(secs)?;
+        self.frame = self.render_cycles(cycles);
+        Some(self.frame.as_slice())
+    }
+
+    /// Where the recipe is at `secs`, or `None` when it is where it was
+    /// last time — the picture has not moved and nothing needs drawing.
+    pub fn advance(&mut self, secs: f64) -> Option<f32> {
         let cycles = self.recipe.cycles_at(secs as f32, &self.masters);
         if self.last_cycles == Some(cycles) {
             return None;
         }
         self.last_cycles = Some(cycles);
-        self.frame = self.recipe.render(self.width, self.height, cycles);
-        Some(self.frame.as_slice())
+        Some(cycles)
+    }
+
+    /// The picture at `cycles`, RGBA at `size()`.
+    pub fn render_cycles(&self, cycles: f32) -> Vec<u8> {
+        self.recipe.render(self.width, self.height, cycles)
+    }
+
+    /// The recipe, for a worker to render with.
+    pub fn recipe(&self) -> &CanvasRecipe {
+        &self.recipe
     }
 }
 

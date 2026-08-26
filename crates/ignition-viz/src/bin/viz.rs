@@ -50,6 +50,11 @@ fn main() -> anyhow::Result<()> {
     // `--export out.mp4 --from-bar A --to-bar B`: the show rendered to a
     // video offline, frame by frame against the song's clock.
     let mut export: Option<PathBuf> = None;
+    // `--bench N`: N frames through the studio's embedded route on a
+    // headless device, timed. See `ignition_viz::bench`.
+    let mut bench: Option<u32> = None;
+    let mut bench_warmup = 60u32;
+    let mut bench_snapshot: Option<PathBuf> = None;
     let mut from_bar: Option<u32> = None;
     let mut to_bar: Option<u32> = None;
     let mut export_fps = 30u32;
@@ -118,6 +123,10 @@ fn main() -> anyhow::Result<()> {
             // it should play. An H.264 `.mp4` when built with the
             // `ffmpeg` feature; otherwise a PNG sequence in a directory.
             "--export" => export = Some(PathBuf::from(next("a path"))),
+            "--bench" => bench = Some(next("a frame count").parse()?),
+            "--bench-warmup" => bench_warmup = next("a frame count").parse()?,
+            // The bench's last frame as a PNG, at the studio's quality.
+            "--bench-snapshot" => bench_snapshot = Some(PathBuf::from(next("a path"))),
             "--from-bar" => from_bar = Some(next("a bar number, 1-based").parse()?),
             "--to-bar" => to_bar = Some(next("a bar number, exclusive").parse()?),
             "--fps" if fps_number => export_fps = next("frames per second").parse()?,
@@ -240,6 +249,13 @@ fn main() -> anyhow::Result<()> {
         None => None,
     };
     let headless = snapshot.is_some() || export.is_some();
+    // A benchmark runs headless but at the studio's quality: the
+    // question it answers is what the studio's viewport costs.
+    let overlay = if bench.is_some() {
+        Some(false)
+    } else {
+        overlay
+    };
     let draw_overlay = overlay.unwrap_or(!headless);
     let playback = Playback::load(
         &venue,
@@ -255,7 +271,7 @@ fn main() -> anyhow::Result<()> {
 
     // A still keeps the quality every existing snapshot was made at; a
     // window gets the same dials as the studio.
-    let quality = if headless {
+    let quality = if headless && bench.is_none() {
         RenderQuality::STILL
     } else {
         RenderQuality::live()
@@ -274,7 +290,8 @@ fn main() -> anyhow::Result<()> {
         show_props,
         camera: eye.zip(look),
         overlay: draw_overlay,
-        fps,
+        // The studio draws the fps readout; so does the bench.
+        fps: fps || bench.is_some(),
         exclude,
         beam_style,
         exposure,
@@ -286,9 +303,20 @@ fn main() -> anyhow::Result<()> {
         loopback,
         body_glow,
     };
-    match export {
-        Some(request) => run_export(config, playback, gdtf, &request)?,
-        None => run(config, playback, gdtf),
+    match (bench, export) {
+        (Some(frames), _) => {
+            let report = ignition_viz::bench::run_bench(
+                config,
+                playback,
+                gdtf,
+                frames,
+                bench_warmup,
+                bench_snapshot.as_deref(),
+            )?;
+            print!("{}", report.render());
+        }
+        (None, Some(request)) => run_export(config, playback, gdtf, &request)?,
+        (None, None) => run(config, playback, gdtf),
     }
     Ok(())
 }

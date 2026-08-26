@@ -31,7 +31,6 @@ use bevy::asset::{AssetPlugin, RenderAssetUsages};
 use bevy::camera::{Hdr, RenderTarget};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::image::Image;
-use bevy::light::VolumetricFog;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
@@ -135,6 +134,12 @@ pub struct RenderQuality {
     /// Whether the camera multisamples. Bloom and fog blur beam edges
     /// enough that turning it off is hard to see and easy to measure.
     pub msaa: bool,
+    /// The haze is marched at `1/fog_scale` of the picture's size — see
+    /// `haze.rs`. `1` marches it on the camera itself, at full size,
+    /// which is what every existing snapshot was made with; `0` picks
+    /// the scale from the picture's size so the haze camera stays
+    /// within `haze::HAZE_PIXEL_BUDGET` pixels whatever the viewport.
+    pub fog_scale: u32,
 }
 
 impl RenderQuality {
@@ -143,6 +148,7 @@ impl RenderQuality {
     pub const STILL: Self = Self {
         fog_steps: 192,
         msaa: true,
+        fog_scale: 1,
     };
 
     /// What a window or the studio renders at. `IGNITION_FOG_STEPS`
@@ -154,14 +160,23 @@ impl RenderQuality {
             .and_then(|v| v.trim().parse::<u32>().ok())
             .filter(|n| *n > 0)
             // 128 rather than 64: at 64 the raymarch quantises a mover's
-            // cone into rings and dots, which reads as a broken beam
-            // rather than a cheaper one. 128 is the fewest that stays a
-            // solid shaft at the studio's viewport; the frame budget is
-            // spent on that before anything else.
+            // cone into rings and dots, and a 1.7-degree beam vanishes
+            // outright for whole frames. 128 is the fewest that keeps
+            // every shaft a solid shaft; the frame budget is spent on
+            // that before anything else, and the haze camera's pixel
+            // budget is what pays for it.
             .unwrap_or(128);
+        // By pixel budget: the fog's cost is the haze camera's pixels
+        // times the steps, and a viewport twice as wide should not cost
+        // twice as much haze. `IGNITION_FOG_SCALE` forces a scale.
+        let fog_scale = std::env::var("IGNITION_FOG_SCALE")
+            .ok()
+            .and_then(|v| v.trim().parse::<u32>().ok())
+            .unwrap_or(0);
         Self {
             fog_steps,
             msaa: false,
+            fog_scale,
         }
     }
 
@@ -174,12 +189,25 @@ impl RenderQuality {
     /// such a shaft pays for the finer march; a room of pars keeps the
     /// live count.
     pub fn for_rig(self, venue: &Venue, gdtf: Option<&GdtfLibrary>) -> Self {
+        // An explicit `IGNITION_FOG_STEPS` is the operator comparing
+        // counts on their own GPU; the rig does not get to overrule it.
+        let forced = std::env::var("IGNITION_FOG_STEPS")
+            .ok()
+            .and_then(|v| v.trim().parse::<u32>().ok())
+            .filter(|n| *n > 0);
+        // The raise for a narrow shaft is a full-size dial: on the haze
+        // camera it doubles the fog's cost for a beam the pixel budget
+        // has already made a couple of pixels wide, and 128 steps keep
+        // that beam solid — see `haze.rs`.
+        let steps = match (forced, self.fog_scale) {
+            (Some(forced), _) => forced,
+            (None, 1) => fog_steps_for(self.fog_steps, narrowest_shaft_full_angle_deg(venue, gdtf)),
+            (None, _) => self.fog_steps,
+        };
         Self {
-            fog_steps: fog_steps_for(
-                self.fog_steps,
-                narrowest_shaft_full_angle_deg(venue, gdtf),
-            ),
+            fog_steps: steps,
             msaa: self.msaa,
+            fog_scale: self.fog_scale,
         }
     }
 }
@@ -286,7 +314,7 @@ impl Plugin for VizPlugin {
             .insert_resource(GdtfLibraryRes(
                 self.gdtf.lock().expect("gdtf library lock").take(),
             ))
-            .add_plugins(BeamPlugin)
+            .add_plugins((BeamPlugin, crate::haze::HazePlugin))
             // Room for the whole rig's lights before the GPU clustering
             // buffers have to grow. Bevy resizes them when they overflow
             // and says so — "the scene lighting may have been corrupted
@@ -727,27 +755,18 @@ pub(crate) fn camera_bundle(
             Some((eye, target)) => ViewPreset::free_transform(eye, target),
             None => view.transform(min, max),
         },
-        // Only does anything when there is a `FogVolume` in the scene,
-        // so it costs nothing in `BeamStyle::Shader` and there is no
-        // reason to make the camera's shape depend on the beam style.
-        VolumetricFog {
-            // No environment map, so nothing should be lit by one.
-            ambient_intensity: 0.0,
-            // A still goes well above the default 64: a church
-            // auditorium is ~20m deep and a beam crosses most of it, so
-            // the default spacing lands visibly wide and every shaft
-            // comes out in stair-steps. Cost is per-pixel raymarching,
-            // which a live view cannot afford three times over — see
-            // `RenderQuality`.
-            step_count: quality.fog_steps,
-            // No jitter. It offsets each ray's start depth to trade
-            // banding for noise, and Bevy's own docs say it is meant for
-            // use *with* temporal antialiasing — which resolves that
-            // noise across frames. There is no TAA here, so all it did
-            // was speckle every lit surface. The step count above is
-            // what buys smoothness instead.
-            jitter: 0.0,
-            ..default()
+        // The haze: marched on this camera at full size for a still, or
+        // on a camera of its own at a fraction of the size for a live
+        // view — `haze.rs` reads this and sets up whichever. The step
+        // count is per pixel; a still goes well above the default 64
+        // because a beam crossing a 20 m room at the default spacing
+        // comes out in stair-steps, and a live view pays for fewer
+        // pixels instead. Neither jitters: Bevy's jitter is meant for
+        // use with temporal antialiasing, and without it all it did
+        // was speckle every lit surface.
+        crate::haze::HazeView {
+            fog_steps: quality.fog_steps,
+            scale: quality.fog_scale,
         },
     )
 }

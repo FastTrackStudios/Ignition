@@ -232,6 +232,51 @@ impl ChannelMap {
     }
 }
 
+/// The DMX transmitter's state, flattened for display.
+///
+/// Lives here rather than in the visualizer so the studio's `Playhead`
+/// — which carries it back to every surface, including a browser on an
+/// iPad — is a plain serialisable record with no Bevy behind it. The
+/// visualizer fills it from `ignition_io::Status`; the overlay and the
+/// studio's OUTPUT key read it without a socket.
+// r[impl dmx.output-toggle] - the transmit state as a wire record
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct OutputSummary {
+    pub enabled: bool,
+    /// Protocol names in use — `sACN`, `Art-Net` — in that order.
+    pub protocols: Vec<String>,
+    /// How many universes are configured.
+    pub universes: usize,
+    /// Frames per second per universe, as the sender measures it.
+    pub hz: f32,
+    /// The first error the sender or the bind reported.
+    pub error: Option<String>,
+    /// One line per universe, for the surface's detail.
+    pub lines: Vec<String>,
+}
+
+impl OutputSummary {
+    /// The overlay's line: `OUT sACN ×4 44Hz`, `OUT off`, or the error.
+    // r[impl dmx.output-toggle] - the state, on the picture
+    pub fn line(&self) -> String {
+        if let Some(e) = &self.error {
+            return format!("OUT ERROR {e}");
+        }
+        if !self.enabled {
+            return "OUT off".to_string();
+        }
+        if self.universes == 0 {
+            return "OUT on (no universes)".to_string();
+        }
+        let protocols = if self.protocols.is_empty() {
+            "none".to_string()
+        } else {
+            self.protocols.join("+")
+        };
+        format!("OUT {protocols} ×{} {:.0}Hz", self.universes, self.hz)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

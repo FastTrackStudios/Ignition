@@ -86,7 +86,7 @@ impl DmxOutput {
                 enabled: self.enabled,
                 ..Default::default()
             },
-            Some(sender) => OutputSummary::of(&sender.status(), self.enabled),
+            Some(sender) => summarize(&sender.status(), self.enabled),
         }
     }
 
@@ -97,78 +97,43 @@ impl DmxOutput {
     }
 }
 
-/// The transmitter's state, flattened for display. Its own type rather
-/// than `ignition_io::Status` so the overlay and the studio's button can
-/// be tested without a socket.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct OutputSummary {
-    pub enabled: bool,
-    /// Protocol names in use — `sACN`, `Art-Net` — in that order.
-    pub protocols: Vec<String>,
-    /// How many universes are configured.
-    pub universes: usize,
-    /// Frames per second per universe, as the sender measures it.
-    pub hz: f32,
-    /// The first error the sender or the bind reported.
-    pub error: Option<String>,
-    /// One line per universe, for the surface's detail.
-    pub lines: Vec<String>,
-}
+/// The transmitter's state, flattened for display — the wire record in
+/// `ignition_proto`, filled here from the sender's own status.
+pub use ignition_proto::OutputSummary;
 
-impl OutputSummary {
-    fn of(status: &Status, enabled: bool) -> Self {
-        let name = |p: &Protocol| match p {
-            Protocol::Sacn => "sACN",
-            Protocol::Artnet => "Art-Net",
-        };
-        let mut protocols: Vec<String> = Vec::new();
-        let mut lines = Vec::new();
-        let mut hz = 0.0f32;
-        for u in &status.per_universe {
-            for p in &u.protocols {
-                let n = name(p).to_string();
-                if !protocols.contains(&n) {
-                    protocols.push(n);
-                }
+/// Flatten the sender's status for the surface.
+fn summarize(status: &Status, enabled: bool) -> OutputSummary {
+    let name = |p: &Protocol| match p {
+        Protocol::Sacn => "sACN",
+        Protocol::Artnet => "Art-Net",
+    };
+    let mut protocols: Vec<String> = Vec::new();
+    let mut lines = Vec::new();
+    let mut hz = 0.0f32;
+    for u in &status.per_universe {
+        for p in &u.protocols {
+            let n = name(p).to_string();
+            if !protocols.contains(&n) {
+                protocols.push(n);
             }
-            hz = hz.max(u.hz);
-            let names: Vec<&str> = u.protocols.iter().map(name).collect();
-            let via = if names.is_empty() {
-                "no socket".to_string()
-            } else {
-                names.join(" + ")
-            };
-            lines.push(format!("U{} {via} {:.0}Hz", u.universe, u.hz));
         }
-        lines.extend(status.errors.iter().map(|e| format!("error: {e}")));
-        Self {
-            enabled,
-            protocols,
-            universes: status.per_universe.len(),
-            hz,
-            error: status.errors.first().cloned(),
-            lines,
-        }
-    }
-
-    /// The overlay's line: `OUT sACN ×4 44Hz`, `OUT off`, or the error.
-    // r[impl dmx.output-toggle] - the state, on the picture
-    pub fn line(&self) -> String {
-        if let Some(e) = &self.error {
-            return format!("OUT ERROR {e}");
-        }
-        if !self.enabled {
-            return "OUT off".to_string();
-        }
-        if self.universes == 0 {
-            return "OUT on (no universes)".to_string();
-        }
-        let protocols = if self.protocols.is_empty() {
-            "none".to_string()
+        hz = hz.max(u.hz);
+        let names: Vec<&str> = u.protocols.iter().map(name).collect();
+        let via = if names.is_empty() {
+            "no socket".to_string()
         } else {
-            self.protocols.join("+")
+            names.join(" + ")
         };
-        format!("OUT {protocols} ×{} {:.0}Hz", self.universes, self.hz)
+        lines.push(format!("U{} {via} {:.0}Hz", u.universe, u.hz));
+    }
+    lines.extend(status.errors.iter().map(|e| format!("error: {e}")));
+    OutputSummary {
+        enabled,
+        protocols,
+        universes: status.per_universe.len(),
+        hz,
+        error: status.errors.first().cloned(),
+        lines,
     }
 }
 

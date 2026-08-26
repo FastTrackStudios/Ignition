@@ -13,10 +13,6 @@
 //! The seven busking features of the profile are controls, not
 //! settings (`r[studio.views.seven-busking-features]`).
 
-// Nothing is dead here; it is mounted when `main.rs` hosts `live::Views`
-// (and its stylesheet, `live::LIVE_CSS`). Until the integrator wires
-// that, the crate root does not reach these items. Remove once mounted.
-
 // r[impl studio.views] - the Live view, and the Live/Program switch
 // r[impl studio.views.seven-busking-features] - looks, macros, pages, filters, protection, speed, params
 // r[impl studio.live.desk-scenes] - the desk banks beside the looks
@@ -26,13 +22,13 @@
 use crate::command::{Command, PageMove, Playhead, SpeedKey};
 use crate::library::{self, Library, css_of, look_css, macro_shape, use_operator};
 use crate::operators::Kind;
-use crate::{HSlider, Surface, send, use_desk, use_playhead};
+use crate::{Bootstrap, HSlider, Surface, send, use_desk, use_playhead};
 use dioxus::prelude::*;
 use ignition_core::profile::LookKind;
 use ignition_core::{AttrFilter, Selection, Speed};
 
-/// The styles for every panel in this family. `main.rs` includes it
-/// beside `studio.css`.
+/// The styles for every panel in this family. The studio includes it
+/// beside `studio.css`; the web app includes it beside its own base.
 pub const LIVE_CSS: &str = include_str!("live.css");
 
 /// The two views of a mode.
@@ -616,8 +612,7 @@ pub fn Masters() -> Element {
 
 /// The Live view.
 #[component]
-pub fn Live(surface: Surface) -> Element {
-    let banks = use_hook(|| crate::desk::load(&crate::venue_dir()));
+pub fn Live(surface: Surface, #[props(default)] banks: Vec<crate::desk::Bank>) -> Element {
     let mut browse = use_signal(|| false);
     rsx! {
         section { class: "live",
@@ -652,8 +647,9 @@ pub fn Live(surface: Surface) -> Element {
 /// view is chrome over one engine.
 // r[impl studio.views] - switchable at any time without losing state
 #[component]
-pub fn Views(surface: Surface) -> Element {
-    let operator = use_context_provider(|| Signal::new(crate::operators::Operator::current()));
+pub fn Views(boot: Bootstrap) -> Element {
+    let operator = use_context_provider(|| Signal::new(boot.operator.clone()));
+    let surface = boot.surface.clone();
     let mut view = use_signal(|| {
         if operator().default_view == "program" {
             View::Program
@@ -661,10 +657,17 @@ pub fn Views(surface: Surface) -> Element {
             View::Live
         }
     });
+    let lan = boot.lan.join("  ");
     rsx! {
         div { class: "views",
             div { class: "view-strip",
                 span { class: "operator", "{operator().name}" }
+                // Where an iPad connects, when the studio is serving
+                // (`IGNITION_LIVE=1`). Typed into Safari; nothing to tap.
+                // r[impl studio.touch.ipad] - the address is on the strip
+                if !lan.is_empty() {
+                    span { class: "lan", "{lan}" }
+                }
                 button {
                     class: if view() == View::Program { "view-key on" } else { "view-key" },
                     onpointerdown: move |_| view.set(View::Program),
@@ -677,7 +680,7 @@ pub fn Views(surface: Surface) -> Element {
                 }
             }
             div { class: if view() == View::Live { "view" } else { "view hidden" },
-                Live { surface: surface.clone() }
+                Live { surface: surface.clone(), banks: boot.banks.clone() }
             }
             div { class: if view() == View::Program { "view" } else { "view hidden" },
                 crate::program::Program { surface: surface.clone() }
@@ -740,6 +743,30 @@ mod tests {
     }
 
     /// r[verify studio.touch]
+    /// Under a finger the targets are larger still, and a track drag
+    /// does not scroll the page.
+    // r[impl studio.touch] - the coarse-pointer block
+    #[test]
+    fn coarse_pointer_targets_are_larger_and_tracks_do_not_scroll() {
+        let start = LIVE_CSS
+            .find("@media (pointer: coarse)")
+            .expect("a coarse-pointer block");
+        let block = &LIVE_CSS[start..];
+        let block = &block[..block.find("\n}\n").expect("block end")];
+        let min = block
+            .split("min-height:")
+            .nth(1)
+            .and_then(|s| s.trim().split("px").next())
+            .and_then(|n| n.trim().parse::<u32>().ok())
+            .expect("a min-height");
+        assert!(min >= 44, "coarse targets are {min}px");
+        for class in [".tkey", ".ptile", ".look-key", ".tap-key", ".view-key"] {
+            assert!(block.contains(class), "{class} is not enlarged for touch");
+        }
+        assert!(block.contains("touch-action: none"));
+        assert!(block.contains("user-select: none"));
+    }
+
     #[test]
     fn touch_targets_are_at_least_44px() {
         // The stylesheet is the contract: every Live control class

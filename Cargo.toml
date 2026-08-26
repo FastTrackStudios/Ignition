@@ -11,8 +11,10 @@ members = [
     "crates/ignition-song",
     "crates/ignition-viz",
     "crates/ignition-io",
+    "crates/ignition-live-ui",
     "apps/ignition-engine",
     "apps/ignition-studio",
+    "apps/ignition-live-web",
 ]
 
 [workspace.package]
@@ -29,6 +31,7 @@ ignition-core = { path = "crates/ignition-core" }
 ignition-song = { path = "crates/ignition-song" }
 ignition-viz = { path = "crates/ignition-viz" }
 ignition-io = { path = "crates/ignition-io" }
+ignition-live-ui = { path = "crates/ignition-live-ui" }
 
 # The DAW domain, from the sibling `daw` checkout.
 #

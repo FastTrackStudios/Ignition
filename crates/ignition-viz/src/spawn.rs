@@ -61,6 +61,18 @@ const VOLUMETRIC_HAZE_SCALE: f32 = 0.05;
 /// dial that matters and this one is left at the engine's default.
 const HAZE_SCATTERING: f32 = 0.3;
 
+/// How much of the light crossing a metre of haze is lost to it —
+/// Bevy's fog volume computes `density * (absorption + scattering)` per
+/// metre, and the haze camera's occluders write the same term so the
+/// composite dims the room exactly as the in-camera fog would have.
+// r[impl viz.performance-budget] - one extinction, two renderers
+pub fn haze_extinction_per_metre(haze: f32) -> f32 {
+    haze * VOLUMETRIC_HAZE_SCALE * (HAZE_ABSORPTION + HAZE_SCATTERING)
+}
+
+/// `FogVolume::absorption`, as spawned below.
+const HAZE_ABSORPTION: f32 = 0.05;
+
 /// The same dial for the hand-drawn cone, whose brightness is a plain
 /// multiplier on an additive material rather than a density.
 const SHADER_HAZE_SCALE: f32 = 10.0;
@@ -461,6 +473,15 @@ pub fn bar_strip(beams: &[(Vec3, Quat)]) -> Option<(Vec3, Quat, f32, f32)> {
     Some((centre, rot, length * 0.5 + pitch * 0.5, pitch))
 }
 
+/// A cache key for one way of splitting a QLC+ mesh: the split height's
+/// bits and which half, or zero for the whole.
+fn split_key(split: Option<(f32, bool)>) -> u64 {
+    match split {
+        None => 0,
+        Some((z, upper)) => (u64::from(z.to_bits()) << 1) | u64::from(upper) | (1 << 63),
+    }
+}
+
 /// Spawns a bar's one emitter: the strip's centre pose under the node
 /// the cells hang from (so the file's own tree carries it — see
 /// `GdtfNode::bar_cells`), a thin emissive face per cell tiling the
@@ -714,21 +735,58 @@ impl CanvasClock {
 // r[impl canvas.clip-is-a-source]
 enum CanvasSource {
     Clip(VideoSource),
-    Procedural(crate::canvas::ProceduralSource),
+    /// A generated picture, rastered on the compute task pool. The
+    /// three procedural canvases at Norco cost three milliseconds a
+    /// frame on the render thread — a third of the studio's whole
+    /// budget — for pixels no one needs *this* frame rather than next.
+    /// So a frame is asked for when the clock moves and collected when
+    /// it is ready; at most one is in flight per canvas, and the
+    /// picture it shows is one frame behind the clock, which on a
+    /// screen across the room is nothing.
+    // r[impl viz.performance-budget] - procedural canvases raster off the frame
+    Procedural {
+        source: crate::canvas::ProceduralSource,
+        pending: Option<bevy::tasks::Task<Vec<u8>>>,
+        frame: Vec<u8>,
+    },
 }
 
 impl CanvasSource {
     fn size(&self) -> (u32, u32) {
         match self {
             CanvasSource::Clip(v) => v.size(),
-            CanvasSource::Procedural(p) => p.size(),
+            CanvasSource::Procedural { source, .. } => source.size(),
         }
     }
 
     fn frame_at(&mut self, secs: f64) -> Option<&[u8]> {
         match self {
             CanvasSource::Clip(v) => v.frame_at(secs),
-            CanvasSource::Procedural(p) => p.frame_at(secs),
+            CanvasSource::Procedural {
+                source,
+                pending,
+                frame,
+            } => {
+                let mut fresh = false;
+                if let Some(task) = pending.as_mut()
+                    && let Some(done) = bevy::tasks::futures::check_ready(task)
+                {
+                    *frame = done;
+                    *pending = None;
+                    fresh = true;
+                }
+                if pending.is_none()
+                    && let Some(cycles) = source.advance(secs)
+                {
+                    let recipe = source.recipe().clone();
+                    let (width, height) = source.size();
+                    *pending = Some(
+                        bevy::tasks::AsyncComputeTaskPool::get()
+                            .spawn(async move { recipe.render(width, height, cycles) }),
+                    );
+                }
+                fresh.then_some(frame.as_slice())
+            }
         }
     }
 }
@@ -1097,7 +1155,11 @@ pub fn spawn_venue(
                     // two renders.
                     playing.push(CanvasVideo {
                         canvas,
-                        source: CanvasSource::Procedural(source),
+                        source: CanvasSource::Procedural {
+                            source,
+                            pending: None,
+                            frame: Vec::new(),
+                        },
                         image: handle,
                     });
                 }
@@ -1196,7 +1258,7 @@ pub fn spawn_venue(
             FogVolume {
                 density_factor: settings.haze * VOLUMETRIC_HAZE_SCALE,
                 scattering: HAZE_SCATTERING,
-                absorption: 0.05,
+                absorption: HAZE_ABSORPTION,
                 ..default()
             },
             Transform {
@@ -1209,6 +1271,42 @@ pub fn spawn_venue(
     }
 
     let throw = BeamThrow::for_venue(venue);
+    // Which fixtures get a shadow map: the brightest per-direction, up
+    // to the budget. Decided over the whole rig before anything is
+    // spawned, because it is a ranking, not a per-fixture property.
+    // r[impl viz.performance-budget] - shadow maps are budgeted across the rig
+    let shadowed = {
+        let candidates: Vec<crate::budget::ShadowCandidate> = venue
+            .fixtures
+            .iter()
+            .map(|f| {
+                let manufacturer = f.manufacturer.as_deref().unwrap_or("");
+                let model = f.model.as_deref().unwrap_or("");
+                let profile = gdtf_library
+                    .0
+                    .as_ref()
+                    .and_then(|lib| lib.find(manufacturer, model));
+                let optics = fixture_optics(f, profile);
+                let candela = peak_candela(
+                    power_watts(manufacturer, model) * LUMENS_PER_WATT,
+                    optics.beam_half_deg,
+                );
+                crate::budget::ShadowCandidate {
+                    candela,
+                    cuts_a_shaft: f.patched
+                        && settings.beam_style == BeamStyle::Volumetric
+                        && candela >= SHAFT_CANDELA_THRESHOLD,
+                }
+            })
+            .collect();
+        (
+            crate::budget::shadow_budget(&candidates, crate::budget::shadow_budget_setting()),
+            crate::budget::shadow_budget(&candidates, crate::budget::volumetric_budget()),
+        )
+    };
+    let (shadowed, volumetric) = shadowed;
+    // One mesh asset per model, shared by every fixture of the type.
+    let mut shared_meshes = gdtf_geometry::SharedMeshes::new(&mut meshes);
     for (index, f) in venue.fixtures.iter().enumerate() {
         // Unpatched channels (Norco's phantom 19/98) have no real
         // position — the patch reports (0,0,0), which would render as a
@@ -1307,7 +1405,7 @@ pub fn spawn_venue(
                 &mut commands,
                 root,
                 &gdtf.root,
-                &mut meshes,
+                &mut shared_meshes,
                 &body_material,
                 &mut emitters,
                 &mut nodes,
@@ -1332,7 +1430,7 @@ pub fn spawn_venue(
                     half_length,
                     pitch,
                     &cells,
-                    &mut meshes,
+                    shared_meshes.assets,
                     &mut standard,
                     &mut beams,
                     settings.haze,
@@ -1384,7 +1482,10 @@ pub fn spawn_venue(
                     let anchor =
                         f.orientation().inverse() * (visual.position - f.position.to_vec3());
                     commands.spawn((
-                        Mesh3d(meshes.add(asset.to_bevy_mesh(yoke_split))),
+                        Mesh3d(shared_meshes.get_or_add(
+                            (std::ptr::from_ref(asset) as usize, split_key(yoke_split)),
+                            || asset.to_bevy_mesh(yoke_split),
+                        )),
                         MeshMaterial3d(body_material.clone()),
                         Transform {
                             translation: anchor,
@@ -1426,7 +1527,10 @@ pub fn spawn_venue(
                                 ))
                                 .id();
                             commands.spawn((
-                                Mesh3d(meshes.add(asset.to_bevy_mesh(head_split))),
+                                Mesh3d(shared_meshes.get_or_add(
+                                    (std::ptr::from_ref(asset) as usize, split_key(head_split)),
+                                    || asset.to_bevy_mesh(head_split),
+                                )),
                                 MeshMaterial3d(body_material.clone()),
                                 Transform {
                                     rotation: *pre_rotate,
@@ -1475,7 +1579,23 @@ pub fn spawn_venue(
                 EmitterState::default(),
                 optics,
             ));
-            if settings.beam_style == BeamStyle::Shader {
+            // Whether this fixture is bright enough per-direction to
+            // light the air into a visible shaft, or only bright enough
+            // to light what it points at. See `SHAFT_CANDELA_THRESHOLD`.
+            let candela = peak_candela(
+                power_watts(manufacturer, model) * LUMENS_PER_WATT,
+                optics.beam_half_deg,
+            );
+            let cuts_a_shaft =
+                settings.beam_style == BeamStyle::Volumetric && candela >= SHAFT_CANDELA_THRESHOLD;
+            // A shaft-cutter outside the volumetric budget — a par, at
+            // Norco — can still show in the air, as the hand-drawn
+            // additive cone: no shadow map, no raymarch, one translucent
+            // mesh. Opt-in, see `budget::par_cones`.
+            // r[impl viz.performance-budget] - over the volumetric budget, the cheap cone or nothing
+            let drawn_cone = settings.beam_style == BeamStyle::Shader
+                || (cuts_a_shaft && !volumetric[index] && crate::budget::par_cones());
+            if drawn_cone {
                 commands.spawn((
                     FixtureBeam,
                     Mesh3d(beam_cone.clone()),
@@ -1493,26 +1613,19 @@ pub fn spawn_venue(
                     ChildOf(emitter),
                 ));
             }
-            // Whether this fixture is bright enough per-direction to
-            // light the air into a visible shaft, or only bright enough
-            // to light what it points at. See `SHAFT_CANDELA_THRESHOLD`.
-            let candela = peak_candela(
-                power_watts(manufacturer, model) * LUMENS_PER_WATT,
-                optics.beam_half_deg,
-            );
-            let cuts_a_shaft =
-                settings.beam_style == BeamStyle::Volumetric && candela >= SHAFT_CANDELA_THRESHOLD;
-
             let mut spill = commands.spawn((
                 FixtureSpill,
                 SpotLight {
                     intensity: 0.0,
                     range: throw.spill_range(),
-                    // Shadow maps are what volumetric shafts are
-                    // raymarched against, and they are the expensive
-                    // part — so only the fixtures that actually cast a
-                    // shaft pay for them.
-                    shadow_maps_enabled: cuts_a_shaft,
+                    // A shadow map is a render pass per light per
+                    // frame and a texture the fog samples at every
+                    // step — the budgeted part of the frame. The
+                    // fog pass itself skips the shadow fetch for a
+                    // light without one, so a par still cuts its cone
+                    // in the haze; it just cuts nobody's silhouette
+                    // out of it. See `budget.rs`.
+                    shadow_maps_enabled: shadowed[index],
                     ..default()
                 },
                 Transform::default(),
@@ -1520,8 +1633,15 @@ pub fn spawn_venue(
                 Name::new(format!("{} spill", f.name)),
                 ChildOf(emitter),
             ));
-            if cuts_a_shaft {
-                spill.insert(VolumetricLight);
+            if cuts_a_shaft && volumetric[index] {
+                // On the haze camera's layer too, so the fog it marches
+                // has this light in its clusters. Only volumetric lights
+                // go there: the fog loop skips the others, but skipping
+                // is not free at every step of every pixel.
+                spill.insert((
+                    VolumetricLight,
+                    bevy::camera::visibility::RenderLayers::from_layers(&[0, crate::haze::HAZE_LAYER]),
+                ));
             }
         }
     }
@@ -2318,7 +2438,7 @@ mod body_and_bar_tests {
                 &mut commands,
                 root,
                 &fixture.root,
-                &mut meshes,
+                &mut gdtf_geometry::SharedMeshes::new(&mut meshes),
                 &material,
                 &mut emitters,
                 &mut nodes,

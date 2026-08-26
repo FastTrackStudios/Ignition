@@ -106,7 +106,7 @@ impl Role {
 }
 
 /// A profile: the vocabulary, and the programming built on it.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 // r[impl profile.declares-vocabulary]
 // r[impl profile.several-may-exist] - a profile is a data value, any number may be loaded
 // r[impl files.required-roles] - the required vocabulary is declared here, not fixed in software

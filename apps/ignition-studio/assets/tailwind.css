@@ -190,11 +190,17 @@
   .grid {
     display: grid;
   }
+  .hidden {
+    display: none;
+  }
   .h-16 {
     height: calc(var(--spacing) * 16);
   }
   .w-21 {
     width: calc(var(--spacing) * 21);
+  }
+  .grow {
+    flex-grow: 1;
   }
   .cursor-pointer {
     cursor: pointer;

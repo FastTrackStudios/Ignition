@@ -345,6 +345,7 @@ fn apply_placement(window: &dyn dioxus_native::winit::window::Window, spec: &Win
 pub fn WindowRoot(host: HostId) -> Element {
     let mut snap = use_signal(|| snapshot(host));
     let window = dioxus_native::use_window();
+    crate::provide_playhead();
 
     // Record the OS window, and place it. Once, when the window exists.
     {
@@ -402,7 +403,7 @@ pub fn WindowRoot(host: HostId) -> Element {
 
     rsx! {
         style { {include_str!("studio.css")} }
-        style { {crate::live::LIVE_CSS} }
+        style { {ignition_live_ui::live::LIVE_CSS} }
         style { {PANEL_CSS} }
         document::Stylesheet { href: crate::TAILWIND }
         div { class: "window",
@@ -420,7 +421,7 @@ pub fn WindowRoot(host: HostId) -> Element {
                             div { class: "viewport", crate::Viewport {} }
                         }
                         PanelFrame { host, panel: Panel::Busking, can_pop, popped,
-                            crate::live::Views { surface: surface.clone() }
+                            ignition_live_ui::live::Views { boot: crate::bootstrap() }
                         }
                     }
                 }
@@ -460,9 +461,9 @@ fn PanelBody(panel: Panel) -> Element {
         Panel::Visualizer => rsx! { div { class: "viewport", crate::Viewport {} } },
         Panel::Transport => rsx! { crate::Transport {} },
         // The desk: the Live / Program views over the busking surface.
-        Panel::Busking => rsx! { crate::live::Views { surface: surface.clone() } },
+        Panel::Busking => rsx! { ignition_live_ui::live::Views { boot: crate::bootstrap() } },
         Panel::Library => rsx! { crate::library::Library { surface: surface.clone() } },
-        Panel::Palettes => rsx! { crate::live::Palettes { surface: surface.clone() } },
+        Panel::Palettes => rsx! { ignition_live_ui::live::Palettes { surface: surface.clone() } },
         Panel::Programmer => rsx! { crate::program::Programmer { surface: surface.clone() } },
         other => rsx! {
             div { class: "placeholder",

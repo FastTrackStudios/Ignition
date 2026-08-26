@@ -17,19 +17,22 @@ use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig};
 use std::any::Any;
 
 mod command;
-mod desk;
-mod faders;
 mod layout;
-mod library;
-mod live;
 mod live_commands;
-mod operators;
-mod program;
+mod live_web;
 mod remote;
 mod sound;
 mod viz_widget;
 mod windows;
-use command::{Command, PageMove, Sender, SpeedKey};
+use command::{Command, PageMove, SpeedKey};
+// The Live / Program / Library views and the surface types live in
+// `ignition-live-ui`, so the same components serve an iPad from
+// `live_web`. The studio re-exports the names its own panels use.
+// r[impl studio.touch.ipad] - one UI crate, mounted natively here
+use ignition_live_ui::{
+    ColorChip, CueList, HSlider, PlayheadFeed, Row, Surface, desk, faders, library, operators,
+    program, send, use_desk, use_playhead,
+};
 
 use viz_widget::VizWidget;
 
@@ -56,13 +59,12 @@ const PROJECT: &str = "/home/cody/Downloads/Bye Bye Bye/Bye Bye Bye.RPP";
 
 /// The one UI-to-visualizer channel.
 ///
-/// A pair of globals rather than props or context, because the two ends
-/// are taken at different times by parts of the tree that cannot hand
-/// anything to each other: components need the sender during render, and
-/// the Blitz widget needs the receiver when it is constructed. There is
-/// exactly one window and exactly one channel, so the alternative is
-/// ceremony for its own sake.
-static TX: std::sync::OnceLock<Sender> = std::sync::OnceLock::new();
+/// Globals rather than props or context, because the two ends are taken
+/// at different times by parts of the tree that cannot hand anything to
+/// each other: components send through `ignition_live_ui::send` (which
+/// `main` points at the sender), and the Blitz widget needs the
+/// receiver when it is constructed. There is exactly one channel, so
+/// the alternative is ceremony for its own sake.
 static RX: std::sync::Mutex<Option<command::Receiver>> = std::sync::Mutex::new(None);
 /// The return path: the widget publishes the playhead, components read
 /// it. Same one-window reasoning as the pair above.
@@ -113,7 +115,13 @@ fn main() -> anyhow::Result<()> {
     // time: a missing port or device logs and the surface carries on.
     remote::start(tx.clone());
     sound::start(tx.clone());
-    let _ = TX.set(tx);
+    // Every component's `send`, in every window, is this sender.
+    {
+        let tx = tx.clone();
+        ignition_live_ui::install(move |command| {
+            let _ = tx.send(command);
+        });
+    }
     *RX.lock().expect("fresh mutex") = Some(rx);
 
     let (state_tx, state_rx) = command::state_channel();
@@ -121,7 +129,7 @@ fn main() -> anyhow::Result<()> {
     // The return path to the hardware: fader positions, key states and
     // the page, back to whatever surface asked for them.
     remote::start_feedback(state_rx.clone());
-    let _ = STATE_RX.set(state_rx);
+    let _ = STATE_RX.set(state_rx.clone());
 
     let venue = Venue::load(venue_dir())?;
     let surface = Surface {
@@ -193,6 +201,13 @@ fn main() -> anyhow::Result<()> {
             .collect(),
         cues: load_cue_names(SHOW).unwrap_or_default(),
     };
+
+    // The same surface, to an iPad — opt-in, see `live_web`. Started
+    // here rather than in a component because it needs the sender and
+    // the watch, not a window.
+    // r[impl studio.touch.ipad] - the studio serves the Live view
+    let lan = live_web::start(tx.clone(), state_rx.clone(), surface.clone());
+    let _ = LAN.set(lan);
 
     // Blitz creates the wgpu device, so anything Bevy needs has to be
     // asked for here. Borrowing somebody else's device means inheriting
@@ -307,45 +322,6 @@ fn pick_monitor(
     }
 }
 
-/// A colour palette entry as the surface draws it: the name to send, and
-/// the colour to show. A colour pool that does not show its colours is a
-/// list of words, which is the whole reason to have a pool.
-#[derive(Clone, PartialEq)]
-struct ColorChip {
-    name: String,
-    css: String,
-}
-
-/// The named things the surface offers, resolved once from the venue.
-#[derive(Clone, Props, PartialEq)]
-struct Surface {
-    groups: Vec<String>,
-    colors: Vec<ColorChip>,
-    /// Multi-colour palette entries, drawn as a split disc — the way a
-    /// grandMA3 colour preset holding several colours shows in its
-    /// picker.
-    splits: Vec<ColorChip>,
-    focus: Vec<String>,
-    cues: Vec<Row>,
-}
-
-/// One line of the cue list: a cue the operator can GO, or a hit the
-/// song fires. Hits are shown because an operator wants to see what is
-/// coming and what just landed; they are not in the GO order — see
-/// `docs/spec/triggers.md`.
-#[derive(Debug, Clone, PartialEq)]
-enum Row {
-    Cue {
-        index: usize,
-        name: String,
-    },
-    Hit {
-        index: usize,
-        name: String,
-        at: ignition_core::Bars,
-    },
-}
-
 /// The groups worth a button. The venue carries 127, most of them
 /// numeric slices nobody busks with; these are the role groups the rig
 /// was actually laid out into.
@@ -382,6 +358,49 @@ fn surface() -> &'static Surface {
     SURFACE
         .get()
         .expect("surface is set before any window renders")
+}
+
+/// The URLs the Live server listens on, if it is running; shown on the
+/// mode strip so they can be typed into Safari.
+static LAN: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+
+/// What every Live host draws from — the desk's own copy of what the
+/// browser is sent at connect, so the two views are one set of data.
+// r[impl studio.touch.presence] - desk and iPad start from the same bootstrap
+pub fn bootstrap() -> ignition_live_ui::Bootstrap {
+    ignition_live_ui::Bootstrap {
+        surface: surface().clone(),
+        banks: desk::load(&venue_dir()),
+        operator: operators::Operator::current(),
+        // The desk reads the profile file itself; only the browser
+        // needs it sent.
+        profile: None,
+        lan: LAN.get().cloned().unwrap_or_default(),
+    }
+}
+
+/// The playhead the widget publishes, fed into this window's tree as
+/// the signal every `use_playhead` reads (`ignition_live_ui::PlayheadFeed`).
+///
+/// Polled rather than awaited on `changed()`: the UI already repaints at
+/// ~60 Hz to keep the visualizer animating (see the `frame` ticker), so
+/// a second timer costs nothing and avoids holding a mutable borrow of
+/// the receiver across an await inside a component. Only written when
+/// it actually moved: a signal write is a re-render.
+pub fn provide_playhead() {
+    let mut playhead = use_signal(command::Playhead::default);
+    use_context_provider(|| PlayheadFeed(playhead));
+    use_future(move || async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(33)).await;
+            if let Some(rx) = STATE_RX.get() {
+                let latest = rx.borrow().clone();
+                if latest != playhead() {
+                    playhead.set(latest);
+                }
+            }
+        }
+    });
 }
 
 /// The launch window's root. Installs the panel host for the whole
@@ -453,124 +472,6 @@ fn app(surface: Surface) -> Element {
     rsx! {
         windows::WindowRoot { host: 0 }
     }
-}
-
-/// The playhead the widget publishes, as a signal.
-///
-/// Polled rather than awaited on `changed()`: the UI already repaints at
-/// ~60 Hz to keep the visualizer animating (see the `frame` ticker), so
-/// a second timer costs nothing and avoids holding a mutable borrow of
-/// the receiver across an await inside a component.
-fn use_playhead() -> Signal<command::Playhead> {
-    let mut playhead = use_signal(command::Playhead::default);
-    use_future(move || async move {
-        loop {
-            tokio::time::sleep(std::time::Duration::from_millis(33)).await;
-            if let Some(rx) = STATE_RX.get() {
-                let latest = rx.borrow().clone();
-                // Only write when it actually moved. A signal write is a
-                // re-render, and rewriting the same value 30 times a
-                // second would re-render the cue list forever.
-                if latest != playhead() {
-                    playhead.set(latest);
-                }
-            }
-        }
-    });
-    playhead
-}
-
-/// Only the cue the player is standing on, as a signal.
-///
-/// Split from `use_playhead` deliberately: `secs` moves every poll while
-/// the song plays, and a component that reads the whole playhead
-/// re-renders with it. The cue list is a hundred-odd rows that only
-/// care which one is lit, so it depends on this and diffs only when the
-/// cue actually changes.
-/// Which hit is ringing, for the list. Written only on change, like
-/// `use_current_cue`, so the list does not re-render on every poll.
-fn use_ringing_hit() -> Signal<Option<usize>> {
-    let mut ringing = use_signal(|| None);
-    use_future(move || async move {
-        loop {
-            tokio::time::sleep(std::time::Duration::from_millis(33)).await;
-            if let Some(rx) = STATE_RX.get() {
-                let hit = rx.borrow().hit;
-                if hit != ringing() {
-                    ringing.set(hit);
-                }
-            }
-        }
-    });
-    ringing
-}
-
-/// The desk's own state — page, latches, blind — as a signal.
-///
-/// Split from the playhead for the same reason `use_current_cue` is:
-/// the fader column is eight faders and their keys, and it should not
-/// re-render on every tick of the song clock.
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct Desk {
-    page: usize,
-    pages: usize,
-    latched: [bool; ignition_core::FADERS],
-    toggled: [bool; ignition_core::FADERS],
-    blind: bool,
-    tap_bpm: f32,
-    tap_multiplier: f32,
-    sound: [f32; 3],
-    parked: usize,
-    paused: bool,
-}
-
-impl Desk {
-    fn of(playhead: &command::Playhead) -> Self {
-        Self {
-            page: playhead.page,
-            pages: playhead.pages.max(1),
-            latched: playhead.latched,
-            toggled: playhead.toggled,
-            blind: playhead.blind,
-            tap_bpm: playhead.tap_bpm,
-            tap_multiplier: playhead.tap_multiplier,
-            sound: playhead.sound,
-            parked: playhead.parked,
-            paused: playhead.paused,
-        }
-    }
-}
-
-fn use_desk() -> Signal<Desk> {
-    let mut desk = use_signal(|| Desk::of(&command::Playhead::default()));
-    use_future(move || async move {
-        loop {
-            tokio::time::sleep(std::time::Duration::from_millis(33)).await;
-            if let Some(rx) = STATE_RX.get() {
-                let next = Desk::of(&rx.borrow());
-                if next != desk() {
-                    desk.set(next);
-                }
-            }
-        }
-    });
-    desk
-}
-
-fn use_current_cue() -> Signal<Option<usize>> {
-    let mut current = use_signal(|| None);
-    use_future(move || async move {
-        loop {
-            tokio::time::sleep(std::time::Duration::from_millis(33)).await;
-            if let Some(rx) = STATE_RX.get() {
-                let cue = rx.borrow().cue;
-                if cue != current() {
-                    current.set(cue);
-                }
-            }
-        }
-    });
-    current
 }
 
 /// mm:ss, for the transport readout.
@@ -731,42 +632,6 @@ fn output_status(output: &ignition_viz::OutputSummary) -> String {
     output.line().trim_start_matches("OUT ").to_string()
 }
 
-/// The sound fade slider's travel in CSS pixels; see `.hslider` in
-/// `studio.css` and the note on [`TRACK_WIDTH`] for why it is a number
-/// here rather than a measurement.
-const HSLIDER_WIDTH: f32 = 90.0;
-
-/// A small horizontal slider, for the trims that live in the transport
-/// bar. Same construction as [`Fader`] — divs, not a range input — for
-/// the same reasons, turned on its side.
-#[component]
-fn HSlider(initial: f32, on_change: EventHandler<f32>) -> Element {
-    let mut level = use_signal(|| initial);
-    let mut held = use_signal(|| false);
-    let mut set_from = move |x: f64| {
-        let v = (x as f32 / HSLIDER_WIDTH).clamp(0.0, 1.0);
-        level.set(v);
-        on_change.call(v);
-    };
-    rsx! {
-        div {
-            class: "hslider",
-            onpointerdown: move |e| {
-                held.set(true);
-                set_from(e.data.element_coordinates().x);
-            },
-            onpointermove: move |e| {
-                if held() {
-                    set_from(e.data.element_coordinates().x);
-                }
-            },
-            onpointerup: move |_| held.set(false),
-            onpointerleave: move |_| held.set(false),
-            div { class: "hfill", style: "width: {level() * 100.0}%" }
-        }
-    }
-}
-
 /// The transport track's width in CSS pixels, matching `studio.css`.
 ///
 /// Blitz reports pointer positions relative to the element but does not
@@ -777,80 +642,6 @@ fn HSlider(initial: f32, on_change: EventHandler<f32>) -> Element {
 /// exactly this reason: a bar that stretched would seek to the wrong
 /// place on any window that was not the size this number assumes.
 const TRACK_WIDTH: f64 = 980.0;
-
-/// The cue stack. Underneath the busking layer, not beside it: a cue
-/// fills in whatever the operator is not currently holding.
-#[component]
-fn CueList(cues: Vec<Row>) -> Element {
-    // What the player is actually standing on, not what was last
-    // clicked. A click still fires the cue; it just no longer decides
-    // what the list *shows*, which is how the highlight used to end up
-    // several sections behind the music.
-    let current = use_current_cue();
-    let ringing = use_ringing_hit();
-
-    rsx! {
-        aside { class: "cues",
-            header {
-                span { "Cue List" }
-                button {
-                    class: "go",
-                    onclick: move |_| send(Command::Go),
-                    "GO"
-                }
-                // GO on the look list — the list beneath the song's that
-                // the operator steps by hand. Empty tonight; the key is
-                // here so the class exists on the surface.
-                button {
-                    class: "go look",
-                    onclick: move |_| send(Command::LookGo),
-                    "LOOK"
-                }
-            }
-            ol {
-                for (i, row) in cues.iter().enumerate() {
-                    match row {
-                        Row::Cue { index, name } => {
-                            let index = *index;
-                            rsx! {
-                                li {
-                                    key: "c{i}",
-                                    class: if current() == Some(index) { "cue on" } else { "cue" },
-                                    // One message: the widget takes the song to
-                                    // this cue's own position.
-                                    onclick: move |_| send(Command::Cue(index)),
-                                    span { class: "num", "{index}" }
-                                    span { class: "name", "{name}" }
-                                }
-                            }
-                        }
-                        Row::Hit { index, name, at } => {
-                            let (index, at) = (*index, *at);
-                            rsx! {
-                                li {
-                                    key: "h{i}",
-                                    class: if ringing() == Some(index) { "cue hit on" } else { "cue hit" },
-                                    onclick: move |_| send(Command::Locate(at)),
-                                    span { class: "num", "♪" }
-                                    span { class: "name", "{name}" }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// A free function rather than a captured closure: every control needs
-/// to send, closures in `rsx!` are `FnMut`, and a captured `Sender`
-/// cannot be moved out of one more than once.
-fn send(command: Command) {
-    if let Some(tx) = TX.get() {
-        let _ = tx.send(command);
-    }
-}
 
 // Superseded on screen by `live::Views`, which the panel host mounts as
 // the desk (`windows.rs`); kept, unmounted, until the Live surface has

@@ -16,6 +16,8 @@
 
 pub mod app;
 pub mod beam;
+pub mod bench;
+pub mod budget;
 pub mod canvas;
 pub mod channel_map;
 pub mod dmx;
@@ -24,6 +26,7 @@ pub mod fixture_profile;
 pub mod gdtf_geometry;
 pub mod gdtf_import;
 pub mod gdtf_mesh;
+pub mod haze;
 pub mod obj_mesh;
 pub mod ofl_import;
 pub mod output;

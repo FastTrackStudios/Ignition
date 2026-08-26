@@ -33,6 +33,9 @@ use ignition_core::profile::LookKind;
 /// file, the baked one, so the surface still opens.
 // r[impl studio.views.whole-profile] - the file profile, whole
 pub fn profile() -> &'static ignition_core::Profile {
+    if let Some(sent) = SENT.get() {
+        return sent;
+    }
     static PROFILE: std::sync::LazyLock<ignition_core::Profile> = std::sync::LazyLock::new(|| {
         let path = std::env::var("IGNITION_PROFILE")
             .unwrap_or_else(|_| "data/profiles/ignition.ig-profile".to_string());
@@ -54,6 +57,17 @@ pub fn profile() -> &'static ignition_core::Profile {
         crate::faders::profile().clone()
     });
     &PROFILE
+}
+
+/// The profile a host handed over instead of a file — what the browser
+/// gets in its bootstrap, since it has no disk to read one from. Wins
+/// over the file lookup once set; setting it twice keeps the first.
+static SENT: std::sync::OnceLock<ignition_core::Profile> = std::sync::OnceLock::new();
+
+/// Use this profile for the library. Call before the first render.
+// r[impl studio.touch.ipad] - the browser lists the studio's profile, not a baked one
+pub fn install_profile(profile: ignition_core::Profile) {
+    let _ = SENT.set(profile);
 }
 
 /// One tile of the library.

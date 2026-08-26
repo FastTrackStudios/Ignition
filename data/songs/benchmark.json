@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "profile": "Ignition",
+  "name": "Benchmark",
+  "cues": [
+    {
+      "name": "bench",
+      "fade_secs": 0.0,
+      "block": true,
+      "values": [],
+      "recipes": [
+        {
+          "target": { "Group": "Pars" },
+          "apply": { "Dimmer": 1.0 }
+        },
+        { "effect": "chase", "target": { "Group": "Pars" }, "bars": 0.5 },
+        { "effect": "rainbow", "target": { "Group": "Pars" }, "bars": 1.0 },
+        {
+          "target": { "Group": "SlimPars" },
+          "apply": { "Dimmer": 1.0 }
+        },
+        { "effect": "rainbow", "target": { "Group": "SlimPars" }, "bars": 1.0 },
+        {
+          "target": { "Group": "Movers" },
+          "steps": [
+            {
+              "apply": [ { "Dimmer": 1.0 }, { "Color": "Open White" }, { "FocusPoint": [0.0, 0.0, 1.5] } ],
+              "width": 1.0, "transition": 0.0, "ease": "Linear"
+            }
+          ]
+        },
+        { "effect": "figure eight", "target": { "Group": "OH Movers" }, "bars": 1.0 },
+        { "effect": "windmill", "target": { "Group": "Beam Movers" }, "bars": 1.0 },
+        { "effect": "strobe chase", "target": { "Group": "Beam Movers" }, "bars": 0.5 },
+        { "effect": "colour cycle", "target": { "Group": "Movers" }, "bars": 2.0 },
+        {
+          "target": { "Group": "Strips" },
+          "apply": { "Dimmer": 1.0 }
+        },
+        { "effect": "strip chase", "target": { "Group": "Strips" }, "bars": 0.5 },
+        { "effect": "rainbow scroll", "target": { "Group": "Strips" }, "bars": 1.0 },
+        {
+          "target": { "Group": "Hazers" },
+          "apply": { "Dimmer": 1.0 }
+        }
+      ]
+    }
+  ]
+}
