@@ -111,14 +111,19 @@ struct Layers {
     /// latest cue wins, same rule as everything else.
     /// Every relative recipe touching a key, in the order taken.
     ///
-    /// A list rather than one winner, and that is the difference between
-    /// an accent working and doing nothing. With a single slot, a bump
-    /// laid over a running chase *replaced* it — so a hit on fixtures
-    /// already being chased produced no lift at all, and once the bump's
-    /// envelope held at zero it went on owning the slot and the chase
-    /// stayed dead for the rest of the section. Modulation is supposed
-    /// to be the layer that composes; one winner is the one rule that
-    /// stops it composing.
+    /// The **last still-contributing** one wins, which is grandMA3's
+    /// rule: "absolute and relative values in multiple parts will use
+    /// the value with the highest cue part number". Relative values do
+    /// not sum with each other — absolute and relative are separate
+    /// layers, and the relative layer adds to the absolute one, but
+    /// within the relative layer a later value replaces an earlier.
+    ///
+    /// A list rather than a single slot, because "last *still
+    /// contributing*" needs the ones underneath. A finished one-shot
+    /// withdraws (see `contributing`) and the chase beneath it resumes;
+    /// with a single slot it had nothing to resume to, which is what
+    /// made a hit landing on already-chased fixtures kill that chase for
+    /// the rest of the section.
     ///
     /// Growth is bounded by the cascade: a blocking cue starts from
     /// empty layers, so this only accumulates within a section.
@@ -140,6 +145,27 @@ struct Stage {
 /// get time since they were taken, because an envelope that finished
 /// before its own cue fired never plays at all.
 impl CuePlayer {
+    /// Whether a recipe still has anything to say.
+    ///
+    /// A looping phaser always does. A one-shot stops once its envelope
+    /// has run out, and *withdrawing* rather than holding is the whole
+    /// point: under last-wins, a finished bump that stayed in the layer
+    /// would go on winning at its final value forever, which is exactly
+    /// how an accent came to kill the chase it landed on for the rest of
+    /// a section. Withdrawn, the value underneath resumes.
+    fn contributing(&self, id: usize, show: &Show) -> bool {
+        let Some(recipe) = self.active.get(id) else {
+            return false;
+        };
+        if !recipe.timing.once {
+            return true;
+        }
+        // `cycles_at` clamps a one-shot just under 1.0 and holds there,
+        // so "finished" is that clamp having been reached rather than a
+        // separate piece of state to keep in step with it.
+        recipe.timing.cycles(self.recipe_time(id), show.speeds) < 1.0
+    }
+
     fn recipe_time(&self, id: usize) -> f32 {
         match self.active.get(id) {
             Some(recipe) if recipe.timing.once => {
@@ -504,15 +530,20 @@ impl CuePlayer {
             // winner, not as another competitor for the slot. That is
             // what "-40% dimmer, and the colour is not my business"
             // means mechanically.
-            // Summed, so a bump lands *on top of* whatever chase is
-            // already running rather than taking its place.
-            let modulation: f32 = layers
+            // The last relative value still contributing wins — MA3's
+            // rule, not a sum. A bump does replace the chase under it
+            // for as long as it runs, which is what a stab should do;
+            // the chase comes back when the bump withdraws.
+            let modulation = layers
                 .modulated
                 .get(key)
                 .into_iter()
                 .flatten()
-                .filter_map(|id| resolved[id].get(key))
-                .sum();
+                .rev()
+                .find(|id| self.contributing(**id, show))
+                .and_then(|id| resolved[id].get(key))
+                .copied()
+                .unwrap_or(0.0);
             out.insert(key.clone(), value + modulation);
         }
         out
@@ -699,66 +730,99 @@ mod tests {
         }
     }
 
-    /// A bump over a running chase must *add* to it.
-    ///
-    /// The failure this pins was invisible in the cue list and obvious
-    /// on stage: figures landing on fixtures that were already being
-    /// chased did nothing at all, because the accent replaced the chase
-    /// in the single modulator slot instead of stacking on it — and then
-    /// went on holding that slot at zero, so the chase stayed dead for
-    /// the rest of the section too.
+    /// Relative values do not sum — the last one still contributing
+    /// wins, which is grandMA3's rule for both absolute and relative
+    /// data in multiple parts.
     #[test]
-    fn a_bump_adds_to_a_running_chase_rather_than_replacing_it() {
-        use crate::step::{Speed, Step, Timing};
+    fn the_last_relative_value_wins_rather_than_summing() {
         let groups = pars();
         let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
-
-        let flat = |v: f32| {
-            Recipe {
-                target: Selection::Group("Pars".to_string()),
-                steps: vec![Step::new(vec![RecipeApply::Delta(vec![(
-                    Attribute::Dimmer,
-                    v,
-                )])])],
-                timing: Timing {
-                    speed: Speed::Bpm(60.0),
-                    ..Default::default()
-                },
-            }
-        };
-
-        // A section look with a steady +0.2 modulation on it.
-        let look = Cue {
-            name: "Look".to_string(),
-            recipes: vec![
-                Recipe::new(
-                    Selection::Group("Pars".to_string()),
-                    RecipeApply::Dimmer(0.3),
-                ),
-                flat(0.2),
-            ],
-            block: true,
-            ..Default::default()
-        };
-        // ...and an accent adding another +0.5 on top.
-        let accent = Cue {
-            name: "· hit".to_string(),
-            recipes: vec![flat(0.5)],
-            block: false,
-            ..Default::default()
-        };
-
-        let mut player = CuePlayer::new(vec![look, accent]);
+        let mut player = CuePlayer::new(vec![
+            look_with_modulation(0.3, 0.2),
+            accent(0.5, false),
+        ]);
         player.go(&show);
         let base = player.output(&show)[&(1, Attribute::Dimmer)];
         assert!((base - 0.5).abs() < 1e-4, "look alone should be 0.3+0.2: {base}");
 
         player.go(&show);
         let both = player.output(&show)[&(1, Attribute::Dimmer)];
+        // 0.3 absolute + 0.5 relative. The look's own 0.2 is replaced,
+        // not added to: 0.8, not 1.0.
+        assert!((both - 0.8).abs() < 1e-4, "expected last-wins 0.8: {both}");
+    }
+
+    /// ...and a finished one-shot **withdraws**, so what was underneath
+    /// comes back.
+    ///
+    /// This is the "fig 0 did nothing" report, pinned. Under last-wins a
+    /// finished bump that stayed in the layer would go on winning at its
+    /// final value forever — which for an envelope ending at zero meant
+    /// the accent silently killed the chase it landed on for the rest of
+    /// the section, and looked from the stage like the hit doing nothing
+    /// at all.
+    #[test]
+    fn a_finished_one_shot_withdraws_and_the_chase_returns() {
+        let groups = pars();
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
+        let mut player = CuePlayer::new(vec![
+            look_with_modulation(0.3, 0.2),
+            accent(0.5, true),
+        ]);
+        player.go(&show);
+        player.go(&show);
+
+        let during = player.output(&show)[&(1, Attribute::Dimmer)];
+        assert!(during > 0.7, "the bump never landed: {during}");
+
+        // Long past the one-shot's single cycle.
+        player.tick(10.0);
+        let after = player.output(&show)[&(1, Attribute::Dimmer)];
         assert!(
-            (both - 1.0).abs() < 1e-4,
-            "the accent replaced the chase instead of adding: {both}"
+            (after - 0.5).abs() < 1e-4,
+            "the chase did not come back after the bump finished: {after}"
         );
+    }
+
+    /// A look at `level`, with a steady relative `lift` on top of it.
+    fn look_with_modulation(level: f32, lift: f32) -> Cue {
+        Cue {
+            name: "Look".to_string(),
+            recipes: vec![
+                Recipe::new(
+                    Selection::Group("Pars".to_string()),
+                    RecipeApply::Dimmer(level),
+                ),
+                flat_delta(lift, false),
+            ],
+            block: true,
+            ..Default::default()
+        }
+    }
+
+    fn accent(lift: f32, once: bool) -> Cue {
+        Cue {
+            name: "· hit".to_string(),
+            recipes: vec![flat_delta(lift, once)],
+            block: false,
+            ..Default::default()
+        }
+    }
+
+    fn flat_delta(v: f32, once: bool) -> Recipe {
+        use crate::step::{Speed, Step, Timing};
+        Recipe {
+            target: Selection::Group("Pars".to_string()),
+            steps: vec![Step::new(vec![RecipeApply::Delta(vec![(
+                Attribute::Dimmer,
+                v,
+            )])])],
+            timing: Timing {
+                speed: Speed::Bpm(60.0),
+                once,
+                ..Default::default()
+            },
+        }
     }
 
     /// A bump releases itself, which is the whole reason `once` exists.

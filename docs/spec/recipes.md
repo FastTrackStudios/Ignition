@@ -48,33 +48,43 @@ for the same attribute, only the last entry will generate output" — and it is
 what makes overriding part of a look a predictable, orderable operation rather
 than an undefined blend.
 
-r[recipes.relative-sums]
-Where two recipes apply a **relative** value — a delta — to the same attribute
-on the same fixture, the results MUST **sum**.
+r[recipes.relative-last-wins]
+Where two recipes apply a **relative** value to the same attribute on the same
+fixture, the **later** one MUST win. Relative values do not sum with each other.
+This is grandMA3's rule for both kinds of data — "absolute and relative values in
+multiple parts will use the value with the highest cue part number" — and it
+means a stab genuinely replaces the chase under it for as long as it runs, which
+is what a stab should do.
 
-This is a deliberate departure from last-wins, and it is not a softening of it:
-relative and absolute are answering different questions. An absolute value says
-what an attribute *is*, and two answers to that must be resolved by choosing.
-A delta says what to *add*, and two additions compose by definition — "+30% for
-the chorus" and "+50% for this hit" together mean +80%, not +50%.
+r[recipes.relative-is-a-separate-layer]
+Absolute and relative MUST be **separate layers**, with the relative layer added
+to the absolute one at output. grandMA3 "handles storage, editing, and playback
+of absolute values and relative values separately", and that separation is what
+lets an effect modulate a look without competing with it for the same slot.
+Last-wins therefore applies *within* each layer, not across them.
 
-Applying last-wins to deltas was a real defect, found on stage: a bump laid over
-a running chase replaced the chase instead of adding to it, so hits landing on
-already-chased fixtures produced no visible lift at all — and once the bump's
-one-shot envelope settled at zero it went on owning the slot, leaving the chase
-dead for the rest of the section. See `cue::tests`.
+r[recipes.finished-one-shot-withdraws]
+A one-shot that has run out MUST **withdraw** from the relative layer, not hold
+at its final value. Whatever relative value was underneath MUST then resume.
+
+This requirement is the whole reason the layer keeps more than one entry per
+attribute, and it exists because the alternative was a real on-stage defect: a
+finished bump that stayed in the layer went on winning at its final value
+forever. For an envelope ending at zero that meant the accent silently killed
+the chase it landed on for the rest of the section — and read, from the stage,
+as the hit doing nothing at all. See `cue::tests`.
 
 r[recipes.cascade]
 Direct values MUST outrank recipe output. The full order, highest first: a
 direct value on the cue; a recipe on the cue; a direct value on a referenced
 preset; a recipe on that preset. Exactly one absolute value survives per
-attribute; relative values are then summed on top of whatever won.
+attribute, and exactly one relative value, the latter added to the former.
 
 r[recipes.blocking-resets]
-A blocking cue MUST start from empty layers, discarding inherited tracking
-*and* accumulated relative values. Without this, summed deltas would grow
-without bound across a show; with it, accumulation is naturally scoped to a
-section, which is also how an operator reasons about it.
+A blocking cue MUST start from empty layers, discarding inherited tracking *and*
+the relative values stacked under it. A blocking cue is a complete statement, so
+an effect from two sections ago MUST NOT still be waiting underneath to resume
+when a bump withdraws.
 
 ## Cooked status
 
