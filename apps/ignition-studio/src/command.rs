@@ -27,6 +27,16 @@ pub enum Command {
     Level(usize, f32),
     /// The master rate every fader's phaser is slaved to, in BPM.
     Rate(f32),
+    /// How far every effect swings, 0..=1 — the control an operator
+    /// holds for most of a night. Distinct from a master: size flattens
+    /// the effect, a master dims the fixtures.
+    Size(f32),
+    /// A multiplier on every effect's rate against its speed master.
+    EffectRate(f32),
+    /// A role's intensity master, 0..=1.
+    Master(String, f32),
+    /// Play one role on its own; `None` clears.
+    Solo(Option<String>),
     Go,
     Cue(usize),
     /// Transport. The song is loaded once at startup; these move it.

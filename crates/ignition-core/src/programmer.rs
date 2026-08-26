@@ -54,11 +54,72 @@ pub struct Programmer {
     /// faders and everything the cue stack is doing.
     values: HashMap<(ChanId, Attribute), f32>,
     pub faders: [Fader; FADERS],
+    /// How far every effect swings, 0..=1.
+    ///
+    /// The control an operator holds for most of a night. Distinct from
+    /// a master or a dimmer, and the distinction is the whole point: a
+    /// master scales what the fixtures *output*, size scales how far an
+    /// effect *swings*. Halving a master makes a chase dimmer overall;
+    /// halving size makes it flatter while the look underneath stays
+    /// exactly where it was. Conflating them makes an effect impossible
+    /// to withdraw from a look without dimming the look too.
+    ///
+    /// At zero every effect is inert and whatever is beneath shows
+    /// through unchanged — which is what makes this a *withdrawal*
+    /// rather than a blackout.
+    pub size: f32,
+    /// A multiplier on every effect's rate, against its speed master.
+    ///
+    /// The tap master already sets the tempo; this is how one operator
+    /// runs the rig at half or double it without a second recipe for
+    /// every entry in the library.
+    pub rate: f32,
+    /// Per-role intensity masters, by role name.
+    ///
+    /// A busking operator's grip on a rig a cue list is otherwise
+    /// driving: pull `Movers` down for a ballad without editing a cue.
+    /// Scaling rather than limiting, per `r[groups.master.modes]` — a
+    /// fixture at 50% under a master at 50% outputs 25%, which is what
+    /// an operator expects from something that behaves like a fader.
+    pub masters: std::collections::BTreeMap<String, f32>,
+    /// A role played on its own, everything else pulled down.
+    ///
+    /// What a solo button does. Not a selection — selection is what the
+    /// *next* palette hit lands on, and a solo has to change the output
+    /// without changing what is armed, or hitting solo would silently
+    /// redirect the operator's next move.
+    pub solo: Option<String>,
+    /// How far down the un-soloed rig goes. Not to zero by default: a
+    /// solo that blacks the room reads as a fault, where one that leaves
+    /// a floor under it reads as a decision.
+    pub solo_floor: f32,
 }
 
 impl Programmer {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            // Effects at full and no masters pulled: a desk that starts
+            // with its controls somewhere other than neutral makes every
+            // first look a surprise.
+            size: 1.0,
+            rate: 1.0,
+            solo_floor: 0.15,
+            ..Self::default()
+        }
+    }
+
+    /// Puts a role on its own until cleared.
+    pub fn solo(&mut self, role: &str) {
+        self.solo = Some(role.to_string());
+    }
+
+    pub fn clear_solo(&mut self) {
+        self.solo = None;
+    }
+
+    /// Sets a role's intensity master, 0..=1.
+    pub fn set_master(&mut self, role: &str, level: f32) {
+        self.masters.insert(role.to_string(), level.clamp(0.0, 1.0));
     }
 
     pub fn select(&mut self, selection: Selection) {
@@ -181,21 +242,98 @@ impl Programmer {
             if level <= 0.0 {
                 continue;
             }
-            for emit in expand_recipe(recipe, show, secs) {
+            // Rate scales the clock the recipe is evaluated at, not its
+            // measure — so it stretches an effect that is already
+            // running rather than restarting it, which is what a fader
+            // has to do to be usable while the show is on.
+            let at = secs * self.rate.max(0.0);
+            for emit in expand_recipe(recipe, show, at) {
                 let key = (emit.value.chan, emit.value.attr);
                 let under = base.get(&key).copied().unwrap_or(0.0);
+                // Size and the fader's own level multiply. The fader
+                // says how much of *this* effect; size says how much of
+                // every effect at once.
+                let weight = level * self.size.clamp(0.0, 1.0);
                 let value = if emit.relative {
-                    under + emit.value.value * level
+                    under + emit.value.value * weight
                 } else {
-                    under + (emit.value.value - under) * level
+                    under + (emit.value.value - under) * weight
                 };
                 base.insert(key, value);
             }
         }
+
+        self.apply_masters(base, show);
+
         // The operator's hand wins over everything, including their own
-        // faders.
+        // faders and their own masters — pulling a master down and then
+        // setting a level by hand should give the level they set.
         for (key, value) in &self.values {
             base.insert(key.clone(), *value);
+        }
+    }
+
+    /// Scales intensity per role, and applies a solo.
+    ///
+    /// Dimmer only, deliberately. A master that scaled pan would drag
+    /// every mover toward its home position as it came down, and a
+    /// master that scaled colour would desaturate the rig — neither is
+    /// what "quieter" means.
+    fn apply_masters(&self, base: &mut HashMap<(ChanId, Attribute), f32>, show: &Show<'_>) {
+        if self.masters.is_empty() && self.solo.is_none() {
+            return;
+        }
+        // Resolve each named role once, not once per channel.
+        let mut scale: HashMap<ChanId, f32> = HashMap::new();
+        let mut note = |role: &str, factor: f32, scale: &mut HashMap<ChanId, f32>| {
+            for chan in crate::selection::resolve_with(
+                &Selection::Role(role.to_string()),
+                show.groups,
+                show.rig,
+                show.roles,
+            ) {
+                // Lowest wins where a fixture plays two roles — a head
+                // that is both Key and Wash should follow whichever of
+                // them the operator pulled down, or a master would be
+                // defeated by any other role the fixture happens to
+                // belong to.
+                let slot = scale.entry(chan).or_insert(1.0);
+                *slot = slot.min(factor);
+            }
+        };
+
+        for (role, level) in &self.masters {
+            note(role, *level, &mut scale);
+        }
+
+        if let Some(solo) = &self.solo {
+            let lit: std::collections::HashSet<ChanId> = crate::selection::resolve_with(
+                &Selection::Role(solo.clone()),
+                show.groups,
+                show.rig,
+                show.roles,
+            )
+            .into_iter()
+            .collect();
+            // Everything already carrying a dimmer that is *not* soloed
+            // goes down to the floor. Taken from the base rather than
+            // from the rig, so a fixture that was dark stays dark
+            // instead of being lifted to the floor level.
+            for (chan, _) in base.keys().filter(|(_, a)| *a == Attribute::Dimmer) {
+                if !lit.contains(chan) {
+                    let slot = scale.entry(*chan).or_insert(1.0);
+                    *slot = slot.min(self.solo_floor.clamp(0.0, 1.0));
+                }
+            }
+        }
+
+        for ((chan, attr), value) in base.iter_mut() {
+            if *attr != Attribute::Dimmer {
+                continue;
+            }
+            if let Some(factor) = scale.get(chan) {
+                *value *= *factor;
+            }
         }
     }
 
@@ -399,5 +537,152 @@ mod tests {
             early[&(1, Attribute::Dimmer)],
             late[&(1, Attribute::Dimmer)]
         );
+    }
+
+    // ── live control ─────────────────────────────────────────────────
+
+    /// A role master scales that role's fixtures and nothing else.
+    #[test]
+    fn a_master_scales_only_its_own_role() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.set_master("Key", 0.5);
+
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 1.0); // Key
+        out.insert((9, Attribute::Dimmer), 1.0); // not Key
+        p.apply_to(&mut out, &show, 0.0);
+
+        assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 1e-6);
+        assert!((out[&(9, Attribute::Dimmer)] - 1.0).abs() < 1e-6, "an unrelated fixture moved");
+    }
+
+    /// Scaling, not limiting. A fixture at half under a master at half
+    /// is a quarter — which is what an operator expects from something
+    /// that behaves like a fader, and is the distinction
+    /// `r[groups.master.modes]` exists to pin.
+    #[test]
+    fn a_master_scales_rather_than_limits() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.set_master("Key", 0.5);
+
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 0.5);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.25).abs() < 1e-6);
+    }
+
+    /// Dimmer only. A master that scaled pan would drag every mover
+    /// toward its home position on the way down.
+    #[test]
+    fn a_master_leaves_position_alone() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.set_master("Key", 0.25);
+
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Pan), 40.0);
+        p.apply_to(&mut out, &show, 0.0);
+        assert!((out[&(1, Attribute::Pan)] - 40.0).abs() < 1e-6);
+    }
+
+    /// Solo pulls everything else down to the floor, and leaves what is
+    /// already dark dark — a solo that lifted unlit fixtures to the
+    /// floor level would turn a blackout into a dim wash.
+    #[test]
+    fn solo_pulls_down_everything_else() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+        let mut p = Programmer::new();
+        p.solo("Key");
+
+        let mut out = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 1.0); // Key — stays
+        out.insert((9, Attribute::Dimmer), 1.0); // other — floored
+        p.apply_to(&mut out, &show, 0.0);
+
+        assert!((out[&(1, Attribute::Dimmer)] - 1.0).abs() < 1e-6);
+        assert!((out[&(9, Attribute::Dimmer)] - p.solo_floor).abs() < 1e-6);
+        assert!(p.solo_floor > 0.0, "a solo that blacks the room reads as a fault");
+    }
+
+    /// Size withdraws an effect without touching what is under it. This
+    /// is the difference from a master, and the reason both exist.
+    #[test]
+    fn size_flattens_the_effect_and_leaves_the_look() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+
+        let chase = |chan: ChanId| Recipe {
+            target: Selection::Chans(vec![chan]),
+            steps: vec![Step::new(vec![RecipeApply::Delta(vec![(
+                Attribute::Dimmer,
+                -0.5,
+            )])])],
+            timing: Timing::default(),
+            tricks: Vec::new(),
+        };
+
+        let mut p = Programmer::new();
+        p.set_fader(
+            0,
+            Fader {
+                name: "Chase".into(),
+                recipe: Some(chase(1)),
+                level: 1.0,
+            },
+        );
+
+        let run = |p: &Programmer| {
+            let mut out = HashMap::new();
+            out.insert((1, Attribute::Dimmer), 0.8);
+            p.apply_to(&mut out, &show, 0.0);
+            out[&(1, Attribute::Dimmer)]
+        };
+
+        assert!((run(&p) - 0.3).abs() < 1e-6, "full size: 0.8 - 0.5");
+        p.size = 0.5;
+        assert!((run(&p) - 0.55).abs() < 1e-6, "half size: 0.8 - 0.25");
+        p.size = 0.0;
+        assert!(
+            (run(&p) - 0.8).abs() < 1e-6,
+            "at zero the look underneath must show through untouched"
+        );
+    }
+
+    fn roles() -> Bound {
+        let mut bound = Bound::default();
+        bound
+            .0
+            .insert("Key".into(), Selection::Chans(vec![1, 2, 3]));
+        bound
+    }
+
+    #[derive(Default)]
+    struct Bound(std::collections::BTreeMap<String, Selection>);
+
+    impl crate::selection::Roles for Bound {
+        fn role(&self, name: &str) -> Option<&Selection> {
+            self.0.get(name)
+        }
+    }
+
+    fn show_with_roles<'a>(groups: &'a [Group], roles: &'a Bound) -> Show<'a> {
+        Show {
+            groups,
+            palettes: crate::Palettes::EMPTY,
+            rig: &EMPTY_RIG,
+            speeds: &crate::recipe::NO_SPEEDS,
+            roles,
+        }
     }
 }

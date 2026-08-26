@@ -30,3 +30,19 @@
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.6);
 }
+
+/* Solo. Deliberately loud when engaged: a solo left on by accident is
+   the kind of mistake that survives a whole song, and a control that
+   looks the same either way is how that happens. */
+.groups header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.groups .solo {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.66);
+  background: #232330;
+  border: 1px solid #33333f;
+}
+.groups .solo:hover { background: #2b2b3a; }

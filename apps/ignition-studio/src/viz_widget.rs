@@ -259,12 +259,20 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                 Command::Rate(bpm) => {
                     speeds.insert("Rate".to_string(), bpm);
                 }
+                Command::Size(v) => programmer.size = v.clamp(0.0, 1.0),
+                Command::EffectRate(v) => programmer.rate = v.max(0.0),
+                Command::Master(role, level) => programmer.set_master(&role, level),
+                Command::Solo(role) => match role {
+                    Some(role) => programmer.solo(&role),
+                    None => programmer.clear_solo(),
+                },
                 Command::Color(name) => {
                     let show = Show {
                         groups,
                         palettes,
                         rig,
                         speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
                     };
                     programmer.apply(RecipeApply::Color(Ref::Named(name)), &show);
                 }
@@ -274,6 +282,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
                     };
                     programmer.apply(RecipeApply::FocusPoint(Ref::Named(name)), &show);
                 }
@@ -283,6 +292,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
                     };
                     programmer.apply(RecipeApply::Dimmer(level), &show);
                 }
@@ -292,6 +302,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                         palettes,
                         rig,
                         speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
                     };
                     programmer.release(&show);
                 }
@@ -302,6 +313,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                             palettes,
                             rig,
                             speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
                         };
                         player.go(&show);
                     }
@@ -313,6 +325,7 @@ fn drain(commands: &Receiver, viz: &mut EmbeddedViz, transport: Option<&SongTran
                             palettes,
                             rig,
                             speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
                         };
                         // Take the song to the cue's own position, not
                         // to a section with the cue's name. Every cue is
@@ -435,6 +448,7 @@ fn follow_song(transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
                 palettes,
                 rig,
                 speeds,
+            roles: &ignition_core::recipe::NO_ROLES,
             };
             // The song *is* the clock while a transport is loaded. Left
             // free-running, effects keep their rate but lose their

@@ -93,6 +93,7 @@ fn chase(
             phase_spread_deg: spread,
             ..Default::default()
         },
+            tricks: Vec::new(),
     }
 }
 

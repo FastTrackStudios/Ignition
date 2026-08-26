@@ -445,11 +445,29 @@ fn send(command: Command) {
 #[component]
 fn Busking(surface: Surface) -> Element {
     let mut selected = use_signal(|| Option::<String>::None);
+    let mut soloed = use_signal(|| false);
 
     rsx! {
         section { class: "surface",
             div { class: "col groups",
-                header { "Groups" }
+                header {
+                    span { "Groups" }
+                    // Solo is its own control rather than a modifier on
+                    // the group buttons, because it is not a selection:
+                    // selection is what the *next* palette hit lands on,
+                    // and a solo has to change the output without
+                    // changing what is armed. Bound to the role a group
+                    // plays, so it means the same thing at any venue.
+                    button {
+                        class: "solo",
+                        onclick: move |_| {
+                            let next = if soloed() { None } else { Some("Key".to_string()) };
+                            soloed.set(next.is_some());
+                            send(Command::Solo(next));
+                        },
+                        if soloed() { "SOLO ✓" } else { "SOLO KEY" }
+                    }
+                }
                 // Same uniform pool grid as Focus. Fixed-size cells
                 // rather than pills that size to their label, so the
                 // pool stays a predictable grid an operator can learn
@@ -561,6 +579,9 @@ fn Busking(surface: Surface) -> Element {
                             on_change: move |v: f32| send(Command::Level(i, v)),
                         }
                     }
+                    // The three an operator actually rides. RATE sets
+                    // the tap tempo; SIZE and SPEED shape whatever is
+                    // running against it.
                     div { class: "master",
                         Fader {
                             label: "RATE".to_string(),
@@ -568,6 +589,24 @@ fn Busking(surface: Surface) -> Element {
                             initial: 0.4,
                             // 40–220 BPM over the fader's travel.
                             on_change: move |v: f32| send(Command::Rate(40.0 + v * 180.0)),
+                        }
+                        // Size, not a dimmer. At the bottom every effect
+                        // is inert and the look underneath shows through
+                        // unchanged — a withdrawal, not a blackout.
+                        Fader {
+                            label: "SIZE".to_string(),
+                            css: "#6ea8c0".to_string(),
+                            initial: 1.0,
+                            on_change: move |v: f32| send(Command::Size(v)),
+                        }
+                        // Half to double, with the middle at unity so
+                        // the neutral position is somewhere a hand can
+                        // find without looking.
+                        Fader {
+                            label: "SPEED".to_string(),
+                            css: "#8fb06e".to_string(),
+                            initial: 0.5,
+                            on_change: move |v: f32| send(Command::EffectRate(0.5 + v * 1.5)),
                         }
                     }
                 }
