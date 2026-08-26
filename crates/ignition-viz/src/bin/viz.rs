@@ -67,6 +67,9 @@ fn main() -> anyhow::Result<()> {
     let mut gdtf_dir: Option<PathBuf> = None;
     let mut exclude: Vec<String> = Vec::new();
     let mut beam_style = BeamStyle::Volumetric;
+    // `--body-glow`: lit housings glow their own colour. Off by default,
+    // the real fixtures being black.
+    let mut body_glow = false;
     // Ships with the crate, so the visualizer runs from any directory.
     // Packaging this properly is a later problem.
     let mut assets_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string();
@@ -98,6 +101,7 @@ fn main() -> anyhow::Result<()> {
         }
         match arg.as_str() {
             "--loopback" => loopback = true,
+            "--body-glow" => body_glow = true,
             "--venue" => venue_dir = PathBuf::from(next("a path")),
             "--view" => view = next("house|stage|top"),
             "--width" => width = next("a number").parse()?,
@@ -280,6 +284,7 @@ fn main() -> anyhow::Result<()> {
         assets_dir,
         output,
         loopback,
+        body_glow,
     };
     match export {
         Some(request) => run_export(config, playback, gdtf, &request)?,

@@ -51,3 +51,28 @@ downloaded and a generated profile share a name the generated one (in the
 subdirectory) MUST win, deterministically. A missing library directory MUST
 not prevent the visualizer opening. Every fixture patched in a shipped venue
 MUST resolve to a profile that draws at least one real mesh.
+
+r[viz.emitter-at-beam-node]
+A GDTF fixture's light MUST originate at its `<Beam>` node — the profile's
+own statement of where the light leaves the fixture, "usually the position of
+the lens" — and fire along that node's -Z, the spec's beam direction, for
+every profile: the emitter is the `<Beam>` entity in the transform tree, so
+every joint and offset above it applies. No other node is an emitter: a
+`<Geometry>` with no model (a DMX socket, a power inlet) draws nothing and
+emits nothing.
+
+r[viz.bar-emitters]
+A profile with four or more `<Beam>` nodes on one line, firing the same way
+square to that line, is a **bar** and MUST be drawn as one linear source, not
+a row of point sources: the emissive face is the whole strip (one face per
+cell, tiling from end to end, each carrying its cell's colour), the shaft is
+one wedge — a frustum of rectangular section whose near face is the strip
+and whose sides open by the beam angle — and the spill is one wide light,
+never a cone per cell.
+
+r[viz.body-glow]
+A fixture's housing MUST NOT emit light of its own by default: the real
+fixtures are black, lit only by the rig around them. A **fixture body glow**
+option, off unless asked for (`viz --body-glow`, the studio's GLOW key,
+`IGNITION_BODY_GLOW=1`), lets a lit fixture's housing glow the colour it is
+putting out, as a way of reading which fixtures are on.

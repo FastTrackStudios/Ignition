@@ -20,7 +20,10 @@ fn meshes(node: &GdtfNode) -> usize {
 fn every_venue_fixture_resolves_to_a_profile_with_a_real_mesh() {
     let venues = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/venues"));
     let library = GdtfLibrary::load_default();
-    assert!(!library.is_empty(), "no GDTF profiles loaded from data/gdtf");
+    assert!(
+        !library.is_empty(),
+        "no GDTF profiles loaded from data/gdtf"
+    );
 
     let mut models = BTreeSet::new();
     for entry in std::fs::read_dir(&venues).expect("data/venues").flatten() {
@@ -36,7 +39,11 @@ fn every_venue_fixture_resolves_to_a_profile_with_a_real_mesh() {
             models.insert((f.manufacturer.clone().unwrap_or_default(), model));
         }
     }
-    assert!(!models.is_empty(), "no venues found under {}", venues.display());
+    assert!(
+        !models.is_empty(),
+        "no venues found under {}",
+        venues.display()
+    );
 
     let mut failures = Vec::new();
     for (manufacturer, model) in &models {
@@ -52,7 +59,11 @@ fn every_venue_fixture_resolves_to_a_profile_with_a_real_mesh() {
             ),
         }
     }
-    assert!(failures.is_empty(), "unresolved fixtures:\n{}", failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "unresolved fixtures:\n{}",
+        failures.join("\n")
+    );
 }
 
 /// r[verify viz.gdtf-aliases] - a generated profile beats a downloaded one of the same name

@@ -8,5 +8,10 @@
   "Uking Par 8ch": "Uking Par",
   "Hurricane Haze 1DX 1ch": "Hurricane Haze 1DX",
   "Mini Gobo Moving Head Light 11ch": "Mini Gobo Moving Head Light 11ch",
-  "150W Moving Head Beam": "150W Moving Head Beam"
+  "150W Moving Head Beam": "150W Moving Head Beam",
+  "_display_scale_comment": "fixture type name -> factor the visualizer draws that profile's geometry at, on top of its real dimensions. For fixtures that read as toys at true size from the house; the profile itself keeps the spec's dimensions.",
+  "_display_scale": {
+    "Mini Gobo Moving Head Light": 1.5,
+    "Mini Gobo Moving Head Light 11ch": 1.5
+  }
 }

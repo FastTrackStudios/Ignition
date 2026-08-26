@@ -119,3 +119,110 @@ pub fn beam_transform(origin: Vec3, direction: Vec3, length: f32, far_radius: f3
         scale: Vec3::new(far_radius, length, far_radius),
     }
 }
+
+/// The volumetric shape of a linear source: a frustum with a rectangular
+/// section, in the emitter's own frame — the near face is the strip
+/// itself (`half_length` along X, `half_width` along Y, at z = 0), the
+/// far face sits `length` down -Z and has opened by `half_angle_deg` on
+/// every side. Where a point emitter's cone is one shared unit mesh
+/// scaled per beam, a wedge's near face is a real size that no scale of
+/// a unit mesh reproduces together with its spread, so each bar has its
+/// own — rebuilt only when its throw changes.
+///
+/// Same material as the cone: `beam.wgsl` evaluates everything in world
+/// space from the emitter's origin and aim, so it neither knows nor
+/// cares what shape it is drawn on.
+// r[impl viz.bar-emitters] - a box frustum for the shader the cone uses
+pub fn wedge_mesh(half_length: f32, half_width: f32, length: f32, half_angle_deg: f32) -> Mesh {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::mesh::{Indices, PrimitiveTopology};
+
+    let spread = length * half_angle_deg.to_radians().tan();
+    let (nx, ny) = (half_length.max(0.001), half_width.max(0.001));
+    let (fx, fy) = (nx + spread, ny + spread);
+    let near = 0.0;
+    let far = -length.max(0.01);
+    // Near face 0..3, far face 4..7, each counter-clockwise seen from -Z.
+    let positions: Vec<[f32; 3]> = vec![
+        [-nx, -ny, near],
+        [nx, -ny, near],
+        [nx, ny, near],
+        [-nx, ny, near],
+        [-fx, -fy, far],
+        [fx, -fy, far],
+        [fx, fy, far],
+        [-fx, fy, far],
+    ];
+    // Winding is immaterial: the material is additive and double-sided
+    // by construction (see `beam.wgsl`'s clip-space one-siding), the
+    // same as the cone it replaces.
+    let indices: Vec<u32> = vec![
+        0, 1, 5, 0, 5, 4, // -Y side
+        1, 2, 6, 1, 6, 5, // +X side
+        2, 3, 7, 2, 7, 6, // +Y side
+        3, 0, 4, 3, 4, 7, // -X side
+        4, 5, 6, 4, 6, 7, // far cap
+        0, 2, 1, 0, 3, 2, // near cap (the strip)
+    ];
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0f32, 0.0]; 8])
+    .with_inserted_indices(Indices::U32(indices));
+    mesh.duplicate_vertices();
+    mesh.compute_flat_normals();
+    mesh
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bounds(mesh: &Mesh) -> (Vec3, Vec3) {
+        let p = mesh
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .and_then(|a| a.as_float3())
+            .expect("positions");
+        p.iter().map(|v| Vec3::from(*v)).fold(
+            (Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)),
+            |(lo, hi), v| (lo.min(v), hi.max(v)),
+        )
+    }
+
+    // r[verify viz.bar-emitters] - the wedge's near face is the strip, its far face the spread
+    #[test]
+    fn the_wedge_starts_as_the_strip_and_opens_by_the_beam_angle() {
+        let mesh = wedge_mesh(0.5, 0.03, 4.0, 20.0);
+        let (lo, hi) = bounds(&mesh);
+        let spread = 4.0 * 20f32.to_radians().tan();
+        assert!(
+            (hi.x - (0.5 + spread)).abs() < 1e-4,
+            "far half-length {}",
+            hi.x
+        );
+        assert!(
+            (hi.y - (0.03 + spread)).abs() < 1e-4,
+            "far half-width {}",
+            hi.y
+        );
+        assert!(
+            (hi.z - 0.0).abs() < 1e-6 && (lo.z + 4.0).abs() < 1e-6,
+            "runs 0 .. -length"
+        );
+        // The near face is exactly the strip.
+        let near: Vec<Vec3> = mesh
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .and_then(|a| a.as_float3())
+            .unwrap()
+            .iter()
+            .map(|v| Vec3::from(*v))
+            .filter(|v| v.z.abs() < 1e-6)
+            .collect();
+        assert!(
+            near.iter()
+                .all(|v| (v.x.abs() - 0.5).abs() < 1e-6 && (v.y.abs() - 0.03).abs() < 1e-6)
+        );
+    }
+}

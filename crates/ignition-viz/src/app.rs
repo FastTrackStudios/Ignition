@@ -114,6 +114,10 @@ pub struct VizConfig {
     /// Attach the loopback sink — see `output::LoopbackSink` for why
     /// this is a verification path and not the normal one.
     pub loopback: bool,
+    /// Whether a lit fixture's housing glows its own colour — see
+    /// `VizSettings::body_glow`. Off by default: the real fixtures are
+    /// black.
+    pub body_glow: bool,
 }
 
 /// The per-pixel cost dials: what a still can afford and a live view
@@ -160,6 +164,60 @@ impl RenderQuality {
             msaa: false,
         }
     }
+
+    /// The same dials, with the raymarch made fine enough for the rig
+    /// in front of it. A narrow shaft — a mini gobo mover's 11 degrees,
+    /// a beam fixture's 2 — is a few decimetres across for most of its
+    /// length, and at a live step count the fog samples cross it only
+    /// once or twice per pixel: the shaft comes out as a string of dots
+    /// and rings instead of a solid cone. Only a rig that actually cuts
+    /// such a shaft pays for the finer march; a room of pars keeps the
+    /// live count.
+    pub fn for_rig(self, venue: &Venue) -> Self {
+        Self {
+            fog_steps: fog_steps_for(self.fog_steps, narrowest_shaft_full_angle_deg(venue)),
+            msaa: self.msaa,
+        }
+    }
+}
+
+/// Full beam angles below this need the finer march — see
+/// `RenderQuality::for_rig`.
+pub const NARROW_BEAM_FULL_ANGLE_DEG: f32 = 15.0;
+
+/// The step count a narrow shaft needs to read as a solid cone in the
+/// studio viewport: twice the live count, which is where the dots go.
+pub const NARROW_BEAM_FOG_STEPS: u32 = 256;
+
+/// `base`, raised to `NARROW_BEAM_FOG_STEPS` when the rig's narrowest
+/// shaft-cutting beam is under `NARROW_BEAM_FULL_ANGLE_DEG`. Never
+/// lowered: a still's count is already above it.
+pub fn fog_steps_for(base: u32, narrowest_shaft_full_angle_deg: Option<f32>) -> u32 {
+    match narrowest_shaft_full_angle_deg {
+        Some(angle) if angle < NARROW_BEAM_FULL_ANGLE_DEG => base.max(NARROW_BEAM_FOG_STEPS),
+        _ => base,
+    }
+}
+
+/// The full beam angle of the narrowest patched fixture bright enough
+/// per-direction to cut a shaft (see `SHAFT_CANDELA_THRESHOLD`), if any.
+pub fn narrowest_shaft_full_angle_deg(venue: &Venue) -> Option<f32> {
+    use crate::fixture_profile::{
+        LUMENS_PER_WATT, SHAFT_CANDELA_THRESHOLD, beam_half_angle_deg, peak_candela, power_watts,
+    };
+    venue
+        .fixtures
+        .iter()
+        .filter(|f| f.patched)
+        .filter_map(|f| {
+            let half = beam_half_angle_deg(f.beam_angle_deg);
+            let lumens = power_watts(
+                f.manufacturer.as_deref().unwrap_or(""),
+                f.model.as_deref().unwrap_or(""),
+            ) * LUMENS_PER_WATT;
+            (peak_candela(lumens, half) >= SHAFT_CANDELA_THRESHOLD).then_some(half * 2.0)
+        })
+        .min_by(|a, b| a.total_cmp(b))
 }
 
 /// The visualizer itself: resources, the venue spawn, and the per-frame
@@ -207,6 +265,7 @@ impl Plugin for VizPlugin {
                 fps: self.config.fps,
                 exclude: self.config.exclude.clone(),
                 beam_style: self.config.beam_style,
+                body_glow: self.config.body_glow,
                 exposure: self.config.exposure,
                 screen_content: self.config.screen_content.clone(),
                 canvas_content: self.config.canvas_content.clone(),
@@ -328,7 +387,7 @@ fn run_windowed(
     let (min, max) = config.venue.bounds();
     let view = config.view;
     let free_camera = config.camera;
-    let quality = config.quality;
+    let quality = config.quality.for_rig(&config.venue);
     let (width, height) = (config.width, config.height);
     let assets_dir = config.assets_dir.clone();
 
@@ -379,7 +438,7 @@ impl Headless {
         let (min, max) = config.venue.bounds();
         let view = config.view;
         let free_camera = config.camera;
-        let quality = config.quality;
+        let quality = config.quality.for_rig(&config.venue);
         let (width, height) = (config.width, config.height);
 
         let assets_dir = config.assets_dir.clone();
@@ -684,4 +743,37 @@ pub(crate) fn camera_bundle(
             ..default()
         },
     )
+}
+
+#[cfg(test)]
+mod quality_tests {
+    use super::*;
+
+    /// The dots inside a narrow shaft are the raymarch crossing it a
+    /// sample or two per pixel; the finer march is paid only by a rig
+    /// that has such a shaft.
+    #[test]
+    fn narrow_shafts_raise_the_live_fog_steps_and_nothing_else_does() {
+        let live = RenderQuality::live().fog_steps;
+        assert_eq!(
+            fog_steps_for(live, None),
+            live,
+            "a rig with no shaft keeps the live count"
+        );
+        assert_eq!(
+            fog_steps_for(live, Some(25.0)),
+            live,
+            "a par rig keeps the live count"
+        );
+        assert_eq!(
+            fog_steps_for(live, Some(11.0)),
+            NARROW_BEAM_FOG_STEPS,
+            "an 11-degree mover doubles it"
+        );
+        assert_eq!(
+            fog_steps_for(RenderQuality::STILL.fog_steps, Some(1.72)),
+            NARROW_BEAM_FOG_STEPS.max(RenderQuality::STILL.fog_steps),
+            "a still is never made coarser"
+        );
+    }
 }

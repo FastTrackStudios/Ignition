@@ -723,7 +723,11 @@ mod uking_beam_tests {
     fn riverside_uking_beams_have_a_channel_map_and_wheel() {
         let map = channel_map_for("U'King", "150W Moving Head Beam").expect("map");
         assert_eq!(map.footprint, 12);
-        assert!(map.channels.iter().any(|(i, a)| *i == 7 && matches!(a, Attribute::ColorWheel { .. })));
+        assert!(
+            map.channels
+                .iter()
+                .any(|(i, a)| *i == 7 && matches!(a, Attribute::ColorWheel { .. }))
+        );
         assert_eq!(wheel_slots_for("U'King", "150W Moving Head Beam").len(), 8);
     }
 }

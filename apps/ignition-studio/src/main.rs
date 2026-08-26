@@ -557,6 +557,9 @@ fn clock(secs: f32) -> String {
 fn Transport() -> Element {
     let playhead = use_playhead();
     let desk = use_desk();
+    // A viewport option, so it lives here rather than in the desk state
+    // the engine owns. Starts where the viz started.
+    let mut body_glow = use_signal(body_glow_default);
     let seek = move |event: Event<MouseData>| {
         let x = event.data().element_coordinates().x;
         send(Command::Scrub((x / TRACK_WIDTH) as f32));
@@ -631,6 +634,21 @@ fn Transport() -> Element {
                     "OUTPUT"
                 }
                 span { class: "t-label out-status", "{output_status(&playhead().output)}" }
+            }
+            // Fixture body glow: whether a lit housing shows its colour.
+            // Off by default — the real fixtures are black.
+            // r[impl viz.body-glow] - the GLOW key
+            div { class: "t-output",
+                button {
+                    class: if body_glow() { "t-key on" } else { "t-key" },
+                    title: "Fixture body glow: lit housings glow their own colour",
+                    onclick: move |_| {
+                        let on = !body_glow();
+                        body_glow.set(on);
+                        send(Command::BodyGlow(on));
+                    },
+                    "GLOW"
+                }
             }
             div { class: "t-sound",
                 span { class: "t-label", "SOUND FADE" }
@@ -1399,7 +1417,9 @@ fn Viewport() -> Element {
             view: ViewPreset::House,
             width: 1280,
             height: 800,
-            haze: 1.0,
+            // 1.6, the same as `viz` — see `viz.rs`: enough particulate
+            // that a par's cone reads in the house, not only its pool.
+            haze: 1.6,
             // A little fill so the room reads even in a dark look — the
             // operator is looking at a panel, not sitting in the venue.
             ambient: 0.05,
@@ -1474,6 +1494,11 @@ fn Viewport() -> Element {
             max_universe: 4,
             snapshot: None,
             settle_frames: 1,
+            // Off unless `IGNITION_BODY_GLOW=1`, the same way the other
+            // viewport options are carried between launches; the GLOW
+            // key in the transport bar flips it live.
+            // r[impl viz.body-glow] - off by default, remembered by env
+            body_glow: body_glow_default(),
             camera: None,
             overlay: false,
             // On, because the visualizer is the thing that has to hold
@@ -1536,6 +1561,14 @@ fn Viewport() -> Element {
             object { "data": widget_attr }
         }
     }
+}
+
+/// The viewport's starting position for fixture body glow: off, unless
+/// `IGNITION_BODY_GLOW=1`. The real fixtures are black; the glow is an
+/// affordance for reading the rig, not a picture of it.
+// r[impl viz.body-glow] - off by default
+fn body_glow_default() -> bool {
+    std::env::var("IGNITION_BODY_GLOW").is_ok_and(|v| v == "1")
 }
 
 /// Where the clips are. `IGNITION_CLIPS` overrides the folder.

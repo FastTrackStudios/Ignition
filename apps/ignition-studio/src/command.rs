@@ -150,6 +150,11 @@ pub enum Command {
     /// 0–2. Zero is the raw meter; two seconds is a swell.
     // r[impl playback.sound-as-value] - the sound fade
     SoundFade(f32),
+    /// Whether lit fixture housings glow their own colour in the
+    /// viewport. A render option, not a show value: it never reaches
+    /// the engine or the wire.
+    // r[impl viz.body-glow] - the studio's switch
+    BodyGlow(bool),
     /// DMX out of the socket, on or off. The engine keeps running
     /// either way; this is the switch on the transmitter.
     // r[impl dmx.output-toggle] - the surface's OUTPUT key

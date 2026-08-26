@@ -428,6 +428,15 @@ fn drain(
                 Command::SoundFade(secs) => {
                     sound_fade.secs = secs.clamp(0.0, SoundFade::MAX_SECS);
                 }
+                // r[impl viz.body-glow] - flips the viz setting in place
+                Command::BodyGlow(on) => {
+                    if let Some(mut settings) =
+                        world.get_resource_mut::<ignition_viz::spawn::VizSettings>()
+                    {
+                        settings.body_glow = on;
+                    }
+                    tracing::info!(on, "studio: fixture body glow");
+                }
                 // r[impl dmx.output-toggle] - flips the transmitter without touching the engine
                 Command::Output(on) => {
                     if let Some(mut output) = world.get_resource_mut::<ignition_viz::DmxOutput>() {

@@ -270,6 +270,152 @@ GEOMETRY_TAGS = {"Geometry", "Axis", "FilterBeam", "FilterColor", "FilterGobo",
                  "WiringObject", "Inventory", "Structure", "Support", "Magnet"}
 
 
+IDENTITY = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+
+
+def parse_matrix(text):
+    """A GDTF Position `{r0}{r1}{r2}{r3}` into 4 rows of 4 floats (row-major,
+    translation in the last column of the first three rows)."""
+    if not text:
+        return [row[:] for row in IDENTITY]
+    rows = [[float(v) for v in row.split(",")] for row in re.findall(r"\{([^}]*)\}", text)]
+    if len(rows) != 4 or any(len(r) != 4 for r in rows):
+        return [row[:] for row in IDENTITY]
+    return rows
+
+
+def format_matrix(rows):
+    return "".join("{%s}" % ",".join(fmt(v) for v in row) for row in rows)
+
+
+def mat_mul(a, b):
+    return [[sum(a[i][k] * b[k][j] for k in range(4)) for j in range(4)] for i in range(4)]
+
+
+def mat_apply(m, p):
+    x, y, z = p
+    return tuple(m[i][0] * x + m[i][1] * y + m[i][2] * z + m[i][3] for i in range(3))
+
+
+def model_box(base, model):
+    """The box a <Model> draws about its own pivot, in metres: (lo, hi)."""
+    size = tuple(float(model.get(k, 0)) for k in ("Length", "Width", "Height"))
+    raw = None
+    file = (model.get("File") or "").strip()
+    if file:
+        raw = base.mesh_bounds(file)
+    if raw is not None:
+        lo, hi = raw
+        extent = [hi[i] - lo[i] for i in range(3)]
+        ratios = [size[i] / extent[i] if extent[i] > 1e-6 and size[i] > 1e-6 else None
+                  for i in range(3)]
+        fallback = next((r for r in ratios if r is not None), 1.0)
+        scale = [r if r is not None else fallback for r in ratios]
+        return (tuple(lo[i] * scale[i] for i in range(3)),
+                tuple(hi[i] * scale[i] for i in range(3)))
+    length, width, height = size
+    if length <= 0 and width <= 0 and height <= 0:
+        return None
+    hangs = model.get("PrimitiveType", "") in ("Base", "Base1_1")
+    z0, z1 = (-height, 0.0) if hangs else (-height / 2, height / 2)
+    return (-length / 2, -width / 2, z0), (length / 2, width / 2, z1)
+
+
+def glb_bounds(data):
+    """Bounds of every mesh in a .glb, node transforms applied, remapped
+    from glTF's Y-up to GDTF's Z-up the way the visualizer does it."""
+    import struct
+    if data[:4] != b"glTF":
+        return None
+    length = struct.unpack_from("<I", data, 12)[0]
+    doc = json.loads(data[20:20 + length])
+    accessors = doc.get("accessors", [])
+    meshes = doc.get("meshes", [])
+    nodes = doc.get("nodes", [])
+    lo = [float("inf")] * 3
+    hi = [float("-inf")] * 3
+
+    def node_matrix(node):
+        if "matrix" in node:
+            m = node["matrix"]  # column-major
+            return [[m[c * 4 + r] for c in range(4)] for r in range(4)]
+        t = node.get("translation", [0, 0, 0])
+        q = node.get("rotation", [0, 0, 0, 1])
+        sc = node.get("scale", [1, 1, 1])
+        x, y, z, w = q
+        rot = [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+               [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+               [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]
+        return [[rot[r][c] * sc[c] for c in range(3)] + [t[r]] for r in range(3)] + [[0, 0, 0, 1]]
+
+    def visit(index, parent):
+        node = nodes[index]
+        mat = mat_mul(parent, node_matrix(node))
+        if "mesh" in node:
+            for prim in meshes[node["mesh"]].get("primitives", []):
+                acc = accessors[prim.get("attributes", {}).get("POSITION", -1)] if prim.get("attributes", {}).get("POSITION") is not None else None
+                if acc is None or "min" not in acc or "max" not in acc:
+                    continue
+                for x in (acc["min"][0], acc["max"][0]):
+                    for y in (acc["min"][1], acc["max"][1]):
+                        for z in (acc["min"][2], acc["max"][2]):
+                            wx, wy, wz = mat_apply(mat, (x, y, z))
+                            for i, v in enumerate((wx, -wz, wy)):
+                                lo[i] = min(lo[i], v)
+                                hi[i] = max(hi[i], v)
+        for child in node.get("children", []):
+            visit(child, mat)
+
+    scene = doc.get("scenes", [{}])[doc.get("scene", 0)] if doc.get("scenes") else {}
+    roots = scene.get("nodes") or list(range(len(nodes)))
+    for r in roots:
+        visit(r, IDENTITY)
+    if lo[0] == float("inf"):
+        return None
+    return tuple(lo), tuple(hi)
+
+
+def tds_bounds(data):
+    """Bounds of every vertex list in a .3ds (Z-up already)."""
+    import struct
+    lo = [float("inf")] * 3
+    hi = [float("-inf")] * 3
+
+    def chunks(buf):
+        at = 0
+        while at + 6 <= len(buf):
+            cid, size = struct.unpack_from("<HI", buf, at)
+            if size < 6 or at + size > len(buf):
+                return
+            yield cid, buf[at + 6:at + size]
+            at += size
+
+    def walk(buf, depth):
+        for cid, body in chunks(buf):
+            if cid in (0x4D4D, 0x3D3D):
+                walk(body, depth + 1)
+            elif cid == 0x4000:
+                # Named object: a NUL-terminated name, then sub-chunks.
+                end = body.find(b"\0")
+                walk(body[end + 1:], depth + 1)
+            elif cid == 0x4100:
+                walk(body, depth + 1)
+            elif cid == 0x4110:
+                n = struct.unpack_from("<H", body, 0)[0]
+                for i in range(n):
+                    v = struct.unpack_from("<fff", body, 2 + i * 12)
+                    for k in range(3):
+                        lo[k] = min(lo[k], v[k])
+                        hi[k] = max(hi[k], v[k])
+
+    if data[:2] != b"\x4d\x4d":
+        return None
+    walk(data, 0)
+    if lo[0] == float("inf"):
+        return None
+    return tuple(lo), tuple(hi)
+
+
 class Base:
     """The parts of a base .gdtf we borrow."""
 
@@ -318,6 +464,18 @@ class Base:
 
     def name(self):
         return self.fixture_type.get("Name", "")
+
+    def mesh_bounds(self, file):
+        """Raw bounds of a Model's 3D file, Z-up; the glb wins over the
+        3ds as it does in the visualizer. None when neither decodes."""
+        for name in ("models/gltf/%s.glb" % file, "models/3ds/%s.3ds" % file):
+            if name not in self.zip.namelist():
+                continue
+            data = self.zip.read(name)
+            bounds = glb_bounds(data) if name.endswith(".glb") else tds_bounds(data)
+            if bounds:
+                return bounds
+        return None
 
     def model_files(self):
         return [n for n in self.zip.namelist()
@@ -486,6 +644,7 @@ class Generator:
     def build_models(self, models):
         for m in self.base.models:
             models.append(copy.deepcopy(m))
+        self.geometry_scale = (1.0, 1.0, 1.0)
         phys = self.spec.get("physical") or {}
         dims = {k: number(phys.get(k)) for k in ("width_mm", "length_mm", "height_mm")}
         if not all(dims.values()):
@@ -496,27 +655,87 @@ class Generator:
                                                       self.base.fixture_type.get("LongName", "").lower())
         if same_product:
             return
-        # Scale the base's models so the fixture's overall box matches the
-        # spec: width/length from the widest model, height along the chain
-        # root..head (the parts stacked on the beam axis).
-        by_name = {m.get("Name"): m for m in models}
-        widths = [float(m.get("Width", 0)) for m in models]
-        lengths = [float(m.get("Length", 0)) for m in models]
-        chain = self.base.ancestors(self.base.beams[0]) if self.base.beams else [self.base.root_geometry]
-        chain_models = [by_name.get(g.get("Model")) for g in chain]
-        heights = [float(m.get("Height", 0)) for m in chain_models if m is not None]
-        base_w, base_l, base_h = max(widths or [0]), max(lengths or [0]), sum(heights)
-        sx = width_m / base_w if base_w else 1.0
-        sy = length_m / base_l if base_l else 1.0
-        sz = height_m / base_h if base_h else 1.0
+        # Scale the base so the *assembled* fixture's box matches the spec.
+        # The parts overlap (a head sits inside its yoke, a yoke inside
+        # its base's drop), so the height is what the file's own
+        # placements add up to, not the sum of the Models' heights — that
+        # sum shrank every mini mover to two thirds of its real size. The
+        # same factors go on every Model and, in `build_geometries`, on
+        # every Position, so the parts stay where they meet and the
+        # <Beam> stays on the lens.
+        extents = self.base_extents()
+        if not extents:
+            return
+        base_x, base_y, base_z = extents
+        # A listing's width/length are not axis-tagged (GDTF Length is X,
+        # Width is Y, and a bar's long side is whichever the author drew
+        # it on), so the larger of the pair goes on the base's longer
+        # horizontal axis.
+        spec_long, spec_short = sorted([width_m, length_m], reverse=True)
+        if base_x >= base_y:
+            sx, sy = spec_long / base_x, spec_short / base_y
+        else:
+            sx, sy = spec_short / base_x, spec_long / base_y
+        sz = height_m / base_z
+        self.geometry_scale = (sx, sy, sz)
         for m in models:
-            m.set("Width", fmt(float(m.get("Width", 0)) * sx))
-            m.set("Length", fmt(float(m.get("Length", 0)) * sy))
+            m.set("Length", fmt(float(m.get("Length", 0)) * sx))
+            m.set("Width", fmt(float(m.get("Width", 0)) * sy))
             m.set("Height", fmt(float(m.get("Height", 0)) * sz))
+
+    def base_extents(self):
+        """(x, y, z) size of the base file's drawn parts, assembled with
+        the file's own Position matrices and every joint at rest. A Model
+        with a 3D file is that file's real bounds fitted to its
+        Length/Width/Height about the pivot — the same fit the visualizer
+        applies (`gdtf_geometry::fit_scale`); a standard primitive is a
+        box that hangs below the pivot for a Base and is centred on it
+        otherwise, which is how the spec's primitive meshes come out.
+        <Beam> nodes draw nothing."""
+        by_name = {m.get("Name"): m for m in self.base.models}
+        lo = [float("inf")] * 3
+        hi = [float("-inf")] * 3
+
+        def walk(node, parent):
+            mat = mat_mul(parent, parse_matrix(node.get("Position")))
+            model = by_name.get(node.get("Model"))
+            # A pigtail is the cable stub, which no listing's dimensions
+            # include; a <Beam> draws nothing.
+            is_housing = model is not None and node.tag != "Beam" and \
+                model.get("PrimitiveType", "") != "Pigtail"
+            if is_housing:
+                box = model_box(self.base, model)
+                if box is not None:
+                    (x0, y0, z0), (x1, y1, z1) = box
+                    for x in (x0, x1):
+                        for y in (y0, y1):
+                            for z in (z0, z1):
+                                w = mat_apply(mat, (x, y, z))
+                                for i, v in enumerate(w):
+                                    lo[i] = min(lo[i], v)
+                                    hi[i] = max(hi[i], v)
+            for child in node:
+                if child.tag in GEOMETRY_TAGS:
+                    walk(child, mat)
+
+        for top in self.base.geometries:
+            walk(top, IDENTITY)
+        if lo[0] == float("inf"):
+            return None
+        return tuple(max(hi[i] - lo[i], 1e-6) for i in range(3))
 
     def build_geometries(self, geoms):
         for g in self.base.geometries:
             geoms.append(copy.deepcopy(g))
+        sx, sy, sz = self.geometry_scale
+        if (sx, sy, sz) != (1.0, 1.0, 1.0):
+            for node in geoms.iter():
+                if node.tag in GEOMETRY_TAGS and node.get("Position"):
+                    rows = parse_matrix(node.get("Position"))
+                    rows[0][3] *= sx
+                    rows[1][3] *= sy
+                    rows[2][3] *= sz
+                    node.set("Position", format_matrix(rows))
         optics = self.spec.get("optics") or {}
         phys = self.spec.get("physical") or {}
         for beam in geoms.iter("Beam"):
@@ -824,10 +1043,17 @@ def console_names(spec):
     uses for the same fixture; each alias gets its own file."""
     names = spec.get("console_name")
     if isinstance(names, str):
-        return [names]
-    if isinstance(names, list) and names and all(isinstance(n, str) for n in names):
-        return names
-    raise SpecError("console_name must be a string or a list of strings")
+        names = [names]
+    if not (isinstance(names, list) and names and all(isinstance(n, str) for n in names)):
+        raise SpecError("console_name must be a string or a list of strings")
+    # `console_names`: further aliases the venues patch, each its own file.
+    extra = spec.get("console_names") or []
+    if not (isinstance(extra, list) and all(isinstance(n, str) for n in extra)):
+        raise SpecError("console_names must be a list of strings")
+    for n in extra:
+        if n not in names:
+            names.append(n)
+    return names
 
 
 def generate(spec_path, base_path, out_dir):

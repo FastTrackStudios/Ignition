@@ -7,7 +7,7 @@
 //! per-frame work is writing a handful of numbers into its own material
 //! and light: no geometry is rebuilt to move a mover.
 
-use crate::beam::{BeamMaterial, beam_mesh, beam_transform};
+use crate::beam::{BeamMaterial, beam_mesh, beam_transform, wedge_mesh};
 use crate::dmx::DmxUniverses;
 use crate::fixture_profile::{
     BEAM_CONE_SEGMENTS, BeamThrow, BodyVisual, LUMENS_PER_WATT, SHAFT_CANDELA_THRESHOLD,
@@ -64,6 +64,24 @@ const SHADER_HAZE_SCALE: f32 = 10.0;
 /// needed now the fixtures actually light it — and a housing that glows
 /// when its lamp is off is not something any fixture does.
 const LIT_BODY_GLOW: f32 = 0.22;
+
+/// How hot a bar's cell faces run relative to the colour they emit: hot
+/// enough for bloom to halo the strip the way a lit LED bar does.
+const BAR_FACE_GLOW: f32 = 4.0;
+
+/// How much of a bar's spill cone stays at full before the edge falls
+/// off — see `update_beams`.
+const BAR_INNER_FRACTION: f32 = 0.7;
+
+/// What a fixture's housing emits as spawned: nothing. A body is matte
+/// black until `update_fixture_bodies` decides otherwise, and with the
+/// glow off (the default) it never does.
+// r[impl viz.body-glow] - spawned matte
+const FIXTURE_GLOW: f32 = 0.0;
+
+/// The housing's base colour with the glow off: near-black, so a par
+/// reads as the black can it is and not as a coloured block.
+const BODY_GREY: f32 = 0.03;
 
 /// How brightly a screen's own content emits. A TV in a dark room is
 /// genuinely one of the brighter things in it, but this is well under
@@ -137,6 +155,13 @@ pub struct VizSettings {
     pub exposure: f32,
     /// How beams are drawn — see `BeamStyle`.
     pub beam_style: BeamStyle,
+    /// Whether a lit fixture's housing glows in the colour it is putting
+    /// out. Off by default: the real fixtures are black boxes, and a
+    /// par that lights up orange when it is sending orange reads as a
+    /// lamp, not a luminaire. On, it is the "which of them is on"
+    /// affordance `FixtureBody` describes.
+    // r[impl viz.body-glow] - the switch, off unless asked
+    pub body_glow: bool,
     /// Asset path of what every screen displays, or `None` for screens
     /// that are off. One image for all of them is the placeholder; real
     /// projection mapping needs per-surface content and its own
@@ -267,6 +292,13 @@ pub struct FixtureBody {
     pub material: Handle<StandardMaterial>,
 }
 
+/// The profile's own beam angle (full, degrees), on an emitter whose
+/// venue record carries none: a generated bar profile says 40 degrees
+/// where the patch says nothing, and the 25-degree fallback made every
+/// batten a narrow slot.
+#[derive(Component)]
+pub struct ProfileBeamAngle(pub f32);
+
 /// A fixture's beam cone — a child of its `BeamEmitter`.
 #[derive(Component)]
 pub struct FixtureBeam;
@@ -278,6 +310,205 @@ pub struct FixtureBeam;
 /// beam-axis convention, so it needs no aiming code at all.
 #[derive(Component)]
 pub struct FixtureSpill;
+
+/// A linear source: an LED bar's whole front, as one emitter.
+///
+/// A bar's GDTF profile carries one `<Beam>` per cell — twelve on the
+/// Ultra Bar 12 — in a line across the housing. Drawn as twelve point
+/// emitters that is twelve pencil cones and twelve dots, which is not
+/// what a batten does: it puts up a wide flat wash from the whole strip.
+/// So the cells are folded into one emitter at the strip's centre, whose
+/// local X runs along the strip and whose -Z is the aim, with the
+/// strip's extent kept here to size the emissive face and the wedge.
+// r[impl viz.bar-emitters] - the strip is one emitter, not a row of points
+#[derive(Component)]
+pub struct BarEmitter {
+    /// Half the strip's length along the emitter's local X: from the
+    /// outermost `<Beam>` nodes, plus half a cell pitch beyond each so
+    /// the end cells are whole.
+    pub half_length: f32,
+    /// Half the strip's width along local Y — the cell pitch, capped by
+    /// the housing.
+    pub half_width: f32,
+    /// The emissive face of each cell, in bar order, so a cell can show
+    /// its own colour.
+    pub cells: Vec<Handle<StandardMaterial>>,
+}
+
+/// A bar's volumetric shape — a child of its `BarEmitter`. Where a point
+/// emitter's shaft is a cone, a strip's is an extruded wedge: a frustum
+/// with a rectangular section whose near face is the strip itself and
+/// whose sides open by the beam angle. Rebuilt only when the throw
+/// changes, which for a bar bolted to a floor or a truss is never.
+// r[impl viz.bar-emitters] - a wedge, not N cones
+#[derive(Component)]
+pub struct BarWedge {
+    /// The throw the current mesh was built for, so the mesh is not
+    /// regenerated every frame for the same answer.
+    pub built_for_length: f32,
+}
+
+/// Cells this close to one line, and this parallel, are one strip. A
+/// bar's cells sit on a line to within the file author's rounding;
+/// a real multi-lens fixture that is not a bar (a derby, a spider with
+/// two heads) fails one of the two.
+const BAR_LINE_TOLERANCE: f32 = 0.01;
+
+/// A multi-`<Beam>` profile is a bar when four or more beams fire the
+/// same way from points on one line square to that aim. Returns the
+/// strip: its centre pose (local X along the strip, -Z the aim) and the
+/// half-length and cell pitch.
+// r[impl viz.bar-emitters] - four or more beams on a line are a bar
+pub fn bar_strip(beams: &[(Vec3, Quat)]) -> Option<(Vec3, Quat, f32, f32)> {
+    if beams.len() < 4 {
+        return None;
+    }
+    let aim = (beams[0].1 * Vec3::NEG_Z).normalize_or_zero();
+    if beams
+        .iter()
+        .any(|(_, r)| (r * Vec3::NEG_Z).dot(aim) < 0.999)
+    {
+        return None;
+    }
+    // The strip runs from the first cell to the one farthest from it.
+    let first = beams[0].0;
+    let last = beams
+        .iter()
+        .map(|(p, _)| *p)
+        .max_by(|a, b| a.distance(first).total_cmp(&b.distance(first)))
+        .unwrap_or(first);
+    let span = last - first;
+    let length = span.length();
+    if length < BAR_LINE_TOLERANCE {
+        return None;
+    }
+    let along = span / length;
+    // Square to the aim: a strip fires out of its face, not along it.
+    if along.dot(aim).abs() > 0.05 {
+        return None;
+    }
+    // Every cell on that line.
+    if beams.iter().any(|(p, _)| {
+        let d = *p - first;
+        (d - along * d.dot(along)).length() > BAR_LINE_TOLERANCE
+    }) {
+        return None;
+    }
+    let pitch = length / (beams.len() - 1) as f32;
+    let centre = (first + last) * 0.5;
+    // A frame whose X is the strip and whose -Z is the aim.
+    let x = along;
+    let z = -aim;
+    let y = z.cross(x).normalize_or_zero();
+    let rot = Quat::from_mat3(&Mat3::from_cols(x, y, z));
+    Some((centre, rot, length * 0.5 + pitch * 0.5, pitch))
+}
+
+/// Spawns a bar's one emitter: the strip's centre pose under the fixture
+/// root, a thin emissive face per cell tiling the strip, the wedge for
+/// its shaft, and one wide spill light. The spill is a single spot with
+/// no shadow map and no volumetric pass — a strip's wash has no cone to
+/// carve, and twelve shadowed spots was what drew the dots.
+// r[impl viz.bar-emitters] - the emissive face, the wedge and one spill per bar
+#[allow(clippy::too_many_arguments)]
+fn spawn_bar_emitter(
+    commands: &mut Commands,
+    root: Entity,
+    fixture: usize,
+    name: &str,
+    centre: Vec3,
+    rot: Quat,
+    half_length: f32,
+    pitch: f32,
+    cells: &[(Vec3, Quat)],
+    meshes: &mut Assets<Mesh>,
+    standard: &mut Assets<StandardMaterial>,
+    beams: &mut Assets<BeamMaterial>,
+    haze: f32,
+    profile_angle: Option<f32>,
+) {
+    // A cell face is a square of the pitch, capped so a sparse bar does
+    // not read as a slab; proud of the housing by the face's own depth.
+    let half_width = (pitch * 0.5).min(0.03);
+    const FACE_DEPTH: f32 = 0.004;
+    let emitter = commands
+        .spawn((
+            BeamEmitter { fixture },
+            EmitterState::default(),
+            Transform {
+                translation: centre,
+                rotation: rot,
+                scale: Vec3::ONE,
+            },
+            Visibility::default(),
+            Name::new(format!("{name} strip")),
+            ChildOf(root),
+        ))
+        .id();
+
+    let along = rot * Vec3::X;
+    let face = meshes.add(Cuboid::new(pitch * 0.9, half_width * 2.0, FACE_DEPTH));
+    let mut cell_materials = Vec::with_capacity(cells.len());
+    for (pos, _) in cells {
+        let x = (*pos - centre).dot(along);
+        let material = standard.add(StandardMaterial {
+            base_color: Color::srgb(0.06, 0.06, 0.06),
+            emissive: LinearRgba::BLACK,
+            perceptual_roughness: 0.5,
+            ..default()
+        });
+        commands.spawn((
+            Mesh3d(face.clone()),
+            MeshMaterial3d(material.clone()),
+            Transform::from_translation(Vec3::new(x, 0.0, -FACE_DEPTH * 0.5)),
+            ChildOf(emitter),
+        ));
+        cell_materials.push(material);
+    }
+    commands.entity(emitter).insert(BarEmitter {
+        half_length,
+        half_width,
+        cells: cell_materials,
+    });
+    if let Some(angle) = profile_angle {
+        commands.entity(emitter).insert(ProfileBeamAngle(angle));
+    }
+
+    // Drawn in both beam styles: Bevy's fog carves shafts from spot
+    // lights, which are cones, so a strip's wedge has to be a mesh
+    // whichever style the point emitters use.
+    commands.spawn((
+        BarWedge {
+            built_for_length: 0.0,
+        },
+        Mesh3d(meshes.add(wedge_mesh(half_length, half_width, 1.0, 20.0))),
+        MeshMaterial3d(beams.add(BeamMaterial::new(
+            LinearRgba::BLACK,
+            Vec3::ZERO,
+            Vec3::NEG_Z,
+            20.0,
+            1.0,
+            haze,
+        ))),
+        Transform::default(),
+        Visibility::Hidden,
+        Name::new(format!("{name} wedge")),
+        ChildOf(emitter),
+    ));
+    commands.spawn((
+        FixtureSpill,
+        SpotLight {
+            intensity: 0.0,
+            range: 40.0,
+            shadow_maps_enabled: false,
+            ..default()
+        },
+        Transform::default(),
+        Visibility::Hidden,
+        Name::new(format!("{name} spill")),
+        ChildOf(emitter),
+    ));
+}
 
 /// A piece of room structure a fixture can be rigged to: the ceiling, a
 /// wall, the deck, the truss beam over the drums.
@@ -563,9 +794,6 @@ pub fn spawn_venue(
 
     /// Room geometry emits nothing; only the rig lights it.
     const UNLIT: f32 = 0.0;
-    /// Fixtures start dark; `update_fixture_bodies` lights a housing
-    /// once its own lamp is up.
-    const FIXTURE_GLOW: f32 = 0.0;
 
     for g in &venue.room {
         if settings.skip(&g.name) {
@@ -936,9 +1164,16 @@ pub fn spawn_venue(
             None,
             &throw,
         );
-        let body_color: Color = {
+        // A real fixture is a black box. The category tint (wash blue,
+        // mover orange) is a reading aid, and it only makes sense next
+        // to the glow it belongs with; with the glow off the housing is
+        // near-black matte, lit only by the rig around it.
+        // r[impl viz.body-glow] - no tint without the glow
+        let body_color: Color = if settings.body_glow {
             let c = f.kind().color();
             Color::srgb(c[0], c[1], c[2])
+        } else {
+            Color::srgb(BODY_GREY, BODY_GREY, BODY_GREY)
         };
         let body_material = solid(&mut standard, body_color, FIXTURE_GLOW);
 
@@ -1014,6 +1249,32 @@ pub fn spawn_venue(
                 &body_material,
                 &mut emitters,
             );
+            // A row of cells is a strip, not a row of spots: the cell
+            // nodes stay in the tree (they carry the file's placement)
+            // but stop being emitters, and one linear emitter spanning
+            // them takes over.
+            // r[impl viz.bar-emitters] - a bar's cells fold into one strip
+            if let Some((centre, rot, half_length, pitch)) = bar_strip(&gdtf.root.beam_poses()) {
+                emitters.clear();
+                let cells = gdtf.root.beam_poses();
+                spawn_bar_emitter(
+                    &mut commands,
+                    root,
+                    index,
+                    &f.name,
+                    centre,
+                    rot,
+                    half_length,
+                    pitch,
+                    &cells,
+                    &mut meshes,
+                    &mut standard,
+                    &mut beams,
+                    settings.haze,
+                    gdtf.beam_angle_deg
+                        .filter(|_| !f.beam_angle_deg.is_some_and(|a| a > 0.1)),
+                );
+            }
         } else {
             match &visual.body {
                 BodyVisual::Mesh {
@@ -1128,10 +1389,17 @@ pub fn spawn_venue(
         // Beam and spill exist from the start and are simply hidden while
         // the fixture is dark — cheaper and steadier than spawning and
         // despawning entities as cues fade in and out.
+        // The profile's beam angle stands in for a patch that has none.
+        let profile_angle = gdtf
+            .and_then(|g| g.beam_angle_deg)
+            .filter(|_| !f.beam_angle_deg.is_some_and(|a| a > 0.1));
         for emitter in emitters {
             commands
                 .entity(emitter)
                 .insert((BeamEmitter { fixture: index }, EmitterState::default()));
+            if let Some(angle) = profile_angle {
+                commands.entity(emitter).insert(ProfileBeamAngle(angle));
+            }
             if settings.beam_style == BeamStyle::Shader {
                 commands.spawn((
                     FixtureBeam,
@@ -1217,7 +1485,7 @@ pub fn update_live_fixtures(
             Without<PanJoint>,
         ),
     >,
-    mut emitters: Query<(&BeamEmitter, &mut EmitterState)>,
+    mut emitters: Query<(&BeamEmitter, &mut EmitterState, Option<&ProfileBeamAngle>)>,
     child_of: Query<&ChildOf>,
     live_dmx: Res<LiveDmx>,
     time: Res<Time>,
@@ -1331,11 +1599,14 @@ pub fn update_live_fixtures(
         transform.rotation = live.tilt;
     }
 
-    for (emitter, mut state) in &mut emitters {
+    for (emitter, mut state, profile_angle) in &mut emitters {
         match resolved.get(emitter.fixture).and_then(|o| o.as_ref()) {
             Some(live) => {
                 state.color = live.color;
-                state.half_angle_deg = live.half_angle_deg;
+                state.half_angle_deg = match profile_angle {
+                    Some(angle) => beam_half_angle_deg(Some(angle.0)),
+                    None => live.half_angle_deg,
+                };
                 state.penumbra_inner = live.penumbra_inner;
                 state.lumens = live.lumens;
             }
@@ -1402,30 +1673,46 @@ fn penumbra_inner_for(kind: crate::venue::FixtureKind) -> f32 {
 /// pose, the pan, the tilt and — for a GDTF fixture — every joint and
 /// offset in the manufacturer's own geometry tree. Nothing here knows or
 /// cares which of those applied.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn update_beams(
     time: Res<Time>,
     venue: Res<VenueRes>,
     settings: Res<VizSettings>,
     mut beam_materials: ResMut<Assets<BeamMaterial>>,
-    emitters: Query<(&EmitterState, &GlobalTransform, Option<&Children>)>,
+    mut standard: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    emitters: Query<(
+        &EmitterState,
+        &GlobalTransform,
+        Option<&Children>,
+        Option<&BarEmitter>,
+    )>,
     mut beam_q: Query<
         (
             &mut Transform,
             &mut Visibility,
             &MeshMaterial3d<BeamMaterial>,
         ),
-        (With<FixtureBeam>, Without<FixtureSpill>),
+        (With<FixtureBeam>, Without<FixtureSpill>, Without<BarWedge>),
+    >,
+    mut wedge_q: Query<
+        (
+            &mut BarWedge,
+            &mut Mesh3d,
+            &mut Visibility,
+            &MeshMaterial3d<BeamMaterial>,
+        ),
+        (Without<FixtureBeam>, Without<FixtureSpill>),
     >,
     mut spill_q: Query<
         (&mut Visibility, &mut SpotLight),
-        (With<FixtureSpill>, Without<FixtureBeam>),
+        (With<FixtureSpill>, Without<FixtureBeam>, Without<BarWedge>),
     >,
 ) {
     let throw = BeamThrow::for_venue(&venue.0);
     let seconds = time.elapsed_secs();
 
-    for (state, global, children) in &emitters {
+    for (state, global, children, bar) in &emitters {
         let Some(children) = children else { continue };
         let origin = global.translation();
         // This project's aim convention: a fixture emits along its own
@@ -1434,7 +1721,61 @@ pub fn update_beams(
         let length = throw.reach(origin, direction);
         let far_radius = (length * state.half_angle_deg.to_radians().tan()).max(0.05);
 
+        // A strip's cells show its colour on the housing, lit or dark.
+        // r[impl viz.bar-emitters] - every cell face carries the colour
+        if let Some(bar) = bar {
+            let emissive = match state.color {
+                Some(c) => LinearRgba::rgb(
+                    c[0] * BAR_FACE_GLOW,
+                    c[1] * BAR_FACE_GLOW,
+                    c[2] * BAR_FACE_GLOW,
+                ),
+                None => LinearRgba::BLACK,
+            };
+            for cell in &bar.cells {
+                let unchanged = standard.get(cell).is_some_and(|m| m.emissive == emissive);
+                if unchanged {
+                    continue;
+                }
+                if let Some(mut m) = standard.get_mut(cell) {
+                    m.emissive = emissive;
+                }
+            }
+        }
+
         for child in children.iter() {
+            if let (Some(bar), Ok((mut wedge, mut mesh, mut visibility, material))) =
+                (bar, wedge_q.get_mut(child))
+            {
+                match state.color {
+                    Some(color) => {
+                        *visibility = Visibility::Visible;
+                        if (wedge.built_for_length - length).abs() > 0.02 {
+                            mesh.0 = meshes.add(wedge_mesh(
+                                bar.half_length,
+                                bar.half_width,
+                                length,
+                                state.half_angle_deg,
+                            ));
+                            wedge.built_for_length = length;
+                        }
+                        if let Some(mut m) = beam_materials.get_mut(&material.0) {
+                            m.color = LinearRgba::rgb(color[0], color[1], color[2]);
+                            m.direction_angle = Vec4::new(
+                                direction.x,
+                                direction.y,
+                                direction.z,
+                                state.half_angle_deg,
+                            );
+                            m.origin_length = Vec4::new(origin.x, origin.y, origin.z, length);
+                            m.params =
+                                Vec4::new(settings.haze * SHADER_HAZE_SCALE, seconds, 0.0, 0.0);
+                        }
+                    }
+                    None => *visibility = Visibility::Hidden,
+                }
+                continue;
+            }
             if let Ok((mut transform, mut visibility, material)) = beam_q.get_mut(child) {
                 match state.color {
                     Some(color) => {
@@ -1463,7 +1804,18 @@ pub fn update_beams(
                 match state.color {
                     Some(color) => {
                         *visibility = Visibility::Visible;
-                        let outer = state.half_angle_deg.to_radians();
+                        // A strip's one spill has to cover the strip's
+                        // own length as well as its spread — a cone is
+                        // the only shape a spot light has, so it opens to
+                        // where the wedge's long side reaches.
+                        let outer = match bar {
+                            Some(bar) => {
+                                state.half_angle_deg.to_radians()
+                                    + (bar.half_length / length.max(0.1)).atan()
+                            }
+                            None => state.half_angle_deg.to_radians(),
+                        }
+                        .min(core::f32::consts::FRAC_PI_2 - 0.01);
                         light.outer_angle = outer;
                         // A fully soft cone, not a hard-edged one. This
                         // is ASLS's default: their focus channel drives
@@ -1481,7 +1833,17 @@ pub fn update_beams(
                         // showing right now": a hard inner cone made
                         // every par read as a tight defined shaft
                         // instead of a wash.
-                        light.inner_angle = outer * state.penumbra_inner;
+                        // A strip keeps most of its cone at full: its
+                        // wash has to start at the housing and run up
+                        // the wall it stands against, and a fully soft
+                        // edge left the wall dark until halfway up.
+                        // r[impl viz.bar-emitters] - a bar's wash begins at the bar
+                        light.inner_angle = outer
+                            * if bar.is_some() {
+                                BAR_INNER_FRACTION
+                            } else {
+                                state.penumbra_inner
+                            };
                         light.range = length * 1.2;
                         light.color = Color::srgb(color[0], color[1], color[2]);
                         // The fixture's own output, scaled only by the
@@ -1508,6 +1870,7 @@ pub fn update_beams(
 /// colour — rather than as a static model.
 pub fn update_fixture_bodies(
     dmx: Option<Res<DmxRes>>,
+    settings: Res<VizSettings>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     bodies: Query<(&Fixture, &FixtureBody)>,
     live_dmx: Res<LiveDmx>,
@@ -1516,20 +1879,7 @@ pub fn update_fixture_bodies(
 
     for (fixture, body) in &bodies {
         let live = live_dmx.0.get(fixture.index).copied().flatten();
-
-        let emissive = match live {
-            Some(live) if live.dimmer > MIN_VISIBLE_DIMMER => {
-                let c = if live.has_color { live.color } else { [1.0; 3] };
-                // Scaled by the dimmer so a fixture at 20% reads as at
-                // 20%, and hot enough at full for bloom to halo it the
-                // way a real lit lens does.
-                let gain = live.dimmer * LIT_BODY_GLOW;
-                LinearRgba::rgb(c[0] * gain, c[1] * gain, c[2] * gain)
-            }
-            // Dark: emits nothing, and is lit only by whatever else in
-            // the rig happens to fall on it.
-            _ => LinearRgba::BLACK,
-        };
+        let emissive = body_emissive(live, settings.body_glow);
 
         // `get_mut` marks the material modified whether or not anything
         // changed, and a modified material is re-uploaded — 69 bodies
@@ -1543,6 +1893,28 @@ pub fn update_fixture_bodies(
         if let Some(mut material) = materials.get_mut(&body.material) {
             material.emissive = emissive;
         }
+    }
+}
+
+/// What a fixture's housing emits this frame. With the glow off — the
+/// default — nothing, whatever the fixture is doing: the housing is a
+/// black box lit only by the rig around it. With it on, a lit fixture
+/// glows its own colour, scaled by the dimmer so a fixture at 20% reads
+/// as at 20%, and hot enough at full for bloom to halo it.
+// r[impl viz.body-glow] - a body emits nothing unless the glow is on
+pub fn body_emissive(live: Option<crate::dmx::ResolvedAttributes>, body_glow: bool) -> LinearRgba {
+    if !body_glow {
+        return LinearRgba::BLACK;
+    }
+    match live {
+        Some(live) if live.dimmer > MIN_VISIBLE_DIMMER => {
+            let c = if live.has_color { live.color } else { [1.0; 3] };
+            let gain = live.dimmer * LIT_BODY_GLOW;
+            LinearRgba::rgb(c[0] * gain, c[1] * gain, c[2] * gain)
+        }
+        // Dark: emits nothing, and is lit only by whatever else in the
+        // rig happens to fall on it.
+        _ => LinearRgba::BLACK,
     }
 }
 
@@ -1681,5 +2053,113 @@ mod rigging_tests {
         let world = s.center + s.rot * local_pos;
         assert!(world.distance(pos) < 1e-5, "{world:?}");
         assert!((s.rot * local_rot).angle_between(rot) < 1e-5);
+    }
+}
+
+#[cfg(test)]
+mod body_and_bar_tests {
+    use super::*;
+    use crate::dmx::ResolvedAttributes;
+
+    /// r[verify viz.body-glow] - the default material emits nothing, lit or not
+    #[test]
+    fn a_fixture_body_emits_nothing_unless_the_glow_is_on() {
+        let mut materials: Assets<StandardMaterial> = Assets::default();
+        let handle = solid(&mut materials, Color::srgb(0.25, 0.75, 0.95), FIXTURE_GLOW);
+        let material = materials.get(&handle).unwrap();
+        assert_eq!(
+            material.emissive,
+            LinearRgba::BLACK,
+            "the spawned body is matte"
+        );
+
+        let lit = ResolvedAttributes {
+            dimmer: 1.0,
+            color: [1.0, 0.5, 0.1],
+            has_color: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            body_emissive(Some(lit), false),
+            LinearRgba::BLACK,
+            "off: black at full"
+        );
+        assert_eq!(body_emissive(None, false), LinearRgba::BLACK);
+        let on = body_emissive(Some(lit), true);
+        assert!(
+            on.red > 0.0 && on.red > on.blue,
+            "on: the fixture's own colour"
+        );
+        assert_eq!(
+            body_emissive(None, true),
+            LinearRgba::BLACK,
+            "on but dark: nothing"
+        );
+    }
+
+    fn ultra_bar_beams() -> Option<Vec<(Vec3, Quat)>> {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../data/gdtf/American_DJ@Ultra_Bar_12@Close_-_Needs_Work_on_Strobes_and_Programs.gdtf",
+        );
+        if !path.exists() {
+            return None;
+        }
+        Some(
+            gdtf_geometry::import_geometry(&path, None)
+                .unwrap()
+                .root
+                .beam_poses(),
+        )
+    }
+
+    /// r[verify viz.bar-emitters] - the Ultra Bar's twelve cells are one strip
+    #[test]
+    fn twelve_cells_on_a_line_are_one_strip_the_width_of_the_bar() {
+        let Some(beams) = ultra_bar_beams() else {
+            return;
+        };
+        assert_eq!(beams.len(), 12);
+        let (centre, rot, half_length, pitch) = bar_strip(&beams).expect("a bar");
+        // Cells run from x = -0.486 to +0.486; a pitch either side makes
+        // the strip the housing's 1.06 m.
+        assert!((pitch - 0.0884).abs() < 0.002, "pitch {pitch}");
+        assert!(
+            (half_length - 0.530).abs() < 0.005,
+            "half length {half_length}"
+        );
+        assert!(
+            centre.abs().max_element() < 0.002,
+            "centred on the bar: {centre:?}"
+        );
+        let along = rot * Vec3::X;
+        let aim = rot * Vec3::NEG_Z;
+        assert!(along.abs_diff_eq(Vec3::X, 1e-4) || along.abs_diff_eq(Vec3::NEG_X, 1e-4));
+        assert!(
+            aim.abs_diff_eq(Vec3::NEG_Z, 1e-4),
+            "fires out of the face: {aim:?}"
+        );
+    }
+
+    /// r[verify viz.bar-emitters] - a single lens, or lenses off a line, are not a bar
+    #[test]
+    fn a_par_or_a_scattered_multi_lens_fixture_is_not_a_bar() {
+        let one = vec![(Vec3::new(0.0, 0.0, -0.277), Quat::IDENTITY)];
+        assert!(bar_strip(&one).is_none());
+        // Four lenses at the corners of a square: not on one line.
+        let square: Vec<_> = [(-0.1, -0.1), (0.1, -0.1), (0.1, 0.1), (-0.1, 0.1)]
+            .into_iter()
+            .map(|(x, y)| (Vec3::new(x, y, 0.0), Quat::IDENTITY))
+            .collect();
+        assert!(bar_strip(&square).is_none());
+        // Four on a line but fanned out: not one wash.
+        let fanned: Vec<_> = (0..4)
+            .map(|i| {
+                (
+                    Vec3::new(i as f32 * 0.1, 0.0, 0.0),
+                    Quat::from_rotation_y((i as f32) * 0.3),
+                )
+            })
+            .collect();
+        assert!(bar_strip(&fanned).is_none());
     }
 }

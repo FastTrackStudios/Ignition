@@ -75,7 +75,7 @@ impl EmbeddedViz {
         let (min, max) = config.venue.bounds();
         let view = config.view;
         let free_camera = config.camera;
-        let quality = config.quality;
+        let quality = config.quality.for_rig(&config.venue);
         let size = (config.width.max(1), config.height.max(1));
         let assets_dir = config.assets_dir.clone();
         // Bound here, on the host's universes, so the studio's OUTPUT

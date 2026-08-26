@@ -728,10 +728,15 @@ pub fn peak_candela(lumens: f32, half_angle_deg: f32) -> f32 {
 /// pars with a single one on I never see a cone of light, just an area
 /// gets lit up." Their 36W 30-degree pars land near 6,400 cd and the
 /// Chauvet SlimPARs near 8,400, while the mini gobo movers are around
-/// 39,000 and the 1.72-degree Betopper beams are past 8,000,000 — so the
-/// two groups are three orders of magnitude apart and the threshold has
-/// a lot of room to sit between them.
-pub const SHAFT_CANDELA_THRESHOLD: f32 = 20_000.0;
+/// 39,000 and the 1.72-degree Betopper beams are past 8,000,000.
+///
+/// It sat at 20,000 — above every par — on that observation. Lowered to
+/// 5,000 on the next: the house view showed the pars' pools on the
+/// stage and nothing in the air, and no amount of haze could change
+/// that, because below the threshold a par gets no volumetric light at
+/// all. Now a 36W par cuts a faint cone that the haze dial scales, and
+/// a hazer-less room can still be had with `--haze 0`.
+pub const SHAFT_CANDELA_THRESHOLD: f32 = 5_000.0;
 
 /// Radial segments per beam cone — Bevy's `ConicalFrustum` mesher calls
 /// them "resolution". Sixteen left a visibly faceted silhouette once

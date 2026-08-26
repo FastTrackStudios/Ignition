@@ -73,7 +73,129 @@ pub struct GdtfNode {
     pub is_pan: bool,
     /// Same as `is_pan`, for `Tilt`.
     pub is_tilt: bool,
+    /// True for a `<Beam>` node: the spec's own marker for where the
+    /// light leaves the fixture ("the position of the fixture's light
+    /// output (usually the position of the lens)"), firing along the
+    /// node's -Z. Only these become emitters — a `<Geometry>` with no
+    /// model (a DMX socket, a power inlet) also draws nothing, and used
+    /// to be mistaken for one.
+    pub is_beam: bool,
     pub children: Vec<GdtfNode>,
+}
+
+impl GdtfNode {
+    /// Every `<Beam>` node's pose in the fixture root's frame, in
+    /// document order: where each emitter sits and which way it fires
+    /// with every joint at rest.
+    pub fn beam_poses(&self) -> Vec<(Vec3, Quat)> {
+        let mut out = Vec::new();
+        self.collect_beams(Vec3::ZERO, Quat::IDENTITY, &mut out);
+        out
+    }
+
+    fn collect_beams(&self, parent_pos: Vec3, parent_rot: Quat, out: &mut Vec<(Vec3, Quat)>) {
+        let pos = parent_pos + parent_rot * self.local_pos;
+        let rot = parent_rot * self.local_rot;
+        if self.is_beam {
+            out.push((pos, rot));
+        }
+        for c in &self.children {
+            c.collect_beams(pos, rot, out);
+        }
+    }
+
+    /// Scales the whole tree about the root — every placement and every
+    /// drawn part — for a profile the venue wants shown larger than
+    /// life. Emitters move with their parts, so a beam still leaves the
+    /// lens.
+    // r[impl viz.gdtf-aliases] - a display scale is applied to the tree, not the spec
+    pub fn scale_by(&mut self, factor: f32) {
+        self.local_pos *= factor;
+        match &mut self.shape {
+            GdtfShape::Box { size } => *size *= factor,
+            GdtfShape::Cylinder { height, radius } => {
+                *height *= factor;
+                *radius *= factor;
+            }
+            GdtfShape::Mesh(mesh) => {
+                if let Some(p) =
+                    mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+                        .and_then(|a| match a {
+                            bevy::mesh::VertexAttributeValues::Float32x3(v) => Some(v),
+                            _ => None,
+                        })
+                {
+                    for v in p.iter_mut() {
+                        v[0] *= factor;
+                        v[1] *= factor;
+                        v[2] *= factor;
+                    }
+                }
+            }
+            GdtfShape::None => {}
+        }
+        for c in &mut self.children {
+            c.scale_by(factor);
+        }
+    }
+
+    /// The axis-aligned bounds of everything this tree draws, in the
+    /// fixture root's frame with every joint at rest — the assembled
+    /// fixture's physical box. `None` when nothing is drawn.
+    pub fn assembled_bounds(&self) -> Option<(Vec3, Vec3)> {
+        let mut acc: Option<(Vec3, Vec3)> = None;
+        self.collect_bounds(Vec3::ZERO, Quat::IDENTITY, &mut acc);
+        acc
+    }
+
+    fn collect_bounds(&self, parent_pos: Vec3, parent_rot: Quat, acc: &mut Option<(Vec3, Vec3)>) {
+        let pos = parent_pos + parent_rot * self.local_pos;
+        let rot = parent_rot * self.local_rot;
+        let corners: Option<[Vec3; 8]> = match &self.shape {
+            GdtfShape::Box { size } => Some(box_corners(-*size * 0.5, *size * 0.5)),
+            // Laid over onto Z, the way `spawn_gdtf_tree` draws it.
+            GdtfShape::Cylinder { height, radius } => Some(box_corners(
+                Vec3::new(-radius, -radius, -height * 0.5),
+                Vec3::new(*radius, *radius, height * 0.5),
+            )),
+            GdtfShape::Mesh(mesh) => mesh
+                .attribute(Mesh::ATTRIBUTE_POSITION)
+                .and_then(|a| a.as_float3())
+                .map(|p| {
+                    p.iter().map(|v| Vec3::from(*v)).fold(
+                        (Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)),
+                        |(lo, hi), v| (lo.min(v), hi.max(v)),
+                    )
+                })
+                .map(|(lo, hi)| box_corners(lo, hi)),
+            GdtfShape::None => None,
+        };
+        if let Some(corners) = corners {
+            for c in corners {
+                let w = pos + rot * c;
+                *acc = Some(match *acc {
+                    Some((lo, hi)) => (lo.min(w), hi.max(w)),
+                    None => (w, w),
+                });
+            }
+        }
+        for c in &self.children {
+            c.collect_bounds(pos, rot, acc);
+        }
+    }
+}
+
+fn box_corners(lo: Vec3, hi: Vec3) -> [Vec3; 8] {
+    [
+        Vec3::new(lo.x, lo.y, lo.z),
+        Vec3::new(hi.x, lo.y, lo.z),
+        Vec3::new(lo.x, hi.y, lo.z),
+        Vec3::new(hi.x, hi.y, lo.z),
+        Vec3::new(lo.x, lo.y, hi.z),
+        Vec3::new(hi.x, lo.y, hi.z),
+        Vec3::new(lo.x, hi.y, hi.z),
+        Vec3::new(hi.x, hi.y, hi.z),
+    ]
 }
 
 pub enum GdtfShape {
@@ -100,6 +222,20 @@ pub struct GdtfFixture {
     pub fixture_type_name: String,
     pub dmx_mode_name: String,
     pub root: GdtfNode,
+    /// The first `<Beam>` node's `BeamAngle` (full angle, degrees), when
+    /// the file states one above zero — the profile's own answer for a
+    /// venue record that carries no beam angle of its own.
+    pub beam_angle_deg: Option<f32>,
+}
+
+/// The first `<Beam>` in the tree with a positive `BeamAngle`.
+fn first_beam_angle(g: &Geometry) -> Option<f32> {
+    if let Geometry::Beam(b) = g
+        && b.beam_angle > 0.1
+    {
+        return Some(b.beam_angle as f32);
+    }
+    g.children().iter().find_map(first_beam_angle)
 }
 
 /// Reads a `.gdtf` file and builds the real geometry tree for one DMX
@@ -183,10 +319,12 @@ pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<G
         .unwrap_or(&fixture_type.short_name)
         .to_string();
     let dmx_mode_name = mode.name.as_deref().unwrap_or("").to_string();
+    let beam_angle_deg = first_beam_angle(root_geometry);
     Ok(GdtfFixture {
         fixture_type_name,
         dmx_mode_name,
         root,
+        beam_angle_deg,
     })
 }
 
@@ -214,6 +352,7 @@ fn build_node(
         local_rot,
         is_pan,
         is_tilt,
+        is_beam: matches!(g, Geometry::Beam(_)),
         children,
     }
 }
@@ -545,7 +684,14 @@ impl GdtfLibrary {
                 Err(e) => eprintln!("viz: skipping {}: {e}", path.display()),
             }
         }
-        let aliases = load_aliases(&dir.join("aliases.json"));
+        let (aliases, display_scale) = load_aliases(&dir.join("aliases.json"));
+        for (name, factor) in display_scale {
+            if let Some(fixture) = by_type.get_mut(&name) {
+                fixture.root.scale_by(factor);
+            } else {
+                eprintln!("viz: aliases.json _display_scale names no profile: {name:?}");
+            }
+        }
         Ok(Self { by_type, aliases })
     }
 
@@ -620,21 +766,52 @@ impl GdtfLibrary {
 /// `{"<venue model string>": "<fixture type name>"}`, both sides
 /// normalized on load. Missing file: no aliases. Malformed file: reported
 /// and treated as none.
-fn load_aliases(path: &Path) -> HashMap<String, String> {
+/// Also reads `"_display_scale": {"<fixture type name>": factor}` —
+/// profiles a venue wants drawn larger than life (a mini mover that
+/// reads as a toy at true size from the back of the room). Applied to
+/// the imported tree, never to the profile's own dimensions.
+// r[impl viz.gdtf-aliases] - the alias file, and the display scales beside it
+fn load_aliases(path: &Path) -> (HashMap<String, String>, HashMap<String, f32>) {
     let Ok(text) = std::fs::read_to_string(path) else {
-        return HashMap::new();
+        return (HashMap::new(), HashMap::new());
     };
-    match serde_json::from_str::<HashMap<String, String>>(&text) {
-        Ok(map) => map
-            .into_iter()
-            .filter(|(k, _)| !k.starts_with('_'))
-            .map(|(k, v)| (normalize(&k), normalize(&v)))
-            .collect(),
-        Err(e) => {
-            eprintln!("viz: ignoring {}: {e}", path.display());
-            HashMap::new()
+    parse_aliases(&text).unwrap_or_else(|e| {
+        eprintln!("viz: ignoring {}: {e}", path.display());
+        (HashMap::new(), HashMap::new())
+    })
+}
+
+#[allow(clippy::type_complexity)]
+fn parse_aliases(text: &str) -> anyhow::Result<(HashMap<String, String>, HashMap<String, f32>)> {
+    let value: serde_json::Value = serde_json::from_str(text)?;
+    let Some(map) = value.as_object() else {
+        anyhow::bail!("aliases.json is not an object");
+    };
+    let mut aliases = HashMap::new();
+    let mut scales = HashMap::new();
+    for (k, v) in map {
+        if k == "_display_scale" {
+            let Some(entries) = v.as_object() else {
+                anyhow::bail!("_display_scale is not an object");
+            };
+            for (name, factor) in entries {
+                let Some(factor) = factor.as_f64() else {
+                    anyhow::bail!("_display_scale {name:?} is not a number");
+                };
+                if factor <= 0.0 {
+                    anyhow::bail!("_display_scale {name:?} must be positive");
+                }
+                scales.insert(normalize(name), factor as f32);
+            }
+        } else if k.starts_with('_') {
+            continue;
+        } else if let Some(target) = v.as_str() {
+            aliases.insert(normalize(k), normalize(target));
+        } else {
+            anyhow::bail!("alias {k:?} is not a string");
         }
     }
+    Ok((aliases, scales))
 }
 
 /// Lowercased, with everything that is not alphanumeric removed — so
@@ -716,11 +893,20 @@ pub fn spawn_gdtf_tree(
                 ChildOf(id),
             ));
         }
-        // A `<Beam>` node is the light-exit point, not a housing: nothing
-        // is drawn for it, but its transform is exactly where a beam
-        // starts and which way it points, which is what the caller wants
-        // back. A file may declare more than one (a multi-lens fixture).
-        GdtfShape::None => emitters.push(id),
+        // Nothing to draw — a `<Beam>` node, or a socket/inlet with no
+        // model. Only the former is a light source, decided below.
+        GdtfShape::None => {}
+    }
+    // A `<Beam>` node is the light-exit point, not a housing: nothing is
+    // drawn for it, but its transform is exactly where a beam starts and
+    // which way it points, which is what the caller wants back. A file
+    // may declare more than one (a multi-lens fixture). Every model-less
+    // `<Geometry>` used to be pushed here too, which put four emitters on
+    // a par's DMX/power sockets — up at the pigtail, above the head —
+    // and lit the room from there instead of from the lens.
+    // r[impl viz.emitter-at-beam-node] - only a <Beam> node emits
+    if node.is_beam {
+        emitters.push(id);
     }
 
     for child in &node.children {
@@ -825,6 +1011,133 @@ mod tests {
             (Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)),
             |(lo, hi), p| (lo.min(p), hi.max(p)),
         )
+    }
+
+    /// The lowest drawn face of the tree in the root frame — for a par
+    /// hanging lens-down, the lens.
+    fn lowest_drawn_z(root: &GdtfNode) -> f32 {
+        root.assembled_bounds().expect("draws something").0.z
+    }
+
+    /// The pars: one emitter, at the lens, firing out of it. Both the
+    /// Chauvet download and the generated Uking Par that borrows its
+    /// geometry carry four model-less socket nodes under the pigtail
+    /// (Power IN/OUT, DMX IN/OUT) — none of those may emit.
+    // r[verify viz.emitter-at-beam-node] - a par lights from its lens, not its sockets
+    #[test]
+    fn a_pars_emitter_is_at_the_lens_and_fires_out_of_it() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/gdtf");
+        for file in [
+            "Chauvet@SlimPAR_Pro_Q_USB@Version_1.gdtf",
+            "generated/U_King@Uking_Par@ignition.gdtf",
+        ] {
+            let path = root.join(file);
+            if !path.exists() {
+                continue;
+            }
+            let fixture = import_geometry(&path, None).expect("parses");
+            let beams = fixture.root.beam_poses();
+            assert_eq!(beams.len(), 1, "{file}: exactly one <Beam> node emits");
+            let (pos, rot) = beams[0];
+            let fwd = rot * Vec3::NEG_Z;
+            assert!(
+                fwd.abs_diff_eq(Vec3::NEG_Z, 1e-4),
+                "{file}: the beam fires straight out of the lens, got {fwd:?}"
+            );
+            // The lens face is the lowest drawn face of the head; the
+            // emitter sits within a few centimetres of it (the Chauvet
+            // file puts it 2cm inside the glass, the generated par 2cm
+            // proud of it), never up at the yoke or the pigtail.
+            let lens_z = lowest_drawn_z(&fixture.root);
+            assert!(
+                (pos.z - lens_z).abs() < 0.03,
+                "{file}: emitter z {} should be at the lens face z {lens_z}",
+                pos.z
+            );
+            assert!(
+                pos.z < -0.2,
+                "{file}: emitter z {} is up the body, not at the lens",
+                pos.z
+            );
+        }
+    }
+
+    // r[verify viz.emitter-at-beam-node] - model-less sockets are not emitters
+    #[test]
+    fn a_model_less_geometry_node_is_not_an_emitter() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../data/gdtf/Chauvet@SlimPAR_Pro_Q_USB@Version_1.gdtf");
+        if !path.exists() {
+            return;
+        }
+        let fixture = import_geometry(&path, None).expect("parses");
+        fn walk(n: &GdtfNode, out: &mut Vec<(String, bool, bool)>) {
+            out.push((
+                n.name.clone(),
+                n.is_beam,
+                matches!(n.shape, GdtfShape::None),
+            ));
+            n.children.iter().for_each(|c| walk(c, out));
+        }
+        let mut nodes = Vec::new();
+        walk(&fixture.root, &mut nodes);
+        let undrawn: Vec<_> = nodes.iter().filter(|(_, _, none)| *none).collect();
+        assert!(
+            undrawn.len() >= 5,
+            "the file has the pigtail's four sockets plus the Beam undrawn: {undrawn:?}"
+        );
+        let beams: Vec<_> = nodes.iter().filter(|(_, b, _)| *b).collect();
+        assert_eq!(beams.len(), 1);
+        assert_eq!(beams[0].0, "Beam");
+    }
+
+    // r[verify viz.gdtf-aliases] - a display scale grows the drawn tree, emitter included
+    #[test]
+    fn a_display_scale_grows_the_whole_tree_and_keeps_the_emitter_on_the_lens() {
+        let (aliases, scales) = parse_aliases(
+            r#"{"_comment": "x", "Par": "Uking Par", "_display_scale": {"Mini Gobo Moving Head Light 11ch": 1.5}}"#,
+        )
+        .unwrap();
+        assert_eq!(aliases.get("par").map(String::as_str), Some("ukingpar"));
+        assert_eq!(scales.get("minigobomovingheadlight11ch"), Some(&1.5));
+
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../data/gdtf/generated/ZKYMZL@Mini_Gobo_Moving_Head_Light_11ch@ignition.gdtf",
+        );
+        if !path.exists() {
+            return;
+        }
+        let mut fixture = import_geometry(&path, None).unwrap();
+        let (lo0, hi0) = fixture.root.assembled_bounds().unwrap();
+        fixture.root.scale_by(1.5);
+        let (lo, hi) = fixture.root.assembled_bounds().unwrap();
+        assert!(((hi - lo) - (hi0 - lo0) * 1.5).abs().max_element() < 1e-4);
+        let (beam, _) = fixture.root.beam_poses()[0];
+        assert!(
+            (beam.z - lo.z).abs() < 0.015,
+            "the emitter scaled with the head: {} vs {}",
+            beam.z,
+            lo.z
+        );
+    }
+
+    /// The library as shipped: the Norco floor movers are drawn at 1.5x.
+    // r[verify viz.gdtf-aliases] - the shipped display scale is applied on load
+    #[test]
+    fn the_shipped_library_scales_the_mini_gobo_movers() {
+        let library = GdtfLibrary::load_default();
+        if library.is_empty() {
+            return;
+        }
+        let fixture = library
+            .find("Riukoe", "Mini Gobo Moving Head Light 11ch")
+            .expect("resolves");
+        let (lo, hi) = fixture.root.assembled_bounds().unwrap();
+        assert!(
+            ((hi.z - lo.z) - 0.247 * 1.5).abs() < 0.005,
+            "height {}",
+            hi.z - lo.z
+        );
     }
 
     // r[impl viz.gdtf-meshes] - the 3DS chunk walk, on a buffer built by hand
