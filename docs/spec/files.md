@@ -1,14 +1,19 @@
 # File formats
 
-Two files, and the line between them is the whole design.
+Four files, and the lines between them are the whole design.
 
 ```
-Rockstars Norco.igv        the room:  what fixtures exist, where they are,
-                                      what they are patched to, what the
-                                      room looks like, where the screens are
-Bye Bye Bye.ig             the show:  cues, recipes, triggers — and not one
-                                      DMX address anywhere in it
+Rockstars.ig-profile       the interface a rig must satisfy
+Rockstars Norco.ig-venue   one room's implementation of it
+Bye Bye Bye.ignition       one song's light show, written against the profile
+Sunday 14th.ig-show        the night: a profile, a venue, and the songs
 ```
+
+The four concepts and the relationships between them are specified in
+[profile.md](profile.md); this file covers what each format holds and how the
+files behave. Extensions are written out rather than abbreviated: these are
+files a person picks from a folder at a desk, in a hurry, and `.igv` against
+`.igs` is a distinction nobody makes correctly under pressure.
 
 A show is written once and plays at Norco, Riverside and Vegas. That is the
 requirement everything below serves, and it is not achieved by a clever file
@@ -17,22 +22,22 @@ venue-specific. If a show could say "channel 12", it would be a Norco show
 forever, and no amount of format design would rescue it.
 
 Which means the interesting question is not "what goes in which file". It is
-**what vocabulary the two agree on**, and what happens when a venue does not
-speak all of it.
+**what vocabulary they agree on** — which is what a profile declares — and what
+happens when a venue does not speak all of it.
 
-## The two files
+## The files
 
 r[files.venue]
-An **`.igv`** MUST describe one room and nothing about any performance: its
+An **`.ig-venue`** MUST describe one room and nothing about any performance: its
 fixtures and their types, each fixture's position and orientation, its DMX
 patch, the room's geometry, its screens and their canvases, and its props.
 Today this is the seven JSON files under `data/venues/<name>/`; the format is
 their consolidation, not a new model.
 
 r[files.show]
-An **`.ig`** MUST describe one performance and nothing about any room: its cue
+An **`.ignition`** MUST describe one performance and nothing about any room: its cue
 list, its recipes, its triggers, and the song timing they are written against.
-An `.ig` MUST NOT contain a DMX address, a universe, a fixture id, or a
+An `.ignition` MUST NOT contain a DMX address, a universe, a fixture id, or a
 coordinate in metres. Those are properties of a room, and a show that carries
 them has silently become a show for one room.
 
@@ -50,21 +55,23 @@ points it provides. A show MUST consume that vocabulary by name. The venue says
 what "Back Wash" *is* at this address; the show says what happens to it.
 
 r[files.required-roles]
-A set of **required roles** MUST be defined that every venue is expected to
-supply, so a show can rely on them existing. A venue missing a required role
-MUST still load — a rig is often half-patched — but MUST report the gap.
+The required vocabulary MUST be declared by a **profile**, not fixed in the
+software and not left to convention — see [profile.md](profile.md). A venue
+missing a required role MUST still load, since a rig is often half-patched, but
+MUST report the gap.
 
-Without a required set, "portable" means only "did not crash": a show naming
+Without a declared set, "portable" means only "did not crash": a show naming
 `Back Wash` at a venue that calls the same bar `Rear Wash` would play with that
-bar dark and nothing said. The vocabulary is the interface, and an interface
-nobody declared is one nobody can implement.
+bar dark and nothing said. An interface nobody declared is one nobody can
+implement.
 
 r[files.compatibility-check]
-It MUST be possible to check a show against a venue **without running it**, and
-the check MUST report every name the show uses that the venue does not provide.
-This is `unresolved()` generalised from cues to the whole show, and it is what
-makes "will this work in Vegas" answerable on the plane rather than at
-soundcheck.
+It MUST be possible to check compatibility **without running anything**, and the
+check MUST report every gap by name. With a profile in the middle this is two
+independent checks — show against profile, venue against profile — rather than
+one per show-and-venue pair, which is what makes "will tonight's set work in
+Vegas" answerable on the plane rather than at soundcheck. See
+`r[profile.check-is-static]`.
 
 r[files.graceful-degradation]
 A show naming something a venue lacks MUST play everything else. A missing
@@ -131,19 +138,19 @@ sources of truth for where bar 33 is.
 
 r[files.show.many-per-song]
 Several shows MUST be able to reference one song, so a different room or a
-different look on a different night is a second `.ig` rather than a fork of the
+different look on a different night is a second `.ignition` rather than a fork of the
 first. Nothing may assume a one-to-one binding.
 
 ## Format mechanics
 
 r[files.text-and-diffable]
-Both formats MUST be text, and MUST be readable and diffable. A show is edited
+Every format MUST be text, and MUST be readable and diffable. A show is edited
 by a person and by a generator, sometimes on the same day, and a binary format
 makes "what did the generator change" unanswerable. JSON today; the requirement
 is the property, not the syntax.
 
 r[files.versioned]
-Both formats MUST carry a version. A file from an older version MUST load or be
+Every format MUST carry a version. A file from an older version MUST load or be
 rejected with a message naming the version — never load half-understood, which
 is how a show plays with its effects silently missing.
 
