@@ -1,71 +1,338 @@
 {
   "console_name": "RockStrip 252",
-  "console_aliases": ["Rockstrip 252 7ch", "Rockstrip 252 3ch"],
+  "console_aliases": [
+    "Rockstrip 252 7ch",
+    "Rockstrip 252 3ch"
+  ],
   "manufacturer": "Rockville",
   "model": "ROCKSTRIP 252",
   "sources": [
     "https://support.rockvilleaudio.com/hc/en-us/articles/44818540401307-ROCKSTRIP-252-Owner-s-Manual",
     "https://support.rockvilleaudio.com/hc/en-us/article_attachments/44818521418267",
     "https://support.rockvilleaudio.com/hc/en-us/articles/37241808954523-ROCKSTRIP-252-How-To-Set-Up-w-A-DMX-Controller",
-    "https://www.amazon.com/Rockville-ROCKSTRIP-252-Channel-Color/dp/B082369PD6"
+    "https://www.amazon.com/Rockville-ROCKSTRIP-252-Channel-Color/dp/B082369PD6",
+    "https://www.amazon.com/dp/B082369PD6",
+    "https://m.media-amazon.com/images/I/B17jLaxaCqL.pdf"
   ],
-  "physical": {"width_mm": 1020, "length_mm": 67, "height_mm": 65, "weight_kg": 1.8, "power_w": 50},
+  "physical": {
+    "width_mm": 1020,
+    "length_mm": 67,
+    "height_mm": 65,
+    "weight_kg": 1.8,
+    "power_w": 50
+  },
   "optics": {
     "beam_angle_deg": null,
     "field_angle_deg": null,
     "lumens_or_lux": "1452 lux @ 1 m",
     "source": "252x LEDs (84 red + 84 green + 84 blue), 100,000 h life",
     "led_count": 252,
-    "emitters": ["R", "G", "B"],
+    "emitters": [
+      "R",
+      "G",
+      "B"
+    ],
     "sections": 24
   },
   "movement": null,
   "wheels": null,
   "modes": {
     "3ch": [
-      {"channel": 1, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red dimmer"}]},
-      {"channel": 2, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green dimmer"}]},
-      {"channel": 3, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue dimmer"}]}
+      {
+        "channel": 1,
+        "attribute": "Red",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Red dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "Green",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Green dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 3,
+        "attribute": "Blue",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Blue dimmer"
+          }
+        ]
+      }
     ],
     "4ch": [
-      {"channel": 1, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red dimmer"}]},
-      {"channel": 2, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green dimmer"}]},
-      {"channel": 3, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue dimmer"}]},
-      {"channel": 4, "attribute": "Dimmer", "ranges": [{"from": 0, "to": 255, "meaning": "Master dimmer"}]}
+      {
+        "channel": 1,
+        "attribute": "Red",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Red dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "Green",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Green dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 3,
+        "attribute": "Blue",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Blue dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 4,
+        "attribute": "Dimmer",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Master dimmer"
+          }
+        ]
+      }
     ],
     "7ch": [
-      {"channel": 1, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red dimmer"}]},
-      {"channel": 2, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green dimmer"}]},
-      {"channel": 3, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue dimmer"}]},
-      {"channel": 4, "attribute": "Dimmer", "ranges": [{"from": 0, "to": 255, "meaning": "Master dimmer"}]},
-      {"channel": 5, "attribute": "Strobe", "ranges": [
-        {"from": 0, "to": 0, "meaning": "Strobe off (when CH7 = 0, dimmer mode)"},
-        {"from": 1, "to": 255, "meaning": "Strobe speed slow to fast (when CH7 = 0); running/chase speed slow to fast when CH7 > 0"}
-      ]},
-      {"channel": 6, "attribute": "Macro", "ranges": [
-        {"from": 0, "to": 25, "meaning": "Chase mode 0 (cycles through chases 1-8)"},
-        {"from": 26, "to": 255, "meaning": "Chase mode 1-9"}
-      ]},
-      {"channel": 7, "attribute": "Control", "ranges": [
-        {"from": 0, "to": 0, "meaning": "Dimmer mode: custom control via CH1-5"},
-        {"from": 1, "to": 13, "meaning": "Chase mode (chase chosen by CH6, speed by CH5)"},
-        {"from": 14, "to": 27, "meaning": "Sound mode A0 (runs entire mode A cycle)"},
-        {"from": 28, "to": 139, "meaning": "Sound mode A1-A8"},
-        {"from": 140, "to": 153, "meaning": "Sound mode B0 (runs entire mode B cycle)"},
-        {"from": 154, "to": 255, "meaning": "Sound mode B1-B8"}
-      ]}
+      {
+        "channel": 1,
+        "attribute": "Red",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Red dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "Green",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Green dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 3,
+        "attribute": "Blue",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Blue dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 4,
+        "attribute": "Dimmer",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Master dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 5,
+        "attribute": "Strobe",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 0,
+            "meaning": "Strobe off (when CH7 = 0, dimmer mode)"
+          },
+          {
+            "from": 1,
+            "to": 255,
+            "meaning": "Strobe speed slow to fast (when CH7 = 0); running/chase speed slow to fast when CH7 > 0"
+          }
+        ]
+      },
+      {
+        "channel": 6,
+        "attribute": "Macro",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 25,
+            "meaning": "Chase mode 0 (cycles through chases 1-8)"
+          },
+          {
+            "from": 26,
+            "to": 255,
+            "meaning": "Chase mode 1-9"
+          }
+        ]
+      },
+      {
+        "channel": 7,
+        "attribute": "Control",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 0,
+            "meaning": "Dimmer mode: custom control via CH1-5"
+          },
+          {
+            "from": 1,
+            "to": 13,
+            "meaning": "Chase mode (chase chosen by CH6, speed by CH5)"
+          },
+          {
+            "from": 14,
+            "to": 27,
+            "meaning": "Sound mode A0 (runs entire mode A cycle)"
+          },
+          {
+            "from": 28,
+            "to": 139,
+            "meaning": "Sound mode A1-A8"
+          },
+          {
+            "from": 140,
+            "to": 153,
+            "meaning": "Sound mode B0 (runs entire mode B cycle)"
+          },
+          {
+            "from": 154,
+            "to": 255,
+            "meaning": "Sound mode B1-B8"
+          }
+        ]
+      }
     ],
     "24ch": [
-      {"channel": "1-24", "attribute": "Dimmer (per LED section)", "ranges": [{"from": 0, "to": 255, "meaning": "1st..24th light dimmer (sections; colour set from menu/remote)"}]}
+      {
+        "channel": "1-24",
+        "attribute": "Dimmer (per LED section)",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "1st..24th light dimmer (sections; colour set from menu/remote)"
+          }
+        ]
+      }
     ],
     "28ch": [
-      {"channel": "1-24", "attribute": "Dimmer (per LED section)", "ranges": [{"from": 0, "to": 255, "meaning": "1st..24th light dimmer"}]},
-      {"channel": 25, "attribute": "Dimmer", "ranges": [{"from": 0, "to": 255, "meaning": "Master dimmer"}]},
-      {"channel": 26, "attribute": "Strobe", "ranges": [{"from": 0, "to": 255, "meaning": "Strobe speed (CH28=0) / running speed (CH28>0)"}]},
-      {"channel": 27, "attribute": "Macro", "ranges": [{"from": 0, "to": 25, "meaning": "Chase mode 0"}, {"from": 26, "to": 255, "meaning": "Chase mode 1-9"}]},
-      {"channel": 28, "attribute": "Control", "ranges": [{"from": 0, "to": 0, "meaning": "Dimmer mode"}, {"from": 1, "to": 13, "meaning": "Chase mode"}, {"from": 14, "to": 27, "meaning": "Sound A0"}, {"from": 28, "to": 139, "meaning": "Sound A1-A8"}, {"from": 140, "to": 153, "meaning": "Sound B0"}, {"from": 154, "to": 255, "meaning": "Sound B1-B8"}]}
+      {
+        "channel": "1-24",
+        "attribute": "Dimmer (per LED section)",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "1st..24th light dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 25,
+        "attribute": "Dimmer",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Master dimmer"
+          }
+        ]
+      },
+      {
+        "channel": 26,
+        "attribute": "Strobe",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Strobe speed (CH28=0) / running speed (CH28>0)"
+          }
+        ]
+      },
+      {
+        "channel": 27,
+        "attribute": "Macro",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 25,
+            "meaning": "Chase mode 0"
+          },
+          {
+            "from": 26,
+            "to": 255,
+            "meaning": "Chase mode 1-9"
+          }
+        ]
+      },
+      {
+        "channel": 28,
+        "attribute": "Control",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 0,
+            "meaning": "Dimmer mode"
+          },
+          {
+            "from": 1,
+            "to": 13,
+            "meaning": "Chase mode"
+          },
+          {
+            "from": 14,
+            "to": 27,
+            "meaning": "Sound A0"
+          },
+          {
+            "from": 28,
+            "to": 139,
+            "meaning": "Sound A1-A8"
+          },
+          {
+            "from": 140,
+            "to": 153,
+            "meaning": "Sound B0"
+          },
+          {
+            "from": 154,
+            "to": 255,
+            "meaning": "Sound B1-B8"
+          }
+        ]
+      }
     ]
   },
   "confidence": "manual found",
-  "notes": "Manual v2 (ROCKSTRIP252_Manual_v2_OL.pdf) lists DMX modes 3CH/4CH/7CH/24CH/28CH; no 5-channel chart exists in the manual even though marketing copy says '4 or 5 channels'. 7ch chart matches the venue console map (R,G,B,Dimmer,Shutter,Chase Mode,Control) exactly; 3ch = R,G,B. Physical from manual spec page: 40.16 x 2.64 x 2.56 in = 1020 x 67 x 65 mm, 3.97 lb = 1.8 kg, max power 50 W, 1452 lux @ 1 m; 24ch/28ch modes imply 24 controllable LED sections. Beam angle not published anywhere found. Strobe on CH5 only when CH7 = 0; with CH7 > 0 CH5 becomes chase running speed. Strobe/colour-changer rate 1-13 Hz."
+  "notes": "Amazon listing B082369PD6 ('Rockville ROCKSTRIP 252 LED 50W RGB Color Strip Light Bar, 3/4/5/7-Channel DMX', sold by Audiosavings) re-read 2026-08-26 confirms: 252 LEDs (84R/84G/84B), 3/4/5/7-channel DMX, 1-13 Hz colour changing, master/slave up to 16 units, 3.97 lb, aluminium housing, 100,000 h LEDs, 50 VA max, 1,452 lux @ 1 m, remote. Its 'Product guides and documents' User Manual (B17jLaxaCqL.pdf, 16 pages, image-only scan) was not OCR'd here. Manual v2 (ROCKSTRIP252_Manual_v2_OL.pdf) lists DMX modes 3CH/4CH/7CH/24CH/28CH; no 5-channel chart exists in the manual even though the listing says '3/4/5/7'. 7ch chart matches the venue console map and repo channel map (R,G,B,Dimmer,Shutter,Chase Mode,Control) exactly; 3ch = R,G,B. Physical from manual spec page: 40.16 x 2.64 x 2.56 in = 1020 x 67 x 65 mm, 3.97 lb = 1.8 kg, max power 50 W. Beam angle not published anywhere found. Strobe on CH5 only when CH7 = 0; with CH7 > 0 CH5 becomes chase running speed."
 }

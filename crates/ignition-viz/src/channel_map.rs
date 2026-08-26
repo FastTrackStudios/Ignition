@@ -82,6 +82,22 @@ pub fn wheel_slots_for(manufacturer: &str, model: &str) -> Vec<ColorWheelSlot> {
             ("Orange", 59, ORANGE),
         ]);
     }
+    if m == "u'king" || m == "uking" || mo.contains("150w moving head beam") {
+        // U'King ZQ02341 manual: 0-9 white, then seven colours in
+        // 10-value steps (10-79). The manual does not name the colours;
+        // the order is the family's usual one and is a guess until a
+        // unit is on the bench.
+        return wheel(&[
+            ("White", 5, WHITE),
+            ("Red", 15, RED),
+            ("Green", 25, GREEN),
+            ("Blue", 35, BLUE),
+            ("Yellow", 45, YELLOW),
+            ("Magenta", 55, MAGENTA),
+            ("Cyan", 65, CYAN),
+            ("Orange", 75, ORANGE),
+        ]);
+    }
     if m == "betopper" {
         return wheel(&[
             ("White", 4, WHITE),
@@ -197,6 +213,26 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
                 (5, Attribute::GoboWheel { slot: 0 }),
                 (6, Attribute::Strobe),
                 (7, Attribute::Dimmer),
+            ],
+        });
+    }
+    if m == "u'king" || m == "uking" || mo.contains("150w moving head beam") {
+        // U'King ZQ02341 (Riverside's pole-top beams), per its manual:
+        // Pan, Pan fine, Tilt, Tilt fine, Speed, Dimmer, Strobe, Colour,
+        // Gobo, Prism, Macro, Reset. Same layout as the Betopper below
+        // (same OEM chassis); ch11 is an auto/sound macro, not focus.
+        return Some(ChannelMap {
+            curves: Default::default(),
+            footprint: 12,
+            channels: vec![
+                (0, Attribute::Pan),
+                (1, Attribute::PanFine),
+                (2, Attribute::Tilt),
+                (3, Attribute::TiltFine),
+                (5, Attribute::Dimmer),
+                (6, Attribute::Strobe),
+                (7, Attribute::ColorWheel { slot: 0 }),
+                (8, Attribute::GoboWheel { slot: 0 }),
             ],
         });
     }
@@ -676,4 +712,18 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         });
     }
     None
+}
+
+#[cfg(test)]
+mod uking_beam_tests {
+    use super::*;
+
+    /// /// Riverside's U'King beams have a map
+    #[test]
+    fn riverside_uking_beams_have_a_channel_map_and_wheel() {
+        let map = channel_map_for("U'King", "150W Moving Head Beam").expect("map");
+        assert_eq!(map.footprint, 12);
+        assert!(map.channels.iter().any(|(i, a)| *i == 7 && matches!(a, Attribute::ColorWheel { .. })));
+        assert_eq!(wheel_slots_for("U'King", "150W Moving Head Beam").len(), 8);
+    }
 }

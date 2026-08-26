@@ -6,25 +6,27 @@
     "https://www.uking-online.com/products/zq02341-150w-beam-moving-head-light-stage-light-for-dj-concert-party-weddings-nightclub-dance-hall",
     "https://www.uking-online.com/cdn/shop/files/ZQ02341-Beam-Moving-Head-Light.pdf?v=1024286754085817358",
     "https://manuals.plus/asin/B0FDL1WML4",
-    "https://manuals.plus/m/d0365b144119eb959ec207c39033e50568fecd25a94a2bbd8b4e6dfe58ed12d5"
+    "https://manuals.plus/m/d0365b144119eb959ec207c39033e50568fecd25a94a2bbd8b4e6dfe58ed12d5",
+    "https://www.amazon.com/dp/B0F8H1RF35"
   ],
   "physical": {
-    "width_mm": 265,
-    "length_mm": 260,
-    "height_mm": 385,
+    "width_mm": 150,
+    "length_mm": 230,
+    "height_mm": 310,
     "weight_kg": 5.0,
     "power_w": 150,
-    "dimensions_guess": true
+    "weight_kg_guess": true
   },
   "optics": {
     "beam_angle_deg": 2.8,
     "field_angle_deg": null,
-    "lumens_or_lux": "34,000 lux @ 5 m",
-    "source": "1 x 80W COB white LED (150W rated input), 8000-9000K",
+    "lumens_or_lux": "34,000 lux @ 5 m (listing); beam chart image: 530,000 / 350,000 / 200,000 / 120,000 (units unlabelled) at 5 / 7 / 10 / 15 m",
+    "source": "1 x white LED beam engine (150W rated input), listing image 'White - CCT: 8500K'",
     "led_count": 1,
     "emitters": [
       "white"
-    ]
+    ],
+    "strobe_hz": "1-25 Hz"
   },
   "movement": {
     "pan_deg": 540,
@@ -270,5 +272,5 @@
     ]
   },
   "confidence": "manual found",
-  "notes": "12ch chart transcribed from U'King's own PDF manual (Big Steel Gun Manual, ZQ02341-Beam-Moving-Head-Light.pdf). The manual lists '8 colours, half colour effect', '8 patterns', '6+12 prism' and 18-facet prism on the product page; colour and gobo names are not given anywhere found. Dimensions 38.5 x 26.5 x 26.0 cm and 5 kg come from the U'King product page and are probably the packaged size (dimensions_guess); Amazon's manuals.plus page (blocked, HTTP 403) may list the bare-fixture size. Beam angle 2.8 deg per U'King (search snippet also cites '2 deg'). CONFLICTS with the repo's 12ch Betopper map that this fixture is assumed to share: here ch6 = Dimmer and ch7 = Strobe (repo order is the same, fine), but ch11 is an auto/sound macro channel, not Focus, and the colour wheel has 8 slots in 10-value steps (0-9 white, 10-79 colours 1-7) rather than 9 colours; 80-139 are half-colours. The repo GDTF UKing@ZQ02341_150W_Big_Steel_Gun_LED_Moving_Head_Beam (2024-R001) should be the definitive reference for slot names/colours -- not opened here. The Betopper LB150 (betopper-150w-beam.json) uses a different, finer colour/gobo layout even though it is the same chassis family."
+  "notes": "Amazon listing B0F8H1RF35 (4-pack 'U`King 150W Moving Head Lights, 18-Facet Prism Stage Beam Light', sold by SpectraVibe) re-read 2026-08-26: 34,000 lux @ 5 m, 18-facet 360-deg rotating prism, 8 rotating gobos, 8 colours with colour mixing (half colours), 2.8 deg beam (the beam-chart image says 2 deg, CCT 8500K), 1-25 Hz strobe, 12 DMX channels, pan/tilt inversion, fine pan/tilt, 3-pin DMX in/out, locking power connectors, 4-button LCD menu, 'compact 13.4 x 8.93 x 5.9 in' (that is the shipping box). The dimension drawing gives the bare fixture as 31 cm tall, 15 cm wide, 23 cm deep, X-axis 540 deg, Y-axis 180 deg -- physical now uses 150 x 230 x 310 mm (was the 385 x 265 x 260 mm packaged size, guess flag removed). Weight is not on the listing; 5 kg from U'King's page is kept and flagged as a guess. The listing carries no DMX chart and no manual link. 12ch chart transcribed from U'King's own PDF manual (Big Steel Gun Manual, ZQ02341-Beam-Moving-Head-Light.pdf). Colour and gobo names are not given anywhere found. CHANNEL MAP: the venue patches this as manufacturer \"U'King\" / model '150W Moving Head Beam', and crates/ignition-viz/src/channel_map.rs has no entry for that pair (its 12ch beam entry matches manufacturer 'betopper' only), so the visualizer currently has no channel map for this fixture; versus the Betopper entry it would otherwise share, ch11 here is an auto/sound macro channel, not Focus, and the colour wheel has 8 slots in 10-value steps (0-9 white, 10-79 colours 1-7, 80-139 half-colours) rather than 9 colours. The repo GDTF UKing@ZQ02341_150W_Big_Steel_Gun_LED_Moving_Head_Beam (2024-R001) should be the definitive reference for slot names/colours."
 }

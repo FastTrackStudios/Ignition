@@ -1,42 +1,107 @@
 {
   "console_name": "RGBW Spot Light 6CH",
   "manufacturer": "Czgor",
-  "model": "15w2p (15W RGBW LED Pinspot, DMX)",
+  "model": "15W RGBW LED Pinspot, DMX (Amazon 'Pinspot Light 15W DMX', 2-pack B0DFWBWF9W / single B0D13CT7NS)",
   "sources": [
     "https://www.amazon.com/dp/B0DFWBWF9W",
     "https://www.amazon.com/dp/B0D13CT7NS",
     "https://www.ebay.com/itm/167541127938"
   ],
   "physical": {
-    "width_mm": 115,
-    "length_mm": 160,
-    "height_mm": 160,
+    "width_mm": 67,
+    "length_mm": 170,
+    "height_mm": 130,
     "weight_kg": 0.43,
-    "power_w": 15
+    "power_w": 15,
+    "length_note": "body 145-170 mm depending on focus-ring extension; lens 60 mm dia; base 67 x 67 mm; 130 mm tall on bracket (listing dimension drawing)"
   },
   "optics": {
-    "beam_angle_deg": 10, "beam_angle_deg_guess": true,
+    "beam_angle_deg": 10,
+    "beam_angle_deg_guess": true,
     "field_angle_deg": null,
     "lumens_or_lux": null,
-    "source": "1 x 15W RGBW 4-in-1 LED, manually focusable lens",
+    "source": "1 x 15W RGBW 4-in-1 LED (remote colours R, G, B, W, JR, JG), manually rotated focusing lens (edge softens, no zoom)",
     "led_count": 1,
-    "emitters": ["R", "G", "B", "W"]
+    "emitters": [
+      "R",
+      "G",
+      "B",
+      "W"
+    ]
   },
   "movement": null,
   "wheels": null,
   "modes": {
     "6ch": [
-      {"channel": 1, "attribute": "Dimmer", "ranges": [
-        {"from": 0, "to": 255, "meaning": "Dimmer / strobe / effect combined channel (console label 'Dimmer/Strobe/Effect'); breakpoints unknown"}]},
-      {"channel": 2, "attribute": "Red", "ranges": [{"from": 0, "to": 255, "meaning": "Red 0-100%"}]},
-      {"channel": 3, "attribute": "Green", "ranges": [{"from": 0, "to": 255, "meaning": "Green 0-100%"}]},
-      {"channel": 4, "attribute": "Blue", "ranges": [{"from": 0, "to": 255, "meaning": "Blue 0-100%"}]},
-      {"channel": 5, "attribute": "White", "ranges": [{"from": 0, "to": 255, "meaning": "White 0-100%"}]},
-      {"channel": 6, "attribute": "Macro", "ranges": [
-        {"from": 0, "to": 255, "meaning": "Colour macro / auto program / sound (listing: RGBW colours, jump, gradual, strobe, sound); breakpoints unknown"}]}
+      {
+        "channel": 1,
+        "attribute": "Dimmer",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Dimmer / strobe / effect combined channel (console label 'Dimmer/Strobe/Effect'); breakpoints unknown"
+          }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "Red",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Red 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 3,
+        "attribute": "Green",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Green 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 4,
+        "attribute": "Blue",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Blue 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 5,
+        "attribute": "White",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "White 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 6,
+        "attribute": "Macro",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Colour macro / auto program / sound (listing: RGBW colours, jump, gradual, strobe, sound); breakpoints unknown"
+          }
+        ]
+      }
     ],
     "6ch_ranges_guess": true
   },
   "confidence": "listing only",
-  "notes": "Amazon listing B0D13CT7NS (single) gives: 1 x 4-in-1 RGBW 15W LED, AC90-130V 60Hz (2-pack listing says AC90-240V), control DMX/remote/sound, modes sound/jump/gradual/strobe, item 6.3 x 4.53 x 6.3 in, 15.2 oz (0.43 kg); package 9 x 6.7 x 4.3 in, 2 lb. 2-pack listing B0DFWBWF9W lists 6.69 x 4.53 x 9.06 in / 1.9 lb for the pair. Beam angle is not published (rotating focus lens) -- 10 deg is a guess typical of LED pinspots. No manual found (manuals.plus search blocked, eBay 404); channel names are the venue console map (Dimmer/Strobe/Effect, R, G, B, W, Macro) and ranges are guesses. Amazon reviewer (Mark Plant, Apr 2025) reports 'dmx is not implemented properly, only channel six works' -- treat CH6 macro as possibly overriding CH1-5 on some units."
+  "notes": "Amazon listing B0DFWBWF9W re-read 2026-08-26 (browser): title 'Pinspot Light 15W DMX 2 Pack, Czgor RGBW Disco Ball Lights with Remote', sold by BORUILIGHT; 15W RGBW LED, AC90-240V 50/60Hz, control remote/DMX512/sound, 6 remote colours (R, G, B, W, JR, JG), RF remote with DMX/Sound/Menu/Save/Up/Down/Speed keys, 3-pin DMX in/out, 4-digit display, cooling fan, box 16 x 16 x 9 cm, 104 cm lead. Dimension drawing: body 14.5-17 cm long (focus ring), lens 6 cm dia, 13 cm tall on the bracket, 6.7 x 6.7 cm base -- replaces the earlier 115 x 160 x 160 mm figure. Amazon 'Measurements' says 6.69 x 4.53 x 9.06 in / 1.9 lb for the pair (0.43 kg each kept). The listing has NO DMX channel chart, no 'Product guides and documents' manual, and no chart in the images; channel names remain the venue console map (Dimmer/Strobe/Effect, R, G, B, W, Macro) and ranges remain guesses. Beam angle still unpublished (rotating focus lens) -- 10 deg guess kept. Amazon reviewer (Mark Plant, Apr 2025) reports 'dmx is not implemented properly, only channel six works' -- treat CH6 macro as possibly overriding CH1-5 on some units."
 }

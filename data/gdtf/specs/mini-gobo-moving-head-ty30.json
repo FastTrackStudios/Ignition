@@ -4,8 +4,8 @@
     "Mini Gobo Moving Head Light",
     "Mini Gobo Moving Head Light 11ch"
   ],
-  "manufacturer": "ZKYMZL (same OEM sold as Lixada, Riukoe, U'King ZQ02061, Tomshine mini gobo moving head)",
-  "model": "TY-30 (mfr part RYON-30); 25W/30W mini gobo moving head",
+  "manufacturer": "ZKYMZL (Amazon B08M5WJXQ8; same OEM sold as Lixada, Riukoe, U'King ZQ02061, Tomshine mini gobo moving head)",
+  "model": "30W Mini LED Spot moving head (TY-30 / RYON-30 family; head badge 'MINI LEDSPOT')",
   "sources": [
     "https://images-na.ssl-images-amazon.com/images/I/81ej8MIZpBL.pdf",
     "https://open-fixture-library.org/lixada/mini-gobo-moving-head-light",
@@ -16,22 +16,21 @@
     "https://manuals.plus/u-king/zq02061-mini-gobo-moving-head-light-manual"
   ],
   "physical": {
-    "width_mm": 210,
-    "length_mm": 260,
-    "height_mm": 280,
-    "weight_kg": 3.2,
+    "width_mm": 159,
+    "length_mm": 146,
+    "height_mm": 247,
+    "weight_kg": 2.54,
     "power_w": 30
   },
   "optics": {
     "beam_angle_deg": 11,
     "field_angle_deg": null,
     "lumens_or_lux": null,
-    "source": "single white LED (25W listed; 30W for TY-30), manual focus",
+    "source": "single white 30W LED, manual focus",
     "led_count": 1,
     "emitters": [
       "white"
-    ],
-    "beam_angle_deg_guess": true
+    ]
   },
   "movement": {
     "pan_deg": 540,
@@ -657,5 +656,5 @@
     ]
   },
   "confidence": "manual found",
-  "notes": "Both charts transcribed from the OEM 'Mini Gobo Moving head Light' manual PDF hosted by Amazon (Lixada listing, 81ej8MIZpBL.pdf) and cross-checked against the Open Fixture Library Lixada definition, which is the same 9/11ch layout; ZKYMZL's own manuals.plus page confirms 9/11CH, 8 colours, 8 gobos, pan 570 / tilt 270 (ZKYMZL says 570/270, the OEM manual says 540/180 -- 540/180 kept), 3.2 kg, box 33x22x23 cm. Beam angle: OEM manual says 11 deg; Amazon TY-30 listing says 30 deg (almost certainly wrong); the caller expected ~15 deg -- 11 deg used, flagged as guess. Size 280x210x260 mm (LxWxH) and 3.4 kg from the OEM manual; ZKYMZL says 3.2 kg / 2.54 kg on Amazon. Colour order (red, pale-blue, orange, blue, yellow, green, pink) comes from the OFL definition (community-entered), the manual only says '8 colours'; U'King ZQ02061 listing lists red, yellow, blue, green, pink, orange + white. Gobo slot DMX positions are not itemised by the manual (0-63 select, ~8 values each). The 9ch mode has NO fine channels: Pan, Tilt, Color, Gobo, Strobe, Dimmer, Speed, Function, DimmerCurve. CONFLICTS with the repo's venue-console 11ch map: attribute order matches exactly (Pan, PanFine, Tilt, TiltFine, Color, Gobo, Shutter, Dimmer, Speed, Function, Dimmer Modes) but the repo guessed 8 colours in 8-value steps -- the real colour wheel uses 16-value steps (0-15 white ... 112-127 pink) with rotation above 128, and the repo's colour order (White, Red, Green, Blue, Yellow, Magenta, Cyan, Orange) does not match the OFL order. Repo already has GDTFs Lixada@Mini_Gobo_Moving_Head and UKing_old@Mini_Gobo_Moving_Head_2022 for this OEM. manuals.plus and device.report block automated fetches (HTTP 403 / JS challenge) so ZKYMZL's own chart was not read directly."
+  "notes": "Amazon listing B08M5WJXQ8 re-read 2026-08-26: 'ZKYMZL 30W LED Moving Head DJ Lights DMX512 GOBO Spotlight with 8 Colors + Color-Split Effect 8 Rotating Patterns'. Description spec block: AC100-240V, 30W, beam angle 15 deg, 9/11CH, 0-100% electronic dimming, manual focus, item size 159 x 146 x 247 mm (6.3 x 5.71 x 9.75 in; the dimension image agrees: 6.3 in wide, 9.75 in tall), 5.6 lb (2.54 kg); 3-pin DMX in/out, 4-digit display. Physical now uses the listing's bare-fixture figures (was 210 x 260 x 280 mm / 3.2 kg, which the shipped manual gives as 280 x 210 x 260 mm / 3.4 kg -- probably boxed). The listing's 'Product guides and documents' User Manual (PDF) is the same Amazon-hosted manual already cited (81ej8MIZpBL.pdf); it says beam angle 11 deg and 540/180 deg pan/tilt, so 11 deg is kept (listing text says 15 deg; one bullet claims 270 deg tilt but the description, image and manual all say 180). 9/11ch chart from that manual: 11ch = Pan, Pan fine, Tilt, Tilt fine, Colour (0-127 select, 128-189 rotate fast>slow, 190-193 stop, 194-255 rotate slow>fast), Gobo (0-63 select, 64-127 shake, 128-189 rotate, 190-193 stop, 194-255 rotate), Shutter/strobe (0-7 off, 8-15 open, 16-131 strobe slow>fast, 132-139 open, 140-181 fast-close/slow-open, 182-189 open, 190-231 fast-open/slow-close, 232-239 open, 240-247 random, 248-255 open), Dimmer 0-100%, P/T speed fast>slow, Function (70-79 blackout on P/T move, 90-99 blackout on colour, 110-119 blackout on gobo, 200-209 reset), Dimmer modes (0-20 standard, 21-40 stage, 61-80 architectural, 81-100 theatre, 101-255 default). The repo channel map (Pan, Tilt, Colour wheel, Gobo, Shutter, Dimmer at offsets 0/2/4/5/6/7) matches; the manual gives no per-colour slot values inside 0-127 so the repo's 8-step slot centres remain an inference. Colour names from the OFL Lixada profile."
 }
