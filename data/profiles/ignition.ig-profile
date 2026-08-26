@@ -1,188 +1,1095 @@
 {
-  "name": "Ignition",
-  "version": 1,
   "about": "The default profile. Three required layers, three required focus points, and one canvas where a room has screens. Everything else is optional or inherited, because every required role is a barrier to a room implementing this and a profile only a large rig can satisfy has failed at being a default. Stage areas are deliberately NOT declared here: a club has three and a stadium with a thrust and a B-stage has fifteen, so no central list is right. The portable 'where is the talent' question is answered by the Vocal / Stage / Band focus roles; the venue owns its own blocking grid.",
-  "roles": [
-    {
-      "name": "Key",
-      "kind": "Group",
-      "required": true,
-      "about": "Light on the performers' faces, from the front. Without it the audience cannot see who is playing, and no amount of colour elsewhere substitutes."
-    },
-    {
-      "name": "Wash",
-      "kind": "Group",
-      "required": true,
-      "about": "The main colourable surface on stage. What carries the song's mood, and where a busking operator spends most of the night."
-    },
-    {
-      "name": "Back",
-      "kind": "Group",
-      "required": true,
-      "about": "Anything behind the band \u2014 back wall, cyc, upstage bar. Separation from the background is the largest single difference between a rig that reads as designed and one that reads as switched on."
-    },
-    {
-      "name": "Movers",
-      "kind": "Group",
-      "required": false,
-      "about": "Anything that pans and tilts."
-    },
-    {
-      "name": "Beams",
-      "kind": "Group",
-      "required": false,
-      "about": "Hard-edged movers, where they are a separate package from wash movers."
-    },
-    {
-      "name": "Bars",
-      "kind": "Group",
-      "required": false,
-      "about": "Pixel strips and battens \u2014 the accent layer, and where soft charted hits land."
-    },
-    {
-      "name": "Floor",
-      "kind": "Group",
-      "required": false,
-      "about": "Uplight and the floor package."
-    },
-    {
-      "name": "Audience",
-      "kind": "Group",
-      "required": false,
-      "about": "Blinders and audience wash."
-    },
-    {
-      "name": "Drums",
-      "kind": "Group",
-      "required": false,
-      "about": "The drum special."
-    },
-    {
-      "name": "Spot",
-      "kind": "Group",
-      "required": false,
-      "about": "A solo or follow."
-    },
-    {
-      "name": "Haze",
-      "kind": "Group",
-      "required": false,
-      "about": "Atmospherics. A beam is inert in clean air."
-    },
-    {
-      "name": "Vocal",
-      "kind": "Focus",
-      "required": true,
-      "about": "The lead position. A room that cannot say where its singer stands cannot host a show written for one."
-    },
-    {
-      "name": "Stage",
-      "kind": "Focus",
-      "required": true,
-      "about": "The whole performance area."
-    },
-    {
-      "name": "Audience",
-      "kind": "Focus",
-      "required": true,
-      "about": "Out over the room."
-    },
-    {
-      "name": "Band",
-      "kind": "Focus",
-      "required": false,
-      "about": "The upstage area."
-    },
-    {
-      "name": "Drums",
-      "kind": "Focus",
-      "required": false,
-      "about": "The kit."
-    },
-    {
-      "name": "Back Wall",
-      "kind": "Focus",
-      "required": false,
-      "about": "The surface behind the band."
-    },
-    {
-      "name": "House",
-      "kind": "Focus",
-      "required": false,
-      "about": "Deep audience, past the front rows."
-    },
-    {
-      "name": "Main",
-      "kind": "Canvas",
-      "required": false,
-      "about": "The primary video surface. Required only of rooms that have screens at all \u2014 the show says 'play this on Main' and the venue decides whether that is one panel or three of unequal width."
-    },
-    {
-      "name": "Side Left",
-      "kind": "Canvas",
-      "required": false,
-      "about": "An independent flanking surface."
-    },
-    {
-      "name": "Side Right",
-      "kind": "Canvas",
-      "required": false,
-      "about": "An independent flanking surface."
-    }
-  ],
   "colors": [
     {
-      "name": "Open",
-      "red": 1.0,
+      "blue": 1.0,
       "green": 1.0,
-      "blue": 1.0
+      "name": "Open",
+      "red": 1.0
     },
     {
-      "name": "Warm",
-      "red": 1.0,
+      "blue": 0.38,
       "green": 0.72,
-      "blue": 0.38
+      "name": "Warm",
+      "red": 1.0
     },
     {
-      "name": "Cool",
-      "red": 0.72,
+      "blue": 1.0,
       "green": 0.84,
-      "blue": 1.0
+      "name": "Cool",
+      "red": 0.72
     },
     {
-      "name": "Deep",
-      "red": 0.08,
+      "blue": 0.62,
       "green": 0.14,
-      "blue": 0.62
+      "name": "Deep",
+      "red": 0.08
     },
     {
-      "name": "Hot",
-      "red": 1.0,
+      "blue": 0.28,
       "green": 0.16,
-      "blue": 0.28
+      "name": "Hot",
+      "red": 1.0
+    }
+  ],
+  "effects": {
+    "alternate": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.800000011920929
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 180.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Group": 2
+        }
+      ]
+    },
+    "back breathe": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.23999999463558197
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Back"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 32.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "bar chase": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.6000000238418579
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Bars"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "bar tick": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.11999999731779099
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Bars"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 2.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "bounce": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.699999988079071
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Bounce",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "build": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.699999988079071
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Build",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "bump": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.6000000238418579
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 1.0,
+          "width": 3.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 0.5,
+        "once": true,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "chase": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.800000011920929
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "circle pan": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  20.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -20.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "circle tilt": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  20.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  -20.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 90.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "dark chase": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.800000011920929
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Negative",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "fan": {
+      "apply": {
+        "Delta": [
+          [
+            "Pan",
+            30.0
+          ]
+        ]
+      },
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "figure eight tilt": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  15.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Tilt",
+                  -15.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 90.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "mirror sweep": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  30.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -30.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Wings": 2
+        }
+      ]
+    },
+    "open out": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.699999988079071
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Build",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Wings": 2
+        }
+      ]
+    },
+    "pulse": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.5
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "slow swell": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.4000000059604645
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "sparkle": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Dimmer",
+                  -0.8500000238418579
+                ]
+              ]
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 360.0,
+        "speed": {
+          "Master": "Song"
+        }
+      },
+      "tricks": [
+        {
+          "Shuffle": 1741
+        }
+      ]
+    },
+    "strobe": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Dimmer": 1.0
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Dimmer": 0.0
+            }
+          ],
+          "ease": "Linear",
+          "transition": 0.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 2.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "sweep": {
+      "steps": [
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  25.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        },
+        {
+          "apply": [
+            {
+              "Delta": [
+                [
+                  "Pan",
+                  -25.0
+                ]
+              ]
+            }
+          ],
+          "ease": "Sine",
+          "transition": 1.0,
+          "width": 1.0
+        }
+      ],
+      "target": {
+        "Role": "Movers"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 180.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    }
+  },
+  "name": "Ignition",
+  "roles": [
+    {
+      "about": "Light on the performers' faces, from the front. Without it the audience cannot see who is playing, and no amount of colour elsewhere substitutes.",
+      "kind": "Group",
+      "name": "Key",
+      "required": true
+    },
+    {
+      "about": "The main colourable surface on stage. What carries the song's mood, and where a busking operator spends most of the night.",
+      "kind": "Group",
+      "name": "Wash",
+      "required": true
+    },
+    {
+      "about": "Anything behind the band — back wall, cyc, upstage bar. Separation from the background is the largest single difference between a rig that reads as designed and one that reads as switched on.",
+      "kind": "Group",
+      "name": "Back",
+      "required": true
+    },
+    {
+      "about": "Anything that pans and tilts.",
+      "kind": "Group",
+      "name": "Movers",
+      "required": false
+    },
+    {
+      "about": "Hard-edged movers, where they are a separate package from wash movers.",
+      "kind": "Group",
+      "name": "Beams",
+      "required": false
+    },
+    {
+      "about": "Pixel strips and battens — the accent layer, and where soft charted hits land.",
+      "kind": "Group",
+      "name": "Bars",
+      "required": false
+    },
+    {
+      "about": "Uplight and the floor package.",
+      "kind": "Group",
+      "name": "Floor",
+      "required": false
+    },
+    {
+      "about": "Blinders and audience wash.",
+      "kind": "Group",
+      "name": "Audience",
+      "required": false
+    },
+    {
+      "about": "The drum special.",
+      "kind": "Group",
+      "name": "Drums",
+      "required": false
+    },
+    {
+      "about": "A solo or follow.",
+      "kind": "Group",
+      "name": "Spot",
+      "required": false
+    },
+    {
+      "about": "Atmospherics. A beam is inert in clean air.",
+      "kind": "Group",
+      "name": "Haze",
+      "required": false
+    },
+    {
+      "about": "The lead position. A room that cannot say where its singer stands cannot host a show written for one.",
+      "kind": "Focus",
+      "name": "Vocal",
+      "required": true
+    },
+    {
+      "about": "The whole performance area.",
+      "kind": "Focus",
+      "name": "Stage",
+      "required": true
+    },
+    {
+      "about": "Out over the room.",
+      "kind": "Focus",
+      "name": "Audience",
+      "required": true
+    },
+    {
+      "about": "The upstage area.",
+      "kind": "Focus",
+      "name": "Band",
+      "required": false
+    },
+    {
+      "about": "The kit.",
+      "kind": "Focus",
+      "name": "Drums",
+      "required": false
+    },
+    {
+      "about": "The surface behind the band.",
+      "kind": "Focus",
+      "name": "Back Wall",
+      "required": false
+    },
+    {
+      "about": "Deep audience, past the front rows.",
+      "kind": "Focus",
+      "name": "House",
+      "required": false
+    },
+    {
+      "about": "The primary video surface. Required only of rooms that have screens at all — the show says 'play this on Main' and the venue decides whether that is one panel or three of unequal width.",
+      "kind": "Canvas",
+      "name": "Main",
+      "required": false
+    },
+    {
+      "about": "An independent flanking surface.",
+      "kind": "Canvas",
+      "name": "Side Left",
+      "required": false
+    },
+    {
+      "about": "An independent flanking surface.",
+      "kind": "Canvas",
+      "name": "Side Right",
+      "required": false
     }
   ],
   "tricks": {
-    "odds": [
-      {
-        "Group": 2
-      }
-    ],
-    "thirds": [
-      {
-        "Group": 3
-      }
-    ],
-    "quarters": [
-      {
-        "Group": 4
-      }
-    ],
-    "pairs": [
-      {
-        "Block": 2
-      }
-    ],
     "halves": [
       {
         "Wings": 2
@@ -193,12 +1100,9 @@
         "Wings": 2
       }
     ],
-    "reverse": [
-      "Reverse"
-    ],
-    "scatter": [
+    "odds": [
       {
-        "Shuffle": 1741
+        "Group": 2
       }
     ],
     "paired odds": [
@@ -208,7 +1112,30 @@
       {
         "Group": 2
       }
+    ],
+    "pairs": [
+      {
+        "Block": 2
+      }
+    ],
+    "quarters": [
+      {
+        "Group": 4
+      }
+    ],
+    "reverse": [
+      "Reverse"
+    ],
+    "scatter": [
+      {
+        "Shuffle": 1741
+      }
+    ],
+    "thirds": [
+      {
+        "Group": 3
+      }
     ]
   },
-  "effects": {}
+  "version": 1
 }

@@ -57,7 +57,15 @@ fn norco() -> Venue {
             ("Front Wash", &[1, 2, 3, 4, 5, 6, 7, 8]),
             ("Back Wall Pars", &[20, 21, 22, 23]),
         ],
-        &[("Key", "Front Wash"), ("Back", "Back Wall Pars")],
+        &[
+            ("Key", "Front Wash"),
+            // Norco's key light and its wash are the same bar, which is
+            // ordinary in a small-to-middling rig and is exactly what
+            // binding-by-role is for: two roles, one set of fixtures,
+            // and no show has to know.
+            ("Wash", "Front Wash"),
+            ("Back", "Back Wall Pars"),
+        ],
     )
 }
 
@@ -69,7 +77,7 @@ fn riverside() -> Venue {
             ("FOH Bar", &[101, 102, 103]),
             ("Cyc", &[110]),
         ],
-        &[("Key", "FOH Bar"), ("Back", "Cyc")],
+        &[("Key", "FOH Bar"), ("Wash", "FOH Bar"), ("Back", "Cyc")],
     )
 }
 
@@ -198,4 +206,55 @@ fn a_role_may_bind_to_an_expression() {
     );
     let recipe = Recipe::new(Selection::Role("Key".into()), RecipeApply::Dimmer(0.5));
     assert_eq!(lit(&recipe, &venue, 0.0).len(), 12);
+}
+
+
+/// Every shipped effect produces output at a big rig and a small one.
+///
+/// The library is the payoff of the whole design, so this is the test
+/// that says the payoff arrived: twenty effects, two rooms with nothing
+/// in common but their role bindings, and not one of them silent.
+///
+/// It catches the failure mode that unit tests cannot — an effect whose
+/// target, Tricks and spread are each individually fine but which
+/// resolves to nothing once composed against a rig of three.
+#[test]
+fn the_whole_library_lights_both_rigs() {
+    let library = ignition_core::effects::library();
+    assert!(library.len() >= 15, "the library shrank unexpectedly");
+
+    for (name, recipe) in &library {
+        // Only the roles these venues actually bind. An effect on
+        // `Movers` at a room with none is legitimately silent — that is
+        // graceful degradation, not a defect.
+        let Selection::Role(target) = &recipe.target else {
+            continue;
+        };
+        if !matches!(target.as_str(), "Key" | "Wash" | "Back") {
+            continue;
+        }
+        for (venue, label, expect) in [
+            (norco(), "Norco", 8usize),
+            (riverside(), "Riverside", 3usize),
+        ] {
+            // Sampled across a cycle: a phaser can legitimately sit at
+            // zero delta at one instant, and testing a single moment
+            // would fail on that rather than on anything real.
+            let any = (0..8).any(|i| !lit(recipe, &venue, i as f32 * 0.25).is_empty());
+            assert!(any, "effect {name:?} produced nothing at {label}");
+
+            let out = lit(recipe, &venue, 0.0);
+            let covered = if target == "Back" {
+                if label == "Norco" { 4 } else { 1 }
+            } else {
+                expect
+            };
+            assert_eq!(
+                out.len(),
+                covered,
+                "effect {name:?} covered {} of {covered} fixtures at {label}",
+                out.len()
+            );
+        }
+    }
 }
