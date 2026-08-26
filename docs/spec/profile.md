@@ -138,10 +138,73 @@ be able to include a song more than once. Neither may assume exclusivity — a
 song played twice in a night is one file referenced twice, not two copies to
 keep in step.
 
+## Areas — the blocking grid
+
+r[profile.areas]
+A profile MUST be able to declare **areas**: named regions of the stage where
+people stand. `Downstage Centre` is where the lead sings, at every venue that
+has a downstage centre, and a show saying "light the singer" says it by naming
+one.
+
+r[profile.areas.performer-orientation]
+Area names MUST use the **performer's** left and right, not the audience's.
+This is the convention a band, a stage manager and a lighting designer already
+share, and adopting the other one would make every conversation at the desk a
+translation.
+
+r[profile.areas.not-a-focus-point]
+An area MUST be a distinct kind from a focus point, even where a venue binds one
+to the other. A focus point answers "where do I aim"; an area answers "where is
+the talent". They diverge as soon as a show wants the fixtures that *cover* a
+region rather than the aim that reaches its centre — and naming the distinction
+now is what lets that arrive later without re-authoring every show that used it.
+
+r[profile.areas.downstage-required]
+The downstage row SHOULD be required and the rest optional. A room without a
+downstage centre cannot host a singer; a room without a midstage row is merely
+shallower.
+
+## Venue-specific decisions
+
+An `.ignition` file is generic by construction — it cannot name a room. But some
+decisions genuinely *are* room-specific: this venue's upstage right is behind a
+pillar, that one's floor package is worth pushing harder, this stage is shallow
+enough that the mover fan wants narrowing.
+
+The point of naming this as its own layer is not to permit exceptions. It is that
+**non-portable decisions exist whether or not there is a place to put them**, and
+without a sanctioned one they leak into the portable show — a hard-coded level
+here, a venue-shaped selection there — until the generic file is quietly generic
+in name only.
+
+r[profile.venue-layer]
+A show MAY have a **venue layer**: a separate artifact, bound to one
+`.ignition` file and one venue, that overrides or adds to it. It MUST be a
+separate file. Merged into the show it would destroy the property the show
+exists to have; merged into the venue it would apply to every song.
+
+r[profile.venue-layer.optional]
+The generic show MUST be complete and playable without any venue layer. A layer
+adjusts a show that already works — it is never where part of the show lives, or
+the "generic" show is a fiction and the first venue to lack a layer plays a
+broken one.
+
+r[profile.venue-layer.explicitly-local]
+A venue layer MUST be free to use anything the venue provides, including names
+its profile does not declare. That is the entire purpose: it is the sanctioned
+home for the non-portable, and requiring it to stay portable would leave the
+non-portable with nowhere to go but the show.
+
+r[profile.venue-layer.visible]
+The check MUST report which songs in a set have a venue layer and which do not.
+A show that behaves differently in one room is a fact an operator needs before
+the night, not a surprise during it.
+
 ## Extensions
 
 r[profile.extensions]
-The file extensions are `.ig-profile`, `.ig-venue`, `.ignition` and `.ig-show`.
+The file extensions are `.ig-profile`, `.ig-venue`, `.ignition`, `.ig-show`, and
+`.ig-local` for a venue layer.
 Written out rather than abbreviated: these are files a person picks from a
 folder at a desk, in a hurry, and `.igv` versus `.igs` is a distinction nobody
 makes correctly under pressure.

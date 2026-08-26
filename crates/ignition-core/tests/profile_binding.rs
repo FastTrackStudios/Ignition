@@ -88,4 +88,30 @@ fn every_binding_points_at_something_real() {
             "role {role:?} binds to focus point {name:?}, which Norco does not have"
         );
     }
+    // Areas bind to focus points too, and are checked the same way. The
+    // six-area grid is the one place a venue is most likely to bind a
+    // name it merely *expects* to exist, since half of Norco's areas are
+    // called `Vocal ...` rather than `Downstage ...`.
+    for (role, name) in &venue.areas {
+        assert!(
+            focus.contains(&name.as_str()),
+            "area {role:?} binds to focus point {name:?}, which Norco does not have"
+        );
+    }
+}
+
+/// The blocking grid is where a show says "light the singer" without
+/// knowing which room it is in, so a venue claiming the profile must
+/// cover the whole downstage row.
+#[test]
+fn norco_covers_the_downstage_blocking_row() {
+    let Some(venue): Option<VenueProfile> = load("data/venues/norco/profile.json") else {
+        return;
+    };
+    for area in ["Downstage Left", "Downstage Centre", "Downstage Right"] {
+        assert!(
+            venue.area(area).is_some(),
+            "Norco does not bind {area:?}"
+        );
+    }
 }

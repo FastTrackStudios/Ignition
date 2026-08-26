@@ -1,32 +1,59 @@
 {
   "profile": "Ignition",
-
   "groups": {
-    "Key":      { "Group": "Front Wash" },
-    "Wash":     { "Group": "Washers" },
-    "Back":     { "Group": "Back Wall Pars" },
-    "Movers":   { "Group": "Movers" },
-    "Beams":    { "Group": "Beam Movers" },
-    "Bars":     { "Group": "Strips All" },
-    "Drums":    { "Union": [{ "Group": "Drum Highlight L" }, { "Group": "Drum Highlight R" }] },
-    "Haze":     { "Group": "Hazers" }
+    "Key": {
+      "Group": "Front Wash"
+    },
+    "Wash": {
+      "Group": "Washers"
+    },
+    "Back": {
+      "Group": "Back Wall Pars"
+    },
+    "Movers": {
+      "Group": "Movers"
+    },
+    "Beams": {
+      "Group": "Beam Movers"
+    },
+    "Bars": {
+      "Group": "Strips All"
+    },
+    "Drums": {
+      "Union": [
+        {
+          "Group": "Drum Highlight L"
+        },
+        {
+          "Group": "Drum Highlight R"
+        }
+      ]
+    },
+    "Haze": {
+      "Group": "Hazers"
+    }
   },
-
   "focus": {
-    "Vocal":     "Vocal Centre",
-    "Stage":     "Stage Wide",
-    "Audience":  "Audience Front",
-    "Band":      "Upstage Centre",
-    "Drums":     "Drums",
+    "Vocal": "Vocal Centre",
+    "Stage": "Stage Wide",
+    "Audience": "Audience Front",
+    "Band": "Upstage Centre",
+    "Drums": "Drums",
     "Back Wall": "Back Wall",
-    "House":     "Audience Back"
+    "House": "Audience Back"
   },
-
   "canvases": {
-    "Main":       "main",
-    "Side Left":  "side-left",
+    "Main": "main",
+    "Side Left": "side-left",
     "Side Right": "side-right"
   },
-
-  "colors": []
+  "colors": [],
+  "areas": {
+    "Downstage Left": "Vocal Stage Left",
+    "Downstage Centre": "Vocal Centre",
+    "Downstage Right": "Vocal Stage Right",
+    "Upstage Left": "Upstage Left",
+    "Upstage Centre": "Upstage Centre",
+    "Upstage Right": "Upstage Right"
+  }
 }

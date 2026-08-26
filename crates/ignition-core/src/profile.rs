@@ -30,6 +30,16 @@ pub enum RoleKind {
     Group,
     /// A place a mover can point — `Vocal`, `Stage`.
     Focus,
+    /// A region of the stage where people stand — `Downstage Left`.
+    ///
+    /// Not a focus point wearing a different hat, though it resolves to
+    /// one today. A focus point answers "where do I aim"; an area
+    /// answers "where is the talent", and those diverge the moment a
+    /// show wants the fixtures that *cover* a region rather than the
+    /// aim that reaches its centre. Naming it separately now is what
+    /// makes that distinction available later without re-authoring every
+    /// show that used it.
+    Area,
     /// A video surface — `Main`.
     Canvas,
 }
@@ -127,6 +137,14 @@ pub struct VenueProfile {
     pub focus: BTreeMap<String, String>,
     #[serde(default)]
     pub canvases: BTreeMap<String, String>,
+    /// Stage areas, bound to this venue's own focus points.
+    ///
+    /// A name rather than a region, for now: every venue already has
+    /// focus points and this makes areas usable today. An area with real
+    /// extent — and therefore derivable fixture coverage — is the
+    /// follow-on, and binding by name does not stand in its way.
+    #[serde(default)]
+    pub areas: BTreeMap<String, String>,
     /// Colours this venue overrides. Anything absent is inherited from
     /// the profile, which is what keeps implementing a room cheap.
     #[serde(default)]
@@ -147,6 +165,11 @@ impl VenueProfile {
     pub fn canvas(&self, role: &str) -> Option<&str> {
         self.canvases.get(role).map(String::as_str)
     }
+
+    /// The venue's own focus point for a stage area.
+    pub fn area(&self, role: &str) -> Option<&str> {
+        self.areas.get(role).map(String::as_str)
+    }
 }
 
 impl Bindings for VenueProfile {
@@ -158,6 +181,9 @@ impl Bindings for VenueProfile {
     }
     fn has_canvas(&self, name: &str) -> bool {
         self.canvases.contains_key(name)
+    }
+    fn has_area(&self, name: &str) -> bool {
+        self.areas.contains_key(name)
     }
 }
 
@@ -197,12 +223,14 @@ pub trait Bindings {
     fn has_group(&self, name: &str) -> bool;
     fn has_focus(&self, name: &str) -> bool;
     fn has_canvas(&self, name: &str) -> bool;
+    fn has_area(&self, name: &str) -> bool;
 
     fn has(&self, role: &Role) -> bool {
         match role.kind {
             RoleKind::Group => self.has_group(&role.name),
             RoleKind::Focus => self.has_focus(&role.name),
             RoleKind::Canvas => self.has_canvas(&role.name),
+            RoleKind::Area => self.has_area(&role.name),
         }
     }
 }
@@ -291,6 +319,9 @@ mod tests {
             self.focus.iter().any(|f| f.eq_ignore_ascii_case(name))
         }
         fn has_canvas(&self, _: &str) -> bool {
+            false
+        }
+        fn has_area(&self, _: &str) -> bool {
             false
         }
     }
