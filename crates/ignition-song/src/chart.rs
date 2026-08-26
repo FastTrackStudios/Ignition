@@ -98,15 +98,18 @@ impl HitClass {
         }
     }
 
-    /// How much of the rig this class is worth, 0..1 before velocity.
+    /// How much of the rig this class is worth, 0..1.
     ///
-    /// A kick is felt more than seen and gets very little on its own —
-    /// it is on nearly every beat, and a light that moves on every kick
-    /// is a light that never stops moving.
+    /// Kick and snare are deliberately small. They are accents, not
+    /// events: a snare is on the backbeat of nearly every bar and a kick
+    /// more often than that, so anything that reads as a "hit" on them
+    /// would be a rig that never stops flashing. What they are for is
+    /// pulse — a floor that breathes with the kick, a wash that ticks on
+    /// the two and four. The band hits are what land.
     pub fn weight(self) -> f32 {
         match self {
-            HitClass::Kick => 0.12,
-            HitClass::Snare => 0.25,
+            HitClass::Kick => 0.08,
+            HitClass::Snare => 0.16,
             HitClass::Low => 0.30,
             HitClass::Medium => 0.55,
             HitClass::High => 0.85,
@@ -126,9 +129,17 @@ pub struct ChartHit {
 }
 
 impl ChartHit {
-    /// Class weight scaled by velocity — what a cue actually uses.
+    /// What a cue uses — the class weight, and nothing else.
+    ///
+    /// Velocity is deliberately **not** applied. The chart carries it,
+    /// because it is real data somebody may want later, but the values
+    /// in it are an artefact of how the notes were entered rather than a
+    /// decision: they drift downward through the song for no musical
+    /// reason, so scaling by them made later hits quietly weaker than
+    /// identical earlier ones. A class already says how big a hit is.
+    /// If a hit needs to be bigger, it should be a bigger class.
     pub fn intensity(&self) -> f32 {
-        self.class.weight() * (f32::from(self.velocity) / 127.0)
+        self.class.weight()
     }
 }
 
@@ -404,20 +415,24 @@ mod tests {
         assert!(chart.is_empty());
     }
 
-    /// Velocity scales the class, so the same kind of hit can be played
-    /// softly. A `High Hit` at 40 must not outrank one at 127.
+    /// Velocity is carried but not applied. The values in a hand-entered
+    /// chart drift for reasons that are not musical, and scaling by them
+    /// made late hits weaker than identical early ones.
     #[test]
-    fn velocity_scales_intensity() {
+    fn velocity_does_not_change_intensity() {
         let soft = ChartHit { at: Bars::bar(1), class: HitClass::High, velocity: 40, group: None };
         let hard = ChartHit { at: Bars::bar(1), class: HitClass::High, velocity: 127, group: None };
-        assert!(soft.intensity() < hard.intensity());
+        assert_eq!(soft.intensity(), hard.intensity());
         assert!((hard.intensity() - HitClass::High.weight()).abs() < 1e-6);
     }
 
-    /// A kick is on nearly every beat, so it must stay well under a
-    /// band hit — a rig that moves on every kick never stops moving.
+    /// A kick is on nearly every beat and a snare on every backbeat, so
+    /// both must stay well under a band hit — otherwise the rig never
+    /// stops flashing and nothing reads as an accent.
     #[test]
-    fn a_kick_is_worth_less_than_a_band_hit() {
-        assert!(HitClass::Kick.weight() < HitClass::High.weight() * 0.25);
+    fn pulse_classes_stay_under_the_band_hits() {
+        assert!(HitClass::Kick.weight() < HitClass::Snare.weight());
+        assert!(HitClass::Snare.weight() < HitClass::Low.weight());
+        assert!(HitClass::Snare.weight() < HitClass::High.weight() * 0.25);
     }
 }

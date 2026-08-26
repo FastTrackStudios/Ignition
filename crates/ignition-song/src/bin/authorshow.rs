@@ -16,7 +16,7 @@
 //! gap travelling across the ceiling, the thing their docs point out
 //! that forward chasing cannot do — and the bridge **bounces**.
 
-use ignition_song::chart::{ChartHit, HitChart, HitClass};
+use ignition_song::chart::{HitChart, HitClass};
 use ignition_core::preset::Ref;
 use ignition_core::selection::{Axis, Cmp, Dir, Order, Where};
 use ignition_core::{
@@ -42,6 +42,19 @@ fn main() -> anyhow::Result<()> {
     // REAPER, re-run this, and the show follows.
     let chart = ignition_song::chart::read(&path, &song)?;
     if !chart.is_empty() {
+        // Pulse first: it belongs *in* the section look, not beside it.
+        // A blocking section cue is a complete statement, so a running
+        // flash has to be one of its recipes or the next section would
+        // cancel it — which is also what makes the pattern change at a
+        // section boundary rather than run through the whole song.
+        let mut pulsed = 0usize;
+        for cue in list.cues.iter_mut().filter(|c| c.block) {
+            let recipes = pulses(&chart, &song, &cue.name);
+            pulsed += recipes.len();
+            cue.recipes.extend(recipes);
+        }
+        eprintln!("{pulsed} pulse effects across the section looks");
+
         let accents = accents(&song, &chart);
         eprintln!(
             "{} accent cues from {} charted hits in {} figures",
@@ -480,7 +493,20 @@ fn author(song: &SongMap) -> CueList {
     }
 }
 
-// ── accents, from the charted hits ───────────────────────────────────
+// ── the charted hits ─────────────────────────────────────────────────
+//
+// Two kinds of thing, treated as two kinds of thing.
+//
+// Kick and snare are *pulse*. A snare is on the backbeat of nearly every
+// bar and a kick more often than that, and writing a cue for each would
+// mean three hundred cues to say "flash on two and four" — a cue list
+// nobody can read, describing a groove that never changes. On a console
+// that is an effect: one running flash locked to the song, living in the
+// section look. So the chart is read for the *pattern* each section
+// plays, and that becomes a repeating one-bar phaser.
+//
+// The band hits are *events*. They happen a few dozen times, each one
+// means something, and each gets a cue.
 
 /// How wide the wash rig is, in metres either side of centre.
 ///
@@ -490,16 +516,8 @@ fn author(song: &SongMap) -> CueList {
 /// the fixtures matched".
 const RIG_HALF_WIDTH: f64 = 5.0;
 
-/// A hit quiet enough to skip.
-///
-/// The chart is hand-written, so unlike the detector's output nearly
-/// everything in it is meant. The exception is the kick: it is on almost
-/// every beat, and a rig that moves on every kick never stops moving.
-/// Kicks earn their place inside a group, where they are part of a
-/// figure, and are ignored on their own.
-fn worth_a_cue(hit: &ChartHit) -> bool {
-    hit.group.is_some() || !matches!(hit.class, HitClass::Kick | HitClass::Snare)
-}
+/// Eighths in a bar — the resolution the chart is written at.
+const SLOTS: usize = 8;
 
 /// The `n`th of `count` zones across the rig, as a selection.
 ///
@@ -517,21 +535,103 @@ fn zone(n: usize, count: usize) -> Selection {
     Selection::Where {
         of: Box::new(Selection::Tag("Luminaire_LED_Wash".into())),
         filter: Where::Within {
-            min: ignition_core::Vec3 {
-                x: min_x,
-                y: -30.0,
-                z: 2.0,
-            },
-            max: ignition_core::Vec3 {
-                x: min_x + width,
-                y: 30.0,
-                z: 30.0,
-            },
+            min: ignition_core::Vec3 { x: min_x, y: -30.0, z: 2.0 },
+            max: ignition_core::Vec3 { x: min_x + width, y: 30.0, z: 30.0 },
         },
     }
 }
 
-/// Cues for one charted figure.
+/// The one-bar pattern a class plays inside a section, as eighth slots.
+///
+/// Folded across the section's bars and kept only where the hit lands in
+/// most of them. That threshold is what separates the groove from the
+/// fills: a snare on two and four every bar is the pattern, and the
+/// extra snare in the turnaround of the last bar is not — repeating the
+/// turnaround through the whole section would be wrong every bar but
+/// one.
+fn pattern(chart: &HitChart, song: &SongMap, section: &str, class: HitClass) -> Option<[bool; SLOTS]> {
+    let section = song.section(section)?;
+    let first = section.start.bar;
+    let last = first + section.bars as u32;
+    let bars = (last - first).max(1);
+
+    let mut counts = [0usize; SLOTS];
+    for hit in chart.hits.iter().filter(|h| h.class == class) {
+        if hit.at.bar < first || hit.at.bar >= last {
+            continue;
+        }
+        // beat 1.0 is slot 0, beat 1.5 slot 1, ... beat 4.5 slot 7.
+        let slot = ((hit.at.beat - 1.0) * 2.0).round() as usize;
+        if let Some(count) = counts.get_mut(slot) {
+            *count += 1;
+        }
+    }
+
+    let mut slots = [false; SLOTS];
+    let mut any = false;
+    for (slot, count) in counts.iter().enumerate() {
+        // "In most bars" — half rounded up, so a four-bar section needs
+        // the hit in two of them.
+        if *count * 2 >= bars as usize {
+            slots[slot] = true;
+            any = true;
+        }
+    }
+    any.then_some(slots)
+}
+
+/// A repeating one-bar flash on the charted pattern.
+///
+/// One step per eighth, `measure` a whole bar, locked to the `Song`
+/// speed master — so it is the song's own tempo driving it and a tempo
+/// change carries it along. `Delta` rather than an absolute level, for
+/// the same reason the chases use one: it adds to whatever the section
+/// look set and leaves the colour alone.
+fn pulse(target: Selection, slots: [bool; SLOTS], depth: f32) -> Recipe {
+    let step = |on: bool| {
+        Step::new(vec![RecipeApply::Delta(vec![(
+            Attribute::Dimmer,
+            if on { depth } else { 0.0 },
+        )])])
+    };
+    Recipe {
+        target,
+        steps: slots.iter().map(|on| step(*on)).collect(),
+        timing: Timing {
+            speed: Speed::Master("Song".into()),
+            measure: 4.0,
+            // No spread: a backbeat is the whole rig ticking together,
+            // not something travelling across it.
+            phase_spread_deg: 0.0,
+            ..Default::default()
+        },
+    }
+}
+
+/// The pulse recipes for one section — kick on the floor, snare overhead.
+///
+/// Depths are per section, so a chorus can lean on the backbeat harder
+/// than a verse without either of them being a different kind of thing.
+fn pulses(chart: &HitChart, song: &SongMap, section: &str) -> Vec<Recipe> {
+    // A chorus can carry a much harder backbeat; a verse cannot, and an
+    // intro should barely tick.
+    let chorus = section.starts_with("CH");
+    let snare_depth = if chorus { 0.30 } else { 0.16 };
+    let kick_depth = if chorus { 0.12 } else { 0.08 };
+
+    let mut out = Vec::new();
+    if let Some(slots) = pattern(chart, song, section, HitClass::Kick) {
+        // The kick belongs low — it is felt more than seen, and a floor
+        // that breathes with it reads as weight rather than as flashing.
+        out.push(pulse(strips(), slots, kick_depth));
+    }
+    if let Some(slots) = pattern(chart, song, section, HitClass::Snare) {
+        out.push(pulse(ceiling(), slots, snare_depth));
+    }
+    out
+}
+
+/// Cues for the band hits — the events, as opposed to the pulse.
 ///
 /// A group is played *across* the rig; a lone hit is played on all of
 /// it. Both are `·`-named and non-blocking, so they add to whatever
@@ -540,8 +640,9 @@ fn accents(song: &SongMap, chart: &HitChart) -> Vec<Cue> {
     let mut cues = Vec::new();
 
     for (index, group) in chart.groups.iter().enumerate() {
-        // Several hits land together — a kick and a crash on the same
-        // eighth are one moment, and should light one zone, not two.
+        // Hits landing together are one moment: a snare and a crash on
+        // the same eighth should light one zone, not two, and the figure
+        // should travel by musical position rather than by note count.
         let mut moments: Vec<(Bars, f32)> = Vec::new();
         for hit in chart.members(group) {
             match moments.last_mut() {
@@ -551,21 +652,21 @@ fn accents(song: &SongMap, chart: &HitChart) -> Vec<Cue> {
         }
         let count = moments.len();
         for (n, (at, level)) in moments.into_iter().enumerate() {
+            let label = format!("· fig {index} · {}/{count}", n + 1);
             let target = zone(n, count);
-            cues.push(bump_cue(
-                song,
-                at,
-                &format!("· fig {index} · {}/{count}", n + 1),
-                target.clone(),
-                level,
-            ));
-            cues.push(release_cue(song, at, &format!("· fig {index} · {}/{count}", n + 1), target));
+            cues.push(bump_cue(at, &label, target.clone(), level));
+            cues.push(release_cue(song, at, &label, target));
         }
     }
 
-    for hit in chart.ungrouped().filter(|h| worth_a_cue(h)) {
+    // Ungrouped kick and snare are the pulse and already have their
+    // effect; giving them cues as well would flash twice for one hit.
+    for hit in chart
+        .ungrouped()
+        .filter(|h| !matches!(h.class, HitClass::Kick | HitClass::Snare))
+    {
         let name = format!("· {} {}.{:.2}", hit.class.label(), hit.at.bar, hit.at.beat);
-        cues.push(bump_cue(song, hit.at, &name, ceiling(), hit.intensity()));
+        cues.push(bump_cue(hit.at, &name, ceiling(), hit.intensity()));
         cues.push(release_cue(song, hit.at, &name, ceiling()));
     }
 
@@ -573,8 +674,7 @@ fn accents(song: &SongMap, chart: &HitChart) -> Vec<Cue> {
     cues
 }
 
-fn bump_cue(song: &SongMap, at: Bars, name: &str, target: Selection, level: f32) -> Cue {
-    let _ = song;
+fn bump_cue(at: Bars, name: &str, target: Selection, level: f32) -> Cue {
     Cue {
         name: name.to_string(),
         fade_secs: 0.0,
