@@ -1,7 +1,7 @@
 {
   "name": "Ignition",
   "version": 1,
-  "about": "The default profile. Three required layers, three required focus points, and one canvas where a room has screens. Everything else is optional or inherited, because every required role is a barrier to a room implementing this and a profile only a large rig can satisfy has failed at being a default.",
+  "about": "The default profile. Three required layers, three required focus points, and one canvas where a room has screens. Everything else is optional or inherited, because every required role is a barrier to a room implementing this and a profile only a large rig can satisfy has failed at being a default. Stage areas are deliberately NOT declared here: a club has three and a stadium with a thrust and a B-stage has fifteen, so no central list is right. The portable 'where is the talent' question is answered by the Vocal / Stage / Band focus roles; the venue owns its own blocking grid.",
   "roles": [
     {
       "name": "Key",
@@ -128,60 +128,6 @@
       "kind": "Canvas",
       "required": false,
       "about": "An independent flanking surface."
-    },
-    {
-      "name": "Downstage Left",
-      "kind": "Area",
-      "required": true,
-      "about": "Front of the stage, performer's left. The blocking grid uses the performer's orientation, not the audience's, because that is how a band, a stage manager and an LD all already say it."
-    },
-    {
-      "name": "Downstage Centre",
-      "kind": "Area",
-      "required": true,
-      "about": "Front and centre. Where the lead usually is, and the one area a room cannot be without."
-    },
-    {
-      "name": "Downstage Right",
-      "kind": "Area",
-      "required": true,
-      "about": "Front of the stage, performer's right."
-    },
-    {
-      "name": "Upstage Left",
-      "kind": "Area",
-      "required": false,
-      "about": "Back of the stage, performer's left."
-    },
-    {
-      "name": "Upstage Centre",
-      "kind": "Area",
-      "required": false,
-      "about": "Back and centre \u2014 most often the kit."
-    },
-    {
-      "name": "Upstage Right",
-      "kind": "Area",
-      "required": false,
-      "about": "Back of the stage, performer's right."
-    },
-    {
-      "name": "Midstage Left",
-      "kind": "Area",
-      "required": false,
-      "about": "For rooms deep enough to want a third row."
-    },
-    {
-      "name": "Midstage Centre",
-      "kind": "Area",
-      "required": false,
-      "about": "For rooms deep enough to want a third row."
-    },
-    {
-      "name": "Midstage Right",
-      "kind": "Area",
-      "required": false,
-      "about": "For rooms deep enough to want a third row."
     }
   ],
   "colors": [

@@ -141,10 +141,24 @@ keep in step.
 ## Areas — the blocking grid
 
 r[profile.areas]
-A profile MUST be able to declare **areas**: named regions of the stage where
-people stand. `Downstage Centre` is where the lead sings, at every venue that
-has a downstage centre, and a show saying "light the singer" says it by naming
-one.
+**Areas** — named regions of the stage where people stand — MUST be owned by the
+**venue**, not enumerated by the profile.
+
+How many a stage has is a property of the stage. A club has three; a stadium
+with a thrust and a B-stage has fifteen, with names no central list could have
+anticipated. Declaring them centrally either excludes the large room or burdens
+the small one, and a profile that declares nine areas has broken its own
+minimality rule — every declared role is a barrier to implementing it.
+
+r[profile.areas.portable-question-is-focus]
+The portable question — *where is the talent* — MUST be answerable through focus
+roles. `Vocal` is downstage centre at every venue that has one, so a generic
+show never needs the blocking grid. Areas are for a room's own programming, for
+busking, and for venue layers.
+
+r[profile.areas.profile-may-require-one]
+A profile MAY still declare an area as a role, for a standard that genuinely
+depends on one. The default profile declares none.
 
 r[profile.areas.performer-orientation]
 Area names MUST use the **performer's** left and right, not the audience's.
@@ -159,10 +173,10 @@ the talent". They diverge as soon as a show wants the fixtures that *cover* a
 region rather than the aim that reaches its centre — and naming the distinction
 now is what lets that arrive later without re-authoring every show that used it.
 
-r[profile.areas.downstage-required]
-The downstage row SHOULD be required and the rest optional. A room without a
-downstage centre cannot host a singer; a room without a midstage row is merely
-shallower.
+r[profile.areas.venue-decides-granularity]
+A venue MUST be free to declare as many areas as its stage warrants, at whatever
+granularity it finds useful. Six for a band on a club stage; more where there is
+more stage. Nothing may cap or require a particular number.
 
 ## Venue-specific decisions
 

@@ -1,0 +1,11 @@
+{
+  "about": "Norco's blocking grid \u2014 where people actually stand. Venue-owned, not a profile binding: the number of areas is a property of the stage, and a room with a thrust or a B-stage has areas no central list could have anticipated. Generic shows reach the talent through the profile's focus roles; these are for this room's own programming and for busking.",
+  "areas": {
+    "Downstage Left": "Vocal Stage Left",
+    "Downstage Centre": "Vocal Centre",
+    "Downstage Right": "Vocal Stage Right",
+    "Upstage Left": "Upstage Left",
+    "Upstage Centre": "Upstage Centre",
+    "Upstage Right": "Upstage Right"
+  }
+}

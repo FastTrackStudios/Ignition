@@ -32,13 +32,22 @@ pub enum RoleKind {
     Focus,
     /// A region of the stage where people stand — `Downstage Left`.
     ///
-    /// Not a focus point wearing a different hat, though it resolves to
-    /// one today. A focus point answers "where do I aim"; an area
-    /// answers "where is the talent", and those diverge the moment a
-    /// show wants the fixtures that *cover* a region rather than the
-    /// aim that reaches its centre. Naming it separately now is what
-    /// makes that distinction available later without re-authoring every
-    /// show that used it.
+    /// A profile *may* declare one, and the default profile declares
+    /// none. How many areas a stage has is a property of the stage: a
+    /// club has three, a stadium with a thrust and a B-stage has fifteen
+    /// with names no central list could have anticipated. Enumerating
+    /// them centrally would either exclude the large room or burden the
+    /// small one, and the portable question — where is the talent — is
+    /// already answered by the `Vocal` and `Stage` focus roles.
+    ///
+    /// So areas are venue-owned, and this kind exists for the profile
+    /// that genuinely wants to require one.
+    ///
+    /// An area is still not a focus point wearing a hat, even where a
+    /// venue binds it to one. A focus point answers "where do I aim"; an
+    /// area answers "where is the talent", and those diverge the moment
+    /// something wants the fixtures that *cover* a region rather than
+    /// the aim that reaches its centre.
     Area,
     /// A video surface — `Main`.
     Canvas,
@@ -137,12 +146,18 @@ pub struct VenueProfile {
     pub focus: BTreeMap<String, String>,
     #[serde(default)]
     pub canvases: BTreeMap<String, String>,
-    /// Stage areas, bound to this venue's own focus points.
+    /// This venue's blocking grid, as its own names for its own areas.
     ///
-    /// A name rather than a region, for now: every venue already has
-    /// focus points and this makes areas usable today. An area with real
-    /// extent — and therefore derivable fixture coverage — is the
-    /// follow-on, and binding by name does not stand in its way.
+    /// Venue-owned rather than a profile binding, because the number of
+    /// areas is a property of the stage — see [`RoleKind::Area`]. A
+    /// profile that does require an area is still checked against this
+    /// map, so the two models do not fight.
+    ///
+    /// Bound to focus-point names rather than regions, for now: every
+    /// venue already has focus points, which makes areas usable today.
+    /// An area with real extent — and therefore derivable fixture
+    /// coverage — is the follow-on, and binding by name does not stand
+    /// in its way.
     #[serde(default)]
     pub areas: BTreeMap<String, String>,
     /// Colours this venue overrides. Anything absent is inherited from

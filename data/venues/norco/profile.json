@@ -47,13 +47,5 @@
     "Side Left": "side-left",
     "Side Right": "side-right"
   },
-  "colors": [],
-  "areas": {
-    "Downstage Left": "Vocal Stage Left",
-    "Downstage Centre": "Vocal Centre",
-    "Downstage Right": "Vocal Stage Right",
-    "Upstage Left": "Upstage Left",
-    "Upstage Centre": "Upstage Centre",
-    "Upstage Right": "Upstage Right"
-  }
+  "colors": []
 }
