@@ -33,6 +33,14 @@ pub struct Playback {
     /// a host driving this from outside the ECS should not have to go
     /// find the venue to build a `Show`.
     pub palettes: Palettes,
+    /// How this venue fills the profile's roles.
+    ///
+    /// Cached alongside the rest for the same reason: every `Show` built
+    /// anywhere needs it, and a recipe targeting `Role("Wash")` resolves
+    /// to nothing without it — silently, since an unbound role is
+    /// legitimately empty. Carrying it here is what stops that being a
+    /// thing each construction site has to remember.
+    pub profile: ignition_core::profile::VenueProfile,
     /// Named tempo sources every phaser can slave to. Empty until
     /// something drives them — a tap-tempo key, or the session tempo map
     /// from the FastTrackStudio side.
@@ -92,7 +100,7 @@ impl Playback {
             palettes: &venue.palettes,
             rig: &rig,
             speeds: &speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: &venue.profile,
         };
 
         let cues: Option<CuePlayer> = match cuelist.or(recipes) {
@@ -168,6 +176,7 @@ impl Playback {
             groups,
             rig,
             palettes: venue.palettes.clone(),
+            profile: venue.profile.clone(),
             speeds: default_speeds(),
             taps: Vec::new(),
             programmer: Programmer::new(),
@@ -222,6 +231,7 @@ pub fn tick_playback(
         rig,
         speeds,
         palettes,
+        profile,
         programmer,
         clock,
         ..
@@ -233,7 +243,7 @@ pub fn tick_playback(
         palettes,
         rig,
         speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: profile,
     };
     // The cue stack renders first and the programmer folds on top, which
     // is the whole point of the layer order: busking overrides playback,
@@ -274,6 +284,7 @@ pub fn operator_keys(
         rig,
         speeds,
         taps,
+        profile,
         ..
     } = &mut *playback;
     let Some(player) = cues.as_mut() else {
@@ -308,7 +319,7 @@ pub fn operator_keys(
         palettes: &venue.palettes,
         rig,
         speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: profile,
     };
 
     // Stepping backwards re-runs the show from the top to the target,
@@ -370,7 +381,7 @@ mod accent_tests {
             palettes: &venue.palettes,
             rig: &rig,
             speeds: &speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+            roles: &venue.profile,
         };
 
         let figure = list

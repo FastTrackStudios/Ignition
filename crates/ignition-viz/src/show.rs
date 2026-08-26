@@ -112,6 +112,7 @@ mod tests {
             props: vec![],
             group_records: vec![],
             palettes: Default::default(),
+            profile: Default::default(),
         }
     }
 
@@ -167,6 +168,7 @@ mod tests {
             props: vec![],
             group_records: vec![],
             palettes: Default::default(),
+            profile: Default::default(),
         };
         let dmx = DmxUniverses::new();
         let mut output = HashMap::new();

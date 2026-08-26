@@ -8,18 +8,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "apply": {
             "Dimmer": 0.0
@@ -27,7 +16,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "apply": {
             "Dimmer": 0.0
@@ -35,7 +24,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
             "Dimmer": 0.0
@@ -43,14 +32,7 @@
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "apply": {
             "Dimmer": 0.0
@@ -58,7 +40,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -90,18 +72,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -121,7 +92,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -141,7 +112,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "apply": {
             "Dimmer": 0.0
@@ -149,7 +120,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
             "Dimmer": 0.0
@@ -159,18 +130,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Axis": [
@@ -237,18 +197,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -307,18 +256,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -338,7 +276,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -358,7 +296,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -378,7 +316,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -398,7 +336,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
             "FocusPoint": "Back Wall"
@@ -408,18 +346,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Distance": {
@@ -478,7 +405,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -615,18 +542,7 @@
         },
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -775,18 +691,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -845,18 +750,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -876,7 +770,7 @@
         },
         {
           "target": {
-            "Group": "Center Washers"
+            "Role": "Key"
           },
           "steps": [
             {
@@ -896,7 +790,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -916,7 +810,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -936,7 +830,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
             "Dimmer": 0.0
@@ -944,14 +838,7 @@
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "apply": {
             "Dimmer": 0.0
@@ -961,18 +848,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Distance": {
@@ -1031,7 +907,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -1168,18 +1044,7 @@
         },
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -1328,7 +1193,7 @@
       "recipes": [
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -1360,18 +1225,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -1391,7 +1245,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -1411,7 +1265,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -1431,7 +1285,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -1451,22 +1305,15 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
-            "FocusPoint": "Stage Wide"
+            "FocusPoint": "Stage"
           }
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "apply": {
             "Dimmer": 0.0
@@ -1476,18 +1323,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Axis": [
@@ -1554,18 +1390,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -1624,18 +1449,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -1696,7 +1510,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -1773,7 +1587,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -1850,7 +1664,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -1925,18 +1739,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -1956,7 +1759,7 @@
         },
         {
           "target": {
-            "Group": "Center Washers"
+            "Role": "Key"
           },
           "steps": [
             {
@@ -1976,7 +1779,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -1996,7 +1799,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -2016,7 +1819,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -2036,22 +1839,15 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
-            "FocusPoint": "Audience Front"
+            "FocusPoint": "Audience"
           }
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "steps": [
             {
@@ -2073,18 +1869,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Axis": [
@@ -2169,7 +1954,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -2216,18 +2001,7 @@
         },
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -2376,18 +2150,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -2446,18 +2209,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -2516,18 +2268,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -2586,18 +2327,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -2656,18 +2386,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -2728,7 +2447,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -2805,7 +2524,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -2882,7 +2601,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -2957,18 +2676,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -3027,18 +2735,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -3097,18 +2794,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -3167,18 +2853,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -3237,18 +2912,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -3309,7 +2973,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -3386,7 +3050,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -3463,7 +3127,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -3538,18 +3202,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "apply": {
             "Dimmer": 0.0
@@ -3557,7 +3210,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "apply": {
             "Dimmer": 0.0
@@ -3565,7 +3218,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
             "Dimmer": 0.0
@@ -3573,7 +3226,7 @@
         },
         {
           "target": {
-            "Group": "Center Washers"
+            "Role": "Key"
           },
           "apply": {
             "Dimmer": 0.0
@@ -3581,14 +3234,7 @@
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "apply": {
             "Dimmer": 0.0
@@ -3596,7 +3242,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -3616,18 +3262,7 @@
         },
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -3776,18 +3411,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -3846,18 +3470,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -3877,7 +3490,7 @@
         },
         {
           "target": {
-            "Group": "Center Washers"
+            "Role": "Key"
           },
           "steps": [
             {
@@ -3897,7 +3510,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -3917,7 +3530,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -3937,7 +3550,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
             "Dimmer": 0.0
@@ -3945,14 +3558,7 @@
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "apply": {
             "Dimmer": 0.0
@@ -3962,18 +3568,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Distance": {
@@ -4032,7 +3627,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -4169,18 +3764,7 @@
         },
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -4329,18 +3913,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -4399,18 +3972,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -4469,18 +4031,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -4539,7 +4090,7 @@
       "recipes": [
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -4559,14 +4110,7 @@
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "steps": [
             {
@@ -4598,18 +4142,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -4668,18 +4201,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -4699,7 +4221,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -4719,7 +4241,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -4739,7 +4261,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -4759,22 +4281,15 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
-            "FocusPoint": "Stage Wide"
+            "FocusPoint": "Stage"
           }
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "apply": {
             "Dimmer": 0.0
@@ -4784,18 +4299,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Axis": [
@@ -4862,18 +4366,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -4932,18 +4425,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -5002,18 +4484,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -5072,18 +4543,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -5142,18 +4602,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -5214,7 +4663,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -5289,18 +4738,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -5320,7 +4758,7 @@
         },
         {
           "target": {
-            "Group": "Center Washers"
+            "Role": "Key"
           },
           "steps": [
             {
@@ -5340,7 +4778,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -5360,7 +4798,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -5380,7 +4818,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -5400,22 +4838,15 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
-            "FocusPoint": "Audience Front"
+            "FocusPoint": "Audience"
           }
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "steps": [
             {
@@ -5437,18 +4868,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Axis": [
@@ -5533,7 +4953,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -5580,18 +5000,7 @@
         },
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -5742,7 +5151,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -5819,7 +5228,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -5896,7 +5305,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -5973,7 +5382,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -6048,18 +5457,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -6120,7 +5518,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -6197,7 +5595,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -6274,7 +5672,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -6351,7 +5749,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -6428,7 +5826,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -6503,18 +5901,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -6573,18 +5960,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -6643,18 +6019,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -6715,7 +6080,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -6792,7 +6157,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -6869,7 +6234,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -6946,7 +6311,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -7023,7 +6388,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -7100,7 +6465,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -7175,18 +6540,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -7206,7 +6560,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -7226,7 +6580,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -7246,7 +6600,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -7266,7 +6620,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
             "FocusPoint": "Drums"
@@ -7274,14 +6628,7 @@
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "steps": [
             {
@@ -7303,18 +6650,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Axis": [
@@ -7369,7 +6705,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -7416,18 +6752,7 @@
         },
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -7576,18 +6901,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -7646,18 +6960,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -7716,18 +7019,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -7786,18 +7078,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -7856,18 +7137,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "apply": {
             "Dimmer": 0.0
@@ -7875,7 +7145,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "apply": {
             "Dimmer": 0.0
@@ -7883,7 +7153,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
             "Dimmer": 0.0
@@ -7891,14 +7161,7 @@
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "apply": {
             "Dimmer": 0.0
@@ -7906,7 +7169,7 @@
         },
         {
           "target": {
-            "Group": "Center Washers"
+            "Role": "Key"
           },
           "steps": [
             {
@@ -7926,7 +7189,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -7958,18 +7221,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -8028,18 +7280,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -8059,7 +7300,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -8081,18 +7322,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Axis": [
@@ -8159,18 +7389,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -8229,18 +7448,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -8260,7 +7468,7 @@
         },
         {
           "target": {
-            "Group": "Center Washers"
+            "Role": "Key"
           },
           "steps": [
             {
@@ -8280,7 +7488,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -8300,7 +7508,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -8320,7 +7528,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -8340,22 +7548,15 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
-            "FocusPoint": "Audience Back"
+            "FocusPoint": "House"
           }
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "steps": [
             {
@@ -8377,18 +7578,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Axis": [
@@ -8473,7 +7663,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -8520,18 +7710,7 @@
         },
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -8680,18 +7859,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -8752,7 +7920,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -8829,7 +7997,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -8906,7 +8074,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -8981,18 +8149,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -9051,18 +8208,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -9121,7 +8267,7 @@
       "recipes": [
         {
           "target": {
-            "Group": "Floor Movers"
+            "Role": "Floor"
           },
           "steps": [
             {
@@ -9141,10 +8287,10 @@
         },
         {
           "target": {
-            "Group": "Floor Movers"
+            "Role": "Floor"
           },
           "apply": {
-            "FocusPoint": "Audience Back"
+            "FocusPoint": "House"
           }
         }
       ],
@@ -9161,18 +8307,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -9233,7 +8368,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -9310,7 +8445,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -9387,7 +8522,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -9462,18 +8597,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -9534,7 +8658,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -9611,7 +8735,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -9688,7 +8812,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -9765,7 +8889,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -9842,18 +8966,7 @@
           "target": {
             "Order": {
               "of": {
-                "Where": {
-                  "of": {
-                    "Tag": "Luminaire_LED_Wash"
-                  },
-                  "filter": {
-                    "Half": {
-                      "axis": "Z",
-                      "cmp": "Gt",
-                      "at": 2.0
-                    }
-                  }
-                }
+                "Role": "Wash"
               },
               "by": {
                 "Axis": [
@@ -9938,7 +9051,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "steps": [
             {
@@ -9999,7 +9112,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -10076,7 +9189,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -10153,7 +9266,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -10228,18 +9341,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -10300,7 +9402,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -10377,7 +9479,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -10454,7 +9556,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -10531,7 +9633,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -10608,7 +9710,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -10685,7 +9787,7 @@
           "target": {
             "Where": {
               "of": {
-                "Tag": "Luminaire_LED_Wash"
+                "Role": "Wash"
               },
               "filter": {
                 "Within": {
@@ -10760,18 +9862,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -10830,18 +9921,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {
@@ -10861,7 +9941,7 @@
         },
         {
           "target": {
-            "Group": "Center Washers"
+            "Role": "Key"
           },
           "steps": [
             {
@@ -10881,7 +9961,7 @@
         },
         {
           "target": {
-            "Group": "Back Wall Pars"
+            "Role": "Back"
           },
           "steps": [
             {
@@ -10901,7 +9981,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Role": "Bars"
           },
           "steps": [
             {
@@ -10921,7 +10001,7 @@
         },
         {
           "target": {
-            "Model": "Moving Head"
+            "Role": "Movers"
           },
           "apply": {
             "Dimmer": 0.0
@@ -10929,14 +10009,7 @@
         },
         {
           "target": {
-            "Union": [
-              {
-                "Group": "Drum Highlight L"
-              },
-              {
-                "Group": "Drum Highlight R"
-              }
-            ]
+            "Role": "Drums"
           },
           "apply": {
             "Dimmer": 0.0
@@ -10956,18 +10029,7 @@
       "recipes": [
         {
           "target": {
-            "Where": {
-              "of": {
-                "Tag": "Luminaire_LED_Wash"
-              },
-              "filter": {
-                "Half": {
-                  "axis": "Z",
-                  "cmp": "Gt",
-                  "at": 2.0
-                }
-              }
-            }
+            "Role": "Wash"
           },
           "steps": [
             {

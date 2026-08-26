@@ -2,34 +2,172 @@
   "about": "The default profile. Three required layers, three required focus points, and one canvas where a room has screens. Everything else is optional or inherited, because every required role is a barrier to a room implementing this and a profile only a large rig can satisfy has failed at being a default. Stage areas are deliberately NOT declared here: a club has three and a stadium with a thrust and a B-stage has fifteen, so no central list is right. The portable 'where is the talent' question is answered by the Vocal / Stage / Band focus roles; the venue owns its own blocking grid.",
   "colors": [
     {
-      "blue": 1.0,
+      "name": "Open White",
+      "red": 1.0,
       "green": 1.0,
-      "name": "Open",
-      "red": 1.0
+      "blue": 1.0
     },
     {
-      "blue": 0.38,
+      "name": "Warm White",
+      "red": 1.0,
+      "green": 0.78,
+      "blue": 0.55
+    },
+    {
+      "name": "Cool White",
+      "red": 0.78,
+      "green": 0.87,
+      "blue": 1.0
+    },
+    {
+      "name": "Straw",
+      "red": 1.0,
+      "green": 0.85,
+      "blue": 0.45
+    },
+    {
+      "name": "Gold",
+      "red": 1.0,
+      "green": 0.7,
+      "blue": 0.22
+    },
+    {
+      "name": "Amber",
+      "red": 1.0,
+      "green": 0.55,
+      "blue": 0.1
+    },
+    {
+      "name": "Deep Amber",
+      "red": 1.0,
+      "green": 0.36,
+      "blue": 0.04
+    },
+    {
+      "name": "Red",
+      "red": 1.0,
+      "green": 0.05,
+      "blue": 0.03
+    },
+    {
+      "name": "Deep Red",
+      "red": 0.62,
+      "green": 0.0,
+      "blue": 0.02
+    },
+    {
+      "name": "Magenta",
+      "red": 1.0,
+      "green": 0.06,
+      "blue": 0.45
+    },
+    {
+      "name": "Pink",
+      "red": 1.0,
+      "green": 0.45,
+      "blue": 0.6
+    },
+    {
+      "name": "Lavender",
+      "red": 0.68,
+      "green": 0.5,
+      "blue": 0.92
+    },
+    {
+      "name": "Purple",
+      "red": 0.45,
+      "green": 0.1,
+      "blue": 0.85
+    },
+    {
+      "name": "Sky",
+      "red": 0.45,
       "green": 0.72,
+      "blue": 1.0
+    },
+    {
+      "name": "Blue",
+      "red": 0.1,
+      "green": 0.32,
+      "blue": 1.0
+    },
+    {
+      "name": "Deep Blue",
+      "red": 0.05,
+      "green": 0.12,
+      "blue": 0.75
+    },
+    {
+      "name": "Congo",
+      "red": 0.18,
+      "green": 0.02,
+      "blue": 0.72
+    },
+    {
+      "name": "Indigo",
+      "red": 0.25,
+      "green": 0.06,
+      "blue": 0.6
+    },
+    {
+      "name": "House Blue",
+      "red": 0.06,
+      "green": 0.1,
+      "blue": 0.42
+    },
+    {
+      "name": "Cyan",
+      "red": 0.0,
+      "green": 0.85,
+      "blue": 0.95
+    },
+    {
+      "name": "Turquoise",
+      "red": 0.0,
+      "green": 0.8,
+      "blue": 0.65
+    },
+    {
+      "name": "Green",
+      "red": 0.1,
+      "green": 0.85,
+      "blue": 0.2
+    },
+    {
+      "name": "Deep Green",
+      "red": 0.02,
+      "green": 0.45,
+      "blue": 0.12
+    },
+    {
+      "name": "Open",
+      "red": 1.0,
+      "green": 1.0,
+      "blue": 1.0
+    },
+    {
       "name": "Warm",
-      "red": 1.0
+      "red": 1.0,
+      "green": 0.72,
+      "blue": 0.38
     },
     {
-      "blue": 1.0,
-      "green": 0.84,
       "name": "Cool",
-      "red": 0.72
+      "red": 0.72,
+      "green": 0.84,
+      "blue": 1.0
     },
     {
-      "blue": 0.62,
-      "green": 0.14,
       "name": "Deep",
-      "red": 0.08
+      "red": 0.08,
+      "green": 0.14,
+      "blue": 0.62
     },
     {
-      "blue": 0.28,
-      "green": 0.16,
       "name": "Hot",
-      "red": 1.0
+      "red": 1.0,
+      "green": 0.16,
+      "blue": 0.28
     }
   ],
   "effects": {
@@ -975,7 +1113,7 @@
       "required": true
     },
     {
-      "about": "Anything behind the band — back wall, cyc, upstage bar. Separation from the background is the largest single difference between a rig that reads as designed and one that reads as switched on.",
+      "about": "Anything behind the band \u2014 back wall, cyc, upstage bar. Separation from the background is the largest single difference between a rig that reads as designed and one that reads as switched on.",
       "kind": "Group",
       "name": "Back",
       "required": true
@@ -993,7 +1131,7 @@
       "required": false
     },
     {
-      "about": "Pixel strips and battens — the accent layer, and where soft charted hits land.",
+      "about": "Pixel strips and battens \u2014 the accent layer, and where soft charted hits land.",
       "kind": "Group",
       "name": "Bars",
       "required": false
@@ -1071,7 +1209,7 @@
       "required": false
     },
     {
-      "about": "The primary video surface. Required only of rooms that have screens at all — the show says 'play this on Main' and the venue decides whether that is one panel or three of unequal width.",
+      "about": "The primary video surface. Required only of rooms that have screens at all \u2014 the show says 'play this on Main' and the venue decides whether that is one panel or three of unequal width.",
       "kind": "Canvas",
       "name": "Main",
       "required": false

@@ -187,6 +187,15 @@ impl VenueProfile {
     }
 }
 
+/// Resolving a role to fixtures, which is the binding's whole job at
+/// run time. `Bindings` below answers "is this bound" for the static
+/// check; this answers "bound to what" for the rig.
+impl crate::selection::Roles for VenueProfile {
+    fn role(&self, name: &str) -> Option<&crate::Selection> {
+        self.groups.get(name)
+    }
+}
+
 impl Bindings for VenueProfile {
     fn has_group(&self, name: &str) -> bool {
         self.groups.contains_key(name)

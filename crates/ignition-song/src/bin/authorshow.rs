@@ -18,7 +18,7 @@
 
 use ignition_song::chart::{HitChart, HitClass};
 use ignition_core::preset::Ref;
-use ignition_core::selection::{Axis, Cmp, Dir, Order, Where};
+use ignition_core::selection::{Axis, Dir, Order, Where};
 use ignition_core::{
     Attribute, Bars, Cue, CueList, Ease, Play, Recipe, RecipeApply, Selection, SongMap, Speed,
     Step, Timing, Waveform,
@@ -84,34 +84,43 @@ fn main() -> anyhow::Result<()> {
 }
 
 // ── the rig, by role ─────────────────────────────────────────────────
+//
+// Every selection here names a **role**, never a group this venue
+// happens to have. That is the whole difference between a show and a
+// Norco show: `Role("Wash")` is a job every room fills, and the room
+// says which of its fixtures fills it.
+//
+// What survives from the venue-specific version is the *ordering*.
+// `Order` wraps a selection, so "the wash, left to right" composes on
+// top of a role exactly as it did on top of a tag — and a chase reads as
+// a direction because the selection knows the room, at whatever room it
+// is resolved against.
 
-/// The ceiling wash — everything tagged as a wash above head height,
-/// which is the truss and excludes the floor package.
-fn ceiling() -> Selection {
-    Selection::Where {
-        of: Box::new(Selection::Tag("Luminaire_LED_Wash".into())),
-        filter: Where::Half {
-            axis: Axis::Z,
-            cmp: Cmp::Gt,
-            at: 2.0,
-        },
-    }
+/// The main colour surface.
+fn wash() -> Selection {
+    Selection::Role("Wash".into())
 }
 
-/// The ceiling, ordered left to right by where the fixtures actually
-/// hang. This is the "build the order, not the effect" seam: the same
-/// chase reads as a direction because the *selection* knows the room.
-fn ceiling_lr() -> Selection {
+/// The wash, ordered left to right by where the fixtures actually hang.
+///
+/// The "build the order, not the effect" seam. Nothing downstream says
+/// "left"; it says "spread across the selection", and the selection is
+/// what knows which end is which.
+fn wash_lr() -> Selection {
     Selection::Order {
-        of: Box::new(ceiling()),
+        of: Box::new(wash()),
         by: Order::Axis(Axis::X, Dir::Asc),
     }
 }
 
-/// The ceiling, ordered outward from the front of the stage.
-fn ceiling_out() -> Selection {
+/// The wash, ordered outward from the front of the stage.
+///
+/// A distance ordering from a point in the room, which stays meaningful
+/// at any venue because every venue's coordinates mean metres from its
+/// own stage — see `r[focus.stage-space]`.
+fn wash_out() -> Selection {
     Selection::Order {
-        of: Box::new(ceiling()),
+        of: Box::new(wash()),
         by: Order::Distance {
             from: ignition_core::Vec3 {
                 x: 0.0,
@@ -123,23 +132,26 @@ fn ceiling_out() -> Selection {
     }
 }
 
+/// Front light on faces.
 fn key() -> Selection {
-    Selection::Group("Center Washers".into())
+    Selection::Role("Key".into())
 }
+/// Anything behind the band.
 fn back() -> Selection {
-    Selection::Group("Back Wall Pars".into())
+    Selection::Role("Back".into())
 }
-fn strips() -> Selection {
-    Selection::Group("Strips All".into())
+/// Pixel bars and battens — the accent layer.
+fn bars() -> Selection {
+    Selection::Role("Bars".into())
 }
+/// Anything that pans and tilts.
 fn movers() -> Selection {
-    Selection::Model("Moving Head".into())
+    Selection::Role("Movers".into())
 }
-fn drum_highlight() -> Selection {
-    Selection::Union(vec![
-        Selection::Group("Drum Highlight L".into()),
-        Selection::Group("Drum Highlight R".into()),
-    ])
+/// The drum special. Optional at most venues, and the show runs without
+/// it — a recipe covering nothing is not an error.
+fn drums() -> Selection {
+    Selection::Role("Drums".into())
 }
 
 // ── recipe shorthands ────────────────────────────────────────────────
@@ -279,10 +291,10 @@ fn author(song: &SongMap) -> CueList {
         "Count-In",
         0.0,
         vec![
-            dark(ceiling()),
-            dark(strips()),
+            dark(wash()),
+            dark(bars()),
             dark(movers()),
-            dark(drum_highlight()),
+            dark(drums()),
             look(back(), 0.15, "Deep Blue"),
         ],
     );
@@ -293,13 +305,13 @@ fn author(song: &SongMap) -> CueList {
         "IN A",
         4.0,
         vec![
-            look(ceiling(), 0.3, "Cool White"),
+            look(wash(), 0.3, "Cool White"),
             look(back(), 0.55, "House Blue"),
-            dark(strips()),
+            dark(bars()),
             dark(movers()),
             // Build: the ceiling fills across four bars and resets — the
             // arrival of the song, stated by the rig rather than by a fade.
-            chase(ceiling_lr(), 0.3, 4.0, 360.0, Play::Build),
+            chase(wash_lr(), 0.3, 4.0, 360.0, Play::Build),
         ],
     );
 
@@ -308,25 +320,25 @@ fn author(song: &SongMap) -> CueList {
         "IN B",
         2.0,
         vec![
-            look(ceiling(), 0.45, "Cool White"),
+            look(wash(), 0.45, "Cool White"),
             look(back(), 0.7, "House Blue"),
-            look(strips(), 0.4, "Deep Blue"),
+            look(bars(), 0.4, "Deep Blue"),
             look(movers(), 0.5, "Cool White"),
             aim(movers(), "Back Wall"),
-            chase(ceiling_out(), 0.35, 2.0, 360.0, Play::Bounce),
+            chase(wash_out(), 0.35, 2.0, 360.0, Play::Bounce),
         ],
     );
 
     // ── verse one: dark, vocal-led ───────────────────────────────────
     let verse = |strip_level: f32| {
         vec![
-            look(ceiling(), 0.35, "Lavender"),
+            look(wash(), 0.35, "Lavender"),
             look(key(), 0.75, "Warm White"),
             look(back(), 0.4, "Deep Blue"),
-            look(strips(), strip_level, "Purple"),
+            look(bars(), strip_level, "Purple"),
             dark(movers()),
-            dark(drum_highlight()),
-            chase(ceiling_out(), 0.15, 8.0, 360.0, Play::Bounce),
+            dark(drums()),
+            chase(wash_out(), 0.15, 8.0, 360.0, Play::Bounce),
         ]
     };
     a.cue(at(song, "VS 1", 0), "VS 1", 4.0, verse(0.2));
@@ -335,21 +347,21 @@ fn author(song: &SongMap) -> CueList {
         at(song, "VS 1", 4),
         "· VS 1 lift",
         1.0,
-        vec![look(strips(), 0.55, "Magenta")],
+        vec![look(bars(), 0.55, "Magenta")],
     );
 
     // ── pre-chorus: build ────────────────────────────────────────────
     let pre = || {
         vec![
-            look(ceiling(), 0.55, "Cool White"),
+            look(wash(), 0.55, "Cool White"),
             look(back(), 0.8, "Magenta"),
-            look(strips(), 0.7, "Magenta"),
+            look(bars(), 0.7, "Magenta"),
             look(movers(), 0.6, "Cyan"),
-            aim(movers(), "Stage Wide"),
-            dark(drum_highlight()),
+            aim(movers(), "Stage"),
+            dark(drums()),
             // One build per bar, filling the room four times over the
             // section — the lift you can hear.
-            chase(ceiling_lr(), 0.45, 1.0, 360.0, Play::Build),
+            chase(wash_lr(), 0.45, 1.0, 360.0, Play::Build),
         ]
     };
     a.cue(at(song, "PRE", 0), "PRE", 2.0, pre());
@@ -357,21 +369,21 @@ fn author(song: &SongMap) -> CueList {
     // ── choruses ─────────────────────────────────────────────────────
     let chorus = |focus: &'static str| {
         vec![
-            look(ceiling(), 1.0, "Warm White"),
+            look(wash(), 1.0, "Warm White"),
             look(key(), 1.0, "Open White"),
             look(back(), 1.0, "Gold"),
-            look(strips(), 1.0, "Amber"),
+            look(bars(), 1.0, "Amber"),
             look(movers(), 1.0, "Open White"),
             aim(movers(), focus),
-            look(drum_highlight(), 0.9, "Cool White"),
+            look(drums(), 0.9, "Cool White"),
             // The dark gap: everything lit, one hole travelling across
             // the ceiling once a bar. Reads as movement without ever
             // taking the stage light away.
-            gap_chase(ceiling_lr(), 1.0, Play::Negative),
+            gap_chase(wash_lr(), 1.0, Play::Negative),
             swing(4.0, 18.0),
         ]
     };
-    a.cue(at(song, "CH 1", 0), "CH 1", 0.25, chorus("Audience Front"));
+    a.cue(at(song, "CH 1", 0), "CH 1", 0.25, chorus("Audience"));
 
     // ── the one-bar break ────────────────────────────────────────────
     a.cue(
@@ -379,11 +391,11 @@ fn author(song: &SongMap) -> CueList {
         "Break",
         0.0,
         vec![
-            dark(ceiling()),
-            dark(strips()),
+            dark(wash()),
+            dark(bars()),
             dark(movers()),
             dark(key()),
-            dark(drum_highlight()),
+            dark(drums()),
             look(back(), 1.0, "Congo"),
         ],
     );
@@ -395,14 +407,14 @@ fn author(song: &SongMap) -> CueList {
         "· VS 2 lift",
         1.0,
         vec![
-            look(strips(), 0.6, "Magenta"),
-            look(drum_highlight(), 0.5, "Cool White"),
+            look(bars(), 0.6, "Magenta"),
+            look(drums(), 0.5, "Cool White"),
         ],
     );
     // The second PRE is the same look; `section` finds the first by
     // name, so this one is placed off VS 2 instead.
     a.cue(at(song, "VS 2", 8), "PRE 2", 2.0, pre());
-    a.cue(at(song, "CH 2", 0), "CH 2", 0.25, chorus("Audience Front"));
+    a.cue(at(song, "CH 2", 0), "CH 2", 0.25, chorus("Audience"));
 
     // ── bridge and breakdown ─────────────────────────────────────────
     a.cue(
@@ -410,13 +422,13 @@ fn author(song: &SongMap) -> CueList {
         "BR",
         2.0,
         vec![
-            look(ceiling(), 0.4, "Purple"),
+            look(wash(), 0.4, "Purple"),
             look(back(), 0.85, "Congo"),
-            look(strips(), 0.5, "Magenta"),
+            look(bars(), 0.5, "Magenta"),
             look(movers(), 0.85, "Cyan"),
             aim(movers(), "Drums"),
-            look(drum_highlight(), 0.8, "Cool White"),
-            chase(ceiling_lr(), 0.4, 2.0, 360.0, Play::Bounce),
+            look(drums(), 0.8, "Cool White"),
+            chase(wash_lr(), 0.4, 2.0, 360.0, Play::Bounce),
             swing(2.0, 26.0),
         ],
     );
@@ -426,10 +438,10 @@ fn author(song: &SongMap) -> CueList {
         "Breakdown",
         4.0,
         vec![
-            dark(ceiling()),
-            dark(strips()),
+            dark(wash()),
+            dark(bars()),
             dark(movers()),
-            dark(drum_highlight()),
+            dark(drums()),
             look(key(), 0.55, "Cool White"),
             look(back(), 0.3, "Deep Blue"),
         ],
@@ -440,22 +452,22 @@ fn author(song: &SongMap) -> CueList {
         "· Breakdown build",
         0.5,
         vec![
-            look(ceiling(), 0.5, "Cool White"),
+            look(wash(), 0.5, "Cool White"),
             look(back(), 0.9, "Magenta"),
-            chase(ceiling_lr(), 0.5, 1.0, 360.0, Play::Build),
+            chase(wash_lr(), 0.5, 1.0, 360.0, Play::Build),
         ],
     );
 
     // ── last chorus: the biggest thing in the show ───────────────────
-    a.cue(at(song, "CH 3", 0), "CH 3", 0.25, chorus("Audience Back"));
+    a.cue(at(song, "CH 3", 0), "CH 3", 0.25, chorus("House"));
     // Four bars in, hand it to the floor movers as well.
     a.cue(
         at(song, "CH 3", 4),
         "· CH 3 wider",
         1.0,
         vec![
-            look(Selection::Group("Floor Movers".into()), 1.0, "Open White"),
-            aim(Selection::Group("Floor Movers".into()), "Audience Back"),
+            look(Selection::Role("Floor".into()), 1.0, "Open White"),
+            aim(Selection::Role("Floor".into()), "House"),
         ],
     );
     // ...and for the last four, double the chase rate.
@@ -464,7 +476,7 @@ fn author(song: &SongMap) -> CueList {
         "· CH 3 drive",
         0.25,
         vec![
-            gap_chase(ceiling_lr(), 0.5, Play::Negative),
+            gap_chase(wash_lr(), 0.5, Play::Negative),
             swing(2.0, 26.0),
         ],
     );
@@ -475,12 +487,12 @@ fn author(song: &SongMap) -> CueList {
         "Outro",
         4.0,
         vec![
-            look(ceiling(), 0.4, "Cool White"),
+            look(wash(), 0.4, "Cool White"),
             look(key(), 0.5, "Cool White"),
             look(back(), 0.35, "House Blue"),
-            look(strips(), 0.25, "Deep Blue"),
+            look(bars(), 0.25, "Deep Blue"),
             dark(movers()),
-            dark(drum_highlight()),
+            dark(drums()),
         ],
     );
 
@@ -536,12 +548,16 @@ const SLOTS: usize = 8;
 /// audio; it is in somebody having drawn one long note over the three.
 fn zone(n: usize, count: usize) -> Selection {
     if count <= 1 {
-        return ceiling();
+        return wash();
     }
     let width = 2.0 * RIG_HALF_WIDTH / count as f64;
     let min_x = -RIG_HALF_WIDTH + width * n as f64;
     Selection::Where {
-        of: Box::new(Selection::Tag("Luminaire_LED_Wash".into())),
+        // The wash role, not the tag it happens to carry at Norco. A
+        // spatial filter over a role is still portable: every venue's
+        // coordinates mean metres from its own stage, so "the left third
+        // of the wash" is the left third wherever it is resolved.
+        of: Box::new(wash()),
         filter: Where::Within {
             min: ignition_core::Vec3 { x: min_x, y: -30.0, z: 2.0 },
             max: ignition_core::Vec3 { x: min_x + width, y: 30.0, z: 30.0 },
@@ -639,10 +655,10 @@ fn pulses(chart: &HitChart, song: &SongMap, section: &str) -> Vec<Recipe> {
         // the vocal is lit by or the ceiling the backbeat uses. Three
         // soft layers in three places read as texture; three in one
         // place read as flicker.
-        out.push(pulse(strips(), slots, kick_depth));
+        out.push(pulse(bars(), slots, kick_depth));
     }
     if let Some(slots) = pattern(chart, song, section, HitClass::Snare) {
-        out.push(pulse(ceiling(), slots, snare_depth));
+        out.push(pulse(wash(), slots, snare_depth));
     }
     out
 }
@@ -693,7 +709,7 @@ fn accents(chart: &HitChart) -> Vec<Cue> {
         cues.push(bump_cue(
             hit.at,
             &format!("· {} {}.{:.2}", hit.class.label(), hit.at.bar, hit.at.beat),
-            ceiling(),
+            wash(),
             hit.intensity(),
         ));
     }

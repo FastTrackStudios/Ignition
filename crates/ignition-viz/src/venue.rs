@@ -262,6 +262,99 @@ pub struct Venue {
     /// show, so every show loaded against this venue means the same thing
     /// by "House Blue".
     pub palettes: ignition_core::Palettes,
+    /// Which profile this venue implements, and how — empty for a venue
+    /// with no `profile.json`.
+    ///
+    /// A venue without one still works: it can be programmed directly
+    /// against its own group names. What it gives up is being *checked*,
+    /// and being able to run a show written against roles.
+    pub profile: ignition_core::profile::VenueProfile,
+}
+
+/// Fills in any colour the venue did not define itself from its profile.
+///
+/// The venue always wins. A room whose fixtures render `Deep Blue`
+/// differently says so once, and every show using that name is right
+/// there without knowing anything happened.
+fn inherit_colors(
+    mut palettes: ignition_core::Palettes,
+    venue_dir: &Path,
+    binding: &ignition_core::profile::VenueProfile,
+) -> ignition_core::Palettes {
+    if binding.profile.is_empty() {
+        return palettes;
+    }
+    let path = venue_dir
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|root| root.join("profiles").join(format!("{}.ig-profile", binding.profile.to_lowercase())));
+    let Some(path) = path else {
+        return palettes;
+    };
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        // A missing profile is not fatal: the venue still has whatever
+        // colours it defined, and the compatibility check is the thing
+        // that reports the profile being absent.
+        tracing::debug!(path = %path.display(), "venue: no profile file to inherit colours from");
+        return palettes;
+    };
+    let Ok(profile) = serde_json::from_str::<ignition_core::profile::Profile>(&raw) else {
+        tracing::warn!(path = %path.display(), "venue: profile did not parse; colours not inherited");
+        return palettes;
+    };
+
+    let mut inherited = 0usize;
+    for color in profile.colors.iter().chain(binding.colors.iter()) {
+        if !palettes.colors.iter().any(|c| c.name == color.name) {
+            palettes.colors.push(color.clone());
+            inherited += 1;
+        }
+    }
+    tracing::debug!(inherited, "venue: colours inherited from profile");
+    alias_focus(palettes, binding)
+}
+
+/// Publishes each bound focus role under the profile's name for it.
+///
+/// The same move as inheriting colours, in the other direction: rather
+/// than adding what the venue lacks, this adds a second *name* for what
+/// it already has. Norco's lead position is `Vocal Centre`; the profile
+/// calls that job `Vocal`; after this the palette answers to both, and a
+/// show written against roles resolves with no special case anywhere in
+/// the lookup path.
+///
+/// An alias never overwrites. A venue that genuinely has its own point
+/// called `Stage` keeps it, because the venue is the authority on its
+/// own room and a profile role is a request, not a claim.
+fn alias_focus(
+    mut palettes: ignition_core::Palettes,
+    binding: &ignition_core::profile::VenueProfile,
+) -> ignition_core::Palettes {
+    let mut added = 0usize;
+    for (role, own_name) in &binding.focus {
+        if palettes.focus.iter().any(|f| &f.name == role) {
+            continue;
+        }
+        let Some(target) = palettes
+            .focus
+            .iter()
+            .find(|f| &f.name == own_name)
+            .map(|f| f.target)
+        else {
+            // A binding naming a point the venue does not have. Not
+            // fatal — the role simply stays unresolved, and the static
+            // check is where that gets reported by name.
+            tracing::warn!(role, own_name, "venue: focus binding points at a missing palette entry");
+            continue;
+        };
+        palettes.focus.push(ignition_core::FocusPointPreset {
+            name: role.clone(),
+            target,
+        });
+        added += 1;
+    }
+    tracing::debug!(added, "venue: focus roles aliased onto the palette");
+    palettes
 }
 
 impl Venue {
@@ -284,8 +377,24 @@ impl Venue {
             Ok(raw) => serde_json::from_str(&raw)?,
             Err(_) => ignition_core::Palettes::default(),
         };
+        // profile.json is optional like the rest. A venue that has not
+        // been bound to a profile yet is a venue somebody is still
+        // setting up, not an error.
+        let profile = match std::fs::read_to_string(dir.join("profile.json")) {
+            Ok(raw) => serde_json::from_str(&raw)?,
+            Err(_) => ignition_core::profile::VenueProfile::default(),
+        };
+        // Colours declared by the profile are inherited unless the venue
+        // overrides them, which is what keeps implementing a room cheap:
+        // bind the groups, which genuinely differ per rig, and inherit
+        // the colours, which mostly do not. Found by convention next to
+        // the venue rather than configured — a venue names its profile
+        // and the profile lives in `profiles/` beside `venues/`, so
+        // there is nothing to keep in sync.
+        let palettes = inherit_colors(palettes, dir, &profile);
         Ok(Self {
             palettes,
+            profile,
             fixtures: serde_json::from_str(&read("fixtures.json")?)?,
             room: serde_json::from_str(&read("room.json")?)?,
             screens: serde_json::from_str(&read("screens.json")?)?,
@@ -410,6 +519,7 @@ mod tests {
             screens: vec![],
             props: vec![],
             palettes: Default::default(),
+            profile: Default::default(),
             group_records: vec![GroupRecord {
                 target: "1".to_string(),
                 label: "Pars".to_string(),
@@ -440,6 +550,7 @@ mod tests {
             screens: vec![],
             props: vec![],
             palettes: Default::default(),
+            profile: Default::default(),
             group_records: vec![],
         };
 

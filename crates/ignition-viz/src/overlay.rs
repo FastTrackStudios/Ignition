@@ -174,6 +174,7 @@ pub fn update_overlay(
         groups,
         rig,
         speeds,
+        profile,
         ..
     } = &mut *playback;
     let Some(player) = cues.as_ref() else {
@@ -186,7 +187,7 @@ pub fn update_overlay(
         palettes: &venue.palettes,
         rig,
         speeds,
-            roles: &ignition_core::recipe::NO_ROLES,
+        roles: profile,
     };
 
     let current = player.current_index();
