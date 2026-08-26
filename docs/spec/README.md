@@ -24,6 +24,7 @@ Read in this order — each file assumes the ones above it.
 | [canvas.md](canvas.md) | Canvases as fixture grids: procedural content, bitmap channels driving any attribute, clips as one source among many. |
 | [dmx.md](dmx.md) | The wire: sACN and Art-Net transmit, rate and keep-alive, priority, sequence, venue-owned network config, loopback into the visualizer. |
 | [visualizer.md](visualizer.md) | Rendering from DMX bytes, video export, gobo raster; GDTF: real meshes (`viz.gdtf-meshes`), generated profiles (`viz.gdtf-generated`), library loading and name/alias matching (`viz.gdtf-aliases`). |
+| [studio.md](studio.md) | The operator surface: Lights / Graphics / Video modes, Program and Live views over the whole profile, panels in any of several OS windows, operator files with favourites and per-monitor layouts, the iPad Live page, desk-scene banks. |
 | [song.md](song.md) | The song level: bars not seconds, the song map from the DAW, the hit chart (pulses, hits, figures, zones), generation, transport. |
 
 Design history and prior art live in [`../domain/`](../domain/) and
