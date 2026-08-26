@@ -230,6 +230,150 @@
       }
     },
     {
+      "name": "· hit 6.2.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.2181326
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 6,
+        "beat": 2.0
+      }
+    },
+    {
+      "name": "· hit 6.2.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 6,
+        "beat": 3.0
+      }
+    },
+    {
+      "name": "· hit 6.3.50 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.2339296
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 6,
+        "beat": 3.5
+      }
+    },
+    {
+      "name": "· hit 6.3.50 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 6,
+        "beat": 4.5
+      }
+    },
+    {
       "name": "IN B",
       "fade_secs": 1.3908206,
       "values": [],
@@ -409,6 +553,334 @@
       "at": {
         "bar": 7,
         "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 7.2.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.26251668
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 7,
+        "beat": 2.0
+      }
+    },
+    {
+      "name": "· hit 7.2.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 7,
+        "beat": 3.0
+      }
+    },
+    {
+      "name": "· hit 7.4.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.22751147
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 7,
+        "beat": 4.0
+      }
+    },
+    {
+      "name": "· hit 7.4.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 8,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 8.3.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.22542767
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 8,
+        "beat": 3.0
+      }
+    },
+    {
+      "name": "· hit 8.4.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.2362674
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.2362674
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 8,
+        "beat": 4.0
+      }
+    },
+    {
+      "name": "· hit 8.4.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 9,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 10.3.50 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.23715799
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 10,
+        "beat": 3.5
+      }
+    },
+    {
+      "name": "· hit 10.3.50 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 10,
+        "beat": 4.5
       }
     },
     {
@@ -609,6 +1081,222 @@
       }
     },
     {
+      "name": "· hit 11.3.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.3
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 11,
+        "beat": 3.0
+      }
+    },
+    {
+      "name": "· hit 11.3.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 11,
+        "beat": 4.0
+      }
+    },
+    {
+      "name": "· hit 12.2.50 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.22668155
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 12,
+        "beat": 2.5
+      }
+    },
+    {
+      "name": "· hit 12.2.50 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 12,
+        "beat": 3.5
+      }
+    },
+    {
+      "name": "· hit 14.3.50 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.21806964
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 14,
+        "beat": 3.5
+      }
+    },
+    {
+      "name": "· hit 14.3.50 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 14,
+        "beat": 4.5
+      }
+    },
+    {
       "name": "· VS 1 lift",
       "fade_secs": 0.6954103,
       "values": [],
@@ -638,6 +1326,114 @@
       "at": {
         "bar": 15,
         "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 15.2.50 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.2342169
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 15,
+        "beat": 2.5
+      }
+    },
+    {
+      "name": "· hit 15.3.50 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.2517661
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 15,
+        "beat": 3.5
+      }
+    },
+    {
+      "name": "· hit 15.3.50 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 15,
+        "beat": 4.5
       }
     },
     {
@@ -831,6 +1627,150 @@
       "at": {
         "bar": 19,
         "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 19.3.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.22268018
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 19,
+        "beat": 3.0
+      }
+    },
+    {
+      "name": "· hit 19.3.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 19,
+        "beat": 4.0
+      }
+    },
+    {
+      "name": "· hit 20.3.50 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.23400582
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 20,
+        "beat": 3.5
+      }
+    },
+    {
+      "name": "· hit 20.3.50 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 20,
+        "beat": 4.5
       }
     },
     {
@@ -1135,6 +2075,78 @@
       }
     },
     {
+      "name": "· hit 29.1.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.21729206
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 29,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 29.1.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 29,
+        "beat": 2.0
+      }
+    },
+    {
       "name": "Break",
       "fade_secs": 0.0,
       "values": [],
@@ -1422,6 +2434,118 @@
       }
     },
     {
+      "name": "· hit 32.3.50 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.2657077
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.2657077
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 32,
+        "beat": 3.5
+      }
+    },
+    {
+      "name": "· hit 32.3.50 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 32,
+        "beat": 4.5
+      }
+    },
+    {
+      "name": "· hit 35.4.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.24412198
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 35,
+        "beat": 4.0
+      }
+    },
+    {
       "name": "· VS 2 lift",
       "fade_secs": 0.6954103,
       "values": [],
@@ -1478,6 +2602,114 @@
       "at": {
         "bar": 36,
         "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 35.4.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 36,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 37.2.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.22266044
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 37,
+        "beat": 2.0
+      }
+    },
+    {
+      "name": "· hit 37.2.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 37,
+        "beat": 3.0
       }
     },
     {
@@ -1671,6 +2903,78 @@
       "at": {
         "bar": 40,
         "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 41.3.50 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.22625245
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 41,
+        "beat": 3.5
+      }
+    },
+    {
+      "name": "· hit 41.3.50 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 41,
+        "beat": 4.5
       }
     },
     {
@@ -2223,6 +3527,238 @@
       "at": {
         "bar": 52,
         "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 53.2.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.22178827
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 53,
+        "beat": 2.0
+      }
+    },
+    {
+      "name": "· hit 53.3.00 accent",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.23949672
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 53,
+        "beat": 3.0
+      }
+    },
+    {
+      "name": "· hit 53.3.00 accent out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 53,
+        "beat": 4.0
+      }
+    },
+    {
+      "name": "· hit 55.2.50 stab",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.43976715
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.43976715
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.43976715
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 55,
+        "beat": 2.5
+      }
+    },
+    {
+      "name": "· hit 55.2.50 stab out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 55,
+        "beat": 3.5
       }
     },
     {
@@ -2951,6 +4487,130 @@
       "at": {
         "bar": 69,
         "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 71.1.00 stab",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.502834
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.502834
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.502834
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 71,
+        "beat": 1.0
+      }
+    },
+    {
+      "name": "· hit 71.1.00 stab out",
+      "fade_secs": 0.34770516,
+      "values": [],
+      "recipes": [
+        {
+          "target": {
+            "Where": {
+              "of": {
+                "Tag": "Luminaire_LED_Wash"
+              },
+              "filter": {
+                "Half": {
+                  "axis": "Z",
+                  "cmp": "Gt",
+                  "at": 2.0
+                }
+              }
+            }
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Strips All"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        },
+        {
+          "target": {
+            "Group": "Back Wall Pars"
+          },
+          "apply": {
+            "Delta": [
+              [
+                "Dimmer",
+                0.0
+              ]
+            ]
+          }
+        }
+      ],
+      "block": false,
+      "at": {
+        "bar": 71,
+        "beat": 2.0
       }
     },
     {

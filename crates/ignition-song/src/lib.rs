@@ -21,6 +21,7 @@ pub mod transport;
 pub use transport::SongTransport;
 
 pub mod generate;
+pub mod hits;
 pub mod lyrics;
 pub use generate::{Kind, Roles, generate};
 

@@ -580,6 +580,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "audiocore-dsp"
+version = "0.1.0"
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3657,6 +3661,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "eq-dsp"
+version = "0.1.0"
+dependencies = [
+ "audiocore-dsp",
+ "realfft",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4650,6 +4662,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
+name = "hit-detect-dsp"
+version = "0.1.0"
+dependencies = [
+ "eq-dsp",
+ "trigger-dsp",
+]
+
+[[package]]
 name = "html-escape"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4988,6 +5008,8 @@ dependencies = [
  "anyhow",
  "daw",
  "daw-proto",
+ "fts-sample",
+ "hit-detect-dsp",
  "ignition-core",
  "keyflow-proto",
  "serde",
@@ -8934,6 +8956,15 @@ dependencies = [
  "memchr",
  "nom 8.0.0",
  "petgraph",
+]
+
+[[package]]
+name = "trigger-dsp"
+version = "0.1.0"
+dependencies = [
+ "audiocore-dsp",
+ "eq-dsp",
+ "rustfft",
 ]
 
 [[package]]

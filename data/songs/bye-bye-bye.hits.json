@@ -1,0 +1,10083 @@
+{
+  "song": "Bye Bye Bye",
+  "grid": 2,
+  "hits": [
+    {
+      "at": {
+        "bar": 1,
+        "beat": 1.0
+      },
+      "secs": 0.010666667,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.0010778425
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 1.0
+      },
+      "secs": 0.096,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.0013754363
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 3.0
+      },
+      "secs": 1.3973334,
+      "strength": 0.04253233,
+      "band": "Mid",
+      "dynamics": 0.05521098
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 3.0
+      },
+      "secs": 1.5253333,
+      "strength": 0.06344602,
+      "band": "Mid",
+      "dynamics": 0.07311034
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 3.5
+      },
+      "secs": 1.7386667,
+      "strength": 0.076015815,
+      "band": "Mid",
+      "dynamics": 0.09307986
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 3.5
+      },
+      "secs": 1.8453333,
+      "strength": 0.06948175,
+      "band": "Mid",
+      "dynamics": 0.1007623
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 4.0
+      },
+      "secs": 2.016,
+      "strength": 0.07721058,
+      "band": "Mid",
+      "dynamics": 0.11034067
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 4.0
+      },
+      "secs": 2.1226666,
+      "strength": 0.05515419,
+      "band": "Mid",
+      "dynamics": 0.1145874
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 4.0
+      },
+      "secs": 2.2293334,
+      "strength": 0.05803689,
+      "band": "Mid",
+      "dynamics": 0.11868534
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 4.5
+      },
+      "secs": 2.368,
+      "strength": 0.08181776,
+      "band": "Mid",
+      "dynamics": 0.12262523
+    },
+    {
+      "at": {
+        "bar": 1,
+        "beat": 4.5
+      },
+      "secs": 2.5386667,
+      "strength": 0.07578986,
+      "band": "Mid",
+      "dynamics": 0.12744439
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 1.0
+      },
+      "secs": 2.6666667,
+      "strength": 0.07688827,
+      "band": "Mid",
+      "dynamics": 0.13388723
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 1.0
+      },
+      "secs": 2.7626667,
+      "strength": 0.06308616,
+      "band": "Mid",
+      "dynamics": 0.14089939
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 1.0
+      },
+      "secs": 2.8906667,
+      "strength": 0.09827049,
+      "band": "Mid",
+      "dynamics": 0.14826697
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 1.5
+      },
+      "secs": 3.008,
+      "strength": 0.07552097,
+      "band": "Mid",
+      "dynamics": 0.15380727
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 1.5
+      },
+      "secs": 3.0933332,
+      "strength": 0.06852778,
+      "band": "Mid",
+      "dynamics": 0.15390444
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 2.0
+      },
+      "secs": 3.3386667,
+      "strength": 0.09575236,
+      "band": "Mid",
+      "dynamics": 0.14582917
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 2.0
+      },
+      "secs": 3.4666667,
+      "strength": 0.08831234,
+      "band": "Mid",
+      "dynamics": 0.14268406
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 2.5
+      },
+      "secs": 3.904,
+      "strength": 0.08603228,
+      "band": "Mid",
+      "dynamics": 0.118890375
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 3.0
+      },
+      "secs": 4.1813335,
+      "strength": 0.101739906,
+      "band": "Mid",
+      "dynamics": 0.1214274
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 3.0
+      },
+      "secs": 4.2773333,
+      "strength": 0.06125102,
+      "band": "Mid",
+      "dynamics": 0.12356317
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 3.5
+      },
+      "secs": 4.5333333,
+      "strength": 0.063880324,
+      "band": "Mid",
+      "dynamics": 0.13157839
+    },
+    {
+      "at": {
+        "bar": 2,
+        "beat": 4.0
+      },
+      "secs": 4.8426666,
+      "strength": 0.057764105,
+      "band": "Mid",
+      "dynamics": 0.12976708
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 1.0
+      },
+      "secs": 5.450667,
+      "strength": 0.043430425,
+      "band": "Mid",
+      "dynamics": 0.12518379
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 1.0
+      },
+      "secs": 5.653333,
+      "strength": 0.04134204,
+      "band": "Mid",
+      "dynamics": 0.12254749
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 1.5
+      },
+      "secs": 5.9626665,
+      "strength": 0.036548216,
+      "band": "Mid",
+      "dynamics": 0.122068115
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 1.5
+      },
+      "secs": 6.048,
+      "strength": 0.04905172,
+      "band": "Mid",
+      "dynamics": 0.1222613
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 3.0
+      },
+      "secs": 7.0186667,
+      "strength": 0.05734522,
+      "band": "Mid",
+      "dynamics": 0.1234547
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 3.5
+      },
+      "secs": 7.168,
+      "strength": 0.06170965,
+      "band": "Mid",
+      "dynamics": 0.12666617
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 3.5
+      },
+      "secs": 7.274667,
+      "strength": 0.07489065,
+      "band": "Mid",
+      "dynamics": 0.12940675
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 3.5
+      },
+      "secs": 7.392,
+      "strength": 0.069255985,
+      "band": "Mid",
+      "dynamics": 0.13386233
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 4.0
+      },
+      "secs": 7.68,
+      "strength": 0.07802265,
+      "band": "Mid",
+      "dynamics": 0.1449178
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 4.0
+      },
+      "secs": 7.808,
+      "strength": 0.08300852,
+      "band": "Mid",
+      "dynamics": 0.1470295
+    },
+    {
+      "at": {
+        "bar": 3,
+        "beat": 4.5
+      },
+      "secs": 8.128,
+      "strength": 0.088946216,
+      "band": "Mid",
+      "dynamics": 0.15534765
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 1.5
+      },
+      "secs": 8.693334,
+      "strength": 0.19028227,
+      "band": "Mid",
+      "dynamics": 0.20218575
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 1.5
+      },
+      "secs": 8.789333,
+      "strength": 0.14153486,
+      "band": "Mid",
+      "dynamics": 0.21300584
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 2.0
+      },
+      "secs": 8.896,
+      "strength": 0.10435603,
+      "band": "Mid",
+      "dynamics": 0.22109905
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 2.5
+      },
+      "secs": 9.418667,
+      "strength": 0.19252415,
+      "band": "Mid",
+      "dynamics": 0.3538188
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 3.0
+      },
+      "secs": 9.728,
+      "strength": 0.37455153,
+      "band": "Low",
+      "dynamics": 0.5196678
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 3.0
+      },
+      "secs": 9.856,
+      "strength": 0.20120217,
+      "band": "Low",
+      "dynamics": 0.54443806
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 3.5
+      },
+      "secs": 9.9626665,
+      "strength": 0.2002792,
+      "band": "Low",
+      "dynamics": 0.5288827
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 3.5
+      },
+      "secs": 10.144,
+      "strength": 0.17728475,
+      "band": "Low",
+      "dynamics": 0.45862323
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 4.0
+      },
+      "secs": 10.293333,
+      "strength": 0.2697701,
+      "band": "Low",
+      "dynamics": 0.40346298
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 4.0
+      },
+      "secs": 10.464,
+      "strength": 0.3054671,
+      "band": "Low",
+      "dynamics": 0.35533577
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 4.0
+      },
+      "secs": 10.570666,
+      "strength": 0.23790134,
+      "band": "Low",
+      "dynamics": 0.33049518
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 4.5
+      },
+      "secs": 10.805333,
+      "strength": 0.16319649,
+      "band": "Low",
+      "dynamics": 0.30271384
+    },
+    {
+      "at": {
+        "bar": 4,
+        "beat": 4.5
+      },
+      "secs": 10.933333,
+      "strength": 0.14592345,
+      "band": "Low",
+      "dynamics": 0.3059662
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 1.0
+      },
+      "secs": 11.114667,
+      "strength": 0.24912062,
+      "band": "Mid",
+      "dynamics": 0.33758467
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 1.5
+      },
+      "secs": 11.456,
+      "strength": 0.27703217,
+      "band": "High",
+      "dynamics": 0.40886816
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 1.5
+      },
+      "secs": 11.562667,
+      "strength": 0.14262636,
+      "band": "High",
+      "dynamics": 0.44656762
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 2.0
+      },
+      "secs": 11.797334,
+      "strength": 0.29673368,
+      "band": "High",
+      "dynamics": 0.5284896
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 2.5
+      },
+      "secs": 12.16,
+      "strength": 0.16483551,
+      "band": "Mid",
+      "dynamics": 0.70917255
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 3.0
+      },
+      "secs": 12.501333,
+      "strength": 0.20703033,
+      "band": "High",
+      "dynamics": 0.8973508
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 3.0
+      },
+      "secs": 12.586667,
+      "strength": 0.18040726,
+      "band": "High",
+      "dynamics": 0.9335155
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 3.5
+      },
+      "secs": 12.842667,
+      "strength": 0.53732747,
+      "band": "Low",
+      "dynamics": 0.9228706
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 3.5
+      },
+      "secs": 12.938666,
+      "strength": 0.2693393,
+      "band": "Low",
+      "dynamics": 0.8937252
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 4.0
+      },
+      "secs": 13.194667,
+      "strength": 0.65023834,
+      "band": "High",
+      "dynamics": 0.7916621
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 4.5
+      },
+      "secs": 13.536,
+      "strength": 0.3173991,
+      "band": "High",
+      "dynamics": 0.67499226
+    },
+    {
+      "at": {
+        "bar": 5,
+        "beat": 4.5
+      },
+      "secs": 13.717334,
+      "strength": 0.22440001,
+      "band": "Low",
+      "dynamics": 0.58028996
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 1.0
+      },
+      "secs": 13.834666,
+      "strength": 0.1936044,
+      "band": "Low",
+      "dynamics": 0.5196331
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 1.0
+      },
+      "secs": 13.92,
+      "strength": 0.14947824,
+      "band": "Low",
+      "dynamics": 0.47400805
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 1.0
+      },
+      "secs": 14.069333,
+      "strength": 0.18395403,
+      "band": "High",
+      "dynamics": 0.39898035
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 1.5
+      },
+      "secs": 14.24,
+      "strength": 0.40436172,
+      "band": "Low",
+      "dynamics": 0.35148454
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 1.5
+      },
+      "secs": 14.421333,
+      "strength": 0.22396147,
+      "band": "High",
+      "dynamics": 0.3299896
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 2.0
+      },
+      "secs": 14.581333,
+      "strength": 0.72710866,
+      "band": "High",
+      "dynamics": 0.34692994
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 2.5
+      },
+      "secs": 14.933333,
+      "strength": 0.44911146,
+      "band": "Low",
+      "dynamics": 0.37277225
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 2.5
+      },
+      "secs": 15.114667,
+      "strength": 0.6508846,
+      "band": "Low",
+      "dynamics": 0.43037924
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 3.0
+      },
+      "secs": 15.274667,
+      "strength": 0.554075,
+      "band": "High",
+      "dynamics": 0.5083527
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 3.0
+      },
+      "secs": 15.36,
+      "strength": 0.23534863,
+      "band": "Low",
+      "dynamics": 0.5448053
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 3.5
+      },
+      "secs": 15.488,
+      "strength": 0.19691928,
+      "band": "Low",
+      "dynamics": 0.5764471
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 3.5
+      },
+      "secs": 15.626667,
+      "strength": 0.7797653,
+      "band": "High",
+      "dynamics": 0.6071617
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 3.5
+      },
+      "secs": 15.712,
+      "strength": 0.24837036,
+      "band": "Low",
+      "dynamics": 0.6206586
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 4.0
+      },
+      "secs": 15.968,
+      "strength": 0.50739974,
+      "band": "High",
+      "dynamics": 0.6292032
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 4.5
+      },
+      "secs": 16.32,
+      "strength": 0.42484695,
+      "band": "Low",
+      "dynamics": 0.60376817
+    },
+    {
+      "at": {
+        "bar": 6,
+        "beat": 4.5
+      },
+      "secs": 16.501333,
+      "strength": 0.36173102,
+      "band": "Mid",
+      "dynamics": 0.53322643
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 1.0
+      },
+      "secs": 16.672,
+      "strength": 0.16241096,
+      "band": "Low",
+      "dynamics": 0.46847636
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 1.0
+      },
+      "secs": 16.853333,
+      "strength": 0.252474,
+      "band": "Low",
+      "dynamics": 0.41367024
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 1.5
+      },
+      "secs": 17.024,
+      "strength": 0.52886295,
+      "band": "Low",
+      "dynamics": 0.40583566
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 1.5
+      },
+      "secs": 17.205334,
+      "strength": 0.4183828,
+      "band": "High",
+      "dynamics": 0.434776
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 2.0
+      },
+      "secs": 17.365334,
+      "strength": 0.87505555,
+      "band": "High",
+      "dynamics": 0.51445144
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 2.0
+      },
+      "secs": 17.546667,
+      "strength": 0.18621758,
+      "band": "Low",
+      "dynamics": 0.60106194
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 2.5
+      },
+      "secs": 17.717333,
+      "strength": 0.5738756,
+      "band": "Mid",
+      "dynamics": 0.7180064
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 2.5
+      },
+      "secs": 17.802668,
+      "strength": 0.3600249,
+      "band": "Low",
+      "dynamics": 0.77961725
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 3.0
+      },
+      "secs": 17.952,
+      "strength": 0.19475797,
+      "band": "Low",
+      "dynamics": 0.8274208
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 3.0
+      },
+      "secs": 18.058666,
+      "strength": 0.852404,
+      "band": "High",
+      "dynamics": 0.8553754
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 3.0
+      },
+      "secs": 18.229334,
+      "strength": 0.2971997,
+      "band": "High",
+      "dynamics": 0.88390785
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 3.5
+      },
+      "secs": 18.410667,
+      "strength": 0.3808325,
+      "band": "High",
+      "dynamics": 0.84926075
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 3.5
+      },
+      "secs": 18.56,
+      "strength": 0.34993583,
+      "band": "Low",
+      "dynamics": 0.8103613
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 4.0
+      },
+      "secs": 18.752,
+      "strength": 0.75837153,
+      "band": "High",
+      "dynamics": 0.7547315
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 4.5
+      },
+      "secs": 19.104,
+      "strength": 0.44386485,
+      "band": "Low",
+      "dynamics": 0.65839416
+    },
+    {
+      "at": {
+        "bar": 7,
+        "beat": 4.5
+      },
+      "secs": 19.285334,
+      "strength": 0.4141059,
+      "band": "Low",
+      "dynamics": 0.57856685
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 1.0
+      },
+      "secs": 19.456,
+      "strength": 0.23686612,
+      "band": "Low",
+      "dynamics": 0.49794713
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 1.0
+      },
+      "secs": 19.637333,
+      "strength": 0.28367114,
+      "band": "Low",
+      "dynamics": 0.42163295
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 1.5
+      },
+      "secs": 19.818666,
+      "strength": 0.21879981,
+      "band": "Low",
+      "dynamics": 0.38613716
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 1.5
+      },
+      "secs": 19.978666,
+      "strength": 0.43834516,
+      "band": "Low",
+      "dynamics": 0.38445935
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 2.0
+      },
+      "secs": 20.149334,
+      "strength": 0.4131556,
+      "band": "High",
+      "dynamics": 0.4076142
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 2.0
+      },
+      "secs": 20.330667,
+      "strength": 0.6534834,
+      "band": "Low",
+      "dynamics": 0.4106045
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 2.5
+      },
+      "secs": 20.501333,
+      "strength": 0.33037448,
+      "band": "High",
+      "dynamics": 0.42329165
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 3.0
+      },
+      "secs": 20.736,
+      "strength": 0.35712802,
+      "band": "Low",
+      "dynamics": 0.47775307
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 3.0
+      },
+      "secs": 20.842667,
+      "strength": 0.75142556,
+      "band": "High",
+      "dynamics": 0.5221336
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 3.0
+      },
+      "secs": 21.013334,
+      "strength": 0.28241125,
+      "band": "Low",
+      "dynamics": 0.577916
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 3.5
+      },
+      "secs": 21.184,
+      "strength": 0.39531007,
+      "band": "High",
+      "dynamics": 0.6275249
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 3.5
+      },
+      "secs": 21.269333,
+      "strength": 0.26667207,
+      "band": "Low",
+      "dynamics": 0.6507597
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 4.0
+      },
+      "secs": 21.397333,
+      "strength": 0.26914528,
+      "band": "Low",
+      "dynamics": 0.66569066
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 4.0
+      },
+      "secs": 21.536,
+      "strength": 0.78755796,
+      "band": "Low",
+      "dynamics": 0.6674159
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 4.5
+      },
+      "secs": 21.888,
+      "strength": 0.3813524,
+      "band": "High",
+      "dynamics": 0.6368549
+    },
+    {
+      "at": {
+        "bar": 8,
+        "beat": 4.5
+      },
+      "secs": 22.069334,
+      "strength": 0.5475911,
+      "band": "Low",
+      "dynamics": 0.60549927
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 1.0
+      },
+      "secs": 22.24,
+      "strength": 0.471113,
+      "band": "Low",
+      "dynamics": 0.58791363
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 1.0
+      },
+      "secs": 22.421333,
+      "strength": 0.14851917,
+      "band": "Low",
+      "dynamics": 0.5554617
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 1.5
+      },
+      "secs": 22.602667,
+      "strength": 0.22200556,
+      "band": "Low",
+      "dynamics": 0.5115008
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 2.0
+      },
+      "secs": 22.954666,
+      "strength": 0.24629201,
+      "band": "High",
+      "dynamics": 0.45214957
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 3.0
+      },
+      "secs": 23.626667,
+      "strength": 0.45180118,
+      "band": "High",
+      "dynamics": 0.66310656
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 3.0
+      },
+      "secs": 23.712,
+      "strength": 0.2849481,
+      "band": "Low",
+      "dynamics": 0.721356
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 3.5
+      },
+      "secs": 23.968,
+      "strength": 0.3364535,
+      "band": "High",
+      "dynamics": 0.7608291
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 3.5
+      },
+      "secs": 24.085333,
+      "strength": 0.26357925,
+      "band": "Low",
+      "dynamics": 0.74842906
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 4.0
+      },
+      "secs": 24.181334,
+      "strength": 0.26030165,
+      "band": "Low",
+      "dynamics": 0.7327096
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 4.0
+      },
+      "secs": 24.32,
+      "strength": 0.43565091,
+      "band": "High",
+      "dynamics": 0.72542065
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 4.5
+      },
+      "secs": 24.661333,
+      "strength": 0.21311261,
+      "band": "High",
+      "dynamics": 0.6798756
+    },
+    {
+      "at": {
+        "bar": 9,
+        "beat": 4.5
+      },
+      "secs": 24.789333,
+      "strength": 0.24543124,
+      "band": "Low",
+      "dynamics": 0.63796383
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 1.0
+      },
+      "secs": 24.970667,
+      "strength": 0.3273267,
+      "band": "Low",
+      "dynamics": 0.58042634
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 1.5
+      },
+      "secs": 25.216,
+      "strength": 0.16021149,
+      "band": "High",
+      "dynamics": 0.5105711
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 1.5
+      },
+      "secs": 25.365334,
+      "strength": 0.2147958,
+      "band": "High",
+      "dynamics": 0.4886605
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 2.0
+      },
+      "secs": 25.568,
+      "strength": 0.18365343,
+      "band": "High",
+      "dynamics": 0.47310203
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 2.0
+      },
+      "secs": 25.706667,
+      "strength": 0.5203259,
+      "band": "High",
+      "dynamics": 0.4758572
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 2.5
+      },
+      "secs": 26.058666,
+      "strength": 0.29980814,
+      "band": "High",
+      "dynamics": 0.47103694
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 3.0
+      },
+      "secs": 26.304,
+      "strength": 0.16426182,
+      "band": "Low",
+      "dynamics": 0.53301716
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 3.0
+      },
+      "secs": 26.4,
+      "strength": 0.4039743,
+      "band": "High",
+      "dynamics": 0.562688
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 3.0
+      },
+      "secs": 26.517334,
+      "strength": 0.19341855,
+      "band": "Low",
+      "dynamics": 0.5828246
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 3.5
+      },
+      "secs": 26.752,
+      "strength": 0.79052657,
+      "band": "High",
+      "dynamics": 0.5886223
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 3.5
+      },
+      "secs": 26.922667,
+      "strength": 0.33398548,
+      "band": "Low",
+      "dynamics": 0.5883086
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 4.0
+      },
+      "secs": 27.093334,
+      "strength": 0.4889765,
+      "band": "High",
+      "dynamics": 0.6087466
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 4.5
+      },
+      "secs": 27.445333,
+      "strength": 0.4005092,
+      "band": "High",
+      "dynamics": 0.6036155
+    },
+    {
+      "at": {
+        "bar": 10,
+        "beat": 4.5
+      },
+      "secs": 27.626667,
+      "strength": 0.24823506,
+      "band": "Low",
+      "dynamics": 0.5561157
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 1.0
+      },
+      "secs": 27.818666,
+      "strength": 0.17068519,
+      "band": "Low",
+      "dynamics": 0.5020204
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 1.0
+      },
+      "secs": 27.978666,
+      "strength": 0.23163915,
+      "band": "High",
+      "dynamics": 0.46397159
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 1.5
+      },
+      "secs": 28.149334,
+      "strength": 0.20354539,
+      "band": "High",
+      "dynamics": 0.45477146
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 1.5
+      },
+      "secs": 28.330667,
+      "strength": 0.16649625,
+      "band": "High",
+      "dynamics": 0.4534554
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 2.0
+      },
+      "secs": 28.490667,
+      "strength": 0.63495207,
+      "band": "High",
+      "dynamics": 0.47217953
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 2.0
+      },
+      "secs": 28.576,
+      "strength": 0.18290533,
+      "band": "Mid",
+      "dynamics": 0.48007578
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 2.5
+      },
+      "secs": 28.842667,
+      "strength": 0.56193405,
+      "band": "High",
+      "dynamics": 0.48467046
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 2.5
+      },
+      "secs": 28.96,
+      "strength": 0.31012022,
+      "band": "Low",
+      "dynamics": 0.48289272
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 3.0
+      },
+      "secs": 29.184,
+      "strength": 1.0,
+      "band": "High",
+      "dynamics": 0.52400297
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 3.0
+      },
+      "secs": 29.354666,
+      "strength": 0.22704905,
+      "band": "Low",
+      "dynamics": 0.5658417
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 3.5
+      },
+      "secs": 29.536,
+      "strength": 0.8200976,
+      "band": "High",
+      "dynamics": 0.58368087
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 3.5
+      },
+      "secs": 29.706667,
+      "strength": 0.24106249,
+      "band": "Low",
+      "dynamics": 0.6014979
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 4.0
+      },
+      "secs": 29.877333,
+      "strength": 0.52096933,
+      "band": "Low",
+      "dynamics": 0.62848437
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 4.5
+      },
+      "secs": 30.229334,
+      "strength": 0.26905844,
+      "band": "Low",
+      "dynamics": 0.6276771
+    },
+    {
+      "at": {
+        "bar": 11,
+        "beat": 4.5
+      },
+      "secs": 30.410667,
+      "strength": 0.5172719,
+      "band": "Low",
+      "dynamics": 0.5828444
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 1.0
+      },
+      "secs": 30.506666,
+      "strength": 0.30550382,
+      "band": "Low",
+      "dynamics": 0.556528
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 1.5
+      },
+      "secs": 30.933332,
+      "strength": 0.2105359,
+      "band": "High",
+      "dynamics": 0.4433915
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 2.0
+      },
+      "secs": 31.274666,
+      "strength": 0.39229143,
+      "band": "High",
+      "dynamics": 0.44940105
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 2.5
+      },
+      "secs": 31.616,
+      "strength": 0.7556051,
+      "band": "High",
+      "dynamics": 0.5038711
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 3.0
+      },
+      "secs": 31.818666,
+      "strength": 0.16617972,
+      "band": "Low",
+      "dynamics": 0.5690589
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 3.0
+      },
+      "secs": 31.968,
+      "strength": 0.6385925,
+      "band": "Low",
+      "dynamics": 0.6174738
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 3.0
+      },
+      "secs": 32.053333,
+      "strength": 0.20833924,
+      "band": "Low",
+      "dynamics": 0.6349188
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 3.5
+      },
+      "secs": 32.309334,
+      "strength": 0.3210244,
+      "band": "High",
+      "dynamics": 0.6520029
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 3.5
+      },
+      "secs": 32.469334,
+      "strength": 0.20784049,
+      "band": "Low",
+      "dynamics": 0.6492641
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 4.0
+      },
+      "secs": 32.661335,
+      "strength": 0.2213907,
+      "band": "High",
+      "dynamics": 0.68043375
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 4.5
+      },
+      "secs": 33.024,
+      "strength": 0.240021,
+      "band": "Low",
+      "dynamics": 0.7291839
+    },
+    {
+      "at": {
+        "bar": 12,
+        "beat": 4.5
+      },
+      "secs": 33.194668,
+      "strength": 0.2853094,
+      "band": "Low",
+      "dynamics": 0.72971594
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 1.0
+      },
+      "secs": 33.365334,
+      "strength": 0.2098989,
+      "band": "Low",
+      "dynamics": 0.6974449
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 1.5
+      },
+      "secs": 33.706665,
+      "strength": 0.52300096,
+      "band": "Low",
+      "dynamics": 0.65807337
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 1.5
+      },
+      "secs": 33.888,
+      "strength": 0.31386697,
+      "band": "Low",
+      "dynamics": 0.6775132
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 2.0
+      },
+      "secs": 34.048,
+      "strength": 0.2309751,
+      "band": "High",
+      "dynamics": 0.7075171
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 2.0
+      },
+      "secs": 34.133335,
+      "strength": 0.16769668,
+      "band": "Mid",
+      "dynamics": 0.72170395
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 2.0
+      },
+      "secs": 34.24,
+      "strength": 0.18314485,
+      "band": "Low",
+      "dynamics": 0.73415154
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 2.5
+      },
+      "secs": 34.4,
+      "strength": 0.15932325,
+      "band": "High",
+      "dynamics": 0.75028104
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 3.0
+      },
+      "secs": 34.752,
+      "strength": 0.3582758,
+      "band": "High",
+      "dynamics": 0.7819258
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 3.0
+      },
+      "secs": 34.837334,
+      "strength": 0.20832132,
+      "band": "Low",
+      "dynamics": 0.7822938
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 3.0
+      },
+      "secs": 34.933334,
+      "strength": 0.22119673,
+      "band": "Low",
+      "dynamics": 0.7739643
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 3.5
+      },
+      "secs": 35.093334,
+      "strength": 0.32013056,
+      "band": "High",
+      "dynamics": 0.7478665
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 4.0
+      },
+      "secs": 35.44533,
+      "strength": 0.68712527,
+      "band": "High",
+      "dynamics": 0.6971991
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 4.5
+      },
+      "secs": 35.97867,
+      "strength": 0.34467608,
+      "band": "Low",
+      "dynamics": 0.5965137
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 1.0
+      },
+      "secs": 36.096,
+      "strength": 0.3189631,
+      "band": "Low",
+      "dynamics": 0.5610935
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 1.0
+      },
+      "secs": 36.202667,
+      "strength": 0.26640505,
+      "band": "Low",
+      "dynamics": 0.5268183
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 1.5
+      },
+      "secs": 36.352,
+      "strength": 0.15104641,
+      "band": "Mid",
+      "dynamics": 0.48675612
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 1.5
+      },
+      "secs": 36.490665,
+      "strength": 0.29034662,
+      "band": "High",
+      "dynamics": 0.46600914
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 2.0
+      },
+      "secs": 36.832,
+      "strength": 0.54358083,
+      "band": "High",
+      "dynamics": 0.4846507
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 2.5
+      },
+      "secs": 37.184,
+      "strength": 0.2519364,
+      "band": "High",
+      "dynamics": 0.46985182
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 3.0
+      },
+      "secs": 37.386665,
+      "strength": 0.18814237,
+      "band": "High",
+      "dynamics": 0.47968128
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 3.0
+      },
+      "secs": 37.525333,
+      "strength": 0.37761348,
+      "band": "High",
+      "dynamics": 0.52072006
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 3.0
+      },
+      "secs": 37.642666,
+      "strength": 0.20230414,
+      "band": "Low",
+      "dynamics": 0.55500484
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 3.5
+      },
+      "secs": 37.877335,
+      "strength": 0.7268988,
+      "band": "High",
+      "dynamics": 0.58355
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 3.5
+      },
+      "secs": 38.069332,
+      "strength": 0.38165376,
+      "band": "Low",
+      "dynamics": 0.58849305
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 4.0
+      },
+      "secs": 38.229332,
+      "strength": 0.6716567,
+      "band": "High",
+      "dynamics": 0.6110821
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 4.0
+      },
+      "secs": 38.410667,
+      "strength": 0.21632692,
+      "band": "Low",
+      "dynamics": 0.63049823
+    },
+    {
+      "at": {
+        "bar": 14,
+        "beat": 4.5
+      },
+      "secs": 38.570667,
+      "strength": 0.4066262,
+      "band": "High",
+      "dynamics": 0.61933804
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 1.0
+      },
+      "secs": 38.773335,
+      "strength": 0.22438483,
+      "band": "Low",
+      "dynamics": 0.58002514
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 1.0
+      },
+      "secs": 38.944,
+      "strength": 0.2661106,
+      "band": "High",
+      "dynamics": 0.54086536
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 1.5
+      },
+      "secs": 39.274666,
+      "strength": 0.25047624,
+      "band": "High",
+      "dynamics": 0.48003224
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 2.0
+      },
+      "secs": 39.616,
+      "strength": 0.52570033,
+      "band": "High",
+      "dynamics": 0.4667994
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 2.5
+      },
+      "secs": 39.968,
+      "strength": 0.780723,
+      "band": "High",
+      "dynamics": 0.4923865
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 2.5
+      },
+      "secs": 40.064,
+      "strength": 0.2096692,
+      "band": "Low",
+      "dynamics": 0.5217812
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 2.5
+      },
+      "secs": 40.149334,
+      "strength": 0.2152547,
+      "band": "Mid",
+      "dynamics": 0.5458572
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 3.0
+      },
+      "secs": 40.309334,
+      "strength": 0.42573965,
+      "band": "High",
+      "dynamics": 0.5993536
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 3.5
+      },
+      "secs": 40.533333,
+      "strength": 0.19009477,
+      "band": "Low",
+      "dynamics": 0.6332773
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 3.5
+      },
+      "secs": 40.661335,
+      "strength": 0.8392203,
+      "band": "High",
+      "dynamics": 0.63538337
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 4.0
+      },
+      "secs": 40.885334,
+      "strength": 0.31112632,
+      "band": "Low",
+      "dynamics": 0.6447563
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 4.0
+      },
+      "secs": 41.013332,
+      "strength": 0.3414566,
+      "band": "High",
+      "dynamics": 0.6610912
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 4.5
+      },
+      "secs": 41.354668,
+      "strength": 0.39738527,
+      "band": "Low",
+      "dynamics": 0.64117116
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 4.5
+      },
+      "secs": 41.536,
+      "strength": 0.34354272,
+      "band": "Low",
+      "dynamics": 0.61072075
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 1.0
+      },
+      "secs": 41.706665,
+      "strength": 0.18006527,
+      "band": "Low",
+      "dynamics": 0.5717279
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 1.5
+      },
+      "secs": 42.058666,
+      "strength": 0.15110052,
+      "band": "High",
+      "dynamics": 0.4766421
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 1.5
+      },
+      "secs": 42.24,
+      "strength": 0.164596,
+      "band": "High",
+      "dynamics": 0.45489684
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 2.0
+      },
+      "secs": 42.4,
+      "strength": 0.6012693,
+      "band": "High",
+      "dynamics": 0.47758728
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 2.5
+      },
+      "secs": 42.752,
+      "strength": 0.2976691,
+      "band": "High",
+      "dynamics": 0.5161443
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 3.0
+      },
+      "secs": 43.093334,
+      "strength": 0.68988293,
+      "band": "Low",
+      "dynamics": 0.59454745
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 3.0
+      },
+      "secs": 43.28533,
+      "strength": 0.22454219,
+      "band": "Low",
+      "dynamics": 0.6117766
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 3.5
+      },
+      "secs": 43.44533,
+      "strength": 0.31308472,
+      "band": "High",
+      "dynamics": 0.6170117
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 3.5
+      },
+      "secs": 43.626667,
+      "strength": 0.26351514,
+      "band": "Low",
+      "dynamics": 0.62000126
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 4.0
+      },
+      "secs": 43.786667,
+      "strength": 0.2572468,
+      "band": "High",
+      "dynamics": 0.6502211
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 4.5
+      },
+      "secs": 44.138668,
+      "strength": 0.34571922,
+      "band": "Low",
+      "dynamics": 0.696581
+    },
+    {
+      "at": {
+        "bar": 16,
+        "beat": 4.5
+      },
+      "secs": 44.298668,
+      "strength": 0.26601282,
+      "band": "Low",
+      "dynamics": 0.7007872
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 1.0
+      },
+      "secs": 44.48,
+      "strength": 0.18286166,
+      "band": "Low",
+      "dynamics": 0.67748255
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 1.5
+      },
+      "secs": 44.832,
+      "strength": 0.40398002,
+      "band": "Low",
+      "dynamics": 0.62958294
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 1.5
+      },
+      "secs": 45.024,
+      "strength": 0.2618362,
+      "band": "Low",
+      "dynamics": 0.6620066
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 2.0
+      },
+      "secs": 45.184,
+      "strength": 0.3896694,
+      "band": "High",
+      "dynamics": 0.701104
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 2.5
+      },
+      "secs": 45.536,
+      "strength": 0.19631897,
+      "band": "Low",
+      "dynamics": 0.7604024
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 3.0
+      },
+      "secs": 45.909332,
+      "strength": 0.2553212,
+      "band": "Low",
+      "dynamics": 0.8361727
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 3.0
+      },
+      "secs": 46.058666,
+      "strength": 0.18700136,
+      "band": "High",
+      "dynamics": 0.81711966
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 3.5
+      },
+      "secs": 46.250668,
+      "strength": 0.22354813,
+      "band": "Low",
+      "dynamics": 0.7893585
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 3.5
+      },
+      "secs": 46.368,
+      "strength": 0.22380194,
+      "band": "Low",
+      "dynamics": 0.75898707
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 4.0
+      },
+      "secs": 46.464,
+      "strength": 0.25518793,
+      "band": "Low",
+      "dynamics": 0.72697014
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 4.0
+      },
+      "secs": 46.570667,
+      "strength": 0.4357982,
+      "band": "High",
+      "dynamics": 0.70791674
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 4.0
+      },
+      "secs": 46.762665,
+      "strength": 0.20674373,
+      "band": "Low",
+      "dynamics": 0.6934091
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 4.5
+      },
+      "secs": 46.92267,
+      "strength": 0.28536204,
+      "band": "Low",
+      "dynamics": 0.6824612
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 4.5
+      },
+      "secs": 47.029335,
+      "strength": 0.1897885,
+      "band": "Low",
+      "dynamics": 0.66532433
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 1.0
+      },
+      "secs": 47.178665,
+      "strength": 0.17826226,
+      "band": "Low",
+      "dynamics": 0.6368521
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 1.0
+      },
+      "secs": 47.28533,
+      "strength": 0.22100522,
+      "band": "Low",
+      "dynamics": 0.60780567
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 1.5
+      },
+      "secs": 47.466667,
+      "strength": 0.17412901,
+      "band": "Mid",
+      "dynamics": 0.5579642
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 1.5
+      },
+      "secs": 47.626667,
+      "strength": 0.24051991,
+      "band": "High",
+      "dynamics": 0.5355062
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 2.0
+      },
+      "secs": 47.957333,
+      "strength": 0.41853955,
+      "band": "High",
+      "dynamics": 0.5313897
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 2.5
+      },
+      "secs": 48.298668,
+      "strength": 0.1883585,
+      "band": "High",
+      "dynamics": 0.49461594
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 2.5
+      },
+      "secs": 48.490665,
+      "strength": 0.3000363,
+      "band": "Low",
+      "dynamics": 0.5362615
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 3.0
+      },
+      "secs": 48.661335,
+      "strength": 0.2742898,
+      "band": "High",
+      "dynamics": 0.5785532
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 3.0
+      },
+      "secs": 48.746666,
+      "strength": 0.23605499,
+      "band": "Low",
+      "dynamics": 0.58701795
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 3.5
+      },
+      "secs": 48.864,
+      "strength": 0.27626744,
+      "band": "Low",
+      "dynamics": 0.5938501
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 3.5
+      },
+      "secs": 49.002666,
+      "strength": 0.44616717,
+      "band": "Low",
+      "dynamics": 0.6158329
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 3.5
+      },
+      "secs": 49.184,
+      "strength": 0.295999,
+      "band": "Low",
+      "dynamics": 0.62953657
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 4.0
+      },
+      "secs": 49.354668,
+      "strength": 0.41215283,
+      "band": "High",
+      "dynamics": 0.63091373
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 4.0
+      },
+      "secs": 49.45067,
+      "strength": 0.2064626,
+      "band": "Low",
+      "dynamics": 0.6240032
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 4.0
+      },
+      "secs": 49.536,
+      "strength": 0.467004,
+      "band": "Low",
+      "dynamics": 0.6132825
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 4.5
+      },
+      "secs": 49.696,
+      "strength": 0.26393974,
+      "band": "Low",
+      "dynamics": 0.6036405
+    },
+    {
+      "at": {
+        "bar": 18,
+        "beat": 4.5
+      },
+      "secs": 49.888,
+      "strength": 0.29535797,
+      "band": "Low",
+      "dynamics": 0.58572567
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 1.0
+      },
+      "secs": 50.058666,
+      "strength": 0.1932718,
+      "band": "High",
+      "dynamics": 0.54568565
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 1.0
+      },
+      "secs": 50.197334,
+      "strength": 0.16635509,
+      "band": "Mid",
+      "dynamics": 0.51253104
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 1.5
+      },
+      "secs": 50.4,
+      "strength": 0.30236617,
+      "band": "High",
+      "dynamics": 0.48951098
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 2.0
+      },
+      "secs": 50.592,
+      "strength": 0.17256035,
+      "band": "High",
+      "dynamics": 0.49063176
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 2.0
+      },
+      "secs": 50.741333,
+      "strength": 0.3506518,
+      "band": "High",
+      "dynamics": 0.5078686
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 3.0
+      },
+      "secs": 51.434666,
+      "strength": 0.74226725,
+      "band": "High",
+      "dynamics": 0.53376013
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 3.0
+      },
+      "secs": 51.52,
+      "strength": 0.23598513,
+      "band": "Low",
+      "dynamics": 0.5509535
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 3.5
+      },
+      "secs": 51.786667,
+      "strength": 0.4342994,
+      "band": "High",
+      "dynamics": 0.5931881
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 4.0
+      },
+      "secs": 52.128,
+      "strength": 0.5971418,
+      "band": "High",
+      "dynamics": 0.6268574
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 4.0
+      },
+      "secs": 52.32,
+      "strength": 0.24807973,
+      "band": "Mid",
+      "dynamics": 0.6568814
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 4.5
+      },
+      "secs": 52.416,
+      "strength": 0.20909406,
+      "band": "Low",
+      "dynamics": 0.6649987
+    },
+    {
+      "at": {
+        "bar": 19,
+        "beat": 4.5
+      },
+      "secs": 52.597332,
+      "strength": 0.19876498,
+      "band": "Low",
+      "dynamics": 0.65756416
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 1.0
+      },
+      "secs": 52.768,
+      "strength": 0.30666733,
+      "band": "Low",
+      "dynamics": 0.6324815
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 1.0
+      },
+      "secs": 52.928,
+      "strength": 0.17756417,
+      "band": "Mid",
+      "dynamics": 0.59194404
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 1.0
+      },
+      "secs": 53.024,
+      "strength": 0.18025938,
+      "band": "Mid",
+      "dynamics": 0.5653791
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 1.5
+      },
+      "secs": 53.184,
+      "strength": 0.31742898,
+      "band": "High",
+      "dynamics": 0.5264875
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 2.0
+      },
+      "secs": 53.525333,
+      "strength": 0.35850468,
+      "band": "High",
+      "dynamics": 0.5228352
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 2.5
+      },
+      "secs": 53.877335,
+      "strength": 0.22762565,
+      "band": "High",
+      "dynamics": 0.56215554
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 2.5
+      },
+      "secs": 53.994667,
+      "strength": 0.1809616,
+      "band": "Low",
+      "dynamics": 0.5674334
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 3.0
+      },
+      "secs": 54.218666,
+      "strength": 0.59653133,
+      "band": "High",
+      "dynamics": 0.6047997
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 3.0
+      },
+      "secs": 54.336,
+      "strength": 0.2082651,
+      "band": "Low",
+      "dynamics": 0.62059
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 3.5
+      },
+      "secs": 54.570667,
+      "strength": 0.7800194,
+      "band": "High",
+      "dynamics": 0.6105535
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 3.5
+      },
+      "secs": 54.656,
+      "strength": 0.24455988,
+      "band": "Low",
+      "dynamics": 0.61221224
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 4.0
+      },
+      "secs": 54.816,
+      "strength": 0.1670674,
+      "band": "Low",
+      "dynamics": 0.5795893
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 4.0
+      },
+      "secs": 54.912,
+      "strength": 0.4902284,
+      "band": "High",
+      "dynamics": 0.57564396
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 4.0
+      },
+      "secs": 55.061333,
+      "strength": 0.17448728,
+      "band": "Low",
+      "dynamics": 0.56175584
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 4.5
+      },
+      "secs": 55.274666,
+      "strength": 0.16511127,
+      "band": "Mid",
+      "dynamics": 0.5000971
+    },
+    {
+      "at": {
+        "bar": 20,
+        "beat": 4.5
+      },
+      "secs": 55.434666,
+      "strength": 0.317031,
+      "band": "High",
+      "dynamics": 0.4952487
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 1.0
+      },
+      "secs": 55.616,
+      "strength": 0.47518197,
+      "band": "High",
+      "dynamics": 0.55210793
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 1.5
+      },
+      "secs": 55.893333,
+      "strength": 0.3436624,
+      "band": "Mid",
+      "dynamics": 0.6646538
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 1.5
+      },
+      "secs": 56.064,
+      "strength": 0.19016159,
+      "band": "Mid",
+      "dynamics": 0.7192761
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 2.0
+      },
+      "secs": 56.170666,
+      "strength": 0.16783018,
+      "band": "Mid",
+      "dynamics": 0.7414055
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 2.0
+      },
+      "secs": 56.330666,
+      "strength": 0.26485667,
+      "band": "Mid",
+      "dynamics": 0.7976936
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 2.5
+      },
+      "secs": 56.704,
+      "strength": 0.19826305,
+      "band": "Mid",
+      "dynamics": 0.97797334
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 3.0
+      },
+      "secs": 57.002666,
+      "strength": 0.26659474,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 3.0
+      },
+      "secs": 57.184,
+      "strength": 0.24237521,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 3.5
+      },
+      "secs": 57.354668,
+      "strength": 0.36346146,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 3.5
+      },
+      "secs": 57.536,
+      "strength": 0.2866131,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 4.0
+      },
+      "secs": 57.685333,
+      "strength": 0.35733116,
+      "band": "High",
+      "dynamics": 0.9754348
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 4.0
+      },
+      "secs": 57.770668,
+      "strength": 0.21455155,
+      "band": "Low",
+      "dynamics": 0.9596385
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 4.0
+      },
+      "secs": 57.888,
+      "strength": 0.27873757,
+      "band": "Low",
+      "dynamics": 0.92454505
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 4.5
+      },
+      "secs": 58.048,
+      "strength": 0.23519643,
+      "band": "High",
+      "dynamics": 0.86037546
+    },
+    {
+      "at": {
+        "bar": 21,
+        "beat": 4.5
+      },
+      "secs": 58.18667,
+      "strength": 0.19124304,
+      "band": "High",
+      "dynamics": 0.8044881
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 1.0
+      },
+      "secs": 58.314667,
+      "strength": 0.23799236,
+      "band": "Low",
+      "dynamics": 0.7564963
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 1.0
+      },
+      "secs": 58.4,
+      "strength": 0.26886028,
+      "band": "Low",
+      "dynamics": 0.7275252
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 1.0
+      },
+      "secs": 58.528,
+      "strength": 0.17698796,
+      "band": "Low",
+      "dynamics": 0.68276966
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 1.5
+      },
+      "secs": 58.666668,
+      "strength": 0.23130825,
+      "band": "Mid",
+      "dynamics": 0.6423364
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 1.5
+      },
+      "secs": 58.92267,
+      "strength": 0.1723831,
+      "band": "High",
+      "dynamics": 0.6138767
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 2.0
+      },
+      "secs": 59.104,
+      "strength": 0.26248628,
+      "band": "High",
+      "dynamics": 0.5957794
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 2.0
+      },
+      "secs": 59.274666,
+      "strength": 0.34058636,
+      "band": "High",
+      "dynamics": 0.5590658
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 2.5
+      },
+      "secs": 59.434666,
+      "strength": 0.27774492,
+      "band": "High",
+      "dynamics": 0.55416805
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 2.5
+      },
+      "secs": 59.626667,
+      "strength": 0.25244653,
+      "band": "Low",
+      "dynamics": 0.59411436
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 3.0
+      },
+      "secs": 59.786667,
+      "strength": 0.36541614,
+      "band": "High",
+      "dynamics": 0.6841969
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 3.5
+      },
+      "secs": 60.128,
+      "strength": 0.3809459,
+      "band": "High",
+      "dynamics": 0.7973349
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 4.0
+      },
+      "secs": 60.330666,
+      "strength": 0.16201901,
+      "band": "Low",
+      "dynamics": 0.81842476
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 4.0
+      },
+      "secs": 60.48,
+      "strength": 0.35727504,
+      "band": "High",
+      "dynamics": 0.8299521
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 4.0
+      },
+      "secs": 60.661335,
+      "strength": 0.17008634,
+      "band": "Low",
+      "dynamics": 0.84455204
+    },
+    {
+      "at": {
+        "bar": 22,
+        "beat": 4.5
+      },
+      "secs": 60.864,
+      "strength": 0.19729769,
+      "band": "Low",
+      "dynamics": 0.8314665
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 1.0
+      },
+      "secs": 61.045334,
+      "strength": 0.17814127,
+      "band": "Low",
+      "dynamics": 0.79827386
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 1.0
+      },
+      "secs": 61.184,
+      "strength": 0.18388906,
+      "band": "High",
+      "dynamics": 0.76145554
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 1.5
+      },
+      "secs": 61.418667,
+      "strength": 0.17548254,
+      "band": "Low",
+      "dynamics": 0.702126
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 1.5
+      },
+      "secs": 61.525333,
+      "strength": 0.36251044,
+      "band": "High",
+      "dynamics": 0.6763895
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 1.5
+      },
+      "secs": 61.706665,
+      "strength": 0.2793168,
+      "band": "High",
+      "dynamics": 0.6522933
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 2.0
+      },
+      "secs": 61.866665,
+      "strength": 0.28700194,
+      "band": "High",
+      "dynamics": 0.6416026
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 2.0
+      },
+      "secs": 62.048,
+      "strength": 0.23289749,
+      "band": "High",
+      "dynamics": 0.5976487
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 2.5
+      },
+      "secs": 62.218666,
+      "strength": 0.39925814,
+      "band": "High",
+      "dynamics": 0.5732496
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 3.0
+      },
+      "secs": 62.570667,
+      "strength": 0.509482,
+      "band": "High",
+      "dynamics": 0.6518145
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 3.0
+      },
+      "secs": 62.688,
+      "strength": 0.26833037,
+      "band": "Low",
+      "dynamics": 0.6986334
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 3.5
+      },
+      "secs": 62.773335,
+      "strength": 0.19235237,
+      "band": "Low",
+      "dynamics": 0.71914905
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 3.5
+      },
+      "secs": 62.912,
+      "strength": 0.43085837,
+      "band": "High",
+      "dynamics": 0.74847436
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 4.0
+      },
+      "secs": 63.157333,
+      "strength": 0.25481066,
+      "band": "High",
+      "dynamics": 0.7750347
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 4.0
+      },
+      "secs": 63.264,
+      "strength": 0.35092035,
+      "band": "High",
+      "dynamics": 0.79084045
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 4.5
+      },
+      "secs": 63.605335,
+      "strength": 0.34612057,
+      "band": "High",
+      "dynamics": 0.8041226
+    },
+    {
+      "at": {
+        "bar": 23,
+        "beat": 4.5
+      },
+      "secs": 63.797333,
+      "strength": 0.29084054,
+      "band": "Low",
+      "dynamics": 0.78652716
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 1.0
+      },
+      "secs": 63.914665,
+      "strength": 0.42434922,
+      "band": "Low",
+      "dynamics": 0.7573923
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 1.0
+      },
+      "secs": 64.0,
+      "strength": 0.24461746,
+      "band": "High",
+      "dynamics": 0.7365338
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 1.0
+      },
+      "secs": 64.085335,
+      "strength": 0.23716712,
+      "band": "Low",
+      "dynamics": 0.7105262
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 1.5
+      },
+      "secs": 64.30933,
+      "strength": 0.19546266,
+      "band": "High",
+      "dynamics": 0.67374575
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 2.0
+      },
+      "secs": 64.501335,
+      "strength": 0.3472465,
+      "band": "Mid",
+      "dynamics": 0.6707691
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 2.0
+      },
+      "secs": 64.650665,
+      "strength": 0.41342714,
+      "band": "High",
+      "dynamics": 0.67859006
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 2.0
+      },
+      "secs": 64.81067,
+      "strength": 0.2537443,
+      "band": "Mid",
+      "dynamics": 0.6896695
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 2.5
+      },
+      "secs": 64.917336,
+      "strength": 0.20374571,
+      "band": "Mid",
+      "dynamics": 0.69807625
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 2.5
+      },
+      "secs": 65.00267,
+      "strength": 0.27759072,
+      "band": "High",
+      "dynamics": 0.7094835
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 3.0
+      },
+      "secs": 65.344,
+      "strength": 0.3982396,
+      "band": "High",
+      "dynamics": 0.81551415
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 3.0
+      },
+      "secs": 65.472,
+      "strength": 0.2934228,
+      "band": "High",
+      "dynamics": 0.86509025
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 3.5
+      },
+      "secs": 65.696,
+      "strength": 0.39109334,
+      "band": "High",
+      "dynamics": 0.9056457
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 4.0
+      },
+      "secs": 65.89867,
+      "strength": 0.31068072,
+      "band": "Mid",
+      "dynamics": 0.9045901
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 4.0
+      },
+      "secs": 66.048,
+      "strength": 0.3600355,
+      "band": "High",
+      "dynamics": 0.9025378
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 4.0
+      },
+      "secs": 66.22933,
+      "strength": 0.21708634,
+      "band": "Mid",
+      "dynamics": 0.8764756
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 4.5
+      },
+      "secs": 66.389336,
+      "strength": 0.5076531,
+      "band": "Low",
+      "dynamics": 0.81525844
+    },
+    {
+      "at": {
+        "bar": 24,
+        "beat": 4.5
+      },
+      "secs": 66.57066,
+      "strength": 0.28716367,
+      "band": "Low",
+      "dynamics": 0.79714024
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 1.0
+      },
+      "secs": 66.74133,
+      "strength": 0.3398586,
+      "band": "Mid",
+      "dynamics": 0.82396317
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 1.0
+      },
+      "secs": 66.92267,
+      "strength": 0.2914825,
+      "band": "Mid",
+      "dynamics": 0.86141187
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 1.5
+      },
+      "secs": 67.082664,
+      "strength": 0.458851,
+      "band": "Mid",
+      "dynamics": 0.88204604
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 2.0
+      },
+      "secs": 67.43467,
+      "strength": 0.5375907,
+      "band": "High",
+      "dynamics": 0.97323287
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 2.0
+      },
+      "secs": 67.56267,
+      "strength": 0.20987809,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 2.5
+      },
+      "secs": 67.648,
+      "strength": 0.21170828,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 3.0
+      },
+      "secs": 68.128,
+      "strength": 0.27551234,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 3.0
+      },
+      "secs": 68.277336,
+      "strength": 0.26371098,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 3.5
+      },
+      "secs": 68.48,
+      "strength": 0.29045364,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 3.5
+      },
+      "secs": 68.576,
+      "strength": 0.19590318,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 3.5
+      },
+      "secs": 68.650665,
+      "strength": 0.3339985,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 4.0
+      },
+      "secs": 68.821335,
+      "strength": 0.34594572,
+      "band": "High",
+      "dynamics": 0.9996898
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 4.0
+      },
+      "secs": 68.94933,
+      "strength": 0.21933886,
+      "band": "Low",
+      "dynamics": 0.9744369
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 4.5
+      },
+      "secs": 69.17333,
+      "strength": 0.3915562,
+      "band": "High",
+      "dynamics": 0.8916294
+    },
+    {
+      "at": {
+        "bar": 25,
+        "beat": 4.5
+      },
+      "secs": 69.333336,
+      "strength": 0.25673065,
+      "band": "Mid",
+      "dynamics": 0.8248474
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 1.0
+      },
+      "secs": 69.52533,
+      "strength": 0.24984266,
+      "band": "High",
+      "dynamics": 0.7534066
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 1.5
+      },
+      "secs": 69.89867,
+      "strength": 0.23464829,
+      "band": "High",
+      "dynamics": 0.61083484
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 1.5
+      },
+      "secs": 70.00533,
+      "strength": 0.17845996,
+      "band": "High",
+      "dynamics": 0.5898296
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 2.0
+      },
+      "secs": 70.218666,
+      "strength": 0.27586538,
+      "band": "High",
+      "dynamics": 0.58331037
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 2.0
+      },
+      "secs": 70.4,
+      "strength": 0.31778717,
+      "band": "High",
+      "dynamics": 0.5578185
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 2.5
+      },
+      "secs": 70.57066,
+      "strength": 0.4342968,
+      "band": "High",
+      "dynamics": 0.55754733
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 2.5
+      },
+      "secs": 70.74133,
+      "strength": 0.23081729,
+      "band": "High",
+      "dynamics": 0.58616805
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 3.0
+      },
+      "secs": 70.912,
+      "strength": 0.41663167,
+      "band": "High",
+      "dynamics": 0.67820066
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 3.0
+      },
+      "secs": 71.082664,
+      "strength": 0.20725231,
+      "band": "Low",
+      "dynamics": 0.7541231
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 3.5
+      },
+      "secs": 71.253334,
+      "strength": 0.44450715,
+      "band": "High",
+      "dynamics": 0.7973856
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 3.5
+      },
+      "secs": 71.38133,
+      "strength": 0.35545504,
+      "band": "Low",
+      "dynamics": 0.81925076
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 4.0
+      },
+      "secs": 71.60533,
+      "strength": 0.22847256,
+      "band": "High",
+      "dynamics": 0.8080681
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 4.5
+      },
+      "secs": 71.95734,
+      "strength": 0.41903645,
+      "band": "High",
+      "dynamics": 0.7960614
+    },
+    {
+      "at": {
+        "bar": 26,
+        "beat": 4.5
+      },
+      "secs": 72.07467,
+      "strength": 0.325744,
+      "band": "Low",
+      "dynamics": 0.7909768
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 1.0
+      },
+      "secs": 72.30933,
+      "strength": 0.27727416,
+      "band": "High",
+      "dynamics": 0.76609886
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 1.0
+      },
+      "secs": 72.49067,
+      "strength": 0.23268321,
+      "band": "High",
+      "dynamics": 0.73152626
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 1.5
+      },
+      "secs": 72.650665,
+      "strength": 0.35943657,
+      "band": "High",
+      "dynamics": 0.7074367
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 1.5
+      },
+      "secs": 72.8,
+      "strength": 0.22593069,
+      "band": "Mid",
+      "dynamics": 0.69210297
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 2.0
+      },
+      "secs": 72.992,
+      "strength": 0.36453864,
+      "band": "High",
+      "dynamics": 0.67288953
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 2.0
+      },
+      "secs": 73.184,
+      "strength": 0.28599244,
+      "band": "High",
+      "dynamics": 0.62821156
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 2.5
+      },
+      "secs": 73.344,
+      "strength": 0.33992234,
+      "band": "High",
+      "dynamics": 0.603043
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 2.5
+      },
+      "secs": 73.536,
+      "strength": 0.18839796,
+      "band": "High",
+      "dynamics": 0.6102755
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 3.0
+      },
+      "secs": 73.696,
+      "strength": 0.6225123,
+      "band": "High",
+      "dynamics": 0.6885778
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 3.0
+      },
+      "secs": 73.781334,
+      "strength": 0.34222525,
+      "band": "Low",
+      "dynamics": 0.7372165
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 3.5
+      },
+      "secs": 73.89867,
+      "strength": 0.23651883,
+      "band": "Low",
+      "dynamics": 0.77568614
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 3.5
+      },
+      "secs": 74.03733,
+      "strength": 0.3317861,
+      "band": "High",
+      "dynamics": 0.8069258
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 4.0
+      },
+      "secs": 74.389336,
+      "strength": 0.2951754,
+      "band": "High",
+      "dynamics": 0.8387377
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 4.0
+      },
+      "secs": 74.57066,
+      "strength": 0.21606526,
+      "band": "Low",
+      "dynamics": 0.8188262
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 4.5
+      },
+      "secs": 74.73067,
+      "strength": 0.18808661,
+      "band": "Low",
+      "dynamics": 0.8102596
+    },
+    {
+      "at": {
+        "bar": 27,
+        "beat": 4.5
+      },
+      "secs": 74.92267,
+      "strength": 0.3553221,
+      "band": "Mid",
+      "dynamics": 0.7942229
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 1.0
+      },
+      "secs": 75.09333,
+      "strength": 0.33377323,
+      "band": "High",
+      "dynamics": 0.76179177
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 1.5
+      },
+      "secs": 75.43467,
+      "strength": 0.2604123,
+      "band": "High",
+      "dynamics": 0.7264923
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 1.5
+      },
+      "secs": 75.57333,
+      "strength": 0.18591344,
+      "band": "High",
+      "dynamics": 0.73214453
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 2.0
+      },
+      "secs": 75.776,
+      "strength": 0.4361627,
+      "band": "High",
+      "dynamics": 0.7641662
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 2.5
+      },
+      "secs": 76.128,
+      "strength": 0.33170033,
+      "band": "High",
+      "dynamics": 0.83732486
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 3.0
+      },
+      "secs": 76.501335,
+      "strength": 0.37159953,
+      "band": "Low",
+      "dynamics": 0.9318876
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 3.0
+      },
+      "secs": 76.64,
+      "strength": 0.2440189,
+      "band": "High",
+      "dynamics": 0.9498552
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 3.5
+      },
+      "secs": 76.821335,
+      "strength": 0.30999178,
+      "band": "High",
+      "dynamics": 0.9567288
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 4.0
+      },
+      "secs": 77.066666,
+      "strength": 0.19005021,
+      "band": "Low",
+      "dynamics": 0.9443939
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 4.0
+      },
+      "secs": 77.17333,
+      "strength": 0.38465947,
+      "band": "High",
+      "dynamics": 0.9328212
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 4.0
+      },
+      "secs": 77.28,
+      "strength": 0.18700294,
+      "band": "Low",
+      "dynamics": 0.91946524
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 4.5
+      },
+      "secs": 77.482666,
+      "strength": 0.22562468,
+      "band": "Mid",
+      "dynamics": 0.84102285
+    },
+    {
+      "at": {
+        "bar": 28,
+        "beat": 4.5
+      },
+      "secs": 77.696,
+      "strength": 0.2402672,
+      "band": "High",
+      "dynamics": 0.78404665
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 1.0
+      },
+      "secs": 77.86667,
+      "strength": 0.7243068,
+      "band": "High",
+      "dynamics": 0.8266719
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 1.0
+      },
+      "secs": 78.03733,
+      "strength": 0.21339498,
+      "band": "Mid",
+      "dynamics": 0.876359
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 1.5
+      },
+      "secs": 78.208,
+      "strength": 0.2705465,
+      "band": "High",
+      "dynamics": 0.89597845
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 2.0
+      },
+      "secs": 78.45333,
+      "strength": 0.27808592,
+      "band": "Mid",
+      "dynamics": 0.9360888
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 2.0
+      },
+      "secs": 78.56,
+      "strength": 0.52832854,
+      "band": "High",
+      "dynamics": 0.9577249
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 2.5
+      },
+      "secs": 79.029335,
+      "strength": 0.21911848,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 3.0
+      },
+      "secs": 79.21067,
+      "strength": 0.22526829,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 3.5
+      },
+      "secs": 79.52,
+      "strength": 0.20878574,
+      "band": "Low",
+      "dynamics": 0.9240526
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 3.5
+      },
+      "secs": 79.616,
+      "strength": 0.22255717,
+      "band": "High",
+      "dynamics": 0.86037076
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 3.5
+      },
+      "secs": 79.75467,
+      "strength": 0.35507196,
+      "band": "Low",
+      "dynamics": 0.75479364
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 4.0
+      },
+      "secs": 79.94666,
+      "strength": 0.2831327,
+      "band": "High",
+      "dynamics": 0.6295414
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 4.0
+      },
+      "secs": 80.138664,
+      "strength": 0.33327708,
+      "band": "Low",
+      "dynamics": 0.53468543
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 4.5
+      },
+      "secs": 80.29867,
+      "strength": 0.20204678,
+      "band": "High",
+      "dynamics": 0.47866592
+    },
+    {
+      "at": {
+        "bar": 29,
+        "beat": 4.5
+      },
+      "secs": 80.48,
+      "strength": 0.20429036,
+      "band": "High",
+      "dynamics": 0.42428398
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 1.0
+      },
+      "secs": 80.56533,
+      "strength": 0.18648846,
+      "band": "Low",
+      "dynamics": 0.41323406
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 1.0
+      },
+      "secs": 80.672,
+      "strength": 0.34921855,
+      "band": "Low",
+      "dynamics": 0.41509873
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 1.0
+      },
+      "secs": 80.768,
+      "strength": 0.34852022,
+      "band": "Low",
+      "dynamics": 0.3997355
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 1.5
+      },
+      "secs": 80.98133,
+      "strength": 0.17368726,
+      "band": "High",
+      "dynamics": 0.36810184
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 2.0
+      },
+      "secs": 81.248,
+      "strength": 0.14851208,
+      "band": "High",
+      "dynamics": 0.37248832
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 2.0
+      },
+      "secs": 81.344,
+      "strength": 0.49056128,
+      "band": "High",
+      "dynamics": 0.38992843
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 2.0
+      },
+      "secs": 81.49333,
+      "strength": 0.15589687,
+      "band": "Mid",
+      "dynamics": 0.3815089
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 2.5
+      },
+      "secs": 81.877335,
+      "strength": 0.14397247,
+      "band": "High",
+      "dynamics": 0.45528522
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 3.0
+      },
+      "secs": 82.048,
+      "strength": 0.2634829,
+      "band": "High",
+      "dynamics": 0.54813004
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 3.5
+      },
+      "secs": 82.272,
+      "strength": 0.30349067,
+      "band": "Low",
+      "dynamics": 0.56450474
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 3.5
+      },
+      "secs": 82.368,
+      "strength": 0.21108909,
+      "band": "Low",
+      "dynamics": 0.54078054
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 4.0
+      },
+      "secs": 82.688,
+      "strength": 0.236566,
+      "band": "High",
+      "dynamics": 0.49870437
+    },
+    {
+      "at": {
+        "bar": 30,
+        "beat": 4.5
+      },
+      "secs": 83.253334,
+      "strength": 0.1929017,
+      "band": "High",
+      "dynamics": 0.52446765
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 1.0
+      },
+      "secs": 83.33867,
+      "strength": 0.29741865,
+      "band": "High",
+      "dynamics": 0.5442028
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 1.0
+      },
+      "secs": 83.424,
+      "strength": 0.6093204,
+      "band": "High",
+      "dynamics": 0.57259333
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 1.5
+      },
+      "secs": 83.63734,
+      "strength": 0.27673393,
+      "band": "Low",
+      "dynamics": 0.6009087
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 1.5
+      },
+      "secs": 83.78667,
+      "strength": 0.2516037,
+      "band": "High",
+      "dynamics": 0.6182128
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 1.5
+      },
+      "secs": 83.95734,
+      "strength": 0.39180976,
+      "band": "High",
+      "dynamics": 0.63106114
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 2.0
+      },
+      "secs": 84.128,
+      "strength": 0.24900152,
+      "band": "High",
+      "dynamics": 0.64173985
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 2.0
+      },
+      "secs": 84.30933,
+      "strength": 0.29575518,
+      "band": "High",
+      "dynamics": 0.62972945
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 2.5
+      },
+      "secs": 84.46933,
+      "strength": 0.46559614,
+      "band": "Mid",
+      "dynamics": 0.6506104
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 2.5
+      },
+      "secs": 84.61867,
+      "strength": 0.20615757,
+      "band": "Low",
+      "dynamics": 0.67315733
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 3.0
+      },
+      "secs": 84.821335,
+      "strength": 0.54678404,
+      "band": "High",
+      "dynamics": 0.69920397
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 3.0
+      },
+      "secs": 84.94933,
+      "strength": 0.24399939,
+      "band": "High",
+      "dynamics": 0.70520496
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 3.5
+      },
+      "secs": 85.13067,
+      "strength": 0.17853606,
+      "band": "High",
+      "dynamics": 0.6636287
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 4.0
+      },
+      "secs": 85.386665,
+      "strength": 0.27291965,
+      "band": "Low",
+      "dynamics": 0.5869695
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 4.0
+      },
+      "secs": 85.51466,
+      "strength": 0.47585097,
+      "band": "High",
+      "dynamics": 0.56838995
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 4.5
+      },
+      "secs": 85.86667,
+      "strength": 0.34839115,
+      "band": "High",
+      "dynamics": 0.54543567
+    },
+    {
+      "at": {
+        "bar": 31,
+        "beat": 4.5
+      },
+      "secs": 86.048,
+      "strength": 0.50148666,
+      "band": "Low",
+      "dynamics": 0.5382232
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 1.0
+      },
+      "secs": 86.16534,
+      "strength": 0.19662315,
+      "band": "Low",
+      "dynamics": 0.5242668
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 1.5
+      },
+      "secs": 86.58134,
+      "strength": 0.24554262,
+      "band": "High",
+      "dynamics": 0.48305818
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 1.5
+      },
+      "secs": 86.74133,
+      "strength": 0.19029154,
+      "band": "High",
+      "dynamics": 0.47606045
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 2.0
+      },
+      "secs": 86.90134,
+      "strength": 0.43275407,
+      "band": "High",
+      "dynamics": 0.4900943
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 2.5
+      },
+      "secs": 87.253334,
+      "strength": 0.49913403,
+      "band": "High",
+      "dynamics": 0.5056239
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 3.0
+      },
+      "secs": 87.47733,
+      "strength": 0.20533493,
+      "band": "Low",
+      "dynamics": 0.5409616
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 3.0
+      },
+      "secs": 87.60533,
+      "strength": 0.50651944,
+      "band": "High",
+      "dynamics": 0.5710719
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 3.0
+      },
+      "secs": 87.73333,
+      "strength": 0.22330536,
+      "band": "Low",
+      "dynamics": 0.5992335
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 3.5
+      },
+      "secs": 87.94666,
+      "strength": 0.8856923,
+      "band": "Low",
+      "dynamics": 0.6082466
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 3.5
+      },
+      "secs": 88.11733,
+      "strength": 0.2841115,
+      "band": "Low",
+      "dynamics": 0.5986112
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 4.0
+      },
+      "secs": 88.29867,
+      "strength": 0.33790708,
+      "band": "High",
+      "dynamics": 0.5722923
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 4.5
+      },
+      "secs": 88.501335,
+      "strength": 0.17517823,
+      "band": "High",
+      "dynamics": 0.5431893
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 4.5
+      },
+      "secs": 88.64,
+      "strength": 0.28157327,
+      "band": "Low",
+      "dynamics": 0.5439783
+    },
+    {
+      "at": {
+        "bar": 32,
+        "beat": 4.5
+      },
+      "secs": 88.832,
+      "strength": 0.4058405,
+      "band": "Low",
+      "dynamics": 0.53660244
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 1.0
+      },
+      "secs": 88.917336,
+      "strength": 0.18819307,
+      "band": "Low",
+      "dynamics": 0.52744806
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 1.5
+      },
+      "secs": 89.20533,
+      "strength": 0.23595743,
+      "band": "High",
+      "dynamics": 0.4863693
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 1.5
+      },
+      "secs": 89.344,
+      "strength": 0.21166326,
+      "band": "High",
+      "dynamics": 0.49105087
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 2.0
+      },
+      "secs": 89.536,
+      "strength": 0.1622312,
+      "band": "High",
+      "dynamics": 0.50456405
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 2.0
+      },
+      "secs": 89.68533,
+      "strength": 0.4034967,
+      "band": "High",
+      "dynamics": 0.52313346
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 2.5
+      },
+      "secs": 90.03733,
+      "strength": 0.43220627,
+      "band": "High",
+      "dynamics": 0.554739
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 2.5
+      },
+      "secs": 90.176,
+      "strength": 0.1888915,
+      "band": "Low",
+      "dynamics": 0.5970044
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 3.0
+      },
+      "secs": 90.37867,
+      "strength": 0.27765504,
+      "band": "Low",
+      "dynamics": 0.6623578
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 3.0
+      },
+      "secs": 90.47467,
+      "strength": 0.1990951,
+      "band": "High",
+      "dynamics": 0.68631613
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 3.0
+      },
+      "secs": 90.56,
+      "strength": 0.2751237,
+      "band": "Low",
+      "dynamics": 0.69982135
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 3.5
+      },
+      "secs": 90.73067,
+      "strength": 0.24763948,
+      "band": "High",
+      "dynamics": 0.7229302
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 3.5
+      },
+      "secs": 90.89066,
+      "strength": 0.21159574,
+      "band": "Low",
+      "dynamics": 0.72057265
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 4.0
+      },
+      "secs": 90.986664,
+      "strength": 0.20264593,
+      "band": "Low",
+      "dynamics": 0.71688694
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 4.0
+      },
+      "secs": 91.082664,
+      "strength": 0.26220942,
+      "band": "High",
+      "dynamics": 0.7261308
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 4.5
+      },
+      "secs": 91.424,
+      "strength": 0.32511157,
+      "band": "Low",
+      "dynamics": 0.74934614
+    },
+    {
+      "at": {
+        "bar": 33,
+        "beat": 4.5
+      },
+      "secs": 91.541336,
+      "strength": 0.22693507,
+      "band": "Low",
+      "dynamics": 0.74167395
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 1.0
+      },
+      "secs": 91.78667,
+      "strength": 0.3064854,
+      "band": "Low",
+      "dynamics": 0.74829733
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 1.0
+      },
+      "secs": 91.94666,
+      "strength": 0.2881118,
+      "band": "Low",
+      "dynamics": 0.71084964
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 1.5
+      },
+      "secs": 92.11733,
+      "strength": 0.24018724,
+      "band": "Low",
+      "dynamics": 0.6478365
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 2.0
+      },
+      "secs": 92.458664,
+      "strength": 0.18752944,
+      "band": "High",
+      "dynamics": 0.5399853
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 2.0
+      },
+      "secs": 92.66133,
+      "strength": 0.19746889,
+      "band": "Mid",
+      "dynamics": 0.55351865
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 2.5
+      },
+      "secs": 92.821335,
+      "strength": 0.3275836,
+      "band": "Mid",
+      "dynamics": 0.5920603
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 3.0
+      },
+      "secs": 93.16267,
+      "strength": 0.274032,
+      "band": "High",
+      "dynamics": 0.73807436
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 3.5
+      },
+      "secs": 93.376,
+      "strength": 0.32997063,
+      "band": "Low",
+      "dynamics": 0.7632337
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 3.5
+      },
+      "secs": 93.51466,
+      "strength": 0.60447717,
+      "band": "High",
+      "dynamics": 0.7447528
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 4.0
+      },
+      "secs": 93.77067,
+      "strength": 0.19043246,
+      "band": "Low",
+      "dynamics": 0.69989234
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 4.0
+      },
+      "secs": 93.856,
+      "strength": 0.44464496,
+      "band": "High",
+      "dynamics": 0.70212406
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 4.5
+      },
+      "secs": 94.208,
+      "strength": 0.2853596,
+      "band": "High",
+      "dynamics": 0.672421
+    },
+    {
+      "at": {
+        "bar": 34,
+        "beat": 4.5
+      },
+      "secs": 94.389336,
+      "strength": 0.4454614,
+      "band": "Low",
+      "dynamics": 0.618475
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 1.0
+      },
+      "secs": 94.54933,
+      "strength": 0.20014106,
+      "band": "Low",
+      "dynamics": 0.57615054
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 1.5
+      },
+      "secs": 94.90134,
+      "strength": 0.26995566,
+      "band": "High",
+      "dynamics": 0.50593895
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 2.0
+      },
+      "secs": 95.253334,
+      "strength": 0.2634536,
+      "band": "High",
+      "dynamics": 0.54720473
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 2.0
+      },
+      "secs": 95.402664,
+      "strength": 0.17083044,
+      "band": "Mid",
+      "dynamics": 0.5429834
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 2.5
+      },
+      "secs": 95.52,
+      "strength": 0.17173755,
+      "band": "Mid",
+      "dynamics": 0.54004467
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 2.5
+      },
+      "secs": 95.60533,
+      "strength": 0.1795119,
+      "band": "High",
+      "dynamics": 0.54641664
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 2.5
+      },
+      "secs": 95.78667,
+      "strength": 0.21552542,
+      "band": "Mid",
+      "dynamics": 0.5688147
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 3.0
+      },
+      "secs": 95.94666,
+      "strength": 0.6377035,
+      "band": "High",
+      "dynamics": 0.61574125
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 3.0
+      },
+      "secs": 96.05334,
+      "strength": 0.23434383,
+      "band": "Low",
+      "dynamics": 0.6361486
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 3.5
+      },
+      "secs": 96.17067,
+      "strength": 0.23564115,
+      "band": "Low",
+      "dynamics": 0.6369496
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 3.5
+      },
+      "secs": 96.29867,
+      "strength": 0.38605362,
+      "band": "High",
+      "dynamics": 0.6318841
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 4.0
+      },
+      "secs": 96.49067,
+      "strength": 0.1848547,
+      "band": "Low",
+      "dynamics": 0.6305007
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 4.0
+      },
+      "secs": 96.64,
+      "strength": 0.8137399,
+      "band": "High",
+      "dynamics": 0.6585153
+    },
+    {
+      "at": {
+        "bar": 35,
+        "beat": 4.5
+      },
+      "secs": 96.992,
+      "strength": 0.31957614,
+      "band": "High",
+      "dynamics": 0.6866961
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 1.0
+      },
+      "secs": 97.237335,
+      "strength": 0.3061541,
+      "band": "Low",
+      "dynamics": 0.6558918
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 1.0
+      },
+      "secs": 97.344,
+      "strength": 0.29861674,
+      "band": "High",
+      "dynamics": 0.64664304
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 1.5
+      },
+      "secs": 97.68533,
+      "strength": 0.36877093,
+      "band": "High",
+      "dynamics": 0.59554136
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 2.0
+      },
+      "secs": 97.888,
+      "strength": 0.21536815,
+      "band": "High",
+      "dynamics": 0.579636
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 2.0
+      },
+      "secs": 98.026665,
+      "strength": 0.41283536,
+      "band": "High",
+      "dynamics": 0.5798778
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 2.5
+      },
+      "secs": 98.37867,
+      "strength": 0.7160845,
+      "band": "High",
+      "dynamics": 0.58730185
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 3.0
+      },
+      "secs": 98.73067,
+      "strength": 0.6280119,
+      "band": "High",
+      "dynamics": 0.66730535
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 3.0
+      },
+      "secs": 98.88,
+      "strength": 0.26219228,
+      "band": "Low",
+      "dynamics": 0.6899648
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 3.5
+      },
+      "secs": 99.072,
+      "strength": 0.5276579,
+      "band": "High",
+      "dynamics": 0.6864466
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 3.5
+      },
+      "secs": 99.232,
+      "strength": 0.18818484,
+      "band": "Low",
+      "dynamics": 0.68311894
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 4.0
+      },
+      "secs": 99.328,
+      "strength": 0.19229816,
+      "band": "Low",
+      "dynamics": 0.68280894
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 4.0
+      },
+      "secs": 99.424,
+      "strength": 0.56412345,
+      "band": "High",
+      "dynamics": 0.69666284
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 4.5
+      },
+      "secs": 99.776,
+      "strength": 0.36394596,
+      "band": "High",
+      "dynamics": 0.6661929
+    },
+    {
+      "at": {
+        "bar": 36,
+        "beat": 4.5
+      },
+      "secs": 99.95734,
+      "strength": 0.41426435,
+      "band": "Mid",
+      "dynamics": 0.60757774
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 1.0
+      },
+      "secs": 100.064,
+      "strength": 0.22740482,
+      "band": "Low",
+      "dynamics": 0.57585514
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 1.0
+      },
+      "secs": 100.20267,
+      "strength": 0.1923294,
+      "band": "Low",
+      "dynamics": 0.5309719
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 1.5
+      },
+      "secs": 100.352,
+      "strength": 0.20107062,
+      "band": "Low",
+      "dynamics": 0.47956333
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 1.5
+      },
+      "secs": 100.46933,
+      "strength": 0.3013375,
+      "band": "High",
+      "dynamics": 0.46179637
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 1.5
+      },
+      "secs": 100.650665,
+      "strength": 0.33426625,
+      "band": "High",
+      "dynamics": 0.4603528
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 2.0
+      },
+      "secs": 100.81067,
+      "strength": 0.74220145,
+      "band": "High",
+      "dynamics": 0.49695662
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 2.5
+      },
+      "secs": 101.16267,
+      "strength": 0.4377723,
+      "band": "High",
+      "dynamics": 0.56296575
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 3.0
+      },
+      "secs": 101.408,
+      "strength": 0.20093216,
+      "band": "Low",
+      "dynamics": 0.61813027
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 3.0
+      },
+      "secs": 101.504,
+      "strength": 0.53562164,
+      "band": "Low",
+      "dynamics": 0.65543735
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 3.5
+      },
+      "secs": 101.856,
+      "strength": 0.5000681,
+      "band": "Low",
+      "dynamics": 0.7525448
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 3.5
+      },
+      "secs": 101.973335,
+      "strength": 0.26136902,
+      "band": "Low",
+      "dynamics": 0.7671951
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 4.0
+      },
+      "secs": 102.13333,
+      "strength": 0.18230033,
+      "band": "Low",
+      "dynamics": 0.77496225
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 4.0
+      },
+      "secs": 102.218666,
+      "strength": 0.17489713,
+      "band": "Low",
+      "dynamics": 0.7814991
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 4.0
+      },
+      "secs": 102.389336,
+      "strength": 0.18146977,
+      "band": "Low",
+      "dynamics": 0.774479
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 4.5
+      },
+      "secs": 102.54933,
+      "strength": 0.30951706,
+      "band": "Low",
+      "dynamics": 0.75411355
+    },
+    {
+      "at": {
+        "bar": 37,
+        "beat": 4.5
+      },
+      "secs": 102.656,
+      "strength": 0.18091607,
+      "band": "Low",
+      "dynamics": 0.7262371
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 1.0
+      },
+      "secs": 102.816,
+      "strength": 0.16952321,
+      "band": "Low",
+      "dynamics": 0.681826
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 1.0
+      },
+      "secs": 102.90134,
+      "strength": 0.38591066,
+      "band": "Low",
+      "dynamics": 0.6614673
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 1.5
+      },
+      "secs": 103.168,
+      "strength": 0.15241152,
+      "band": "Low",
+      "dynamics": 0.62180173
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 1.5
+      },
+      "secs": 103.253334,
+      "strength": 0.40794748,
+      "band": "Low",
+      "dynamics": 0.63531685
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 1.5
+      },
+      "secs": 103.424,
+      "strength": 0.15005185,
+      "band": "Low",
+      "dynamics": 0.67403096
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 2.0
+      },
+      "secs": 103.594666,
+      "strength": 0.37125376,
+      "band": "High",
+      "dynamics": 0.7308303
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 3.0
+      },
+      "secs": 104.277336,
+      "strength": 0.3573709,
+      "band": "Low",
+      "dynamics": 0.86261284
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 3.0
+      },
+      "secs": 104.458664,
+      "strength": 0.25223005,
+      "band": "High",
+      "dynamics": 0.8764507
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 3.5
+      },
+      "secs": 104.58667,
+      "strength": 0.20511328,
+      "band": "Low",
+      "dynamics": 0.8510229
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 3.5
+      },
+      "secs": 104.77866,
+      "strength": 0.31652457,
+      "band": "Low",
+      "dynamics": 0.80136317
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 4.0
+      },
+      "secs": 104.864,
+      "strength": 0.23633838,
+      "band": "Low",
+      "dynamics": 0.78018004
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 4.0
+      },
+      "secs": 104.98133,
+      "strength": 0.5130738,
+      "band": "Mid",
+      "dynamics": 0.7728627
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 4.5
+      },
+      "secs": 105.333336,
+      "strength": 0.2865111,
+      "band": "Low",
+      "dynamics": 0.7444657
+    },
+    {
+      "at": {
+        "bar": 38,
+        "beat": 4.5
+      },
+      "secs": 105.51466,
+      "strength": 0.27374205,
+      "band": "Low",
+      "dynamics": 0.70921946
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 1.5
+      },
+      "secs": 106.03733,
+      "strength": 0.2659691,
+      "band": "High",
+      "dynamics": 0.60388887
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 1.5
+      },
+      "secs": 106.218666,
+      "strength": 0.171722,
+      "band": "High",
+      "dynamics": 0.6069868
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 2.0
+      },
+      "secs": 106.37867,
+      "strength": 0.25510842,
+      "band": "High",
+      "dynamics": 0.6122644
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 2.5
+      },
+      "secs": 106.73067,
+      "strength": 0.25550452,
+      "band": "High",
+      "dynamics": 0.57829976
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 2.5
+      },
+      "secs": 106.912,
+      "strength": 0.27415523,
+      "band": "Low",
+      "dynamics": 0.6077176
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 3.0
+      },
+      "secs": 107.072,
+      "strength": 0.5619152,
+      "band": "High",
+      "dynamics": 0.65024304
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 3.0
+      },
+      "secs": 107.168,
+      "strength": 0.1911413,
+      "band": "Low",
+      "dynamics": 0.6734286
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 3.0
+      },
+      "secs": 107.253334,
+      "strength": 0.30094177,
+      "band": "Low",
+      "dynamics": 0.68222
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 3.5
+      },
+      "secs": 107.424,
+      "strength": 0.26415685,
+      "band": "Low",
+      "dynamics": 0.70253277
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 3.5
+      },
+      "secs": 107.594666,
+      "strength": 0.18776956,
+      "band": "Low",
+      "dynamics": 0.7009885
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 4.0
+      },
+      "secs": 107.765335,
+      "strength": 0.4165459,
+      "band": "High",
+      "dynamics": 0.6862303
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 4.0
+      },
+      "secs": 107.861336,
+      "strength": 0.1926628,
+      "band": "Mid",
+      "dynamics": 0.6776276
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 4.5
+      },
+      "secs": 108.11733,
+      "strength": 0.5371284,
+      "band": "Low",
+      "dynamics": 0.64826345
+    },
+    {
+      "at": {
+        "bar": 39,
+        "beat": 4.5
+      },
+      "secs": 108.21333,
+      "strength": 0.18564798,
+      "band": "Low",
+      "dynamics": 0.64127755
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 1.0
+      },
+      "secs": 108.330666,
+      "strength": 0.33989495,
+      "band": "Low",
+      "dynamics": 0.64049417
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 1.0
+      },
+      "secs": 108.46933,
+      "strength": 0.25410065,
+      "band": "High",
+      "dynamics": 0.6278793
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 1.5
+      },
+      "secs": 108.81067,
+      "strength": 0.1902172,
+      "band": "High",
+      "dynamics": 0.61049974
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 2.0
+      },
+      "secs": 109.216,
+      "strength": 0.20242313,
+      "band": "Mid",
+      "dynamics": 0.6310782
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 2.5
+      },
+      "secs": 109.36533,
+      "strength": 0.15872319,
+      "band": "Mid",
+      "dynamics": 0.62583095
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 2.5
+      },
+      "secs": 109.51466,
+      "strength": 0.17793378,
+      "band": "High",
+      "dynamics": 0.62760395
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 3.0
+      },
+      "secs": 109.856,
+      "strength": 0.52314633,
+      "band": "High",
+      "dynamics": 0.67512053
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 3.0
+      },
+      "secs": 109.94133,
+      "strength": 0.19052052,
+      "band": "High",
+      "dynamics": 0.6878743
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 3.0
+      },
+      "secs": 110.03733,
+      "strength": 0.23494312,
+      "band": "Low",
+      "dynamics": 0.69192606
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 3.5
+      },
+      "secs": 110.197334,
+      "strength": 0.48460793,
+      "band": "High",
+      "dynamics": 0.68887675
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 4.0
+      },
+      "secs": 110.442665,
+      "strength": 0.241172,
+      "band": "Low",
+      "dynamics": 0.6777545
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 4.0
+      },
+      "secs": 110.54933,
+      "strength": 0.31370926,
+      "band": "High",
+      "dynamics": 0.69742846
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 4.5
+      },
+      "secs": 110.77333,
+      "strength": 0.24407847,
+      "band": "Mid",
+      "dynamics": 0.7230063
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 4.5
+      },
+      "secs": 110.90134,
+      "strength": 0.2963341,
+      "band": "Mid",
+      "dynamics": 0.72611845
+    },
+    {
+      "at": {
+        "bar": 40,
+        "beat": 4.5
+      },
+      "secs": 110.986664,
+      "strength": 0.19749436,
+      "band": "Mid",
+      "dynamics": 0.7175762
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 1.0
+      },
+      "secs": 111.09333,
+      "strength": 0.2533899,
+      "band": "Low",
+      "dynamics": 0.70062506
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 1.0
+      },
+      "secs": 111.253334,
+      "strength": 0.17085509,
+      "band": "High",
+      "dynamics": 0.65987855
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 1.5
+      },
+      "secs": 111.594666,
+      "strength": 0.16577321,
+      "band": "High",
+      "dynamics": 0.5953024
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 2.0
+      },
+      "secs": 111.936,
+      "strength": 0.37030202,
+      "band": "High",
+      "dynamics": 0.611076
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 2.5
+      },
+      "secs": 112.288,
+      "strength": 0.32785404,
+      "band": "High",
+      "dynamics": 0.6895363
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 3.0
+      },
+      "secs": 112.61867,
+      "strength": 0.3666108,
+      "band": "Low",
+      "dynamics": 0.7542792
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 3.0
+      },
+      "secs": 112.78933,
+      "strength": 0.20529541,
+      "band": "Low",
+      "dynamics": 0.7645622
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 3.5
+      },
+      "secs": 112.874664,
+      "strength": 0.21899335,
+      "band": "High",
+      "dynamics": 0.7492544
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 3.5
+      },
+      "secs": 112.98133,
+      "strength": 0.7541748,
+      "band": "High",
+      "dynamics": 0.7455958
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 3.5
+      },
+      "secs": 113.066666,
+      "strength": 0.26815358,
+      "band": "Low",
+      "dynamics": 0.74394673
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 4.0
+      },
+      "secs": 113.333336,
+      "strength": 0.7348756,
+      "band": "High",
+      "dynamics": 0.7105872
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 4.0
+      },
+      "secs": 113.472,
+      "strength": 0.22130084,
+      "band": "Low",
+      "dynamics": 0.6957967
+    },
+    {
+      "at": {
+        "bar": 41,
+        "beat": 4.5
+      },
+      "secs": 113.68533,
+      "strength": 0.23961566,
+      "band": "Mid",
+      "dynamics": 0.6353993
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 1.0
+      },
+      "secs": 114.03733,
+      "strength": 0.3646187,
+      "band": "Mid",
+      "dynamics": 0.70016044
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 1.0
+      },
+      "secs": 114.16534,
+      "strength": 0.17609361,
+      "band": "Mid",
+      "dynamics": 0.7544755
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 1.5
+      },
+      "secs": 114.37867,
+      "strength": 0.44043684,
+      "band": "Mid",
+      "dynamics": 0.8138403
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 2.0
+      },
+      "secs": 114.72,
+      "strength": 0.46074244,
+      "band": "High",
+      "dynamics": 0.87395763
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 2.5
+      },
+      "secs": 115.082664,
+      "strength": 0.2968116,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 2.5
+      },
+      "secs": 115.22134,
+      "strength": 0.18823797,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 3.0
+      },
+      "secs": 115.424,
+      "strength": 0.32763228,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 3.5
+      },
+      "secs": 115.765335,
+      "strength": 0.23245713,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 4.0
+      },
+      "secs": 116.11733,
+      "strength": 0.39432952,
+      "band": "High",
+      "dynamics": 0.9505048
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 4.0
+      },
+      "secs": 116.24533,
+      "strength": 0.20972952,
+      "band": "Low",
+      "dynamics": 0.91431594
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 4.5
+      },
+      "secs": 116.501335,
+      "strength": 0.19671363,
+      "band": "Low",
+      "dynamics": 0.83541095
+    },
+    {
+      "at": {
+        "bar": 42,
+        "beat": 4.5
+      },
+      "secs": 116.64,
+      "strength": 0.26954848,
+      "band": "Mid",
+      "dynamics": 0.78097034
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 1.0
+      },
+      "secs": 116.81067,
+      "strength": 0.2803328,
+      "band": "High",
+      "dynamics": 0.7206931
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 1.5
+      },
+      "secs": 117.184,
+      "strength": 0.18282685,
+      "band": "High",
+      "dynamics": 0.64577776
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 2.0
+      },
+      "secs": 117.504,
+      "strength": 0.26787513,
+      "band": "High",
+      "dynamics": 0.61914253
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 2.0
+      },
+      "secs": 117.68533,
+      "strength": 0.3696498,
+      "band": "High",
+      "dynamics": 0.57291955
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 2.5
+      },
+      "secs": 117.856,
+      "strength": 0.3545923,
+      "band": "High",
+      "dynamics": 0.56438667
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 3.0
+      },
+      "secs": 118.197334,
+      "strength": 0.41187397,
+      "band": "High",
+      "dynamics": 0.6947211
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 3.0
+      },
+      "secs": 118.28267,
+      "strength": 0.19805071,
+      "band": "High",
+      "dynamics": 0.745496
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 3.0
+      },
+      "secs": 118.389336,
+      "strength": 0.18523578,
+      "band": "Low",
+      "dynamics": 0.7859081
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 3.5
+      },
+      "secs": 118.54933,
+      "strength": 0.35240874,
+      "band": "High",
+      "dynamics": 0.8263378
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 3.5
+      },
+      "secs": 118.688,
+      "strength": 0.20055309,
+      "band": "Low",
+      "dynamics": 0.8395332
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 4.0
+      },
+      "secs": 118.89066,
+      "strength": 0.32699323,
+      "band": "Low",
+      "dynamics": 0.8545519
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 4.5
+      },
+      "secs": 119.274666,
+      "strength": 0.28773305,
+      "band": "Low",
+      "dynamics": 0.84334415
+    },
+    {
+      "at": {
+        "bar": 43,
+        "beat": 4.5
+      },
+      "secs": 119.424,
+      "strength": 0.39013278,
+      "band": "High",
+      "dynamics": 0.82382363
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 1.0
+      },
+      "secs": 119.648,
+      "strength": 0.27155572,
+      "band": "Low",
+      "dynamics": 0.7849916
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 1.0
+      },
+      "secs": 119.776,
+      "strength": 0.18978854,
+      "band": "Mid",
+      "dynamics": 0.7557088
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 1.5
+      },
+      "secs": 119.94666,
+      "strength": 0.2714923,
+      "band": "High",
+      "dynamics": 0.71479315
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 1.5
+      },
+      "secs": 120.128,
+      "strength": 0.21669051,
+      "band": "High",
+      "dynamics": 0.69259083
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 2.0
+      },
+      "secs": 120.288,
+      "strength": 0.29051098,
+      "band": "High",
+      "dynamics": 0.67021996
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 2.0
+      },
+      "secs": 120.46933,
+      "strength": 0.33581257,
+      "band": "High",
+      "dynamics": 0.60900235
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 2.5
+      },
+      "secs": 120.64,
+      "strength": 0.24523285,
+      "band": "High",
+      "dynamics": 0.5787054
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 2.5
+      },
+      "secs": 120.81067,
+      "strength": 0.20162456,
+      "band": "High",
+      "dynamics": 0.58892846
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 3.0
+      },
+      "secs": 120.98133,
+      "strength": 0.68944407,
+      "band": "High",
+      "dynamics": 0.6598671
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 3.0
+      },
+      "secs": 121.17333,
+      "strength": 0.21247806,
+      "band": "High",
+      "dynamics": 0.7347106
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 3.5
+      },
+      "secs": 121.333336,
+      "strength": 0.28911832,
+      "band": "High",
+      "dynamics": 0.7767308
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 3.5
+      },
+      "secs": 121.482666,
+      "strength": 0.24251696,
+      "band": "Low",
+      "dynamics": 0.80513936
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 4.0
+      },
+      "secs": 121.67467,
+      "strength": 0.35018492,
+      "band": "High",
+      "dynamics": 0.8328747
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 4.5
+      },
+      "secs": 122.026665,
+      "strength": 0.31167752,
+      "band": "Low",
+      "dynamics": 0.8478609
+    },
+    {
+      "at": {
+        "bar": 44,
+        "beat": 4.5
+      },
+      "secs": 122.18667,
+      "strength": 0.26413524,
+      "band": "High",
+      "dynamics": 0.82655567
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 1.0
+      },
+      "secs": 122.4,
+      "strength": 0.18780918,
+      "band": "High",
+      "dynamics": 0.776822
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 1.5
+      },
+      "secs": 122.57066,
+      "strength": 0.2242621,
+      "band": "Mid",
+      "dynamics": 0.73044044
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 1.5
+      },
+      "secs": 122.72,
+      "strength": 0.2359368,
+      "band": "High",
+      "dynamics": 0.70821947
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 2.0
+      },
+      "secs": 122.954666,
+      "strength": 0.20803942,
+      "band": "Low",
+      "dynamics": 0.6914514
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 2.0
+      },
+      "secs": 123.06133,
+      "strength": 0.4687652,
+      "band": "High",
+      "dynamics": 0.6979526
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 2.5
+      },
+      "secs": 123.274666,
+      "strength": 0.20241188,
+      "band": "Mid",
+      "dynamics": 0.7229985
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 2.5
+      },
+      "secs": 123.424,
+      "strength": 0.27878627,
+      "band": "High",
+      "dynamics": 0.7440675
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 2.5
+      },
+      "secs": 123.60533,
+      "strength": 0.2112149,
+      "band": "Mid",
+      "dynamics": 0.7915028
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 3.0
+      },
+      "secs": 123.765335,
+      "strength": 0.46987262,
+      "band": "High",
+      "dynamics": 0.86058396
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 3.0
+      },
+      "secs": 123.85067,
+      "strength": 0.22156322,
+      "band": "Low",
+      "dynamics": 0.8963824
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 3.5
+      },
+      "secs": 124.10667,
+      "strength": 0.46944672,
+      "band": "High",
+      "dynamics": 0.9339423
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 4.0
+      },
+      "secs": 124.458664,
+      "strength": 0.5945599,
+      "band": "High",
+      "dynamics": 0.9283446
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 4.5
+      },
+      "secs": 124.66133,
+      "strength": 0.1892057,
+      "band": "Mid",
+      "dynamics": 0.88492
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 4.5
+      },
+      "secs": 124.81067,
+      "strength": 0.45997402,
+      "band": "High",
+      "dynamics": 0.82444227
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 4.5
+      },
+      "secs": 124.896,
+      "strength": 0.25673205,
+      "band": "Low",
+      "dynamics": 0.81143576
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 4.5
+      },
+      "secs": 124.98133,
+      "strength": 0.21813127,
+      "band": "High",
+      "dynamics": 0.8082985
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 1.0
+      },
+      "secs": 125.152,
+      "strength": 0.30695736,
+      "band": "Mid",
+      "dynamics": 0.8322501
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 1.5
+      },
+      "secs": 125.504,
+      "strength": 0.40305102,
+      "band": "Mid",
+      "dynamics": 0.8837702
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 2.0
+      },
+      "secs": 125.84534,
+      "strength": 0.35209426,
+      "band": "Mid",
+      "dynamics": 0.94809884
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 2.5
+      },
+      "secs": 126.197334,
+      "strength": 0.21013036,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 2.5
+      },
+      "secs": 126.35733,
+      "strength": 0.27716163,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 3.0
+      },
+      "secs": 126.517334,
+      "strength": 0.255457,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 3.5
+      },
+      "secs": 126.77333,
+      "strength": 0.3335848,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 3.5
+      },
+      "secs": 126.89066,
+      "strength": 0.30373743,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 4.0
+      },
+      "secs": 127.14667,
+      "strength": 0.22782205,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 4.0
+      },
+      "secs": 127.24267,
+      "strength": 0.43048048,
+      "band": "High",
+      "dynamics": 0.97762984
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 4.5
+      },
+      "secs": 127.594666,
+      "strength": 0.31079793,
+      "band": "Low",
+      "dynamics": 0.8684473
+    },
+    {
+      "at": {
+        "bar": 46,
+        "beat": 4.5
+      },
+      "secs": 127.776,
+      "strength": 0.25070432,
+      "band": "Mid",
+      "dynamics": 0.81215703
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 1.0
+      },
+      "secs": 127.95734,
+      "strength": 0.30231592,
+      "band": "High",
+      "dynamics": 0.7552526
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 1.0
+      },
+      "secs": 128.07466,
+      "strength": 0.22786853,
+      "band": "Mid",
+      "dynamics": 0.7100486
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 1.5
+      },
+      "secs": 128.30933,
+      "strength": 0.18731265,
+      "band": "High",
+      "dynamics": 0.6323377
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 2.0
+      },
+      "secs": 128.62933,
+      "strength": 0.45437354,
+      "band": "High",
+      "dynamics": 0.6091557
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 2.0
+      },
+      "secs": 128.82133,
+      "strength": 0.20817742,
+      "band": "High",
+      "dynamics": 0.5867587
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 2.5
+      },
+      "secs": 128.98134,
+      "strength": 0.31413692,
+      "band": "High",
+      "dynamics": 0.5876877
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 3.0
+      },
+      "secs": 129.32266,
+      "strength": 0.4740623,
+      "band": "High",
+      "dynamics": 0.7107632
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 3.0
+      },
+      "secs": 129.42934,
+      "strength": 0.21010049,
+      "band": "Low",
+      "dynamics": 0.7767697
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 3.5
+      },
+      "secs": 129.55733,
+      "strength": 0.18517424,
+      "band": "Low",
+      "dynamics": 0.822156
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 3.5
+      },
+      "secs": 129.67467,
+      "strength": 0.28532884,
+      "band": "High",
+      "dynamics": 0.8546117
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 3.5
+      },
+      "secs": 129.84534,
+      "strength": 0.4276318,
+      "band": "Low",
+      "dynamics": 0.87856746
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 4.0
+      },
+      "secs": 130.016,
+      "strength": 0.25959954,
+      "band": "High",
+      "dynamics": 0.90828085
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 4.5
+      },
+      "secs": 130.368,
+      "strength": 0.31722867,
+      "band": "Low",
+      "dynamics": 0.9181503
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 4.5
+      },
+      "secs": 130.54933,
+      "strength": 0.46230423,
+      "band": "Mid",
+      "dynamics": 0.874661
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 1.0
+      },
+      "secs": 130.79466,
+      "strength": 0.21084377,
+      "band": "Mid",
+      "dynamics": 0.813773
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 1.5
+      },
+      "secs": 131.072,
+      "strength": 0.246791,
+      "band": "High",
+      "dynamics": 0.7790107
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 2.0
+      },
+      "secs": 131.41333,
+      "strength": 0.3883735,
+      "band": "High",
+      "dynamics": 0.76738024
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 2.0
+      },
+      "secs": 131.60533,
+      "strength": 0.2092964,
+      "band": "High",
+      "dynamics": 0.74229586
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 2.5
+      },
+      "secs": 131.78667,
+      "strength": 0.2778861,
+      "band": "High",
+      "dynamics": 0.7361116
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 3.0
+      },
+      "secs": 132.10667,
+      "strength": 0.5368233,
+      "band": "High",
+      "dynamics": 0.7964269
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 3.0
+      },
+      "secs": 132.23466,
+      "strength": 0.26159132,
+      "band": "Low",
+      "dynamics": 0.8276899
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 3.5
+      },
+      "secs": 132.45866,
+      "strength": 0.47821903,
+      "band": "High",
+      "dynamics": 0.8467461
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 3.5
+      },
+      "secs": 132.61867,
+      "strength": 0.2770021,
+      "band": "Low",
+      "dynamics": 0.8553498
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 4.0
+      },
+      "secs": 132.8,
+      "strength": 0.37742585,
+      "band": "Low",
+      "dynamics": 0.8709809
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 4.0
+      },
+      "secs": 132.992,
+      "strength": 0.26406917,
+      "band": "Low",
+      "dynamics": 0.86328244
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 4.5
+      },
+      "secs": 133.152,
+      "strength": 0.25135773,
+      "band": "High",
+      "dynamics": 0.84512806
+    },
+    {
+      "at": {
+        "bar": 48,
+        "beat": 4.5
+      },
+      "secs": 133.33333,
+      "strength": 0.30083507,
+      "band": "Low",
+      "dynamics": 0.8130715
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 1.0
+      },
+      "secs": 133.45067,
+      "strength": 0.19946435,
+      "band": "Low",
+      "dynamics": 0.7802838
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 1.5
+      },
+      "secs": 133.87733,
+      "strength": 0.16768771,
+      "band": "High",
+      "dynamics": 0.7148198
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 1.5
+      },
+      "secs": 134.03734,
+      "strength": 0.3360967,
+      "band": "High",
+      "dynamics": 0.71418095
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 2.0
+      },
+      "secs": 134.19733,
+      "strength": 0.4096804,
+      "band": "High",
+      "dynamics": 0.7322559
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 2.5
+      },
+      "secs": 134.54933,
+      "strength": 0.40612587,
+      "band": "High",
+      "dynamics": 0.79787654
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 3.0
+      },
+      "secs": 134.89067,
+      "strength": 0.30776918,
+      "band": "High",
+      "dynamics": 0.9097229
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 3.0
+      },
+      "secs": 134.99733,
+      "strength": 0.20567828,
+      "band": "High",
+      "dynamics": 0.94495785
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 3.5
+      },
+      "secs": 135.232,
+      "strength": 0.28307915,
+      "band": "High",
+      "dynamics": 0.97158074
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 3.5
+      },
+      "secs": 135.40266,
+      "strength": 0.17570159,
+      "band": "Mid",
+      "dynamics": 0.9726245
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 4.0
+      },
+      "secs": 135.584,
+      "strength": 0.52910006,
+      "band": "High",
+      "dynamics": 0.9412399
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 4.0
+      },
+      "secs": 135.76534,
+      "strength": 0.19724973,
+      "band": "Mid",
+      "dynamics": 0.89981884
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 4.5
+      },
+      "secs": 135.94667,
+      "strength": 0.29177272,
+      "band": "High",
+      "dynamics": 0.8196797
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 4.5
+      },
+      "secs": 136.10667,
+      "strength": 0.23566517,
+      "band": "Mid",
+      "dynamics": 0.7850086
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 1.0
+      },
+      "secs": 136.27733,
+      "strength": 0.5863932,
+      "band": "High",
+      "dynamics": 0.82846373
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 1.5
+      },
+      "secs": 136.62933,
+      "strength": 0.46633062,
+      "band": "Mid",
+      "dynamics": 0.9240122
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 2.0
+      },
+      "secs": 136.97067,
+      "strength": 0.32475024,
+      "band": "High",
+      "dynamics": 0.97911626
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 2.5
+      },
+      "secs": 137.32266,
+      "strength": 0.29737478,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 3.0
+      },
+      "secs": 137.70667,
+      "strength": 0.35919845,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 3.0
+      },
+      "secs": 137.80267,
+      "strength": 0.2098395,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 3.5
+      },
+      "secs": 138.13333,
+      "strength": 0.2656885,
+      "band": "Low",
+      "dynamics": 0.96485126
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 4.0
+      },
+      "secs": 138.22934,
+      "strength": 0.32179034,
+      "band": "Low",
+      "dynamics": 0.9178292
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 4.0
+      },
+      "secs": 138.34666,
+      "strength": 0.28407648,
+      "band": "High",
+      "dynamics": 0.8565464
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 4.5
+      },
+      "secs": 138.70934,
+      "strength": 0.29286647,
+      "band": "Low",
+      "dynamics": 0.6435414
+    },
+    {
+      "at": {
+        "bar": 50,
+        "beat": 4.5
+      },
+      "secs": 138.90134,
+      "strength": 0.48333505,
+      "band": "Low",
+      "dynamics": 0.5325525
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 1.0
+      },
+      "secs": 139.05066,
+      "strength": 0.14981575,
+      "band": "Low",
+      "dynamics": 0.44716567
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 1.5
+      },
+      "secs": 139.424,
+      "strength": 0.24408953,
+      "band": "High",
+      "dynamics": 0.32831722
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 2.0
+      },
+      "secs": 139.75467,
+      "strength": 0.5347578,
+      "band": "High",
+      "dynamics": 0.38561624
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 2.5
+      },
+      "secs": 140.10667,
+      "strength": 0.61116457,
+      "band": "High",
+      "dynamics": 0.4866355
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 2.5
+      },
+      "secs": 140.192,
+      "strength": 0.23802328,
+      "band": "Low",
+      "dynamics": 0.52478564
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 3.0
+      },
+      "secs": 140.37334,
+      "strength": 0.21762721,
+      "band": "Low",
+      "dynamics": 0.63868916
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 3.0
+      },
+      "secs": 140.46933,
+      "strength": 0.274405,
+      "band": "Low",
+      "dynamics": 0.721335
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 3.5
+      },
+      "secs": 140.8,
+      "strength": 0.34983587,
+      "band": "High",
+      "dynamics": 0.8216303
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 3.5
+      },
+      "secs": 140.93866,
+      "strength": 0.1959181,
+      "band": "Low",
+      "dynamics": 0.81698704
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 4.0
+      },
+      "secs": 141.152,
+      "strength": 0.3257404,
+      "band": "High",
+      "dynamics": 0.78096026
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 4.5
+      },
+      "secs": 141.49333,
+      "strength": 0.4322675,
+      "band": "Low",
+      "dynamics": 0.7085029
+    },
+    {
+      "at": {
+        "bar": 51,
+        "beat": 4.5
+      },
+      "secs": 141.664,
+      "strength": 0.30212057,
+      "band": "Mid",
+      "dynamics": 0.6450349
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 1.0
+      },
+      "secs": 141.92,
+      "strength": 0.18556353,
+      "band": "Low",
+      "dynamics": 0.55487496
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 1.5
+      },
+      "secs": 142.05867,
+      "strength": 0.15628535,
+      "band": "Mid",
+      "dynamics": 0.5078394
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 1.5
+      },
+      "secs": 142.19733,
+      "strength": 0.25394747,
+      "band": "High",
+      "dynamics": 0.48261353
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 1.5
+      },
+      "secs": 142.368,
+      "strength": 0.21896616,
+      "band": "High",
+      "dynamics": 0.47111765
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 2.0
+      },
+      "secs": 142.53867,
+      "strength": 0.30405965,
+      "band": "High",
+      "dynamics": 0.46558312
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 2.5
+      },
+      "secs": 142.89067,
+      "strength": 0.54892516,
+      "band": "High",
+      "dynamics": 0.46352693
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 3.0
+      },
+      "secs": 143.08267,
+      "strength": 0.31930986,
+      "band": "Mid",
+      "dynamics": 0.50363904
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 3.0
+      },
+      "secs": 143.232,
+      "strength": 0.70834196,
+      "band": "Low",
+      "dynamics": 0.53658754
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 3.0
+      },
+      "secs": 143.41333,
+      "strength": 0.22538385,
+      "band": "High",
+      "dynamics": 0.5570568
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 3.5
+      },
+      "secs": 143.584,
+      "strength": 0.63691694,
+      "band": "Low",
+      "dynamics": 0.5800062
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 3.5
+      },
+      "secs": 143.68,
+      "strength": 0.19989236,
+      "band": "Low",
+      "dynamics": 0.5963071
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 4.0
+      },
+      "secs": 143.936,
+      "strength": 0.35324156,
+      "band": "High",
+      "dynamics": 0.63160455
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 4.5
+      },
+      "secs": 144.27733,
+      "strength": 0.39686447,
+      "band": "Mid",
+      "dynamics": 0.65149146
+    },
+    {
+      "at": {
+        "bar": 52,
+        "beat": 4.5
+      },
+      "secs": 144.45866,
+      "strength": 0.29359782,
+      "band": "Low",
+      "dynamics": 0.63189375
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 1.0
+      },
+      "secs": 144.62933,
+      "strength": 0.30012086,
+      "band": "Low",
+      "dynamics": 0.60722727
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 1.5
+      },
+      "secs": 144.98134,
+      "strength": 0.38906342,
+      "band": "Mid",
+      "dynamics": 0.5655709
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 2.0
+      },
+      "secs": 145.32266,
+      "strength": 0.73929423,
+      "band": "High",
+      "dynamics": 0.62610245
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 2.5
+      },
+      "secs": 145.67467,
+      "strength": 0.54543644,
+      "band": "High",
+      "dynamics": 0.758744
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 3.0
+      },
+      "secs": 145.87733,
+      "strength": 0.23367745,
+      "band": "Low",
+      "dynamics": 0.857272
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 3.0
+      },
+      "secs": 146.016,
+      "strength": 0.7983224,
+      "band": "High",
+      "dynamics": 0.89925426
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 3.0
+      },
+      "secs": 146.112,
+      "strength": 0.1818221,
+      "band": "Low",
+      "dynamics": 0.9320028
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 3.5
+      },
+      "secs": 146.368,
+      "strength": 0.47923535,
+      "band": "High",
+      "dynamics": 0.8896538
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 3.5
+      },
+      "secs": 146.51733,
+      "strength": 0.28477815,
+      "band": "Low",
+      "dynamics": 0.8328793
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 4.0
+      },
+      "secs": 146.70934,
+      "strength": 0.4565747,
+      "band": "High",
+      "dynamics": 0.7811519
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 4.0
+      },
+      "secs": 146.784,
+      "strength": 0.18795483,
+      "band": "Low",
+      "dynamics": 0.7701533
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 4.5
+      },
+      "secs": 147.06134,
+      "strength": 0.4341938,
+      "band": "Low",
+      "dynamics": 0.70368475
+    },
+    {
+      "at": {
+        "bar": 53,
+        "beat": 4.5
+      },
+      "secs": 147.24266,
+      "strength": 0.3710706,
+      "band": "Low",
+      "dynamics": 0.6481953
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 1.0
+      },
+      "secs": 147.41333,
+      "strength": 0.23920621,
+      "band": "High",
+      "dynamics": 0.5879507
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 1.0
+      },
+      "secs": 147.584,
+      "strength": 0.19055536,
+      "band": "Mid",
+      "dynamics": 0.5288333
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 1.5
+      },
+      "secs": 147.76534,
+      "strength": 0.3013871,
+      "band": "High",
+      "dynamics": 0.48619065
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 1.5
+      },
+      "secs": 147.94667,
+      "strength": 0.16305749,
+      "band": "Mid",
+      "dynamics": 0.45877612
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 2.0
+      },
+      "secs": 148.10667,
+      "strength": 0.46346334,
+      "band": "High",
+      "dynamics": 0.45039922
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 2.5
+      },
+      "secs": 148.448,
+      "strength": 0.42466727,
+      "band": "High",
+      "dynamics": 0.45409882
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 3.0
+      },
+      "secs": 148.8,
+      "strength": 0.5136189,
+      "band": "Low",
+      "dynamics": 0.5226851
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 3.0
+      },
+      "secs": 148.896,
+      "strength": 0.23078561,
+      "band": "Low",
+      "dynamics": 0.5293796
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 3.0
+      },
+      "secs": 148.98134,
+      "strength": 0.28393143,
+      "band": "High",
+      "dynamics": 0.52860916
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 3.5
+      },
+      "secs": 149.14133,
+      "strength": 0.51934534,
+      "band": "Low",
+      "dynamics": 0.53644395
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 3.5
+      },
+      "secs": 149.312,
+      "strength": 0.41372913,
+      "band": "Low",
+      "dynamics": 0.54229766
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 4.0
+      },
+      "secs": 149.49333,
+      "strength": 0.42817262,
+      "band": "High",
+      "dynamics": 0.53884757
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 4.0
+      },
+      "secs": 149.58934,
+      "strength": 0.19685525,
+      "band": "High",
+      "dynamics": 0.5311027
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 4.5
+      },
+      "secs": 149.84534,
+      "strength": 0.4440852,
+      "band": "Mid",
+      "dynamics": 0.5237954
+    },
+    {
+      "at": {
+        "bar": 54,
+        "beat": 4.5
+      },
+      "secs": 149.96266,
+      "strength": 0.25346595,
+      "band": "Low",
+      "dynamics": 0.51706755
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 1.0
+      },
+      "secs": 150.112,
+      "strength": 0.26628694,
+      "band": "Low",
+      "dynamics": 0.5008587
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 1.0
+      },
+      "secs": 150.272,
+      "strength": 0.18136574,
+      "band": "Low",
+      "dynamics": 0.48600343
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 1.5
+      },
+      "secs": 150.56,
+      "strength": 0.19191162,
+      "band": "High",
+      "dynamics": 0.48224667
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 1.5
+      },
+      "secs": 150.72,
+      "strength": 0.18671063,
+      "band": "High",
+      "dynamics": 0.48515922
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 2.0
+      },
+      "secs": 150.80533,
+      "strength": 0.19740555,
+      "band": "High",
+      "dynamics": 0.4869726
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 2.0
+      },
+      "secs": 150.88,
+      "strength": 0.26663974,
+      "band": "High",
+      "dynamics": 0.4911477
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 2.5
+      },
+      "secs": 151.232,
+      "strength": 0.79957664,
+      "band": "High",
+      "dynamics": 0.52538353
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 2.5
+      },
+      "secs": 151.31734,
+      "strength": 0.25850666,
+      "band": "Low",
+      "dynamics": 0.5666096
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 3.0
+      },
+      "secs": 151.46666,
+      "strength": 0.3742414,
+      "band": "Low",
+      "dynamics": 0.6522523
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 3.0
+      },
+      "secs": 151.59467,
+      "strength": 0.35687718,
+      "band": "Low",
+      "dynamics": 0.7029222
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 3.0
+      },
+      "secs": 151.72267,
+      "strength": 0.35285383,
+      "band": "Low",
+      "dynamics": 0.6982102
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 3.5
+      },
+      "secs": 151.84,
+      "strength": 0.22802863,
+      "band": "Low",
+      "dynamics": 0.65528846
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 3.5
+      },
+      "secs": 152.04266,
+      "strength": 0.16743723,
+      "band": "Low",
+      "dynamics": 0.5393763
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 4.0
+      },
+      "secs": 152.16,
+      "strength": 0.17117386,
+      "band": "Low",
+      "dynamics": 0.47515106
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 4.0
+      },
+      "secs": 152.27733,
+      "strength": 0.2854042,
+      "band": "Low",
+      "dynamics": 0.42358154
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 4.5
+      },
+      "secs": 152.46933,
+      "strength": 0.18035346,
+      "band": "Low",
+      "dynamics": 0.3639835
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 4.5
+      },
+      "secs": 152.62933,
+      "strength": 0.1404127,
+      "band": "Mid",
+      "dynamics": 0.33588535
+    },
+    {
+      "at": {
+        "bar": 55,
+        "beat": 4.5
+      },
+      "secs": 152.768,
+      "strength": 0.16658793,
+      "band": "Low",
+      "dynamics": 0.32467294
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 1.0
+      },
+      "secs": 152.992,
+      "strength": 0.15503737,
+      "band": "Mid",
+      "dynamics": 0.34324056
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 1.5
+      },
+      "secs": 153.216,
+      "strength": 0.19281642,
+      "band": "Mid",
+      "dynamics": 0.3689727
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 1.5
+      },
+      "secs": 153.33333,
+      "strength": 0.14546053,
+      "band": "Mid",
+      "dynamics": 0.3656551
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 1.5
+      },
+      "secs": 153.41867,
+      "strength": 0.16844559,
+      "band": "Mid",
+      "dynamics": 0.36221722
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 2.0
+      },
+      "secs": 153.58934,
+      "strength": 0.14009193,
+      "band": "Mid",
+      "dynamics": 0.3576567
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 2.0
+      },
+      "secs": 153.80267,
+      "strength": 0.20305297,
+      "band": "Mid",
+      "dynamics": 0.36901307
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 2.5
+      },
+      "secs": 154.048,
+      "strength": 0.18586607,
+      "band": "Mid",
+      "dynamics": 0.37020022
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 2.5
+      },
+      "secs": 154.144,
+      "strength": 0.142781,
+      "band": "Mid",
+      "dynamics": 0.36623982
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 3.0
+      },
+      "secs": 154.24,
+      "strength": 0.111819096,
+      "band": "Mid",
+      "dynamics": 0.36136046
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 3.0
+      },
+      "secs": 154.41066,
+      "strength": 0.25819868,
+      "band": "Mid",
+      "dynamics": 0.37243852
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 3.0
+      },
+      "secs": 154.496,
+      "strength": 0.13485023,
+      "band": "High",
+      "dynamics": 0.3813522
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 4.0
+      },
+      "secs": 155.072,
+      "strength": 0.0905903,
+      "band": "Mid",
+      "dynamics": 0.35234016
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 4.5
+      },
+      "secs": 155.264,
+      "strength": 0.08452192,
+      "band": "Mid",
+      "dynamics": 0.32529464
+    },
+    {
+      "at": {
+        "bar": 56,
+        "beat": 4.5
+      },
+      "secs": 155.488,
+      "strength": 0.12684517,
+      "band": "Mid",
+      "dynamics": 0.31163627
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 1.0
+      },
+      "secs": 155.78667,
+      "strength": 0.074586466,
+      "band": "Mid",
+      "dynamics": 0.30269882
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 1.0
+      },
+      "secs": 155.904,
+      "strength": 0.074253365,
+      "band": "Mid",
+      "dynamics": 0.29257563
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 1.5
+      },
+      "secs": 156.10667,
+      "strength": 0.0911314,
+      "band": "High",
+      "dynamics": 0.2662112
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 2.0
+      },
+      "secs": 156.45866,
+      "strength": 0.13557427,
+      "band": "Mid",
+      "dynamics": 0.27319527
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 2.5
+      },
+      "secs": 156.97067,
+      "strength": 0.14762753,
+      "band": "High",
+      "dynamics": 0.30678567
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 3.0
+      },
+      "secs": 157.14133,
+      "strength": 0.14301103,
+      "band": "High",
+      "dynamics": 0.31710672
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 3.0
+      },
+      "secs": 157.22667,
+      "strength": 0.14028567,
+      "band": "Mid",
+      "dynamics": 0.32782307
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 3.5
+      },
+      "secs": 157.376,
+      "strength": 0.09507639,
+      "band": "Mid",
+      "dynamics": 0.33806887
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 3.5
+      },
+      "secs": 157.568,
+      "strength": 0.09850756,
+      "band": "Mid",
+      "dynamics": 0.3333406
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 4.0
+      },
+      "secs": 157.86667,
+      "strength": 0.30751655,
+      "band": "Mid",
+      "dynamics": 0.30902582
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 4.5
+      },
+      "secs": 158.03734,
+      "strength": 0.124223985,
+      "band": "Mid",
+      "dynamics": 0.30541864
+    },
+    {
+      "at": {
+        "bar": 57,
+        "beat": 4.5
+      },
+      "secs": 158.34666,
+      "strength": 0.114468694,
+      "band": "High",
+      "dynamics": 0.285084
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 1.0
+      },
+      "secs": 158.528,
+      "strength": 0.14255929,
+      "band": "High",
+      "dynamics": 0.28417748
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 1.0
+      },
+      "secs": 158.61333,
+      "strength": 0.11308609,
+      "band": "Mid",
+      "dynamics": 0.28536355
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 2.0
+      },
+      "secs": 159.30667,
+      "strength": 0.20730217,
+      "band": "Mid",
+      "dynamics": 0.39954293
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 2.5
+      },
+      "secs": 159.57333,
+      "strength": 0.20132098,
+      "band": "Mid",
+      "dynamics": 0.4873427
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 3.0
+      },
+      "secs": 159.92534,
+      "strength": 0.6780099,
+      "band": "Low",
+      "dynamics": 0.6875487
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 3.0
+      },
+      "secs": 160.01067,
+      "strength": 0.21513107,
+      "band": "Low",
+      "dynamics": 0.7308974
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 3.0
+      },
+      "secs": 160.096,
+      "strength": 0.1632988,
+      "band": "Low",
+      "dynamics": 0.7388763
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 3.5
+      },
+      "secs": 160.384,
+      "strength": 0.31258366,
+      "band": "Low",
+      "dynamics": 0.66177696
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 4.0
+      },
+      "secs": 160.61867,
+      "strength": 0.49272504,
+      "band": "High",
+      "dynamics": 0.60980153
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 4.5
+      },
+      "secs": 160.832,
+      "strength": 0.19268408,
+      "band": "Low",
+      "dynamics": 0.5713671
+    },
+    {
+      "at": {
+        "bar": 58,
+        "beat": 4.5
+      },
+      "secs": 161.152,
+      "strength": 0.27254757,
+      "band": "Low",
+      "dynamics": 0.5106433
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 1.0
+      },
+      "secs": 161.312,
+      "strength": 0.37310895,
+      "band": "High",
+      "dynamics": 0.5221089
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 1.5
+      },
+      "secs": 161.67467,
+      "strength": 0.21020843,
+      "band": "High",
+      "dynamics": 0.50583875
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 2.0
+      },
+      "secs": 162.02667,
+      "strength": 0.3164155,
+      "band": "Mid",
+      "dynamics": 0.5754647
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 3.0
+      },
+      "secs": 162.66667,
+      "strength": 0.22200386,
+      "band": "Low",
+      "dynamics": 0.88996786
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 3.0
+      },
+      "secs": 162.77333,
+      "strength": 0.24709418,
+      "band": "Low",
+      "dynamics": 0.96383786
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 3.5
+      },
+      "secs": 162.90134,
+      "strength": 0.2189862,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 3.5
+      },
+      "secs": 163.168,
+      "strength": 0.22781922,
+      "band": "Low",
+      "dynamics": 0.95614904
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 4.0
+      },
+      "secs": 163.31734,
+      "strength": 0.24159871,
+      "band": "Low",
+      "dynamics": 0.91541195
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 4.0
+      },
+      "secs": 163.40266,
+      "strength": 0.31952974,
+      "band": "High",
+      "dynamics": 0.91167045
+    },
+    {
+      "at": {
+        "bar": 59,
+        "beat": 4.5
+      },
+      "secs": 163.76534,
+      "strength": 0.16690889,
+      "band": "Low",
+      "dynamics": 0.8929804
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 1.0
+      },
+      "secs": 163.94667,
+      "strength": 0.20380342,
+      "band": "Low",
+      "dynamics": 0.8756377
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 1.0
+      },
+      "secs": 164.08533,
+      "strength": 0.16479686,
+      "band": "High",
+      "dynamics": 0.8708838
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 1.0
+      },
+      "secs": 164.21333,
+      "strength": 0.2334128,
+      "band": "Mid",
+      "dynamics": 0.8778424
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 2.0
+      },
+      "secs": 164.66133,
+      "strength": 0.27960485,
+      "band": "Mid",
+      "dynamics": 0.8488799
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 2.0
+      },
+      "secs": 164.78934,
+      "strength": 0.26857054,
+      "band": "High",
+      "dynamics": 0.8480627
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 2.5
+      },
+      "secs": 165.14133,
+      "strength": 0.20932761,
+      "band": "High",
+      "dynamics": 0.81687665
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 2.5
+      },
+      "secs": 165.33333,
+      "strength": 0.18294163,
+      "band": "Low",
+      "dynamics": 0.79173684
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 3.0
+      },
+      "secs": 165.48267,
+      "strength": 0.28250512,
+      "band": "High",
+      "dynamics": 0.81662804
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 3.5
+      },
+      "secs": 165.696,
+      "strength": 0.24583417,
+      "band": "Low",
+      "dynamics": 0.8545216
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 3.5
+      },
+      "secs": 165.83467,
+      "strength": 0.37698478,
+      "band": "High",
+      "dynamics": 0.8589935
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 4.0
+      },
+      "secs": 166.18666,
+      "strength": 0.36833075,
+      "band": "High",
+      "dynamics": 0.81321853
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 4.5
+      },
+      "secs": 166.528,
+      "strength": 0.26874852,
+      "band": "High",
+      "dynamics": 0.7982335
+    },
+    {
+      "at": {
+        "bar": 60,
+        "beat": 4.5
+      },
+      "secs": 166.624,
+      "strength": 0.21518025,
+      "band": "High",
+      "dynamics": 0.79861534
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 1.0
+      },
+      "secs": 166.73067,
+      "strength": 0.31141013,
+      "band": "Low",
+      "dynamics": 0.8030991
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 1.0
+      },
+      "secs": 166.90134,
+      "strength": 0.28031507,
+      "band": "High",
+      "dynamics": 0.78977674
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 1.5
+      },
+      "secs": 167.232,
+      "strength": 0.22018719,
+      "band": "High",
+      "dynamics": 0.7250157
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 1.5
+      },
+      "secs": 167.41333,
+      "strength": 0.25326094,
+      "band": "High",
+      "dynamics": 0.7287116
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 2.0
+      },
+      "secs": 167.56267,
+      "strength": 0.21118663,
+      "band": "High",
+      "dynamics": 0.76439244
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 2.5
+      },
+      "secs": 167.92534,
+      "strength": 0.21492258,
+      "band": "High",
+      "dynamics": 0.82515925
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 3.0
+      },
+      "secs": 168.26666,
+      "strength": 0.42025217,
+      "band": "High",
+      "dynamics": 0.8772295
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 3.0
+      },
+      "secs": 168.384,
+      "strength": 0.28371948,
+      "band": "Low",
+      "dynamics": 0.89436495
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 3.5
+      },
+      "secs": 168.61867,
+      "strength": 0.4376184,
+      "band": "High",
+      "dynamics": 0.89186954
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 3.5
+      },
+      "secs": 168.736,
+      "strength": 0.20779681,
+      "band": "Low",
+      "dynamics": 0.88026047
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 3.5
+      },
+      "secs": 168.81067,
+      "strength": 0.23197216,
+      "band": "Low",
+      "dynamics": 0.8676848
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 4.0
+      },
+      "secs": 168.97067,
+      "strength": 0.43952924,
+      "band": "High",
+      "dynamics": 0.8417642
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 4.5
+      },
+      "secs": 169.344,
+      "strength": 0.3884156,
+      "band": "Low",
+      "dynamics": 0.7875964
+    },
+    {
+      "at": {
+        "bar": 61,
+        "beat": 4.5
+      },
+      "secs": 169.49333,
+      "strength": 0.20854825,
+      "band": "Low",
+      "dynamics": 0.7545274
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 1.0
+      },
+      "secs": 169.62134,
+      "strength": 0.26641354,
+      "band": "Low",
+      "dynamics": 0.72105193
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 1.5
+      },
+      "secs": 169.86667,
+      "strength": 0.18103072,
+      "band": "Low",
+      "dynamics": 0.6462453
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 2.0
+      },
+      "secs": 170.34666,
+      "strength": 0.22595601,
+      "band": "High",
+      "dynamics": 0.7092891
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 2.0
+      },
+      "secs": 170.47467,
+      "strength": 0.17663595,
+      "band": "Mid",
+      "dynamics": 0.7545746
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 2.5
+      },
+      "secs": 170.70934,
+      "strength": 0.34274182,
+      "band": "High",
+      "dynamics": 0.8112734
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 2.5
+      },
+      "secs": 170.89067,
+      "strength": 0.17146616,
+      "band": "Mid",
+      "dynamics": 0.8698854
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 3.0
+      },
+      "secs": 171.05066,
+      "strength": 0.32544687,
+      "band": "Low",
+      "dynamics": 0.91052604
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 3.5
+      },
+      "secs": 171.28534,
+      "strength": 0.16252305,
+      "band": "Low",
+      "dynamics": 0.89393705
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 3.5
+      },
+      "secs": 171.47734,
+      "strength": 0.19133867,
+      "band": "Low",
+      "dynamics": 0.8281237
+    },
+    {
+      "at": {
+        "bar": 62,
+        "beat": 4.0
+      },
+      "secs": 171.75467,
+      "strength": 0.24080199,
+      "band": "Mid",
+      "dynamics": 0.76154983
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 1.0
+      },
+      "secs": 172.32,
+      "strength": 0.17736219,
+      "band": "Mid",
+      "dynamics": 0.7023671
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 1.0
+      },
+      "secs": 172.56534,
+      "strength": 0.22058217,
+      "band": "Mid",
+      "dynamics": 0.7313727
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 1.5
+      },
+      "secs": 172.78934,
+      "strength": 0.5600786,
+      "band": "High",
+      "dynamics": 0.75806713
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 2.0
+      },
+      "secs": 173.14133,
+      "strength": 0.29756764,
+      "band": "High",
+      "dynamics": 0.7901403
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 2.0
+      },
+      "secs": 173.32266,
+      "strength": 0.19211791,
+      "band": "Mid",
+      "dynamics": 0.8167774
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 2.5
+      },
+      "secs": 173.57866,
+      "strength": 0.19224216,
+      "band": "Mid",
+      "dynamics": 0.9368972
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 3.0
+      },
+      "secs": 173.86667,
+      "strength": 0.31895363,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 3.0
+      },
+      "secs": 174.00534,
+      "strength": 0.16147691,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 3.5
+      },
+      "secs": 174.16533,
+      "strength": 0.17675395,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 3.5
+      },
+      "secs": 174.304,
+      "strength": 0.21568501,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 4.0
+      },
+      "secs": 174.528,
+      "strength": 0.26516244,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 63,
+        "beat": 4.5
+      },
+      "secs": 174.88,
+      "strength": 0.20310815,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 1.0
+      },
+      "secs": 175.09334,
+      "strength": 0.41525388,
+      "band": "Low",
+      "dynamics": 0.9127761
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 1.0
+      },
+      "secs": 175.22133,
+      "strength": 0.22736648,
+      "band": "Low",
+      "dynamics": 0.8617896
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 1.0
+      },
+      "secs": 175.328,
+      "strength": 0.19436006,
+      "band": "Mid",
+      "dynamics": 0.82817566
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 1.5
+      },
+      "secs": 175.49867,
+      "strength": 0.18998839,
+      "band": "Low",
+      "dynamics": 0.77306426
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 2.0
+      },
+      "secs": 175.808,
+      "strength": 0.16729653,
+      "band": "Mid",
+      "dynamics": 0.71461254
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 2.0
+      },
+      "secs": 175.92534,
+      "strength": 0.3169221,
+      "band": "High",
+      "dynamics": 0.6970072
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 2.0
+      },
+      "secs": 176.01067,
+      "strength": 0.19142927,
+      "band": "High",
+      "dynamics": 0.6781097
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 2.5
+      },
+      "secs": 176.26666,
+      "strength": 0.28986758,
+      "band": "High",
+      "dynamics": 0.64964336
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 3.0
+      },
+      "secs": 176.62933,
+      "strength": 0.29420108,
+      "band": "High",
+      "dynamics": 0.77179384
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 3.0
+      },
+      "secs": 176.736,
+      "strength": 0.198639,
+      "band": "Low",
+      "dynamics": 0.8225289
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 3.5
+      },
+      "secs": 176.87466,
+      "strength": 0.18352903,
+      "band": "Low",
+      "dynamics": 0.8596655
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 3.5
+      },
+      "secs": 176.96,
+      "strength": 0.243884,
+      "band": "High",
+      "dynamics": 0.875987
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 3.5
+      },
+      "secs": 177.04533,
+      "strength": 0.23158406,
+      "band": "Low",
+      "dynamics": 0.8855684
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 4.5
+      },
+      "secs": 177.67467,
+      "strength": 0.17187163,
+      "band": "Low",
+      "dynamics": 0.8904778
+    },
+    {
+      "at": {
+        "bar": 64,
+        "beat": 4.5
+      },
+      "secs": 177.77066,
+      "strength": 0.3174542,
+      "band": "Low",
+      "dynamics": 0.87532383
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 1.0
+      },
+      "secs": 177.856,
+      "strength": 0.18594019,
+      "band": "Low",
+      "dynamics": 0.87053436
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 1.0
+      },
+      "secs": 177.96266,
+      "strength": 0.28656995,
+      "band": "Low",
+      "dynamics": 0.8563459
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 1.5
+      },
+      "secs": 178.35733,
+      "strength": 0.34795508,
+      "band": "High",
+      "dynamics": 0.8434959
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 1.5
+      },
+      "secs": 178.53867,
+      "strength": 0.27858806,
+      "band": "High",
+      "dynamics": 0.8360922
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 2.0
+      },
+      "secs": 178.69867,
+      "strength": 0.36248738,
+      "band": "High",
+      "dynamics": 0.8331736
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 2.0
+      },
+      "secs": 178.89067,
+      "strength": 0.23113593,
+      "band": "Mid",
+      "dynamics": 0.81429845
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 2.5
+      },
+      "secs": 179.05066,
+      "strength": 0.1736789,
+      "band": "High",
+      "dynamics": 0.79777473
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 3.0
+      },
+      "secs": 179.40266,
+      "strength": 0.47878075,
+      "band": "High",
+      "dynamics": 0.86217993
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 3.0
+      },
+      "secs": 179.49867,
+      "strength": 0.18869044,
+      "band": "High",
+      "dynamics": 0.905341
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 3.5
+      },
+      "secs": 179.744,
+      "strength": 0.21652299,
+      "band": "High",
+      "dynamics": 0.9517941
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 3.5
+      },
+      "secs": 179.85066,
+      "strength": 0.1976439,
+      "band": "High",
+      "dynamics": 0.95179427
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 4.0
+      },
+      "secs": 179.94667,
+      "strength": 0.1781455,
+      "band": "High",
+      "dynamics": 0.9372365
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 4.0
+      },
+      "secs": 180.096,
+      "strength": 0.47927946,
+      "band": "Low",
+      "dynamics": 0.91530466
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 4.5
+      },
+      "secs": 180.43733,
+      "strength": 0.3609733,
+      "band": "High",
+      "dynamics": 0.8062239
+    },
+    {
+      "at": {
+        "bar": 65,
+        "beat": 4.5
+      },
+      "secs": 180.62933,
+      "strength": 0.26579687,
+      "band": "Mid",
+      "dynamics": 0.73308825
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 1.0
+      },
+      "secs": 180.736,
+      "strength": 0.38800237,
+      "band": "Low",
+      "dynamics": 0.68927103
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 1.0
+      },
+      "secs": 180.97067,
+      "strength": 0.21299496,
+      "band": "Mid",
+      "dynamics": 0.5932875
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 1.5
+      },
+      "secs": 181.14133,
+      "strength": 0.23425052,
+      "band": "High",
+      "dynamics": 0.548167
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 2.0
+      },
+      "secs": 181.48267,
+      "strength": 0.5714268,
+      "band": "High",
+      "dynamics": 0.570524
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 2.0
+      },
+      "secs": 181.67467,
+      "strength": 0.24606915,
+      "band": "Mid",
+      "dynamics": 0.61107266
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 2.5
+      },
+      "secs": 181.83467,
+      "strength": 0.35011762,
+      "band": "High",
+      "dynamics": 0.64561313
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 3.0
+      },
+      "secs": 182.176,
+      "strength": 0.7019641,
+      "band": "High",
+      "dynamics": 0.793319
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 3.0
+      },
+      "secs": 182.35733,
+      "strength": 0.30685616,
+      "band": "High",
+      "dynamics": 0.8632477
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 3.5
+      },
+      "secs": 182.528,
+      "strength": 0.28236026,
+      "band": "High",
+      "dynamics": 0.90013367
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 3.5
+      },
+      "secs": 182.61333,
+      "strength": 0.22934815,
+      "band": "Mid",
+      "dynamics": 0.91096
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 3.5
+      },
+      "secs": 182.70934,
+      "strength": 0.20887339,
+      "band": "Low",
+      "dynamics": 0.9090855
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 4.0
+      },
+      "secs": 182.89067,
+      "strength": 0.25278717,
+      "band": "High",
+      "dynamics": 0.9121832
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 4.5
+      },
+      "secs": 183.09334,
+      "strength": 0.26393148,
+      "band": "High",
+      "dynamics": 0.88995945
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 4.5
+      },
+      "secs": 183.22133,
+      "strength": 0.58537257,
+      "band": "High",
+      "dynamics": 0.861304
+    },
+    {
+      "at": {
+        "bar": 66,
+        "beat": 4.5
+      },
+      "secs": 183.40266,
+      "strength": 0.32429433,
+      "band": "Low",
+      "dynamics": 0.86554635
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 1.0
+      },
+      "secs": 183.60533,
+      "strength": 0.30866823,
+      "band": "Mid",
+      "dynamics": 0.91884804
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 1.0
+      },
+      "secs": 183.75467,
+      "strength": 0.2249148,
+      "band": "Mid",
+      "dynamics": 0.96025234
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 1.5
+      },
+      "secs": 183.94667,
+      "strength": 0.30436867,
+      "band": "Low",
+      "dynamics": 0.99719954
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 1.5
+      },
+      "secs": 184.10667,
+      "strength": 0.21686094,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 2.0
+      },
+      "secs": 184.26666,
+      "strength": 0.60299987,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 2.5
+      },
+      "secs": 184.62933,
+      "strength": 0.23776282,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 3.0
+      },
+      "secs": 184.90666,
+      "strength": 0.20898941,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 3.0
+      },
+      "secs": 185.04533,
+      "strength": 0.2983525,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 3.0
+      },
+      "secs": 185.13066,
+      "strength": 0.19591129,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 3.5
+      },
+      "secs": 185.312,
+      "strength": 0.30803546,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 3.5
+      },
+      "secs": 185.44,
+      "strength": 0.2943815,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 4.0
+      },
+      "secs": 185.65334,
+      "strength": 0.27120996,
+      "band": "High",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 4.5
+      },
+      "secs": 186.00534,
+      "strength": 0.22807522,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 67,
+        "beat": 4.5
+      },
+      "secs": 186.18666,
+      "strength": 0.22846343,
+      "band": "Low",
+      "dynamics": 0.93738467
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 1.0
+      },
+      "secs": 186.336,
+      "strength": 0.19673866,
+      "band": "Low",
+      "dynamics": 0.87540925
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 1.5
+      },
+      "secs": 186.56,
+      "strength": 0.17424385,
+      "band": "Mid",
+      "dynamics": 0.7801022
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 1.5
+      },
+      "secs": 186.72,
+      "strength": 0.21477994,
+      "band": "High",
+      "dynamics": 0.72820485
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 1.5
+      },
+      "secs": 186.89067,
+      "strength": 0.24380593,
+      "band": "High",
+      "dynamics": 0.7037555
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 2.0
+      },
+      "secs": 187.05066,
+      "strength": 0.28624433,
+      "band": "High",
+      "dynamics": 0.6950164
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 2.0
+      },
+      "secs": 187.136,
+      "strength": 0.2153177,
+      "band": "Mid",
+      "dynamics": 0.68323356
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 2.0
+      },
+      "secs": 187.232,
+      "strength": 0.24821587,
+      "band": "High",
+      "dynamics": 0.6683814
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 2.5
+      },
+      "secs": 187.40266,
+      "strength": 0.27549145,
+      "band": "High",
+      "dynamics": 0.6628012
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 3.0
+      },
+      "secs": 187.744,
+      "strength": 0.21841104,
+      "band": "High",
+      "dynamics": 0.7518874
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 3.5
+      },
+      "secs": 187.97867,
+      "strength": 0.20933142,
+      "band": "High",
+      "dynamics": 0.8346814
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 3.5
+      },
+      "secs": 188.128,
+      "strength": 0.30508357,
+      "band": "Low",
+      "dynamics": 0.8701147
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 4.0
+      },
+      "secs": 188.34134,
+      "strength": 0.20283705,
+      "band": "Low",
+      "dynamics": 0.87839854
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 4.0
+      },
+      "secs": 188.43733,
+      "strength": 0.2832008,
+      "band": "High",
+      "dynamics": 0.88828367
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 4.5
+      },
+      "secs": 188.78934,
+      "strength": 0.26606262,
+      "band": "High",
+      "dynamics": 0.9084
+    },
+    {
+      "at": {
+        "bar": 68,
+        "beat": 4.5
+      },
+      "secs": 188.88533,
+      "strength": 0.21992141,
+      "band": "High",
+      "dynamics": 0.90354615
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 1.0
+      },
+      "secs": 189.04533,
+      "strength": 0.20021541,
+      "band": "Mid",
+      "dynamics": 0.8877302
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 1.5
+      },
+      "secs": 189.48267,
+      "strength": 0.24847752,
+      "band": "High",
+      "dynamics": 0.8047027
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 2.0
+      },
+      "secs": 189.824,
+      "strength": 0.2923062,
+      "band": "High",
+      "dynamics": 0.7536263
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 2.0
+      },
+      "secs": 190.016,
+      "strength": 0.18086348,
+      "band": "High",
+      "dynamics": 0.71332526
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 2.5
+      },
+      "secs": 190.176,
+      "strength": 0.29019758,
+      "band": "High",
+      "dynamics": 0.69799435
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 2.5
+      },
+      "secs": 190.35733,
+      "strength": 0.20046079,
+      "band": "Low",
+      "dynamics": 0.7035188
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 3.0
+      },
+      "secs": 190.528,
+      "strength": 0.6170996,
+      "band": "High",
+      "dynamics": 0.76244915
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 3.5
+      },
+      "secs": 190.73067,
+      "strength": 0.21519671,
+      "band": "Low",
+      "dynamics": 0.82305455
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 3.5
+      },
+      "secs": 190.86934,
+      "strength": 0.31340858,
+      "band": "High",
+      "dynamics": 0.8470546
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 3.5
+      },
+      "secs": 190.98666,
+      "strength": 0.27169475,
+      "band": "Low",
+      "dynamics": 0.857506
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 4.0
+      },
+      "secs": 191.22133,
+      "strength": 0.3181896,
+      "band": "High",
+      "dynamics": 0.84814286
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 4.5
+      },
+      "secs": 191.43466,
+      "strength": 0.19266923,
+      "band": "High",
+      "dynamics": 0.81888914
+    },
+    {
+      "at": {
+        "bar": 69,
+        "beat": 4.5
+      },
+      "secs": 191.57333,
+      "strength": 0.2193973,
+      "band": "High",
+      "dynamics": 0.8071848
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 1.0
+      },
+      "secs": 191.86133,
+      "strength": 0.2213709,
+      "band": "Low",
+      "dynamics": 0.76612747
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 1.5
+      },
+      "secs": 192.26666,
+      "strength": 0.22367463,
+      "band": "High",
+      "dynamics": 0.7107325
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 1.5
+      },
+      "secs": 192.43733,
+      "strength": 0.16570395,
+      "band": "High",
+      "dynamics": 0.7143815
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 2.0
+      },
+      "secs": 192.608,
+      "strength": 0.52148116,
+      "band": "High",
+      "dynamics": 0.7297043
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 2.0
+      },
+      "secs": 192.8,
+      "strength": 0.27459002,
+      "band": "High",
+      "dynamics": 0.7590813
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 2.5
+      },
+      "secs": 192.96,
+      "strength": 0.26757053,
+      "band": "High",
+      "dynamics": 0.78703576
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 3.0
+      },
+      "secs": 193.184,
+      "strength": 0.24267364,
+      "band": "High",
+      "dynamics": 0.8398487
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 3.0
+      },
+      "secs": 193.30133,
+      "strength": 0.21536466,
+      "band": "High",
+      "dynamics": 0.88380176
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 3.5
+      },
+      "secs": 193.65334,
+      "strength": 0.36314186,
+      "band": "High",
+      "dynamics": 0.9162391
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 3.5
+      },
+      "secs": 193.81334,
+      "strength": 0.26624793,
+      "band": "Mid",
+      "dynamics": 0.9056733
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 4.0
+      },
+      "secs": 194.00534,
+      "strength": 0.37418878,
+      "band": "High",
+      "dynamics": 0.87419415
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 4.0
+      },
+      "secs": 194.15466,
+      "strength": 0.2545874,
+      "band": "Mid",
+      "dynamics": 0.8309664
+    },
+    {
+      "at": {
+        "bar": 70,
+        "beat": 4.5
+      },
+      "secs": 194.31467,
+      "strength": 0.2073142,
+      "band": "Mid",
+      "dynamics": 0.73004115
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 1.0
+      },
+      "secs": 194.69867,
+      "strength": 0.9142437,
+      "band": "High",
+      "dynamics": 0.7212052
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 1.0
+      },
+      "secs": 194.848,
+      "strength": 0.25194803,
+      "band": "Mid",
+      "dynamics": 0.8169717
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 1.5
+      },
+      "secs": 195.04,
+      "strength": 0.29993108,
+      "band": "High",
+      "dynamics": 0.8816389
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 1.5
+      },
+      "secs": 195.168,
+      "strength": 0.18313974,
+      "band": "Mid",
+      "dynamics": 0.9260722
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 2.0
+      },
+      "secs": 195.392,
+      "strength": 0.4462131,
+      "band": "High",
+      "dynamics": 0.9635009
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 2.0
+      },
+      "secs": 195.50934,
+      "strength": 0.24619165,
+      "band": "Mid",
+      "dynamics": 0.9978729
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 2.5
+      },
+      "secs": 195.744,
+      "strength": 0.28311253,
+      "band": "Mid",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 3.0
+      },
+      "secs": 196.10667,
+      "strength": 0.28561658,
+      "band": "Low",
+      "dynamics": 1.0
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 3.0
+      },
+      "secs": 196.26666,
+      "strength": 0.30086082,
+      "band": "Low",
+      "dynamics": 0.9580519
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 3.5
+      },
+      "secs": 196.40533,
+      "strength": 0.2598705,
+      "band": "Low",
+      "dynamics": 0.8334542
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 3.5
+      },
+      "secs": 196.512,
+      "strength": 0.24559318,
+      "band": "Low",
+      "dynamics": 0.7284939
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 4.0
+      },
+      "secs": 196.75734,
+      "strength": 0.30003026,
+      "band": "Low",
+      "dynamics": 0.52030164
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 4.0
+      },
+      "secs": 196.91733,
+      "strength": 0.20313358,
+      "band": "Mid",
+      "dynamics": 0.4254125
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 4.5
+      },
+      "secs": 197.04533,
+      "strength": 0.18083315,
+      "band": "Low",
+      "dynamics": 0.35091063
+    },
+    {
+      "at": {
+        "bar": 71,
+        "beat": 4.5
+      },
+      "secs": 197.14133,
+      "strength": 0.15394814,
+      "band": "Mid",
+      "dynamics": 0.29609683
+    },
+    {
+      "at": {
+        "bar": 72,
+        "beat": 1.0
+      },
+      "secs": 197.408,
+      "strength": 0.104195595,
+      "band": "Low",
+      "dynamics": 0.18350123
+    },
+    {
+      "at": {
+        "bar": 72,
+        "beat": 1.0
+      },
+      "secs": 197.55733,
+      "strength": 0.10826949,
+      "band": "Mid",
+      "dynamics": 0.14250405
+    },
+    {
+      "at": {
+        "bar": 72,
+        "beat": 1.5
+      },
+      "secs": 197.73866,
+      "strength": 0.08114282,
+      "band": "Mid",
+      "dynamics": 0.10430083
+    },
+    {
+      "at": {
+        "bar": 72,
+        "beat": 1.5
+      },
+      "secs": 197.89867,
+      "strength": 0.059351645,
+      "band": "Low",
+      "dynamics": 0.07742478
+    },
+    {
+      "at": {
+        "bar": 72,
+        "beat": 2.0
+      },
+      "secs": 198.112,
+      "strength": 0.048029386,
+      "band": "Low",
+      "dynamics": 0.0518568
+    },
+    {
+      "at": {
+        "bar": 72,
+        "beat": 2.0
+      },
+      "secs": 198.26134,
+      "strength": 0.03999697,
+      "band": "Low",
+      "dynamics": 0.0394724
+    },
+    {
+      "at": {
+        "bar": 72,
+        "beat": 2.5
+      },
+      "secs": 198.42134,
+      "strength": 0.043724164,
+      "band": "Low",
+      "dynamics": 0.029263834
+    },
+    {
+      "at": {
+        "bar": 72,
+        "beat": 3.0
+      },
+      "secs": 198.848,
+      "strength": 0.017688118,
+      "band": "Low",
+      "dynamics": 0.01264218
+    },
+    {
+      "at": {
+        "bar": 72,
+        "beat": 3.5
+      },
+      "secs": 199.30667,
+      "strength": 0.0070174932,
+      "band": "Low",
+      "dynamics": 0.004838615
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 2.5
+      },
+      "secs": 201.32266,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.00002197207
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 2.5
+      },
+      "secs": 201.408,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.000017325603
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 2.5
+      },
+      "secs": 201.49333,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.000013714135
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 3.0
+      },
+      "secs": 201.57866,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.000010921926
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 3.0
+      },
+      "secs": 201.664,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.000008782173
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 3.0
+      },
+      "secs": 201.74933,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.0000071670497
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 3.0
+      },
+      "secs": 201.83467,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.0000059800736
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 3.5
+      },
+      "secs": 201.92,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.000005150335
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 3.5
+      },
+      "secs": 202.00534,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.0000046282685
+    },
+    {
+      "at": {
+        "bar": 73,
+        "beat": 3.5
+      },
+      "secs": 202.09067,
+      "strength": 0.0,
+      "band": "High",
+      "dynamics": 0.0000043826853
+    }
+  ],
+  "dynamics_by_bar": [
+    0.05436797,
+    0.121239156,
+    0.12280046,
+    0.52472913,
+    0.9066881,
+    0.5219108,
+    0.86498475,
+    0.5305042,
+    0.6780472,
+    0.570254,
+    0.53345174,
+    0.6237404,
+    0.7827632,
+    0.5323116,
+    0.6077595,
+    0.59985995,
+    0.83513045,
+    0.58147013,
+    0.541687,
+    0.6119176,
+    1.0,
+    0.6962454,
+    0.66074,
+    0.8284775,
+    1.0,
+    0.69186294,
+    0.7003443,
+    0.9297677,
+    1.0,
+    0.55262893,
+    0.7042408,
+    0.5760796,
+    0.6709608,
+    0.74772435,
+    0.6220192,
+    0.6733456,
+    0.6675731,
+    0.8720335,
+    0.6574704,
+    0.67934644,
+    0.76598656,
+    1.0,
+    0.7109118,
+    0.6716129,
+    0.8699124,
+    1.0,
+    0.7290042,
+    0.804726,
+    0.91941404,
+    1.0,
+    0.7240085,
+    0.5423731,
+    0.909642,
+    0.52578485,
+    0.70465136,
+    0.3673823,
+    0.31990138,
+    0.7032918,
+    0.9359108,
+    0.8256806,
+    0.88342154,
+    0.9148824,
+    1.0,
+    0.7748138,
+    0.8697863,
+    0.8073045,
+    1.0,
+    0.7620794,
+    0.77006066,
+    0.89448655,
+    1.0,
+    0.011702923,
+    0.000008675472,
+    0.0000043583764,
+    0.0000043583764
+  ]
+}

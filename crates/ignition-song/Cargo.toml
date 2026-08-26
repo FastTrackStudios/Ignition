@@ -35,6 +35,9 @@ name = "authorshow"
 name = "lyrics"
 
 [[bin]]
+name = "hits"
+
+[[bin]]
 name = "playsong"
 required-features = ["play"]
 
@@ -47,6 +50,9 @@ daw-proto = { path = "../../../FastTrackStudio/crates/daw/proto", optional = tru
 # file has no business costing. Syllable timing will come from sync
 # later and can pay for itself then.
 keyflow-proto = { path = "../../../FastTrackStudio/crates/keyflow/keyflow-proto" }
+# Offline hit detection, and the decoder to feed it.
+hit-detect-dsp = { path = "../../../FastTrackStudio/features/fx/hit-detect/hit-detect-dsp" }
+fts-sample = { path = "../../../FastTrackStudio/crates/audiocore/fts-sample", default-features = false, features = ["decode-compressed"] }
 anyhow = "1"
 serde.workspace = true
 serde_json.workspace = true

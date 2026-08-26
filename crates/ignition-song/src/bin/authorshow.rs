@@ -16,6 +16,7 @@
 //! gap travelling across the ceiling, the thing their docs point out
 //! that forward chasing cannot do — and the bridge **bounces**.
 
+use ignition_song::hits::{Hit, HitBand, Hits};
 use ignition_core::preset::Ref;
 use ignition_core::selection::{Axis, Cmp, Dir, Order, Where};
 use ignition_core::{
@@ -24,11 +25,31 @@ use ignition_core::{
 };
 
 fn main() -> anyhow::Result<()> {
-    let path = std::env::args()
-        .nth(1)
-        .ok_or_else(|| anyhow::anyhow!("usage: authorshow <project file>"))?;
+    let mut args = std::env::args().skip(1);
+    let path = args
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("usage: authorshow <project file> [hits.json]"))?;
     let song = ignition_song::load(&path)?;
-    let list = author(&song);
+    let mut list = author(&song);
+
+    // Hits are optional, and the show is complete without them. The
+    // section looks and the chases are the show; accents punctuate it.
+    // Keeping them separable means a re-analysis cannot break a working
+    // show, and the same authored show runs for a song nobody has
+    // analysed yet.
+    if let Some(hits_path) = args.next() {
+        let hits: Hits = serde_json::from_str(&std::fs::read_to_string(&hits_path)?)?;
+        let accents = accents(&song, &hits);
+        eprintln!(
+            "{} accent cues from {} hits",
+            accents.len() / 2,
+            hits.hits.len()
+        );
+        list.cues.extend(accents);
+        list.cues
+            .sort_by(|x, y| x.at.partial_cmp(&y.at).unwrap_or(std::cmp::Ordering::Equal));
+    }
+
     println!("{}", serde_json::to_string_pretty(&list)?);
     Ok(())
 }
@@ -441,4 +462,163 @@ fn author(song: &SongMap) -> CueList {
         name: song.name.clone(),
         cues: a.cues,
     }
+}
+
+// ── accents, from the detected hits ───────────────────────────────────
+
+/// How hard a hit must be before it earns its own cue.
+///
+/// High deliberately. The detector finds about a thousand hits in this
+/// song and nearly all of them are real — hats, ghost notes, the
+/// eighth-note pulse. None of those want a light cue. A chase already
+/// carries the pulse, running off the `Song` speed master, and bumping
+/// on every eighth on top of that reads as flicker rather than accent.
+/// What a bump is *for* is the handful of moments the whole band hits
+/// together, and there are a dozen or so of those in any pop song.
+const ACCENT: f32 = 0.72;
+
+/// Beats of quiet either side for a hit to count as isolated.
+///
+/// A stab in a breakdown is worth the whole rig; the same strength
+/// inside a chorus is just the chorus being loud. Isolation is what
+/// separates them, and the detector cannot — it has no idea what a
+/// breakdown is — so it is decided here, from the neighbours.
+const ISOLATION_BEATS: f64 = 1.5;
+
+/// How strong a neighbour has to be to spoil a hit's isolation.
+///
+/// Calibrated against this song rather than guessed, because the first
+/// guess was wrong in a way that hid itself: at 0.35 *nothing* in the
+/// track qualified as isolated, so the whole-rig stab branch was dead
+/// code that still looked reasonable. At 0.5 three moments qualify, at
+/// 0.6 eight. Three full-rig hits in a three-minute pop song is about
+/// right — a stab that happens eight times is not a stab any more.
+const NEIGHBOUR: f32 = 0.5;
+
+/// Bump cues on the song's biggest hits.
+///
+/// Each accent is a pair: a hard snap up, and a recovery a beat later.
+/// The cue system tracks and has no one-shot envelope — a two-step
+/// recipe would loop, which is a strobe rather than a bump — so a bump
+/// is spelled the way an operator busks it, as GO and GO again.
+///
+/// Both are `·`-named and therefore non-blocking, so an accent adds to
+/// whatever section look is running rather than replacing it. That is
+/// what lets this be generated separately from the show: it never has to
+/// know what it is landing on top of.
+fn accents(song: &SongMap, hits: &Hits) -> Vec<Cue> {
+    let mut chosen: Vec<&Hit> = Vec::new();
+    for hit in &hits.hits {
+        if hit.strength < ACCENT {
+            continue;
+        }
+        // One bump per moment. A band stab fires the detector more than
+        // once, and two cues at the same position would fight over the
+        // same fixtures at the same instant.
+        if chosen
+            .last()
+            .is_some_and(|last| beats_between(song, last.at, hit.at) < 1.0)
+        {
+            continue;
+        }
+        chosen.push(hit);
+    }
+
+    let mut cues = Vec::new();
+    for (i, hit) in chosen.iter().enumerate() {
+        let isolated = is_isolated(song, hits, hit);
+        // What the hit *is* decides what it lights, which is the point
+        // of classifying the band at all. A kick is felt low and wide,
+        // so it takes the floor strips and the back wall; a cymbal is
+        // bright and overhead, so it takes the ceiling. Lighting both
+        // the same way throws away the one piece of information the
+        // detector worked hardest for.
+        let mut targets = match hit.band {
+            HitBand::Low => vec![strips(), back()],
+            HitBand::Mid => vec![ceiling(), back()],
+            HitBand::High => vec![ceiling()],
+        };
+        // An isolated stab gets the whole rig — that is the band
+        // stopping together, and it should read as the room stopping
+        // with them. A hit inside a busy chorus gets only its own
+        // fixtures, or it obliterates the look it is punctuating.
+        let depth = if isolated {
+            targets = vec![ceiling(), strips(), back()];
+            0.55
+        } else {
+            0.30
+        };
+        // Two decimals: at eighth resolution "6.4" and "6.3.50" are
+        // different places, and a name that rounds one onto the other
+        // makes the cue list lie about where its own cue is.
+        let name = format!(
+            "· hit {}.{:.2} {}",
+            hit.at.bar,
+            hit.at.beat,
+            if isolated { "stab" } else { "accent" }
+        );
+        let bpm = song.tempo.at(hit.at).bpm;
+        cues.push(Cue {
+            name: name.clone(),
+            fade_secs: 0.0,
+            values: Vec::new(),
+            recipes: targets
+                .iter()
+                .map(|t| bump(t.clone(), depth * hit.strength))
+                .collect(),
+            block: false,
+            at: Some(hit.at),
+        });
+        // Recover a beat later — unless the next accent is already
+        // there. Emitting both would put a zero and a lift at the same
+        // position, and which survived would come down to sort order:
+        // the new bump silently cancelled by the previous hit's
+        // recovery, on the beat where it mattered most.
+        let out_at = after(song, hit.at, 1.0);
+        if chosen
+            .get(i + 1)
+            .is_some_and(|next| beats_between(song, out_at, next.at).abs() < 0.25)
+        {
+            continue;
+        }
+        cues.push(Cue {
+            name: format!("{name} out"),
+            // Recovery is a fade, not a snap: an instant drop reads as
+            // the light having failed rather than as the hit ending.
+            fade_secs: (0.5 * 60.0 / bpm) as f32,
+            values: Vec::new(),
+            recipes: targets.iter().map(|t| bump(t.clone(), 0.0)).collect(),
+            block: false,
+            at: Some(out_at),
+        });
+    }
+    cues
+}
+
+/// The lift itself — a positive `Delta`, so it adds to the running look
+/// and leaves its colour alone: the same layering rule the chases use.
+fn bump(target: Selection, depth: f32) -> Recipe {
+    Recipe::new(target, RecipeApply::Delta(vec![(Attribute::Dimmer, depth)]))
+}
+
+/// Is this hit standing on its own?
+fn is_isolated(song: &SongMap, hits: &Hits, hit: &Hit) -> bool {
+    !hits.hits.iter().any(|other| {
+        other.at != hit.at
+            && other.strength > NEIGHBOUR
+            && beats_between(song, other.at, hit.at).abs() < ISOLATION_BEATS
+    })
+}
+
+/// Signed distance between two positions, in beats.
+fn beats_between(song: &SongMap, from: Bars, to: Bars) -> f64 {
+    let bpm = song.tempo.at(from).bpm;
+    (song.tempo.seconds_at(to) - song.tempo.seconds_at(from)) * bpm / 60.0
+}
+
+/// `beats` past a position.
+fn after(song: &SongMap, at: Bars, beats: f64) -> Bars {
+    let bpm = song.tempo.at(at).bpm;
+    song.tempo
+        .position_at(song.tempo.seconds_at(at) + beats * 60.0 / bpm)
 }
