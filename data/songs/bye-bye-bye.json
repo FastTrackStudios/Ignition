@@ -478,7 +478,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Group": "Back Wall Pars"
           },
           "steps": [
             {
@@ -487,7 +487,7 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      0.08
+                      0.1
                     ]
                   ]
                 }
@@ -502,7 +502,7 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      0.08
+                      0.1
                     ]
                   ]
                 }
@@ -532,7 +532,7 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      0.08
+                      0.1
                     ]
                   ]
                 }
@@ -547,7 +547,7 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      0.08
+                      0.1
                     ]
                   ]
                 }
@@ -1030,7 +1030,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Group": "Back Wall Pars"
           },
           "steps": [
             {
@@ -1039,7 +1039,7 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      0.08
+                      0.1
                     ]
                   ]
                 }
@@ -1054,7 +1054,7 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      0.08
+                      0.1
                     ]
                   ]
                 }
@@ -4130,7 +4130,7 @@
         },
         {
           "target": {
-            "Group": "Strips All"
+            "Group": "Back Wall Pars"
           },
           "steps": [
             {
@@ -4139,7 +4139,7 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      0.08
+                      0.1
                     ]
                   ]
                 }
@@ -4154,7 +4154,7 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      0.08
+                      0.1
                     ]
                   ]
                 }

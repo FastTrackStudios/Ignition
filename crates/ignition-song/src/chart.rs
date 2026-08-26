@@ -51,14 +51,29 @@ pub const TRACK: &str = "HITS";
 /// The `Connected` marker pitch.
 const CONNECTED: u8 = 96;
 
-/// What kind of hit this is.
+/// How big a hit is.
+///
+/// These are **intensity tiers, not instruments**, despite two of them
+/// being named after drums. The names come from the MIDI note names on
+/// the track, and are kept so the code says what REAPER shows — but
+/// `Kick` does not mean "every kick drum in the song" and never did.
+/// Cody uses it for a soft accent, placed where one is wanted, which the
+/// chart bears out: forty-six of them in nineteen bars with long
+/// stretches carrying none, against a snare that runs two to the bar for
+/// fifty-six bars straight.
+///
+/// Reading them as a drum transcription is the mistake to avoid. It
+/// leads to lighting a `Kick` low and heavy because that is where a bass
+/// drum sits, when what was actually asked for is the gentlest thing in
+/// the vocabulary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HitClass {
+    /// The softest tier — a light touch, not a bass drum.
     Kick,
+    /// A light accent. In this chart it runs as the backbeat.
     Snare,
-    /// The three intensity tiers. Separate from Kick/Snare because they
-    /// describe the *whole band* hitting, not one drum: a "high hit" is
-    /// the moment everything lands together, whatever played it.
+    /// The band hits: the whole group landing together, whatever played
+    /// it.
     Low,
     Medium,
     High,
@@ -100,12 +115,11 @@ impl HitClass {
 
     /// How much of the rig this class is worth, 0..1.
     ///
-    /// Kick and snare are deliberately small. They are accents, not
-    /// events: a snare is on the backbeat of nearly every bar and a kick
-    /// more often than that, so anything that reads as a "hit" on them
-    /// would be a rig that never stops flashing. What they are for is
-    /// pulse — a floor that breathes with the kick, a wash that ticks on
-    /// the two and four. The band hits are what land.
+    /// The two soft tiers are deliberately small. They are accents, not
+    /// events — a snare on the backbeat of nearly every bar, a soft hit
+    /// wherever one is wanted — and anything that read as a "hit" on
+    /// them would be a rig that never stops flashing. What they are for
+    /// is pulse. The band hits are what land.
     pub fn weight(self) -> f32 {
         match self {
             HitClass::Kick => 0.08,

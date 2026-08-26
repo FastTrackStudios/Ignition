@@ -497,13 +497,18 @@ fn author(song: &SongMap) -> CueList {
 //
 // Two kinds of thing, treated as two kinds of thing.
 //
-// Kick and snare are *pulse*. A snare is on the backbeat of nearly every
-// bar and a kick more often than that, and writing a cue for each would
-// mean three hundred cues to say "flash on two and four" — a cue list
-// nobody can read, describing a groove that never changes. On a console
-// that is an effect: one running flash locked to the song, living in the
-// section look. So the chart is read for the *pattern* each section
-// plays, and that becomes a repeating one-bar phaser.
+// The two soft tiers are *pulse*. The snare runs two to the bar for
+// fifty-six bars, and writing a cue for each would mean three hundred
+// cues to say "flash on two and four" — a cue list nobody can read,
+// describing a groove that never changes. On a console that is an
+// effect: one running flash locked to the song, living in the section
+// look. So the chart is read for the *pattern* each section plays, and
+// that becomes a repeating one-bar phaser.
+//
+// The soft tier is sparser — placed where one is wanted rather than
+// played through — which the per-section derivation already handles:
+// a section with none simply gets no pulse, and the long stretches of
+// this song that carry none stay clean.
 //
 // The band hits are *events*. They happen a few dozen times, each one
 // means something, and each gets a cue.
@@ -617,13 +622,19 @@ fn pulses(chart: &HitChart, song: &SongMap, section: &str) -> Vec<Recipe> {
     // intro should barely tick.
     let chorus = section.starts_with("CH");
     let snare_depth = if chorus { 0.30 } else { 0.16 };
-    let kick_depth = if chorus { 0.12 } else { 0.08 };
+    // The soft tier stays soft everywhere. A chorus is allowed to lean
+    // on the backbeat; the point of the gentlest class is that it does
+    // not shout, and a chorus-loud version of it would just be a snare.
+    let kick_depth = 0.10;
 
     let mut out = Vec::new();
     if let Some(slots) = pattern(chart, song, section, HitClass::Kick) {
-        // The kick belongs low — it is felt more than seen, and a floor
-        // that breathes with it reads as weight rather than as flashing.
-        out.push(pulse(strips(), slots, kick_depth));
+        // The soft tier goes to the back wall, not the floor. Routing it
+        // low was reading the note *name* as an instrument — a bass drum
+        // is felt low, so light it low — when the class means "the
+        // gentlest thing in the vocabulary". A soft glow behind the band
+        // is what that sounds like; a floor thumping on it is not.
+        out.push(pulse(back(), slots, kick_depth));
     }
     if let Some(slots) = pattern(chart, song, section, HitClass::Snare) {
         out.push(pulse(ceiling(), slots, snare_depth));
