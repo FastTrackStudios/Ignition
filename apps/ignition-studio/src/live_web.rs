@@ -63,7 +63,8 @@ impl Server {
 
 /// Whether the operator asked for the server at all.
 fn wanted() -> bool {
-    std::env::var("IGNITION_LIVE").is_ok_and(|v| v == "1") || std::env::var("IGNITION_LIVE_PORT").is_ok()
+    std::env::var("IGNITION_LIVE").is_ok_and(|v| v == "1")
+        || std::env::var("IGNITION_LIVE_PORT").is_ok()
 }
 
 fn port() -> u16 {
@@ -79,10 +80,7 @@ pub fn dist_dir() -> Option<PathBuf> {
     let candidates = [
         std::env::var("IGNITION_LIVE_DIST").ok().map(PathBuf::from),
         Some(PathBuf::from("apps/ignition-live-web/dist")),
-        Some(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../ignition-live-web/dist"),
-        ),
+        Some(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ignition-live-web/dist")),
     ];
     candidates
         .into_iter()
@@ -114,7 +112,9 @@ pub fn start(tx: Sender, state: StateRx, surface: Surface) -> Vec<String> {
     let dist = dist_dir();
     match &dist {
         Some(d) => tracing::info!(dir = %d.display(), "live-web: serving the built web app"),
-        None => tracing::warn!("live-web: no built web app; `just live-web` builds it. Serving a note instead."),
+        None => tracing::warn!(
+            "live-web: no built web app; `just live-web` builds it. Serving a note instead."
+        ),
     }
     for url in &urls {
         tracing::info!(%url, "live-web: Live view for an iPad");
@@ -249,7 +249,9 @@ async fn ws_upgrade(ws: WebSocketUpgrade, State(server): State<Arc<Server>>) -> 
 async fn connection(mut socket: WebSocket, server: Arc<Server>) {
     let hello = ServerMessage::Hello(Box::new(server.boot.clone()));
     if socket
-        .send(Message::Text(serde_json::to_string(&hello).expect("json").into()))
+        .send(Message::Text(
+            serde_json::to_string(&hello).expect("json").into(),
+        ))
         .await
         .is_err()
     {
@@ -350,11 +352,14 @@ mod tests {
 
         // A command goes down the studio's channel, as the desk's would.
         let json = serde_json::to_string(&Command::Level(2, 0.75)).unwrap();
-        ws.send(tungstenite::Message::Text(json.into())).await.unwrap();
-        let got = tokio::task::spawn_blocking(move || rx.recv_timeout(std::time::Duration::from_secs(5)))
+        ws.send(tungstenite::Message::Text(json.into()))
             .await
-            .unwrap()
-            .expect("command arrived");
+            .unwrap();
+        let got =
+            tokio::task::spawn_blocking(move || rx.recv_timeout(std::time::Duration::from_secs(5)))
+                .await
+                .unwrap()
+                .expect("command arrived");
         assert!(matches!(got, Command::Level(2, v) if (v - 0.75).abs() < 1e-6));
 
         // The engine publishes; the client sees it.
@@ -380,7 +385,9 @@ mod tests {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         tokio::spawn(serve(listener, server));
-        let mut stream = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+        let mut stream = tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .unwrap();
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         stream
             .write_all(b"GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
@@ -395,6 +402,9 @@ mod tests {
     #[test]
     fn fib_trie_local_hosts_are_found() {
         let fib = "Main:\n  +-- 0.0.0.0/0 3 0 5\n     |-- 127.0.0.1\n        /32 host LOCAL\n     |-- 192.168.1.20\n        /32 host LOCAL\n     |-- 192.168.1.255\n        /32 link BROADCAST\n";
-        assert_eq!(local_ipv4s_in_fib_trie(fib), vec!["192.168.1.20".to_string()]);
+        assert_eq!(
+            local_ipv4s_in_fib_trie(fib),
+            vec!["192.168.1.20".to_string()]
+        );
     }
 }

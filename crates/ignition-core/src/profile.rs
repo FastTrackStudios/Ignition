@@ -209,6 +209,87 @@ pub struct Look {
     pub recipes: Vec<RecipeRef>,
 }
 
+/// Looks authored at the desk, kept in `<profile stem>.looks.json`
+/// beside the baked profile file rather than in it — the file is
+/// written by `bake-profile` and a look put there would not survive
+/// the next bake. Merged over the baked looks at load; see
+/// [`Profile::load_with_authored`].
+// r[impl profile.looks.authored]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct AuthoredLooks {
+    #[serde(default)]
+    pub looks: BTreeMap<String, Look>,
+}
+
+impl AuthoredLooks {
+    /// The overlay beside a profile file: `ignition.ig-profile` →
+    /// `ignition.looks.json`.
+    pub fn path_for(profile_path: impl AsRef<std::path::Path>) -> std::path::PathBuf {
+        let path = profile_path.as_ref();
+        let stem = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "ignition".to_string());
+        path.with_file_name(format!("{stem}.looks.json"))
+    }
+
+    /// Reads the overlay. A missing file is an empty overlay; a file
+    /// that does not parse is an error, since silently dropping an
+    /// operator's looks is worse than a message.
+    pub fn load(path: impl AsRef<std::path::Path>) -> Result<Self, crate::show_file::Error> {
+        let path = path.as_ref();
+        let raw = match std::fs::read_to_string(path) {
+            Ok(raw) => raw,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(Self::default());
+            }
+            Err(source) => {
+                return Err(crate::show_file::Error::Io {
+                    path: path.to_path_buf(),
+                    source,
+                });
+            }
+        };
+        serde_json::from_str(&raw).map_err(|source| crate::show_file::Error::Json {
+            path: path.to_path_buf(),
+            source,
+        })
+    }
+
+    /// Writes the overlay, pretty, so it diffs.
+    pub fn save(&self, path: impl AsRef<std::path::Path>) -> Result<(), crate::show_file::Error> {
+        let path = path.as_ref();
+        let io = |source| crate::show_file::Error::Io {
+            path: path.to_path_buf(),
+            source,
+        };
+        let raw =
+            serde_json::to_string_pretty(self).map_err(|source| crate::show_file::Error::Json {
+                path: path.to_path_buf(),
+                source,
+            })?;
+        if let Some(dir) = path.parent()
+            && !dir.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(dir).map_err(io)?;
+        }
+        std::fs::write(path, raw).map_err(io)
+    }
+
+    /// Puts one look into the overlay on disk — read, insert, write —
+    /// and returns the overlay as it now stands.
+    pub fn store(
+        path: impl AsRef<std::path::Path>,
+        name: &str,
+        look: Look,
+    ) -> Result<Self, crate::show_file::Error> {
+        let mut authored = Self::load(&path)?;
+        authored.looks.insert(name.to_string(), look);
+        authored.save(path)?;
+        Ok(authored)
+    }
+}
+
 /// One step of a macro. The verbs an operator's two hands would do,
 /// written down.
 // r[impl profile.macros]
@@ -581,6 +662,42 @@ impl Profile {
         })
     }
 
+    /// Reads a profile file and merges the looks authored beside it
+    /// (`AuthoredLooks::path_for`). What every loader of the file should
+    /// call, so a look stored at the desk is a look everywhere.
+    // r[impl profile.looks.authored] - merged at load
+    pub fn load_with_authored(
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<Self, crate::show_file::Error> {
+        let path = path.as_ref();
+        let mut profile = Self::load(path)?;
+        profile.merge_looks(&AuthoredLooks::load(AuthoredLooks::path_for(path))?);
+        Ok(profile)
+    }
+
+    /// Lays authored looks over the baked ones; a name in both is the
+    /// authored one.
+    // r[impl profile.looks.authored] - authored wins by name
+    pub fn merge_looks(&mut self, authored: &AuthoredLooks) {
+        for (name, look) in &authored.looks {
+            self.looks.insert(name.clone(), look.clone());
+        }
+    }
+
+    /// Where a profile of this name lives: `IGNITION_PROFILE`, else
+    /// `data/profiles/<name>.ig-profile` — the lookup `Playback::load`
+    /// and the studio's panels share.
+    pub fn default_path(name: &str) -> std::path::PathBuf {
+        std::env::var("IGNITION_PROFILE")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| {
+                std::path::PathBuf::from(format!(
+                    "data/profiles/{}.ig-profile",
+                    name.to_lowercase()
+                ))
+            })
+    }
+
     /// Whether the roles a rig must bind stay few: the number that
     /// decides whether a second venue happens.
     // r[impl profile.setup-cost-is-the-metric] - required roles are the cost, counted
@@ -926,6 +1043,82 @@ mod tests {
             "/../../data/profiles/ignition.ig-profile"
         ))
         .expect("the shipped default profile loads")
+    }
+
+    /// The overlay sits beside the file, is merged over the bake with
+    /// the authored look winning by name, and round-trips through
+    /// `store`.
+    /// r[verify profile.looks.authored]
+    #[test]
+    fn authored_looks_overlay_the_baked_ones_and_round_trip() {
+        assert_eq!(
+            AuthoredLooks::path_for("data/profiles/ignition.ig-profile"),
+            std::path::PathBuf::from("data/profiles/ignition.looks.json")
+        );
+
+        let dir = std::env::temp_dir().join(format!("ig-looks-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let profile_path = dir.join("test.ig-profile");
+        let mut baked = Profile::default();
+        baked.looks.insert(
+            "punt".into(),
+            Look {
+                kind: LookKind::Punt,
+                about: "baked".into(),
+                recipes: vec![RecipeRef::named("wash")],
+            },
+        );
+        baked.looks.insert("blackout".into(), Look::default());
+        std::fs::write(&profile_path, serde_json::to_string(&baked).unwrap()).unwrap();
+
+        // No overlay: the bake, untouched.
+        let merged = Profile::load_with_authored(&profile_path).unwrap();
+        assert_eq!(merged.looks, baked.looks);
+
+        // Store two: one new, one shadowing a baked name.
+        let overlay = AuthoredLooks::path_for(&profile_path);
+        let mine = Look {
+            kind: LookKind::Bed,
+            about: "authored".into(),
+            recipes: vec![
+                Recipe::new(
+                    crate::Selection::Role("Wash".into()),
+                    crate::RecipeApply::Dimmer(0.4),
+                )
+                .into(),
+            ],
+        };
+        AuthoredLooks::store(&overlay, "verse two", mine.clone()).unwrap();
+        let stored = AuthoredLooks::store(
+            &overlay,
+            "punt",
+            Look {
+                kind: LookKind::Punt,
+                about: "authored".into(),
+                recipes: vec![RecipeRef::named("faces")],
+            },
+        )
+        .unwrap();
+        assert_eq!(stored.looks.len(), 2, "the first store survives the second");
+        assert_eq!(
+            AuthoredLooks::load(&overlay).unwrap(),
+            stored,
+            "round-trips"
+        );
+
+        let merged = Profile::load_with_authored(&profile_path).unwrap();
+        assert_eq!(merged.looks.len(), 3);
+        assert_eq!(merged.looks["verse two"], mine);
+        assert_eq!(
+            merged.looks["punt"].about, "authored",
+            "authored wins by name"
+        );
+        assert!(
+            merged.looks.contains_key("blackout"),
+            "the bake's others stay"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn role<'a>(p: &'a Profile, name: &str, kind: RoleKind) -> Option<&'a Role> {

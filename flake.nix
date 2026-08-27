@@ -53,6 +53,27 @@
           doCheck = false;
           doInstallCheck = false;
         });
+
+      # `wasm-bindgen` at the exact version Cargo.lock pins for the
+      # `wasm-bindgen` crate (0.2.127): `dx build --platform web` checks
+      # the pair at startup and refuses a CLI one patch off. nixpkgs'
+      # versioned packages stop at 0.2.126, so this is the same
+      # `buildWasmBindgenCli` call with the next crate. Bump together
+      # with the `wasm-bindgen` line in Cargo.lock; the hashes are the
+      # crate tarball's and its vendored dependencies'.
+      wasmBindgenFor = pkgs:
+        pkgs.buildWasmBindgenCli rec {
+          src = pkgs.fetchCrate {
+            pname = "wasm-bindgen-cli";
+            version = "0.2.127";
+            hash = "sha256-di+qBAdd7pENLiIB9CoZoab+W5xeDoByMREcCGTSzWo=";
+          };
+          cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
+            inherit src;
+            inherit (src) pname version;
+            hash = "sha256-FTv2GZIAQs0ePdIZXIXil7JbZ6kIT05VG6vqC1qNFxQ=";
+          };
+        };
     in
     {
       devShells = forAllSystems (pkgs:
@@ -130,6 +151,9 @@
               # the visualizer is composited through Blitz's wgpu
               # device, which a webview does not have.
               (dxFor pkgs.stdenv.hostPlatform.system)
+              # The wasm-bindgen CLI `dx build --platform web` runs, at
+              # the lock's version — see `wasmBindgenFor`.
+              (wasmBindgenFor pkgs)
               # Tailwind, for `dx serve`'s built-in pipeline. It would
               # otherwise download a standalone binary into ~/.cache,
               # which will not run on NixOS — `NO_DOWNLOADS=1` sends it

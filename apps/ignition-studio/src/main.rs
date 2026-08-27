@@ -12,7 +12,6 @@
 use dioxus::prelude::*;
 use dioxus_native_dom::CustomWidgetAttr;
 use ignition_core::Selection;
-use ignition_viz::spawn::BeamStyle;
 use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig};
 use std::any::Any;
 
@@ -1329,7 +1328,6 @@ fn Viewport() -> Element {
                 "/../../crates/ignition-viz/assets"
             )
             .to_string(),
-            beam_style: BeamStyle::Volumetric,
             max_universe: 4,
             snapshot: None,
             settle_frames: 1,
@@ -1347,8 +1345,8 @@ fn Viewport() -> Element {
             // operator actually sees — the composite, not the renderer
             // in isolation. Standalone `viz --fps` measures the latter.
             fps: true,
-            // 64 fog steps and no MSAA: the two dials that were most of
-            // the frame, and neither shows through bloom.
+            // 128 fog steps (the fewest that keeps a mover's beam from
+            // flickering) and no MSAA, which does not show through bloom.
             quality: RenderQuality::live(),
             // Off until the OUTPUT key is pressed, or `IGNITION_OUTPUT=1`
             // starts the desk sending. The transmitter is bound either

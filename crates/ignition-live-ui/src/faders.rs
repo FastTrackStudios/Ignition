@@ -35,16 +35,45 @@
 use ignition_core::profile::{Param, Profile};
 use ignition_core::selection::EMPTY_RIG;
 use ignition_core::{BumpKind, Fader, Recipe, RecipeApply, Selection, Show};
-use std::sync::LazyLock;
 
 /// The profile the bank is resolved through: the shipped library and
-/// busking programming, as `bake-profile` writes them.
-static PROFILE: LazyLock<Profile> = LazyLock::new(ignition_core::macros::shipped_profile);
+/// busking programming, as `bake-profile` writes them, with the looks
+/// authored at the desk laid over (`r[profile.looks.authored]`). See
+/// `library::CURRENT` for why it is a leaked `&'static` behind a lock.
+static CURRENT: std::sync::RwLock<Option<&'static Profile>> = std::sync::RwLock::new(None);
+
+/// The baked profile plus the authored overlay. An overlay that cannot
+/// be read (no disk, in the browser) is an empty one.
+// r[impl profile.looks.authored] - merged over the bake
+fn baked_with_authored() -> Profile {
+    let mut profile = ignition_core::macros::shipped_profile();
+    match ignition_core::profile::AuthoredLooks::load(crate::library::looks_path()) {
+        Ok(authored) => profile.merge_looks(&authored),
+        Err(error) => tracing::warn!(%error, "authored looks not read; the bank shows the bake"),
+    }
+    profile
+}
 
 /// The profile behind the bank — for the widget, which resolves looks
 /// and macros through the same one.
 pub fn profile() -> &'static Profile {
-    &PROFILE
+    if let Some(current) = *CURRENT.read().unwrap_or_else(|e| e.into_inner()) {
+        return current;
+    }
+    let mut slot = CURRENT.write().unwrap_or_else(|e| e.into_inner());
+    if let Some(current) = *slot {
+        return current;
+    }
+    let loaded: &'static Profile = Box::leak(Box::new(baked_with_authored()));
+    *slot = Some(loaded);
+    loaded
+}
+
+/// Re-reads the authored looks over the bake. `library::reload_authored_looks`
+/// calls this; hosts call that.
+pub fn reload_authored_looks() {
+    let fresh: &'static Profile = Box::leak(Box::new(baked_with_authored()));
+    *CURRENT.write().unwrap_or_else(|e| e.into_inner()) = Some(fresh);
 }
 
 /// A fader as the surface presents it: what it does, and what colour to

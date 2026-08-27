@@ -582,7 +582,10 @@ mod beam_throw_tests {
     fn the_spill_range_is_comfortably_past_the_longest_throw() {
         let t = throw();
         assert!(t.spill_range() > t.max_reach);
-        let (a, b) = (Vec3::new(-4.0, -9.0, 5.5), Vec3::new(1.0, 2.0, -0.2).normalize());
+        let (a, b) = (
+            Vec3::new(-4.0, -9.0, 5.5),
+            Vec3::new(1.0, 2.0, -0.2).normalize(),
+        );
         assert!(t.spill_range() > t.reach(a, b));
     }
 

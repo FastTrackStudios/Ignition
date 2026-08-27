@@ -314,7 +314,10 @@ mod tests {
             },
             Command::Page(PageMove::Set(2)),
             Command::Speed(SpeedKey::Half),
-            Command::Flash(ignition_core::Selection::Group("All".into()), ignition_core::BumpKind::White),
+            Command::Flash(
+                ignition_core::Selection::Group("All".into()),
+                ignition_core::BumpKind::White,
+            ),
             Command::Hold(None),
             Command::Locate(ignition_core::Bars::new(3, 1.0)),
             Command::PlaybackMaster(ignition_core::Class::Song, 0.25),
@@ -327,6 +330,10 @@ mod tests {
             Command::StoreCue {
                 index: 4,
                 mode: ignition_core::cue::StoreMode::Track,
+            },
+            Command::StoreLook {
+                name: "verse two".into(),
+                kind: ignition_core::profile::LookKind::Bed,
             },
         ];
         for command in commands {

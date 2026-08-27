@@ -128,7 +128,10 @@ impl GdtfNode {
         let mut node = self;
         let mut index = 0usize;
         for &child in &prefix {
-            index += 1 + node.children[..child].iter().map(GdtfNode::len).sum::<usize>();
+            index += 1 + node.children[..child]
+                .iter()
+                .map(GdtfNode::len)
+                .sum::<usize>();
             node = &node.children[child];
         }
         let mut cells = Vec::new();
@@ -1679,7 +1682,11 @@ mod tests {
         app.update();
         let expected =
             expected_beam_pose(&fixture.root, mount, Quat::IDENTITY, Quat::IDENTITY).unwrap();
-        let actual = app.world().entity(emitters[0]).get::<GlobalTransform>().unwrap();
+        let actual = app
+            .world()
+            .entity(emitters[0])
+            .get::<GlobalTransform>()
+            .unwrap();
         assert_same_pose(actual, expected, "par");
     }
 
@@ -1700,12 +1707,16 @@ mod tests {
         set_joints(&mut app, pan, tilt);
         app.update();
         let expected = expected_beam_pose(&fixture.root, mount, pan, tilt).unwrap();
-        let actual = app.world().entity(emitters[0]).get::<GlobalTransform>().unwrap();
+        let actual = app
+            .world()
+            .entity(emitters[0])
+            .get::<GlobalTransform>()
+            .unwrap();
         assert_same_pose(actual, expected, "mover at pan 90 / tilt 45");
         // And it genuinely moved: the aim is neither the mount's -Z nor
         // the rest pose's.
-        let rest = expected_beam_pose(&fixture.root, mount, Quat::IDENTITY, Quat::IDENTITY)
-            .unwrap();
+        let rest =
+            expected_beam_pose(&fixture.root, mount, Quat::IDENTITY, Quat::IDENTITY).unwrap();
         assert!(
             (expected.rotation * Vec3::NEG_Z).dot(rest.rotation * Vec3::NEG_Z) < 0.9,
             "the joints turned the beam"
@@ -1718,9 +1729,13 @@ mod tests {
     #[test]
     fn a_scaled_movers_emitter_is_still_its_beam_node() {
         let mut fixture = import_geometry(Path::new(MOVING_HEAD), None).unwrap();
-        let rest_unscaled =
-            expected_beam_pose(&fixture.root, Transform::IDENTITY, Quat::IDENTITY, Quat::IDENTITY)
-                .unwrap();
+        let rest_unscaled = expected_beam_pose(
+            &fixture.root,
+            Transform::IDENTITY,
+            Quat::IDENTITY,
+            Quat::IDENTITY,
+        )
+        .unwrap();
         fixture.root.scale_by(1.5);
         let mount = Transform::from_translation(Vec3::new(0.5, 0.5, 2.0));
         let pan = Quat::from_rotation_z(90f32.to_radians());
@@ -1729,11 +1744,19 @@ mod tests {
         set_joints(&mut app, pan, tilt);
         app.update();
         let expected = expected_beam_pose(&fixture.root, mount, pan, tilt).unwrap();
-        let actual = app.world().entity(emitters[0]).get::<GlobalTransform>().unwrap();
+        let actual = app
+            .world()
+            .entity(emitters[0])
+            .get::<GlobalTransform>()
+            .unwrap();
         assert_same_pose(actual, expected, "scaled mover");
-        let rest_scaled =
-            expected_beam_pose(&fixture.root, Transform::IDENTITY, Quat::IDENTITY, Quat::IDENTITY)
-                .unwrap();
+        let rest_scaled = expected_beam_pose(
+            &fixture.root,
+            Transform::IDENTITY,
+            Quat::IDENTITY,
+            Quat::IDENTITY,
+        )
+        .unwrap();
         assert!(
             (rest_scaled.translation - rest_unscaled.translation * 1.5)
                 .abs()
@@ -1773,7 +1796,10 @@ mod tests {
             false
         };
         for e in &emitters {
-            assert!(is_under(app.world(), *e), "every cell hangs under the one node");
+            assert!(
+                is_under(app.world(), *e),
+                "every cell hangs under the one node"
+            );
         }
         // The Ultra Bar pairs its cells two levels down, all under the
         // root: the lowest node over all twelve is the root itself, and
@@ -1785,7 +1811,11 @@ mod tests {
         let world = app.world();
         let ancestor = *world.entity(parent).get::<GlobalTransform>().unwrap();
         for (e, (pos, _)) in emitters.iter().zip(&cells) {
-            let actual = world.entity(*e).get::<GlobalTransform>().unwrap().translation();
+            let actual = world
+                .entity(*e)
+                .get::<GlobalTransform>()
+                .unwrap()
+                .translation();
             assert!(actual.distance(ancestor.transform_point(*pos)) < 1e-5);
         }
         // A par is not a bar.
@@ -1802,15 +1832,26 @@ mod tests {
             return;
         }
         let par = library.find("Uking", "Par").expect("resolves");
-        assert_eq!(par.optics(), Some((30.0, 60.0)), "36-LED par: 30 beam, field assumed 2x");
+        assert_eq!(
+            par.optics(),
+            Some((30.0, 60.0)),
+            "36-LED par: 30 beam, field assumed 2x"
+        );
         let slim = library
             .find("Chauvet", "SlimPAR Tri 7 IRC 7ch")
             .expect("resolves");
-        assert_eq!(slim.optics(), Some((20.0, 34.0)), "SlimPAR: the manual's 20/34");
+        assert_eq!(
+            slim.optics(),
+            Some((20.0, 34.0)),
+            "SlimPAR: the manual's 20/34"
+        );
         let beam = library
             .find("Betopper", "150W LED Beam Moving Head Light")
             .expect("resolves");
         let (b, f) = beam.optics().unwrap();
-        assert!((b - 1.72).abs() < 1e-3 && f > b && f < 4.0, "beam fixture {b}/{f}");
+        assert!(
+            (b - 1.72).abs() < 1e-3 && f > b && f < 4.0,
+            "beam fixture {b}/{f}"
+        );
     }
 }

@@ -21,7 +21,9 @@
 // r[impl studio.one-truth] - the surface's extras travel back on the playhead
 
 use crate::command::{Command, Playhead};
-use ignition_core::{Class, Show};
+use ignition_core::SongMap;
+use ignition_core::profile::{AuthoredLooks, Look};
+use ignition_core::{Class, RecipeRef, Show};
 use ignition_viz::playback::Playback;
 use std::path::Path;
 use std::sync::Mutex;
@@ -47,12 +49,15 @@ pub fn note(cmd: &Command) {
 ///
 /// `desk` is the venue's desk show, if it has one
 /// (`desk::path_for_venue`); `show_file` is the song show the cue list
-/// was loaded from, where `StoreCue` writes.
+/// was loaded from, where `StoreCue` writes; `song` is the song map the
+/// running list's positions were resolved against, so the re-read list
+/// lands on the same bars.
 pub fn apply(
     cmd: &Command,
     playback: &mut Playback,
     desk: Option<&Path>,
     show_file: Option<&Path>,
+    song: Option<&SongMap>,
 ) -> bool {
     note(cmd);
     match cmd {
@@ -165,9 +170,89 @@ pub fn apply(
                 tracing::warn!("studio: no show file to store into");
                 return true;
             };
-            match store_cue(path, *index, *mode, playback.programmer.captured()) {
-                Ok(name) => tracing::info!(index, name, "studio: stored cue"),
-                Err(error) => tracing::warn!(%error, "studio: store failed"),
+            let (name, mut list) =
+                match store_cue(path, *index, *mode, playback.programmer.captured()) {
+                    Ok(stored) => stored,
+                    Err(error) => {
+                        tracing::warn!(%error, "studio: store failed");
+                        return true;
+                    }
+                };
+            tracing::info!(index, name, "studio: stored cue");
+            // The running player takes the list as written, so the
+            // stage shows the stored cue now rather than next launch.
+            // Positions are resolved against the song the way
+            // `Playback::load` resolved them, so nothing moves.
+            if let Some(song) = song {
+                for problem in list.resolve_positions(song) {
+                    tracing::warn!("{problem}");
+                }
+            }
+            let Playback {
+                playbacks,
+                groups,
+                rig,
+                palettes,
+                speeds,
+                profile,
+                library,
+                bundles,
+                looks,
+                named_tricks,
+                ..
+            } = playback;
+            let show = Show {
+                groups,
+                palettes,
+                rig,
+                speeds,
+                roles: profile,
+                library,
+                bundles,
+                looks,
+                named_tricks,
+                tempo: song.map(|s| &s.tempo),
+                ..Show::new(groups, rig)
+            };
+            match playbacks.of_class(Class::Song) {
+                Some(player) => player.replace_list(&list, &show),
+                None => tracing::warn!("studio: no song playback to refresh"),
+            }
+            true
+        }
+        // r[impl studio.program.cue-editing] - store what the hand holds as a look
+        // r[impl profile.looks.authored] - into the overlay, never the baked file
+        Command::StoreLook { name, kind } => {
+            let name = name.trim();
+            if name.is_empty() {
+                tracing::warn!("studio: a look needs a name");
+                return true;
+            }
+            let recipes: Vec<RecipeRef> = playback
+                .programmer
+                .look_recipes()
+                .into_iter()
+                .map(RecipeRef::Inline)
+                .collect();
+            if recipes.is_empty() {
+                tracing::warn!(name, "studio: nothing in the hand to store as a look");
+                return true;
+            }
+            let look = Look {
+                kind: *kind,
+                about: String::new(),
+                recipes,
+            };
+            let path = ignition_live_ui::library::looks_path();
+            match AuthoredLooks::store(&path, name, look.clone()) {
+                Ok(_) => {
+                    tracing::info!(name, path = %path.display(), "studio: stored look");
+                    // The engine's own copy, so a cue may open on it and
+                    // a key may hold it; the panels re-read the file.
+                    playback.looks.insert(name.to_string(), look);
+                    ignition_live_ui::library::reload_authored_looks();
+                }
+                Err(error) => tracing::warn!(%error, "studio: store look failed"),
             }
             true
         }
@@ -177,13 +262,13 @@ pub fn apply(
 
 /// Replace cue `index`'s direct values in the show file with `values`,
 /// keeping its name, timing and recipes. Past the end, a new cue is
-/// appended. Returns the cue's name.
+/// appended. Returns the cue's name and the list as written.
 fn store_cue(
     path: &Path,
     index: usize,
     mode: ignition_core::cue::StoreMode,
     values: Vec<ignition_core::CueValue>,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<(String, ignition_core::CueList)> {
     let raw = std::fs::read_to_string(path)?;
     let mut list: ignition_core::CueList = serde_json::from_str(&raw)?;
     let mut cue = list
@@ -198,7 +283,7 @@ fn store_cue(
     let name = cue.name.clone();
     list.store(index, cue, mode);
     std::fs::write(path, serde_json::to_string_pretty(&list)?)?;
-    Ok(name)
+    Ok((name, list))
 }
 
 /// Fill the playhead's Live extras from the engine.
@@ -277,8 +362,14 @@ mod tests {
             attr: ignition_core::Attribute::Dimmer,
             value: 0.5,
         }];
-        let name = store_cue(&path, 0, ignition_core::cue::StoreMode::Track, values).unwrap();
+        let (name, written) =
+            store_cue(&path, 0, ignition_core::cue::StoreMode::Track, values).unwrap();
         assert_eq!(name, "Verse");
+        assert_eq!(
+            written.cues[0].values.len(),
+            1,
+            "the list as written comes back"
+        );
         let back: ignition_core::CueList =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(back.cues[0].fade_secs, 2.0);
@@ -288,6 +379,154 @@ mod tests {
         let back: ignition_core::CueList =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(back.cues.len(), 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `StoreCue` through `apply`: the file is written *and* the running
+    /// Song player shows the stored cue at once, in place, and a
+    /// STORE → NEW appends to the running list too.
+    /// r[verify studio.program.cue-editing]
+    #[test]
+    fn a_stored_cue_is_on_the_stage_without_a_go() {
+        use ignition_core::{Attribute, CueList, CuePlayer, RecipeApply, Selection};
+        let dir = std::env::temp_dir().join(format!("ig-store-live-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("show.json");
+        let list = CueList {
+            cues: vec![
+                ignition_core::Cue {
+                    name: "Verse".into(),
+                    values: vec![ignition_core::CueValue {
+                        chan: 1,
+                        attr: Attribute::Dimmer,
+                        value: 0.2,
+                    }],
+                    ..Default::default()
+                },
+                ignition_core::Cue {
+                    name: "Chorus".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        std::fs::write(&path, serde_json::to_string(&list).unwrap()).unwrap();
+
+        let mut playback = Playback::default();
+        playback
+            .playbacks
+            .push(Class::Song, CuePlayer::from_list(&list));
+        let bare = Show::new(&[], &ignition_core::selection::EMPTY_RIG);
+        let player = playback.playbacks.of_class(Class::Song).unwrap();
+        player.go(&bare);
+        player.tick(2.0);
+        assert_eq!(player.output(&bare)[&(1, Attribute::Dimmer)], 0.2);
+
+        // The hand: channel 1 to 0.9.
+        playback.programmer.select(Selection::Chans(vec![1]));
+        playback.programmer.apply(RecipeApply::Dimmer(0.9), &bare);
+        let handled = apply(
+            &Command::StoreCue {
+                index: 0,
+                mode: ignition_core::cue::StoreMode::Track,
+            },
+            &mut playback,
+            None,
+            Some(&path),
+            None,
+        );
+        assert!(handled);
+        let player = playback.playbacks.of_class(Class::Song).unwrap();
+        assert_eq!(player.current_index(), Some(0), "still on the cue");
+        assert!((player.clock() - 2.0).abs() < 1e-6, "the clock ran on");
+        assert_eq!(
+            player.output(&bare)[&(1, Attribute::Dimmer)],
+            0.9,
+            "the stage shows the stored value, no GO"
+        );
+        let back: CueList = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(back.cues[0].values[0].value, 0.9, "and the file has it");
+
+        // STORE → NEW: past the end appends to the file and the list.
+        apply(
+            &Command::StoreCue {
+                index: 2,
+                mode: ignition_core::cue::StoreMode::Track,
+            },
+            &mut playback,
+            None,
+            Some(&path),
+            None,
+        );
+        let player = playback.playbacks.of_class(Class::Song).unwrap();
+        assert_eq!(player.cues().len(), 3);
+        assert_eq!(player.current_index(), Some(0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `StoreLook` writes the hand into the authored overlay beside the
+    /// profile file — never the baked file — and the engine's looks
+    /// carry it at once.
+    /// r[verify profile.looks.authored]
+    #[test]
+    fn a_stored_look_lands_in_the_overlay_and_the_engine() {
+        use ignition_core::{RecipeApply, Selection};
+        let dir = std::env::temp_dir().join(format!("ig-store-look-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let profile_path = dir.join("test.ig-profile");
+        // No profile file: the overlay still goes beside where it would be.
+        // SAFETY: this test is the only reader of the variable in this
+        // binary's tests, and it sets it before any profile is loaded.
+        unsafe { std::env::set_var("IGNITION_PROFILE", &profile_path) };
+
+        let mut playback = Playback::default();
+        let bare = Show::new(&[], &ignition_core::selection::EMPTY_RIG);
+        // Nothing in the hand: nothing stored.
+        apply(
+            &Command::StoreLook {
+                name: "empty".into(),
+                kind: ignition_core::profile::LookKind::Bed,
+            },
+            &mut playback,
+            None,
+            None,
+            None,
+        );
+        assert!(!AuthoredLooks::path_for(&profile_path).exists());
+
+        playback.programmer.select(Selection::Role("Wash".into()));
+        playback.programmer.apply(RecipeApply::Dimmer(0.5), &bare);
+        apply(
+            &Command::StoreLook {
+                name: " verse two ".into(),
+                kind: ignition_core::profile::LookKind::Full,
+            },
+            &mut playback,
+            None,
+            None,
+            None,
+        );
+        let overlay = AuthoredLooks::load(AuthoredLooks::path_for(&profile_path)).unwrap();
+        let look = &overlay.looks["verse two"];
+        assert_eq!(look.kind, ignition_core::profile::LookKind::Full);
+        assert_eq!(look.recipes.len(), 1);
+        assert_eq!(
+            look.recipes[0].inline().unwrap().target,
+            Selection::Role("Wash".into()),
+            "written against the role, not the channels"
+        );
+        assert_eq!(playback.looks["verse two"], *look, "the engine has it now");
+        assert!(
+            !profile_path.exists(),
+            "the profile file itself is untouched"
+        );
+        assert!(
+            ignition_live_ui::faders::profile()
+                .looks
+                .contains_key("verse two"),
+            "the bank's profile re-read the overlay"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

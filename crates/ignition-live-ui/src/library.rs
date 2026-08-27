@@ -36,27 +36,79 @@ pub fn profile() -> &'static ignition_core::Profile {
     if let Some(sent) = SENT.get() {
         return sent;
     }
-    static PROFILE: std::sync::LazyLock<ignition_core::Profile> = std::sync::LazyLock::new(|| {
-        let path = std::env::var("IGNITION_PROFILE")
-            .unwrap_or_else(|_| "data/profiles/ignition.ig-profile".to_string());
-        let candidates = [
-            std::path::PathBuf::from(&path),
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../..")
-                .join(&path),
-        ];
-        for candidate in &candidates {
-            if let Ok(profile) = ignition_core::Profile::load(candidate) {
-                return profile;
-            }
+    if let Some(current) = *CURRENT.read().unwrap_or_else(|e| e.into_inner()) {
+        return current;
+    }
+    let mut slot = CURRENT.write().unwrap_or_else(|e| e.into_inner());
+    if let Some(current) = *slot {
+        return current;
+    }
+    let loaded: &'static ignition_core::Profile = Box::leak(Box::new(load_file_profile()));
+    *slot = Some(loaded);
+    loaded
+}
+
+/// The profile as last loaded. `&'static` because every panel borrows
+/// it for a render; a reload leaks the previous one rather than
+/// invalidating those borrows — a few kilobytes per STORE → LOOK, an
+/// operator's action, not a frame's.
+static CURRENT: std::sync::RwLock<Option<&'static ignition_core::Profile>> =
+    std::sync::RwLock::new(None);
+
+/// The profile file the panels read: `IGNITION_PROFILE` or
+/// `data/profiles/ignition.ig-profile`, from the working directory or,
+/// failing that, the workspace root (tests run from the crate).
+pub fn profile_path() -> std::path::PathBuf {
+    let path = std::env::var("IGNITION_PROFILE")
+        .unwrap_or_else(|_| "data/profiles/ignition.ig-profile".to_string());
+    let candidates = [
+        std::path::PathBuf::from(&path),
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(&path),
+    ];
+    candidates
+        .iter()
+        .find(|c| c.exists())
+        .cloned()
+        .unwrap_or_else(|| candidates[0].clone())
+}
+
+/// Where looks authored at the desk are kept — beside the profile file.
+// r[impl profile.looks.authored]
+pub fn looks_path() -> std::path::PathBuf {
+    ignition_core::profile::AuthoredLooks::path_for(profile_path())
+}
+
+/// The file profile with the authored looks merged over it; the baked
+/// profile (likewise merged) when there is no file.
+// r[impl profile.looks.authored] - merged wherever the file is loaded
+fn load_file_profile() -> ignition_core::Profile {
+    let path = profile_path();
+    match ignition_core::Profile::load_with_authored(&path) {
+        Ok(profile) => profile,
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                path = %path.display(),
+                "no profile file; the library shows the baked profile only"
+            );
+            crate::faders::profile().clone()
         }
-        tracing::warn!(
-            path,
-            "no profile file; the library shows the baked profile only"
-        );
-        crate::faders::profile().clone()
-    });
-    &PROFILE
+    }
+}
+
+/// Re-reads the profile and its authored looks, so a look stored a
+/// moment ago is on the bank at the next render. Also refreshes the
+/// baked profile the widget resolves look keys through.
+// r[impl profile.looks.authored] - a stored look shows at once
+pub fn reload_authored_looks() {
+    crate::faders::reload_authored_looks();
+    if SENT.get().is_some() {
+        return;
+    }
+    let fresh: &'static ignition_core::Profile = Box::leak(Box::new(load_file_profile()));
+    *CURRENT.write().unwrap_or_else(|e| e.into_inner()) = Some(fresh);
 }
 
 /// The profile a host handed over instead of a file — what the browser

@@ -305,7 +305,12 @@ fn spawn_haze_cameras(
             });
             continue;
         }
-        let size = haze_size(camera.physical_viewport_size().unwrap_or(UVec2::new(64, 64)), view.scale);
+        let size = haze_size(
+            camera
+                .physical_viewport_size()
+                .unwrap_or(UVec2::new(64, 64)),
+            view.scale,
+        );
         let image = haze_target(&mut images, size);
         commands.spawn((
             HazeCamera {
@@ -522,7 +527,11 @@ mod tests {
         }
         assert!(h.level <= 1.0 && h.level > 0.999);
         h.settle(0.0, HAZE_RISE_SECONDS);
-        assert!(h.level > 1.0 - 0.632, "falls slower than it rose: {}", h.level);
+        assert!(
+            h.level > 1.0 - 0.632,
+            "falls slower than it rose: {}",
+            h.level
+        );
         h.settle(0.0, 1000.0);
         assert!(h.level.abs() < 1e-3);
         // A zero or negative frame does nothing.
@@ -563,7 +572,11 @@ mod tests {
             let scale = haze_scale(UVec2::new(w, h), 0);
             if scale > 1 {
                 let coarser = UVec2::new(w.div_ceil(scale - 1), h.div_ceil(scale - 1));
-                assert!(coarser.x * coarser.y > HAZE_PIXEL_BUDGET, "{w}x{h} could use {}", scale - 1);
+                assert!(
+                    coarser.x * coarser.y > HAZE_PIXEL_BUDGET,
+                    "{w}x{h} could use {}",
+                    scale - 1
+                );
             }
         }
         assert_eq!(haze_scale(UVec2::new(640, 360), 0), 1);

@@ -1305,6 +1305,69 @@ impl CuePlayer {
         player
     }
 
+    /// Swaps the list under a running player without losing its place.
+    ///
+    /// The current cue index, the armed cue, the show clock, the wall
+    /// clock, pause and enable all survive; the tracked state is rebuilt
+    /// from the top of the new list up to the current cue, so the stage
+    /// shows the *edited* definition at once — no GO. Every cue on the
+    /// way is replayed, not performed: a one-shot in the current cue
+    /// does not fire again because its values were edited, and a fade
+    /// that was in flight lands (an edit is not a crossfade). A current
+    /// index the new list no longer has clamps to its last cue; an
+    /// empty list leaves the player before its first cue.
+    // r[impl studio.program.cue-editing] - the running player takes the stored cue at once
+    // r[impl cues.seek-keeps-the-clock] - the clock is not part of the list
+    pub fn replace_list(&mut self, list: &CueList, show: &Show<'_>) {
+        let current = self.current;
+        let armed = self.armed;
+        self.cues = list.cues.clone();
+        self.wrap = list.wrap;
+        self.restart = list.restart;
+        self.reset();
+        if let Some(index) = current
+            && !self.cues.is_empty()
+        {
+            self.replay_to(index.min(self.cues.len() - 1), show);
+        }
+        self.armed = armed.filter(|a| *a < self.cues.len());
+        self.resume_from = self.resume_from.filter(|r| *r < self.cues.len());
+    }
+
+    /// Replaces one cue in place — `replace_list` for a single edit.
+    /// Past the end, the cue is appended.
+    // r[impl studio.program.cue-editing]
+    pub fn reload_cue(&mut self, index: usize, cue: Cue, show: &Show<'_>) {
+        let mut list = CueList {
+            cues: self.cues.clone(),
+            wrap: self.wrap,
+            restart: self.restart,
+            ..Default::default()
+        };
+        if index < list.cues.len() {
+            list.cues[index] = cue;
+        } else {
+            list.cues.push(cue);
+        }
+        self.replace_list(&list, show);
+    }
+
+    /// Replays the list from the top through `target`, every cue as a
+    /// replay rather than a take, with every fade landed.
+    fn replay_to(&mut self, target: usize, show: &Show<'_>) {
+        while self.current != Some(target) {
+            let before = self.current;
+            self.take(show, false);
+            if let Some(stage) = self.stack.last_mut() {
+                stage.elapsed = stage.timing.span;
+            }
+            self.collapse();
+            if self.current == before {
+                break;
+            }
+        }
+    }
+
     pub fn set_wrap(&mut self, wrap: bool) {
         self.wrap = wrap;
     }
@@ -2854,6 +2917,104 @@ mod tests {
         );
         player.tick(1.0); // now fully elapsed
         assert!((player.output(&bare()).get(&(1, Attribute::Dimmer)).unwrap() - 1.0).abs() < 0.001);
+    }
+
+    /// A store swaps the list under the player: the place, the armed
+    /// cue and the clocks stay; the stage shows the edited cue without
+    /// a GO, and tracking is rebuilt from the new list.
+    /// r[verify studio.program.cue-editing]
+    /// r[verify cues.seek-keeps-the-clock]
+    #[test]
+    fn replacing_the_list_keeps_the_place_and_shows_the_edit() {
+        let mut list = CueList {
+            cues: vec![
+                cue(
+                    "Cue 1",
+                    0.0,
+                    vec![(1, Attribute::Dimmer, 1.0), (2, Attribute::Dimmer, 0.5)],
+                ),
+                cue("Cue 2", 0.0, vec![(1, Attribute::Dimmer, 0.2)]),
+                cue("Cue 3", 0.0, vec![(1, Attribute::Dimmer, 0.9)]),
+            ],
+            ..Default::default()
+        };
+        let mut player = CuePlayer::from_list(&list);
+        player.go(&bare());
+        player.go(&bare());
+        player.tick(3.5);
+        player.load(2);
+        player.pause();
+        assert_eq!(player.current_index(), Some(1));
+
+        // Edit the current cue and the one before it.
+        list.cues[1].values = vec![CueValue {
+            chan: 1,
+            attr: Attribute::Dimmer,
+            value: 0.7,
+        }];
+        list.cues[0].values[1].value = 0.3;
+        player.replace_list(&list, &bare());
+
+        assert_eq!(player.current_index(), Some(1), "the place is kept");
+        assert_eq!(player.loaded(), Some(2), "the armed cue is kept");
+        assert!(player.is_paused(), "pause is kept");
+        assert!((player.clock() - 3.5).abs() < 1e-6, "the clock is kept");
+        let out = player.output(&bare());
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.7).abs() < 1e-6,
+            "the edited cue shows"
+        );
+        assert!(
+            (out[&(2, Attribute::Dimmer)] - 0.3).abs() < 1e-6,
+            "tracking is rebuilt from the edited list"
+        );
+        assert_eq!(player.current_name(), Some("Cue 2"));
+
+        // A new cue appended past the end plays from the same place.
+        player.resume();
+        player.reload_cue(
+            3,
+            cue("Cue 4", 0.0, vec![(1, Attribute::Dimmer, 0.1)]),
+            &bare(),
+        );
+        assert_eq!(player.cues().len(), 4);
+        assert_eq!(player.current_index(), Some(1));
+        player.go(&bare()); // the armed cue 2
+        player.go(&bare());
+        assert_eq!(player.current_name(), Some("Cue 4"));
+
+        // A list shorter than the place clamps; an empty one unwinds.
+        list.cues.truncate(1);
+        player.replace_list(&list, &bare());
+        assert_eq!(player.current_index(), Some(0));
+        assert_eq!(player.loaded(), None);
+        list.cues.clear();
+        player.replace_list(&list, &bare());
+        assert_eq!(player.current_index(), None);
+        assert!(player.output(&bare()).is_empty());
+    }
+
+    /// Replacing the list replays, never performs: a one-shot in the
+    /// current cue does not fire again because the cue was edited.
+    /// r[verify cues.replay-does-not-perform]
+    #[test]
+    fn replacing_the_list_does_not_refire_a_one_shot() {
+        let mut once = Recipe::new(Selection::Chans(vec![1]), RecipeApply::Dimmer(1.0));
+        once.timing.once = true;
+        let list = CueList {
+            cues: vec![Cue {
+                name: "Hit".into(),
+                recipes: vec![once.into()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let mut player = CuePlayer::from_list(&list);
+        player.go(&bare());
+        player.tick(30.0);
+        let before = player.output(&bare());
+        player.replace_list(&list, &bare());
+        assert_eq!(player.output(&bare()), before);
     }
 
     // r[verify cues.tracking]

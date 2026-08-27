@@ -232,7 +232,10 @@ pub fn run_bench(
         gdtf,
         gpu,
         |app| {
-            app.add_plugins((RenderDiagnosticsPlugin, EntityCountDiagnosticsPlugin::default()));
+            app.add_plugins((
+                RenderDiagnosticsPlugin,
+                EntityCountDiagnosticsPlugin::default(),
+            ));
         },
     );
     let wait = || {

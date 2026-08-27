@@ -9,10 +9,9 @@
 
 use crate::dmx::DmxUniverses;
 use crate::fixture_profile::{
-    BeamThrow, BodyVisual, LUMENS_PER_WATT, MAX_FIELD_HALF_ANGLE_DEG,
-    SHAFT_CANDELA_THRESHOLD, assumed_field_half_angle_deg, beam_half_angle_deg, is_hazer,
-    peak_candela,
-    power_watts, resolve_fixture,
+    BeamThrow, BodyVisual, LUMENS_PER_WATT, MAX_FIELD_HALF_ANGLE_DEG, SHAFT_CANDELA_THRESHOLD,
+    assumed_field_half_angle_deg, beam_half_angle_deg, is_hazer, peak_candela, power_watts,
+    resolve_fixture,
 };
 use crate::gdtf_geometry::{self, GdtfFixture, GdtfLibrary, PanJoint, TiltJoint};
 use crate::venue::Venue;
@@ -345,7 +344,10 @@ pub struct ProfileOptics {
 /// a par patched at 30 degrees and profiled at 30/60 was drawn as a
 /// 30-degree hard cone, which is the "par cones too narrow" report.
 // r[impl viz.profile-optics] - profile first, patch only as the fallback
-pub fn fixture_optics(f: &crate::venue::FixtureRecord, profile: Option<&GdtfFixture>) -> ProfileOptics {
+pub fn fixture_optics(
+    f: &crate::venue::FixtureRecord,
+    profile: Option<&GdtfFixture>,
+) -> ProfileOptics {
     match profile.and_then(GdtfFixture::optics) {
         Some((beam, field)) => {
             let beam_half = (beam * 0.5).clamp(0.05, MAX_FIELD_HALF_ANGLE_DEG);
@@ -1211,7 +1213,10 @@ pub fn spawn_venue(
         let size = (max - min).max(Vec3::splat(4.0)) * 1.3;
         commands.spawn((
             FogVolume {
-                density_factor: haze_density(settings.haze, crate::haze::HazeLevel::default().level),
+                density_factor: haze_density(
+                    settings.haze,
+                    crate::haze::HazeLevel::default().level,
+                ),
                 scattering: HAZE_SCATTERING,
                 absorption: HAZE_ABSORPTION,
                 light_intensity: FOG_LIGHT_GAIN,
@@ -2250,7 +2255,10 @@ mod body_and_bar_tests {
             "no profile: the patch's 30 as the beam, field assumed"
         );
         let unknown = fixture_optics(&record(Some(0.0)), None);
-        assert_eq!(unknown.beam_half_deg, 12.5, "nothing anywhere: the old default");
+        assert_eq!(
+            unknown.beam_half_deg, 12.5,
+            "nothing anywhere: the old default"
+        );
     }
 
     /// Per-direction brightness, not raw lumens, is what the spot light
@@ -2347,7 +2355,10 @@ mod body_and_bar_tests {
             nodes[parent_index],
             "under the cells' parent, not the fixture root"
         );
-        let parent_world = *world.entity(nodes[parent_index]).get::<GlobalTransform>().unwrap();
+        let parent_world = *world
+            .entity(nodes[parent_index])
+            .get::<GlobalTransform>()
+            .unwrap();
         let expected = parent_world
             * Transform {
                 translation: centre,
@@ -2359,7 +2370,11 @@ mod body_and_bar_tests {
         // The strip's centre is the centre of the cells, in the world.
         let mut cell_centre = Vec3::ZERO;
         for e in &emitters {
-            cell_centre += world.entity(*e).get::<GlobalTransform>().unwrap().translation();
+            cell_centre += world
+                .entity(*e)
+                .get::<GlobalTransform>()
+                .unwrap()
+                .translation();
         }
         cell_centre /= emitters.len() as f32;
         // The strip is centred between the end cells; the file's cells
@@ -2372,9 +2387,19 @@ mod body_and_bar_tests {
         // Every child of the strip (faces, wedge, spill) sits at the
         // strip's own pose: only the faces are offset, along the strip.
         let along = actual.rotation() * Vec3::X;
-        let children: Vec<Entity> = world.entity(strip).get::<Children>().unwrap().iter().collect();
+        let children: Vec<Entity> = world
+            .entity(strip)
+            .get::<Children>()
+            .unwrap()
+            .iter()
+            .collect();
         for c in children {
-            let d = world.entity(c).get::<GlobalTransform>().unwrap().translation() - actual.translation();
+            let d = world
+                .entity(c)
+                .get::<GlobalTransform>()
+                .unwrap()
+                .translation()
+                - actual.translation();
             let off_axis = d - along * d.dot(along);
             assert!(off_axis.length() < 0.01, "{off_axis:?}");
         }

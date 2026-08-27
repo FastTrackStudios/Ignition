@@ -18,10 +18,10 @@ is where the studio serves it from. Rebuild after any change to
 `ignition-live-ui` or the web app.
 
 `dx` insists on a `wasm-bindgen` CLI at the exact version the lock
-pins (`0.2.127` today). The flake's `wasm-bindgen-cli` is behind that;
-until it is bumped, put the store's matching build first on `PATH`:
-
-    PATH=$(ls -d /nix/store/*-wasm-bindgen-cli-0.2.127 | head -1)/bin:$PATH just live-web
+pins (`0.2.127` today). The dev shell carries that version
+(`wasmBindgenFor` in `flake.nix`); when the `wasm-bindgen` crate is
+bumped in `Cargo.lock`, bump the flake's version and hashes with it,
+or `dx` refuses the tree at startup.
 
 `wasm-opt` may abort on this toolchain; `dx` still writes the bundle
 (unoptimised, ~3 MB — fine on a LAN).

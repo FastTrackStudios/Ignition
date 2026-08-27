@@ -205,12 +205,22 @@ pub enum Command {
         on: bool,
     },
     /// Store the programmer's captured values into cue `index` of the
-    /// show file on disk, in a store mode. The running player is not
-    /// re-read — see `live_commands`.
+    /// show file on disk, in a store mode, and into the running player
+    /// at the same time — see `live_commands`. Past the end appends.
     // r[impl studio.program.cue-editing] - store to a cue
     StoreCue {
         index: usize,
         mode: ignition_core::cue::StoreMode,
+    },
+    /// Store what the hand holds — a latched look plus every apply
+    /// since CLEAR — as a look of this name and kind, in the profile's
+    /// authored overlay beside the baked file. The looks bank shows it
+    /// at once.
+    // r[impl studio.program.cue-editing] - store to a look
+    // r[impl profile.looks.authored]
+    StoreLook {
+        name: String,
+        kind: ignition_core::profile::LookKind,
     },
 }
 

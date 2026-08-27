@@ -207,17 +207,15 @@ impl Playback {
         // The venue knows the profile's *name*; the file is looked up under
         // `data/profiles/` (or `IGNITION_PROFILE`), and a missing file is
         // simply no shared tricks — a recipe naming one is then reported.
+        // The looks are the baked ones with the desk's authored overlay
+        // laid over them (`r[profile.looks.authored]`), so a look stored
+        // at the desk is one a cue may open on.
         let (named_tricks, looks) = {
-            let path = std::env::var("IGNITION_PROFILE").unwrap_or_else(|_| {
-                format!(
-                    "data/profiles/{}.ig-profile",
-                    venue.profile.profile.to_lowercase()
-                )
-            });
-            match ignition_core::Profile::load(&path) {
+            let path = ignition_core::Profile::default_path(&venue.profile.profile);
+            match ignition_core::Profile::load_with_authored(&path) {
                 Ok(profile) => (profile.tricks, profile.looks),
                 Err(error) => {
-                    tracing::debug!(%error, path, "no profile file for named tricks");
+                    tracing::debug!(%error, path = %path.display(), "no profile file for named tricks");
                     (BTreeMap::new(), BTreeMap::new())
                 }
             }

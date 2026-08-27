@@ -4,12 +4,11 @@
 //! holds, dimmer, colour and focus through the same palettes Live uses
 //! — with the cue list on one side and the library on the other. A
 //! store writes the programmer's captured values into a cue of the show
-//! file; the running player reads the file at load, so the stored cue
-//! plays on the next launch rather than the next GO, and the button
-//! says so. Storing to a look is not wired: the profile is baked from
-//! code (`bake-profile`), and a look written into the file alone would
-//! drift from the one the bank resolves through — so the key is here,
-//! disabled, with the reason on it.
+//! file and into the running player in the same stroke, so the stage
+//! shows the stored cue without a GO. A store to a look writes the
+//! hand's recipes into the profile's authored overlay
+//! (`r[profile.looks.authored]`) — never the baked file — and the looks
+//! bank shows it on the next render.
 
 // Nothing is dead here; it is mounted when `main.rs` hosts `live::Views`
 // (and its stylesheet, `live::LIVE_CSS`). Until the integrator wires
@@ -25,6 +24,7 @@ use crate::{CueList, HSlider, Surface, send, use_playhead};
 use dioxus::prelude::*;
 use ignition_core::Selection;
 use ignition_core::cue::StoreMode;
+use ignition_core::profile::LookKind;
 
 /// The programmer panel.
 #[component]
@@ -32,6 +32,8 @@ pub fn Programmer(surface: Surface) -> Element {
     let playhead = use_playhead();
     let operator = use_operator();
     let mut mode = use_signal(|| StoreMode::Track);
+    let mut look_name = use_signal(String::new);
+    let mut look_kind = use_signal(|| LookKind::Bed);
     let profile = crate::library::profile();
     let p = playhead();
     let favs = operator().favourites.clone();
@@ -161,7 +163,7 @@ pub fn Programmer(surface: Surface) -> Element {
                 button {
                     class: if current.is_some() && p.captured > 0 { "ptile store" } else { "ptile store off" },
                     disabled: current.is_none() || p.captured == 0,
-                    title: "writes the captured values into the current cue of the show file; plays on the next launch",
+                    title: "writes the captured values into the current cue of the show file and the running list",
                     onpointerdown: move |_| {
                         if let Some(index) = current {
                             send(Command::StoreCue { index, mode: mode() });
@@ -177,15 +179,56 @@ pub fn Programmer(surface: Surface) -> Element {
                 button {
                     class: if p.captured > 0 { "ptile store" } else { "ptile store off" },
                     disabled: p.captured == 0,
-                    title: "appends a new cue to the show file with the captured values; plays on the next launch",
+                    title: "appends a new cue to the show file and the running list with the captured values",
                     onpointerdown: move |_| send(Command::StoreCue { index: cue_count, mode: StoreMode::Track }),
                     span { class: "pname", "STORE → NEW" }
                 }
-                button {
-                    class: "ptile store off",
-                    disabled: true,
-                    title: "not wired: looks are baked into the profile from code, and a look written to the file alone would drift from the bank",
-                    span { class: "pname", "STORE → LOOK" }
+            }
+            // r[impl profile.looks.authored] - a name, a kind, and the hand becomes a look
+            div { class: "prog-row store",
+                span { class: "prog-label", "Look" }
+                input {
+                    class: "look-name-input",
+                    r#type: "text",
+                    placeholder: "look name",
+                    value: "{look_name}",
+                    oninput: move |e| look_name.set(e.value()),
+                }
+                for (k, label) in [
+                    (LookKind::Bed, "BED"),
+                    (LookKind::Full, "FULL"),
+                    (LookKind::Punt, "PUNT"),
+                    (LookKind::Safe, "SAFE"),
+                ] {
+                    button {
+                        key: "{label}",
+                        class: if look_kind() == k { "ptile small on" } else { "ptile small" },
+                        style: "border-color: {crate::library::look_css(k)}",
+                        onpointerdown: move |_| look_kind.set(k),
+                        span { class: "pname", "{label}" }
+                    }
+                }
+                {
+                    let has_hand = p.captured > 0 || p.held_look.is_some();
+                    let ready = has_hand && !look_name().trim().is_empty();
+                    rsx! {
+                        button {
+                            class: if ready { "ptile store" } else { "ptile store off" },
+                            disabled: !ready,
+                            title: if has_hand {
+                                "stores the hand — the held look and every apply since CLEAR — as a look of this name in the profile's authored looks; the bank shows it at once"
+                            } else {
+                                "select, set a colour, a level or a focus (or hold a look), then name it"
+                            },
+                            onpointerdown: move |_| {
+                                let name = look_name().trim().to_string();
+                                if !name.is_empty() {
+                                    send(Command::StoreLook { name, kind: look_kind() });
+                                }
+                            },
+                            span { class: "pname", "STORE → LOOK" }
+                        }
+                    }
                 }
             }
         }

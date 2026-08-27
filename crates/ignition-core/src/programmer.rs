@@ -453,6 +453,12 @@ pub struct Programmer {
     /// faders and everything the cue stack is doing.
     // r[impl playback.hand-wins]
     values: HashMap<(ChanId, Attribute), Held>,
+    /// The same hand, as it was written: every `apply` since the
+    /// values were last cleared, target and all — `Role("Wash")` set to
+    /// House Blue, not the forty channel floats that became. What a
+    /// stored look carries, since a look is recipes against roles.
+    // r[impl profile.looks.authored] - the hand remembered as recipes
+    applied: Vec<Recipe>,
     /// The eight faders as they are *playing*. Normally a mirror of
     /// `pages[page]`; differs only where a slot is latched to the
     /// previous page's assignment (see `set_page`).
@@ -970,6 +976,19 @@ impl Programmer {
     /// same intent in the middle of a song.
     pub fn clear_values(&mut self) {
         self.values.clear();
+        self.applied.clear();
+    }
+
+    /// What the hand holds, as recipes: a look latched by a key and
+    /// every apply since the values were cleared, in order. What
+    /// STORE → LOOK writes.
+    // r[impl profile.looks.authored] - a look is captured as recipes, not channel floats
+    pub fn look_recipes(&self) -> Vec<Recipe> {
+        self.held
+            .iter()
+            .chain(self.applied.iter())
+            .cloned()
+            .collect()
     }
 
     pub fn clear_faders(&mut self) {
@@ -998,6 +1017,19 @@ impl Programmer {
         };
         let now = self.now.get();
         let recipe = Recipe::new(selection.clone(), apply);
+        // A later apply on the same target and attribute class replaces
+        // the earlier — the hand holds one colour per role, not a
+        // history of them.
+        let family = |r: &Recipe| {
+            r.steps
+                .first()
+                .and_then(|s| s.apply.first())
+                .map(apply_family)
+        };
+        let same = family(&recipe);
+        self.applied
+            .retain(|r| !(r.target == recipe.target && family(r) == same));
+        self.applied.push(recipe.clone());
         for emit in expand_recipe(&recipe, show, 0.0) {
             let key = (emit.value.chan, emit.value.attr);
             let previous = self.values.get(&key).copied();
@@ -1056,6 +1088,7 @@ impl Programmer {
         };
         let chans = resolve(selection, show.groups, show.rig);
         self.values.retain(|(chan, _), _| !chans.contains(chan));
+        self.applied.retain(|r| &r.target != selection);
     }
 
     /// Assigns a fader on the current page, and makes it live. Clears a
@@ -1746,7 +1779,24 @@ impl Programmer {
     }
 }
 
+/// Which of the hand's "one per role" slots an apply occupies —
+/// intensity, colour, focus, or anything else.
+fn apply_family(apply: &RecipeApply) -> u8 {
+    match apply {
+        RecipeApply::Dimmer(_) => 0,
+        RecipeApply::Color(_) | RecipeApply::Colors { .. } | RecipeApply::Split(_) => 1,
+        RecipeApply::FocusPoint(_)
+        | RecipeApply::FocusDirection(_)
+        | RecipeApply::FocusFan { .. }
+        | RecipeApply::FocusKeyframes(_)
+        | RecipeApply::FocusDelta(_)
+        | RecipeApply::FocusSplay { .. } => 2,
+        _ => 3,
+    }
+}
+
 #[cfg(test)]
+
 mod tests {
     use super::*;
     use crate::group::Group;
@@ -1786,6 +1836,49 @@ mod tests {
         let captured = p.captured();
         assert_eq!(captured.len(), 3);
         assert!(captured.iter().all(|v| v.value == 0.7));
+    }
+
+    /// The hand remembered as recipes: a held look first, then every
+    /// apply since CLEAR, one per role and family, released with the
+    /// selection and gone with CLEAR.
+    /// r[verify profile.looks.authored]
+    #[test]
+    fn the_hand_is_captured_as_recipes_for_a_look() {
+        let groups = groups();
+        let mut p = Programmer::new();
+        let held = Recipe::new(Selection::Role("Key".into()), RecipeApply::Dimmer(0.6));
+        p.hold_look(vec![held.clone()], false);
+        p.select(Selection::Group("Pars".into()));
+        p.apply(RecipeApply::Dimmer(0.3), &show(&groups));
+        p.apply(RecipeApply::Dimmer(0.7), &show(&groups));
+        p.apply(
+            RecipeApply::Color(crate::preset::Ref::Named("House Blue".into())),
+            &show(&groups),
+        );
+        let recipes = p.look_recipes();
+        assert_eq!(recipes.len(), 3, "held, dimmer, colour");
+        assert_eq!(recipes[0], held);
+        assert_eq!(recipes[1].target, Selection::Group("Pars".into()));
+        assert_eq!(
+            recipes[1].steps[0].apply[0],
+            RecipeApply::Dimmer(0.7),
+            "the later apply of a family replaces the earlier"
+        );
+        assert!(matches!(
+            recipes[2].steps[0].apply[0],
+            RecipeApply::Color(_)
+        ));
+
+        p.release(&show(&groups));
+        assert_eq!(
+            p.look_recipes(),
+            vec![held],
+            "release lets the selection's recipes go"
+        );
+        p.apply(RecipeApply::Dimmer(0.1), &show(&groups));
+        p.clear_values();
+        p.release_hold();
+        assert!(p.look_recipes().is_empty());
     }
 
     /// r[verify playback.hand-wins]

@@ -454,7 +454,8 @@ fn drain(
                 | Command::DeskScene(_)
                 | Command::DeskRelease
                 | Command::Protect { .. }
-                | Command::StoreCue { .. } => deferred.push(command),
+                | Command::StoreCue { .. }
+                | Command::StoreLook { .. } => deferred.push(command),
                 Command::Select(selection) => programmer.select(selection),
                 Command::Deselect => programmer.deselect(),
                 Command::ClearValues => programmer.clear_values(),
@@ -829,6 +830,7 @@ fn drain(
                 &mut playback,
                 desk.as_deref(),
                 show_file.map(std::path::Path::new),
+                transport.map(|t| t.song()),
             );
         }
     }

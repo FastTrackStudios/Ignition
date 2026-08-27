@@ -66,7 +66,11 @@ fn post_target_texture(
     let mut mailbox = mailbox.0.lock().expect("target mailbox");
     mailbox.pipelines = pipelines.pipelines().count();
     let Some(wanted) = mailbox.wanted else { return };
-    if mailbox.texture.as_ref().is_some_and(|(id, _)| *id == wanted) {
+    if mailbox
+        .texture
+        .as_ref()
+        .is_some_and(|(id, _)| *id == wanted)
+    {
         return;
     }
     if let Some(image) = images.get(wanted) {

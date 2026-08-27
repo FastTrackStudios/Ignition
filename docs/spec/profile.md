@@ -273,6 +273,16 @@ r[profile.looks.static]
 A look's recipes SHOULD be static — one step — or looping beds. A look that
 fires a one-shot is a macro wearing the wrong hat.
 
+r[profile.looks.authored]
+The shipped profile file is baked from code, so a look written into it is
+lost on the next bake. Looks authored at the desk — the Program view's
+STORE → LOOK — MUST therefore live beside the profile in an overlay,
+`data/profiles/<name>.looks.json` (a `looks` map in the profile's own
+shape, `<name>` being the profile file's stem), which every loader of the
+profile MUST merge over the baked looks at load. Where the overlay and the
+bake carry the same name, the authored look wins. A missing overlay is an
+empty one, never an error.
+
 r[profile.macros]
 A profile MAY ship **macros**: a named list of steps the programmer executes
 with timing. The steps are: take a look, set a fader's level, fire a library

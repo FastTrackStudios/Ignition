@@ -64,8 +64,16 @@ fn the_benchmark_cue_cooks_the_whole_rig_at_norco() {
         }
     }
     // Norco: 48 pars, 4 SlimPARs, 8 movers, 8 strips, 2 hazers.
-    assert!(lit.len() >= 60, "only {} channels get a dimmer: {lit:?}", lit.len());
-    assert!(moved.len() >= 8, "only {} movers move: {moved:?}", moved.len());
+    assert!(
+        lit.len() >= 60,
+        "only {} channels get a dimmer: {lit:?}",
+        lit.len()
+    );
+    assert!(
+        moved.len() >= 8,
+        "only {} movers move: {moved:?}",
+        moved.len()
+    );
 }
 
 /// Played, the cue keeps every dimmer at least half up at every sample
@@ -112,7 +120,10 @@ fn the_benchmark_cue_never_takes_a_light_to_black() {
                 );
             }
         }
-        assert!(dimmers >= 60, "sample {sample}: only {dimmers} dimmers in the output");
+        assert!(
+            dimmers >= 60,
+            "sample {sample}: only {dimmers} dimmers in the output"
+        );
     }
     assert!(lit_at_all.len() >= 60);
 }
