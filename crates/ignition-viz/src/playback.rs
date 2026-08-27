@@ -129,12 +129,225 @@ pub struct Playback {
     last_cue: Option<usize>,
 }
 
+/// Whether a recipe states an intensity **absolutely**, as opposed to
+/// swinging one relatively or not touching it at all.
+///
+/// This is what decides whether a preview's base is a blackout, and the
+/// absolute/relative distinction is the whole of it. An effect that
+/// says "these fixtures are at full" lights itself and wants nothing
+/// underneath — a blackout, so the picture is the effect and nothing
+/// else. An effect that says "swing the intensity by a half" is adding
+/// to whatever is beneath it, and against a blackout it adds to nothing
+/// and renders a black frame. Those, and the ones that only move or
+/// only colour, get their own fixtures lit to work on.
+fn states_intensity(recipe: &ignition_core::Recipe) -> bool {
+    use ignition_core::recipe::RecipeApply;
+    use ignition_proto::Attribute;
+    recipe.steps.iter().any(|step| {
+        step.apply.iter().any(|apply| match apply {
+            RecipeApply::Dimmer(_) => true,
+            // `Raw` is absolute; `Delta` is the relative one, and is
+            // deliberately not counted.
+            RecipeApply::Raw(pairs) => pairs.iter().any(|(a, _)| *a == Attribute::Dimmer),
+            _ => false,
+        })
+    })
+}
+
 impl Playback {
     /// Latch a profile look on the programmer's held layer by name,
     /// resolved through this playback's own library, bundles and looks
     /// — what `Command::Look` does at the desk, and what `--look-name`
     /// does for a still. False when the profile has no such look.
     // r[impl profile.looks] - a look by name, held
+    /// Stage a **library effect on its own**, for a preview.
+    ///
+    /// The rig goes flat white first and the effect lands on top of it,
+    /// so what a still or a loop shows is the effect's *pattern* — who
+    /// moves, in what order, how the intensity breathes — rather than
+    /// whatever colour happened to be up. An effect that sets colour
+    /// itself still wins, because the programmer's white is underneath
+    /// it in the cascade, so a colour effect goes on reading as one.
+    /// That is the whole trick: one rule covers both cases and the
+    /// library stays free to use as many colours as it likes.
+    pub fn preview_effect(&mut self, name: &str) -> bool {
+        let recipes: Vec<(String, ignition_core::Recipe)> =
+            if let Some(bundle) = self.bundles.get(name) {
+                bundle
+                    .recipes
+                    .iter()
+                    .filter_map(|n| self.library.get(n).map(|r| (n.clone(), r.clone())))
+                    .collect()
+            } else if let Some(recipe) = self.library.get(name) {
+                vec![(name.to_string(), recipe.clone())]
+            } else {
+                return false;
+            };
+        if recipes.is_empty() {
+            return false;
+        }
+        let show = Show {
+            groups: &self.groups,
+            palettes: &self.palettes,
+            rig: &self.rig,
+            speeds: &self.speeds,
+            roles: &self.profile,
+            library: &self.library,
+            bundles: &self.bundles,
+            looks: &self.looks,
+            named_tricks: &self.named_tricks,
+            ..Show::new(&self.groups, &self.rig)
+        };
+        // Everything, lit flat — on a *playback*, not in the hand.
+        //
+        // This is the whole subtlety. The programmer's absolute values
+        // sit above a taken effect, so white applied by hand beat every
+        // colour effect in the library: `cold chase` and `colour
+        // stripes` previewed as sixteen identical white frames while
+        // the intensity effects looked fine, because those are relative
+        // and merely add to whatever is under them. Put the white on a
+        // playback and busking is above it again
+        // (`r[playback.busking-over-show]`), so an effect that sets
+        // colour wins and one that only moves still has something lit
+        // to move.
+        //
+        // The white is *mid*, not full, and that is the whole reason a
+        // colour effect reads at all. Half the library modulates colour
+        // with `Delta` — relative offsets on top of whatever is beneath
+        // — and a base at full white has headroom in one direction
+        // only, so `rainbow` clipped straight back to white and its
+        // preview was sixteen identical frames. A neutral grey has room
+        // to move both ways, and an effect that sets colour absolutely
+        // overwrites it regardless.
+        // The venue's own white, by name. An inline `ColorPreset` looked
+        // like the obvious way to get a dimmer neutral — half the
+        // library shifts colour by `Delta` and a base at full white has
+        // headroom one way only — but a preset built from bare RGB
+        // carries none of the colour intent the palette's entry does,
+        // and the whole rig came back tinted green. The palette's white
+        // is the rig's white; anything cleverer belongs in the palette.
+        // Light what the effect drives, and only that.
+        //
+        // Lighting the whole rig was the obvious thing and it was wrong
+        // twice over: every fixture at full turned the room into one
+        // washed-out yellow-green box, and it hid the actual subject —
+        // an effect that drives six movers looked the same as one that
+        // drives the whole stage. Lighting the effect's own targets
+        // makes the preview *about* the effect: the fixtures it touches
+        // come up white, everything else stays dark, and what moves is
+        // the only thing lit.
+        let lights_itself = recipes.iter().any(|(_, r)| states_intensity(r));
+        let targets: Vec<ignition_core::Selection> =
+            recipes.iter().map(|(_, r)| r.target.clone()).collect();
+        let all = match targets.len() {
+            0 => ignition_core::Selection::Group("All".to_string()),
+            1 => targets.into_iter().next().expect("one target"),
+            _ => ignition_core::Selection::Union(targets),
+        };
+        let all_aim = all.clone();
+        // Aim, before anything else.
+        //
+        // Every movement effect in the library is a *relative* Pan/Tilt
+        // delta, on purpose: a circle drawn around the drummer has to
+        // stay around the drummer, so the shape rides on whatever focus
+        // the cue set. A preview sets no cue — so it set no focus, and
+        // the shape rode on the movers' park position. The circle
+        // previews were six beams pointing near-vertically at nothing,
+        // wiggling eighteen degrees around a patch of air, and frame 0
+        // and frame 8 of a full revolution were the same picture. Not a
+        // small effect: no effect, because a beam that lands on no
+        // surface has nothing to draw the shape *on*.
+        //
+        // Worse for the room-space patterns (`orbit_m`, `focus.delta`),
+        // which are offsets in metres from where the head is aimed:
+        // with no aim there is nothing to offset from at all.
+        //
+        // So the base aims at the stage, the way the plainest real cue
+        // would. On the playback under the programmer, like the white,
+        // so an effect that sets its own focus still wins — the same
+        // one rule that lets a colour effect beat the white base.
+        // r[impl focus.delta] - a relative pattern needs a base aim to be relative to
+        let aim = self
+            .profile
+            .focus("Stage")
+            .map(str::to_string)
+            .or_else(|| self.palettes.focus.first().map(|f| f.name.clone()));
+        let white = ignition_core::Cue {
+            name: "preview base".to_string(),
+            recipes: vec![
+                // Blackout when the effect drives intensity itself, so
+                // the picture is the effect and nothing else. An effect
+                // that does *not* touch intensity — a movement or a
+                // colour one — has to be given something to act on, or
+                // its preview is sixteen black frames: you cannot see a
+                // beam swing that is not lit. So the base is dark
+                // exactly when the effect can light itself.
+                ignition_core::Recipe::new(
+                    all.clone(),
+                    ignition_core::recipe::RecipeApply::Dimmer(if lights_itself {
+                        0.0
+                    } else {
+                        0.65
+                    }),
+                )
+                .into(),
+                ignition_core::Recipe::new(
+                    all,
+                    // The emitters at full, not a colour preset.
+                    //
+                    // "Open White" is the rig's white and it is warm on
+                    // purpose — it carries a 6500K intent and a quality
+                    // that lets the fixture mix in its amber emitter,
+                    // which is right on stage and wrong here: a preview
+                    // is meant to show the effect's *pattern*, and a
+                    // yellow cast is the one thing in the frame that is
+                    // not the effect. Driving red, green and blue to
+                    // full skips the colour intent entirely and gives
+                    // the fixture's own pure white.
+                    ignition_core::recipe::RecipeApply::Raw(vec![
+                        (
+                            ignition_proto::Attribute::ColorAdd {
+                                channel: ignition_proto::ColorChannel::Red,
+                            },
+                            1.0,
+                        ),
+                        (
+                            ignition_proto::Attribute::ColorAdd {
+                                channel: ignition_proto::ColorChannel::Green,
+                            },
+                            1.0,
+                        ),
+                        (
+                            ignition_proto::Attribute::ColorAdd {
+                                channel: ignition_proto::ColorChannel::Blue,
+                            },
+                            1.0,
+                        ),
+                    ]),
+                )
+                .into(),
+            ]
+            .into_iter()
+            .chain(aim.map(|name| {
+                ignition_core::Recipe::new(
+                    all_aim,
+                    ignition_core::recipe::RecipeApply::FocusPoint(ignition_core::Ref::Named(name)),
+                )
+                .into()
+            }))
+            .collect(),
+            ..Default::default()
+        };
+        if let Some(player) = self.playbacks.of_class(ignition_core::Class::Look) {
+            *player = ignition_core::CuePlayer::new(vec![white]);
+            player.go(&show);
+        }
+        for (n, recipe) in recipes {
+            self.programmer.take_effect(&n, recipe, 1.0);
+        }
+        true
+    }
+
     pub fn hold_look(&mut self, name: &str) -> bool {
         let Some(look) = self.looks.get(name) else {
             return false;
