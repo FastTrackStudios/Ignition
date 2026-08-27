@@ -287,22 +287,38 @@ is not blocking on acquiring a swapchain image, so there is no point
 patching `anyrender-vello-vendored` for it — that patch was written,
 measured, and reverted.
 
-What remains plausible, and is the next thing to try: let the
-visualizer's volumetric pass and Vello's composite overlap instead of
-serialising, by giving the visualizer **two target textures** and
-alternating them — Vello samples the one the GPU finished last frame
-while Bevy writes the other.
+**Two targets is also not the fix, and this has been measured.** The
+obvious way to let the visualizer's volumetric pass and Vello's
+composite overlap is to give the visualizer two render targets and
+alternate them, so the host samples the one the GPU finished last frame
+instead of the one being written. It was built — mailbox posting both
+slots, cameras re-pointed each frame, the resize path recreating the
+pair — and it works: 97 fps to 102 at medium, 125 to 127 at low.
 
-Note what this is *not*. `EmbeddedViz::last_good` looks like it already
-holds the previous frame and does not: there is one target `Image`,
-rendered into every frame, and `last_good` is a second handle to the
-same `wgpu::Texture`. It exists so a resize shows the old picture rather
-than a black flash. Reordering the calls in `VizCore::paint` therefore
-buys nothing at all; the targets have to actually be two, which means
-the resize path and the camera retargeting in `embedded.rs` both have to
-learn to ping-pong.
+It was reverted anyway, because the beams come back **stippled**. A
+mover's shaft that was a smooth cone turns into a dither pattern at its
+mouth. The volumetric raymarch is deliberately jittered per frame and
+TAA is what averages that jitter into a solid shaft — and TAA's history
+does not survive the render target changing underneath it, so every
+frame resolves from nothing. Five per cent for the exact artifact the
+whole quality ladder exists to avoid is not a trade worth making.
 
-The cost is one frame of latency on the viewport, which for a lighting
-visualizer is not a cost. If the two halves do overlap, medium's 2.3 ms
-disappears under the 8 ms of CPU and medium runs at low's frame rate
-with medium's picture — which is the whole objective.
+Both structural ideas are therefore spent. The read-after-write
+dependency was real but was not what the frame was waiting on; the GPU
+simply has more work than a frame's worth. Total GPU per frame at medium
+is about 9.8 ms against an 8.3 ms budget, and the raymarch is nearly all
+of the difference.
+
+What is left is not a trick, it is less work:
+
+* **Fewer haze pixels without the dots.** The shafts break up at a
+  coarser haze camera because a thin bright feature is undersampled, not
+  because the upsample is naive — so a bilateral or depth-aware
+  upsample will not rescue it. Something that keeps thin features across
+  the resolution drop would: rendering the beam cones as geometry and
+  the ambient scatter as the low-resolution march, for instance, so the
+  cheap pass never has to carry the thin thing.
+* **Less CPU.** The 8 ms floor is Blitz painting 5,509 nodes and Bevy
+  stepping its main world. Cut that and the ceiling moves for every
+  preset at once — and it is the only lever that helps `low` and
+  `potato`, which are already GPU-idle.
