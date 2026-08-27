@@ -248,13 +248,36 @@ fn layout_entries(
         is_oit_supported,
     }: &MeshPipelineViewLayoutParams,
 ) -> [Vec<BindGroupLayoutEntry>; 2] {
+    // IGNITION PATCH: the view bindings are visible to compute too.
+    //
+    // Upstream declares them `FRAGMENT`, which means a compute pass
+    // cannot see the lights, the clusters or the shadow atlas — and so
+    // cannot do volumetrics the way every other engine does, as a
+    // compute pass over a froxel grid (`volumetric_fog::froxel`).
+    //
+    // Adding a stage is permissive: a binding visible to more stages is
+    // still visible to the ones that already used it, so no existing
+    // pipeline changes. The alternative is re-declaring the whole view
+    // layout — shadow arrays, sampler variants, the storage-versus-
+    // uniform split — beside the real one and keeping the two in step
+    // for ever.
+    //
+    // If froxel volumetrics land upstream this has to happen there too;
+    // #18151 cannot be built without it.
+    const VIEW_STAGES: ShaderStages = ShaderStages::from_bits_retain(
+        ShaderStages::FRAGMENT.bits() | ShaderStages::COMPUTE.bits(),
+    );
+    const VIEW_STAGES_WITH_VERTEX: ShaderStages = ShaderStages::from_bits_retain(
+        ShaderStages::VERTEX_FRAGMENT.bits() | ShaderStages::COMPUTE.bits(),
+    );
+
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
-        ShaderStages::FRAGMENT,
+        VIEW_STAGES,
         (
             // View
             (
                 0,
-                uniform_buffer::<ViewUniform>(true).visibility(ShaderStages::VERTEX_FRAGMENT),
+                uniform_buffer::<ViewUniform>(true).visibility(VIEW_STAGES_WITH_VERTEX),
             ),
             // Lights
             (1, uniform_buffer::<GpuLights>(true)),
@@ -336,7 +359,7 @@ fn layout_entries(
             // Globals
             (
                 11,
-                uniform_buffer::<GlobalsUniform>(false).visibility(ShaderStages::VERTEX_FRAGMENT),
+                uniform_buffer::<GlobalsUniform>(false).visibility(VIEW_STAGES_WITH_VERTEX),
             ),
             // Light probes
             (12, uniform_buffer::<LightProbesUniform>(true)),

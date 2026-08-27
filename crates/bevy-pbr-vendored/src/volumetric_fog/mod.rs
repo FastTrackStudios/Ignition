@@ -47,6 +47,7 @@ use bevy_render::{
     render_resource::SpecializedRenderPipelines,
     sync_component::{SyncComponent, SyncComponentPlugin},
 };
+use bevy_shader::load_shader_library;
 use render::{VolumetricFogPipeline, VolumetricFogUniformBuffer, volumetric_fog};
 
 use crate::{MeshPipelineSystems, volumetric_fog::render::init_volumetric_fog_pipeline};
@@ -65,6 +66,7 @@ pub struct FogAssets {
 
 impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
+        load_shader_library!(app, "volumetric_shadows.wgsl");
         embedded_asset!(app, "volumetric_fog.wgsl");
 
         // IGNITION PATCH: froxel volumetrics, beside the screen-space

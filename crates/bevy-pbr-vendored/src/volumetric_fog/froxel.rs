@@ -21,7 +21,7 @@
 //! [bevy#18151]: https://github.com/bevyengine/bevy/issues/18151
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset};
+use bevy_asset::{Handle, embedded_asset, load_embedded_asset};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -44,11 +44,14 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::{CachedTexture, TextureCache},
-    view::{ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::ExtractedView,
 };
+use bevy_shader::Shader;
 use bevy_utils::prelude::default;
 
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
+
+use crate::{MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, ViewKeyCache};
 
 /// The grid's storage format: in-scattered light in RGB, extinction in
 /// A. Sixteen-bit float because the light is HDR and the grid is read
@@ -107,11 +110,22 @@ pub struct FroxelUniform {
 
 #[derive(Resource)]
 pub struct FroxelPipelines {
+    /// Bevy's own view bindings — the lights, the clusters, the shadow
+    /// atlas — as group 0 of the injection, exactly as the screen-space
+    /// march has them. Reusing the layout rather than restating it is
+    /// what lets the injection run the *same* lighting code; see the
+    /// compute-visibility patch in `render/mesh_view_bindings.rs`.
+    mesh_view_layouts: MeshPipelineViewLayouts,
     inject_layout: BindGroupLayoutDescriptor,
     integrate_layout: BindGroupLayoutDescriptor,
-    inject: CachedComputePipelineId,
     integrate: CachedComputePipelineId,
+    shader: Handle<Shader>,
 }
+
+/// The injection pipeline for one view, specialised on that view's
+/// layout key the way every other pipeline in the crate is.
+#[derive(Component)]
+pub struct ViewFroxelPipeline(CachedComputePipelineId);
 
 /// The grid pair for one view: what the injection writes, and what the
 /// integration accumulates into for the apply pass to read.
@@ -149,10 +163,16 @@ impl Plugin for FroxelVolumetricsPlugin {
 
         render_app
             .init_resource::<FroxelUniformBuffer>()
-            .add_systems(RenderStartup, init_froxel_pipelines)
+            // After the mesh pipeline, because the view layout this
+            // borrows does not exist until it has run.
+            .add_systems(
+                RenderStartup,
+                init_froxel_pipelines.after(crate::MeshPipelineSystems),
+            )
             .add_systems(
                 Render,
                 (
+                    prepare_froxel_pipelines.in_set(RenderSystems::Prepare),
                     prepare_froxel_textures.in_set(RenderSystems::PrepareResources),
                     prepare_froxel_uniforms.in_set(RenderSystems::PrepareResources),
                     prepare_froxel_bind_groups.in_set(RenderSystems::PrepareBindGroups),
@@ -170,6 +190,7 @@ impl Plugin for FroxelVolumetricsPlugin {
 pub fn init_froxel_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
+    mesh_view_layouts: Res<MeshPipelineViewLayouts>,
     world: &World,
 ) {
     // Group 0 for both passes: the view, the grid's own uniform, and
@@ -182,7 +203,6 @@ pub fn init_froxel_pipelines(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<FroxelUniform>(true),
                 texture_storage_3d(GRID_FORMAT, StorageTextureAccess::WriteOnly),
             ),
@@ -201,13 +221,6 @@ pub fn init_froxel_pipelines(
         ),
     );
 
-    let inject = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("froxel_inject_pipeline".into()),
-        layout: vec![inject_layout.clone()],
-        shader: load_embedded_asset!(world, "froxel.wgsl"),
-        ..default()
-    });
-
     let integrate = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("froxel_integrate_pipeline".into()),
         layout: vec![integrate_layout.clone()],
@@ -216,11 +229,42 @@ pub fn init_froxel_pipelines(
     });
 
     commands.insert_resource(FroxelPipelines {
+        mesh_view_layouts: mesh_view_layouts.clone(),
         inject_layout,
         integrate_layout,
-        inject,
         integrate,
+        shader: load_embedded_asset!(world, "froxel.wgsl"),
     });
+}
+
+/// The injection pipeline has to be specialised per view, because the
+/// view layout it binds is.
+pub fn prepare_froxel_pipelines(
+    mut commands: Commands,
+    pipeline_cache: Res<PipelineCache>,
+    pipelines: Res<FroxelPipelines>,
+    view_key_cache: Res<ViewKeyCache>,
+    views: Query<(Entity, &ExtractedView), With<FroxelVolumetrics>>,
+) {
+    for (entity, view) in &views {
+        let Some(view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
+        let view_layout = pipelines
+            .mesh_view_layouts
+            .get_view_layout(MeshPipelineViewLayoutKey::from(*view_key));
+
+        let id = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("froxel_inject_pipeline".into()),
+            layout: vec![
+                view_layout.main_layout.clone(),
+                pipelines.inject_layout.clone(),
+            ],
+            shader: pipelines.shader.clone(),
+            ..default()
+        });
+        commands.entity(entity).insert(ViewFroxelPipeline(id));
+    }
 }
 
 pub fn prepare_froxel_textures(
@@ -290,14 +334,10 @@ pub fn prepare_froxel_bind_groups(
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     pipelines: Res<FroxelPipelines>,
-    view_uniforms: Res<ViewUniforms>,
     froxel_uniforms: Res<FroxelUniformBuffer>,
     views: Query<(Entity, &ViewFroxelTextures)>,
 ) {
-    let (Some(view_binding), Some(froxel_binding)) = (
-        view_uniforms.uniforms.binding(),
-        froxel_uniforms.0.binding(),
-    ) else {
+    let Some(froxel_binding) = froxel_uniforms.0.binding() else {
         return;
     };
 
@@ -306,7 +346,6 @@ pub fn prepare_froxel_bind_groups(
             "froxel_inject_bind_group",
             &pipeline_cache.get_bind_group_layout(&pipelines.inject_layout),
             &BindGroupEntries::sequential((
-                view_binding.clone(),
                 froxel_binding.clone(),
                 &textures.scattering.default_view,
             )),
@@ -337,17 +376,18 @@ pub fn froxel_volumetrics(
     view: ViewQuery<(
         &FroxelVolumetrics,
         &ViewFroxelBindGroups,
-        &ViewUniformOffset,
+        &ViewFroxelPipeline,
+        &MeshViewBindGroup,
         &ViewFroxelUniformOffset,
     )>,
     pipelines: Res<FroxelPipelines>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (froxels, bind_groups, view_offset, froxel_offset) = view.into_inner();
+    let (froxels, bind_groups, inject_pipeline, view_bind_group, froxel_offset) = view.into_inner();
 
     let (Some(inject), Some(integrate)) = (
-        pipeline_cache.get_compute_pipeline(pipelines.inject),
+        pipeline_cache.get_compute_pipeline(inject_pipeline.0),
         pipeline_cache.get_compute_pipeline(pipelines.integrate),
     ) else {
         return;
@@ -367,11 +407,8 @@ pub fn froxel_volumetrics(
             timestamp_writes: None,
         });
         pass.set_pipeline(inject);
-        pass.set_bind_group(
-            0,
-            &bind_groups.inject,
-            &[view_offset.offset, froxel_offset.0],
-        );
+        pass.set_bind_group(0, &view_bind_group.main, &view_bind_group.main_offsets);
+        pass.set_bind_group(1, &bind_groups.inject, &[froxel_offset.0]);
         pass.dispatch_workgroups(
             dimensions.x.div_ceil(4),
             dimensions.y.div_ceil(4),
