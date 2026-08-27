@@ -443,15 +443,23 @@ impl VizCore {
         // Re-register only when the texture changes identity, which at
         // a steady size it does not. Registering every frame would leak
         // one resource per frame.
+        // Keyed on the texture's own size, not the requested one: after
+        // a resize the renderer hands back the previous target for a
+        // frame or two while the new one warms up, and keying on the
+        // request registered that stale texture under the new size —
+        // after which nothing ever re-registered, and the picture stayed
+        // frozen at the moment of the resize.
+        // r[impl studio.windows.visualizer-anywhere] - the texture is registered by what it is
+        let (tw, th) = (texture.width(), texture.height());
         let resource = match *registered {
-            Some((id, w, h)) if (w, h) == (width, height) => id,
+            Some((id, w, h)) if (w, h) == (tw, th) => id,
             other => {
                 if let Some((old, _, _)) = other {
                     render_ctx.unregister_resource(old);
                 }
                 match render_ctx.try_register_custom_resource(Box::new(texture)) {
                     Ok(id) => {
-                        *registered = Some((id, width, height));
+                        *registered = Some((id, tw, th));
                         id
                     }
                     Err(_) => {
