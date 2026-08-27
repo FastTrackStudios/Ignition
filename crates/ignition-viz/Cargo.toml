@@ -27,7 +27,10 @@ solari = ["bevy/bevy_solari"]
 # render pass, which `IGNITION_PROFILE=all` then aggregates. Off by
 # default because the spans cost something even unread, and the stage
 # table answers the usual question without them.
-trace = ["bevy/trace"]
+# `bevy/debug` is what puts the system's *name* in its span. Without it
+# every row in an `IGNITION_PROFILE=all` table reads "<Enable the debug
+# feature to see the name>", which is a table of one row.
+trace = ["bevy/trace", "bevy/debug"]
 
 [dependencies]
 anyhow = "1.0.104"

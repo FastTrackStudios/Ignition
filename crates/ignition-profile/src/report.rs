@@ -21,7 +21,7 @@ pub struct Report {
 
 /// One span name's line.
 pub struct Line {
-    pub name: &'static str,
+    pub name: Box<str>,
     pub calls: u64,
     /// Total time inside the span, per frame.
     pub busy_per_frame_ms: f64,
@@ -48,7 +48,7 @@ pub(crate) fn build(window: Window, elapsed: Duration) -> Report {
     rows.sort_by(|a, b| {
         b.self_per_frame_ms
             .total_cmp(&a.self_per_frame_ms)
-            .then_with(|| rank(a.name).cmp(&rank(b.name)))
+            .then_with(|| rank(&a.name).cmp(&rank(&b.name)))
     });
     Report {
         elapsed,
@@ -61,7 +61,7 @@ fn rank(name: &str) -> usize {
     STAGES.iter().position(|s| *s == name).unwrap_or(usize::MAX)
 }
 
-fn line(name: &'static str, mut row: Row, frames: u64) -> Line {
+fn line(name: Box<str>, mut row: Row, frames: u64) -> Line {
     row.samples.sort_by(f32::total_cmp);
     let pct = |p: f64| -> f64 {
         if row.samples.is_empty() {
@@ -160,8 +160,8 @@ mod tests {
     #[test]
     fn self_time_sorts_above_total_time() {
         let mut rows = HashMap::new();
-        rows.insert("blitz.render", row(10, 200.0, 20.0));
-        rows.insert("viz.render", row(10, 180.0, 180.0));
+        rows.insert("blitz.render".into(), row(10, 200.0, 20.0));
+        rows.insert("viz.render".into(), row(10, 180.0, 180.0));
         let report = build(
             Window {
                 started: None,
@@ -170,8 +170,8 @@ mod tests {
             },
             Duration::from_millis(200),
         );
-        assert_eq!(report.rows[0].name, "viz.render");
-        assert_eq!(report.rows[1].name, "blitz.render");
+        assert_eq!(&*report.rows[0].name, "viz.render");
+        assert_eq!(&*report.rows[1].name, "blitz.render");
         // Ten frames, 180 ms of self time: 18 ms a frame.
         assert!((report.rows[0].self_per_frame_ms - 18.0).abs() < 1e-6);
     }
@@ -181,7 +181,7 @@ mod tests {
     #[test]
     fn per_frame_and_per_call_differ_when_a_stage_runs_twice() {
         let mut rows = HashMap::new();
-        rows.insert("blitz.scene", row(20, 100.0, 100.0));
+        rows.insert("blitz.scene".into(), row(20, 100.0, 100.0));
         let report = build(
             Window {
                 started: None,
@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn over_budget_is_flagged() {
         let mut rows = HashMap::new();
-        rows.insert("viz.render", row(1, 30.0, 30.0));
+        rows.insert("viz.render".into(), row(1, 30.0, 30.0));
         let report = build(
             Window {
                 started: None,

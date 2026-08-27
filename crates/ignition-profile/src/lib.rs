@@ -157,6 +157,59 @@ struct Timing {
     child: Duration,
     /// First enter, for the trace file's timeline.
     began: Option<Instant>,
+    /// What to call this span in the table.
+    label: Label,
+}
+
+/// A row's key.
+///
+/// Usually the span's name. Bevy is the exception that makes this worth
+/// having: every one of its systems opens a span *called* `system` and
+/// carries which system it is in a `name` field, so aggregating by name
+/// alone produces one row saying "the systems took 19 ms" — which is
+/// the question, not the answer.
+#[derive(Clone)]
+enum Label {
+    Name(&'static str),
+    Field(Box<str>),
+}
+
+impl Label {
+    /// The span's `name` field if it has one, else its own name — read
+    /// once, when the span opens, because a field is only visitable
+    /// from the `Attributes` and the table needs it at close.
+    fn of(attrs: &Attributes<'_>) -> Self {
+        struct Take(Option<String>);
+        impl tracing::field::Visit for Take {
+            fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+                if field.name() == "name" {
+                    self.0 = Some(value.to_string());
+                }
+            }
+            fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+                if field.name() == "name" && self.0.is_none() {
+                    self.0 = Some(format!("{value:?}").trim_matches('"').to_string());
+                }
+            }
+        }
+        let name = attrs.metadata().name();
+        if !attrs.metadata().fields().field("name").is_some() {
+            return Label::Name(name);
+        }
+        let mut take = Take(None);
+        attrs.record(&mut take);
+        match take.0 {
+            Some(value) => Label::Field(format!("{name} {value}").into_boxed_str()),
+            None => Label::Name(name),
+        }
+    }
+
+    fn as_str(&self) -> &str {
+        match self {
+            Label::Name(name) => name,
+            Label::Field(text) => text,
+        }
+    }
 }
 
 /// One span name's share of the window.
@@ -177,7 +230,7 @@ const MAX_SAMPLES: usize = 8192;
 struct Window {
     started: Option<Instant>,
     frames: u64,
-    rows: HashMap<&'static str, Row>,
+    rows: HashMap<Box<str>, Row>,
 }
 
 struct Shared {
@@ -257,10 +310,16 @@ pub fn from_env() -> Option<ProfileLayer> {
 
 impl Shared {
     /// Folds a closed span into the window.
-    fn record(&self, name: &'static str, busy: Duration, own: Duration) {
+    fn record(&self, name: &str, busy: Duration, own: Duration) {
         let mut window = self.window.lock().expect("profile window");
         window.started.get_or_insert_with(Instant::now);
-        let row = window.rows.entry(name).or_default();
+        // Looked up before it is inserted, so the steady state — every
+        // row already present — allocates nothing. In `all` mode this
+        // runs tens of thousands of times a frame.
+        let row = match window.rows.get_mut(name) {
+            Some(row) => row,
+            None => window.rows.entry(name.into()).or_default(),
+        };
         row.calls += 1;
         row.busy += busy;
         row.own += own;
@@ -319,7 +378,7 @@ impl<S> Layer<S> for ProfileLayer
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    fn on_new_span(&self, _attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
+    fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
         let Some(span) = ctx.span(id) else { return };
         if !self.shared.focus.wants(span.name()) {
             return;
@@ -329,6 +388,7 @@ where
             busy: Duration::ZERO,
             child: Duration::ZERO,
             began: None,
+            label: Label::of(attrs),
         });
     }
 
@@ -356,7 +416,7 @@ where
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
         let Some(span) = ctx.span(&id) else { return };
-        let (busy, child, began) = {
+        let (busy, child, began, label) = {
             let mut ext = span.extensions_mut();
             let Some(timing) = ext.get_mut::<Timing>() else {
                 return;
@@ -367,10 +427,15 @@ where
             if let Some(entered) = timing.entered.take() {
                 timing.busy += entered.elapsed();
             }
-            (timing.busy, timing.child, timing.began)
+            (
+                timing.busy,
+                timing.child,
+                timing.began,
+                timing.label.clone(),
+            )
         };
         let own = busy.saturating_sub(child);
-        let name = span.name();
+        let name = label.as_str();
 
         // Charge this span to the nearest *measured* ancestor, which is
         // not always the immediate parent: with `IGNITION_PROFILE=1` the
