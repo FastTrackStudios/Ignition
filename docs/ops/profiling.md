@@ -261,3 +261,39 @@ automatic scale had *already* chosen 2 at this viewport, which the
 studio now says out loud in `viz.haze: resized`. The cost model holds:
 pixels times steps times lights, with the pixels already budgeted, which
 is why the step count is the dial that moves.
+
+## The wall medium is against, and what is not the answer
+
+The quality tiers cost exactly one thing, and it is not where you would
+look for it. Comparing `low` and `medium` stage by stage:
+
+| stage | low | medium |
+| --- | --- | --- |
+| `blitz.render` self | 3.39 ms | **5.50 ms** |
+| `viz.step` | 3.01 ms | 3.09 ms |
+| `blitz.scene` self | 1.40 ms | 1.46 ms |
+| frame | 8.03 ms | 10.32 ms |
+
+The entire 2.3 ms lands in **Vello's submit**, and the visualizer's own
+CPU time does not move at all. The extra raymarch is pure GPU, and the
+frame is waiting for it: Bevy steps *inside* Blitz's paint, both halves
+go to one queue, and Vello's composite samples the texture Bevy is still
+writing.
+
+**Buffering is not the fix, and this has been measured.** Raising
+`desired_maximum_frame_latency` from 2 to 3, switching the present mode
+to Mailbox, and both together, all land within noise of 98 fps. The CPU
+is not blocking on acquiring a swapchain image, so there is no point
+patching `anyrender-vello-vendored` for it — that patch was written,
+measured, and reverted.
+
+What remains plausible, and is the next thing to try: composite the
+visualizer's **previous** frame rather than the one being rendered. The
+mailbox in `embedded.rs` already keeps it (`last_good`), and handing
+that to Vello breaks the read-after-write dependency, so the
+visualizer's volumetrics and Vello's composite can run over each other
+instead of in sequence. The cost is one frame of latency on the
+viewport, which for a lighting visualizer is not a cost at all. If the
+two do overlap, medium's 2.3 ms disappears under the 8 ms of CPU and
+medium runs at low's frame rate with medium's picture — which is the
+whole objective.
