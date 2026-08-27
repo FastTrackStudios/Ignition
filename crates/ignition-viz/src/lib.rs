@@ -15,7 +15,6 @@
 //! separately hand-written wgpu pipelines.
 
 pub mod app;
-pub mod beam;
 pub mod bench;
 pub mod budget;
 pub mod canvas;

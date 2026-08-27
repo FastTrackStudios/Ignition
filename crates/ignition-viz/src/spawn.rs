@@ -7,11 +7,11 @@
 //! per-frame work is writing a handful of numbers into its own material
 //! and light: no geometry is rebuilt to move a mover.
 
-use crate::beam::{BeamMaterial, beam_mesh, beam_transform, wedge_mesh};
 use crate::dmx::DmxUniverses;
 use crate::fixture_profile::{
-    BEAM_CONE_SEGMENTS, BeamThrow, BodyVisual, LUMENS_PER_WATT, MAX_FIELD_HALF_ANGLE_DEG,
-    SHAFT_CANDELA_THRESHOLD, assumed_field_half_angle_deg, beam_half_angle_deg, peak_candela,
+    BeamThrow, BodyVisual, LUMENS_PER_WATT, MAX_FIELD_HALF_ANGLE_DEG,
+    SHAFT_CANDELA_THRESHOLD, assumed_field_half_angle_deg, beam_half_angle_deg, is_hazer,
+    peak_candela,
     power_watts, resolve_fixture,
 };
 use crate::gdtf_geometry::{self, GdtfFixture, GdtfLibrary, PanJoint, TiltJoint};
@@ -55,6 +55,30 @@ const MAX_RIG_DISTANCE: f32 = 0.6;
 // r[impl viz.exposure] - haze is a density, calibrated against a lit room
 const VOLUMETRIC_HAZE_SCALE: f32 = 0.05;
 
+/// `FogVolume::density_factor` for the operator's dial and the room's
+/// hazer level (`haze::HazeLevel`): the dial is the multiplier, the
+/// hazers are what put the haze there.
+// r[impl viz.haze-is-volumetric] - density is dial x hazer output
+pub fn haze_density(haze: f32, hazer_level: f32) -> f32 {
+    haze * VOLUMETRIC_HAZE_SCALE * hazer_level
+}
+
+/// `FogVolume::light_intensity`: a gain on what the fog scatters toward
+/// the camera, without touching how much it dims the room behind it.
+/// Bevy's fog at a density that leaves a twenty-metre house readable
+/// scatters too little of a 1,600 cd par to show its cone; this is the
+/// camera's aperture for the air, the way `exposure` is for surfaces.
+pub const FOG_LIGHT_GAIN: f32 = 2.5;
+
+/// `FogVolume::scattering_asymmetry`: how much the haze throws light
+/// forward rather than sideways. Bevy's default of 0.8 is a clear-sky
+/// aerosol — a shaft seen head-on is twenty times the same shaft seen
+/// square across, so a mover swung toward the house whited the room
+/// out while forty-eight pars seen from the side barely showed. Glycol
+/// haze is nearer isotropic; at 0.3 a par's cone reads from the seats
+/// and a beam into the camera is bright, not a veil.
+pub const FOG_SCATTERING_ASYMMETRY: f32 = 0.3;
+
 /// How strongly the haze scatters the light that crosses it: Bevy's own
 /// default. It sat at 0.6 while the spill lights were range-clipped;
 /// with the spill reaching the whole room, the density above is the
@@ -66,16 +90,12 @@ const HAZE_SCATTERING: f32 = 0.3;
 /// metre, and the haze camera's occluders write the same term so the
 /// composite dims the room exactly as the in-camera fog would have.
 // r[impl viz.performance-budget] - one extinction, two renderers
-pub fn haze_extinction_per_metre(haze: f32) -> f32 {
-    haze * VOLUMETRIC_HAZE_SCALE * (HAZE_ABSORPTION + HAZE_SCATTERING)
+pub fn haze_extinction_per_metre(haze: f32, hazer_level: f32) -> f32 {
+    haze_density(haze, hazer_level) * (HAZE_ABSORPTION + HAZE_SCATTERING)
 }
 
 /// `FogVolume::absorption`, as spawned below.
 const HAZE_ABSORPTION: f32 = 0.05;
-
-/// The same dial for the hand-drawn cone, whose brightness is a plain
-/// multiplier on an additive material rather than a density.
-const SHADER_HAZE_SCALE: f32 = 10.0;
 
 /// How brightly a lit fixture's housing glows in the colour it is
 /// emitting, at full dimmer.
@@ -164,11 +184,10 @@ pub struct VizSettings {
     /// with 1.0 a normally hazed room. At 0 a beam is inert, the way it
     /// would genuinely look in clean air.
     ///
-    /// Normalized deliberately: the two beam styles want wildly
-    /// different raw numbers (Bevy's `density_factor` defaults to 0.1;
-    /// the hand-drawn cone's gain wanted ~10), and an operator dial that
-    /// changes meaning when you switch renderer is not a dial. Each
-    /// style scales it on the way in.
+    /// A multiplier on the room's hazer level (`haze::HazeLevel`), not
+    /// a density of its own: the hazers put the haze there, this dial
+    /// says how much of it to show. `haze_density` maps the product onto
+    /// Bevy's `density_factor`.
     pub haze: f32,
     /// Non-fixture room lighting. 0 by default: a real dark venue has no
     /// ambient fill, and everything you see is a fixture's beam or its
@@ -188,8 +207,6 @@ pub struct VizSettings {
     /// equally bright and therefore cut equally visible shafts. Relative
     /// output is now the fixture's own; this only sets the overall level.
     pub exposure: f32,
-    /// How beams are drawn — see `BeamStyle`.
-    pub beam_style: BeamStyle,
     /// Whether a lit fixture's housing glows in the colour it is putting
     /// out. Off by default: the real fixtures are black boxes, and a
     /// par that lights up orange when it is sending orange reads as a
@@ -235,27 +252,6 @@ impl VizSettings {
     fn skip(&self, name: &str) -> bool {
         self.exclude.iter().any(|e| name.contains(e.as_str()))
     }
-}
-
-/// How a beam in the air is produced.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BeamStyle {
-    /// Bevy's own volumetric fog: a `FogVolume` filling the room, and
-    /// every fixture's spot light marked `VolumetricLight`, so a shaft
-    /// is what the renderer computes from the light actually passing
-    /// through haze — occluded by geometry, shaped by the light's real
-    /// cone, and with no beam mesh anywhere.
-    ///
-    /// This is the physical answer and the one that scales: haze is a
-    /// property of the room rather than something re-drawn per fixture.
-    /// It needs shadow maps on every contributing light, which is the
-    /// cost to watch on a rig this size.
-    Volumetric,
-    /// The hand-drawn additive cone (`beam.wgsl`, a port of ASLS's own
-    /// beam shader). Cheap and independent of shadow maps, but the haze
-    /// is drawn *per beam* rather than being in the room, so beams do
-    /// not interact with each other or with anything they pass behind.
-    Shader,
 }
 
 /// Marks a fixture's root entity and remembers which venue record it came
@@ -368,12 +364,8 @@ pub fn fixture_optics(f: &crate::venue::FixtureRecord, profile: Option<&GdtfFixt
     }
 }
 
-/// A fixture's beam cone — a child of its `BeamEmitter`.
-#[derive(Component)]
-pub struct FixtureBeam;
-
 /// A fixture's spill: the light it actually throws onto the room, as
-/// distinct from the visible shaft of haze the beam cone draws. Also a
+/// and, through the haze, the shaft it shows in the air. Also a
 /// child of the emitter, with an identity local transform — a Bevy spot
 /// light shines along its entity's -Z, which is already this project's
 /// beam-axis convention, so it needs no aiming code at all.
@@ -402,19 +394,6 @@ pub struct BarEmitter {
     /// The emissive face of each cell, in bar order, so a cell can show
     /// its own colour.
     pub cells: Vec<Handle<StandardMaterial>>,
-}
-
-/// A bar's volumetric shape — a child of its `BarEmitter`. Where a point
-/// emitter's shaft is a cone, a strip's is an extruded wedge: a frustum
-/// with a rectangular section whose near face is the strip itself and
-/// whose sides open by the beam angle. Rebuilt only when the throw
-/// changes, which for a bar bolted to a floor or a truss is never.
-// r[impl viz.bar-emitters] - a wedge, not N cones
-#[derive(Component)]
-pub struct BarWedge {
-    /// The throw the current mesh was built for, so the mesh is not
-    /// regenerated every frame for the same answer.
-    pub built_for_length: f32,
 }
 
 /// Cells this close to one line, and this parallel, are one strip. A
@@ -485,10 +464,11 @@ fn split_key(split: Option<(f32, bool)>) -> u64 {
 /// Spawns a bar's one emitter: the strip's centre pose under the node
 /// the cells hang from (so the file's own tree carries it — see
 /// `GdtfNode::bar_cells`), a thin emissive face per cell tiling the
-/// strip, the wedge for its shaft, and one wide spill light. The spill is a single spot with
-/// no shadow map and no volumetric pass — a strip's wash has no cone to
-/// carve, and twelve shadowed spots was what drew the dots.
-// r[impl viz.bar-emitters] - the emissive face, the wedge and one spill per bar
+/// strip, and one wide spill light. The spill is a single volumetric spot
+/// with no shadow map — the haze shows its wash as one wide fan, and
+/// twelve shadowed spots was what drew the dots.
+// r[impl viz.bar-emitters] - the emissive face and one spill per bar
+// r[impl viz.haze-is-volumetric] - a bar's light in the air is its spill in the fog
 #[allow(clippy::too_many_arguments)]
 fn spawn_bar_emitter(
     commands: &mut Commands,
@@ -502,8 +482,6 @@ fn spawn_bar_emitter(
     cells: &[(Vec3, Quat)],
     meshes: &mut Assets<Mesh>,
     standard: &mut Assets<StandardMaterial>,
-    beams: &mut Assets<BeamMaterial>,
-    haze: f32,
     optics: ProfileOptics,
     spill_range: f32,
 ) {
@@ -554,27 +532,6 @@ fn spawn_bar_emitter(
         optics,
     ));
 
-    // Drawn in both beam styles: Bevy's fog carves shafts from spot
-    // lights, which are cones, so a strip's wedge has to be a mesh
-    // whichever style the point emitters use.
-    commands.spawn((
-        BarWedge {
-            built_for_length: 0.0,
-        },
-        Mesh3d(meshes.add(wedge_mesh(half_length, half_width, 1.0, 20.0))),
-        MeshMaterial3d(beams.add(BeamMaterial::new(
-            LinearRgba::BLACK,
-            Vec3::ZERO,
-            Vec3::NEG_Z,
-            20.0,
-            1.0,
-            haze,
-        ))),
-        Transform::default(),
-        Visibility::Hidden,
-        Name::new(format!("{name} wedge")),
-        ChildOf(emitter),
-    ));
     commands.spawn((
         FixtureSpill,
         SpotLight {
@@ -583,6 +540,8 @@ fn spawn_bar_emitter(
             shadow_maps_enabled: false,
             ..default()
         },
+        VolumetricLight,
+        bevy::camera::visibility::RenderLayers::from_layers(&[0, crate::haze::HAZE_LAYER]),
         Transform::default(),
         Visibility::Hidden,
         Name::new(format!("{name} spill")),
@@ -888,7 +847,6 @@ pub fn spawn_venue(
     settings: Res<VizSettings>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard: ResMut<Assets<StandardMaterial>>,
-    mut beams: ResMut<Assets<BeamMaterial>>,
     mut images: ResMut<Assets<Image>>,
     gdtf_library: Res<GdtfLibraryRes>,
     asset_server: Res<AssetServer>,
@@ -897,9 +855,6 @@ pub fn spawn_venue(
     let unit_cube = meshes.add(Cuboid::from_length(1.0));
     // Every piece of room structure a fixture might be mounted to.
     let mut rig_surfaces: Vec<RigSurface> = Vec::new();
-    let beam_cone = meshes.add(Mesh::from(
-        beam_mesh().mesh().resolution(BEAM_CONE_SEGMENTS),
-    ));
 
     // Room surfaces are lit only by the rig, which is the point — but a
     // fixture that is switched off would then be invisible in a dark
@@ -1239,7 +1194,7 @@ pub fn spawn_venue(
         }
     }
 
-    if settings.beam_style == BeamStyle::Volumetric {
+    {
         // One volume covering the room. Haze is a property of the air in
         // here, not of any one fixture, which is the whole reason this
         // reads better than a cone per beam: two beams crossing actually
@@ -1256,9 +1211,11 @@ pub fn spawn_venue(
         let size = (max - min).max(Vec3::splat(4.0)) * 1.3;
         commands.spawn((
             FogVolume {
-                density_factor: settings.haze * VOLUMETRIC_HAZE_SCALE,
+                density_factor: haze_density(settings.haze, crate::haze::HazeLevel::default().level),
                 scattering: HAZE_SCATTERING,
                 absorption: HAZE_ABSORPTION,
+                light_intensity: FOG_LIGHT_GAIN,
+                scattering_asymmetry: FOG_SCATTERING_ASYMMETRY,
                 ..default()
             },
             Transform {
@@ -1293,19 +1250,13 @@ pub fn spawn_venue(
                 );
                 crate::budget::ShadowCandidate {
                     candela,
-                    cuts_a_shaft: f.patched
-                        && settings.beam_style == BeamStyle::Volumetric
-                        && candela >= SHAFT_CANDELA_THRESHOLD,
+                    cuts_a_shaft: f.patched && candela >= SHAFT_CANDELA_THRESHOLD,
                     moves: fixture_moves(manufacturer, model, profile),
                 }
             })
             .collect();
-        (
-            crate::budget::shadow_budget(&candidates, crate::budget::shadow_budget_setting()),
-            crate::budget::volumetric_flags(&candidates, crate::budget::volumetric_budget()),
-        )
+        crate::budget::shadow_budget(&candidates, crate::budget::shadow_budget_setting())
     };
-    let (shadowed, volumetric) = shadowed;
     // One mesh asset per model, shared by every fixture of the type.
     let mut shared_meshes = gdtf_geometry::SharedMeshes::new(&mut meshes);
     for (index, f) in venue.fixtures.iter().enumerate() {
@@ -1433,8 +1384,6 @@ pub fn spawn_venue(
                     &cells,
                     shared_meshes.assets,
                     &mut standard,
-                    &mut beams,
-                    settings.haze,
                     optics,
                     throw.spill_range(),
                 );
@@ -1580,39 +1529,11 @@ pub fn spawn_venue(
                 EmitterState::default(),
                 optics,
             ));
-            // Whether this fixture is bright enough per-direction to
-            // light the air into a visible shaft, or only bright enough
-            // to light what it points at. See `SHAFT_CANDELA_THRESHOLD`.
-            let candela = peak_candela(
-                power_watts(manufacturer, model) * LUMENS_PER_WATT,
-                optics.beam_half_deg,
-            );
-            let cuts_a_shaft =
-                settings.beam_style == BeamStyle::Volumetric && candela >= SHAFT_CANDELA_THRESHOLD;
-            // A shaft-cutter outside the volumetric budget — a par, at
-            // Norco — can still show in the air, as the hand-drawn
-            // additive cone: no shadow map, no raymarch, one translucent
-            // mesh. On by default, see `budget::par_cones`.
-            // r[impl viz.performance-budget] - over the volumetric budget, the cheap cone or nothing
-            let drawn_cone = settings.beam_style == BeamStyle::Shader
-                || (cuts_a_shaft && !volumetric[index] && crate::budget::par_cones());
-            if drawn_cone {
-                commands.spawn((
-                    FixtureBeam,
-                    Mesh3d(beam_cone.clone()),
-                    MeshMaterial3d(beams.add(BeamMaterial::new(
-                        LinearRgba::BLACK,
-                        Vec3::ZERO,
-                        Vec3::NEG_Z,
-                        12.5,
-                        1.0,
-                        settings.haze,
-                    ))),
-                    Transform::default(),
-                    Visibility::Hidden,
-                    Name::new(format!("{} beam", f.name)),
-                    ChildOf(emitter),
-                ));
+            // A hazer is a fixture with no light of its own: it drives
+            // the haze the others show in (see `haze::HazeLevel`), and
+            // gets no spill and no place in the fog.
+            if is_hazer(model) {
+                continue;
             }
             let mut spill = commands.spawn((
                 FixtureSpill,
@@ -1634,16 +1555,17 @@ pub fn spawn_venue(
                 Name::new(format!("{} spill", f.name)),
                 ChildOf(emitter),
             ));
-            if cuts_a_shaft && volumetric[index] {
-                // On the haze camera's layer too, so the fog it marches
-                // has this light in its clusters. Only volumetric lights
-                // go there: the fog loop skips the others, but skipping
-                // is not free at every step of every pixel.
-                spill.insert((
-                    VolumetricLight,
-                    bevy::camera::visibility::RenderLayers::from_layers(&[0, crate::haze::HAZE_LAYER]),
-                ));
-            }
+            // Every spill is in the fog. What it shows there is decided
+            // by the haze in the room, not by a per-fixture flag: with
+            // the hazers off nothing shows in the air at all, and as the
+            // haze builds every fixture's light appears in it, pars and
+            // movers alike. On the haze camera's layer too, so the fog
+            // it marches has this light in its clusters.
+            // r[impl viz.haze-is-volumetric] - every emitter lights the fog, nothing else lights the air
+            spill.insert((
+                VolumetricLight,
+                bevy::camera::visibility::RenderLayers::from_layers(&[0, crate::haze::HAZE_LAYER]),
+            ));
         }
     }
 }
@@ -1698,10 +1620,25 @@ pub fn update_live_fixtures(
     child_of: Query<&ChildOf>,
     live_dmx: Res<LiveDmx>,
     time: Res<Time>,
+    mut haze_level: ResMut<crate::haze::HazeLevel>,
 ) {
     let Some(_dmx) = dmx else { return };
     let venue = &venue.0;
     let elapsed = time.elapsed_secs();
+
+    // The hazers' output this frame, for the fog to settle toward.
+    // r[impl viz.haze-is-volumetric] - the hazers drive the haze
+    let hazers: Vec<f32> = venue
+        .fixtures
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| f.patched && is_hazer(f.model.as_deref().unwrap_or("")))
+        .map(|(i, _)| match live_dmx.0.get(i) {
+            Some(Some(live)) => live.dimmer,
+            _ => 0.0,
+        })
+        .collect();
+    haze_level.settle(crate::haze::hazer_target(&hazers), time.delta_secs());
 
     // Resolve once, so every entity family below agrees on the same
     // frame's DMX rather than each re-reading it.
@@ -1892,8 +1829,9 @@ pub fn spot_lumens(lumens: f32, field_half_angle_rad: f32, exposure: f32) -> f32
 /// that saturates to white through its core, no longer a floodlight.
 const MAX_CANDELA: f32 = 60_000.0;
 
-/// Sizes, aims and colours every beam and spill from where its emitter
-/// actually ended up.
+/// Aims and colours every spill from where its emitter actually ended
+/// up. The spill is the fixture's whole light: what lands on the room,
+/// and — through the fog volume — what shows in the air.
 ///
 /// Runs in `PostUpdate` after transform propagation, which is the whole
 /// point: the emitter's `GlobalTransform` already accounts for the mount
@@ -1905,39 +1843,17 @@ pub fn update_beams(
     time: Res<Time>,
     venue: Res<VenueRes>,
     settings: Res<VizSettings>,
-    mut beam_materials: ResMut<Assets<BeamMaterial>>,
     mut standard: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
     emitters: Query<(
         &EmitterState,
         &GlobalTransform,
         Option<&Children>,
         Option<&BarEmitter>,
     )>,
-    mut beam_q: Query<
-        (
-            &mut Transform,
-            &mut Visibility,
-            &MeshMaterial3d<BeamMaterial>,
-        ),
-        (With<FixtureBeam>, Without<FixtureSpill>, Without<BarWedge>),
-    >,
-    mut wedge_q: Query<
-        (
-            &mut BarWedge,
-            &mut Mesh3d,
-            &mut Visibility,
-            &MeshMaterial3d<BeamMaterial>,
-        ),
-        (Without<FixtureBeam>, Without<FixtureSpill>),
-    >,
-    mut spill_q: Query<
-        (&mut Visibility, &mut SpotLight),
-        (With<FixtureSpill>, Without<FixtureBeam>, Without<BarWedge>),
-    >,
+    mut spill_q: Query<(&mut Visibility, &mut SpotLight), With<FixtureSpill>>,
 ) {
     let throw = BeamThrow::for_venue(&venue.0);
-    let seconds = time.elapsed_secs();
+    let _ = time.elapsed_secs();
 
     for (state, global, children, bar) in &emitters {
         let Some(children) = children else { continue };
@@ -1946,7 +1862,6 @@ pub fn update_beams(
         // local -Z, which is also the axis a Bevy spot light shines down.
         let direction = (global.rotation() * Vec3::NEG_Z).normalize_or_zero();
         let length = throw.reach(origin, direction);
-        let far_radius = (length * state.half_angle_deg.to_radians().tan()).max(0.05);
 
         // A strip's cells show its colour on the housing, lit or dark.
         // r[impl viz.bar-emitters] - every cell face carries the colour
@@ -1971,62 +1886,6 @@ pub fn update_beams(
         }
 
         for child in children.iter() {
-            if let (Some(bar), Ok((mut wedge, mut mesh, mut visibility, material))) =
-                (bar, wedge_q.get_mut(child))
-            {
-                match state.color {
-                    Some(color) => {
-                        *visibility = Visibility::Visible;
-                        if (wedge.built_for_length - length).abs() > 0.02 {
-                            mesh.0 = meshes.add(wedge_mesh(
-                                bar.half_length,
-                                bar.half_width,
-                                length,
-                                state.half_angle_deg.max(BAR_MIN_HALF_ANGLE_DEG),
-                            ));
-                            wedge.built_for_length = length;
-                        }
-                        if let Some(mut m) = beam_materials.get_mut(&material.0) {
-                            m.color = LinearRgba::rgb(color[0], color[1], color[2]);
-                            m.direction_angle = Vec4::new(
-                                direction.x,
-                                direction.y,
-                                direction.z,
-                                state.half_angle_deg,
-                            );
-                            m.origin_length = Vec4::new(origin.x, origin.y, origin.z, length);
-                            m.params =
-                                Vec4::new(settings.haze * SHADER_HAZE_SCALE, seconds, 0.0, 0.0);
-                        }
-                    }
-                    None => *visibility = Visibility::Hidden,
-                }
-                continue;
-            }
-            if let Ok((mut transform, mut visibility, material)) = beam_q.get_mut(child) {
-                match state.color {
-                    Some(color) => {
-                        *visibility = Visibility::Visible;
-                        // Local to the emitter, so it inherits the aim.
-                        *transform = beam_transform(Vec3::ZERO, Vec3::NEG_Z, length, far_radius);
-                        if let Some(mut m) = beam_materials.get_mut(&material.0) {
-                            m.color = LinearRgba::rgb(color[0], color[1], color[2]);
-                            // The shader works in world space, so these
-                            // stay world even though the mesh is local.
-                            m.direction_angle = Vec4::new(
-                                direction.x,
-                                direction.y,
-                                direction.z,
-                                state.half_angle_deg,
-                            );
-                            m.origin_length = Vec4::new(origin.x, origin.y, origin.z, length);
-                            m.params =
-                                Vec4::new(settings.haze * SHADER_HAZE_SCALE, seconds, 0.0, 0.0);
-                        }
-                    }
-                    None => *visibility = Visibility::Hidden,
-                }
-            }
             if let Ok((mut visibility, mut light)) = spill_q.get_mut(child) {
                 match state.color {
                     Some(color) => {
@@ -2447,7 +2306,6 @@ mod body_and_bar_tests {
             let mut commands = Commands::new(&mut queue, world);
             let mut meshes = Assets::<Mesh>::default();
             let mut standard = Assets::<StandardMaterial>::default();
-            let mut beams = Assets::<BeamMaterial>::default();
             gdtf_geometry::spawn_gdtf_tree(
                 &mut commands,
                 root,
@@ -2469,8 +2327,6 @@ mod body_and_bar_tests {
                 &cells,
                 &mut meshes,
                 &mut standard,
-                &mut beams,
-                1.0,
                 ProfileOptics {
                     beam_half_deg: 20.0,
                     field_half_deg: 22.5,

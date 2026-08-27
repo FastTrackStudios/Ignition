@@ -65,8 +65,8 @@ r[viz.one-emitter-tree]
 Every emitter MUST be a node of its fixture's transform tree, placed by that
 tree alone: the point emitter is the profile's `<Beam>` entity, a bar's strip
 emitter is a child of the node its cells hang from, placed from the cells'
-own local poses, and the beam cone, wedge, spill light and glow faces are
-children of the emitter with identity transforms. Aim is
+own local poses, and the spill light and glow faces are children of the
+emitter with identity transforms. Aim is
 mount x pan joint x tilt joint x beam-node local, composed by transform
 propagation — no code recomputes an emitter's world pose from offsets, a
 guessed yoke split or a pre-rotation. Only a fixture with no profile at all
@@ -86,8 +86,8 @@ r[viz.beam-reach]
 A beam MUST NOT end in mid-air. Its throw is sized by the room's real
 surfaces (`Venue::room_extent`), not the object-centre bounds; a spill
 light's range reaches comfortably past every surface; the haze volume fills
-the whole room; and the drawn cone fades to nothing over its last stretch
-rather than ending in a lit cap.
+the whole room; and a shaft in the haze ends only where the fog's own
+extinction and the light's inverse-square decay end it.
 
 r[viz.exposure]
 A spill light MUST be fed the fixture's real peak candela (lumens over its
@@ -101,10 +101,9 @@ r[viz.bar-emitters]
 A profile with four or more `<Beam>` nodes on one line, firing the same way
 square to that line, is a **bar** and MUST be drawn as one linear source, not
 a row of point sources: the emissive face is the whole strip (one face per
-cell, tiling from end to end, each carrying its cell's colour), the shaft is
-one wedge — a frustum of rectangular section whose near face is the strip
-and whose sides open by the beam angle — and the spill is one wide light,
-never a cone per cell.
+cell, tiling from end to end, each carrying its cell's colour), and the spill
+is one wide volumetric light, never a cone per cell — in the haze it shows as
+one wide fan from the strip.
 
 r[viz.body-glow]
 A fixture's housing MUST NOT emit light of its own by default: the real
@@ -112,6 +111,31 @@ fixtures are black, lit only by the rig around them. A **fixture body glow**
 option, off unless asked for (`viz --body-glow`, the studio's GLOW key,
 `IGNITION_BODY_GLOW=1`), lets a lit fixture's housing glow the colour it is
 putting out, as a way of reading which fixtures are on.
+
+r[viz.haze-is-volumetric]
+Light in the air comes from Bevy's volumetric fog and nothing else: one
+`FogVolume` filling the room, and every emitter's spill light a
+`VolumetricLight` — pars, movers and bars alike, with real occlusion by the
+room and the people in it. No beam mesh, cone or wedge is ever drawn. What
+shows in the air is decided by the haze in the room, not per fixture:
+
+- **The hazers put the haze there.** A fixture whose model names it a hazer
+  or fogger emits no light; its output channel drives `HazeLevel`, the
+  room's haze as a fraction of a normally hazed room. The level settles
+  toward the hardest-working hazer with a first-order lag — seconds to
+  build, longer to fall, since haze lingers — and never below a residual
+  (`HAZE_RESIDUAL`): a hazed room does not clear, and a show that never
+  touches its hazers is lit in that residual, not in clean air. A venue with
+  no hazer patched is taken as normally hazed.
+- **The operator's `--haze` dial multiplies the level.** The fog's density
+  is dial × level × one calibration constant, and the same density sets the
+  occluders' extinction on the haze camera, so the composite dims the room
+  exactly as much as the fog lights it. At a dial of zero, or with no haze
+  in the room, nothing shows in the air — only the pools on surfaces.
+- **Haze is a gain on scatter, not on extinction:** the fog's
+  `light_intensity` lifts what the air scatters toward the camera so a par's
+  cone reads at a density that leaves a twenty-metre house visible through
+  it; extinction stays physical.
 
 r[viz.performance-budget]
 The studio's viewport MUST hold **120 frames per second at 5120×1440** on the
@@ -132,22 +156,17 @@ is a frame measured with most of the rig off.
   fixed wash's pool lands where it always lands, and it never gets one,
   whatever the budget has room for. A wash keeps its pool and its cone in
   the haze.
-- **Volumetric light** (the fog raymarch) goes to at most
-  `VOLUMETRIC_BUDGET` spill lights, ranked by brightness alone. A cut never
-  splits a run of equal fixtures: a type is in or out as a whole. A
-  shaft-cutter over the budget keeps its pool and **shows in the air as the
-  hand-drawn additive cone** — a par's light must be visible in the air, or
-  the par reads as dead. The cone is cheap by design: two taps of value
-  noise for its grain, not four octaves of simplex, and it is drawn on the
-  haze camera at the haze's fraction of the picture, never at full size.
-  `IGNITION_PAR_CONES=0` turns the cones off, for comparing.
+- **Volumetric light** (the fog raymarch) has no budget: every emitter's
+  spill is in the fog (`r[viz.haze-is-volumetric]`), and the frame pays for
+  it at the haze camera's size, not the picture's. On the reference GPU the
+  whole Norco rig — 59 shaft-cutters and the bars — marches at 128 steps in
+  under the budget; if a rig ever cannot, the fallback is fewer steps with
+  jitter, never a drawn cone.
 - **The haze is marched at a fraction of the picture's size** on a camera of
   its own and composited back — added, with the room behind it dimmed by the
   same transmittance the in-camera fog would have applied. The fraction is
   chosen so the haze camera stays under a fixed pixel budget
-  (`HAZE_PIXEL_BUDGET`) whatever the viewport; a still keeps full size. The
-  drawn cones and the bars' wedges ride the same camera and reach the
-  picture through the same composite.
+  (`HAZE_PIXEL_BUDGET`) whatever the viewport; a still keeps full size.
 - **Fixture housings cast no shadow and block no shaft**: a par's body is a
   hand's width across and hangs above every beam. Only the room, the risers,
   the props and the people are occluders.
@@ -157,8 +176,8 @@ is a frame measured with most of the rig off.
   target texture reaches the host through a mailbox the render thread
   posts to, never through a readback or a copy.
 - **Nothing per-frame allocates or uploads for a rig standing still**: a
-  bar's cell materials change only when the colour does; a wedge is rebuilt
-  only when its length does; a procedural canvas rasters on a worker and
-  uploads only a fresh frame.
+  bar's cell materials change only when the colour does; the fog volume's
+  density is written only when the haze moves; a procedural canvas rasters
+  on a worker and uploads only a fresh frame.
 - **One mesh asset per fixture model**, shared by every fixture of that
   type, so the engine batches them.

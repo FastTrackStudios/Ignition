@@ -20,9 +20,11 @@
 //! sharpness where a shaft meets a wall, and at the studio's viewport
 //! that edge is already softened by bloom.
 //!
-//! The hand-drawn beams — a par's cone, a bar's wedge — ride the same
-//! camera (`fold_drawn_beams`): translucent fill at a fraction of the
-//! pixels, one composite for every kind of light in the air.
+//! Every fixture's spill light is volumetric, so the fog is the one
+//! thing that puts light in the air: with the hazers off nothing shows
+//! there, and as they run every shaft appears in it. `HazeLevel` is the
+//! hazers' settled output; `drive_haze` writes it into the fog volume
+//! and the occluders' extinction every frame.
 
 use crate::spawn::VizSettings;
 use bevy::asset::embedded_asset;
@@ -30,7 +32,7 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ClearColorConfig, Hdr, RenderTarget};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::image::Image;
-use bevy::light::{NotShadowCaster, ShadowFilteringMethod, VolumetricFog};
+use bevy::light::{FogVolume, NotShadowCaster, ShadowFilteringMethod, VolumetricFog};
 use bevy::mesh::skinning::SkinnedMesh;
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
@@ -69,10 +71,65 @@ pub struct HazeCamera {
 #[derive(Component)]
 pub struct HazeComposite;
 
-/// A drawn beam (`BeamMaterial` cone or wedge) that has been given its
-/// layer, so it is not sorted again.
-#[derive(Component)]
-pub struct HazeFolded;
+/// How much haze is in the room right now, as a fraction of a normally
+/// hazed room: the hazers' output, settled with the lag real haze has.
+/// The operator's `--haze` dial multiplies it (`spawn::haze_density`).
+// r[impl viz.haze-is-volumetric] - the haze in the room is the hazers' settled output
+#[derive(Resource, Debug, Clone, Copy, PartialEq)]
+pub struct HazeLevel {
+    pub level: f32,
+}
+
+impl Default for HazeLevel {
+    /// A room opens already hazed to its residual — the hazers ran
+    /// before doors — rather than clear.
+    fn default() -> Self {
+        Self {
+            level: HAZE_RESIDUAL,
+        }
+    }
+}
+
+/// What is left in the air with every hazer off: a room that has been
+/// hazed does not clear, and a show that never touches its hazers is
+/// lit in that residual rather than in clean air. A venue with no hazer
+/// patched at all is taken as normally hazed.
+pub const HAZE_RESIDUAL: f32 = 0.35;
+
+/// Seconds for the haze to close most of the gap toward a hazer that
+/// has just come up: fluid takes a while to fill a room.
+pub const HAZE_RISE_SECONDS: f32 = 4.0;
+
+/// Seconds for it to fall most of the way once the hazers stop. Slower
+/// than the rise: haze lingers.
+pub const HAZE_FALL_SECONDS: f32 = 12.0;
+
+/// The level the room is heading for: the hardest-working hazer, never
+/// below the residual, and a full room where no hazer is patched.
+// r[impl viz.haze-is-volumetric] - no hazer patched reads as a hazed room
+pub fn hazer_target(hazer_outputs: &[f32]) -> f32 {
+    if hazer_outputs.is_empty() {
+        return 1.0;
+    }
+    hazer_outputs
+        .iter()
+        .fold(HAZE_RESIDUAL, |acc, o| acc.max(o.clamp(0.0, 1.0)))
+}
+
+impl HazeLevel {
+    /// One frame of settling toward `target`: a first-order lag with
+    /// the rise and fall constants above.
+    // r[impl viz.haze-is-volumetric] - haze builds and lingers
+    pub fn settle(&mut self, target: f32, dt: f32) {
+        let tau = if target > self.level {
+            HAZE_RISE_SECONDS
+        } else {
+            HAZE_FALL_SECONDS
+        };
+        let k = 1.0 - (-dt.max(0.0) / tau).exp();
+        self.level += (target - self.level) * k;
+    }
+}
 
 /// A black twin, so its original is not twinned again and the twin
 /// itself never is.
@@ -154,8 +211,9 @@ impl Plugin for HazePlugin {
             MaterialPlugin::<HazeOccluderMaterial>::default(),
             MaterialPlugin::<HazeCompositeMaterial>::default(),
         ))
+        .init_resource::<HazeLevel>()
         .add_systems(Startup, occluder_material)
-        .add_systems(Update, (spawn_haze_cameras, sort_occluders, fold_drawn_beams))
+        .add_systems(Update, (spawn_haze_cameras, sort_occluders, drive_haze))
         .add_systems(
             PostUpdate,
             follow_main_camera.before(bevy::transform::TransformSystems::Propagate),
@@ -170,20 +228,28 @@ fn occluder_material(
     settings: Res<VizSettings>,
     mut materials: ResMut<Assets<HazeOccluderMaterial>>,
 ) {
-    let extinction = crate::spawn::haze_extinction_per_metre(settings.haze);
+    let extinction =
+        crate::spawn::haze_extinction_per_metre(settings.haze, HazeLevel::default().level);
     let handle = materials.add(HazeOccluderMaterial {
         params: Vec4::new(extinction, 0.0, 0.0, 0.0),
     });
     commands.insert_resource(OccluderMaterialHandle(handle));
 }
 
-/// `IGNITION_FOG_JITTER`: Bevy's per-pixel ray-start jitter on the haze
-/// camera, for comparing against the step count on a given GPU.
+/// Bevy's per-pixel ray-start jitter on the haze camera, in metres. At
+/// 128 steps across a thirty-metre house a step is a quarter of a metre,
+/// and a wide cone seen along its axis shows every step as a ring; a
+/// jitter of about one step turns the rings into grain the bilinear
+/// upsample and bloom smooth away, and it changes with the frame
+/// (interleaved gradient noise on `frame_count`), so what is left
+/// averages out over a few frames. `IGNITION_FOG_JITTER` overrides it.
+pub const FOG_JITTER_METRES: f32 = 0.3;
+
 fn fog_jitter() -> f32 {
     std::env::var("IGNITION_FOG_JITTER")
         .ok()
         .and_then(|v| v.trim().parse().ok())
-        .unwrap_or(0.0)
+        .unwrap_or(FOG_JITTER_METRES)
 }
 
 /// How many pixels the haze camera may have when the scale is chosen
@@ -396,45 +462,86 @@ fn sort_occluders(
     }
 }
 
-/// Puts every hand-drawn beam — a par's cone, a bar's wedge — on the
-/// haze camera's layer, so it is drawn at the haze's fraction of the
-/// picture into the same texture the fog goes in, and reaches the
-/// picture through the one composite. Forty-eight cones at 5120x1440
-/// were two milliseconds of translucent fill; at a quarter of the size
-/// they are a fraction of that, and a cone is soft by nature — the
-/// bilinear upsample costs it nothing a viewer can see. The occluder
-/// twins on that layer hide a cone behind a wall the same as the room
-/// itself would have. With the fog on the main camera (a still, scale
-/// one) there is no haze camera and the beam stays where it was.
-// r[impl viz.performance-budget] - drawn cones ride the haze camera
-fn fold_drawn_beams(
-    mut commands: Commands,
-    beams: Query<Entity, (With<MeshMaterial3d<crate::beam::BeamMaterial>>, Without<HazeFolded>)>,
-    hazes: Query<(), With<HazeCamera>>,
-    views: Query<&HazeView>,
+/// Writes the room's haze into the renderer: the fog volume's density
+/// and the occluder twins' extinction, both from the same dial and the
+/// same hazer level, so the composite dims the room exactly as much as
+/// the fog lights it. Runs after the fixtures decode the frame's DMX,
+/// which is where the level moves.
+// r[impl viz.haze-is-volumetric] - one density, fog and occluders alike
+fn drive_haze(
+    level: Res<HazeLevel>,
+    settings: Res<VizSettings>,
+    material: Option<Res<OccluderMaterialHandle>>,
+    mut materials: ResMut<Assets<HazeOccluderMaterial>>,
+    mut fogs: Query<&mut FogVolume>,
 ) {
-    if beams.is_empty() {
+    if !level.is_changed() && !settings.is_changed() {
         return;
     }
-    let folded = !hazes.is_empty();
-    // No haze camera yet: either one is about to be spawned for a view
-    // that wants one, in which case wait for it, or every view marches
-    // its fog at full size and the beams belong on the main layer.
-    if !folded && views.iter().any(|v| v.scale != 1) {
-        return;
-    }
-    for entity in &beams {
-        let mut e = commands.entity(entity);
-        e.insert(HazeFolded);
-        if folded {
-            e.insert(RenderLayers::layer(HAZE_LAYER));
+    let density = crate::spawn::haze_density(settings.haze, level.level);
+    for mut fog in &mut fogs {
+        if fog.density_factor != density {
+            fog.density_factor = density;
         }
+    }
+    let extinction = crate::spawn::haze_extinction_per_metre(settings.haze, level.level);
+    if let Some(handle) = material
+        && let Some(mut m) = materials.get_mut(&handle.0)
+        && m.params.x != extinction
+    {
+        m.params.x = extinction;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// No hazer patched is a hazed room; hazers off is the residual, not
+    /// clean air; the hardest-working hazer sets the level.
+    /// r[verify viz.haze-is-volumetric]
+    #[test]
+    fn the_hazers_set_the_level_and_a_room_never_fully_clears() {
+        assert_eq!(hazer_target(&[]), 1.0);
+        assert_eq!(hazer_target(&[0.0, 0.0]), HAZE_RESIDUAL);
+        assert_eq!(hazer_target(&[0.2, 0.9]), 0.9);
+        assert_eq!(hazer_target(&[3.0]), 1.0);
+    }
+
+    /// Haze builds over seconds and lingers longer than it took to
+    /// build; it never overshoots.
+    /// r[verify viz.haze-is-volumetric]
+    #[test]
+    fn haze_builds_with_a_lag_and_lingers() {
+        let mut h = HazeLevel { level: 0.0 };
+        h.settle(1.0, HAZE_RISE_SECONDS);
+        let after_one_tau = h.level;
+        assert!((after_one_tau - 0.632).abs() < 0.01, "{after_one_tau}");
+        for _ in 0..100 {
+            h.settle(1.0, 1.0);
+        }
+        assert!(h.level <= 1.0 && h.level > 0.999);
+        h.settle(0.0, HAZE_RISE_SECONDS);
+        assert!(h.level > 1.0 - 0.632, "falls slower than it rose: {}", h.level);
+        h.settle(0.0, 1000.0);
+        assert!(h.level.abs() < 1e-3);
+        // A zero or negative frame does nothing.
+        let before = h.level;
+        h.settle(1.0, 0.0);
+        assert_eq!(h.level, before);
+    }
+
+    /// The dial multiplies the hazers: no haze on the dial, or a room
+    /// with none in it, is no density at all.
+    /// r[verify viz.haze-is-volumetric]
+    #[test]
+    fn density_is_dial_times_hazer_level() {
+        use crate::spawn::haze_density;
+        assert_eq!(haze_density(0.0, 1.0), 0.0);
+        assert_eq!(haze_density(1.6, 0.0), 0.0);
+        assert!((haze_density(1.6, 0.5) - haze_density(1.6, 1.0) * 0.5).abs() < 1e-7);
+        assert!(haze_density(1.6, 1.0) > 0.0);
+    }
 
     /// r[verify viz.performance-budget]
     #[test]

@@ -13,7 +13,6 @@
 use bevy::math::Vec3;
 use ignition_viz::gdtf_geometry::GdtfLibrary;
 use ignition_viz::playback::Playback;
-use ignition_viz::spawn::BeamStyle;
 use ignition_viz::video::export::ExportRequest;
 use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig, run, run_export};
 use std::path::PathBuf;
@@ -28,9 +27,8 @@ fn main() -> anyhow::Result<()> {
     // spill — and enough haze in the air that beams read as visible
     // shafts rather than invisible cones that only show up where they
     // land.
-    // A hazer's fluid-output dial, roughly 0..2, where 1.0 is a normally
-    // hazed room. Each beam style scales it to whatever its own renderer
-    // wants — see `VizSettings::haze`.
+    // A multiplier on the hazers' output, roughly 0..2, where 1.0 is a
+    // normally hazed room with the hazers up — see `VizSettings::haze`.
     let mut haze = 1.6f32;
     // Multiplier on each fixture's real luminous output. Large because
     // it is doing the job a camera's aperture and shutter would: the
@@ -71,7 +69,6 @@ fn main() -> anyhow::Result<()> {
     let mut effect_time: Option<f32> = None;
     let mut gdtf_dir: Option<PathBuf> = None;
     let mut exclude: Vec<String> = Vec::new();
-    let mut beam_style = BeamStyle::Volumetric;
     // `--body-glow`: lit housings glow their own colour. Off by default,
     // the real fixtures being black.
     let mut body_glow = false;
@@ -189,17 +186,6 @@ fn main() -> anyhow::Result<()> {
             }
             "--screens-off" => screen_content = None,
             "--assets" => assets_dir = next("a directory"),
-            // How beams in the air are produced: Bevy's own volumetric
-            // fog (haze is a property of the room, shafts fall out of
-            // the lighting), or the hand-drawn additive cone ported from
-            // ASLS. See `BeamStyle`.
-            "--beams" => {
-                beam_style = match next("volumetric|shader").as_str() {
-                    "volumetric" => BeamStyle::Volumetric,
-                    "shader" => BeamStyle::Shader,
-                    other => anyhow::bail!("unknown --beams {other}; use volumetric or shader"),
-                }
-            }
             other => eprintln!("viz: ignoring unknown argument {other}"),
         }
     }
@@ -293,7 +279,6 @@ fn main() -> anyhow::Result<()> {
         // The studio draws the fps readout; so does the bench.
         fps: fps || bench.is_some(),
         exclude,
-        beam_style,
         exposure,
         screen_content,
         canvas_content,

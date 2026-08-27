@@ -731,12 +731,20 @@ pub fn power_watts(manufacturer: &str, model: &str) -> f32 {
     // A hazer is not a light source. It emits haze, which is a property
     // of the room the fog volume already models — giving it an output
     // made it shine a white beam it does not have.
-    if mo.contains("haze") || mo.contains("hazer") || mo.contains("fog") {
+    if is_hazer(&mo) {
         return 0.0;
     }
     // Unknown fixture: a mid-sized LED par's worth, so it reads as
     // present rather than either invisible or dominant.
     40.0
+}
+
+/// Whether a model is a hazer or fogger: a fixture that puts haze in the
+/// room rather than light. Matched on the model name, case-insensitively.
+// r[impl viz.haze-is-volumetric] - a hazer is known by its name
+pub fn is_hazer(model: &str) -> bool {
+    let mo = model.to_ascii_lowercase();
+    mo.contains("haze") || mo.contains("hazer") || mo.contains("fog")
 }
 
 /// Widest a field half-angle is allowed to be: a Bevy spot light's

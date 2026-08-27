@@ -14,12 +14,11 @@
 //! hand, and the device polled after each frame so the capture has
 //! actually happened before the next one is asked for.
 
-use crate::beam::BeamPlugin;
 use crate::gdtf_geometry::GdtfLibrary;
 use crate::output::DmxOutput;
 use crate::playback::{Playback, operator_keys, tick_playback};
 use crate::spawn::{
-    BeamStyle, CanvasClock, DmxRes, GdtfLibraryRes, LiveDmx, VenueRes, VizSettings, apply_ambient,
+    CanvasClock, DmxRes, GdtfLibraryRes, LiveDmx, VenueRes, VizSettings, apply_ambient,
     resolve_live_dmx, spawn_venue, update_beams, update_canvas_videos, update_fixture_bodies,
     update_live_fixtures,
 };
@@ -90,8 +89,6 @@ pub struct VizConfig {
     pub canvas_focus: std::collections::HashMap<String, f32>,
     /// Root directory the asset server loads from.
     pub assets_dir: String,
-    /// How beams are drawn — see `BeamStyle`.
-    pub beam_style: BeamStyle,
     /// Highest sACN/Art-Net universe to listen on.
     pub max_universe: u16,
     /// Render one frame to this path and exit, instead of opening a
@@ -299,7 +296,6 @@ impl Plugin for VizPlugin {
                 overlay: self.config.overlay,
                 fps: self.config.fps,
                 exclude: self.config.exclude.clone(),
-                beam_style: self.config.beam_style,
                 body_glow: self.config.body_glow,
                 exposure: self.config.exposure,
                 screen_content: self.config.screen_content.clone(),
@@ -314,7 +310,7 @@ impl Plugin for VizPlugin {
             .insert_resource(GdtfLibraryRes(
                 self.gdtf.lock().expect("gdtf library lock").take(),
             ))
-            .add_plugins((BeamPlugin, crate::haze::HazePlugin))
+            .add_plugins(crate::haze::HazePlugin)
             // Room for the whole rig's lights before the GPU clustering
             // buffers have to grow. Bevy resizes them when they overflow
             // and says so — "the scene lighting may have been corrupted

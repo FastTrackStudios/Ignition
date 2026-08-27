@@ -8,8 +8,11 @@
 //! the same with or without a person's shadow cut out of it, and it is
 //! the nine moving heads whose hard shafts are what shadows are *for*.
 //!
-//! So the budget is a count, spent on the brightest per-direction
-//! fixtures first — see `r[viz.performance-budget]`.
+//! So the shadow budget is a count, spent on the brightest per-direction
+//! fixtures first — see `r[viz.performance-budget]`. The fog itself has
+//! no budget any more: every emitter is a volumetric light, and at the
+//! haze camera's size the whole rig fits the frame — see
+//! `r[viz.haze-is-volumetric]`.
 
 /// How many spill lights may carry a shadow map. Bevy renders one shadow
 /// view per shadowed spot per frame, and the fog pass samples that map
@@ -18,13 +21,6 @@
 /// (nine) and Riverside with room for a couple of profile spots.
 pub const SHADOW_BUDGET: usize = 12;
 
-/// How many spill lights may be volumetric — lit into the haze by the
-/// fog pass. Every raymarch step of every pixel loops over the
-/// volumetric lights whose cones reach that cluster, so this number
-/// multiplies the cost of the fog directly. `IGNITION_VOLUMETRIC_BUDGET`
-/// overrides it, for comparing on a given GPU without a rebuild.
-pub const VOLUMETRIC_BUDGET: usize = 16;
-
 /// `SHADOW_BUDGET`, or `IGNITION_SHADOW_BUDGET`'s say — the same dial
 /// for comparing on a given GPU.
 pub fn shadow_budget_setting() -> usize {
@@ -32,24 +28,6 @@ pub fn shadow_budget_setting() -> usize {
         .ok()
         .and_then(|v| v.trim().parse().ok())
         .unwrap_or(SHADOW_BUDGET)
-}
-
-/// Whether a shaft-cutter over the volumetric budget — a par, at Norco —
-/// is drawn in the air as the hand-drawn additive cone. On by default:
-/// a par whose light shows on the floor and not in the haze reads as a
-/// dead fixture, and with `beam.wgsl`'s two-tap grain forty-eight cones
-/// fit the frame (see `r[viz.performance-budget]`).
-/// `IGNITION_PAR_CONES=0` turns them off, for comparing.
-pub fn par_cones() -> bool {
-    !std::env::var("IGNITION_PAR_CONES").is_ok_and(|v| v == "0")
-}
-
-/// `VOLUMETRIC_BUDGET`, or the environment's say.
-pub fn volumetric_budget() -> usize {
-    std::env::var("IGNITION_VOLUMETRIC_BUDGET")
-        .ok()
-        .and_then(|v| v.trim().parse().ok())
-        .unwrap_or(VOLUMETRIC_BUDGET)
 }
 
 /// Which of `candidates` get a shadow map: the `budget` brightest by
@@ -67,14 +45,6 @@ pub fn volumetric_budget() -> usize {
 // r[impl viz.performance-budget] - shadows go to the brightest moving shaft-cutters
 pub fn shadow_budget(candidates: &[ShadowCandidate], budget: usize) -> Vec<bool> {
     ranked_budget(candidates, budget, |c| c.cuts_a_shaft && c.moves)
-}
-
-/// Which of `candidates` are volumetric — lit into the haze by the fog
-/// pass: the `budget` brightest among those that cut a shaft, moving
-/// or not. A par's cone in the haze is what the fog is for.
-// r[impl viz.performance-budget] - volumetric light goes to the brightest shaft-cutters
-pub fn volumetric_flags(candidates: &[ShadowCandidate], budget: usize) -> Vec<bool> {
-    ranked_budget(candidates, budget, |c| c.cuts_a_shaft)
 }
 
 fn ranked_budget(
@@ -147,7 +117,6 @@ mod tests {
     fn a_fixed_wash_never_gets_a_shadow_map() {
         let rig = vec![fixed(8_400.0), fixed(8_400.0), c(39_000.0, true)];
         assert_eq!(shadow_budget(&rig, 12), vec![false, false, true]);
-        assert_eq!(volumetric_flags(&rig, 12), vec![true, true, true]);
     }
 
     /// Norco in miniature: pars at 6,400 cd, gobo movers at 39,000, the
@@ -176,16 +145,6 @@ mod tests {
         let rig = vec![c(100.0, true), c(10.0, true), c(10.0, true), c(10.0, true)];
         assert_eq!(shadow_budget(&rig, 3), vec![true, false, false, false]);
         assert_eq!(shadow_budget(&rig, 4), vec![true, true, true, true]);
-        // Sixteen volumetric slots at Norco: the nine heads and the
-        // four SlimPARs fit; the forty-eight pars do not, and none of
-        // them is taken.
-        let mut rig = vec![c(6_400.0, true); 48];
-        rig.extend(std::iter::repeat_n(c(8_400.0, true), 4));
-        rig.extend(std::iter::repeat_n(c(39_000.0, true), 4));
-        rig.extend(std::iter::repeat_n(c(8_000_000.0, true), 5));
-        let flags = volumetric_flags(&rig, VOLUMETRIC_BUDGET);
-        assert_eq!(flags.iter().filter(|f| **f).count(), 13);
-        assert!(flags[..48].iter().all(|f| !f));
     }
 
     /// Over budget, the brightest win and the count is exactly the
