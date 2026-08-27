@@ -30,13 +30,31 @@ to put one.
 
 ## Shape
 
-Four passes. The first three are compute; the fourth is the existing
-fullscreen pass with its raymarch replaced by a texture read.
+Everyone else writes this with compute shaders. We cannot, and the
+constraint improves the design.
 
-    inject     3D texture, RGB = in-scattered light, A = extinction
+Bevy declares its view bind group — the view uniform, the clustered
+light lists, the shadow atlas, everything the injection needs — with
+`ShaderStages::FRAGMENT`. A compute pipeline cannot bind it. We could
+patch that visibility, since we vendor the crate, but it is a central
+file and a permissive change to a layout every pipeline in the engine
+shares is a poor thing to carry across Bevy bumps for one feature.
+
+So: **fragment passes, and the grid is a 2D texture with its Z slices
+tiled across it.** That is an old technique and it costs nothing here —
+a froxel's address is arithmetic either way.
+
+    inject     grid, RGB = in-scattered light, A = extinction, one
+               fragment per froxel, over a tiled 2D target
     reproject  blend with last frame's grid, offset by camera motion
-    integrate  prefix-sum along Z into transmittance + accumulated light
-    apply      per pixel: sample the integrated grid at the pixel's depth
+    apply      per pixel, walk Z up to the pixel's depth, accumulating
+
+**There is no integrate pass**, and dropping it is the second thing the
+constraint bought. A separate prefix-sum along Z exists to save the
+apply pass from walking the grid; but walking it is now sixty-four
+texture reads of a grid that is *already lit*, against the current
+march's sixty-four iterations of the whole clustered light loop. The
+expensive part was never the walking.
 
 **The grid.** Frustum-aligned: X and Y are screen tiles, Z is depth
 slices distributed exponentially so near froxels are small — a beam's
@@ -53,15 +71,12 @@ moves lights constantly, so the blend weight has to be conservative and
 this needs judging by eye against `just beam-test` with the movers
 running, not against a still.
 
-**Integration.** One thread per (x, y), walking Z, accumulating
-scattered light and transmittance — the standard front-to-back
-composite. Output is a second 3D texture the apply pass can read
-directly at any depth.
-
 **Apply.** `volumetric_fog.wgsl` already does the hard parts: the
 fullscreen pass, the blend state, the view bindings, the depth buffer.
-Replace the raymarch loop with a single sample of the integrated grid at
-the pixel's linear depth, and the rest of the file stays.
+Replace the *body* of the raymarch loop — the clustered light walk, the
+shadow fetches, the phase function — with a read of the grid, and the
+loop structure, the front-to-back accumulation and the rest of the file
+stay as they are.
 
 ## Where it lives
 
