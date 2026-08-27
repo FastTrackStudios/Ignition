@@ -67,6 +67,10 @@ pub const STAGES: &[&str] = &[
     // most of the answer.
     "loop.window_event",
     "loop.wake",
+    "loop.poll",
+    "loop.redraw",
+    "loop.resume",
+    "loop.shell_other",
     "loop.wait",
     "loop.new_events",
     // Blitz: one per window, per frame.

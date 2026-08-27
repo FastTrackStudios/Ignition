@@ -14,10 +14,11 @@
 //! There is no favourite toggle on a pane: favourites order the list,
 //! and editing them is a mode for later.
 //!
-//! Nothing scrolls: a pane clips to its leaf and its grid wraps, so the
-//! window never grows a scrollbar.
+//! The window never grows a scrollbar — a leaf clips and a grid wraps —
+//! but a pane's own content scrolls inside its leaf, because a library
+//! of a hundred and thirty-one effects does not fit by wrapping.
 
-// r[impl studio.dock.no-scroll] - panes clip, grids wrap
+// r[impl studio.dock.no-scroll] - the leaf clips; the content inside it scrolls
 // r[impl studio.operators.favourites] - favourites first, a search field per pane
 // r[impl studio.views.whole-profile] - every kind reaches a pane
 
@@ -29,6 +30,24 @@ use crate::{Surface, send, use_playhead};
 use dioxus::prelude::*;
 use ignition_core::Selection;
 use ignition_core::profile::LookKind;
+
+/// The effects grid's geometry, so the pane can work out which cards
+/// are on screen without measuring anything. Kept in step with
+/// `live.css`: `.pane-effects .card` is a quarter of the row wide and
+/// `.card` is 116px tall with a 6px gap under it.
+const CARD_COLUMNS: usize = 4;
+const CARD_ROW: f64 = 122.0;
+/// Taller than the pane really is on a 1440 monitor, deliberately: the
+/// cost of animating a card that turns out to be just off screen is one
+/// image swap, and the cost of stopping one that is on screen is a
+/// thumbnail that visibly freezes.
+const CARDS_VIEWPORT: f64 = 1200.0;
+/// How fast a turning thumbnail steps, and how lazily a still one
+/// checks whether it has scrolled into view. Twelve-and-a-half frames a
+/// second is enough to read a chase; the idle poll only has to beat a
+/// human scrolling.
+const FRAME_MS: u64 = 80;
+const IDLE_MS: u64 = 400;
 
 /// The fader track height inside the Faders pane, in CSS pixels — the
 /// console's bottom band is a quarter of a 1440-high window, and the
@@ -115,15 +134,17 @@ pub fn KindPane(tab: Tab, surface: Surface) -> Element {
 /// The header every pane shares: the title, a note, the search box.
 #[component]
 fn PaneHead(
-    title: String,
     #[props(default)] note: String,
     query: Signal<String>,
     #[props(default)] clear: bool,
+    #[props(default)] children: Element,
 ) -> Element {
     let mut query = query;
     rsx! {
         header { class: "pane-head",
-            span { class: "pane-title", "{title}" }
+            // No title here: the tab above the pane already names it,
+            // and repeating it spends a line of a pane that does not
+            // scroll on a word the eye has just read.
             if !note.is_empty() {
                 span { class: "pane-note", "{note}" }
             }
@@ -141,6 +162,7 @@ fn PaneHead(
                 value: "{query}",
                 oninput: move |e| query.set(e.value()),
             }
+            {children}
         }
     }
 }
@@ -168,7 +190,7 @@ pub fn SquaresPane(tab: Tab, surface: Surface) -> Element {
     let class = format!("pane pane-{}", tab.label().to_lowercase());
     rsx! {
         section { class: "{class}",
-            PaneHead { title: tab.label().to_string(), note, query, clear: is_groups }
+            PaneHead { note, query, clear: is_groups }
             div { class: "pane-squares",
                 for entry in tiles.iter().cloned() {
                     Square { key: "{entry.name}", entry, selection: selection.clone() }
@@ -186,26 +208,38 @@ fn Square(entry: Entry, selection: String) -> Element {
     let is_group = entry.tab == Tab::Kind(Kind::Group);
     let on = is_group && is_selected(&selection, &entry.name);
     let playhead = use_playhead();
-    let class = match (entry.missing, on, entry.favourite, entry.css.is_some()) {
-        (true, _, _, _) => "sq missing",
-        (_, true, _, _) => "sq on",
-        (_, _, true, true) => "sq colour fav",
-        (_, _, true, false) => "sq fav",
-        (_, _, false, true) => "sq colour",
-        _ => "sq",
-    };
-    let style = entry
-        .css
-        .as_ref()
-        .map(|css| format!("background: {css};"))
-        .unwrap_or_default();
+    // Two shapes, not one. A swatch tile is a disc with its name on it;
+    // a name-only tile — a group, a focus point — is all text, and its
+    // text wants every pixel of the tile rather than a line along the
+    // bottom of an empty square.
+    let mut class = String::from("sq");
+    if entry.css.is_some() {
+        class.push_str(" colour");
+        if entry.light {
+            class.push_str(" light");
+        }
+    } else {
+        class.push_str(" label");
+    }
+    if entry.missing {
+        class.push_str(" missing");
+    } else if on {
+        class.push_str(" on");
+    } else if entry.favourite {
+        class.push_str(" fav");
+    }
+    // The colour is a disc on the tile, not the tile itself. A round
+    // swatch reads as a *colour* rather than as a coloured button, it
+    // is the shape a palette's wedges want to be drawn in, and it
+    // leaves the name somewhere to sit that is not on top of the thing
+    // it is naming.
+    let disc = entry.css.clone();
     let tap_entry = entry.clone();
     let hover_name = entry.name.clone();
     let group_name = entry.name.clone();
     rsx! {
         button {
             class: "{class}",
-            style: "{style}",
             title: "{entry.about}",
             onmouseenter: move |_| if is_group { send(Command::HighlightGroup(Some(hover_name.clone()))) },
             onmouseleave: move |_| if is_group { send(Command::HighlightGroup(None)) },
@@ -217,7 +251,13 @@ fn Square(entry: Entry, selection: String) -> Element {
                     crate::library::tap(&tap_entry, &playhead());
                 }
             },
-            span { class: "sq-name", "{entry.name}" }
+            if let Some(css) = disc {
+                span { class: "sq-disc", style: "background: {css}",
+                    span { class: "sq-name", "{entry.name}" }
+                }
+            } else {
+                span { class: "sq-name", "{entry.name}" }
+            }
         }
     }
 }
@@ -230,7 +270,7 @@ pub fn TilesPane(tab: Tab, surface: Surface) -> Element {
     let class = format!("pane pane-{}", tab.label().to_lowercase());
     rsx! {
         section { class: "{class}",
-            PaneHead { title: tab.label().to_string(), query }
+            PaneHead { query }
             div { class: "pane-grid",
                 for entry in tiles.iter().cloned() {
                     PaneTile { key: "{entry.name}", entry }
@@ -277,39 +317,229 @@ pub fn PaneTile(entry: Entry) -> Element {
 /// Effects: a table — name, family, the note — favourites first, the
 /// playing ones lit; a row fires or lets go.
 #[component]
-pub fn EffectsPane(surface: Surface) -> Element {
+pub fn EffectsPane(surface: Surface, #[props(default)] only: EffectKinds) -> Element {
     let query = use_signal(String::new);
-    let playhead = use_playhead();
-    let rows = tiles_of(Tab::Kind(Kind::Effect), &surface, &query());
+    // Every card turning at once, or only the one under the pointer.
+    // On by default: the library is a wall of moving light and you find
+    // what you want by looking, rather than by hovering a hundred and
+    // thirty-one names in turn. It stays affordable because only the
+    // cards actually on screen turn — see the band below — so the
+    // switch is there for a slow machine, not for the common case.
+    let mut play_all = use_signal(|| true);
+    // Where the grid is scrolled to. Play-all means *every card on
+    // screen*, not every card: a hundred and thirty-one loops turning
+    // at once is the whole library decoded and held at once, and the
+    // hundred of them scrolled out of sight cost exactly as much as the
+    // thirty you can see while showing you nothing.
+    let mut scrolled = use_signal(|| 0.0f64);
+    let rows: Vec<Entry> = tiles_of(only.tab(), &surface, &query())
+        .into_iter()
+        .filter(|e| only.wants(&e.family))
+        .collect();
+    // The band of indices on screen, from the grid's own geometry: four
+    // to a row (`live.css` pins it), a card and its gap 122px tall. A
+    // row of slack each way so a card is already running by the time it
+    // is scrolled into view rather than starting when it arrives.
     rsx! {
-        section { class: "pane pane-effects",
-            PaneHead { title: "Effects".to_string(), query }
-            div { class: "pane-table",
-                for entry in rows.iter().cloned() {
-                    {
-                        let on = crate::library::is_on(&entry, &playhead());
-                        let class = match (on, entry.favourite) {
-                            (true, _) => "row on",
-                            (_, true) => "row fav",
-                            _ => "row",
-                        };
-                        let tap_entry = entry.clone();
-                        rsx! {
-                            button {
-                                key: "{entry.name}",
-                                class: "{class}",
-                                onpointerdown: move |_| crate::library::tap(&tap_entry, &playhead()),
-                                span { class: "row-name", "{entry.name}" }
-                                span { class: "row-family", "{entry.family}" }
-                                span { class: "row-note", "{entry.about}" }
-                            }
-                        }
+        section { class: "pane {only.css()}",
+            PaneHead { query,
+                button {
+                    class: if play_all() { "pane-key on" } else { "pane-key" },
+                    title: "play every thumbnail at once",
+                    onclick: move |_| play_all.set(!play_all()),
+                    "PLAY ALL"
+                }
+            }
+            div { class: "cards",
+                onscroll: move |e| scrolled.set(e.data.scroll_top()),
+                for (i, entry) in rows.iter().cloned().enumerate() {
+                    EffectRow {
+                        key: "{entry.name}",
+                        entry,
+                        play_all,
+                        index: i,
+                        scrolled,
+                        dir: only.preview_dir(),
                     }
                 }
                 if rows.is_empty() {
                     span { class: "lib-empty", "nothing matches" }
                 }
             }
+        }
+    }
+}
+
+/// Which effects a pane shows.
+///
+/// The library is a hundred and thirty-one entries and they are not one
+/// kind of thing: what a movement effect does is where the beams go,
+/// what the rest do is what the rig does. Split across panes they are
+/// two short lists you can scan; mixed, they are one long one you
+/// cannot.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum EffectKinds {
+    /// Everything that is not movement — intensity, colour, beam, strip.
+    #[default]
+    Rig,
+    /// Movement only.
+    Movement,
+    /// Not effects at all: the profile's macros, which are little
+    /// programmes rather than templates but read as the same kind of
+    /// card and fire the same way.
+    Macros,
+}
+
+impl EffectKinds {
+    /// `family` is the note's family, as `catalogue` puts it on the
+    /// entry: "movement", "intensity", "colour", "beam", "strip",
+    /// "one-shot". An effect with no note at all lands in `Rig` rather
+    /// than nowhere.
+    /// The pane's class, which is what pins its column count.
+    pub fn css(self) -> &'static str {
+        match self {
+            EffectKinds::Rig => "pane-effects",
+            EffectKinds::Movement => "pane-movers",
+            EffectKinds::Macros => "pane-macros",
+        }
+    }
+
+    /// Which catalogue the pane lists.
+    fn tab(self) -> Tab {
+        match self {
+            EffectKinds::Macros => Tab::Kind(Kind::Macro),
+            _ => Tab::Kind(Kind::Effect),
+        }
+    }
+
+    /// Where its loops were rendered.
+    fn preview_dir(self) -> &'static str {
+        match self {
+            EffectKinds::Macros => crate::library::MACRO_PREVIEW_DIR,
+            _ => crate::library::EFFECT_PREVIEW_DIR,
+        }
+    }
+
+    fn wants(self, family: &str) -> bool {
+        let moves = family == "movement";
+        match self {
+            EffectKinds::Rig => !moves,
+            EffectKinds::Movement => moves,
+            // A macro pane lists macros; there is nothing to filter.
+            EffectKinds::Macros => true,
+        }
+    }
+}
+
+/// One effect: a thumbnail that comes alive under the pointer, the
+/// name, and — while it is hovered — what the effect is for.
+///
+/// The frames only turn while the pointer is on the row. Every row
+/// animating at once would be the whole library decoded and held in
+/// memory (a 320×180 frame is 225KB *decoded*, so a hundred effects at
+/// sixteen frames is most of a gigabyte); one row at a time is a few
+/// megabytes, and reads as though the whole library were alive.
+// r[impl studio.views.whole-profile] - the library shows what each entry does
+#[component]
+fn EffectRow(
+    entry: Entry,
+    play_all: Signal<bool>,
+    index: usize,
+    scrolled: Signal<f64>,
+    dir: &'static str,
+) -> Element {
+    let playhead = use_playhead();
+    let mut hovered = use_signal(|| false);
+    let mut frame = use_signal(|| 0usize);
+    // Whether this row is in the scrolled viewport, derived from the
+    // shared offset rather than handed down, so the loop below can watch
+    // it change.
+    let visible = use_memo(move || {
+        let top = scrolled();
+        let row = (index / CARD_COLUMNS) as f64 * CARD_ROW;
+        row + CARD_ROW > top - CARD_ROW && row < top + CARDS_VIEWPORT
+    });
+    // The frames are loaded when the row comes into view and dropped
+    // when it leaves.
+    //
+    // Loading them all at mount is what made opening this pane cost
+    // about as much as the visualizer: a hundred and thirty-one rows,
+    // sixteen frames each, base64 into a string — a hundred and seventy
+    // megabytes of them built before a single card had animated, and up
+    // to half a gigabyte of texture if the renderer touched them all.
+    // Held to what is on screen it is a few megabytes, and scrolling
+    // pays for a screenful at a time.
+    let mut frames = use_signal(Vec::<String>::new);
+    let name = entry.name.clone();
+    let count = frames.read().len();
+
+    // While hovered, step the loop. `use_future` is cancelled and
+    // restarted by the signal, so nothing ticks over a cold row.
+    use_future(move || {
+        let name = name.clone();
+        async move {
+            loop {
+                // A row that is not animating still has to notice when
+                // it scrolls into view, but it can do that lazily. The
+                // fast tick is only for rows actually turning: at 80ms
+                // across a hundred and thirty-one rows this loop alone
+                // was sixteen hundred wakeups a second, most of them
+                // for cards nobody could see.
+                let turning = visible() && (hovered() || play_all());
+                let wait = if turning { FRAME_MS } else { IDLE_MS };
+                futures_timer::Delay::new(std::time::Duration::from_millis(wait)).await;
+                let here = visible();
+                let loaded = !frames.read().is_empty();
+                if here && !loaded {
+                    frames.set(crate::library::frames_in(dir, &name));
+                } else if !here && loaded {
+                    frames.set(Vec::new());
+                    frame.set(0);
+                }
+                let count = frames.read().len();
+                // Hovering always plays: the pointer is on it, so it
+                // is on screen by definition, and the arithmetic above
+                // is an estimate rather than a fact.
+                if turning && count > 1 {
+                    frame.set((frame() + 1) % count);
+                } else if frame() != 0 {
+                    frame.set(0);
+                }
+            }
+        }
+    });
+
+    let on = crate::library::is_on(&entry, &playhead());
+    let class = match (on, entry.favourite) {
+        (true, _) => "card on",
+        (_, true) => "card fav",
+        _ => "card",
+    };
+    let shown = frames
+        .read()
+        .get(frame().min(count.saturating_sub(1)))
+        .cloned();
+    let tap_entry = entry.clone();
+    let family = entry.family.clone();
+    rsx! {
+        // The same card a look gets — the picture is the tile, the name
+        // on it, the badge on the right. The one difference is that this
+        // picture moves.
+        button {
+            class: "{class}",
+            onmouseenter: move |_| hovered.set(true),
+            onmouseleave: move |_| hovered.set(false),
+            onpointerdown: move |_| crate::library::tap(&tap_entry, &playhead()),
+            match shown {
+                Some(uri) => rsx! { img { class: "card-thumb", src: "{uri}" } },
+                None => rsx! { span { class: "card-thumb empty", "no preview" } },
+            }
+            div { class: "card-marks",
+                if !family.is_empty() {
+                    span { class: "card-badge fx", "{family}" }
+                }
+            }
+            span { class: "card-name", "{entry.name}" }
         }
     }
 }
@@ -323,8 +553,8 @@ pub fn LooksPane(surface: Surface) -> Element {
     let rows = tiles_of(Tab::Kind(Kind::Look), &surface, &query());
     rsx! {
         section { class: "pane pane-looks",
-            PaneHead { title: "Looks".to_string(), query }
-            div { class: "pane-list",
+            PaneHead { query }
+            div { class: "cards",
                 for entry in rows.iter().cloned() {
                     LookRow { key: "{entry.name}", entry }
                 }
@@ -343,24 +573,33 @@ fn LookRow(entry: Entry) -> Element {
     let preview = use_hook(|| preview_data_uri(&entry.name));
     let on = crate::library::is_on(&entry, &playhead());
     let class = match (on, entry.favourite) {
-        (true, _) => "look-row on",
-        (_, true) => "look-row fav",
-        _ => "look-row",
+        (true, _) => "card on",
+        (_, true) => "card fav",
+        _ => "card",
     };
     let kind = entry.family.clone();
     let kind_css = look_kind_css(&kind);
     let tap_entry = entry.clone();
     rsx! {
+        // The picture *is* the card. A look is chosen by recognising it,
+        // so the thumbnail gets the whole tile and everything else sits
+        // on top of it: the name along the bottom, the kind and what the
+        // look does down the right-hand edge.
         button {
             class: "{class}",
             title: "{entry.about}",
             onpointerdown: move |_| crate::library::tap(&tap_entry, &playhead()),
             match &preview {
-                Some(uri) => rsx! { img { class: "look-thumb", src: "{uri}" } },
-                None => rsx! { span { class: "look-thumb empty", "no preview" } },
+                Some(uri) => rsx! { img { class: "card-thumb", src: "{uri}" } },
+                None => rsx! { span { class: "card-thumb empty", "no preview" } },
             }
-            span { class: "look-row-name", "{entry.name}" }
-            span { class: "look-badge", style: "border-color: {kind_css}; color: {kind_css}", "{kind}" }
+            div { class: "card-marks",
+                span { class: "card-badge", style: "border-color: {kind_css}; color: {kind_css}", "{kind}" }
+                for (glyph, means) in entry.marks.iter() {
+                    span { key: "{glyph}", class: "card-mark", title: "{means}", "{glyph}" }
+                }
+            }
+            span { class: "card-name", "{entry.name}" }
         }
     }
 }
@@ -380,12 +619,47 @@ pub fn preview_path(name: &str) -> std::path::PathBuf {
     std::path::Path::new(PREVIEW_DIR).join(format!("{name}.png"))
 }
 
-/// The look's preview as a `data:` URI, if it has been rendered. Read
-/// at run time so a re-render shows without a rebuild; a browser has
-/// no disk and gets `None`.
+/// The look's preview as a `file:` URL, if it has been rendered.
+/// Checked at run time so a re-render shows without a rebuild; a
+/// browser has no disk and gets `None`.
 pub fn preview_data_uri(name: &str) -> Option<String> {
-    let bytes = std::fs::read(preview_path(name)).ok()?;
-    Some(format!("data:image/png;base64,{}", base64(&bytes)))
+    file_uri(&preview_path(name))
+}
+
+/// A local path as a `file:` URL — the *short* way to put a picture in
+/// the DOM.
+///
+/// The obvious way is a `data:` URI, and it was what this did. It cost
+/// twenty-seven per cent of the studio's CPU. An `img src` is parsed as
+/// a URL every time it is set, by the `url` crate, character by
+/// character — and a base64 PNG is two hundred kilobytes of characters.
+/// The image cache is keyed on the *parsed* string, so even a cache hit
+/// paid the parse in full, and the thumbnail loops re-set `src` twelve
+/// times a second per animating row. Sixty bytes of `file:` URL parse
+/// in no time at all, hash in no time at all, and Blitz then caches the
+/// decoded image against that short key — so a frame is read and
+/// decoded once for the life of the process instead of on every turn of
+/// the loop.
+///
+/// `None` when the file is not there, which is the same answer as "no
+/// preview" and needs no special case — including on wasm, where there
+/// is no disk to look at.
+pub fn file_uri(path: &std::path::Path) -> Option<String> {
+    let absolute = std::fs::canonicalize(path).ok()?;
+    let mut out = String::from("file://");
+    // Percent-encode what a path may hold and a URL may not. The
+    // preview directories are slugs, but the *repository* can live
+    // anywhere — a checkout under "My Documents" would otherwise
+    // produce a URL that parses to the wrong path, silently.
+    for byte in absolute.to_str()?.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
+                out.push(byte as char)
+            }
+            _ => out.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    Some(out)
 }
 
 /// Standard base64, unpadded input, padded output. Tiny, so the UI
@@ -448,6 +722,39 @@ pub fn DeskPane(banks: Vec<crate::desk::Bank>) -> Element {
 
 #[cfg(test)]
 mod tests {
+    /// Play-all plays what is on screen, not the whole library. The
+    /// band is computed from the grid's own geometry, so this pins the
+    /// arithmetic against the constants `live.css` also encodes.
+    #[test]
+    fn play_all_covers_the_visible_band_and_not_the_rest() {
+        let band = |top: f64| {
+            let first_row = ((top / CARD_ROW) as usize).saturating_sub(1);
+            let last_row = ((top + CARDS_VIEWPORT) / CARD_ROW) as usize + 1;
+            (first_row * CARD_COLUMNS, (last_row + 1) * CARD_COLUMNS)
+        };
+        // At the top: from the first card, and far short of 131.
+        let (first, last) = band(0.0);
+        assert_eq!(first, 0);
+        assert!(last < 131, "the whole library would be playing: {last}");
+        assert!(last >= 40, "less than a screenful would be playing: {last}");
+
+        // Scrolled down: the band moves with it and stays a bandful.
+        // Not the *same* size — at the top it is clipped against row
+        // zero — but the same order of size.
+        let (first_down, last_down) = band(2000.0);
+        assert!(first_down > 0, "the band never left the top");
+        let span = last_down - first_down;
+        assert!(
+            (40..=60).contains(&span),
+            "the band is {span} cards, which is not a screenful"
+        );
+        // And a card well above the fold is not in it.
+        assert!(
+            first_down > CARD_COLUMNS,
+            "a card scrolled away is still playing"
+        );
+    }
+
     use super::*;
 
     /// r[verify studio.program.pick-and-gizmos]
@@ -493,8 +800,14 @@ mod tests {
         assert_eq!(base64(&[0x89, b'P', b'N', b'G']), "iVBORw==");
     }
 
-    /// The four shipped looks have previews on disk, and they read as
-    /// PNG data URIs.
+    /// The four shipped looks have previews on disk, and they reach the
+    /// DOM as short `file:` URLs.
+    ///
+    /// The length is the assertion, not a detail of it. These used to be
+    /// base64 `data:` URIs and the studio spent twenty-seven per cent of
+    /// its CPU in the URL parser as a result — see
+    /// [`super::file_uri`]. A preview that goes back to being inlined
+    /// would look completely correct and cost a quarter of the frame.
     #[test]
     fn the_shipped_looks_have_previews() {
         let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
@@ -503,12 +816,18 @@ mod tests {
             let bytes = std::fs::read(&path)
                 .unwrap_or_else(|e| panic!("{}: {e} — run `just look-previews`", path.display()));
             assert_eq!(&bytes[..4], &[0x89, b'P', b'N', b'G'], "{name}");
+
+            let uri = file_uri(&path).expect("the file is right there");
+            assert!(uri.starts_with("file:///"), "{name}: {uri}");
+            assert!(uri.ends_with(".png"), "{name}: {uri}");
+            assert!(
+                uri.len() < 1024,
+                "{name}: a {} byte src is an inlined image, not a reference",
+                uri.len()
+            );
+            // The space in "chorus full" has to survive as a URL.
+            assert!(!uri.contains(' '), "{name}: {uri}");
         }
-        let uri = format!(
-            "data:image/png;base64,{}",
-            base64(&[0x89, b'P', b'N', b'G'])
-        );
-        assert!(uri.starts_with("data:image/png;base64,iVBOR"));
     }
 
     /// The pane's track and the console band agree: the tallest fader

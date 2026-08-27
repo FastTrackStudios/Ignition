@@ -133,6 +133,13 @@ pub struct Entry {
     pub about: String,
     /// A swatch for colours and splits.
     pub css: Option<String>,
+    /// The swatch is light, so a name written on it has to be dark.
+    pub light: bool,
+    /// Small marks for a card's corner: what this does beyond its
+    /// colour, as `(glyph, what it means)`. A thumbnail says what a
+    /// look *looks* like; these say what it will *do* once it is up,
+    /// which a still frame cannot show.
+    pub marks: Vec<(String, String)>,
     /// A favourite the profile no longer has. Shown, never acted on.
     pub missing: bool,
     pub favourite: bool,
@@ -187,6 +194,85 @@ pub fn css_of(c: &ignition_core::preset::ColorPreset) -> String {
     )
 }
 
+/// Where `viz --previews` writes each kind of loop.
+pub const EFFECT_PREVIEW_DIR: &str = "data/effects/previews";
+pub const MACRO_PREVIEW_DIR: &str = "data/macros/previews";
+pub const LOOK_PREVIEW_DIR: &str = "data/looks/previews";
+
+/// An effect's loop as `file:` URLs, in order.
+///
+/// Listed from disk at run time so a re-render shows without a rebuild,
+/// the same way a look's thumbnail does. An effect nobody has rendered
+/// yet returns nothing and its row simply has no picture — a missing
+/// preview is not an error, it is a preview that has not been made.
+///
+/// URLs, not the bytes: see [`crate::panes::file_uri`] for why that is
+/// worth a quarter of the studio's CPU.
+pub fn effect_frames(name: &str) -> Vec<String> {
+    frames_in(EFFECT_PREVIEW_DIR, name)
+}
+
+/// The same, for any of the preview directories.
+pub fn frames_in(root: &str, name: &str) -> Vec<String> {
+    let dir = std::path::Path::new(root).join(slug(name));
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut files: Vec<std::path::PathBuf> = entries
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|e| e == "png"))
+        .collect();
+    // `00.png`, `01.png` … so the names sort into the loop's order.
+    files.sort();
+    files
+        .iter()
+        .filter_map(|p| crate::panes::file_uri(p))
+        .collect()
+}
+
+/// A name as the directory `viz --previews` wrote it to. Kept in step
+/// with `ignition_viz::preview::slug` — the two are a file-name
+/// contract between the renderer and the pane.
+pub fn slug(name: &str) -> String {
+    name.chars()
+        .map(|c| match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' => c,
+            _ => '_',
+        })
+        .collect::<String>()
+        .to_lowercase()
+}
+
+/// What a look does that its thumbnail cannot show.
+///
+/// A still frame of a chase and a still frame of a static wash are the
+/// same picture. The marks are the difference: whether anything in the
+/// look is going to move once it is up, and how many recipes are
+/// stacked to make it.
+fn look_marks(look: &ignition_core::profile::Look) -> Vec<(String, String)> {
+    use ignition_core::recipe::RecipeRef;
+    // A library effect or a bundle is animated by construction; an
+    // inline recipe is a phaser exactly when it has more than one step
+    // (`r[recipes.steps-are-the-switch]`).
+    let animated = look.recipes.iter().any(|r| match r {
+        RecipeRef::Named { .. } | RecipeRef::Bundle { .. } => true,
+        RecipeRef::Inline(recipe) => recipe.steps.len() > 1,
+        RecipeRef::Look { .. } => false,
+    });
+    let mut marks = Vec::new();
+    if animated {
+        marks.push((
+            "FX".to_string(),
+            "runs an effect — this look moves".to_string(),
+        ));
+    }
+    let n = look.recipes.len();
+    if n > 1 {
+        marks.push((n.to_string(), format!("{n} recipes stacked")));
+    }
+    marks
+}
+
 /// The colour a look's kind is drawn in — bed, full, punt, safe.
 pub fn look_css(kind: LookKind) -> &'static str {
     match kind {
@@ -222,6 +308,8 @@ pub fn catalogue(tab: Tab, surface: &Surface) -> Vec<Entry> {
         family,
         about,
         css,
+        light: false,
+        marks: Vec::new(),
         missing: false,
         favourite: false,
     };
@@ -255,8 +343,9 @@ pub fn catalogue(tab: Tab, surface: &Surface) -> Vec<Entry> {
         Tab::Kind(Kind::Look) => profile
             .looks
             .iter()
-            .map(|(name, look)| {
-                entry(
+            .map(|(name, look)| Entry {
+                marks: look_marks(look),
+                ..entry(
                     name,
                     format!("{:?}", look.kind).to_lowercase(),
                     look.about.clone(),
@@ -273,15 +362,42 @@ pub fn catalogue(tab: Tab, surface: &Surface) -> Vec<Entry> {
                 entry(name, shape, m.about.clone(), None)
             })
             .collect(),
+        // Colours are the whole colour palette: the single gels, then
+        // the multi-colour ones. They are one question — "what colour" —
+        // and splitting them across two panes only ever hid the half an
+        // operator reaches for when a flat wash is not enough.
+        //
+        // A split keeps `Tab::Splits` as its *own* tab while it sits in
+        // this list, so `tap` still sends `Split` rather than `Color`.
+        // The tab a tile is listed under and the thing a tile does are
+        // not the same fact.
         Tab::Kind(Kind::Colour) => profile
             .colors
             .iter()
-            .map(|c| entry(&c.name, String::new(), String::new(), Some(css_of(c))))
+            .map(|c| Entry {
+                light: crate::ColorChip::is_light(c.red, c.green, c.blue),
+                ..entry(&c.name, String::new(), String::new(), Some(css_of(c)))
+            })
+            .chain(surface.splits.iter().map(|s| Entry {
+                tab: Tab::Splits,
+                name: s.name.clone(),
+                family: String::new(),
+                about: String::new(),
+                // The tile is a disc, so it wants the wedges.
+                css: Some(s.disc()),
+                light: s.light,
+                marks: Vec::new(),
+                missing: false,
+                favourite: false,
+            }))
             .collect(),
         Tab::Splits => surface
             .splits
             .iter()
-            .map(|s| entry(&s.name, String::new(), String::new(), Some(s.css.clone())))
+            .map(|s| Entry {
+                light: s.light,
+                ..entry(&s.name, String::new(), String::new(), Some(s.disc()))
+            })
             .collect(),
         Tab::Kind(Kind::Focus) => surface
             .focus
@@ -327,6 +443,8 @@ pub fn ordered(all: &[Entry], favourites: &[String]) -> Vec<Entry> {
                 family: "missing".into(),
                 about: "not in this profile".into(),
                 css: None,
+                light: false,
+                marks: Vec::new(),
                 missing: true,
                 favourite: true,
             },
@@ -525,9 +643,67 @@ mod tests {
             family: family.into(),
             about: about.into(),
             css: None,
+            light: false,
+            marks: Vec::new(),
             missing: false,
             favourite: false,
         }
+    }
+
+    /// The pane finds an effect's frames by the same name the renderer
+    /// wrote them under. The two `slug`s live in different crates —
+    /// nothing links the pane to the visualizer — so these cases are
+    /// the contract, and they are duplicated verbatim in
+    /// `ignition_viz::preview::tests`. If one side changes, one of the
+    /// two tests goes red.
+    #[test]
+    fn a_name_finds_the_directory_the_renderer_wrote() {
+        assert_eq!(slug("chase"), "chase");
+        assert_eq!(slug("bar sparkle"), "bar_sparkle");
+        assert_eq!(slug("Audience Sweep"), "audience_sweep");
+        assert_eq!(slug("circle/tight"), "circle_tight");
+    }
+
+    /// The Colours pane is the whole palette: the flat gels and the
+    /// multi-colour ones together, the way the busking tile grid has
+    /// always shown them. A split listed here still *is* a split — it
+    /// keeps its own tab, so tapping it sends `Split`, not `Color`.
+    // r[verify studio.views.whole-profile]
+    #[test]
+    fn colours_carries_the_multi_colour_palettes_and_they_stay_splits() {
+        let surface = Surface {
+            splits: vec![crate::ColorChip {
+                name: "Warm/Cool".into(),
+                css: "linear-gradient(90deg, red, blue)".into(),
+                colors: vec!["red".into(), "blue".into()],
+                spread: false,
+                light: false,
+            }],
+            ..Default::default()
+        };
+        let all = catalogue(Tab::Kind(Kind::Colour), &surface);
+        let split = all
+            .iter()
+            .find(|e| e.name == "Warm/Cool")
+            .expect("the palette is in the colours pane");
+        assert_eq!(
+            split.tab,
+            Tab::Splits,
+            "a split listed under colours still acts like a split"
+        );
+        assert!(
+            split
+                .css
+                .as_deref()
+                .is_some_and(|c| c.starts_with("conic-gradient(")),
+            "and draws as wedges, not a flat bar: {:?}",
+            split.css
+        );
+        // The flat gels are still there, ahead of it.
+        assert!(
+            all.iter().any(|e| e.tab == Tab::Kind(Kind::Colour)),
+            "the single colours did not survive the merge"
+        );
     }
 
     /// r[verify studio.operators.favourites]

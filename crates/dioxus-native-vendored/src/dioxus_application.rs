@@ -390,9 +390,43 @@ impl ApplicationHandler for DioxusNativeApplication {
                 BlitzShellEvent::CloseWindow { window_id } => {
                     self.close_window(window_id, event_loop);
                 }
-                event => self.inner.handle_blitz_shell_event(event_loop, event),
+                event => {
+                    // A span *name* per variant, not one span with a
+                    // field: `loop.wake` on its own was sixteen
+                    // milliseconds a frame with nothing inside it —
+                    // half the studio's frame — and "the event queue is
+                    // slow" is not a finding anyone can act on. The
+                    // profiler's table is keyed by name, so the name is
+                    // where the distinction has to live.
+                    // IGNITION PATCH (profiling): r[impl studio.profiling] - which shell event
+                    #[cfg(feature = "tracing")]
+                    let _span = shell_event_span(&event).entered();
+                    self.inner.handle_blitz_shell_event(event_loop, event)
+                }
             }
         }
+    }
+}
+
+/// One span per `BlitzShellEvent` variant, named for it.
+///
+/// `Poll` is the one that matters: it is the Dioxus virtual DOM coming
+/// up for air — rendering every dirty component and applying the
+/// mutations to the document — and in the studio it is the single most
+/// expensive thing in a frame, several times the visualizer.
+// IGNITION PATCH (profiling): r[impl studio.profiling] - which shell event
+#[cfg(feature = "tracing")]
+fn shell_event_span(event: &BlitzShellEvent) -> tracing::Span {
+    const TARGET: &str = "ignition::profile";
+    match event {
+        BlitzShellEvent::Poll { .. } => tracing::info_span!(target: TARGET, "loop.poll"),
+        BlitzShellEvent::RequestRedraw { .. } => {
+            tracing::info_span!(target: TARGET, "loop.redraw")
+        }
+        BlitzShellEvent::ResumeReady { .. } => {
+            tracing::info_span!(target: TARGET, "loop.resume")
+        }
+        _ => tracing::info_span!(target: TARGET, "loop.shell_other"),
     }
 }
 
