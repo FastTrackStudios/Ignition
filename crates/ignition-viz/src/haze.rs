@@ -248,11 +248,31 @@ fn occluder_material(
 /// averages out over a few frames. `IGNITION_FOG_JITTER` overrides it.
 pub const FOG_JITTER_METRES: f32 = 0.3;
 
-fn fog_jitter() -> f32 {
-    std::env::var("IGNITION_FOG_JITTER")
+/// The step count `FOG_JITTER_METRES` was measured against.
+pub const FOG_JITTER_REFERENCE_STEPS: f32 = 128.0;
+
+/// The jitter for a given step count: about one step, whatever the
+/// count is.
+///
+/// This used to be a constant, and that is why a coarser march rings.
+/// The jitter's whole job is to be roughly one step long — enough to
+/// scatter the ring a step boundary would otherwise draw, and no more.
+/// A step is the march's length over the step count, so halving the
+/// steps doubles the step and leaves a fixed jitter covering half of
+/// one: the rings come back, and the fix looks like "64 steps are not
+/// enough" when what is actually wrong is that the dither was sized for
+/// a different march.
+///
+/// `IGNITION_FOG_JITTER` still forces a fixed value, for measuring.
+// r[impl viz.quality-presets] - a coarser march dithers proportionally
+pub fn fog_jitter_for(steps: u32) -> f32 {
+    if let Some(forced) = std::env::var("IGNITION_FOG_JITTER")
         .ok()
-        .and_then(|v| v.trim().parse().ok())
-        .unwrap_or(FOG_JITTER_METRES)
+        .and_then(|v| v.trim().parse::<f32>().ok())
+    {
+        return forced;
+    }
+    FOG_JITTER_METRES * FOG_JITTER_REFERENCE_STEPS / (steps.max(1) as f32)
 }
 
 /// How many pixels the haze camera may have when the scale is chosen
@@ -374,7 +394,7 @@ fn spawn_haze_cameras(
             VolumetricFog {
                 ambient_intensity: 0.0,
                 step_count: view.fog_steps,
-                jitter: fog_jitter(),
+                jitter: fog_jitter_for(view.fog_steps),
                 ..default()
             },
             *transform,
@@ -429,6 +449,8 @@ fn follow_main_camera(
         }
         if fog.step_count != view.fog_steps {
             fog.step_count = view.fog_steps;
+            // The dither is sized in steps, so it follows the count.
+            fog.jitter = fog_jitter_for(view.fog_steps);
         }
         let Some(main_size) = camera.physical_viewport_size() else {
             continue;
@@ -598,6 +620,22 @@ mod tests {
         assert_eq!(haze_density(1.6, 0.0), 0.0);
         assert!((haze_density(1.6, 0.5) - haze_density(1.6, 1.0) * 0.5).abs() < 1e-7);
         assert!(haze_density(1.6, 1.0) > 0.0);
+    }
+
+    /// The dither is sized in *steps*, not metres: halve the march and
+    /// the jitter doubles, because a step doubled too. A constant here
+    /// is what makes a coarser march ring.
+    /// r[verify viz.quality-presets]
+    #[test]
+    fn the_jitter_is_about_one_step_whatever_the_count() {
+        // SAFETY: single-threaded test, and the variable is removed
+        // again before anything else reads it.
+        unsafe { std::env::remove_var("IGNITION_FOG_JITTER") };
+        assert!((fog_jitter_for(128) - FOG_JITTER_METRES).abs() < 1e-6);
+        assert!((fog_jitter_for(64) - FOG_JITTER_METRES * 2.0).abs() < 1e-6);
+        assert!((fog_jitter_for(256) - FOG_JITTER_METRES / 2.0).abs() < 1e-6);
+        // A step count of zero is not a divide by zero.
+        assert!(fog_jitter_for(0).is_finite());
     }
 
     /// r[verify viz.performance-budget]

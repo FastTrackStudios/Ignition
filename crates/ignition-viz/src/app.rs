@@ -362,14 +362,23 @@ impl RenderQuality {
                 ssao: false,
                 ..base
             },
-            // 128 rather than 64: at 64 the raymarch quantises a
-            // mover's cone into rings and dots, and a 1.7-degree beam
-            // vanishes outright for whole frames. 128 is the fewest
-            // that keeps every shaft a solid shaft; the frame budget is
-            // spent on that before anything else, and the haze camera's
-            // pixel budget is what pays for it.
+            // 96, and it was 128 until the dither was sized properly.
+            //
+            // The rule has not changed — this is the fewest steps that
+            // keep every shaft a solid shaft rather than a string of
+            // beads — but the number the rule produces did, because
+            // `haze::fog_jitter_for` now scatters the ring a step
+            // boundary draws by about one step *whatever the count is*.
+            // With a jitter fixed at one 128-step step, a 96-step march
+            // was dithered by three quarters of its own step and rang;
+            // that read as "96 is not enough steps" and it was not, it
+            // was not enough dither. 64 still beads a mover's thin
+            // shaft, so the floor moved rather than vanished.
+            //
+            // Worth 102 fps to 110 on the benchmark cue at 5120x1440,
+            // for a picture that does not differ.
             Preset::Medium => Self {
-                fog_steps: 128,
+                fog_steps: 96,
                 haze_pixels: crate::haze::HAZE_PIXEL_BUDGET,
                 fog_scale: 0,
                 taa: true,
@@ -1651,13 +1660,16 @@ mod quality_tests {
 mod quality_preset_tests {
     use super::*;
 
-    /// Medium is not a new setting. It is what the studio has rendered
-    /// all along, and naming the tiers must not have moved a pixel.
+    /// Medium is the studio's own picture: the whole post chain, the
+    /// haze on its pixel budget, and a march at the tuned floor — the
+    /// fewest steps that keep a shaft solid, which is a measured number
+    /// and not a round one. Naming the tiers moved no pixel; the floor
+    /// moved later, and only because the dither was sized properly.
     /// r[verify viz.quality-presets]
     #[test]
-    fn medium_is_what_the_studio_already_had() {
+    fn medium_is_the_studio_s_own_picture() {
         let medium = RenderQuality::preset(Preset::Medium);
-        assert_eq!(medium.fog_steps, 128);
+        assert_eq!(medium.fog_steps, 96);
         assert_eq!(medium.haze_pixels, crate::haze::HAZE_PIXEL_BUDGET);
         assert_eq!(medium.fog_scale, 0);
         assert!(medium.taa && medium.ssr && medium.ssao);

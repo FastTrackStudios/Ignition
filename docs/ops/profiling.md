@@ -208,11 +208,22 @@ with the rig lit, the effects running and the screens playing, on an RTX
 
 | preset | haze camera | steps | fps |
 | --- | --- | --- | --- |
-| potato | 518x72 | 32 | 123 |
-| low | 1036x144 | 64 | 125 |
-| **medium** | 2071x288 | 128 | **97** |
-| high | 2071x288 | 192 | 84 |
-| ultra | full size, on the camera itself | 192 (256 for a narrow shaft) | 25 |
+| potato | 518x72 | 32 | 129 |
+| low | 1036x144 | 64 | 128 |
+| **medium** | 2071x288 | 96 | **110** |
+| high | 2071x288 | 192 | 87 |
+| ultra | full size, on the camera itself | 192 (256 for a narrow shaft) | 26 |
+
+Medium marches 96 steps and used to march 128, for the same picture.
+The ray-start jitter was a constant 0.3 m, sized against a 128-step
+march where a step is about a quarter of a metre; its whole job is to be
+about one step long, so that a step boundary scatters instead of drawing
+a ring. Fixed, a 96-step march got three quarters of its own step of
+dither and rang — which reads as "96 steps are not enough" and is
+really "that is not enough dither". Sized in steps
+(`haze::fog_jitter_for`), 96 is clean and 64 still beads a thin mover
+shaft, so the floor moved rather than disappeared: 97 fps to 110, and
+the beams are the beams.
 
 Three things in that table are worth more than the numbers.
 

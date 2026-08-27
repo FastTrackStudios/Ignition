@@ -180,7 +180,12 @@ finding out what one dial costs on one GPU.
 Two dials carry the cost and they multiply — the raymarch's step count
 and how many pixels the haze camera may have — and they trade against
 exactly one thing: a mover's shaft staying a solid cone rather than
-breaking into a string of dots. The ladder only climbs: no rung is
+breaking into a string of dots. A third dial exists only to serve that
+trade and is not a choice: the ray-start jitter is sized in *steps*, not
+metres, so a coarser march is dithered proportionally. Fixed, it dithers
+a long step by a fraction of itself and the step boundaries come back as
+rings — which reads as needing more steps when what is needed is more
+dither. The ladder only climbs: no rung is
 coarser than the one below it on either dial, or in what it switches on.
 An unknown name is a warning and the default, never a failure to open.
 
