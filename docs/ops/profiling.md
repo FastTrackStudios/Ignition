@@ -70,6 +70,42 @@ Knobs: `IGNITION_PROFILE_INTERVAL` (seconds, default 2) and
 `IGNITION_PROFILE_FRAME` (the span that counts as a frame, default
 `blitz.render`).
 
+## 1a. Measure the worst case, not an idle one
+
+```
+just profile-bench
+```
+
+`IGNITION_BENCH=1` opens the studio on `data/songs/benchmark.json` — one
+cue lighting every mover, par, bar, beam and hazer at once, with chases,
+figures, strobes and colour cycles running — and **takes** it. Quote
+numbers from this and nothing else: an idle transport flatters the
+studio by a third, and the two are not the same shape of frame. Idle,
+the studio is CPU-bound in Blitz; lit, it is GPU-bound in the volumetric
+pass, and `blitz.render`'s self time *rises* because Vello's submit ends
+up waiting on the visualizer.
+
+Two traps, both of which cost this repo real time:
+
+* A cue list that is loaded but never GOed outputs nothing, so the
+  studio comes up on a dark rig and reports a lovely frame rate for an
+  empty room. `crates/ignition-viz/tests/benchmark_cue.rs` exists
+  because of it.
+* `follow_song` seeks the cue player to the transport's position *every
+  frame*. With a project open and its transport parked at bar one, it
+  drags the player off the benchmark cue as fast as GO puts it there —
+  the cue fires, the rig stays dark, and nothing in the logs is wrong.
+  Benchmark mode opens no project for exactly this reason.
+
+Prove the rig is lit and moving rather than assuming it: capture two
+screenshots a second apart and diff the viewport. Ninety-odd per cent of
+those pixels should differ.
+
+```
+tools/shoot.sh --out /tmp/a && sleep 1 && tools/shoot.sh --out /tmp/b
+magick compare -metric AE -crop 1290x190+300+40 /tmp/a/DP-4.png /tmp/b/DP-4.png null:
+```
+
 ## 2. `IGNITION_PROFILE=all` — which system
 
 Once the table says `viz.step`, the next question is *which system*.
@@ -161,3 +197,33 @@ touches nothing: 3.9 ms to 1.4, and 77 fps to 105.
 
 Neither of those is a thing to guess at, and both are obvious in the
 table. That is the argument for the profiler.
+
+## Where it stands, and the dial that moves it
+
+On the benchmark cue at 5120x1440 with the screens playing: **101 fps,
+9.86 ms a frame**, against an 8.33 ms budget. The same window was 30 fps
+before the four fixes above it.
+
+The frame is now GPU-bound and the volumetric raymarch is nearly all of
+it. `IGNITION_FOG_STEPS` is the dial, and it is a quality decision
+rather than a free win — 128 is the fewest that keeps a narrow shaft a
+solid shaft rather than a column of rings (see `RenderQuality::live`):
+
+| fog steps | fps |
+| --- | --- |
+| 128 (default) | 101 |
+| 112 | 104 |
+| 96 | 109 |
+| 64 | 118 |
+
+`IGNITION_SSR=0` is worth about 3 fps, `IGNITION_TAA=0` about 2,
+`IGNITION_SSAO=0` none.
+
+One measurement in there does not add up and is the thread to pull
+next. `IGNITION_FOG_SCALE=2` gives the haze camera **four times** the
+pixels of the automatic scale at this resolution and costs nothing at
+all, while halving the step count over those same pixels is worth
+seventeen per cent. Cost should be pixels times steps times lights; two
+of those three behave and one does not. Whatever is really being paid
+for there is likely worth more than a step count, and it would cost no
+beam quality to collect.

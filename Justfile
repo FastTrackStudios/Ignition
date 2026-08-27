@@ -154,6 +154,18 @@ profile *ARGS:
     {{ if TRACE == "" { "" } else { "IGNITION_PROFILE_TRACE=" + TRACE } }} \
         just studio {{ARGS}}
 
+# The profiler on the *benchmark* cue, with the rig lit and the effects
+# running: `data/songs/benchmark.json` on every mover, par, bar, beam
+# and hazer at once, chases and figures and colour cycles going, the
+# screens playing. This is the worst case and the only number worth
+# quoting — an idle transport flatters the studio by a third.
+#
+#   just profile-bench                          the stage table
+#   just profile-bench ALL=1                    down to Bevy's schedules
+#   IGNITION_FOG_STEPS=96 just profile-bench    what a quality dial buys
+profile-bench *ARGS:
+    IGNITION_BENCH=1 just profile {{ARGS}}
+
 # `just profile ALL=1` only has Bevy's per-system spans to aggregate if
 # the binary was built with them. This is that binary — a full release
 # rebuild of the visualizer, so expect a few minutes.
