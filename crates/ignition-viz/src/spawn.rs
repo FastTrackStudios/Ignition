@@ -317,9 +317,64 @@ pub struct ScreenSurface;
 /// pars on" — the light was there, but nothing about the fixtures said
 /// which of them were producing it.
 ///
-#[derive(Component)]
+/// A fixture drawn from primitives or a 3DS/OBJ mesh has one material,
+/// the venue's body material, in `material`. A fixture drawn from its
+/// profile's GLB arrives with the *file's* materials on its meshes —
+/// one set of handles shared by every fixture of that type, which is
+/// why the hover tint never reached a par (nothing pointed the fixture
+/// at those handles) and why tinting them naively would have lit all
+/// forty-eight pars at once. `gdtf_assets::adopt_scene_materials`
+/// clones each such material once per fixture and lists the clone in
+/// `parts`, so this component names every material a fixture owns.
+#[derive(Component, Default)]
 pub struct FixtureBody {
     pub material: Handle<StandardMaterial>,
+    /// Per-fixture clones of the GLB's materials, one per distinct
+    /// source material — a body in three meshes sharing one material
+    /// gets one clone.
+    pub parts: Vec<PartMaterial>,
+}
+
+/// One material a fixture's GLB parts came with, cloned for this fixture.
+#[derive(Clone, Debug)]
+pub struct PartMaterial {
+    /// The file's material, as the loader handed it out.
+    pub source: AssetId<StandardMaterial>,
+    /// This fixture's own copy — the one its meshes now draw with.
+    pub material: Handle<StandardMaterial>,
+    /// What the file's material emitted before we touched it. The glow
+    /// and the tint are added on top of this, never over it.
+    pub base_emissive: LinearRgba,
+}
+
+impl PartMaterial {
+    /// A part the file already makes emissive is a lens, and stays the
+    /// file's colour on hover: the tint marks the housing, not the glass.
+    pub fn is_lens(&self) -> bool {
+        self.base_emissive != LinearRgba::BLACK
+    }
+}
+
+impl FixtureBody {
+    pub fn new(material: Handle<StandardMaterial>) -> Self {
+        Self {
+            material,
+            parts: Vec::new(),
+        }
+    }
+
+    /// Every material a hover or selection tint applies to: the body
+    /// material and each non-lens GLB part.
+    pub fn tintable(&self) -> impl Iterator<Item = &Handle<StandardMaterial>> {
+        std::iter::once(&self.material)
+            .chain(self.parts.iter().filter(|p| !p.is_lens()).map(|p| &p.material))
+    }
+
+    /// Whether `handle` is one of this fixture's own — the body material
+    /// or a clone — rather than a file material still to be adopted.
+    pub fn owns(&self, handle: &Handle<StandardMaterial>) -> bool {
+        self.material.id() == handle.id() || self.parts.iter().any(|p| p.material.id() == handle.id())
+    }
 }
 
 /// The profile's own optics, on every emitter of a fixture whose profile
@@ -1317,9 +1372,7 @@ pub fn spawn_venue(
                 index,
                 base_rot: local_rot,
             },
-            FixtureBody {
-                material: body_material.clone(),
-            },
+            FixtureBody::new(body_material.clone()),
             Transform {
                 // The QLC+ anchor correction is a body offset applied to
                 // the mesh child below — putting it here as well is what
@@ -1953,11 +2006,21 @@ pub fn update_fixture_bodies(
         let unchanged = materials
             .get(&body.material)
             .is_some_and(|m| m.emissive == emissive);
-        if unchanged {
-            continue;
-        }
-        if let Some(mut material) = materials.get_mut(&body.material) {
+        if !unchanged && let Some(mut material) = materials.get_mut(&body.material) {
             material.emissive = emissive;
+        }
+        // A GLB part glows on top of what its file gave it.
+        for part in &body.parts {
+            let target = part.base_emissive + emissive;
+            let unchanged = materials
+                .get(&part.material)
+                .is_some_and(|m| m.emissive == target);
+            if unchanged {
+                continue;
+            }
+            if let Some(mut material) = materials.get_mut(&part.material) {
+                material.emissive = target;
+            }
         }
     }
 }

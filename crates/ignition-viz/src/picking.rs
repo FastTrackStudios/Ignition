@@ -115,6 +115,12 @@ pub struct FixturePickingPlugin;
 
 impl Plugin for FixturePickingPlugin {
     fn build(&self, app: &mut App) {
+        // A pointer event climbs to the fixture root through
+        // `PointerTraversal`, whose query asks for `Option<&Window>`; a
+        // world that has never registered `Window` fails that query and
+        // the climb stops at the mesh. Any windowed app has it; the
+        // embedded one is not left to chance.
+        app.world_mut().register_component::<Window>();
         app.add_plugins(MeshPickingPlugin)
             .init_resource::<HostPointer>()
             .init_resource::<Hovered>()
@@ -407,9 +413,14 @@ fn tint_bodies(
         if !is_hovered && !is_selected {
             continue;
         }
-        if let Some(mut material) = materials.get_mut(&body.material) {
-            let tint = if is_hovered { HOVER_TINT } else { SELECT_TINT };
-            material.emissive = material.emissive + tint;
+        let tint = if is_hovered { HOVER_TINT } else { SELECT_TINT };
+        // The body material and every GLB part the fixture owns — a par
+        // is its file's meshes, and they only tint through their
+        // per-fixture clones (`FixtureBody::parts`).
+        for handle in body.tintable() {
+            if let Some(mut material) = materials.get_mut(handle) {
+                material.emissive = material.emissive + tint;
+            }
         }
     }
 }
@@ -468,6 +479,74 @@ mod tests {
             .iter(world)
             .count();
         assert_eq!(stray, 0, "nothing but fixtures is touched");
+    }
+
+    /// A click on a mesh two levels under the root — where a GLB scene's
+    /// meshes sit — reaches the root's observer, so a par whose meshes
+    /// are the loader's picks the same as a mover whose meshes are ours.
+    /// r[verify studio.program.pick-and-gizmos] - clicks bubble from scene meshes to the fixture root
+    #[test]
+    fn a_click_on_a_nested_scene_mesh_bubbles_to_the_fixture() {
+        use bevy::camera::{ImageRenderTarget, NormalizedRenderTarget};
+        use bevy::picking::backend::HitData;
+
+        #[derive(Resource, Default)]
+        struct Clicked(Vec<usize>);
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins).init_resource::<Clicked>();
+        // What `FixturePickingPlugin::build` does for the app: without
+        // it the traversal query fails and the climb stops at the leaf.
+        app.world_mut().register_component::<Window>();
+        let mut roots = Vec::new();
+        for (index, depth) in [(0usize, 1usize), (1, 3)] {
+            let root = app
+                .world_mut()
+                .spawn((
+                    Fixture {
+                        index,
+                        base_rot: Quat::IDENTITY,
+                    },
+                    Pickable::default(),
+                ))
+                .observe(move |_: On<Pointer<Click>>, mut clicked: ResMut<Clicked>| {
+                    clicked.0.push(index);
+                })
+                .id();
+            // A primitive part is one level down; a GLB scene's meshes
+            // are three: root -> node -> gltf -> mesh.
+            let mut leaf = root;
+            for _ in 0..depth {
+                leaf = app.world_mut().spawn(ChildOf(leaf)).id();
+            }
+            roots.push(leaf);
+        }
+        let location = Location {
+            target: NormalizedRenderTarget::Image(ImageRenderTarget {
+                handle: Handle::default(),
+                scale_factor: 1.0,
+            }),
+            position: Vec2::ZERO,
+        };
+        for &leaf in &roots {
+            let click = Click {
+                button: PointerButton::Primary,
+                hit: HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+                duration: std::time::Duration::ZERO,
+                count: 1,
+            };
+            app.world_mut().trigger(Pointer::new(
+                PointerId::Custom(HOST_POINTER),
+                location.clone(),
+                click,
+                leaf,
+            ));
+        }
+        assert_eq!(
+            app.world().resource::<Clicked>().0,
+            vec![0, 1],
+            "both the primitive and the GLB-depth mesh reach their root"
+        );
     }
 
     /// r[verify studio.program.pick-and-gizmos] - plain, shift and ctrl clicks

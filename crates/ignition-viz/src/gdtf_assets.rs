@@ -26,7 +26,9 @@
 //! server. `GdtfAssetsPlugin` (the swap system) goes anywhere after.
 
 use bevy::asset::io::{AssetReader, AssetReaderError, PathStream, Reader, VecReader};
+use crate::spawn::{Fixture, FixtureBody, PartMaterial};
 use bevy::asset::io::AssetSourceBuilder;
+use bevy::picking::Pickable;
 use bevy::asset::{AssetApp, AssetPath};
 use bevy::gltf::GltfAssetLabel;
 use bevy::prelude::*;
@@ -173,12 +175,82 @@ pub fn swap_in_loaded_models(
     }
 }
 
-/// The swap system. Goes with `VizPlugin`.
+/// Gives each fixture its own copy of the materials its GLB parts came
+/// with, and makes those parts pickable.
+///
+/// `bevy_gltf` hands every instance of a file the same material
+/// handles, so all forty-eight pars of one type drew with one
+/// `StandardMaterial`. Nothing on the fixture pointed at it, so the
+/// hover and selection tints (`picking::tint_bodies`) never reached a
+/// par; and had they, every par would have lit up together. Here each
+/// mesh that lands under a fixture with a material the fixture does not
+/// own gets a per-fixture clone — one per distinct source material, so
+/// three meshes sharing one material share one clone — recorded on the
+/// [`FixtureBody`] so the glow and the tints treat it like the body.
+///
+/// Runs on `Added<MeshMaterial3d>` rather than on the scene root so it
+/// is indifferent to which frame the scene's children appear in; the
+/// clone's own insertion trips `Added` again a frame later and is
+/// recognised as already owned.
+// r[impl studio.program.pick-and-gizmos] - a GLB fixture tints through its own materials
+pub fn adopt_scene_materials(
+    mut commands: Commands,
+    fresh: Query<
+        (Entity, &MeshMaterial3d<StandardMaterial>),
+        (Added<MeshMaterial3d<StandardMaterial>>, Without<Fixture>),
+    >,
+    parents: Query<&ChildOf>,
+    roots: Query<(), With<FixtureBody>>,
+    mut bodies: Query<&mut FixtureBody>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for (mesh, MeshMaterial3d(handle)) in &fresh {
+        let Some(root) = parents
+            .iter_ancestors(mesh)
+            .find(|&e| roots.get(e).is_ok())
+        else {
+            continue;
+        };
+        let Ok(mut body) = bodies.get_mut(root) else { continue };
+        // The scene's meshes are what the ray hits; the root's observers
+        // hear about it by bubbling. The marker is what keeps that true
+        // if picking is ever made opt-in.
+        commands.entity(mesh).insert(Pickable::default());
+        if body.owns(handle) {
+            continue;
+        }
+        let clone = match body.parts.iter().find(|p| p.source == handle.id()) {
+            Some(part) => part.material.clone(),
+            None => {
+                let Some(source) = materials.get(handle).cloned() else {
+                    continue;
+                };
+                let base_emissive = source.emissive;
+                let clone = materials.add(source);
+                body.parts.push(PartMaterial {
+                    source: handle.id(),
+                    material: clone.clone(),
+                    base_emissive,
+                });
+                clone
+            }
+        };
+        commands.entity(mesh).insert(MeshMaterial3d(clone));
+    }
+}
+
+/// The swap and the material adoption. Goes with `VizPlugin`.
 pub struct GdtfAssetsPlugin;
 
 impl Plugin for GdtfAssetsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, swap_in_loaded_models);
+        app.add_systems(
+            Update,
+            (
+                swap_in_loaded_models,
+                adopt_scene_materials.before(crate::spawn::update_fixture_bodies),
+            ),
+        );
     }
 }
 
@@ -298,6 +370,97 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn material_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::MinimalPlugins)
+            .add_plugins(bevy::asset::AssetPlugin::default())
+            .init_asset::<StandardMaterial>()
+            .add_systems(Update, adopt_scene_materials);
+        app
+    }
+
+    fn fixture(app: &mut App, index: usize, body: &Handle<StandardMaterial>) -> Entity {
+        app.world_mut()
+            .spawn((
+                Fixture {
+                    index,
+                    base_rot: Quat::IDENTITY,
+                },
+                FixtureBody::new(body.clone()),
+            ))
+            .id()
+    }
+
+    /// A GLB scene's mesh, two levels under the fixture root the way
+    /// `spawn_model` nests it: root -> node -> "gltf" -> mesh.
+    fn scene_mesh(app: &mut App, root: Entity, material: &Handle<StandardMaterial>) -> Entity {
+        let node = app.world_mut().spawn(ChildOf(root)).id();
+        let scene = app.world_mut().spawn((Name::new("gltf"), ChildOf(node))).id();
+        app.world_mut()
+            .spawn((MeshMaterial3d(material.clone()), ChildOf(scene)))
+            .id()
+    }
+
+    fn material_of(app: &App, mesh: Entity) -> Handle<StandardMaterial> {
+        app.world()
+            .get::<MeshMaterial3d<StandardMaterial>>(mesh)
+            .expect("a mesh has a material")
+            .0
+            .clone()
+    }
+
+    /// r[verify studio.program.pick-and-gizmos] - each GLB fixture owns its materials
+    #[test]
+    fn each_fixture_gets_its_own_clone_of_a_shared_file_material() {
+        let mut app = material_app();
+        let (body, shared, lens) = {
+            let mut m = app.world_mut().resource_mut::<Assets<StandardMaterial>>();
+            (
+                m.add(StandardMaterial::default()),
+                m.add(StandardMaterial::default()),
+                m.add(StandardMaterial {
+                    emissive: LinearRgba::rgb(1.0, 1.0, 1.0),
+                    ..Default::default()
+                }),
+            )
+        };
+        let a = fixture(&mut app, 0, &body);
+        let b = fixture(&mut app, 1, &body);
+        let a1 = scene_mesh(&mut app, a, &shared);
+        let a2 = scene_mesh(&mut app, a, &shared);
+        let a_lens = scene_mesh(&mut app, a, &lens);
+        let b1 = scene_mesh(&mut app, b, &shared);
+        // A primitive part draws with the body material and is left be.
+        let a_prim = app
+            .world_mut()
+            .spawn((MeshMaterial3d(body.clone()), ChildOf(a)))
+            .id();
+        let stray = app.world_mut().spawn(MeshMaterial3d(shared.clone())).id();
+        app.update();
+        app.update();
+        app.update();
+
+        let ma1 = material_of(&app, a1);
+        assert_ne!(ma1.id(), shared.id(), "the file's material is not drawn with directly");
+        assert_eq!(material_of(&app, a2).id(), ma1.id(), "one clone per fixture and source");
+        assert_ne!(material_of(&app, b1).id(), ma1.id(), "the next fixture has its own");
+        assert_eq!(material_of(&app, a_prim).id(), body.id(), "the body material is not cloned");
+        assert_eq!(material_of(&app, stray).id(), shared.id(), "nothing outside a fixture is touched");
+
+        let body_a = app.world().get::<FixtureBody>(a).unwrap();
+        assert_eq!(body_a.parts.len(), 2, "the shared material and the lens");
+        assert_eq!(body_a.tintable().count(), 2, "the body and the housing, not the lens");
+        let lens_part = body_a.parts.iter().find(|p| p.source == lens.id()).unwrap();
+        assert!(lens_part.is_lens());
+        assert_eq!(material_of(&app, a_lens).id(), lens_part.material.id());
+        let body_b = app.world().get::<FixtureBody>(b).unwrap();
+        assert_eq!(body_b.parts.len(), 1);
+        for mesh in [a1, a2, a_lens, b1] {
+            assert!(app.world().get::<Pickable>(mesh).is_some(), "a scene mesh is pickable");
+        }
+        assert!(app.world().get::<Pickable>(stray).is_none());
+    }
 
     #[test]
     fn a_zip_path_splits_at_the_gdtf() {
