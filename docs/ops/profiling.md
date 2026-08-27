@@ -45,6 +45,9 @@ The stages, nested as they nest:
 
 | stage | what it is |
 | --- | --- |
+| `loop.window_event` | one winit event; the `redraw` one contains the frame. |
+| `loop.poll` | the Dioxus virtual DOM coming up for air: every dirty component re-rendered, diffed and written into the document. |
+| `loop.redraw` / `loop.resume` / `loop.shell_other` | the other shell events. |
 | `blitz.render` | one window's whole frame. Self time is Vello encode + submit. |
 | `blitz.scene`  | the DOM paint walk — and, inside one element, the visualizer. |
 | `viz.paint`    | the Visualizer pane's element. |
@@ -130,3 +133,31 @@ and nixpkgs ships 0.13. Matching those up is a build rabbit hole in
 exchange for a nicer picture of a number the table already gives. If Bevy
 bumps its pin to something nixpkgs carries, the layer to add is four
 lines next to `ignition_profile::from_env()` in the studio's `main.rs`.
+
+## What it found the first time
+
+Worth keeping, because both answers were somewhere nobody was looking
+and both were found by reading one column.
+
+The studio was at 30 fps, 44 ms a frame, and the standing assumption was
+that the visualizer was too expensive. The table said `viz.step` — the
+entire Bevy world, every fixture, the volumetrics — was **2.7 ms**, and
+that `loop.poll`, the Dioxus vdom poll, was **22.4 ms**. Under it, a
+sampling profile (`just perf-studio`) put twenty-seven per cent of the
+whole process in `url::parser::parse_cannot_be_a_base_path`: the library
+panes animate their thumbnails by swapping an `img src` twelve times a
+second, those `src` values were base64 `data:` URIs, and Blitz parses an
+`img src` as a URL every time it is set — two hundred thousand
+characters of it, before a cache lookup keyed on the parsed string.
+`file:` URLs instead: 22.4 ms to 0.21, and 30 fps to 77.
+
+Then `blitz.layout` at 3.9 ms a frame, every frame, on a document whose
+shape had not changed since the window opened. The frame loop kept Blitz
+repainting by bumping a signal into a `data-frame` attribute — which
+re-rendered a component, diffed it, mutated the document, restyled it
+and relaid the whole tree out, to change a number nothing reads.
+`use_window().request_redraw()` asks winit for the same frame and
+touches nothing: 3.9 ms to 1.4, and 77 fps to 105.
+
+Neither of those is a thing to guess at, and both are obvious in the
+table. That is the argument for the profiler.
