@@ -65,7 +65,47 @@ fn log_file_path() -> std::path::PathBuf {
 pub fn venue_dir() -> String {
     std::env::var("IGNITION_VENUE").unwrap_or_else(|_| DEFAULT_VENUE.to_string())
 }
-const SHOW: &str = "data/songs/bye-bye-bye.json";
+const DEFAULT_SHOW: &str = "data/songs/bye-bye-bye.json";
+
+/// The cue list the studio opens. `IGNITION_SHOW` overrides it.
+///
+/// A studio that can only ever open one hard-coded song is awkward for
+/// an operator and impossible for a benchmark: the numbers that matter
+/// are taken on `data/songs/benchmark.json`, which lights every mover,
+/// every par and every hazer at once, and there was no way to ask for
+/// it. See `docs/ops/profiling.md`.
+// r[impl studio.profiling] - the show under test is a setting, not a constant
+fn show_path() -> String {
+    std::env::var("IGNITION_SHOW").unwrap_or_else(|_| {
+        if bench_mode() {
+            BENCH_SHOW.to_string()
+        } else {
+            DEFAULT_SHOW.to_string()
+        }
+    })
+}
+
+/// The cue list `r[viz.performance-budget]` is written against: one cue
+/// that lights every mover, every par, every bar, the beams and the
+/// hazers at once.
+const BENCH_SHOW: &str = "data/songs/benchmark.json";
+
+/// `IGNITION_BENCH=1` — open on the benchmark cue, and *take* it.
+///
+/// Loading the list is not enough and the difference is easy to miss: a
+/// cue list that is loaded but never GOed outputs nothing, so the
+/// studio comes up on a dark rig and the profiler measures an empty
+/// room at a very flattering frame rate. `crates/ignition-viz/tests/
+/// benchmark_cue.rs` exists because that mistake is worth a test; this
+/// exists because it is worth a switch.
+///
+///     IGNITION_BENCH=1 IGNITION_PROFILE=1 just studio
+///
+/// or `just profile-bench`.
+// r[impl studio.profiling] - a benchmark you can open, with the rig lit
+fn bench_mode() -> bool {
+    std::env::var("IGNITION_BENCH").is_ok_and(|v| v == "1")
+}
 
 /// The project the show is synced to. Optional at runtime — if it will
 /// not open, the surface still busks and the cue list still steps on GO.
@@ -255,7 +295,7 @@ fn main() -> anyhow::Result<()> {
             .iter()
             .map(|f| f.name.clone())
             .collect(),
-        cues: load_cue_names(SHOW).unwrap_or_default(),
+        cues: load_cue_names(&show_path()).unwrap_or_default(),
     };
 
     // The same surface, to an iPad — opt-in, see `live_web`. Started
@@ -1457,13 +1497,7 @@ fn Viewport() -> Element {
                 .expect("fresh mutex")
                 .take()
                 .expect("one visualizer core");
-            viz_widget::VizCore::new(
-                config,
-                Some((SHOW.to_string(), 0)),
-                Some(PROJECT),
-                rx,
-                report,
-            )
+            viz_widget::VizCore::new(config, Some((show_path(), 0)), Some(PROJECT), rx, report)
         }))
     });
 

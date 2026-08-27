@@ -78,6 +78,9 @@ pub struct VizCore {
     /// Visualizer pane can step it itself without doubling the frame
     /// rate when both are up — see `ProgrammeWidget`.
     last_step: Option<std::time::Instant>,
+    /// When this core was built, for the free-running canvas clock that
+    /// benchmark mode uses in place of a transport.
+    started: std::time::Instant,
     /// The size the Programme pane last painted at; `None` when no
     /// pane shows it, which takes the programme camera down.
     programme_size: Option<(u32, u32)>,
@@ -393,6 +396,18 @@ impl VizCore {
             );
             smooth_sound(&mut self.sound, viz);
             follow_song(self.transport.as_ref(), viz);
+            // With no transport there is nothing to scrub the screens
+            // against, and a benchmark with frozen canvases is not the
+            // thing being measured — the clips are part of the load.
+            // Wall time, since in bench mode there is no song to be
+            // wrong about.
+            // r[impl studio.profiling] - a benchmark you can open, with the rig lit
+            if self.transport.is_none() && crate::bench_mode() {
+                let secs = self.started.elapsed().as_secs_f64();
+                viz.app_mut()
+                    .world_mut()
+                    .insert_resource(ignition_viz::CanvasClock::at(secs));
+            }
             publish(&self.report, self.transport.as_ref(), viz);
             viz.set_programme(self.programme_size);
             self.last_step = Some(std::time::Instant::now());
@@ -520,6 +535,15 @@ impl VizCore {
         tracing::info!(profiles = gdtf.len(), "viz.embed: GDTF library");
         let viz = EmbeddedViz::new(*config, Default::default(), playback, Some(gdtf), *gpu);
         tracing::info!(width, height, "viz.embed: built on the host device");
+        // Benchmark mode takes its cue, rather than merely standing on
+        // it. Down the same channel the GO button uses, so what is
+        // measured is a cue fired the way an operator fires one — and
+        // it lands on the drain a few lines below, in this same paint.
+        // r[impl studio.profiling] - a benchmark you can open, with the rig lit
+        if crate::bench_mode() {
+            tracing::info!("studio: benchmark mode — taking the cue");
+            ignition_live_ui::send(ignition_live_ui::command::Command::Go);
+        }
         self.state = State::Active(Box::new(viz));
     }
 
@@ -533,6 +557,15 @@ impl VizCore {
         // A project that will not open is not fatal — the surface still
         // busks and the cue list still steps on GO, which is the point
         // of keeping the transport optional.
+        // Benchmark mode opens no project, and that is the whole of why
+        // it works. `follow_song` seeks the cue player to the
+        // transport's position *every frame*; with a project loaded and
+        // its transport parked at bar one, it drags the player off the
+        // benchmark cue as fast as GO puts it there, and the studio
+        // comes up on a dark rig having done everything right. The cue
+        // was firing; something else was overwriting it.
+        // r[impl studio.profiling] - a benchmark you can open, with the rig lit
+        let project = if crate::bench_mode() { None } else { project };
         let transport = project.and_then(|path| match SongTransport::open(path) {
             Ok(t) => Some(t),
             Err(e) => {
@@ -550,6 +583,7 @@ impl VizCore {
             sound: SoundFade::default(),
             macro_runner: None,
             pointer: PointerSample::default(),
+            started: std::time::Instant::now(),
             scale: 1.0,
             last_step: None,
             programme_size: None,
