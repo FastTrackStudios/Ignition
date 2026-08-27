@@ -247,8 +247,18 @@ impl Playback {
                         tracing::warn!("{problem}");
                     }
                 }
+                // One line per distinct problem: a role this room does
+                // not bind is the same fact in every cue that names it,
+                // and twenty copies buried the one line that mattered.
+                let mut seen = std::collections::BTreeSet::new();
                 for problem in ignition_core::unresolved(&list.cues, &show) {
-                    tracing::warn!("{problem}");
+                    let key = problem
+                        .split_once(": ")
+                        .map(|(_, rest)| rest.to_string())
+                        .unwrap_or_else(|| problem.clone());
+                    if seen.insert(key.clone()) {
+                        tracing::warn!("{key} (first in {})", problem.split_once(": ").map(|(c, _)| c).unwrap_or(""));
+                    }
                 }
 
                 // The cook report — what every cue resolves to before
@@ -266,10 +276,15 @@ impl Playback {
                 let cooked = ignition_core::cook_list(&list.cues, &show, 0.0);
                 let dead: Vec<&ignition_core::CueCook> = cooked
                     .iter()
+                    // A cue is dead when *nothing* in it resolves. One
+                    // empty recipe among live ones — a role this room
+                    // lacks, say — is reported once above, not as a
+                    // dead cue.
                     .filter(|c| {
-                        c.recipes
-                            .iter()
-                            .any(|r| matches!(r, ignition_core::Cook::Empty))
+                        !c.recipes.is_empty()
+                            && c.recipes
+                                .iter()
+                                .all(|r| matches!(r, ignition_core::Cook::Empty))
                     })
                     .collect();
                 for (i, cook) in cooked.iter().enumerate() {
