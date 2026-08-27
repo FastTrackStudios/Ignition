@@ -882,6 +882,26 @@ pub fn bind_output(config: &VizConfig, dmx: &DmxUniverses) -> DmxOutput {
 
 impl Plugin for VizPlugin {
     fn build(&self, app: &mut App) {
+        // The spot shadow map's size, and it is a *beam* setting as much
+        // as a shadow one.
+        //
+        // The volumetric fog samples each shadowed light's map at every
+        // raymarch step, so whatever that map cannot resolve becomes
+        // structure in the shaft — and structure the march's own step
+        // count and dither cannot touch, because it is not the march's.
+        // Unreal documents the same coupling: "the resolution of the
+        // volumetric light shaft is directly related to the resolution
+        // of the shadow map of that light".
+        //
+        // `IGNITION_SHADOW_MAP` sizes it; Bevy's default is 1024.
+        // r[impl viz.performance-budget] - the shaft is only as smooth as the map it samples
+        if let Some(size) = std::env::var("IGNITION_SHADOW_MAP")
+            .ok()
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .filter(|n| *n >= 256)
+        {
+            app.insert_resource(bevy::light::PointLightShadowMap { size });
+        }
         // The main camera's spec, so a programme or source camera can be
         // spawned later with the same post-processing. Computed in its
         // own statement: the builder chain below takes the GDTF library

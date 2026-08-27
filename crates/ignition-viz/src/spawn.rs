@@ -1645,7 +1645,12 @@ pub fn spawn_venue(
                     // light without one, so a par still cuts its cone
                     // in the haze; it just cuts nobody's silhouette
                     // out of it. See `budget.rs`.
-                    shadow_maps_enabled: shadowed[index],
+                    // `IGNITION_SHADOWS=0` takes every one away, which
+                    // is how you find out whether what you are looking
+                    // at in a beam is the shadow map rather than the
+                    // march.
+                    shadow_maps_enabled: shadowed[index]
+                        && !std::env::var("IGNITION_SHADOWS").is_ok_and(|v| v.trim() == "0"),
                     ..default()
                 },
                 Transform::default(),
