@@ -190,9 +190,6 @@
   .grid {
     display: grid;
   }
-  .hidden {
-    display: none;
-  }
   .h-16 {
     height: calc(var(--spacing) * 16);
   }
