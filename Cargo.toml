@@ -6,6 +6,7 @@ members = [
     "crates/gdtf-vendored",
     "crates/dioxus-native-vendored",
     "crates/anyrender-vello-vendored",
+    "crates/blitz-dom-vendored",
     "crates/ignition-proto",
     "crates/ignition-core",
     "crates/ignition-song",
@@ -109,6 +110,11 @@ gdtf = { path = "crates/gdtf-vendored" }
 # Vendored, one-hunk patch: one wgpu instance and device pool for every
 # Blitz window in the process — see crates/anyrender-vello-vendored/NOTICE.md.
 anyrender_vello = { path = "crates/anyrender-vello-vendored" }
+# Vendored: text-selection endpoints are cleared when the node they point at
+# is removed, and the document-order walk no longer panics on a detached
+# node (studio crash in traversal.rs `compare_document_order`) — see
+# crates/blitz-dom-vendored/NOTICE.md.
+blitz-dom = { path = "crates/blitz-dom-vendored" }
 
 # Vendored `packages/native` from the pinned dioxus revision, with
 # runtime multi-window (`NewWindow` / `open_window`) added — see

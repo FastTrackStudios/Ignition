@@ -289,3 +289,19 @@
   .tslot, .tfader { width: 80px; }
   .ttrack { width: 56px; }
 }
+
+/* Controls are not selectable text. A mouse drag over a key, tile, fader or
+   row started a Blitz text selection whose anchor node the next re-render
+   removed, and Blitz then panicked in `compare_document_order`
+   (blitz-dom traversal.rs:320, index 2^64-1). `user-select: none` stops the
+   selection at mousedown; the search and rename inputs keep text selection.
+   Kept at the end of the file: the touch-target test reads the first rule
+   for each class. */
+.views, .view-strip, .view-key, .live, .live-col, .live-block, .look-key, .macro-key,
+.desk-off, .desk-bank, .desk-bank-head, .desk-scene, .tfader, .ttrack, .thandle, .tkey,
+.tap-masters, .tap-key, .tile-grid, .ptile, .browse, .lib-tabs, .lib-tab, .lib-tile,
+.lib-star, .program, .programmer, .prog-row, .prog-label, .pane, .pane-head, .pane-key,
+.pane-grid, .pane-squares, .sq, .pane-table, .row, .pane-list, .look-row, .pane-faders,
+.faders-row, .transport, .transport-bar, .tile.mode { user-select: none; }
+.pane-search, .look-name-input, .lib-search { user-select: text; }
+

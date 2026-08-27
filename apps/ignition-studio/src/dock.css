@@ -11,8 +11,17 @@
                          min-height: 0; min-width: 0; overflow: hidden; }
 .dock { position: relative; flex: 1 1 0; min-height: 0; min-width: 0; display: flex;
         overflow: hidden; background: #0e0e12; }
-.dock.dragging, .dock.dragging * { cursor: grabbing; user-select: none; }
-.dock.splitting, .dock.splitting * { user-select: none; }
+/* No text selection anywhere in the dock furniture, not just while a drag
+   is in flight. A mouse drag over a tab, splitter, fader or tile used to
+   start a Blitz text selection; the 30 Hz playhead re-render then removed
+   the selection's anchor node and Blitz panicked in
+   `compare_document_order` (traversal.rs:320, "index is 2^64-1"). Blitz
+   honours `user-select: none` at mousedown, so the selection never starts.
+   Text inputs and the cue-list rows opt back in below. */
+.dock, .dock * { user-select: none; }
+.dock input, .dock textarea, .dock .pane-search, .dock .look-name-input { user-select: text; }
+.dock .cues .cue, .dock .cues .cue * { user-select: text; }
+.dock.dragging, .dock.dragging * { cursor: grabbing; }
 .dock-split { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; height: 100%; }
 .dock-split.row { flex-direction: row; }
 .dock-split.col { flex-direction: column; }
