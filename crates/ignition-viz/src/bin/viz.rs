@@ -342,8 +342,16 @@ fn main() -> anyhow::Result<()> {
     }
 
     // A still keeps the quality every existing snapshot was made at; a
-    // window gets the same dials as the studio.
-    let quality = if headless && bench.is_none() {
+    // window gets the same dials as the studio. `IGNITION_QUALITY`
+    // overrides both — which is the only way to take a *repeatable*
+    // picture of what a live tier looks like. Judging a beam by
+    // screenshotting the studio means fighting a window manager for
+    // every comparison; a headless snapshot at `IGNITION_QUALITY=low`
+    // is the same frame every time.
+    // r[impl viz.quality-presets]
+    let quality = if std::env::var("IGNITION_QUALITY").is_ok() {
+        RenderQuality::live()
+    } else if headless && bench.is_none() {
         RenderQuality::STILL
     } else {
         RenderQuality::live()

@@ -251,28 +251,38 @@ pub const FOG_JITTER_METRES: f32 = 0.3;
 /// The step count `FOG_JITTER_METRES` was measured against.
 pub const FOG_JITTER_REFERENCE_STEPS: f32 = 128.0;
 
-/// The jitter for a given step count: about one step, whatever the
-/// count is.
+/// The jitter for a given march and a given haze scale: about one step,
+/// less whatever smoothing the upsample is going to do anyway.
 ///
-/// This used to be a constant, and that is why a coarser march rings.
-/// The jitter's whole job is to be roughly one step long — enough to
-/// scatter the ring a step boundary would otherwise draw, and no more.
-/// A step is the march's length over the step count, so halving the
-/// steps doubles the step and leaves a fixed jitter covering half of
-/// one: the rings come back, and the fix looks like "64 steps are not
-/// enough" when what is actually wrong is that the dither was sized for
-/// a different march.
+/// Both halves were learned the hard way, and both were a constant
+/// before.
+///
+/// **Per step.** The jitter's whole job is to be roughly one step long
+/// — enough to scatter the ring a step boundary would otherwise draw,
+/// and no more. A step is the march's length over the step count, so
+/// halving the steps doubles the step and leaves a fixed jitter
+/// covering half of one: the rings come back, and it reads as "that is
+/// not enough steps" when it is not enough dither.
+///
+/// **Per scale.** The haze is marched small and stretched up, and the
+/// stretch smooths the step boundaries for free — so the coarser the
+/// haze camera, the less dither is needed. Dither past that and the
+/// noise itself is what gets magnified: at scale 3 a fixed one-step
+/// jitter puts a visible cross-hatch across the mouth of a wide beam,
+/// because after a bilinear stretch the noise is three pixels across
+/// and spatially correlated, which is exactly what TAA cannot average
+/// away. Divided by the scale it disappears and the shafts stay solid.
 ///
 /// `IGNITION_FOG_JITTER` still forces a fixed value, for measuring.
-// r[impl viz.quality-presets] - a coarser march dithers proportionally
-pub fn fog_jitter_for(steps: u32) -> f32 {
+// r[impl viz.quality-presets] - the dither follows the march and the stretch
+pub fn fog_jitter_for(steps: u32, scale: u32) -> f32 {
     if let Some(forced) = std::env::var("IGNITION_FOG_JITTER")
         .ok()
         .and_then(|v| v.trim().parse::<f32>().ok())
     {
         return forced;
     }
-    FOG_JITTER_METRES * FOG_JITTER_REFERENCE_STEPS / (steps.max(1) as f32)
+    FOG_JITTER_METRES * FOG_JITTER_REFERENCE_STEPS / (steps.max(1) as f32) / (scale.max(1) as f32)
 }
 
 /// How many pixels the haze camera may have when the scale is chosen
@@ -394,7 +404,16 @@ fn spawn_haze_cameras(
             VolumetricFog {
                 ambient_intensity: 0.0,
                 step_count: view.fog_steps,
-                jitter: fog_jitter_for(view.fog_steps),
+                jitter: fog_jitter_for(
+                    view.fog_steps,
+                    haze_scale(
+                        camera
+                            .physical_viewport_size()
+                            .unwrap_or(UVec2::new(64, 64)),
+                        view.scale,
+                        view.pixels,
+                    ),
+                ),
                 ..default()
             },
             *transform,
@@ -449,8 +468,6 @@ fn follow_main_camera(
         }
         if fog.step_count != view.fog_steps {
             fog.step_count = view.fog_steps;
-            // The dither is sized in steps, so it follows the count.
-            fog.jitter = fog_jitter_for(view.fog_steps);
         }
         let Some(main_size) = camera.physical_viewport_size() else {
             continue;
@@ -468,11 +485,19 @@ fn follow_main_camera(
                 m.haze = image.clone();
             }
         }
+        // The dither follows the march *and* the stretch, so a resize
+        // that changes the scale changes it — see `fog_jitter_for`.
+        let scale = haze_scale(main_size, view.scale, view.pixels);
+        let jitter = fog_jitter_for(view.fog_steps, scale);
+        if fog.jitter != jitter {
+            fog.jitter = jitter;
+        }
         tracing::info!(
             width = wanted.x,
             height = wanted.y,
-            scale = haze_scale(main_size, view.scale, view.pixels),
+            scale,
             steps = view.fog_steps,
+            jitter,
             "viz.haze: resized"
         );
         haze.image = image;
@@ -631,11 +656,14 @@ mod tests {
         // SAFETY: single-threaded test, and the variable is removed
         // again before anything else reads it.
         unsafe { std::env::remove_var("IGNITION_FOG_JITTER") };
-        assert!((fog_jitter_for(128) - FOG_JITTER_METRES).abs() < 1e-6);
-        assert!((fog_jitter_for(64) - FOG_JITTER_METRES * 2.0).abs() < 1e-6);
-        assert!((fog_jitter_for(256) - FOG_JITTER_METRES / 2.0).abs() < 1e-6);
-        // A step count of zero is not a divide by zero.
-        assert!(fog_jitter_for(0).is_finite());
+        assert!((fog_jitter_for(128, 1) - FOG_JITTER_METRES).abs() < 1e-6);
+        assert!((fog_jitter_for(64, 1) - FOG_JITTER_METRES * 2.0).abs() < 1e-6);
+        assert!((fog_jitter_for(256, 1) - FOG_JITTER_METRES / 2.0).abs() < 1e-6);
+        // And less again for every step of the stretch, which smooths
+        // the boundaries the dither is there to hide.
+        assert!((fog_jitter_for(128, 3) - FOG_JITTER_METRES / 3.0).abs() < 1e-6);
+        // Neither a step count nor a scale of zero is a divide by zero.
+        assert!(fog_jitter_for(0, 0).is_finite());
     }
 
     /// r[verify viz.performance-budget]

@@ -121,7 +121,10 @@ pub fn Programmer(surface: Surface) -> Element {
                             key: "s-{chip.name}",
                             class: "ptile split",
                             onpointerdown: { let n = chip.name.clone(); move |_| send(Command::Split(n.clone())) },
-                            span { class: "pdisc", style: "background: {chip.css}" }
+                            // The disc, not the bar: a palette's colours belong
+                            // round the wheel as wedges, or two palettes that
+                            // differ in one colour look identical at this size.
+                            span { class: "pdisc", style: "background: {chip.disc()}" }
                             span { class: "pname", "{chip.name}" }
                         }
                     }

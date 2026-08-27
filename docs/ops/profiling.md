@@ -322,23 +322,36 @@ of the difference.
 
 What is left is not a trick, it is less work:
 
-* **Fewer haze pixels without the pattern.** Halving the budget
-  (`IGNITION_HAZE_PIXELS=307200`, scale 3 at this viewport) is worth
-  110 fps to 122 — over the line — and it is not shippable as it
-  stands: a wide beam picks up a visible cross-hatch at its mouth.
-  Note *what* the artifact is, because it changes what would fix it.
-  It is not lost detail; a beam's mouth is a smooth low-frequency
-  gradient and the information is all there. It is the ray-start
-  jitter's own noise pattern, magnified by the upsample — at scale 2 it
-  is two pixels across, at scale 3 three, and the bigger it gets the
-  less TAA averages it away, because after a bilinear stretch the noise
-  is spatially correlated rather than per-pixel.
+* **The gaps in a steep shaft are the haze camera's resolution**, and
+  that is now proven rather than suspected. Render the benchmark cue
+  headlessly at two tiers and crop the same shaft:
 
-  So the tractable version of this is the reconstruction, not the
-  sampling: a jitter pattern chosen so it still decorrelates *after*
-  the upsample, or an upsample that is aware it is stretching noise.
-  Sizing the jitter in steps was the same class of bug and was worth
-  12%; this one is worth another 10% and puts medium over 120.
+      IGNITION_QUALITY=medium cargo run --release -p ignition-viz --bin viz -- \
+        --venue data/venues/norco --cuelist data/songs/benchmark.json --cue 0 \
+        --width 2560 --height 1440 --snapshot /tmp/medium.png
+      IGNITION_QUALITY=ultra  …                                --snapshot /tmp/ultra.png
+
+  At medium the shaft is solid at the top, dashes halfway down and ends
+  as a row of separate **axis-aligned squares** — the haze camera's own
+  texels, because the shaft is thinner than one. At ultra, which marches
+  on the camera itself at full size, the identical shaft is a clean
+  unbroken cone. Nothing else differs.
+
+  Steps and pixels are **not** interchangeable, which is the trap. Both
+  were tried at equal cost: fewer steps over more pixels dashes the
+  shaft along its *length* (the samples are too far apart), fewer pixels
+  over more steps blocks it across its *width*. The march needs enough
+  of both, and a thin shaft is exactly the case that needs the most of
+  each.
+
+  So this cannot be tuned away, and the fix is structural: the thin
+  shaft must not be carried by the cheap pass at all. Draw the beam
+  cones at full resolution — as geometry, or as a narrow-shaft pass over
+  the few fixtures that cut one — and leave the low-resolution march
+  the ambient scatter it is good at. That is the next real piece of work
+  on the picture, and it is the one that would let the haze budget come
+  *down* rather than up.
+
 * **Less CPU.** The 8 ms floor is Blitz painting 5,509 nodes and Bevy
   stepping its main world. Cut that and the ceiling moves for every
   preset at once — and it is the only lever that helps `low` and

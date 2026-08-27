@@ -379,6 +379,21 @@ impl RenderQuality {
             // for a picture that does not differ.
             Preset::Medium => Self {
                 fog_steps: 96,
+                // The full budget, and it stays there.
+                //
+                // Halving it is worth about ten per cent — 110 fps to
+                // 124 on the benchmark cue — and it is available as
+                // `IGNITION_HAZE_PIXELS=307200` for anyone who wants
+                // it. It is not the default because of an artifact
+                // that predates all of this: the fade at a wide beam's
+                // far end carries a faint diamond lattice, which is the
+                // raymarch's own noise pattern surviving the stretch,
+                // and a coarser haze camera magnifies it. Halving the
+                // budget does not create the lattice, it enlarges it,
+                // and enlarging a defect is not a default.
+                //
+                // The lattice is the next real piece of work here — see
+                // docs/ops/profiling.md. Fix it and this halves.
                 haze_pixels: crate::haze::HAZE_PIXEL_BUDGET,
                 fog_scale: 0,
                 taa: true,

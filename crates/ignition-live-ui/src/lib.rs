@@ -158,7 +158,97 @@ pub fn use_desk() -> Memo<Desk> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ColorChip {
     pub name: String,
+    /// The flat fill, for anywhere the swatch is a bar rather than a
+    /// disc — the library's thin strip, say. A multi-colour palette
+    /// flattens to a left-to-right gradient here.
     pub css: String,
+    /// Every colour the palette holds, in the order it applies them.
+    /// One entry is an ordinary colour; several is what makes this a
+    /// palette rather than a swatch, and a disc has to *show* that —
+    /// a multi-colour preset drawn as one averaged blob is a preset an
+    /// operator picks by accident.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub colors: Vec<String>,
+    /// The colours blend into each other across the rig rather than
+    /// landing as hard bands, so the disc sweeps rather than segments.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub spread: bool,
+    /// The swatch is light enough that a name written on it has to be
+    /// dark. Decided where the colour is still numbers rather than a
+    /// CSS string, because parsing it back to guess is how a label ends
+    /// up white on Open White.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub light: bool,
+}
+
+impl ColorChip {
+    /// A single colour, with no palette behind it.
+    pub fn solid(name: impl Into<String>, css: impl Into<String>) -> Self {
+        let css = css.into();
+        Self {
+            name: name.into(),
+            colors: vec![css.clone()],
+            css,
+            spread: false,
+            light: false,
+        }
+    }
+
+    /// Whether a name written on this swatch should be dark.
+    ///
+    /// Relative luminance, the sRGB weights: green carries most of what
+    /// the eye reads as brightness, blue almost none, which is why a
+    /// plain average calls Deep Blue light and Straw dark — both
+    /// backwards.
+    pub fn is_light(red: f32, green: f32, blue: f32) -> bool {
+        0.2126 * red + 0.7152 * green + 0.0722 * blue > 0.55
+    }
+
+    /// The fill for a **round** swatch.
+    ///
+    /// A disc is a wheel, so a palette's colours belong round it as
+    /// wedges — the way a grandMA3 pool cell shows a preset holding
+    /// several colours. A left-to-right gradient squeezed into a circle
+    /// reads as one muddy colour at swatch size, which is the whole
+    /// problem: two palettes that differ only in their third colour
+    /// look identical.
+    pub fn disc(&self) -> String {
+        match self.colors.len() {
+            0 => self.css.clone(),
+            1 => self.colors[0].clone(),
+            n if self.spread => {
+                // A sweep has to close the loop or the last colour meets
+                // the first at a seam the eye reads as a wedge that is
+                // not there.
+                let mut stops: Vec<String> = self
+                    .colors
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| format!("{c} {:.2}deg", i as f32 * 360.0 / n as f32))
+                    .collect();
+                stops.push(format!("{} 360deg", self.colors[0]));
+                format!("conic-gradient({})", stops.join(", "))
+            }
+            n => {
+                // Hard wedges: each colour owns its arc outright, which
+                // is what "cycle" and "block" actually do on the rig.
+                let step = 360.0 / n as f32;
+                let wedges: Vec<String> = self
+                    .colors
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| {
+                        format!(
+                            "{c} {:.2}deg {:.2}deg",
+                            i as f32 * step,
+                            (i + 1) as f32 * step
+                        )
+                    })
+                    .collect();
+                format!("conic-gradient({})", wedges.join(", "))
+            }
+        }
+    }
 }
 
 /// The named things the surface offers, resolved once from the venue by
@@ -514,6 +604,66 @@ pub fn HSlider(initial: f32, on_change: EventHandler<f32>) -> Element {
 }
 
 #[cfg(test)]
+mod swatch_tests {
+    use super::ColorChip;
+
+    /// One colour is a colour. Several is a palette, and the disc has
+    /// to say so.
+    #[test]
+    fn a_palette_becomes_wedges_and_a_colour_stays_flat() {
+        let solid = ColorChip::solid("Gold", "rgb(255 200 40)");
+        assert_eq!(solid.disc(), "rgb(255 200 40)", "one colour needs no wheel");
+
+        let split = ColorChip {
+            name: "Trio".into(),
+            css: "linear-gradient(90deg, red, green, blue)".into(),
+            colors: vec!["red".into(), "green".into(), "blue".into()],
+            spread: false,
+            light: false,
+        };
+        // Three hard wedges, each owning its third of the wheel and
+        // meeting the next with no blend — which is what cycle and
+        // block actually do on the rig.
+        assert_eq!(
+            split.disc(),
+            "conic-gradient(red 0.00deg 120.00deg, green 120.00deg 240.00deg, blue 240.00deg 360.00deg)"
+        );
+    }
+
+    /// A spread blends across the rig, so the disc sweeps — and closes,
+    /// or the last colour meets the first at a seam that reads as a
+    /// wedge which is not there.
+    #[test]
+    fn a_spread_sweeps_and_closes_the_loop() {
+        let chip = ColorChip {
+            name: "Warm to cool".into(),
+            css: String::new(),
+            colors: vec!["red".into(), "blue".into()],
+            spread: true,
+            light: false,
+        };
+        assert_eq!(
+            chip.disc(),
+            "conic-gradient(red 0.00deg, blue 180.00deg, red 360deg)"
+        );
+    }
+
+    /// A chip with nothing in it falls back to whatever flat fill it
+    /// was given rather than drawing an empty wheel.
+    #[test]
+    fn an_empty_palette_falls_back_to_its_flat_fill() {
+        let chip = ColorChip {
+            name: "Unknown".into(),
+            css: "#333".into(),
+            colors: Vec::new(),
+            spread: false,
+            light: false,
+        };
+        assert_eq!(chip.disc(), "#333");
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -591,10 +741,7 @@ mod tests {
         let boot = Bootstrap {
             surface: Surface {
                 groups: vec!["All".into()],
-                colors: vec![ColorChip {
-                    name: "Red".into(),
-                    css: "rgb(255 0 0)".into(),
-                }],
+                colors: vec![ColorChip::solid("Red", "rgb(255 0 0)")],
                 cues: vec![Row::Hit {
                     index: 0,
                     name: "stab".into(),

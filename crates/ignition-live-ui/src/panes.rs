@@ -33,9 +33,16 @@ use ignition_core::profile::LookKind;
 
 /// The effects grid's geometry, so the pane can work out which cards
 /// are on screen without measuring anything. Kept in step with
-/// `live.css`: `.pane-effects .card` is a quarter of the row wide and
-/// `.card` is 116px tall with a 6px gap under it.
-const CARD_COLUMNS: usize = 4;
+/// `live.css`: `.card` is 116px tall with a 6px gap under it.
+///
+/// How many fit across is *not* a constant, and assuming it was is what
+/// made a scrolled row say "no preview". The panes are different widths
+/// by design — `.pane-effects .card` is half a row, `.pane-movers` and
+/// `.pane-macros` a whole one, `.pane-looks` a third — so a single
+/// figure of four put every row at half or a quarter of its real depth,
+/// and a card you had scrolled to was judged to be off screen, dropped
+/// its frames and drew the empty state instead. See
+/// [`EffectKinds::columns`].
 const CARD_ROW: f64 = 122.0;
 /// Taller than the pane really is on a 1440 monitor, deliberately: the
 /// cost of animating a card that turns out to be just off screen is one
@@ -359,6 +366,7 @@ pub fn EffectsPane(surface: Surface, #[props(default)] only: EffectKinds) -> Ele
                         play_all,
                         index: i,
                         scrolled,
+                        columns: only.columns(),
                         dir: only.preview_dir(),
                     }
                 }
@@ -404,6 +412,19 @@ impl EffectKinds {
         }
     }
 
+    /// How many cards fit across this pane — the other half of the
+    /// class above, and it has to agree with `live.css`'s `flex-basis`
+    /// for the same selector or a row lands at the wrong depth.
+    // r[impl studio.views.whole-profile] - the band follows the pane's own width
+    pub fn columns(self) -> usize {
+        match self {
+            // `.pane-effects .card { flex: 0 1 calc(50% - 6px) }`
+            EffectKinds::Rig => 2,
+            // `.pane-movers` and `.pane-macros` are `calc(100% - 6px)`.
+            EffectKinds::Movement | EffectKinds::Macros => 1,
+        }
+    }
+
     /// Which catalogue the pane lists.
     fn tab(self) -> Tab {
         match self {
@@ -446,6 +467,10 @@ fn EffectRow(
     play_all: Signal<bool>,
     index: usize,
     scrolled: Signal<f64>,
+    /// How many cards this pane fits across — see
+    /// [`EffectKinds::columns`]. Handed down rather than assumed,
+    /// because the panes are different widths.
+    columns: usize,
     dir: &'static str,
 ) -> Element {
     let playhead = use_playhead();
@@ -456,7 +481,7 @@ fn EffectRow(
     // it change.
     let visible = use_memo(move || {
         let top = scrolled();
-        let row = (index / CARD_COLUMNS) as f64 * CARD_ROW;
+        let row = (index / columns.max(1)) as f64 * CARD_ROW;
         row + CARD_ROW > top - CARD_ROW && row < top + CARDS_VIEWPORT
     });
     // The frames are loaded when the row comes into view and dropped
@@ -473,29 +498,43 @@ fn EffectRow(
     let name = entry.name.clone();
     let count = frames.read().len();
 
-    // While hovered, step the loop. `use_future` is cancelled and
-    // restarted by the signal, so nothing ticks over a cold row.
-    use_future(move || {
+    // Loaded the moment the row comes into view, and dropped the moment
+    // it leaves — an effect on `visible`, not a poll.
+    //
+    // It used to be a poll, at the *idle* interval, inside the stepping
+    // loop below. A card scrolled into view therefore drew "no preview"
+    // for up to four hundred milliseconds before its first frame
+    // arrived, which reads as the preview being missing rather than
+    // late. Reacting to the signal takes the wait to nothing and takes
+    // the idle wakeups with it.
+    //
+    // Loading them all at mount is still the thing to avoid: a hundred
+    // and thirty-one rows of sixteen frames was a hundred and seventy
+    // megabytes built before a single card had animated. Held to what
+    // is on screen it is a screenful at a time.
+    {
         let name = name.clone();
-        async move {
-            loop {
-                // A row that is not animating still has to notice when
-                // it scrolls into view, but it can do that lazily. The
-                // fast tick is only for rows actually turning: at 80ms
-                // across a hundred and thirty-one rows this loop alone
-                // was sixteen hundred wakeups a second, most of them
-                // for cards nobody could see.
-                let turning = visible() && (hovered() || play_all());
-                let wait = if turning { FRAME_MS } else { IDLE_MS };
-                futures_timer::Delay::new(std::time::Duration::from_millis(wait)).await;
-                let here = visible();
-                let loaded = !frames.read().is_empty();
-                if here && !loaded {
-                    frames.set(crate::library::frames_in(dir, &name));
-                } else if !here && loaded {
-                    frames.set(Vec::new());
-                    frame.set(0);
-                }
+        use_effect(move || {
+            let here = visible();
+            let loaded = !frames.read().is_empty();
+            if here && !loaded {
+                frames.set(crate::library::frames_in(dir, &name));
+            } else if !here && loaded {
+                frames.set(Vec::new());
+                frame.set(0);
+            }
+        });
+    }
+
+    // While hovered — or while the pane is playing them all — step the
+    // loop. Nothing ticks over a cold row: a row that is not turning
+    // has nothing to do here at all now that loading is an effect.
+    use_future(move || async move {
+        loop {
+            let turning = visible() && (hovered() || play_all());
+            let wait = if turning { FRAME_MS } else { IDLE_MS };
+            futures_timer::Delay::new(std::time::Duration::from_millis(wait)).await;
+            {
                 let count = frames.read().len();
                 // Hovering always plays: the pointer is on it, so it
                 // is on screen by definition, and the arithmetic above
@@ -727,16 +766,26 @@ mod tests {
     /// arithmetic against the constants `live.css` also encodes.
     #[test]
     fn play_all_covers_the_visible_band_and_not_the_rest() {
+        // Two across, as `.pane-effects .card` is styled — the pane
+        // this band was written for.
+        let columns = EffectKinds::Rig.columns();
         let band = |top: f64| {
             let first_row = ((top / CARD_ROW) as usize).saturating_sub(1);
             let last_row = ((top + CARDS_VIEWPORT) / CARD_ROW) as usize + 1;
-            (first_row * CARD_COLUMNS, (last_row + 1) * CARD_COLUMNS)
+            (first_row * columns, (last_row + 1) * columns)
         };
         // At the top: from the first card, and far short of 131.
+        //
+        // A screenful is `CARDS_VIEWPORT / CARD_ROW` rows — about ten —
+        // times the pane's own column count, so two-across gives around
+        // twenty cards. It used to assert forty, which is what you get
+        // by believing the pane is four across when the stylesheet says
+        // half a row; the same belief is what made a scrolled card draw
+        // "no preview".
         let (first, last) = band(0.0);
         assert_eq!(first, 0);
         assert!(last < 131, "the whole library would be playing: {last}");
-        assert!(last >= 40, "less than a screenful would be playing: {last}");
+        assert!(last >= 20, "less than a screenful would be playing: {last}");
 
         // Scrolled down: the band moves with it and stays a bandful.
         // Not the *same* size — at the top it is clipped against row
@@ -745,12 +794,12 @@ mod tests {
         assert!(first_down > 0, "the band never left the top");
         let span = last_down - first_down;
         assert!(
-            (40..=60).contains(&span),
+            (20..=30).contains(&span),
             "the band is {span} cards, which is not a screenful"
         );
         // And a card well above the fold is not in it.
         assert!(
-            first_down > CARD_COLUMNS,
+            first_down > columns,
             "a card scrolled away is still playing"
         );
     }
