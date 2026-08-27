@@ -381,6 +381,29 @@ What is left is not a trick, it is less work:
   jitter or into stipple by the upsample. Resolution and dither change
   its *appearance*. Only steps change whether it is there.
 
+  Everything else was tried against `just beam-test` and none of it
+  moved the artefact, which is worth recording so the same afternoon is
+  not spent twice:
+
+  * **Haze resolution** — 256 steps looks the same at the budgeted size
+    as at full size. Pixels are not what a thin beam is short of.
+  * **The dither** — 0.15, 0.30, 0.45 m all trade one appearance for
+    another. Bevy's `jitter` offsets the ray *start*; it decorrelates
+    the bands into noise, it cannot add samples.
+  * **The fog volume's size** — the shader's step is
+    `(end_depth - start_depth) / step_count`, so a shorter ray really
+    is a finer step, and shrinking the volume to 0.7 of the room is
+    visibly cleaner. It is also wrong: the fog stops before the walls
+    and the beams are cut off in mid-air. Between 1.0 and 1.3 — the
+    range that does not clip — the pictures are indistinguishable,
+    because the occluder twins on the haze layer already bound almost
+    every ray at the geometry behind it.
+
+  That leaves the step count, and Bevy 0.19's volumetric fog exposes
+  nothing else: uniform steps over the whole ray, a jitter on the start,
+  and a count. A thin bright feature crossed by the ray needs samples
+  *inside* it, and only the count provides them.
+
   So the two dials are not interchangeable, and not in the way an equal
   cost model suggests. `pixels x steps` says 256 steps over half the
   pixels should cost what 128 over all of them does; measured in the
@@ -388,6 +411,18 @@ What is left is not a trick, it is less work:
   them to fix the beams costs about a third of the frame rate, and that
   is the honest price of the fix — there is no arrangement of the two
   that avoids it.
+
+  The way out is not a setting. Every lighting visualiser that draws a
+  clean shaft cheaply draws the *beam* as geometry — a cone mesh with an
+  analytic falloff, additively blended — and leaves the raymarch the
+  ambient scatter it is good at. `spawn.rs` explicitly chose not to
+  ("one volume covering the room ... which is the whole reason this
+  reads better than a cone per beam: two beams crossing actually
+  brighten where they overlap"), and that reasoning still holds for the
+  *haze*. It does not hold for the shaft: a cone can be additive too,
+  and crossing cones brighten where they overlap just as well. This is
+  the real fix, it is a feature rather than a tweak, and it would make
+  the beams both smooth and cheaper than 256 steps.
 
 * **Less CPU.** The 8 ms floor is Blitz painting 5,509 nodes and Bevy
   stepping its main world. Cut that and the ceiling moves for every
