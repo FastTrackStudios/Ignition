@@ -41,7 +41,7 @@ mod node;
 pub mod resources;
 
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, AssetId};
+use bevy_asset::{AssetId, embedded_asset};
 use bevy_camera::{Camera3d, Hdr};
 use bevy_core_pipeline::{
     core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
@@ -54,42 +54,42 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
-use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
+use bevy_light::{Atmosphere, atmosphere::ScatteringMedium};
 use bevy_math::{Mat4, Quat, UVec2, UVec3, Vec3};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    Extract, ExtractSchedule, RenderStartup,
     extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
     renderer::RenderDevice,
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
-    Extract, ExtractSchedule, RenderStartup,
 };
 use bevy_render::{
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
     render_resource::{TextureFormat, TextureUsages},
     renderer::RenderAdapter,
-    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::GlobalTransform;
 
 use bevy_shader::load_shader_library;
 use environment::{
-    atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
-    prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
-    prepare_probe_textures, AtmosphereEnvironmentMap,
+    AtmosphereEnvironmentMap, atmosphere_environment, init_atmosphere_probe_layout,
+    init_atmosphere_probe_pipeline, prepare_atmosphere_probe_bind_groups,
+    prepare_atmosphere_probe_components, prepare_probe_textures,
 };
 use node::{atmosphere_luts, render_sky};
 use resources::{
-    prepare_atmosphere_transforms, prepare_atmosphere_uniforms, queue_render_sky_pipelines,
-    AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
+    AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts, prepare_atmosphere_transforms,
+    prepare_atmosphere_uniforms, queue_render_sky_pipelines,
 };
 use tracing::warn;
 
 use crate::resources::{init_atmosphere_buffer, write_atmosphere_buffer};
 
 use self::resources::{
-    prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-    AtmosphereLutPipelines, AtmosphereSampler,
+    AtmosphereBindGroupLayouts, AtmosphereLutPipelines, AtmosphereSampler,
+    prepare_atmosphere_bind_groups, prepare_atmosphere_textures,
 };
 
 #[doc(hidden)]
@@ -143,7 +143,9 @@ impl Plugin for AtmospherePlugin {
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
         {
-            warn!("AtmospherePlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING.");
+            warn!(
+                "AtmospherePlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING."
+            );
             return;
         }
 
@@ -152,7 +154,9 @@ impl Plugin for AtmospherePlugin {
         // account, and the latter doesn't.
         let render_device = render_app.world().resource::<RenderDevice>();
         if render_device.limits().max_storage_textures_per_shader_stage == 0 {
-            warn!("AtmospherePlugin not loaded. GPU lacks support: `max_storage_textures_per_shader_stage` is 0");
+            warn!(
+                "AtmospherePlugin not loaded. GPU lacks support: `max_storage_textures_per_shader_stage` is 0"
+            );
             return;
         }
 

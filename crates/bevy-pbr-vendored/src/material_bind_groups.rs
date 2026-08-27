@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{Commands, Res},
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, prelude::ReflectDefault};
 use bevy_render::render_resource::{BindlessSlabResourceLimit, PipelineCache};
 use bevy_render::{
     render_resource::{
@@ -27,7 +27,7 @@ use bevy_render::{
     settings::WgpuFeatures,
     texture::FallbackImage,
 };
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{TypeIdMap, default};
 use bytemuck::{Pod, Zeroable};
 use core::hash::Hash;
 use core::{cmp::Ordering, iter, mem, ops::Range};

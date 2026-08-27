@@ -1,20 +1,22 @@
 use crate::{
-    irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE, MeshPipeline, MeshPipelineKey,
-    MeshPipelineSystems, MeshViewBindGroup, ViewKeyCache, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
-    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    MeshPipeline, MeshPipelineKey, MeshPipelineSystems, MeshViewBindGroup,
+    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX, ViewKeyCache,
+    irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{AssetServer, Handle, embedded_asset, load_embedded_asset};
 use bevy_core_pipeline::{
     core_3d::main_opaque_pass_3d,
     deferred::{
-        copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
+        DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT, copy_lighting_id::DeferredLightingIdDepthTexture,
     },
     prepass::DeferredPrepass,
     schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::prelude::*;
+use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_render::{
+    Render, RenderApp, RenderSystems,
     camera::ExtractedCamera,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
@@ -22,9 +24,7 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, ViewQuery},
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSystems,
 };
-use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 

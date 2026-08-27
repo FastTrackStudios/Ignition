@@ -1,7 +1,7 @@
 use super::resource_manager::ResourceManager;
-use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{AssetServer, Handle, load_embedded_asset};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, mip_generation::DownsampleShaders, FullscreenShader,
+    FullscreenShader, core_3d::CORE_3D_DEPTH_FORMAT, mip_generation::DownsampleShaders,
 };
 use bevy_ecs::{
     resource::Resource,
@@ -444,12 +444,14 @@ pub fn init_meshlet_pipelines(
             label: Some("meshlet_fill_counts_pipeline".into()),
             layout: vec![fill_counts_layout],
             shader: fill_counts,
-            shader_defs: vec![if remap_1d_to_2d_dispatch_layout.is_some() {
-                "MESHLET_2D_DISPATCH"
-            } else {
-                ""
-            }
-            .into()],
+            shader_defs: vec![
+                if remap_1d_to_2d_dispatch_layout.is_some() {
+                    "MESHLET_2D_DISPATCH"
+                } else {
+                    ""
+                }
+                .into(),
+            ],
             ..default()
         }),
 

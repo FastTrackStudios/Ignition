@@ -1,6 +1,6 @@
 use crate::meshlet::asset::{BvhNode, MeshletAabb, MeshletCullData};
 
-use super::{asset::Meshlet, persistent_buffer::PersistentGpuBuffer, MeshletMesh};
+use super::{MeshletMesh, asset::Meshlet, persistent_buffer::PersistentGpuBuffer};
 use alloc::sync::Arc;
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{
@@ -113,7 +113,15 @@ impl MeshletMeshManager {
 
     pub fn remove(&mut self, asset_id: &AssetId<MeshletMesh>) {
         if let Some((
-            [vertex_positions_slice, vertex_normals_slice, vertex_uvs_slice, indices_slice, bvh_node_slice, meshlets_slice, meshlet_cull_data_slice],
+            [
+                vertex_positions_slice,
+                vertex_normals_slice,
+                vertex_uvs_slice,
+                indices_slice,
+                bvh_node_slice,
+                meshlets_slice,
+                meshlet_cull_data_slice,
+            ],
             _,
             _,
         )) = self.meshlet_mesh_slices.remove(asset_id)

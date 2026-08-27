@@ -8,17 +8,17 @@ use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
 use bevy_material::AlphaMode;
-use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3, prelude::Rectangle};
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
+    RenderDebugFlags,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupShaderType, CompareFunction, RenderPipelineDescriptor, ShaderType,
         SpecializedMeshPipelineError,
     },
     texture::GpuImage,
-    RenderDebugFlags,
 };
 use bevy_shader::load_shader_library;
 

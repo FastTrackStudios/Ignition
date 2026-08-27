@@ -1553,12 +1553,19 @@ pub(crate) fn spawn_camera(
         // because a beam crossing a 20 m room at the default spacing
         // comes out in stair-steps, and a live view pays for fewer
         // pixels instead.
+        // IGNITION PATCH (froxel volumetrics): the new path, opt-in and
+        // beside the old one until it is better. Adding the component
+        // is all it takes — see `bevy_pbr::volumetric_fog::froxel`.
+        // r[impl viz.haze-is-volumetric] - froxels, behind IGNITION_FROXEL
         crate::haze::HazeView {
             fog_steps: quality.fog_steps,
             scale: quality.fog_scale,
             pixels: quality.haze_pixels,
         },
     ));
+    if std::env::var("IGNITION_FROXEL").is_ok_and(|v| v.trim() == "1") {
+        camera.insert(bevy::pbr::froxel::FroxelVolumetrics::default());
+    }
     if adapt {
         camera.insert(auto_exposure(curves, quality.instant_adaptation));
     }

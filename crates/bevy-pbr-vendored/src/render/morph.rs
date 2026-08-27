@@ -3,22 +3,22 @@ use core::{iter, mem};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_mesh::morph::{MeshMorphWeights, MorphWeights, MAX_MORPH_WEIGHTS};
+use bevy_mesh::morph::{MAX_MORPH_WEIGHTS, MeshMorphWeights, MorphWeights};
 use bevy_platform::collections::hash_map::Entry;
-use bevy_render::mesh::allocator::MeshAllocator;
 use bevy_render::mesh::RenderMesh;
+use bevy_render::mesh::allocator::MeshAllocator;
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_resource::ShaderType;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::{
+    Extract,
     batching::NoAutomaticBatching,
     render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
-    Extract,
 };
 use bytemuck::{NoUninit, Pod, Zeroable};
 
-use crate::{skin, RenderMeshInstances};
+use crate::{RenderMeshInstances, skin};
 
 #[derive(Component)]
 pub struct MorphIndex {

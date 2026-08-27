@@ -2,7 +2,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
-use bevy_camera::{visibility::VisibleEntities, Camera3d};
+use bevy_camera::{Camera3d, visibility::VisibleEntities};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -14,11 +14,12 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_light::{
-    cluster::ClusterVisibilityClass, EnvironmentMapLight, IrradianceVolume, LightProbe,
+    EnvironmentMapLight, IrradianceVolume, LightProbe, cluster::ClusterVisibilityClass,
 };
 use bevy_math::{Affine3A, FloatOrd, Mat4, Quat, Vec3, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
     extract_instances::ExtractInstancesPlugin,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
@@ -27,7 +28,6 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
-    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::prelude::GlobalTransform;

@@ -2,7 +2,7 @@ use crate::*;
 use alloc::sync::Arc;
 use bevy_asset::UntypedAssetId;
 use bevy_camera::primitives::{
-    face_index_to_name, CascadesFrusta, CubeMapFace, CubemapFrusta, Frustum, CUBE_MAP_FACES,
+    CUBE_MAP_FACES, CascadesFrusta, CubeMapFace, CubemapFrusta, Frustum, face_index_to_name,
 };
 use bevy_camera::visibility::{
     CascadesVisibleEntities, CubemapVisibleEntities, RenderLayers, ViewVisibility,
@@ -19,23 +19,22 @@ use bevy_ecs::{
     prelude::*,
     system::{SystemParam, SystemState},
 };
-use bevy_light::cascade::Cascade;
-use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
 use bevy_light::SunDisk;
+use bevy_light::cascade::Cascade;
+use bevy_light::cluster::assign::{ClusterableObjectType, calculate_cluster_factors};
 use bevy_light::{
-    spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
-    Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, PointLight,
-    PointLightShadowMap, RectLight, ShadowFilteringMethod, SpotLight, VolumetricLight,
+    AmbientLight, CascadeShadowConfig, Cascades, DirectionalLight, DirectionalLightShadowMap,
+    GlobalAmbientLight, PointLight, PointLightShadowMap, RectLight, ShadowFilteringMethod,
+    SpotLight, VolumetricLight, spot_light_clip_from_view, spot_light_world_from_view,
 };
 use bevy_log::warn_once;
 use bevy_material::{
-    key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     MaterialProperties,
+    key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
 };
 use bevy_math::{
-    ops,
+    Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles, ops,
     primitives::{HalfSpace, ViewFrustum},
-    Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
 };
 use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -52,12 +51,7 @@ use bevy_render::view::{
     RenderVisibleEntities, VisibilityExtractionSystemParam,
 };
 use bevy_render::{
-    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::SortedCameras,
-    mesh::allocator::MeshAllocator,
-    view::{NoIndirectDrawing, RetainedViewEntity},
-};
-use bevy_render::{
+    Extract,
     mesh::RenderMesh,
     render_asset::RenderAssets,
     render_phase::*,
@@ -65,7 +59,12 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::*,
     view::ExtractedView,
-    Extract,
+};
+use bevy_render::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    camera::SortedCameras,
+    mesh::allocator::MeshAllocator,
+    view::{NoIndirectDrawing, RetainedViewEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;

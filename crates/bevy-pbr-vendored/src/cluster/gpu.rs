@@ -51,10 +51,10 @@ use alloc::sync::Arc;
 use std::sync::Mutex;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{AssetServer, Handle, embedded_asset, load_embedded_asset};
 use bevy_camera::Camera;
 use bevy_color::Color;
-use bevy_core_pipeline::{prepass::node::early_prepass, Core3d, Core3dSystems};
+use bevy_core_pipeline::{Core3d, Core3dSystems, prepass::node::early_prepass};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -66,21 +66,20 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_light::{
-    cluster::{Clusters, GlobalClusterGpuSettings, GlobalClusterSettings},
     EnvironmentMapLight, IrradianceVolume,
+    cluster::{Clusters, GlobalClusterGpuSettings, GlobalClusterSettings},
 };
 use bevy_material::descriptor::{
     BindGroupLayoutDescriptor, CachedComputePipelineId, CachedRenderPipelineId,
     ComputePipelineDescriptor, FragmentState, RenderPipelineDescriptor, VertexState,
 };
-use bevy_math::{vec2, Vec2};
+use bevy_math::{Vec2, vec2};
 use bevy_mesh::{VertexBufferLayout, VertexFormat};
 use bevy_render::{
+    GpuResourceAppExt, MainWorld, Render, RenderApp, RenderSystems,
     diagnostic::RecordDiagnostics as _,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_resource::{
-        binding_types,
-        encase::internal::{CreateFrom as _, Reader},
         BindGroup, BindGroupEntry, BindGroupLayoutEntries, Buffer, BufferBindingType,
         BufferDescriptor, BufferInitDescriptor, BufferUsages, ColorTargetState, ColorWrites,
         CommandEncoder, ComputePassDescriptor, ComputePipeline, Extent3d, IndexFormat, LoadOp,
@@ -88,29 +87,29 @@ use bevy_render::{
         RenderPipeline, ShaderStages, ShaderType, SpecializedComputePipeline,
         SpecializedComputePipelines, SpecializedRenderPipeline, SpecializedRenderPipelines,
         StorageBuffer, StoreOp, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        UninitBufferVec, VertexAttribute, VertexStepMode,
+        UninitBufferVec, VertexAttribute, VertexStepMode, binding_types,
+        encase::internal::{CreateFrom as _, Reader},
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity},
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
-    GpuResourceAppExt, MainWorld, Render, RenderApp, RenderSystems,
 };
-use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
+use bevy_shader::{Shader, ShaderDefVal, load_shader_library};
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use tracing::{error, trace, warn};
 
 use crate::{
+    ExtractedClusterConfig, GlobalClusterableObjectMeta, GpuClusteredLight, GpuLights, LightMeta,
+    LightProbesBuffer, LightProbesUniform, RenderViewLightProbes, ViewClusterBindings,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset,
     cluster::{
         GpuClusterOffsetAndCounts, GpuClusterOffsetsAndCountsStorage,
         GpuClusterableObjectIndexListsStorage, ViewClusterBuffers,
     },
     decal::clustered::{DecalsBuffer, RenderClusteredDecal, RenderClusteredDecals},
-    gpu_clustering_is_enabled, ExtractedClusterConfig, GlobalClusterableObjectMeta,
-    GpuClusteredLight, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
-    RenderViewLightProbes, ViewClusterBindings, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset,
+    gpu_clustering_is_enabled,
 };
 
 /// The workgroup size of the `cluster_allocate.wgsl` shader.
@@ -1654,7 +1653,10 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             })
             .lock()
         else {
-            warn!("Failed to acquire lock for view clustering buffer size data; skipping buffer creation for view: {}", view_entity.to_bits());
+            warn!(
+                "Failed to acquire lock for view clustering buffer size data; skipping buffer creation for view: {}",
+                view_entity.to_bits()
+            );
             continue;
         };
 

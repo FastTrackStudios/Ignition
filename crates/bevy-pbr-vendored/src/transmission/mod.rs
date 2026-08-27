@@ -11,9 +11,9 @@ use bevy_core_pipeline::{
 use bevy_ecs::{prelude::*, schedule::IntoScheduleConfigs};
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, ViewSortedRenderPhases},
     ExtractSchedule, Render, RenderApp, RenderSystems,
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    render_phase::{AddRenderCommand, DrawFunctions, ViewSortedRenderPhases, sort_phase_system},
 };
 use bevy_shader::load_shader_library;
 pub use node::main_transmissive_pass_3d;

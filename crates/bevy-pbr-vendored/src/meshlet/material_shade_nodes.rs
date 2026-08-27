@@ -1,10 +1,10 @@
 use super::{
+    InstanceManager,
     material_pipeline_prepare::{
         MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
         MeshletViewMaterialsPrepass,
     },
     resource_manager::{MeshletViewBindGroups, MeshletViewResources},
-    InstanceManager,
 };
 use crate::{MeshViewBindGroup, PrepassViewBindGroup};
 use bevy_camera::MainPassResolutionOverride;

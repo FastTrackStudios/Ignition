@@ -36,23 +36,23 @@ use bevy_light::{ClusteredDecal, DirectionalLightTexture, PointLightTexture, Spo
 use bevy_math::{Mat4, Vec3};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
-        SamplerBindingType, ShaderType, TextureSampleType, TextureView,
+        BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
+        SamplerBindingType, ShaderType, TextureSampleType, TextureView, binding_types,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta};
+use crate::{GlobalClusterableObjectMeta, binding_arrays_are_usable, prepare_lights};
 
 /// The number of textures that can be associated with each clustered decal.
 const IMAGES_PER_DECAL: usize = 4;

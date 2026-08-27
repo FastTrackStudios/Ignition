@@ -1,6 +1,7 @@
 use bevy_gltf::{
+    GltfAssetLabel, GltfMaterial,
     extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
-    gltf, GltfAssetLabel, GltfMaterial,
+    gltf,
 };
 
 use crate::{MeshMaterial3d, StandardMaterial};

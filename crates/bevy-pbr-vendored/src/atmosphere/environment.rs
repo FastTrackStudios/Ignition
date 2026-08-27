@@ -1,11 +1,11 @@
 use crate::{
+    ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
     resources::{
         AtmosphereSampler, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
         AtmosphereTransformsOffset, GpuAtmosphere,
     },
-    ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
 };
-use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{AssetServer, Assets, Handle, RenderAssetUsages, load_embedded_asset};
 use bevy_ecs::{
     component::Component,
     entity::Entity,

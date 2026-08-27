@@ -1,5 +1,5 @@
 use core::{
-    any::{type_name, Any, TypeId},
+    any::{Any, TypeId, type_name},
     marker::PhantomData,
 };
 

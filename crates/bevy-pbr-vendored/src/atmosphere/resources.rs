@@ -1,7 +1,7 @@
 use crate::{
     ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta, ScatteringMediumSampler,
 };
-use bevy_asset::{load_embedded_asset, AssetId, Handle};
+use bevy_asset::{AssetId, Handle, load_embedded_asset};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::FullscreenShader;
 use bevy_derive::Deref;

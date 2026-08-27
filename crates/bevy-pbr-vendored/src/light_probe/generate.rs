@@ -12,7 +12,7 @@
 //! For prefiltered environment maps, see [`bevy_light::EnvironmentMapLight`].
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
+use bevy_asset::{AssetServer, Assets, RenderAssetUsages, embedded_asset, load_embedded_asset};
 use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingConstants};
 use bevy_ecs::{
     component::Component,
@@ -25,23 +25,23 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
     diagnostic::RecordDiagnostics,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
+        AddressMode, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, MipmapFilterMode,
         PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
         StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
         TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-        TextureViewDimension, UniformBuffer,
+        TextureViewDimension, UniformBuffer, binding_types::*,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, GpuImage, TextureCache},
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 // Implementation: generate diffuse and specular cubemaps required by PBR
@@ -118,7 +118,9 @@ impl Plugin for EnvironmentMapGenerationPlugin {
                 .contains(DownlevelFlags::COMPUTE_SHADERS);
 
             if !limit_support || !downlevel_support {
-                info!("Disabling EnvironmentMapGenerationPlugin because compute is not supported on this platform. This is safe to ignore if you are not using EnvironmentMapGenerationPlugin.");
+                info!(
+                    "Disabling EnvironmentMapGenerationPlugin because compute is not supported on this platform. This is safe to ignore if you are not using EnvironmentMapGenerationPlugin."
+                );
                 return;
             }
         } else {
@@ -575,11 +577,13 @@ pub fn prepare_generated_environment_map_bind_groups(
     };
 
     assert!(stbn_texture.texture_descriptor.size.width.is_power_of_two());
-    assert!(stbn_texture
-        .texture_descriptor
-        .size
-        .height
-        .is_power_of_two());
+    assert!(
+        stbn_texture
+            .texture_descriptor
+            .size
+            .height
+            .is_power_of_two()
+    );
     let noise_size_bits = UVec2::new(
         stbn_texture.texture_descriptor.size.width.trailing_zeros(),
         stbn_texture.texture_descriptor.size.height.trailing_zeros(),

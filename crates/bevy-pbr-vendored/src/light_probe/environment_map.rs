@@ -56,8 +56,8 @@ use bevy_render::{
     extract_instances::ExtractInstance,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType,
-        TextureView,
+        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType, TextureView,
+        binding_types,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -66,8 +66,8 @@ use bevy_render::{
 use core::{num::NonZero, ops::Deref};
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, RenderLightProbeFlags,
-    MAX_VIEW_LIGHT_PROBES,
+    MAX_VIEW_LIGHT_PROBES, RenderLightProbeFlags, add_cubemap_texture_view,
+    binding_arrays_are_usable,
 };
 
 use super::{LightProbeComponent, RenderViewLightProbes};

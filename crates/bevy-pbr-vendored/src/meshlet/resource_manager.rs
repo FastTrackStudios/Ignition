@@ -1,6 +1,6 @@
 use super::{instance_manager::InstanceManager, meshlet_mesh_manager::MeshletMeshManager};
 use crate::ShadowView;
-use bevy_camera::{visibility::RenderLayers, Camera3d};
+use bevy_camera::{Camera3d, visibility::RenderLayers};
 use bevy_core_pipeline::{
     mip_generation::experimental::depth::{self, ViewDepthPyramid},
     prepass::{PreviousViewData, PreviousViewUniforms},

@@ -9,14 +9,14 @@ use bevy_render::{
     view::{ViewTarget, ViewUniformOffset},
 };
 
-use crate::{resources::GpuAtmosphere, ViewLightsUniformOffset};
+use crate::{ViewLightsUniformOffset, resources::GpuAtmosphere};
 
 use super::{
+    GpuAtmosphereSettings,
     resources::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
         RenderSkyPipelineId,
     },
-    GpuAtmosphereSettings,
 };
 
 pub fn atmosphere_luts(

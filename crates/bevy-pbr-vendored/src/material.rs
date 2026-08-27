@@ -20,34 +20,35 @@ use bevy_ecs::system::SystemParam;
 use bevy_ecs::{
     prelude::*,
     system::{
-        lifetimeless::{SRes, SResMut},
         SystemParamItem, SystemState,
+        lifetimeless::{SRes, SResMut},
     },
 };
 use bevy_material::{
+    MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
     key::{ErasedMaterialKey, ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     labels::{DrawFunctionLabel, InternedShaderLabel, ShaderLabel},
-    MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
 use bevy_math::{Affine3, Affine3Ext as _};
 use bevy_mesh::{
-    mark_3d_meshes_as_changed_if_their_assets_changed, Mesh3d, MeshVertexBufferLayoutRef,
+    Mesh3d, MeshVertexBufferLayoutRef, mark_3d_meshes_as_changed_if_their_assets_changed,
 };
 use bevy_platform::collections::hash_map::Entry;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_render::GpuResourceAppExt;
+use bevy_render::RenderStartup;
 use bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers;
 use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, PendingQueues};
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
-use bevy_render::render_asset::{prepare_assets, RenderAssets};
+use bevy_render::render_asset::{RenderAssets, prepare_assets};
 use bevy_render::renderer::RenderQueue;
-use bevy_render::GpuResourceAppExt;
-use bevy_render::RenderStartup;
 use bevy_render::{
+    Extract,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
     mesh::RenderMesh,
@@ -57,7 +58,6 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::MainEntity,
     view::{ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity},
-    Extract,
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
@@ -1588,7 +1588,7 @@ where
                 }
             }
             Err(AsBindGroupError::RetryNextUpdate) => {
-                return Err(PrepareAssetError::RetryNextUpdate(material))
+                return Err(PrepareAssetError::RetryNextUpdate(material));
             }
             Err(AsBindGroupError::CreateBindGroupDirectly) => {
                 match material.as_bind_group(
@@ -1607,7 +1607,7 @@ where
                         material_binding_id
                     }
                     Err(AsBindGroupError::RetryNextUpdate) => {
-                        return Err(PrepareAssetError::RetryNextUpdate(material))
+                        return Err(PrepareAssetError::RetryNextUpdate(material));
                     }
                     Err(other) => return Err(PrepareAssetError::AsBindGroupError(other)),
                 }

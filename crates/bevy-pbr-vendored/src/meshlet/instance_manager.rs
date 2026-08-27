@@ -1,8 +1,8 @@
-use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
+use super::{MeshletMesh, MeshletMesh3d, meshlet_mesh_manager::MeshletMeshManager};
 use crate::DUMMY_MESH_MATERIAL;
 use crate::{
-    meshlet::asset::MeshletAabb, MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform,
-    PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
+    MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform, PreviousGlobalTransform,
+    RenderMaterialBindings, RenderMaterialInstances, meshlet::asset::MeshletAabb,
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_camera::visibility::RenderLayers;
@@ -15,7 +15,7 @@ use bevy_ecs::{
 };
 use bevy_light::{NotShadowCaster, NotShadowReceiver};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::{render_resource::StorageBuffer, sync_world::MainEntity, MainWorld};
+use bevy_render::{MainWorld, render_resource::StorageBuffer, sync_world::MainEntity};
 use bevy_transform::components::GlobalTransform;
 use core::ops::DerefMut;
 

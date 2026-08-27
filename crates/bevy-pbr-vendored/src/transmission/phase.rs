@@ -11,13 +11,13 @@ use bevy_material::{descriptor::CachedRenderPipelineId, labels::DrawFunctionId};
 use bevy_math::FloatOrd;
 use bevy_platform::collections::HashSet;
 use bevy_render::{
+    Extract,
     render_phase::{
         CachedRenderPipelinePhaseItem, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem,
         ViewSortedRenderPhases,
     },
     sync_world::MainEntity,
     view::{ExtractedView, RetainedViewEntity},
-    Extract,
 };
 use indexmap::IndexMap;
 

@@ -3,21 +3,21 @@ use core::{iter, num::NonZero};
 use bevy_camera::Camera;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_light::{
+    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, SpotLight,
     cluster::{
         ClusterableObjectCounts, ClusterableObjects, Clusters, GlobalClusterGpuSettings,
         GlobalClusterSettings,
     },
-    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, SpotLight,
 };
-use bevy_math::{uvec4, UVec3, UVec4, Vec4};
+use bevy_math::{UVec3, UVec4, Vec4, uvec4};
 use bevy_render::{
+    Extract,
     render_resource::{
         BindingResource, BufferBindingType, BufferUsages, DownlevelFlags, RawBufferVec, ShaderSize,
         ShaderType, StorageBuffer, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::{MainEntity, RenderEntity},
-    Extract,
 };
 use bytemuck::{Pod, Zeroable};
 use tracing::{error, info, trace, warn};
@@ -689,7 +689,9 @@ impl ViewClusterBindings {
     pub fn reserve_clusters(&mut self, clusters: usize) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform { .. } => {
-                error!("`reserve_clusters` should only be called in GPU clustering, which requires a storage buffer");
+                error!(
+                    "`reserve_clusters` should only be called in GPU clustering, which requires a storage buffer"
+                );
             }
             ViewClusterBuffers::Storage {
                 cluster_offsets_and_counts,
@@ -711,7 +713,9 @@ impl ViewClusterBindings {
     pub fn reserve_indices(&mut self, elements: usize) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform { .. } => {
-                error!("`reserve_indices` should only be called in GPU clustering, which requires a storage buffer");
+                error!(
+                    "`reserve_indices` should only be called in GPU clustering, which requires a storage buffer"
+                );
             }
             ViewClusterBuffers::Storage {
                 clusterable_object_index_lists,

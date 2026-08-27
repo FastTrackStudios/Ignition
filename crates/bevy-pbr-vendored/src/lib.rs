@@ -67,7 +67,7 @@ pub use atmosphere::*;
 use bevy_light::{
     AmbientLight, DirectionalLight, PointLight, RectLight, ShadowFilteringMethod, SpotLight,
 };
-use bevy_shader::{load_shader_library, ShaderRef};
+use bevy_shader::{ShaderRef, load_shader_library};
 pub use cluster::*;
 pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
@@ -85,7 +85,10 @@ pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
 pub use transmission::*;
-pub use volumetric_fog::VolumetricFogPlugin;
+// IGNITION PATCH: the froxel volumetrics module is public, so an
+// application can put `FroxelVolumetrics` on a camera. Upstream keeps
+// the fog module private and re-exports only the plugin.
+pub use volumetric_fog::{VolumetricFogPlugin, froxel};
 
 /// The PBR prelude.
 ///
@@ -113,6 +116,8 @@ use bevy_ecs::prelude::*;
 use bevy_image::{Image, ImageSampler};
 use bevy_material::AlphaMode;
 use bevy_render::{
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup,
+    RenderSystems,
     camera::sort_cameras,
     extract_resource::ExtractResourcePlugin,
     render_resource::{
@@ -120,8 +125,6 @@ use bevy_render::{
         TextureUsages, TextureViewDescriptor, TextureViewDimension,
     },
     sync_component::SyncComponentPlugin,
-    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup,
-    RenderSystems,
 };
 
 use std::path::PathBuf;

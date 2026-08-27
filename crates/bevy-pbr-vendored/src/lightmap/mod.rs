@@ -47,16 +47,16 @@ use bevy_ecs::{
     template::FromTemplate,
 };
 use bevy_image::Image;
-use bevy_math::{uvec2, vec4, Rect, UVec2};
+use bevy_math::{Rect, UVec2, uvec2, vec4};
 use bevy_platform::collections::HashSet;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    Extract, ExtractSchedule, RenderApp, RenderStartup,
     render_asset::RenderAssets,
     render_resource::{Sampler, TextureView, WgpuSampler, WgpuTextureView},
     renderer::RenderAdapter,
     sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
-    Extract, ExtractSchedule, RenderApp, RenderStartup,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
 use bevy_shader::load_shader_library;
@@ -65,7 +65,7 @@ use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 use tracing::error;
 
-use crate::{binding_arrays_are_usable, MeshExtractionSystems};
+use crate::{MeshExtractionSystems, binding_arrays_are_usable};
 
 /// The number of lightmaps that we store in a single slab, if bindless textures
 /// are in use.

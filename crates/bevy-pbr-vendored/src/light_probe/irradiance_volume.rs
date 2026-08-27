@@ -138,8 +138,8 @@ use bevy_light::IrradianceVolume;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType,
-        TextureView,
+        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType, TextureView,
+        binding_types,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -149,8 +149,8 @@ use core::{num::NonZero, ops::Deref};
 use bevy_asset::AssetId;
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, RenderLightProbeFlags,
-    RenderViewLightProbes, MAX_VIEW_LIGHT_PROBES,
+    MAX_VIEW_LIGHT_PROBES, RenderLightProbeFlags, RenderViewLightProbes, add_cubemap_texture_view,
+    binding_arrays_are_usable,
 };
 
 use super::LightProbeComponent;

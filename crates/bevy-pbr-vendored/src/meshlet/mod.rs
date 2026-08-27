@@ -14,18 +14,18 @@ mod resource_manager;
 mod visibility_buffer_raster_node;
 
 pub(crate) use self::{
-    instance_manager::{queue_material_meshlet_meshes, InstanceManager},
+    instance_manager::{InstanceManager, queue_material_meshlet_meshes},
     material_pipeline_prepare::{
         prepare_material_meshlet_meshes_main_opaque_pass, prepare_material_meshlet_meshes_prepass,
     },
 };
 
 pub use self::asset::{
-    MeshletMesh, MeshletMeshLoader, MeshletMeshSaver, MESHLET_MESH_ASSET_VERSION,
+    MESHLET_MESH_ASSET_VERSION, MeshletMesh, MeshletMeshLoader, MeshletMeshSaver,
 };
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::{
-    MeshToMeshletMeshConversionError, MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR,
+    MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR, MeshToMeshletMeshConversionError,
 };
 use self::{
     instance_manager::extract_meshlet_mesh_entities,
@@ -39,14 +39,14 @@ use self::{
     meshlet_mesh_manager::perform_pending_meshlet_mesh_writes,
     pipelines::*,
     resource_manager::{
-        prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups, ResourceManager,
+        ResourceManager, prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
     },
     visibility_buffer_raster_node::meshlet_visibility_buffer_raster,
 };
-use crate::render::{per_view_shadow_pass, EARLY_SHADOW_PASS};
-use crate::{meshlet::meshlet_mesh_manager::init_meshlet_mesh_manager, PreviousGlobalTransform};
+use crate::render::{EARLY_SHADOW_PASS, per_view_shadow_pass};
+use crate::{PreviousGlobalTransform, meshlet::meshlet_mesh_manager::init_meshlet_mesh_manager};
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, AssetApp, AssetId, Handle};
+use bevy_asset::{AssetApp, AssetId, Handle, embedded_asset};
 use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_core_pipeline::{
     core_3d::main_opaque_pass_3d,
@@ -63,12 +63,12 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
     template::FromTemplate,
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{prepare_view_targets, Msaa},
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    view::{Msaa, prepare_view_targets},
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::components::Transform;
@@ -258,7 +258,9 @@ fn configure_meshlet_views(
 ) {
     for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
         if *msaa != Msaa::Off {
-            error!("MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin.");
+            error!(
+                "MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin."
+            );
             std::process::exit(1);
         }
 

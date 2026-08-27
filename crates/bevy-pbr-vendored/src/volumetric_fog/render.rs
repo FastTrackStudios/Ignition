@@ -2,7 +2,7 @@
 
 use core::array;
 
-use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
+use bevy_asset::{AssetId, AssetServer, Handle, load_embedded_asset};
 use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents as _;
 use bevy_derive::{Deref, DerefMut};
@@ -15,15 +15,13 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
-use bevy_math::{vec4, Affine3A, Mat4, Vec3, Vec3A, Vec4};
+use bevy_math::{Affine3A, Mat4, Vec3, Vec3A, Vec4, vec4};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
-    mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
+    Extract,
+    mesh::{RenderMesh, RenderMeshBufferInfo, allocator::MeshAllocator},
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{
-            sampler, texture_3d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
-        },
         BindGroupLayoutDescriptor, BindGroupLayoutEntries, BindingResource, BlendComponent,
         BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState,
         ColorWrites, DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp,
@@ -31,12 +29,14 @@ use bevy_render::{
         RenderPipelineDescriptor, SamplerBindingType, ShaderStages, ShaderType,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
         TextureSampleType, TextureUsages, VertexState,
+        binding_types::{
+            sampler, texture_3d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
+        },
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::RenderEntity,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget},
-    Extract,
 };
 use bevy_shader::Shader;
 use bevy_transform::components::GlobalTransform;
