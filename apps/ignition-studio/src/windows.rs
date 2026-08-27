@@ -13,12 +13,13 @@
 //! The pop-out / dock-back state machine is [`Host`], plain data with no
 //! window in sight, so it is tested without a display.
 
-// r[impl studio.windows.multiple] - any number of windows, each hosting any panels, one engine
-// r[impl studio.panels] - the host: a panel is drawn by whichever window lists it
+// r[impl studio.windows.multiple] - any number of windows, each hosting any panes, one engine
+// r[impl studio.panels] - the host: a pane is drawn by whichever window's tree holds it
+// r[impl studio.dock] - each OS window renders one dock tree
 
+use crate::dock::{DockNode, DockState, PaneKind, Preset};
 use crate::layout::{
-    self, Layout, MonitorInfo, Panel, Placement, Region, View, WindowSpec, docked_rect,
-    pick_monitor_index,
+    self, Layout, MonitorInfo, Placement, Region, View, WindowSpec, docked_rect, pick_monitor_index,
 };
 use dioxus::prelude::*;
 use dioxus_native::winit::window::WindowId;
@@ -35,10 +36,45 @@ pub type HostId = u64;
 pub struct Hosted {
     pub id: HostId,
     pub spec: WindowSpec,
-    /// The window a pop-out came from; its panel goes back there when
+    /// While one pane is soloed, the whole tree it goes back to.
+    pub solo: Option<DockNode>,
+    /// The window a pop-out came from; its panes go back there when
     /// this one closes.
     pub popped_from: Option<HostId>,
     pub window: Option<WindowId>,
+}
+
+impl Hosted {
+    /// The window's dock as a value: the drawn tree and the remembered one.
+    fn dock(&self) -> DockState {
+        DockState {
+            tree: self.spec.tree.clone(),
+            solo: self.solo.clone(),
+        }
+    }
+
+    fn set_dock(&mut self, dock: DockState) {
+        self.spec.tree = dock.tree;
+        self.solo = dock.solo;
+    }
+
+    /// Edit the real tree (leaving solo first).
+    fn edit(&mut self, f: impl FnOnce(&mut DockNode)) {
+        let mut dock = self.dock();
+        dock.edit(f);
+        self.set_dock(dock);
+    }
+
+    /// The spec a layout file gets: the whole tree, soloed or not.
+    fn persisted(&self) -> WindowSpec {
+        let mut spec = self.spec.clone();
+        spec.tree = self.dock().persisted().clone();
+        spec
+    }
+
+    fn panes(&self) -> Vec<PaneKind> {
+        self.dock().persisted().panes()
+    }
 }
 
 /// Every window in the process.
@@ -63,6 +99,7 @@ impl Host {
         self.windows.push(Hosted {
             id,
             spec,
+            solo: None,
             popped_from,
             window: None,
         });
@@ -82,42 +119,116 @@ impl Host {
         self.windows.iter().map(|w| w.id).collect()
     }
 
-    /// Whether `panel` may leave `from`: it is there, and it is not the
-    /// window's last panel — an empty window is a window nobody can
+    /// Whether `pane` may leave `from`: it is there, and it is not the
+    /// window's last pane — an empty window is a window nobody can
     /// dock anything back into.
-    pub fn can_pop_out(&self, from: HostId, panel: Panel) -> bool {
-        self.get(from)
-            .is_some_and(|w| w.spec.panels.contains(&panel) && w.spec.panels.len() > 1)
+    pub fn can_pop_out(&self, from: HostId, pane: PaneKind) -> bool {
+        self.get(from).is_some_and(|w| {
+            let panes = w.panes();
+            panes.contains(&pane) && panes.len() > 1
+        })
     }
 
-    /// Moves `panel` out of `from` into a new window of its own, on the
+    /// Moves `pane` out of `from` into a new window of its own, on the
     /// same monitor and view, docked to the centre half. Returns the new
-    /// window's host id, or `None` when the panel cannot leave.
-    // r[impl studio.windows.multiple] - pop out: the panel leaves one window for a new one
-    pub fn pop_out(&mut self, from: HostId, panel: Panel) -> Option<HostId> {
-        if !self.can_pop_out(from, panel) {
+    /// window's host id, or `None` when the pane cannot leave.
+    // r[impl studio.windows.multiple] - pop out: the pane leaves one window for a new one
+    // r[impl studio.dock.tabs-are-handles] - "Detach to new window", and a drop off every pane
+    pub fn pop_out(&mut self, from: HostId, pane: PaneKind) -> Option<HostId> {
+        if !self.can_pop_out(from, pane) {
             return None;
         }
         let origin = self.get_mut(from)?;
-        origin.spec.panels.retain(|p| *p != panel);
+        origin.edit(|t| {
+            t.remove(pane);
+        });
         let spec = WindowSpec {
             monitor: origin.spec.monitor.clone(),
             placement: Placement::Docked {
                 region: Region::Centre,
                 fraction: 0.5,
             },
-            panels: vec![panel],
+            tree: DockNode::tab(pane),
             view: origin.spec.view,
         };
         Some(self.push(spec, Some(from)))
     }
 
-    /// A window is gone. A popped-out window's panels return to where
+    /// `pane` leaves `from` for `to`, as a tab in its first leaf.
+    pub fn move_pane(&mut self, from: HostId, pane: PaneKind, to: HostId) -> bool {
+        if from == to || !self.can_pop_out(from, pane) || self.get(to).is_none() {
+            return false;
+        }
+        self.get_mut(from).expect("checked").edit(|t| {
+            t.remove(pane);
+        });
+        self.get_mut(to).expect("checked").edit(|t| t.adopt(pane));
+        true
+    }
+
+    /// Edit a window's tree in place.
+    pub fn edit(&mut self, id: HostId, f: impl FnOnce(&mut DockNode)) -> bool {
+        match self.get_mut(id) {
+            Some(w) => {
+                w.edit(f);
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub fn solo(&mut self, id: HostId, pane: PaneKind) -> bool {
+        let Some(w) = self.get_mut(id) else {
+            return false;
+        };
+        let mut dock = w.dock();
+        let ok = dock.solo(pane);
+        w.set_dock(dock);
+        ok
+    }
+
+    pub fn restore(&mut self, id: HostId) {
+        if let Some(w) = self.get_mut(id) {
+            let mut dock = w.dock();
+            dock.restore();
+            w.set_dock(dock);
+        }
+    }
+
+    /// Take `pane` out of the window for good. True when the window is
+    /// now empty and should close (the launch window keeps its last
+    /// pane instead).
+    pub fn close_pane(&mut self, id: HostId, pane: PaneKind) -> bool {
+        let is_launch = self.windows.first().is_some_and(|w| w.id == id);
+        let Some(w) = self.get_mut(id) else {
+            return false;
+        };
+        if is_launch && w.panes().len() <= 1 {
+            return false;
+        }
+        w.edit(|t| {
+            t.remove(pane);
+        });
+        w.panes().is_empty()
+    }
+
+    /// Re-lay a window's panes on a preset.
+    // r[impl studio.dock.presets]
+    pub fn apply_preset(&mut self, id: HostId, preset: Preset) -> bool {
+        let Some(w) = self.get_mut(id) else {
+            return false;
+        };
+        let panes = w.panes();
+        w.set_dock(DockState::new(preset.build(&panes)));
+        true
+    }
+
+    /// A window is gone. A popped-out window's panes return to where
     /// they came from (or to the first remaining window, if the origin
     /// has closed since); windows popped out of this one become
-    /// free-standing. Returns the panels that were re-homed.
-    // r[impl studio.windows.multiple] - dock back: closing a popped window returns its panel
-    pub fn window_closed(&mut self, id: HostId) -> Vec<Panel> {
+    /// free-standing. Returns the panes that were re-homed.
+    // r[impl studio.windows.multiple] - dock back: closing a popped window returns its panes
+    pub fn window_closed(&mut self, id: HostId) -> Vec<PaneKind> {
         let Some(index) = self.windows.iter().position(|w| w.id == id) else {
             return Vec::new();
         };
@@ -138,10 +249,10 @@ impl Host {
             return Vec::new();
         };
         let mut returned = Vec::new();
-        for panel in closed.spec.panels {
-            if !target.spec.panels.contains(&panel) {
-                target.spec.panels.push(panel);
-                returned.push(panel);
+        for pane in closed.panes() {
+            if !target.panes().contains(&pane) {
+                target.edit(|t| t.adopt(pane));
+                returned.push(pane);
             }
         }
         returned
@@ -150,7 +261,7 @@ impl Host {
     /// The layout as it stands, for "save layout".
     pub fn layout(&self) -> Layout {
         Layout {
-            windows: self.windows.iter().map(|w| w.spec.clone()).collect(),
+            windows: self.windows.iter().map(|w| w.persisted()).collect(),
         }
     }
 }
@@ -178,8 +289,29 @@ pub fn with_host<R>(f: impl FnOnce(&mut Host) -> R) -> Option<R> {
     out
 }
 
-fn read_host<R>(f: impl FnOnce(&Host) -> R) -> Option<R> {
+pub fn read_host<R>(f: impl FnOnce(&Host) -> R) -> Option<R> {
     HOST.lock().expect("host mutex").as_ref().map(f)
+}
+
+/// Edit one window's tree and show the result in this window at once,
+/// not on the next poll — a splitter follows the hand.
+pub fn edit_tree(host: HostId, f: impl FnOnce(&mut DockNode)) {
+    with_host(|h| h.edit(host, f));
+    refresh(host);
+}
+
+/// The snapshot signal of the window whose component is running, so an
+/// edit made from a handler redraws before the poll comes round.
+#[derive(Clone, Copy)]
+struct Refresh(Signal<Option<Snapshot>>);
+
+pub fn refresh(host: HostId) {
+    if let Some(Refresh(mut snap)) = try_consume_context::<Refresh>() {
+        let next = snapshot(host);
+        if next != snap() {
+            snap.set(next);
+        }
+    }
 }
 
 /// What a window's root draws from: its spec and whether it is a
@@ -187,6 +319,7 @@ fn read_host<R>(f: impl FnOnce(&Host) -> R) -> Option<R> {
 #[derive(Debug, Clone, PartialEq)]
 struct Snapshot {
     spec: WindowSpec,
+    solo: bool,
     popped: bool,
 }
 
@@ -194,6 +327,7 @@ fn snapshot(host: HostId) -> Option<Snapshot> {
     read_host(|h| {
         h.get(host).map(|w| Snapshot {
             spec: w.spec.clone(),
+            solo: w.solo.is_some(),
             popped: w.popped_from.is_some(),
         })
     })
@@ -340,10 +474,14 @@ fn apply_placement(window: &dyn dioxus_native::winit::window::Window, spec: &Win
 }
 
 /// A window's whole content. One of these per OS window; `host` says
-/// which panels.
+/// which tree.
 #[component]
 pub fn WindowRoot(host: HostId) -> Element {
-    let mut snap = use_signal(|| snapshot(host));
+    let snap = use_signal(|| snapshot(host));
+    use_context_provider(|| Refresh(snap));
+    // One operator for every pane in the window — favourites starred
+    // in one pane show starred in the next.
+    use_context_provider(|| Signal::new(crate::operators::Operator::current()));
     let window = dioxus_native::use_window();
     crate::provide_playhead();
 
@@ -376,10 +514,11 @@ pub fn WindowRoot(host: HostId) -> Element {
         crate::place_window();
     }
 
-    // Other windows change this one's panel list (a pop-out closing
-    // returns its panel here). Poll the version; a few Hz is plenty for
-    // something a hand did.
+    // Other windows change this one's tree (a pop-out closing returns
+    // its pane here; "Move to" lands one). Poll the version; a few Hz
+    // is plenty for something a hand did in another window.
     use_future(move || async move {
+        let mut snap = snap;
         let mut seen = VERSION.load(Ordering::SeqCst);
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(150)).await;
@@ -397,124 +536,62 @@ pub fn WindowRoot(host: HostId) -> Element {
     let Some(current) = snap() else {
         return rsx! { div { class: "studio", "closed" } };
     };
-    let surface = crate::surface();
     let popped = current.popped;
-    let can_pop = current.spec.panels.len() > 1 && !popped;
 
     rsx! {
         style { {include_str!("studio.css")} }
         style { {ignition_live_ui::live::LIVE_CSS} }
         style { {PANEL_CSS} }
+        style { {crate::dock::view::DOCK_CSS} }
         document::Stylesheet { href: crate::TAILWIND }
-        div { class: "window",
-            ModeStrip { host, view: current.spec.view, title: current.spec.title(), popped }
-            if is_classic(&current.spec.panels) {
-                // Today's arrangement, kept exactly: cue list down the
-                // left, transport over the visualizer over the desk.
-                div { class: "studio",
-                    PanelFrame { host, panel: Panel::CueList, can_pop, popped,
-                        crate::CueList { cues: surface.cues.clone() }
-                    }
-                    main { class: "stage",
-                        PanelFrame { host, panel: Panel::Transport, can_pop, popped, crate::Transport {} }
-                        PanelFrame { host, panel: Panel::Visualizer, can_pop, popped,
-                            div { class: "viewport", crate::Viewport {} }
-                        }
-                        PanelFrame { host, panel: Panel::Busking, can_pop, popped,
-                            ignition_live_ui::live::Views { boot: crate::bootstrap() }
-                        }
-                    }
-                }
-            } else {
-                div { class: if current.spec.panels.contains(&Panel::Visualizer) { "panels column" } else { "panels row" },
-                    for panel in current.spec.panels.iter().copied() {
-                        PanelFrame { key: "{panel.key()}", host, panel, can_pop, popped,
-                            PanelBody { panel }
-                        }
-                    }
-                }
+        ignition_live_ui::pointer::PointerRoot {
+            div { class: "window",
+                ModeStrip { host, view: current.spec.view, title: current.spec.title(), popped }
+                crate::dock::Dock { host, tree: current.spec.tree.clone(), solo: current.solo }
             }
         }
     }
 }
 
-/// Whether a panel set is the original single-window studio.
-fn is_classic(panels: &[Panel]) -> bool {
-    panels.len() == 4
-        && [
-            Panel::CueList,
-            Panel::Transport,
-            Panel::Visualizer,
-            Panel::Busking,
-        ]
-        .iter()
-        .all(|p| panels.contains(p))
-}
-
-/// A panel's component, by name. The ones that exist draw themselves;
+/// A pane's component, by kind. The ones that exist draw themselves;
 /// the rest say what they will be.
+// r[impl studio.panels] - one implementation per pane, whichever leaf hosts it
 #[component]
-fn PanelBody(panel: Panel) -> Element {
+pub fn PaneBody(pane: PaneKind) -> Element {
+    use ignition_live_ui::library::Tab;
+    use ignition_live_ui::operators::Kind;
+    use ignition_live_ui::panes;
     let surface = crate::surface();
-    match panel {
-        Panel::CueList => rsx! { crate::CueList { cues: surface.cues.clone() } },
-        Panel::Visualizer => rsx! { div { class: "viewport", crate::Viewport {} } },
-        Panel::Transport => rsx! { crate::Transport {} },
-        // The desk: the Live / Program views over the busking surface.
-        Panel::Busking => rsx! { ignition_live_ui::live::Views { boot: crate::bootstrap() } },
-        Panel::Library => rsx! { crate::library::Library { surface: surface.clone() } },
-        Panel::Palettes => rsx! { ignition_live_ui::live::Palettes { surface: surface.clone() } },
-        Panel::Programmer => rsx! { crate::program::Programmer { surface: surface.clone() } },
+    let kind_pane = |tab: Tab| rsx! { panes::KindPane { tab, surface: surface.clone() } };
+    match pane {
+        PaneKind::CueList => rsx! { crate::CueList { cues: surface.cues.clone() } },
+        PaneKind::Visualizer => rsx! { div { class: "viewport", crate::Viewport {} } },
+        PaneKind::Transport => rsx! { crate::Transport {} },
+        PaneKind::Faders => rsx! { panes::FadersPane {} },
+        PaneKind::Looks => kind_pane(Tab::Kind(Kind::Look)),
+        PaneKind::Macros => kind_pane(Tab::Kind(Kind::Macro)),
+        PaneKind::Groups => kind_pane(Tab::Kind(Kind::Group)),
+        PaneKind::Colours => kind_pane(Tab::Kind(Kind::Colour)),
+        PaneKind::Splits => kind_pane(Tab::Splits),
+        PaneKind::Focus => kind_pane(Tab::Kind(Kind::Focus)),
+        PaneKind::Effects => kind_pane(Tab::Kind(Kind::Effect)),
+        PaneKind::Tricks => kind_pane(Tab::Kind(Kind::Trick)),
+        PaneKind::Bundles => kind_pane(Tab::Kind(Kind::Bundle)),
+        PaneKind::Programmer => rsx! { crate::program::Programmer { surface: surface.clone() } },
+        PaneKind::Library => rsx! { crate::library::Library { surface: surface.clone() } },
+        PaneKind::Desk => {
+            rsx! { panes::DeskPane { banks: crate::desk::load(&crate::venue_dir()) } }
+        }
+        // r[impl studio.video.cameras-pane] - mounted like any other pane
+        PaneKind::Cameras => rsx! { ignition_live_ui::cameras::CamerasPane {} },
+        // r[impl viz.programme-view] - the cut, dockable anywhere
+        PaneKind::Programme => rsx! { div { class: "viewport", crate::viz_widget::Programme {} } },
         other => rsx! {
             div { class: "placeholder",
                 span { class: "placeholder-name", "{other.label()}" }
                 span { class: "placeholder-note", "not built yet — this window will host it" }
             }
         },
-    }
-}
-
-/// The frame around a panel: its name and the pop-out (or dock-back)
-/// key, then the panel itself.
-#[component]
-fn PanelFrame(
-    host: HostId,
-    panel: Panel,
-    can_pop: bool,
-    popped: bool,
-    children: Element,
-) -> Element {
-    let window = dioxus_native::use_window();
-    rsx! {
-        div { class: "panel {panel.key()}",
-            div { class: "panel-bar",
-                span { class: "panel-name", "{panel.label()}" }
-                if popped {
-                    button {
-                        class: "panel-key",
-                        title: "Dock this panel back where it came from",
-                        onclick: move |_| {
-                            // Closing is the return path: the window's
-                            // close hook puts the panel back.
-                            dioxus_native::close_window(window.id());
-                        },
-                        "DOCK BACK"
-                    }
-                } else if can_pop {
-                    button {
-                        class: "panel-key",
-                        title: "Open this panel in its own window",
-                        onclick: move |_| {
-                            if let Some(Some(new)) = with_host(|h| h.pop_out(host, panel)) {
-                                open(new);
-                            }
-                        },
-                        "POP OUT"
-                    }
-                }
-            }
-            div { class: "panel-body", {children} }
-        }
     }
 }
 
@@ -543,6 +620,13 @@ fn ModeStrip(host: HostId, view: View, title: String, popped: bool) -> Element {
                                 w.spec.view = w.spec.view.other();
                             }
                         });
+                        // The viewport draws the programmer's overlays
+                        // only in Program.
+                        // r[impl studio.program.pick-and-gizmos] - Live has the overlays off
+                        ignition_live_ui::send(ignition_live_ui::Command::ProgramView(
+                            view.other() == View::Program,
+                        ));
+                        refresh(host);
                     },
                     "{view.label().to_uppercase()}"
                 }
@@ -587,36 +671,21 @@ impl FlattenLayout for Option<Layout> {
 /// Inline, not in `studio.css`: that file is the panels' own, and the
 /// host should be removable without touching it.
 const PANEL_CSS: &str = r#"
-.window { display: flex; flex-direction: column; width: 100%; height: 100vh; }
-.window .studio { flex: 1; min-height: 0; height: auto; }
-.mode-strip { display: flex; align-items: center; gap: 14px; padding: 4px 10px;
-              background: #101014; border-bottom: 1px solid #26262c; flex: 0 0 auto; }
+.window { display: flex; flex-direction: column; width: 100%; height: 100vh; overflow: hidden; }
+.mode-strip { display: flex; align-items: center; gap: 14px; padding: 0 10px; height: 28px;
+              background: #101014; border-bottom: 1px solid #26262c; flex: 0 0 28px; }
 .mode-strip .modes { display: flex; gap: 8px; }
 .mode-strip .mode { font-size: 10px; letter-spacing: 0.1em; color: #55555f; padding: 3px 6px; }
 .mode-strip .mode.on { color: #e8a040; border-bottom: 2px solid #e8a040; }
-.mode-strip .window-title { font-size: 10px; color: #8d8d99; letter-spacing: 0.06em; }
+.mode-strip .window-title { font-size: 10px; color: #8d8d99; letter-spacing: 0.06em;
+                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mode-strip .strip-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .mode-strip .saved { font-size: 9px; color: #6a6a78; }
-.panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
-.panel-bar { display: flex; align-items: center; gap: 8px; padding: 2px 8px; height: 18px;
-             background: #0e0e12; border-bottom: 1px solid #1f1f26; flex: 0 0 auto; }
-.panel-name { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #6a6a78; }
-.panel-key { margin-left: auto; height: 14px; padding: 0 6px; font-size: 8px; letter-spacing: 0.08em;
+.panel-key { height: 16px; padding: 0 6px; font-size: 8px; letter-spacing: 0.08em;
              border-radius: 3px; cursor: pointer; color: rgba(255,255,255,0.7);
              background: #23232e; border: 1px solid #33333f; }
 .panel-key:hover { background: #2c2c3a; }
-.panel-key.view { margin-left: 0; height: 18px; font-size: 9px; color: #cfe0f0; border-color: #3d5a80; background: #2c3f5a; }
-.panel-body { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-.panel-body > * { flex: 1; min-height: 0; }
-.studio > .panel.cue_list { flex: 0 0 auto; }
-.stage > .panel.transport, .stage > .panel.busking { flex: 0 0 auto; }
-.stage > .panel.visualizer { flex: 1; min-height: 0; }
-.panels { flex: 1; min-height: 0; display: flex; }
-.panels.row { flex-direction: row; }
-.panels.row > .panel { flex: 1; }
-.panels.column { flex-direction: column; }
-.panels.column > .panel { flex: 0 0 auto; }
-.panels.column > .panel.visualizer { flex: 1; }
+.panel-key.view { height: 18px; font-size: 9px; color: #cfe0f0; border-color: #3d5a80; background: #2c3f5a; }
 .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
                gap: 6px; background: #121216; color: #55555f; }
 .placeholder-name { font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: #8d8d99; }
@@ -626,13 +695,15 @@ const PANEL_CSS: &str = r#"
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dock::Axis;
 
     fn three_windows() -> Host {
         Host::from_layout(&layout::parse(
             r#"{"windows":[
-              {"monitor":"DP-5","placement":"fullscreen","panels":["cue_list"],"view":"live"},
+              {"monitor":"DP-5","placement":"fullscreen","tree":{"tabs":{"panes":["cue_list"]}},"view":"live"},
               {"monitor":"DP-4","placement":{"docked":{"region":"right","fraction":0.5}},
-               "panels":["visualizer","transport"]},
+               "tree":{"split":{"axis":"col","ratios":[0.8,0.2],"children":[
+                 {"tabs":{"panes":["visualizer"]}},{"tabs":{"panes":["transport"]}}]}}},
               {"monitor":"DP-3","placement":"fullscreen","panels":["busking","palettes","library"],"view":"live"}
             ]}"#,
         )
@@ -641,17 +712,21 @@ mod tests {
 
     /// r[verify studio.windows.multiple]
     #[test]
-    fn a_panel_pops_out_into_its_own_window_and_comes_back_on_close() {
+    fn a_pane_pops_out_into_its_own_window_and_comes_back_on_close() {
         let mut host = three_windows();
         let ids = host.ids();
         assert_eq!(ids, vec![0, 1, 2]);
 
         let new = host
-            .pop_out(1, Panel::Transport)
+            .pop_out(1, PaneKind::Transport)
             .expect("transport can leave");
-        assert_eq!(host.get(1).unwrap().spec.panels, vec![Panel::Visualizer]);
+        // The split collapsed around the one pane left.
+        assert_eq!(
+            host.get(1).unwrap().spec.tree,
+            DockNode::tab(PaneKind::Visualizer)
+        );
         let popped = host.get(new).unwrap();
-        assert_eq!(popped.spec.panels, vec![Panel::Transport]);
+        assert_eq!(popped.spec.tree, DockNode::tab(PaneKind::Transport));
         assert_eq!(popped.popped_from, Some(1));
         // Same monitor and view as where it came from; docked, not
         // fullscreen, so it does not cover its origin.
@@ -660,10 +735,14 @@ mod tests {
         assert!(matches!(popped.spec.placement, Placement::Docked { .. }));
 
         let returned = host.window_closed(new);
-        assert_eq!(returned, vec![Panel::Transport]);
+        assert_eq!(returned, vec![PaneKind::Transport]);
+        // Home again, as a tab beside the visualizer.
         assert_eq!(
-            host.get(1).unwrap().spec.panels,
-            vec![Panel::Visualizer, Panel::Transport]
+            host.get(1).unwrap().spec.tree,
+            DockNode::Tabs {
+                panes: vec![PaneKind::Visualizer, PaneKind::Transport],
+                active: 1
+            }
         );
         assert!(host.get(new).is_none());
         assert_eq!(host.windows.len(), 3);
@@ -671,12 +750,12 @@ mod tests {
 
     /// r[verify studio.windows.multiple]
     #[test]
-    fn the_last_panel_cannot_leave_and_a_missing_one_cannot_either() {
+    fn the_last_pane_cannot_leave_and_a_missing_one_cannot_either() {
         let mut host = three_windows();
-        assert!(!host.can_pop_out(0, Panel::CueList));
-        assert_eq!(host.pop_out(0, Panel::CueList), None);
-        assert_eq!(host.pop_out(0, Panel::Lyrics), None);
-        assert_eq!(host.pop_out(99, Panel::CueList), None);
+        assert!(!host.can_pop_out(0, PaneKind::CueList));
+        assert_eq!(host.pop_out(0, PaneKind::CueList), None);
+        assert_eq!(host.pop_out(0, PaneKind::Lyrics), None);
+        assert_eq!(host.pop_out(99, PaneKind::CueList), None);
         assert_eq!(host.windows.len(), 3);
     }
 
@@ -684,35 +763,123 @@ mod tests {
     #[test]
     fn a_pop_out_whose_origin_has_closed_returns_to_the_first_window() {
         let mut host = three_windows();
-        let new = host.pop_out(2, Panel::Library).unwrap();
+        let new = host.pop_out(2, PaneKind::Library).unwrap();
         // The origin goes away first.
         assert!(host.window_closed(2).is_empty());
         // The pop-out is now free-standing …
         assert_eq!(host.get(new).unwrap().popped_from, None);
-        // … so closing it re-homes nothing; its panel simply closes.
+        // … so closing it re-homes nothing; its pane simply closes.
         assert!(host.window_closed(new).is_empty());
         assert_eq!(host.ids(), vec![0, 1]);
 
         // Whereas a pop-out that still remembers its origin, when that
         // origin is gone but another window remains, lands there.
         let mut host = three_windows();
-        let new = host.pop_out(2, Panel::Palettes).unwrap();
+        let new = host.pop_out(2, PaneKind::Splits).unwrap();
         host.get_mut(new).unwrap().popped_from = Some(2);
         host.windows.retain(|w| w.id != 2);
-        assert_eq!(host.window_closed(new), vec![Panel::Palettes]);
-        assert!(host.get(0).unwrap().spec.panels.contains(&Panel::Palettes));
+        assert_eq!(host.window_closed(new), vec![PaneKind::Splits]);
+        assert!(host.get(0).unwrap().spec.tree.contains(PaneKind::Splits));
     }
 
     /// r[verify studio.windows.multiple]
     #[test]
-    fn closing_a_window_does_not_duplicate_a_panel_already_home() {
+    fn closing_a_window_does_not_duplicate_a_pane_already_home() {
         let mut host = three_windows();
-        let new = host.pop_out(2, Panel::Palettes).unwrap();
-        // Something put Palettes back by hand in the meantime.
-        host.get_mut(2).unwrap().spec.panels.push(Panel::Palettes);
+        let new = host.pop_out(2, PaneKind::Splits).unwrap();
+        // Something put Splits back by hand in the meantime.
+        host.get_mut(2).unwrap().edit(|t| t.adopt(PaneKind::Splits));
         assert!(host.window_closed(new).is_empty());
-        let panels = &host.get(2).unwrap().spec.panels;
-        assert_eq!(panels.iter().filter(|p| **p == Panel::Palettes).count(), 1);
+        let panes = host.get(2).unwrap().panes();
+        assert_eq!(panes.iter().filter(|p| **p == PaneKind::Splits).count(), 1);
+    }
+
+    /// r[verify studio.dock.tabs-are-handles]
+    #[test]
+    fn move_to_another_window_tabs_the_pane_into_it() {
+        let mut host = three_windows();
+        assert!(host.move_pane(1, PaneKind::Transport, 0));
+        assert_eq!(
+            host.get(1).unwrap().spec.tree,
+            DockNode::tab(PaneKind::Visualizer)
+        );
+        assert_eq!(
+            host.get(0).unwrap().panes(),
+            vec![PaneKind::CueList, PaneKind::Transport]
+        );
+        // The last pane stays; a window cannot be emptied by a move.
+        assert!(!host.move_pane(1, PaneKind::Visualizer, 0));
+        assert!(!host.move_pane(0, PaneKind::CueList, 0));
+        assert!(!host.move_pane(0, PaneKind::CueList, 77));
+    }
+
+    /// r[verify studio.dock]
+    #[test]
+    fn solo_is_drawn_but_the_whole_tree_is_saved_and_edits_leave_solo() {
+        let mut host = three_windows();
+        assert!(host.solo(1, PaneKind::Transport));
+        assert_eq!(
+            host.get(1).unwrap().spec.tree,
+            DockNode::tab(PaneKind::Transport)
+        );
+        assert!(matches!(
+            host.layout().windows[1].tree,
+            DockNode::Split {
+                axis: Axis::Col,
+                ..
+            }
+        ));
+        // An edit lands on the real tree and ends the solo.
+        assert!(host.edit(1, |t| {
+            t.adopt(PaneKind::Output);
+        }));
+        let w = host.get(1).unwrap();
+        assert!(w.solo.is_none());
+        assert_eq!(
+            w.panes(),
+            vec![PaneKind::Visualizer, PaneKind::Output, PaneKind::Transport]
+        );
+        host.solo(1, PaneKind::Visualizer);
+        host.restore(1);
+        assert_eq!(host.get(1).unwrap().panes().len(), 3);
+    }
+
+    /// r[verify studio.dock.presets]
+    #[test]
+    fn a_preset_relays_the_panes_the_window_has() {
+        let mut host = three_windows();
+        assert!(host.apply_preset(1, Preset::TwoColumns));
+        let tree = &host.get(1).unwrap().spec.tree;
+        assert!(matches!(
+            tree,
+            DockNode::Split {
+                axis: Axis::Row,
+                ..
+            }
+        ));
+        assert_eq!(
+            tree.panes(),
+            vec![PaneKind::Visualizer, PaneKind::Transport]
+        );
+        assert!(host.apply_preset(0, Preset::Console));
+        assert!(host.get(0).unwrap().spec.tree.contains(PaneKind::Faders));
+        assert!(host.get(0).unwrap().spec.tree.contains(PaneKind::CueList));
+    }
+
+    /// r[verify studio.dock]
+    #[test]
+    fn closing_panes_empties_a_pop_out_but_never_the_launch_window() {
+        let mut host = three_windows();
+        assert!(!host.close_pane(0, PaneKind::CueList));
+        assert!(host.get(0).unwrap().spec.tree.contains(PaneKind::CueList));
+        assert!(
+            !host.close_pane(1, PaneKind::Transport),
+            "one pane still there"
+        );
+        assert!(
+            host.close_pane(1, PaneKind::Visualizer),
+            "now empty: close the window"
+        );
     }
 
     /// r[verify studio.operators.layout]
@@ -722,34 +889,16 @@ mod tests {
         let layout = host.layout();
         assert_eq!(layout.windows.len(), 3);
         assert_eq!(
-            layout.windows[1].panels,
-            vec![Panel::Visualizer, Panel::Transport]
+            layout.windows[1].panes(),
+            vec![PaneKind::Visualizer, PaneKind::Transport]
         );
         // And a change shows in the save.
         let mut host = host;
-        host.pop_out(2, Panel::Library).unwrap();
+        host.pop_out(2, PaneKind::Library).unwrap();
         assert_eq!(host.layout().windows.len(), 4);
-        assert_eq!(host.layout().windows[3].panels, vec![Panel::Library]);
-    }
-
-    #[test]
-    fn classic_is_the_original_four_in_any_order() {
-        assert!(is_classic(&[
-            Panel::Busking,
-            Panel::CueList,
-            Panel::Visualizer,
-            Panel::Transport
-        ]));
-        assert!(!is_classic(&[
-            Panel::CueList,
-            Panel::Visualizer,
-            Panel::Transport
-        ]));
-        assert!(!is_classic(&[
-            Panel::CueList,
-            Panel::Visualizer,
-            Panel::Transport,
-            Panel::Library
-        ]));
+        assert_eq!(
+            host.layout().windows[3].tree,
+            DockNode::tab(PaneKind::Library)
+        );
     }
 }

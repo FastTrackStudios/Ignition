@@ -103,15 +103,37 @@ pub fn TouchFader(
     level: f32,
     #[props(default)] latched: bool,
     #[props(default)] toggled: bool,
+    /// The track's height in CSS pixels. The Live view's default is
+    /// `.tfader .ttrack` in live.css; a pane in a shorter band passes
+    /// its own, and the track is sized inline to match.
+    #[props(default = 220.0)]
+    track: f32,
     on_change: EventHandler<f32>,
 ) -> Element {
-    let mut held = use_signal(|| false);
-    // Keep in step with `.tfader .ttrack` in live.css.
-    const TRACK: f32 = 220.0;
-    let set_from = move |y: f64| {
-        let v = (1.0 - (y as f32 / TRACK)).clamp(0.0, 1.0);
-        on_change.call(v);
-    };
+    // Pressed on the track, the fader follows the window's pointer
+    // until the release — wherever the pointer went — moving by how far
+    // the hand moved, and shows its own value rather than the
+    // playhead's until then, so the engine echoing an older level back
+    // cannot fight the hand.
+    let mut latch = use_signal(|| Option::<crate::pointer::Latch>::None);
+    let mut local = use_signal(|| level);
+    let feed = crate::pointer::use_pointer_feed();
+    use_effect(move || {
+        let Some(l) = latch() else {
+            return;
+        };
+        let p = feed();
+        if crate::pointer::released(&l, &p) {
+            latch.set(None);
+            return;
+        }
+        let v = crate::pointer::drag_up(&l, p.y, track);
+        if v != *local.peek() {
+            local.set(v);
+            on_change.call(v);
+        }
+    });
+    let shown = if latch().is_some() { local() } else { level };
     let class = match (latched, toggled) {
         (true, _) => "tfader latched",
         (_, true) => "tfader toggled",
@@ -121,22 +143,21 @@ pub fn TouchFader(
         div { class: "{class}",
             div {
                 class: "ttrack",
+                style: "height: {track}px",
                 onpointerdown: move |e| {
-                    held.set(true);
-                    set_from(e.data.element_coordinates().y);
+                    let p = e.data.client_coordinates();
+                    local.set(level);
+                    latch.set(Some(crate::pointer::Latch {
+                        at: (p.x as f32, p.y as f32),
+                        level,
+                        ups: feed.peek().ups,
+                    }));
                 },
-                onpointermove: move |e| {
-                    if held() {
-                        set_from(e.data.element_coordinates().y);
-                    }
-                },
-                onpointerup: move |_| held.set(false),
-                onpointerleave: move |_| held.set(false),
-                div { class: "tfill", style: "height: {level * 100.0}%; background: {css}" }
-                div { class: "thandle", style: "bottom: {level * 100.0}%; border-color: {css}" }
+                div { class: "tfill", style: "height: {shown * 100.0}%; background: {css}" }
+                div { class: "thandle", style: "bottom: {shown * 100.0}%; border-color: {css}" }
             }
             span { class: "tlabel", "{label8(&label)}" }
-            span { class: "tvalue", "{(level * 100.0) as u32}" }
+            span { class: "tvalue", "{(shown * 100.0) as u32}" }
         }
     }
 }
@@ -303,7 +324,7 @@ pub fn DeskBanks(banks: Vec<crate::desk::Bank>) -> Element {
 // r[impl profile.pages] - the page selector is the profile's pages
 // r[impl profile.effect-parameters] - secondary sliders inline, touch-sized
 #[component]
-pub fn FaderBank() -> Element {
+pub fn FaderBank(#[props(default = 220.0)] track: f32) -> Element {
     let desk = use_desk();
     let playhead = use_playhead();
     let mut key_mode = use_signal(|| ignition_core::KeyAction::Flash);
@@ -374,6 +395,7 @@ pub fn FaderBank() -> Element {
                                     level,
                                     latched: desk().latched[i],
                                     toggled: desk().toggled[i],
+                                    track,
                                     on_change: move |v: f32| send(Command::Level(i, v)),
                                 }
                                 for param in params.iter() {
@@ -595,16 +617,16 @@ pub fn ProtectedRoles() -> Element {
 /// The grand master and the two playback masters, from the playhead.
 // r[impl playback.grand-master]
 #[component]
-pub fn Masters() -> Element {
+pub fn Masters(#[props(default = 220.0)] track: f32) -> Element {
     let playhead = use_playhead();
     let p: Playhead = playhead();
     rsx! {
         div { class: "live-block masters-block",
             header { "Masters" }
             div { class: "tfader-row",
-                TouchFader { label: "GM".to_string(), css: "#e05050".to_string(), level: p.grand, on_change: move |v: f32| send(Command::Grand(v)) }
-                TouchFader { label: "SONG".to_string(), css: "#c8a050".to_string(), level: p.song_master(), on_change: move |v: f32| send(Command::PlaybackMaster(ignition_core::Class::Song, v)) }
-                TouchFader { label: "LOOK".to_string(), css: "#a0c850".to_string(), level: p.look_master(), on_change: move |v: f32| send(Command::PlaybackMaster(ignition_core::Class::Look, v)) }
+                TouchFader { label: "GM".to_string(), css: "#e05050".to_string(), level: p.grand, track, on_change: move |v: f32| send(Command::Grand(v)) }
+                TouchFader { label: "SONG".to_string(), css: "#c8a050".to_string(), level: p.song_master(), track, on_change: move |v: f32| send(Command::PlaybackMaster(ignition_core::Class::Song, v)) }
+                TouchFader { label: "LOOK".to_string(), css: "#a0c850".to_string(), level: p.look_master(), track, on_change: move |v: f32| send(Command::PlaybackMaster(ignition_core::Class::Look, v)) }
             }
         }
     }

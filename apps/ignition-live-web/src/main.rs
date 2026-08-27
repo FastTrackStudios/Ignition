@@ -128,7 +128,7 @@ fn App() -> Element {
                 div { class: "offline", "no studio — reconnecting" }
             }
             match boot() {
-                Some(boot) => rsx! { Views { boot } },
+                Some(boot) => rsx! { ignition_live_ui::pointer::PointerRoot { Views { boot } } },
                 None => rsx! { div { class: "connecting", "connecting to the studio" } },
             }
         }

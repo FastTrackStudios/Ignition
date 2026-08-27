@@ -65,6 +65,18 @@ shot OUT="/tmp/ignition.png" *ARGS:
     cargo run -p ignition-viz --bin viz -- \
         --venue data/venues/norco --snapshot {{OUT}} {{ARGS}}
 
+# One 320×180 still per profile look (baked + authored), house view,
+# for the Looks pane's thumbnails. GPU; a minute or so for four looks.
+look-previews:
+    mkdir -p data/looks/previews
+    python3 -c 'import json,glob; \
+      names=set(json.load(open("data/profiles/ignition.ig-profile")).get("looks",{})); \
+      [names.update(json.load(open(f)).get("looks",{})) for f in glob.glob("data/profiles/*.looks.json")]; \
+      print("\n".join(sorted(names)))' | while IFS= read -r name; do \
+        cargo run -q -p ignition-viz --bin viz -- --venue data/venues/norco --view house \
+          --width 320 --height 180 --look-name "$name" --snapshot "data/looks/previews/$name.png"; \
+      done
+
 test:
     cargo test --workspace
 

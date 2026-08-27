@@ -64,6 +64,13 @@ pub struct VizConfig {
     /// An explicit eye/target pair, overriding `view`'s framing. What
     /// `--eye`/`--look` set, for inspecting one corner of the room.
     pub camera: Option<(Vec3, Vec3)>,
+    /// The venue's camera presets, slots and setups — see `camera.rs`.
+    /// Loaded from `cameras.json` by whoever loads the venue; the three
+    /// auto-framed views when there is no file.
+    pub cameras: crate::camera::Cameras,
+    /// Start on this preset, by name — `--camera <preset>`. Overrides
+    /// `view` and `camera` when it names one.
+    pub camera_preset: Option<String>,
     /// Draw the operator overlay — the cue list with cooked status.
     /// Always on in a window; `--overlay` turns it on for a snapshot
     /// too, which is how a still can carry the cue context that makes it
@@ -145,6 +152,8 @@ impl VizConfig {
             settle_frames: 20,
             show_props: true,
             camera: None,
+            cameras: Default::default(),
+            camera_preset: None,
             overlay: false,
             fps: false,
             exclude: Vec::new(),
@@ -451,6 +460,11 @@ impl Grade {
     }
 }
 
+/// The main camera's spec, kept so a programme or source camera can be
+/// spawned later with the same post-processing.
+#[derive(Resource, Clone, Copy)]
+pub struct MainCameraSpec(pub(crate) CameraSpec);
+
 /// Everything a main camera is spawned from.
 #[derive(Clone, Copy)]
 pub(crate) struct CameraSpec {
@@ -568,6 +582,19 @@ pub fn bind_output(config: &VizConfig, dmx: &DmxUniverses) -> DmxOutput {
 
 impl Plugin for VizPlugin {
     fn build(&self, app: &mut App) {
+        // The main camera's spec, so a programme or source camera can be
+        // spawned later with the same post-processing. Computed in its
+        // own statement: the builder chain below takes the GDTF library
+        // out of the same mutex, and a guard created inside a chain
+        // argument lives to the end of the whole chain — a second lock
+        // in the chain deadlocked the studio at startup.
+        let spec = {
+            let gdtf = self.gdtf.lock().expect("gdtf lock");
+            CameraSpec::new(
+                &self.config,
+                self.config.quality.for_rig(&self.config.venue, gdtf.as_ref()),
+            )
+        };
         app.insert_resource(ClearColor(Color::BLACK))
             .insert_resource(VenueRes(self.config.venue.clone()))
             .insert_resource(DmxRes(self.dmx.clone()))
@@ -628,6 +655,32 @@ impl Plugin for VizPlugin {
                     .unwrap_or_default(),
             )
             .add_systems(Startup, widen_light_clusters)
+            // The programme camera: presets, slots and cue cuts; the
+            // programme view and cameras as canvas sources.
+            .insert_resource(crate::camera::active_from_config(&self.config))
+            .insert_resource(MainCameraSpec(spec))
+            .insert_resource(crate::camera::ProgrammeView {
+                target: Handle::default(),
+                size: crate::camera::SOURCE_SIZE,
+                host_wants: false,
+                canvas_wants: false,
+                camera: None,
+            })
+            .init_resource::<crate::camera::CameraSources>()
+            .init_resource::<crate::camera::CanvasSwitches>()
+            .add_systems(Startup, allocate_programme_target.before(spawn_venue))
+            .add_systems(
+                Update,
+                (
+                    crate::camera::cue_camera_commands,
+                    crate::camera::camera_keys,
+                    crate::camera::apply_canvas_switches,
+                    crate::camera::manage_camera_views,
+                    crate::camera::drive_camera,
+                )
+                    .chain()
+                    .after(tick_playback),
+            )
             // Frame timing for the overlay's FPS readout. Bevy's own
             // plugin rather than a hand-rolled delta average, because it
             // keeps a smoothed history — a per-frame reciprocal flickers
@@ -959,6 +1012,15 @@ pub fn run_export(
         let advance = if frame.index == 0 { Duration::ZERO } else { dt };
         let image = headless.target_image();
         let world = headless.subapps.main.world_mut();
+        // The song drives the show: this frame's musical position lands
+        // the clocked cues (and their `camera …` commands) and the hits,
+        // exactly as the studio's transport does frame by frame.
+        // r[impl viz.export] - the cues follow the song, so the cut does too
+        // r[impl viz.camera-cuts] - an export renders the cut programme
+        let song_secs = ((frame.position.bar.max(1) - 1) as f64 * schedule.secs_per_bar()
+            + (frame.position.beat - 1.0).max(0.0) * 60.0 / schedule.bpm)
+            as f32;
+        follow_position(world, frame.position, song_secs);
         world.insert_resource(TimeUpdateStrategy::ManualDuration(advance));
         let tx = tx.clone();
         world
@@ -1002,9 +1064,59 @@ pub fn run_export(
     Ok(())
 }
 
+/// Points the song list and the hits at a musical position — what the
+/// studio's `follow_song` does every frame from its transport, done
+/// here from the export's own schedule.
+fn follow_position(world: &mut World, position: ignition_core::Bars, secs: f32) {
+    use ignition_core::{Class, Show};
+    let Some(mut playback) = world.get_resource_mut::<Playback>() else {
+        return;
+    };
+    let Playback {
+        playbacks,
+        groups,
+        rig,
+        palettes,
+        speeds,
+        profile,
+        library,
+        bundles,
+        looks,
+        named_tricks,
+        triggers,
+        ..
+    } = &mut *playback;
+    triggers.advance(position, secs);
+    if let Some(player) = playbacks.of_class(Class::Song) {
+        let show = Show {
+            groups,
+            palettes,
+            rig,
+            speeds,
+            roles: profile,
+            library,
+            bundles,
+            looks,
+            named_tricks,
+            ..Show::new(groups, rig)
+        };
+        player.set_clock(secs);
+        player.seek(position, &show);
+    }
+}
+
 /// The camera every mode uses: HDR so bloom has something above white to
 /// work with, a tonemapper that desaturates as it clips, and the preset's
 /// own framing.
+/// The programme camera's texture, allocated before the venue spawns so
+/// a `camera:programme` canvas can bind it at spawn.
+fn allocate_programme_target(
+    mut images: ResMut<Assets<Image>>,
+    mut programme: ResMut<crate::camera::ProgrammeView>,
+) {
+    programme.target = images.add(crate::camera::camera_target(programme.size));
+}
+
 /// Grows the clustering buffers past what this rig will ever need.
 ///
 /// A Startup system rather than an inserted resource because the plugin
@@ -1058,6 +1170,7 @@ pub(crate) fn spawn_camera(
     } = spec;
     let mut camera = commands.spawn((
         Camera3d::default(),
+        crate::camera::MainCamera,
         if quality.msaa {
             Msaa::default()
         } else {

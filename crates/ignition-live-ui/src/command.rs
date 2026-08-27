@@ -240,6 +240,89 @@ pub enum Command {
     /// while it is; Live is the stage, not the rig.
     // r[impl studio.program.pick-and-gizmos] - Live has the overlays off
     ProgramView(bool),
+    // ── Additive, for the Cameras pane (`cameras.rs`). Handled in the
+    // widget beside the cue's own `camera …` commands.
+    /// Cut the programme camera to a slot or a preset, dissolving over
+    /// `beats` (zero is a cut) — what a number key and a pane tile send.
+    // r[impl viz.camera-favourites] - the studio's number keys
+    // r[impl viz.camera-cuts] - the same cut a cue would make
+    Camera {
+        target: CameraTarget,
+        beats: f32,
+    },
+    /// Save the camera the viewport is on right now as a preset of this
+    /// name in the venue's `cameras.json` — new, or replacing one.
+    // r[impl studio.video.cameras-pane] - save current view as preset
+    SaveCameraPreset {
+        name: String,
+    },
+    /// Put a preset on key `slot` (`1`..`9`, `0`), for this operator and
+    /// as the venue's default.
+    // r[impl studio.video.cameras-pane] - set as slot N
+    SetCameraSlot {
+        slot: u8,
+        name: String,
+    },
+    /// Remove a preset from the venue file, and from every slot.
+    // r[impl studio.video.cameras-pane] - delete
+    DeleteCameraPreset {
+        name: String,
+    },
+    /// The preset the main (wide) view holds while a Programme pane
+    /// takes the cuts.
+    // r[impl viz.programme-view] - the wide view is selectable
+    Wide {
+        target: CameraTarget,
+    },
+    /// What a canvas shows: `camera:programme`, `camera:<preset>`, or
+    /// an empty string for the canvas's own content — the TO SCREENS
+    /// key on the Cameras pane.
+    // r[impl canvas.camera-source] - switched live from the surface
+    CanvasSource {
+        canvas: String,
+        source: String,
+    },
+}
+
+/// What a camera cut names: a number key, or a preset by name.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CameraTarget {
+    Slot(u8),
+    Preset(String),
+}
+
+/// Where the programme camera is, as the engine reports it: the preset
+/// it is on (`None` mid-dissolve or after a free move), its pose, and
+/// the presets and slots the pane lists. The pose is what *save current
+/// view as preset* writes.
+// r[impl studio.video.cameras-pane] - the current view comes back on the playhead
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct CameraState {
+    pub preset: Option<String>,
+    pub eye: [f32; 3],
+    pub look: [f32; 3],
+    pub fov_deg: f32,
+    /// Every preset the venue has, in file order.
+    pub presets: Vec<String>,
+    /// The ten keys, `1`..`9` then `0`; `None` where a key is empty.
+    pub slots: Vec<Option<String>>,
+    /// The preset the wide (main) view is on while a programme camera
+    /// takes the cuts; `None` when the main view *is* the programme.
+    pub wide: Option<String>,
+    /// Every canvas of the venue, and the camera it is switched to
+    /// (`None` for its own content).
+    pub canvases: Vec<CanvasRow>,
+}
+
+/// One canvas on the Cameras pane's TO SCREENS row.
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct CanvasRow {
+    pub name: String,
+    /// `camera:programme` / `camera:<preset>` while switched; `None`
+    /// for the canvas's own content.
+    pub camera: Option<String>,
 }
 
 /// The switchable overlays of the Program view's visualizer.
@@ -302,6 +385,12 @@ pub enum PageMove {
     Set(usize),
 }
 
+/// A playhead from a client that predates fade progress reports its cue
+/// as arrived rather than as never having landed.
+fn one_f32() -> f32 {
+    1.0
+}
+
 /// Where the show actually is — the widget's answer back to the UI.
 ///
 /// The commands above are one-way, and that was fine while every change
@@ -317,6 +406,19 @@ pub enum PageMove {
 pub struct Playhead {
     /// Index of the cue the player is actually standing on.
     pub cue: Option<usize>,
+    /// How far into its arrival that cue is, 0 to 1. The list draws it
+    /// as a bar across the standing row: a cue list that only shows
+    /// stored data is a document, and an operator needs an instrument.
+    // r[impl studio.cuelist.live-state]
+    #[serde(default = "one_f32")]
+    pub cue_fade: f32,
+    /// Which cue a GO would take next, and — when it takes itself —
+    /// how many seconds until it does.
+    // r[impl studio.cuelist.live-state]
+    #[serde(default)]
+    pub next_cue: Option<usize>,
+    #[serde(default)]
+    pub next_in: Option<f32>,
     /// Seconds into the song, and how long it is — the progress bar.
     pub secs: f32,
     pub length: f32,
@@ -378,6 +480,11 @@ pub struct Playhead {
     /// How many direct values the programmer holds — what a store
     /// would write.
     pub captured: usize,
+    // ── Additive, for the Cameras pane.
+    /// The programme camera as the engine has it — see `CameraState`.
+    /// `None` until a visualizer exists.
+    // r[impl studio.video.cameras-pane] - the active camera comes from the engine
+    pub camera: Option<CameraState>,
 }
 
 impl Playhead {

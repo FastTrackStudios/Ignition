@@ -130,6 +130,34 @@ pub struct Playback {
 }
 
 impl Playback {
+    /// Latch a profile look on the programmer's held layer by name,
+    /// resolved through this playback's own library, bundles and looks
+    /// — what `Command::Look` does at the desk, and what `--look-name`
+    /// does for a still. False when the profile has no such look.
+    // r[impl profile.looks] - a look by name, held
+    pub fn hold_look(&mut self, name: &str) -> bool {
+        let Some(look) = self.looks.get(name) else {
+            return false;
+        };
+        let safe = look.kind == ignition_core::profile::LookKind::Safe;
+        let show = Show {
+            groups: &self.groups,
+            palettes: &self.palettes,
+            rig: &self.rig,
+            speeds: &self.speeds,
+            roles: &self.profile,
+            library: &self.library,
+            bundles: &self.bundles,
+            looks: &self.looks,
+            named_tricks: &self.named_tricks,
+            ..Show::new(&self.groups, &self.rig)
+        };
+        let recipes: Vec<ignition_core::Recipe> =
+            look.recipes.iter().flat_map(|r| r.resolve(&show)).collect();
+        self.programmer.hold_look(recipes, safe);
+        true
+    }
+
     /// The song list — the entry `--cue`, `--bar`, GO and the transport
     /// address. `None` when no show was loaded.
     pub fn song(&self) -> Option<&CuePlayer> {
@@ -257,7 +285,10 @@ impl Playback {
                         .map(|(_, rest)| rest.to_string())
                         .unwrap_or_else(|| problem.clone());
                     if seen.insert(key.clone()) {
-                        tracing::warn!("{key} (first in {})", problem.split_once(": ").map(|(c, _)| c).unwrap_or(""));
+                        tracing::warn!(
+                            "{key} (first in {})",
+                            problem.split_once(": ").map(|(c, _)| c).unwrap_or("")
+                        );
                     }
                 }
 

@@ -78,7 +78,7 @@ pub fn target_overlay_camera(
             Without<UiTargetCamera>,
         ),
     >,
-    camera: Query<Entity, With<Camera3d>>,
+    camera: Query<Entity, With<crate::camera::MainCamera>>,
 ) {
     let Ok(camera) = camera.single() else {
         return;

@@ -269,6 +269,18 @@ teach people to distrust the desk. The draft MUST be re-derivable at any time
 without destroying those edits. (`authorshow --merge`, with the cues to keep
 named in `<song>.edits.json`.)
 
+r[song.camera-cuts]
+A show MAY carry its **camera cut** in the cues' `commands`
+(`r[viz.camera-cuts]`), and `authorshow --cameras <setup>` writes one: verses
+on the singer, pre-choruses across the side stage and the guitar, choruses
+wide and then super wide, the break on the drums, the breakdown on keys and
+bass, the outro flat at the lip and the last cue from the bird's eye, with
+figures and high hits as one-to-two-beat punch-ins to the drum cam. The cuts
+name the standard presets, never a venue's own — the venue's `cameras.json`
+says where "Drums" is (`r[song.no-room]`). A cue that exists only to carry a
+cut is a `·` accent cue with no recipes, so it never blocks and the lighting
+reads exactly as it did without it.
+
 ## Transport
 
 r[song.transport.position-per-frame]

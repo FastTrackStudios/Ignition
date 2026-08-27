@@ -9,6 +9,7 @@
 //! ```text
 //! authorshow <project.RPP> [--lint] [--profile <ignition.ig-profile>]
 //!            [--merge <existing.json>] [--edits <edits.json>]
+//!            [--cameras two|four|eight]
 //!            [--sidecar-dir <dir>] [--no-sidecars]
 //! ```
 //!
@@ -102,6 +103,10 @@ fn main() -> anyhow::Result<()> {
     // show with no hits, which is still a show.
     let chart = ignition_song::chart::read(&opts.project, &song)?;
     let mut list = build(&song, (!chart.is_empty()).then_some(&chart));
+    if let Some(setup) = &opts.cameras {
+        let added = camera_cuts(&mut list, &song, setup)?;
+        eprintln!("camera cuts for the {setup} setup: {added} cue(s) carry a cut");
+    }
     if !chart.is_empty() {
         eprintln!(
             "{} triggers from {} charted hits in {} figures; {} cues",
@@ -210,6 +215,199 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+// ── the camera cut ───────────────────────────────────────────────────
+//
+// The cut is written into the cues' `commands` beside `macro …`, so it
+// rides the same clock as the lighting and there is no second timeline
+// (`r[viz.camera-cuts]`). The names are the standard presets — a venue's
+// `cameras.json` says where its Drums are — never a venue's own, and
+// never a slot number, since slots are per operator (`r[song.no-room]`).
+//
+// The plan, by section kind: verses on the singer; the pre across the
+// side stage and then the guitar on its last-bar wipe; a chorus wide,
+// then super wide four bars in; the break on the drums; the breakdown
+// on keys, its lift on bass; the outro flat at the lip, and the last
+// cue from the bird's eye. Figures and high hits are one-to-two-beat
+// punch-ins to the drum cam that return to whatever was up.
+
+/// The cameras each setup has. A cut naming one a setup lacks is not
+/// written, so a two-camera show is a two-camera show.
+fn setup_cameras(setup: &str) -> anyhow::Result<&'static [&'static str]> {
+    Ok(match setup {
+        "two" => &["Wide", "Singer"],
+        "four" => &["Wide", "Singer", "Drums", "Side stage"],
+        // The eight, plus the two specials on `9` and `0`: the flat
+        // front and the plan only the outro reaches for.
+        "eight" => &[
+            "Wide",
+            "Singer",
+            "Drums",
+            "Guitar",
+            "Bass",
+            "Keys",
+            "Side stage",
+            "Super wide",
+            "Flat front",
+            "Bird's eye",
+        ],
+        other => anyhow::bail!("--cameras {other}: two, four or eight"),
+    })
+}
+
+/// One cue's cut: the camera, its dissolve in beats, and an optional
+/// follow-up — a second camera some beats later in the same cue.
+type Cut = (&'static str, f32, Option<(&'static str, f32)>);
+
+/// The section-cue plan, by cue name.
+fn cut_plan(name: &str) -> Option<Cut> {
+    let n = name.trim_start_matches("· ").trim();
+    if n.starts_with("VS") && !n.contains("lift") {
+        return Some(("Singer", 2.0, None));
+    }
+    if n.contains("lift") && n.starts_with("VS") {
+        return Some(("Guitar", 0.0, Some(("Singer", 4.0))));
+    }
+    if n.starts_with("PRE") && n.contains("wipe") {
+        return Some(("Guitar", 0.0, None));
+    }
+    if n.starts_with("PRE") {
+        return Some(("Side stage", 1.0, None));
+    }
+    if n.starts_with("CH") && !n.contains("strobe") && !n.contains("drive") {
+        return Some(("Wide", 0.0, Some(("Super wide", 16.0))));
+    }
+    if n.starts_with("CH") && n.contains("strobe") {
+        return Some(("Super wide", 0.0, None));
+    }
+    if n.starts_with("CH") && n.contains("drive") {
+        return Some(("Wide", 0.0, None));
+    }
+    if n == "Break" {
+        return Some(("Drums", 0.0, None));
+    }
+    if n == "BR" {
+        return Some(("Side stage", 2.0, None));
+    }
+    if n.starts_with("Breakdown") && n.contains("lift") {
+        return Some(("Bass", 0.0, None));
+    }
+    if n.starts_with("Breakdown") {
+        return Some(("Keys", 4.0, None));
+    }
+    if n.starts_with("Outro") && n.contains("end") {
+        return None;
+    }
+    if n.starts_with("Outro") {
+        return Some(("Flat front", 2.0, None));
+    }
+    if n == "reset" {
+        return Some(("Bird's eye", 0.0, None));
+    }
+    if n.starts_with("IN ") {
+        return Some(("Wide", 0.0, None));
+    }
+    if n == "Count-In" {
+        return Some(("Super wide", 0.0, None));
+    }
+    None
+}
+
+/// Writes the cut for `setup` into `list`. Returns how many cues carry
+/// one.
+// r[impl song.camera-cuts] - the cut is cues' commands, by section kind
+// r[impl viz.camera-cuts] - `camera <preset> [in n] [after n] [for n]`
+fn camera_cuts(list: &mut CueList, song: &SongMap, setup: &str) -> anyhow::Result<usize> {
+    let has = setup_cameras(setup)?;
+    let allowed = |camera: &str| has.contains(&camera);
+    let mut count = 0;
+    for cue in &mut list.cues {
+        cue.commands.retain(|c| !c.starts_with("camera "));
+        let Some((camera, dissolve, follow)) = cut_plan(&cue.name) else {
+            continue;
+        };
+        if allowed(camera) {
+            cue.commands.push(if dissolve > 0.0 {
+                format!("camera {camera} in {dissolve}")
+            } else {
+                format!("camera {camera}")
+            });
+            count += 1;
+        }
+        if let Some((camera, after)) = follow
+            && allowed(camera)
+        {
+            cue.commands.push(format!("camera {camera} after {after}"));
+        }
+    }
+    // Figures and high hits: a punch-in to the drum cam. One cue per
+    // figure at its first moment, two beats; one per high hit, a beat.
+    // An accent cue with no recipes, so it never blocks and lights
+    // nothing (`r[cues.accents-do-not-block]`).
+    if allowed("Drums") {
+        // Not on a section's own downbeat: that moment already has a
+        // camera, and a punch there would put every verse on the drums
+        // for its first beat.
+        let downbeats: Vec<Bars> = list
+            .cues
+            .iter()
+            .filter(|c| c.block)
+            .filter_map(|c| c.resolved)
+            .collect();
+        let mut punches: Vec<(Position, Option<Bars>, String, f32)> = Vec::new();
+        for t in &list.triggers {
+            if t.resolved.is_some_and(|at| downbeats.contains(&at)) {
+                continue;
+            }
+            let punch = if t.name.starts_with("fig ")
+                && t.name.contains("· 1/")
+                && !t.name.ends_with("cut")
+            {
+                let figure = t.name.split(" · ").next().unwrap_or("fig").to_string();
+                Some((format!("· {figure} drum cam"), 2.0))
+            } else if t.name.starts_with("High ") {
+                Some((
+                    format!("· hit {} drum cam", t.name.trim_start_matches("High Hit ")),
+                    1.0,
+                ))
+            } else {
+                None
+            };
+            if let Some((name, beats)) = punch
+                && !punches.iter().any(|(at, _, _, _)| *at == t.at)
+            {
+                punches.push((t.at.clone(), t.resolved, name, beats));
+            }
+        }
+        for (at, resolved, name, beats) in punches {
+            // A moment that already has a cue takes the punch as one more
+            // command: the player lands on one cue per position, so a
+            // second cue there would be replayed rather than taken and
+            // its command never fire.
+            if let Some(cue) = list
+                .cues
+                .iter_mut()
+                .find(|c| c.resolved.is_some() && c.resolved == resolved)
+            {
+                cue.commands.push(format!("camera Drums for {beats}"));
+                count += 1;
+                continue;
+            }
+            list.cues.push(Cue {
+                name,
+                fade_secs: 0.0,
+                block: false,
+                at: Some(at),
+                resolved,
+                commands: vec![format!("camera Drums for {beats}")],
+                ..Default::default()
+            });
+            count += 1;
+        }
+    }
+    list.resolve_positions(song);
+    Ok(count)
+}
+
 /// The whole show: looks, pulses and triggers, positioned and sorted.
 fn build(song: &SongMap, chart: Option<&HitChart>) -> CueList {
     let mut list = author(song);
@@ -273,19 +471,23 @@ struct Options {
     no_sidecars: bool,
     lint: bool,
     profile: std::path::PathBuf,
+    /// `--cameras <setup>`: write the camera cut into the cues'
+    /// commands for this setup — `two`, `four` or `eight`.
+    cameras: Option<String>,
 }
 
 impl Options {
     fn parse(args: impl Iterator<Item = String>) -> anyhow::Result<Self> {
         let usage = "usage: authorshow <project file> [--lint] [--profile <ig-profile>] \
                      [--merge <existing.json>] [--edits <edits.json>] \
-                     [--sidecar-dir <dir>] [--no-sidecars]";
+                     [--sidecar-dir <dir>] [--no-sidecars] [--cameras two|four|eight]";
         let mut project = None;
         let mut merge = None;
         let mut edits = None;
         let mut sidecar_dir = std::path::PathBuf::from("data/songs");
         let mut no_sidecars = false;
         let mut lint = false;
+        let mut cameras = None;
         let mut profile = std::path::PathBuf::from("data/profiles/ignition.ig-profile");
         let mut args = args.peekable();
         while let Some(arg) = args.next() {
@@ -300,6 +502,7 @@ impl Options {
                 "--profile" => profile = value("--profile")?.into(),
                 "--no-sidecars" => no_sidecars = true,
                 "--lint" => lint = true,
+                "--cameras" => cameras = Some(value("--cameras")?),
                 other if other.starts_with("--") => {
                     anyhow::bail!("unknown flag {other}\n{usage}")
                 }
@@ -315,6 +518,7 @@ impl Options {
             no_sidecars,
             lint,
             profile,
+            cameras,
         })
     }
 }
@@ -1919,6 +2123,120 @@ mod tests {
         assert_eq!(pre.mib.preference, 80);
     }
 
+    /// r[verify song.camera-cuts] - the cut is in the cues' commands, by section, and only for the setup's cameras
+    /// r[verify viz.camera-cuts]
+    #[test]
+    fn the_camera_cut_is_written_into_the_cues_for_the_setup() {
+        let song = arrangement(8.0);
+        let mut eight = author(&song);
+        eight.resolve_positions(&song);
+        let before = eight.cues.len();
+        camera_cuts(&mut eight, &song, "eight").unwrap();
+        let commands = |list: &CueList, name: &str| -> Vec<String> {
+            list.cues
+                .iter()
+                .find(|c| c.name == name)
+                .map(|c| c.commands.clone())
+                .unwrap_or_default()
+        };
+        assert_eq!(commands(&eight, "VS 1"), ["camera Singer in 2"]);
+        assert_eq!(commands(&eight, "PRE"), ["camera Side stage in 1"]);
+        assert_eq!(commands(&eight, "· PRE wipe"), ["camera Guitar"]);
+        assert_eq!(
+            commands(&eight, "CH 1"),
+            ["camera Wide", "camera Super wide after 16"]
+        );
+        assert_eq!(commands(&eight, "Break"), ["camera Drums"]);
+        assert_eq!(commands(&eight, "Breakdown"), ["camera Keys in 4"]);
+        assert_eq!(commands(&eight, "· Breakdown lift"), ["camera Bass"]);
+        assert_eq!(commands(&eight, "Outro"), ["camera Flat front in 2"]);
+        assert_eq!(commands(&eight, "reset"), ["camera Bird's eye"]);
+        // The drop macro is kept beside the cut.
+        assert_eq!(
+            commands(&eight, "CH 3"),
+            ["macro drop", "camera Wide", "camera Super wide after 16"]
+        );
+        // No chart, so no punch-in cues were added.
+        assert_eq!(eight.cues.len(), before);
+        // Re-running replaces rather than doubles.
+        camera_cuts(&mut eight, &song, "eight").unwrap();
+        assert_eq!(commands(&eight, "VS 1"), ["camera Singer in 2"]);
+
+        // Two cameras: only Wide and Singer are ever named.
+        let mut two = author(&song);
+        two.resolve_positions(&song);
+        camera_cuts(&mut two, &song, "two").unwrap();
+        assert_eq!(commands(&two, "VS 1"), ["camera Singer in 2"]);
+        assert_eq!(commands(&two, "CH 1"), ["camera Wide"]);
+        assert!(commands(&two, "Break").is_empty());
+        for cue in &two.cues {
+            for c in cue.commands.iter().filter(|c| c.starts_with("camera ")) {
+                assert!(
+                    c.contains("Wide") || c.contains("Singer"),
+                    "{}: {c}",
+                    cue.name
+                );
+            }
+        }
+        assert!(camera_cuts(&mut two, &song, "twelve").is_err());
+    }
+
+    /// r[verify song.camera-cuts] - figures and high hits punch in to the drums, never on a section downbeat
+    #[test]
+    fn figures_and_high_hits_punch_in_to_the_drum_cam() {
+        let Some((path, song)) = real() else { return };
+        let chart = ignition_song::chart::read(&path, &song).unwrap();
+        if chart.is_empty() {
+            return;
+        }
+        let mut list = build(&song, Some(&chart));
+        camera_cuts(&mut list, &song, "eight").unwrap();
+        let punches: Vec<&Cue> = list
+            .cues
+            .iter()
+            .filter(|c| c.name.ends_with("drum cam"))
+            .collect();
+        assert!(punches.iter().any(|c| c.name.starts_with("· fig ")));
+        assert!(punches.iter().any(|c| c.name.starts_with("· hit ")));
+        let downbeats: Vec<Bars> = list
+            .cues
+            .iter()
+            .filter(|c| c.block)
+            .filter_map(|c| c.resolved)
+            .collect();
+        for p in &punches {
+            assert!(
+                !p.block && p.recipes.is_empty() && p.values.is_empty(),
+                "{}",
+                p.name
+            );
+            assert_eq!(p.commands.len(), 1);
+            assert!(
+                p.commands[0].starts_with("camera Drums for "),
+                "{}",
+                p.commands[0]
+            );
+            assert!(
+                !downbeats.contains(&p.resolved.unwrap()),
+                "{} sits on a downbeat",
+                p.name
+            );
+        }
+        // One cue per moment: a punch on a moment that has a cue rides
+        // that cue's commands, after its own cut, so no punch cue shares
+        // a position with another cue.
+        for p in &punches {
+            let at_same = list
+                .cues
+                .iter()
+                .filter(|c| c.resolved == p.resolved)
+                .count();
+            assert_eq!(at_same, 1, "{} shares its moment with another cue", p.name);
+        }
+        let wipe = list.cues.iter().find(|c| c.name == "· PRE wipe").unwrap();
+        assert_eq!(wipe.commands, ["camera Guitar", "camera Drums for 2"]);
+    }
+
     /// r[verify song.relative-position]
     /// r[verify song.relative-position.resolved-on-load]
     #[test]
@@ -2072,13 +2390,22 @@ mod tests {
     #[test]
     fn options_parse_and_slug_names_the_sidecars() {
         let o = Options::parse(
-            ["song.RPP", "--merge", "old.json", "--no-sidecars", "--lint"]
-                .map(String::from)
-                .into_iter(),
+            [
+                "song.RPP",
+                "--merge",
+                "old.json",
+                "--no-sidecars",
+                "--lint",
+                "--cameras",
+                "eight",
+            ]
+            .map(String::from)
+            .into_iter(),
         )
         .unwrap();
         assert_eq!(o.project, "song.RPP");
         assert_eq!(o.merge.as_deref(), Some(std::path::Path::new("old.json")));
+        assert_eq!(o.cameras.as_deref(), Some("eight"));
         assert!(o.no_sidecars);
         assert!(o.lint);
         assert!(Options::parse(["--merge"].map(String::from).into_iter()).is_err());

@@ -156,7 +156,11 @@ fn spawn_host_pointer(mut commands: Commands) {
 
 /// The camera a pointer picks through: the scene camera, not the haze
 /// pass's own.
-type SceneCamera = (With<Camera3d>, Without<crate::haze::HazeCamera>);
+type SceneCamera = (
+    With<Camera3d>,
+    With<crate::camera::MainCamera>,
+    Without<crate::haze::HazeCamera>,
+);
 
 /// Turns the host's latest sample into `PointerInput` messages — a move
 /// when the position changed, a press or release when the button did.

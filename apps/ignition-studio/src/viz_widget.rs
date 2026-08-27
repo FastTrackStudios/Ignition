@@ -74,6 +74,13 @@ pub struct VizCore {
     /// last saw, which turns its CSS pixels into texture pixels.
     pointer: PointerSample,
     scale: f64,
+    /// When the app last stepped, so a Programme pane hosted without a
+    /// Visualizer pane can step it itself without doubling the frame
+    /// rate when both are up — see `ProgrammeWidget`.
+    last_step: Option<std::time::Instant>,
+    /// The size the Programme pane last painted at; `None` when no
+    /// pane shows it, which takes the programme camera down.
+    programme_size: Option<(u32, u32)>,
 }
 
 /// The pointer as Blitz last reported it over the viewport, in the
@@ -284,9 +291,173 @@ impl Widget for VizWidget {
                 core.scale = scale;
                 core.paint(render_ctx, width, height, &mut registered)
             })
-            .unwrap_or_else(Scene::new);
+            .unwrap_or_default();
         self.registered = registered;
         scene
+    }
+}
+
+/// The programme camera's texture, as a Blitz widget: the cut, beside
+/// or away from the wide Visualizer pane. A view onto the same
+/// [`VizCore`]; it never builds one. When no Visualizer pane is painting
+/// it steps the app itself, so a Programme pane alone still animates.
+// r[impl viz.programme-view] - a second widget over the same core
+pub struct ProgrammeWidget {
+    registered: Option<(ResourceId, u32, u32)>,
+}
+
+impl ProgrammeWidget {
+    pub fn attach() -> Self {
+        Self { registered: None }
+    }
+
+    fn with_core<R>(&mut self, f: impl FnOnce(&mut VizCore) -> R) -> Option<R> {
+        CORE.with(|core| core.borrow_mut().as_mut().map(f))
+    }
+}
+
+impl Widget for ProgrammeWidget {
+    fn connected(&mut self) {}
+    fn disconnected(&mut self) {
+        self.registered = None;
+        self.with_core(|core| core.programme_size = None);
+    }
+
+    fn can_create_surfaces(&mut self, render_ctx: &mut dyn RenderContext) {
+        self.with_core(|core| core.can_create_surfaces(render_ctx));
+    }
+
+    fn destroy_surfaces(&mut self) {
+        self.registered = None;
+        self.with_core(|core| core.programme_size = None);
+    }
+
+    fn handle_event(&mut self, _event: &blitz_traits::events::UiEvent) {}
+
+    fn paint(
+        &mut self,
+        render_ctx: &mut dyn RenderContext,
+        _styles: &ComputedStyles,
+        width: u32,
+        height: u32,
+        _scale: f64,
+    ) -> Scene {
+        let mut registered = self.registered.take();
+        let scene = self
+            .with_core(|core| core.paint_programme(render_ctx, width, height, &mut registered))
+            .unwrap_or_default();
+        self.registered = registered;
+        scene
+    }
+}
+
+impl VizCore {
+    /// The Programme pane's frame: asks for the programme camera at
+    /// this size, steps the app if nothing else is, and hands the
+    /// programme texture to the window's renderer.
+    fn paint_programme(
+        &mut self,
+        render_ctx: &mut dyn RenderContext,
+        width: u32,
+        height: u32,
+        registered: &mut Option<(ResourceId, u32, u32)>,
+    ) -> Scene {
+        let mut scene = Scene::new();
+        if width == 0 || height == 0 {
+            return scene;
+        }
+        self.programme_size = Some((width, height));
+        if matches!(self.state, State::Ready(_)) {
+            // No Visualizer pane has built the core yet: build it at
+            // this size, which is as good a first size as any.
+            self.activate(width, height);
+        }
+        // A Visualizer pane that painted in the last few milliseconds
+        // has already stepped this frame; otherwise this pane drives.
+        let stale = self
+            .last_step
+            .is_none_or(|t| t.elapsed() > std::time::Duration::from_millis(6));
+        if stale {
+            let State::Active(viz) = &mut self.state else {
+                return scene;
+            };
+            drain(
+                &self.commands,
+                viz,
+                self.transport.as_ref(),
+                &mut self.sound,
+                &mut self.macro_runner,
+                self.show.as_ref().map(|(path, _)| path.as_str()),
+            );
+            smooth_sound(&mut self.sound, viz);
+            follow_song(self.transport.as_ref(), viz);
+            publish(&self.report, self.transport.as_ref(), viz);
+            viz.set_programme(self.programme_size);
+            self.last_step = Some(std::time::Instant::now());
+            // Zero keeps the main target at whatever size it last was.
+            let _ = viz.render(0, 0);
+            FRAME_DONE.notify_one();
+        }
+        let State::Active(viz) = &mut self.state else {
+            return scene;
+        };
+        let Some(texture) = viz.programme_texture() else {
+            return scene;
+        };
+        let (tw, th) = (texture.width(), texture.height());
+        let resource = match *registered {
+            Some((id, w, h)) if (w, h) == (tw, th) => id,
+            other => {
+                if let Some((old, _, _)) = other {
+                    render_ctx.unregister_resource(old);
+                }
+                match render_ctx.try_register_custom_resource(Box::new(texture)) {
+                    Ok(id) => {
+                        *registered = Some((id, tw, th));
+                        id
+                    }
+                    Err(_) => {
+                        *registered = None;
+                        return scene;
+                    }
+                }
+            }
+        };
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            PaintRef::Resource(ImageBrush {
+                image: resource,
+                sampler: ImageSampler::default(),
+            }),
+            None,
+            &Rect::from_origin_size((0.0, 0.0), (width as f64, height as f64)),
+        );
+        scene
+    }
+}
+
+/// The Programme pane's element: the programme widget over the one
+/// core, kept repainting by the same frame signal the Visualizer uses.
+// r[impl viz.programme-view] - the pane
+#[dioxus::prelude::component]
+pub fn Programme() -> dioxus::prelude::Element {
+    use dioxus::prelude::*;
+    let widget_attr =
+        use_hook(|| dioxus_native_dom::CustomWidgetAttr::new(ProgrammeWidget::attach()));
+    let mut frame = use_signal(|| 0u64);
+    use_future(move || async move {
+        let done = FRAME_DONE.clone();
+        loop {
+            let _ =
+                tokio::time::timeout(std::time::Duration::from_millis(100), done.notified()).await;
+            frame += 1;
+        }
+    });
+    rsx! {
+        div { class: "viz programme", "data-frame": "{frame}",
+            object { "data": widget_attr }
+        }
     }
 }
 
@@ -302,6 +473,21 @@ impl VizCore {
         };
         config.width = width;
         config.height = height;
+        // The venue's cameras, with this operator's ten on the keys.
+        // r[impl viz.camera-presets] - loaded with the venue
+        // r[impl viz.camera-favourites] - the operator file's list replaces the venue's
+        {
+            let venue_dir = std::path::PathBuf::from(crate::venue_dir());
+            let (min, max) = config.venue.bounds();
+            config.cameras = ignition_viz::Cameras::load_or_builtin(&venue_dir, min, max);
+            let operator = ignition_live_ui::operators::current_name();
+            if let Some(favourites) = ignition_live_ui::cameras::favourites(&operator) {
+                config.cameras.favourites = favourites;
+            }
+            if config.camera_preset.is_none() {
+                config.camera_preset = config.cameras.favourites.first().cloned();
+            }
+        }
 
         // Loaded through `load` even with no show, so the look list the
         // operator GOes through exists either way.
@@ -356,6 +542,8 @@ impl VizCore {
             macro_runner: None,
             pointer: PointerSample::default(),
             scale: 1.0,
+            last_step: None,
+            programme_size: None,
         }
     }
 }
@@ -432,6 +620,11 @@ impl VizCore {
         smooth_sound(&mut self.sound, viz);
         follow_song(self.transport.as_ref(), viz);
         publish(&self.report, self.transport.as_ref(), viz);
+        // The programme camera renders only while a Programme pane is
+        // up, at that pane's size.
+        // r[impl viz.programme-view] - on while a pane shows it
+        viz.set_programme(self.programme_size);
+        self.last_step = Some(std::time::Instant::now());
         let rendered = viz.render(width, height);
         FRAME_DONE.notify_one();
         let Some(texture) = rendered else {
@@ -644,6 +837,114 @@ fn drain(
                         && overlays.program != on
                     {
                         overlays.program = on;
+                    }
+                }
+                // r[impl viz.camera-cuts] - a key or a tile cuts the programme camera
+                Command::Camera { target, beats } => {
+                    let (now, bpm) = camera_clock(playbacks, speeds);
+                    if let Some(mut active) = world.get_resource_mut::<ignition_viz::ActiveCamera>()
+                    {
+                        let target = match target {
+                            ignition_live_ui::command::CameraTarget::Slot(n) => {
+                                ignition_viz::CameraTarget::Slot(n)
+                            }
+                            ignition_live_ui::command::CameraTarget::Preset(name) => {
+                                ignition_viz::CameraTarget::Preset(name)
+                            }
+                        };
+                        active.clear_queue();
+                        if active.cut_to(&target, beats, now, bpm) {
+                            tracing::info!(camera = ?active.preset, "studio: camera");
+                        }
+                    }
+                }
+                // r[impl studio.video.cameras-pane] - save the view the viewport is on
+                Command::SaveCameraPreset { name } => {
+                    let (now, _) = camera_clock(playbacks, speeds);
+                    if let Some(mut active) = world.get_resource_mut::<ignition_viz::ActiveCamera>()
+                    {
+                        let state = active.state_at(now);
+                        let preset = ignition_viz::CameraPreset {
+                            ortho: state.ortho,
+                            focus: state.focus,
+                            ..ignition_viz::CameraPreset::new(
+                                name.trim(),
+                                state.eye.to_array(),
+                                state.look.to_array(),
+                                state.fov_deg,
+                            )
+                        };
+                        if !preset.name.is_empty() {
+                            active.cameras.store(preset);
+                            active.preset = Some(name.trim().to_string());
+                            save_cameras(&active.cameras);
+                        }
+                    }
+                }
+                // r[impl studio.video.cameras-pane] - set as slot N, for the operator and the venue
+                Command::SetCameraSlot { slot, name } => {
+                    if let Some(mut active) = world.get_resource_mut::<ignition_viz::ActiveCamera>()
+                        && active.cameras.set_slot(slot, &name)
+                    {
+                        save_cameras(&active.cameras);
+                        let operator = ignition_live_ui::operators::current_name();
+                        if let Err(error) = ignition_live_ui::cameras::save_favourites(
+                            &operator,
+                            &active.cameras.favourites,
+                        ) {
+                            tracing::warn!(%error, "studio: camera favourites not saved");
+                        }
+                    }
+                }
+                // r[impl studio.video.cameras-pane] - delete
+                Command::DeleteCameraPreset { name } => {
+                    if let Some(mut active) = world.get_resource_mut::<ignition_viz::ActiveCamera>()
+                        && active.cameras.remove(&name)
+                    {
+                        if active
+                            .preset
+                            .as_deref()
+                            .is_some_and(|p| p.eq_ignore_ascii_case(&name))
+                        {
+                            active.preset = None;
+                        }
+                        save_cameras(&active.cameras);
+                    }
+                }
+                // r[impl viz.programme-view] - the wide view's own preset
+                Command::Wide { target } => {
+                    if let Some(mut active) = world.get_resource_mut::<ignition_viz::ActiveCamera>()
+                    {
+                        let target = match target {
+                            ignition_live_ui::command::CameraTarget::Slot(n) => {
+                                ignition_viz::CameraTarget::Slot(n)
+                            }
+                            ignition_live_ui::command::CameraTarget::Preset(name) => {
+                                ignition_viz::CameraTarget::Preset(name)
+                            }
+                        };
+                        if !active.set_wide(&target) {
+                            tracing::warn!(?target, "studio: wide names no preset");
+                        }
+                    }
+                }
+                // r[impl canvas.camera-source] - TO SCREENS
+                Command::CanvasSource { canvas, source } => {
+                    let source = if source.trim().is_empty() {
+                        None
+                    } else {
+                        match ignition_viz::camera::CameraSource::parse(&source) {
+                            Some(s) => Some(s),
+                            None => {
+                                tracing::warn!(source, "studio: not a camera source");
+                                continue;
+                            }
+                        }
+                    };
+                    if let Some(mut switches) =
+                        world.get_resource_mut::<ignition_viz::camera::CanvasSwitches>()
+                    {
+                        switches.set(&canvas, source);
                     }
                 }
                 Command::HighlightGroup(name) => {
@@ -904,8 +1205,23 @@ fn drain(
         // and a transmitter's for the taking.
         // r[impl cues.command] - handed out once, when the cue goes live
         // r[impl playback.macro-runner] - a cue can start one
+        // `camera …` is the show cutting the programme camera, on the
+        // same clock — see `ignition_viz::camera`.
+        // r[impl viz.camera-cuts] - a cue's camera command, at the cue change
+        let (cam_now, cam_bpm) = camera_clock(playbacks, speeds);
         if let Some(player) = playbacks.of_class(Class::Song) {
             for command in player.drain_commands() {
+                if let Some(mut active) = world.get_resource_mut::<ignition_viz::ActiveCamera>()
+                    && ignition_viz::camera::apply_command_line(
+                        &mut active,
+                        &command,
+                        cam_now,
+                        cam_bpm,
+                    )
+                {
+                    tracing::info!(command, "studio: camera (from cue)");
+                    continue;
+                }
                 match command.strip_prefix("macro ") {
                     Some(name) => match MacroRunner::from_profile(shipped, name.trim()) {
                         Some(runner) => {
@@ -967,6 +1283,31 @@ fn drain(
     viz.app_mut().world_mut().insert_resource(playback);
 }
 
+/// The clock a camera cut runs on: the song's, at the song's tempo.
+fn camera_clock(
+    playbacks: &mut ignition_core::Playbacks,
+    speeds: &ignition_core::SpeedMasters,
+) -> (f32, f32) {
+    let now = playbacks
+        .of_class(ignition_core::Class::Song)
+        .map(|p| p.clock())
+        .unwrap_or(0.0);
+    let bpm = speeds.get("Song").copied().unwrap_or(120.0);
+    (now, bpm)
+}
+
+/// The venue's `cameras.json`, written after a pane edit.
+// r[impl viz.camera-presets] - saved back to the venue
+fn save_cameras(cameras: &ignition_viz::Cameras) {
+    let dir = std::path::PathBuf::from(crate::venue_dir());
+    match cameras.save(&dir) {
+        Ok(()) => {
+            tracing::info!(path = %ignition_viz::Cameras::path(&dir).display(), "studio: cameras saved")
+        }
+        Err(error) => tracing::warn!(%error, "studio: cameras not saved"),
+    }
+}
+
 /// Writes the smoothed band levels into the engine for this frame.
 ///
 /// Every frame, even when nothing arrived: the fade is what makes a
@@ -1022,9 +1363,17 @@ fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut Embedde
     // The desk's own state, so the surface draws what the engine has
     // rather than what it last sent — a page turn from a MIDI key has
     // to move the strip on screen too.
+    // What the player is *doing*, not only what the file says: how far
+    // into its arrival the standing cue is, and whether the next one is
+    // counting itself down. A cue list without these is a document.
+    // r[impl studio.cuelist.live-state]
+    let song = playback.and_then(|p| p.song());
     let mut next = Playhead {
         cue,
         hit,
+        cue_fade: song.map_or(1.0, |player| player.fade_progress()),
+        next_cue: song.and_then(|player| player.next_cue()),
+        next_in: song.and_then(|player| player.next_in()),
         ..Default::default()
     };
     if let Some(p) = playback {
@@ -1061,6 +1410,10 @@ fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut Embedde
             }
         }
     }
+    let song_clock = playback
+        .and_then(|p| p.song())
+        .map(|p| p.clock())
+        .unwrap_or(0.0);
     if let Some(t) = transport {
         next.secs = t.seconds() as f32;
         next.length = t.length() as f32;
@@ -1072,6 +1425,78 @@ fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut Embedde
         .get_resource::<ignition_viz::DmxOutput>()
     {
         next.output = output.summary();
+    }
+    // The programme camera, so the pane lights the right tile and can
+    // save the view the viewport is on.
+    // r[impl studio.video.cameras-pane] - the current view comes back on the playhead
+    if let Some(active) = viz
+        .app_mut()
+        .world()
+        .get_resource::<ignition_viz::ActiveCamera>()
+    {
+        let state = active.state_at(song_clock);
+        // Tenths: the pane does not need to re-render on a sub-millimetre
+        // change mid-dissolve, and the playhead is compared for equality.
+        let round = |v: bevy::math::Vec3| {
+            [
+                (v.x * 100.0).round() / 100.0,
+                (v.y * 100.0).round() / 100.0,
+                (v.z * 100.0).round() / 100.0,
+            ]
+        };
+        next.camera = Some(ignition_live_ui::command::CameraState {
+            preset: active.preset.clone(),
+            eye: round(state.eye),
+            look: round(state.look),
+            fov_deg: (state.fov_deg * 10.0).round() / 10.0,
+            presets: active
+                .cameras
+                .presets
+                .iter()
+                .map(|p| p.name.clone())
+                .collect(),
+            slots: active.slots(),
+            wide: active.wide_name(),
+            canvases: Vec::new(),
+        });
+    }
+    // The wide preset means something only while a programme camera
+    // takes the cuts; otherwise the main view is the programme.
+    if let Some(camera) = next.camera.as_mut()
+        && !viz
+            .app_mut()
+            .world()
+            .get_resource::<ignition_viz::camera::ProgrammeView>()
+            .is_some_and(|p| p.camera.is_some())
+    {
+        camera.wide = None;
+    }
+    // The canvases and what each shows, for TO SCREENS.
+    if let Some(camera) = next.camera.as_mut() {
+        let world = viz.app_mut().world_mut();
+        let switched: std::collections::HashMap<String, Option<String>> = world
+            .get_resource::<ignition_viz::camera::CanvasSwitches>()
+            .map(|s| {
+                s.current
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.as_ref().map(|c| c.content())))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut names: Vec<String> = world
+            .query::<&ignition_viz::camera::CanvasPanel>()
+            .iter(world)
+            .map(|p| p.canvas.clone())
+            .collect();
+        names.sort();
+        names.dedup();
+        camera.canvases = names
+            .into_iter()
+            .map(|name| ignition_live_ui::command::CanvasRow {
+                camera: switched.get(&name).cloned().flatten(),
+                name,
+            })
+            .collect();
     }
     state.send_if_modified(|current| {
         if *current == next {

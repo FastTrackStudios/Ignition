@@ -16,6 +16,7 @@ use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig};
 use std::any::Any;
 
 mod command;
+mod dock;
 mod layout;
 mod live_commands;
 mod live_web;
@@ -1388,6 +1389,10 @@ fn Viewport() -> Element {
             body_glow: body_glow_default(),
             labels: false,
             camera: None,
+            // Loaded with the venue when the widget activates — see
+            // `viz_widget::VizCore::activate`.
+            cameras: Default::default(),
+            camera_preset: None,
             overlay: false,
             // On, because the visualizer is the thing that has to hold
             // 120 fps and a number in the corner is how anyone notices
@@ -1483,51 +1488,18 @@ fn canvas_source(var: &str, clip: &str, still: &str) -> String {
     still.to_string()
 }
 
-/// Cue names for the list. The player inside the visualizer owns the
-/// real cues; this is only what to draw.
+/// The rows the cue list draws. The player inside the visualizer owns
+/// the real cues; this is only what to draw.
+///
+/// Nothing here cooks the list. Cooked status needs the assembled
+/// `Show` — groups, palettes, library, looks — and that lives in the
+/// visualizer, which is the one place it is built; a second assembly
+/// here would be a second truth about what resolves. So the status
+/// column reads "not cooked" rather than a guessed green until the
+/// visualizer's own cook report is plumbed back.
+// r[impl studio.one-truth] - the visualizer owns what resolves
 fn load_cue_names(path: &str) -> anyhow::Result<Vec<Row>> {
     let raw = std::fs::read_to_string(path)?;
     let list: ignition_core::CueList = serde_json::from_str(&raw)?;
-    let mut rows: Vec<(Option<ignition_core::Bars>, bool, Row)> = list
-        .cues
-        .into_iter()
-        .enumerate()
-        .map(|(index, c)| {
-            (
-                c.position(),
-                true,
-                Row::Cue {
-                    index,
-                    name: c.name,
-                },
-            )
-        })
-        .collect();
-    // A cutout is two triggers at one position; show it once.
-    let mut seen_at = std::collections::HashSet::new();
-    for (index, t) in list.triggers.into_iter().enumerate() {
-        let Some(at) = t.bars() else {
-            continue;
-        };
-        if t.name.ends_with(" cut") || !seen_at.insert((at.bar, at.beat.to_bits())) {
-            continue;
-        }
-        rows.push((
-            Some(at),
-            false,
-            Row::Hit {
-                index,
-                name: t.name,
-                at,
-            },
-        ));
-    }
-    // By position, cues before hits at the same one. Unpositioned cues
-    // keep their list order at the top.
-    rows.sort_by(|a, b| {
-        a.0.partial_cmp(&b.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(b.1.cmp(&a.1))
-    });
-    Ok(rows.into_iter().map(|(_, _, row)| row).collect())
+    Ok(ignition_live_ui::cuelist::rows(&list, None))
 }

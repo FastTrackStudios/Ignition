@@ -714,6 +714,15 @@ pub const DECK_ROUGHNESS: f32 = 0.25;
 
 /// A screen showing content: emitting its own image rather than merely
 /// reflecting the room's light.
+/// A display material lit by `content` — what a screen panel and a
+/// camera quad both wear.
+pub fn display_material(
+    materials: &mut Assets<StandardMaterial>,
+    content: Handle<Image>,
+) -> Handle<StandardMaterial> {
+    display(materials, content)
+}
+
 fn display(
     materials: &mut Assets<StandardMaterial>,
     content: Handle<Image>,
@@ -894,6 +903,8 @@ pub fn spawn_venue(
     mut canvas_materials: ResMut<Assets<crate::canvas_material::CanvasMaterial>>,
     gdtf_library: Res<GdtfLibraryRes>,
     asset_server: Res<AssetServer>,
+    mut programme_view: ResMut<crate::camera::ProgrammeView>,
+    mut camera_sources: ResMut<crate::camera::CameraSources>,
 ) {
     let venue = &venue.0;
     let unit_cube = meshes.add(Cuboid::from_length(1.0));
@@ -1098,6 +1109,17 @@ pub fn spawn_venue(
             .get(&canvas)
             .or(settings.screen_content.as_ref());
         let Some(path) = path else { continue };
+        // A camera as the source: the programme's target, or a preset
+        // camera's, allocated here and drawn into once the camera is up.
+        // r[impl canvas.camera-source] - `camera:programme` / `camera:<preset>` at spawn
+        if let Some(source) = crate::camera::CameraSource::parse(path) {
+            let target =
+                camera_sources.target_for(&source, &mut programme_view, &mut images);
+            let (w, h) = crate::camera::SOURCE_SIZE;
+            source_aspect.insert(canvas.clone(), w as f32 / h as f32);
+            canvas_content.insert(canvas, target);
+            continue;
+        }
         if let Some(handle) = by_path.get(path) {
             canvas_content.insert(canvas.clone(), handle.clone());
             if let Some(aspect) = playing.iter().find(|v| v.image == *handle).map(|v| {
@@ -1216,7 +1238,7 @@ pub fn spawn_venue(
         if let Some(recipe) = procedural.get(g.canvas_name()) {
             // A generated picture: the material paints it at the
             // screen's own resolution, no texture in between.
-            crate::canvas_material::spawn_panel(
+            let panel = crate::canvas_material::spawn_panel(
                 &mut commands,
                 body,
                 recipe,
@@ -1227,11 +1249,25 @@ pub fn spawn_venue(
                 &mut canvas_materials,
                 &mut meshes,
             );
+            commands.entity(panel).insert(crate::camera::CanvasPanel {
+                canvas: g.canvas_name().to_string(),
+                slice: slices.get(&g.name).copied().unwrap_or(crate::canvas::Slice::FULL),
+                size,
+                depth,
+                body,
+            });
         } else if let Some(content) = canvas_content.get(g.canvas_name()) {
             // The display itself: a quad just proud of the bezel, lit by
             // its own content rather than by the room.
             commands.spawn((
                 ScreenSurface,
+                crate::camera::CanvasPanel {
+                    canvas: g.canvas_name().to_string(),
+                    slice: slices.get(&g.name).copied().unwrap_or(crate::canvas::Slice::FULL),
+                    size,
+                    depth,
+                    body,
+                },
                 Mesh3d(meshes.add(crate::canvas::sliced_quad(slice))),
                 MeshMaterial3d(display(&mut standard, content.clone())),
                 Transform {

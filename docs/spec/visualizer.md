@@ -12,7 +12,11 @@ channel; one that reads bytes shows exactly what the lights would.
 r[viz.export]
 The visualizer MUST be able to render a show to a **video file** offline —
 frame by frame against the song's clock, at a chosen size — so a look can be
-reviewed away from the desk and sent to someone who has no console.
+reviewed away from the desk and sent to someone who has no console. The
+export follows the show's camera cut (`r[viz.camera-cuts]`): the cues'
+`camera …` commands drive the programme camera on the same clock the
+lighting runs on, so an exported video is the cut programme, and
+`--camera <preset>` names the camera it opens on.
 
 r[viz.gobo-raster]
 A fixture with a gobo selected MUST render that gobo's pattern on the surface
@@ -237,3 +241,60 @@ is a frame measured with most of the rig off.
   on a worker and uploads only a fresh frame.
 - **One mesh asset per fixture model**, shared by every fixture of that
   type, so the engine batches them.
+
+## Cameras
+
+r[viz.camera-presets]
+A venue MUST be able to carry any number of **named camera presets** — an
+eye, a look-at point, a vertical field of view and an optional depth-of-field
+focus distance — in `data/venues/<venue>/cameras.json`. A preset is a place
+in *that* room ("Drum cam" is where the drums are), so it lives with the
+venue, never with a song. A venue with no file gets the three auto-framed
+views (`house`, `stage`, `top`) as presets, so nothing is required of it.
+The ten names the shipped shows cut between — `Wide`, `Singer`, `Drums`,
+`Guitar`, `Bass`, `Keys`, `Side stage`, `Super wide`, `Flat front`, `Bird's
+eye` — are the vocabulary a venue is expected to bind, the way it binds the
+profile's roles; a song naming one a venue lacks is a warning, not a crash.
+
+r[viz.camera-favourites]
+Ten presets sit on the number keys, `1`–`9` and `0` for the tenth, **per
+operator**: the operator file's `cameras.favourites` lists them in key order,
+and an operator with no such key gets the venue file's own `favourites`
+list. Pressing a key in the windowed visualizer cuts the programme camera to
+that slot; the studio sends the same as `Command::Camera { Slot(n) }`.
+
+r[viz.camera-setups]
+A venue file MAY name **setups** — a named list of N presets, one per slot —
+and ships `two`, `four` and `eight`. A setup is what a cut list addresses: a
+show authored for the eight-camera setup cuts between those eight, and a
+venue's `eight` says which of its presets stand in for each. Slot numbers in
+a cue resolve through the chosen setup when one is active, else through the
+favourites.
+
+r[viz.camera-cuts]
+A cue's `commands` MAY carry `camera <slot|preset> [in <beats>] [after
+<beats>] [for <beats>]`. When the cue goes live the programme camera cuts to
+the target; `in` dissolves over that many beats — a **linear tween of eye,
+look-at and field of view on the song clock**, instant at zero; `after`
+delays the cut from the cue's moment; `for` is a punch-in that returns to the
+camera it left after that many beats. The transport-synced cut is therefore
+**part of the song file** — there is no separate camera timeline to keep in
+step with the cues, and an export (`r[viz.export]`) renders exactly the cut
+the studio showed, since the same commands drive both.
+
+r[viz.camera-birdseye]
+The bird's-eye preset (`"ortho": true`) MUST be a **true top-down
+orthographic** view from above the ceiling with every room object whose name
+contains `Ceiling` hidden while it is active, so the XY plot of every
+fixture and prop reads at true scale — the plan the venue was built from,
+not a perspective of the roof.
+
+r[viz.programme-view]
+The visualizer MUST be able to render a second, **programme** camera to its
+own texture beside the main view: the number keys and the cues' `camera …`
+commands move the programme camera, and the main view stays on a *wide*
+preset of its own (selectable), so an operator can dock the whole rig and
+the cut side by side or on different monitors. The programme camera is
+spawned only while something shows it — a Programme pane, or a canvas
+sampling it — and a lone viewport pays nothing for it; with no programme
+camera the main view takes the cuts itself.

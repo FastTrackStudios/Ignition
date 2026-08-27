@@ -312,7 +312,10 @@
       "resolved": {
         "bar": 1,
         "beat": 1.0
-      }
+      },
+      "commands": [
+        "camera Super wide"
+      ]
     },
     {
       "name": "IN A",
@@ -494,7 +497,10 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Wide"
+      ]
     },
     {
       "name": "IN B",
@@ -962,7 +968,10 @@
       "resolved": {
         "bar": 7,
         "beat": 1.0
-      }
+      },
+      "commands": [
+        "camera Wide"
+      ]
     },
     {
       "name": "VS 1",
@@ -1498,7 +1507,10 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Singer in 2"
+      ]
     },
     {
       "name": "· VS 1 lift",
@@ -1536,7 +1548,11 @@
       "resolved": {
         "bar": 15,
         "beat": 1.0
-      }
+      },
+      "commands": [
+        "camera Guitar",
+        "camera Singer after 4"
+      ]
     },
     {
       "name": "PRE",
@@ -1751,7 +1767,10 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Side stage in 1"
+      ]
     },
     {
       "name": "· PRE wipe",
@@ -1862,7 +1881,11 @@
         "delay_beats": 0.0,
         "preference": 30,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Guitar",
+        "camera Drums for 2"
+      ]
     },
     {
       "name": "CH 1",
@@ -2215,7 +2238,71 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Wide",
+        "camera Super wide after 16"
+      ]
+    },
+    {
+      "name": "· fig 1 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 1",
+        "ordinal": 0,
+        "bars": 3,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 26,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
+    },
+    {
+      "name": "· hit 27.1.00 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 1",
+        "ordinal": 0,
+        "bars": 4,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 27,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 1"
+      ]
+    },
+    {
+      "name": "· fig 2 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 1",
+        "ordinal": 0,
+        "bars": 7,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 30,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
     },
     {
       "name": "Break",
@@ -2303,7 +2390,10 @@
       "resolved": {
         "bar": 31,
         "beat": 1.0
-      }
+      },
+      "commands": [
+        "camera Drums"
+      ]
     },
     {
       "name": "VS 2",
@@ -2855,7 +2945,10 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Singer in 2"
+      ]
     },
     {
       "name": "· VS 2 lift",
@@ -2893,7 +2986,12 @@
       "resolved": {
         "bar": 36,
         "beat": 1.0
-      }
+      },
+      "commands": [
+        "camera Guitar",
+        "camera Singer after 4",
+        "camera Drums for 1"
+      ]
     },
     {
       "name": "PRE 2",
@@ -3108,7 +3206,10 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Side stage in 1"
+      ]
     },
     {
       "name": "· PRE 2 wipe",
@@ -3253,7 +3354,30 @@
         "delay_beats": 0.0,
         "preference": 30,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Guitar"
+      ]
+    },
+    {
+      "name": "· fig 3 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "PRE",
+        "ordinal": 1,
+        "bars": 3,
+        "beat": 4.5
+      },
+      "resolved": {
+        "bar": 43,
+        "beat": 4.5
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
     },
     {
       "name": "CH 2",
@@ -3621,7 +3745,111 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Wide",
+        "camera Super wide after 16"
+      ]
+    },
+    {
+      "name": "· fig 4 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 2",
+        "ordinal": 0,
+        "bars": 1,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 45,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
+    },
+    {
+      "name": "· fig 5 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 2",
+        "ordinal": 0,
+        "bars": 3,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 47,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
+    },
+    {
+      "name": "· fig 6 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 2",
+        "ordinal": 0,
+        "bars": 3,
+        "beat": 4.5
+      },
+      "resolved": {
+        "bar": 47,
+        "beat": 4.5
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
+    },
+    {
+      "name": "· fig 7 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 2",
+        "ordinal": 0,
+        "bars": 7,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 51,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
+    },
+    {
+      "name": "· fig 8 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 2",
+        "ordinal": 0,
+        "bars": 7,
+        "beat": 3.0
+      },
+      "resolved": {
+        "bar": 51,
+        "beat": 3.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
     },
     {
       "name": "BR",
@@ -3969,7 +4197,50 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Side stage in 2"
+      ]
+    },
+    {
+      "name": "· hit 53.1.00 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "BR",
+        "ordinal": 0,
+        "bars": 1,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 53,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 1"
+      ]
+    },
+    {
+      "name": "· hit 55.1.00 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "BR",
+        "ordinal": 0,
+        "bars": 3,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 55,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 1"
+      ]
     },
     {
       "name": "Breakdown",
@@ -4135,7 +4406,30 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Keys in 4"
+      ]
+    },
+    {
+      "name": "· hit 60.1.00 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "Breakdown",
+        "ordinal": 0,
+        "bars": 3,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 60,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 1"
+      ]
     },
     {
       "name": "· Breakdown lift",
@@ -4251,7 +4545,10 @@
         "Follow": {
           "beats": 14.0
         }
-      }
+      },
+      "commands": [
+        "camera Bass"
+      ]
     },
     {
       "name": "CH 3",
@@ -4693,7 +4990,49 @@
         "multistep": "running"
       },
       "commands": [
-        "macro drop"
+        "macro drop",
+        "camera Wide",
+        "camera Super wide after 16"
+      ]
+    },
+    {
+      "name": "· fig 9 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 3",
+        "ordinal": 0,
+        "bars": 1,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 62,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
+    },
+    {
+      "name": "· fig 10 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 3",
+        "ordinal": 0,
+        "bars": 3,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 64,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
       ]
     },
     {
@@ -4747,7 +5086,71 @@
       "resolved": {
         "bar": 65,
         "beat": 1.0
-      }
+      },
+      "commands": [
+        "camera Super wide",
+        "camera Drums for 1"
+      ]
+    },
+    {
+      "name": "· fig 11 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 3",
+        "ordinal": 0,
+        "bars": 5,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 66,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
+    },
+    {
+      "name": "· fig 12 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 3",
+        "ordinal": 0,
+        "bars": 7,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 68,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
+    },
+    {
+      "name": "· fig 13 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 3",
+        "ordinal": 0,
+        "bars": 7,
+        "beat": 4.5
+      },
+      "resolved": {
+        "bar": 68,
+        "beat": 4.5
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
     },
     {
       "name": "· CH 3 drive",
@@ -4914,7 +5317,50 @@
       "resolved": {
         "bar": 69,
         "beat": 1.0
-      }
+      },
+      "commands": [
+        "camera Wide"
+      ]
+    },
+    {
+      "name": "· fig 14 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 3",
+        "ordinal": 0,
+        "bars": 9,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 70,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
+    },
+    {
+      "name": "· fig 15 drum cam",
+      "fade_secs": 0.0,
+      "values": [],
+      "recipes": [],
+      "block": false,
+      "at": {
+        "section": "CH 3",
+        "ordinal": 0,
+        "bars": 11,
+        "beat": 1.0
+      },
+      "resolved": {
+        "bar": 72,
+        "beat": 1.0
+      },
+      "commands": [
+        "camera Drums for 2"
+      ]
     },
     {
       "name": "Outro",
@@ -5108,7 +5554,10 @@
         "delay_beats": 0.0,
         "preference": 80,
         "multistep": "running"
-      }
+      },
+      "commands": [
+        "camera Flat front in 2"
+      ]
     },
     {
       "name": "· Outro end",
@@ -5333,7 +5782,10 @@
       "resolved": {
         "bar": 76,
         "beat": 1.0
-      }
+      },
+      "commands": [
+        "camera Bird's eye"
+      ]
     }
   ],
   "triggers": [

@@ -269,7 +269,10 @@ pub fn Programmer(surface: Surface) -> Element {
 pub fn Program(surface: Surface) -> Element {
     rsx! {
         section { class: "program",
-            CueList { cues: surface.cues.clone() }
+            // Program opens on every column; the operator can drop
+            // to Live from the header without leaving the view.
+            // r[impl studio.cuelist.one-panel]
+            CueList { cues: surface.cues.clone(), preset: crate::Preset::Program }
             Programmer { surface: surface.clone() }
             Library { surface: surface.clone(), open: Tab::Kind(Kind::Effect) }
         }

@@ -1,0 +1,198 @@
+{
+  "presets": [
+    {
+      "name": "Wide",
+      "eye": [
+        0.0,
+        -9.5,
+        1.9
+      ],
+      "look": [
+        0.0,
+        -0.5,
+        1.1
+      ],
+      "fov_deg": 62.0,
+      "about": "The whole stage from the middle of the house."
+    },
+    {
+      "name": "Singer",
+      "eye": [
+        0.3,
+        -6.0,
+        1.55
+      ],
+      "look": [
+        0.0,
+        -2.9,
+        1.4
+      ],
+      "fov_deg": 30.0,
+      "about": "Close-up middle shot of the lead vocal at the centre mic."
+    },
+    {
+      "name": "Drums",
+      "eye": [
+        0.9,
+        -2.4,
+        1.75
+      ],
+      "look": [
+        -0.05,
+        0.6,
+        1.0
+      ],
+      "fov_deg": 40.0,
+      "about": "Drum cam: the kit on the riser, past the singer's shoulder."
+    },
+    {
+      "name": "Guitar",
+      "eye": [
+        -1.4,
+        -5.6,
+        1.5
+      ],
+      "look": [
+        -3.36,
+        -2.9,
+        1.2
+      ],
+      "fov_deg": 32.0,
+      "about": "Guitar cam: stage right, downstage."
+    },
+    {
+      "name": "Bass",
+      "eye": [
+        1.5,
+        -5.8,
+        1.5
+      ],
+      "look": [
+        3.5,
+        -3.2,
+        1.2
+      ],
+      "fov_deg": 32.0,
+      "about": "Bass cam: stage left, downstage."
+    },
+    {
+      "name": "Keys",
+      "eye": [
+        1.2,
+        -2.6,
+        1.65
+      ],
+      "look": [
+        3.0,
+        1.4,
+        1.1
+      ],
+      "fov_deg": 38.0,
+      "about": "Keyboard cam: the player on the stage-left riser."
+    },
+    {
+      "name": "Side stage",
+      "eye": [
+        4.4,
+        -2.4,
+        2.1
+      ],
+      "look": [
+        -1.2,
+        0.3,
+        1.0
+      ],
+      "fov_deg": 55.0,
+      "about": "From the stage-left wing, across the band."
+    },
+    {
+      "name": "Super wide",
+      "eye": [
+        -4.6,
+        -12.0,
+        2.4
+      ],
+      "look": [
+        0.3,
+        -1.5,
+        1.0
+      ],
+      "fov_deg": 75.0,
+      "about": "The whole room from the back corner of the house."
+    },
+    {
+      "name": "Flat front",
+      "eye": [
+        0.0,
+        -4.7,
+        0.9
+      ],
+      "look": [
+        0.0,
+        1.0,
+        1.1
+      ],
+      "fov_deg": 70.0,
+      "about": "Low and flat at the stage lip, straight on."
+    },
+    {
+      "name": "Bird's eye",
+      "eye": [
+        0.0,
+        -6.5,
+        24.0
+      ],
+      "look": [
+        0.0,
+        -6.5,
+        0.0
+      ],
+      "fov_deg": 45.0,
+      "ortho": true,
+      "about": "Plan view above the ceiling: the XY of every fixture and prop."
+    }
+  ],
+  "favourites": [
+    "Wide",
+    "Singer",
+    "Drums",
+    "Guitar",
+    "Bass",
+    "Keys",
+    "Side stage",
+    "Super wide",
+    "Flat front",
+    "Bird's eye"
+  ],
+  "setups": [
+    {
+      "name": "two",
+      "slots": [
+        "Wide",
+        "Singer"
+      ]
+    },
+    {
+      "name": "four",
+      "slots": [
+        "Wide",
+        "Singer",
+        "Drums",
+        "Side stage"
+      ]
+    },
+    {
+      "name": "eight",
+      "slots": [
+        "Wide",
+        "Singer",
+        "Drums",
+        "Guitar",
+        "Bass",
+        "Keys",
+        "Side stage",
+        "Super wide"
+      ]
+    }
+  ]
+}

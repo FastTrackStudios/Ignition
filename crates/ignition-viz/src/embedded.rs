@@ -54,10 +54,14 @@ pub struct TargetMailbox(Arc<Mutex<Mailbox>>);
 struct Mailbox {
     wanted: Option<AssetId<Image>>,
     texture: Option<(AssetId<Image>, wgpu::Texture)>,
+    /// The programme camera's target, while a host pane shows it —
+    /// see `EmbeddedViz::programme_texture`.
+    programme_wanted: Option<AssetId<Image>>,
+    programme: Option<(AssetId<Image>, wgpu::Texture)>,
     pipelines: usize,
 }
 
-/// Render-world side: posts the wanted target's texture once it exists.
+/// Render-world side: posts the wanted targets' textures once they exist.
 fn post_target_texture(
     mailbox: Res<TargetMailbox>,
     images: Res<RenderAssets<GpuImage>>,
@@ -65,16 +69,23 @@ fn post_target_texture(
 ) {
     let mut mailbox = mailbox.0.lock().expect("target mailbox");
     mailbox.pipelines = pipelines.pipelines().count();
-    let Some(wanted) = mailbox.wanted else { return };
-    if mailbox
-        .texture
-        .as_ref()
-        .is_some_and(|(id, _)| *id == wanted)
+    if let Some(wanted) = mailbox.wanted
+        && !mailbox
+            .texture
+            .as_ref()
+            .is_some_and(|(id, _)| *id == wanted)
+        && let Some(image) = images.get(wanted)
     {
-        return;
-    }
-    if let Some(image) = images.get(wanted) {
         mailbox.texture = Some((wanted, (*image.texture).clone()));
+    }
+    if let Some(wanted) = mailbox.programme_wanted
+        && !mailbox
+            .programme
+            .as_ref()
+            .is_some_and(|(id, _)| *id == wanted)
+        && let Some(image) = images.get(wanted)
+    {
+        mailbox.programme = Some((wanted, (*image.texture).clone()));
     }
 }
 
@@ -194,6 +205,13 @@ impl EmbeddedViz {
         // The host takes selections and sends them as `Command::Select`,
         // so a click in the viewport travels the same road as a tile.
         app.insert_resource(crate::picking::SelectionRoute::Host);
+        // The host owns the keyboard and drains the cue commands itself
+        // (`Command::Camera`, and `camera …` beside `macro …`).
+        {
+            let mut active = app.world_mut().resource_mut::<crate::camera::ActiveCamera>();
+            active.keys = false;
+            active.host_drains_cues = true;
+        }
         configure(&mut app);
         let mailbox = TargetMailbox::default();
         if let Some(render) = app.get_sub_app_mut(RenderApp) {
@@ -276,6 +294,56 @@ impl EmbeddedViz {
                 Some(texture)
             }
             None => self.last_good.clone(),
+        }
+    }
+
+    /// Whether a host pane shows the programme camera, and at what
+    /// size. `None` takes the programme camera down (unless a canvas
+    /// still samples it) so a lone viewport pays nothing for it.
+    // r[impl viz.programme-view] - the host switches the second camera on and off
+    pub fn set_programme(&mut self, size: Option<(u32, u32)>) {
+        let world = self.app.world_mut();
+        let mut view = world.resource_mut::<crate::camera::ProgrammeView>();
+        let wants = size.is_some();
+        if let Some((w, h)) = size
+            && (w, h) != view.size
+            && w > 0
+            && h > 0
+        {
+            view.size = (w, h);
+            // A new size is a new image; the camera follows it next frame.
+            if let Some(camera) = view.camera.take() {
+                world.commands().entity(camera).despawn();
+            }
+            let target = world
+                .resource_mut::<Assets<Image>>()
+                .add(crate::camera::camera_target((w, h)));
+            let mut view = world.resource_mut::<crate::camera::ProgrammeView>();
+            view.target = target;
+        }
+        let mut view = world.resource_mut::<crate::camera::ProgrammeView>();
+        if view.host_wants != wants {
+            view.host_wants = wants;
+        }
+        let id = view.target.id();
+        self.mailbox.0.lock().expect("target mailbox").programme_wanted = wants.then_some(id);
+    }
+
+    /// The programme camera's texture, once it has rendered — `None`
+    /// until then, or while nothing wants the programme.
+    // r[impl viz.programme-view] - the second texture the host composites
+    pub fn programme_texture(&self) -> Option<wgpu::Texture> {
+        let wanted = self
+            .app
+            .world()
+            .get_resource::<crate::camera::ProgrammeView>()
+            .filter(|v| v.host_wants)?
+            .target
+            .id();
+        let mailbox = self.mailbox.0.lock().expect("target mailbox");
+        match &mailbox.programme {
+            Some((id, texture)) if *id == wanted => Some(texture.clone()),
+            _ => None,
         }
     }
 

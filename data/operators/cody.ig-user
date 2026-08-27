@@ -4,9 +4,14 @@
     {
       "monitor": "DP-5",
       "placement": "fullscreen",
-      "panels": [
-        "cue_list"
-      ],
+      "tree": {
+        "tabs": {
+          "panes": [
+            "cue_list"
+          ],
+          "active": 0
+        }
+      },
       "view": "live"
     },
     {
@@ -17,17 +22,75 @@
           "fraction": 0.5
         }
       },
-      "panels": [
-        "visualizer",
-        "transport"
-      ]
+      "tree": {
+        "split": {
+          "axis": "col",
+          "ratios": [
+            0.8,
+            0.2
+          ],
+          "children": [
+            {
+              "tabs": {
+                "panes": [
+                  "visualizer"
+                ],
+                "active": 0
+              }
+            },
+            {
+              "tabs": {
+                "panes": [
+                  "transport"
+                ],
+                "active": 0
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "monitor": "DP-3",
       "placement": "fullscreen",
-      "panels": [
-        "busking"
-      ],
+      "tree": {
+        "split": {
+          "axis": "col",
+          "ratios": [
+            0.73,
+            0.27
+          ],
+          "children": [
+            {
+              "split": {
+                "axis": "row",
+                "ratios": [
+                  0.2,
+                  0.2,
+                  0.2,
+                  0.2,
+                  0.2
+                ],
+                "children": [
+                  { "tabs": { "panes": ["looks"], "active": 0 } },
+                  { "tabs": { "panes": ["groups"], "active": 0 } },
+                  { "tabs": { "panes": ["colours"], "active": 0 } },
+                  { "tabs": { "panes": ["focus"], "active": 0 } },
+                  { "tabs": { "panes": ["effects"], "active": 0 } }
+                ]
+              }
+            },
+            {
+              "tabs": {
+                "panes": [
+                  "faders"
+                ],
+                "active": 0
+              }
+            }
+          ]
+        }
+      },
       "view": "live"
     }
   ],

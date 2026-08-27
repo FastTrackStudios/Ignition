@@ -309,7 +309,11 @@ fn spawn_fixture_labels(
 }
 
 /// The camera the labels project through — the scene camera.
-type SceneCamera = (With<Camera3d>, Without<crate::haze::HazeCamera>);
+type SceneCamera = (
+    With<Camera3d>,
+    With<crate::camera::MainCamera>,
+    Without<crate::haze::HazeCamera>,
+);
 
 /// Moves every label to its point's place on screen, or hides it.
 fn place_labels(

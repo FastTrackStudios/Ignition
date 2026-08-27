@@ -12,17 +12,16 @@
 //! sizes are pixels, and the one piece of geometry — a docked region on
 //! a monitor — is arithmetic, so it is all testable without a display.
 
-// r[impl studio.operators.layout] - per window: monitor, fullscreen or docked region, panels, view
+// r[impl studio.operators.layout] - per window: monitor, fullscreen or docked region, tree, view
 
+use crate::dock::{Axis, DockNode, PaneKind, Preset};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// A panel: one implementation, hostable by any window.
-///
-/// The names are the ones the layout file uses (`cue_list`, ...). The
-/// panels that exist today render their real components; the rest render
-/// a labelled placeholder, so a layout can already name them.
-// r[impl studio.panels] - the panel vocabulary the windows host
+/// The panel vocabulary of layout files written before the dock: a flat
+/// `panels` array. Still read, never written; each maps onto the panes
+/// that replaced it (`migrate`).
+// r[impl studio.panels] - the old panel names still open
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Panel {
@@ -41,41 +40,62 @@ pub enum Panel {
 }
 
 impl Panel {
-    /// The name on the panel's title bar and in a window title.
-    pub fn label(self) -> &'static str {
+    /// The panes an old panel stands for. `busking` was the whole Live
+    /// view, so it becomes the Console preset; `palettes` and `library`
+    /// were tab strips, so they become tabs.
+    pub fn panes(self) -> Vec<PaneKind> {
         match self {
-            Panel::CueList => "Cue List",
-            Panel::Visualizer => "Visualizer",
-            Panel::Transport => "Transport",
-            Panel::Busking => "Busking",
-            Panel::Palettes => "Palettes",
-            Panel::Library => "Library",
-            Panel::Programmer => "Programmer",
-            Panel::CommandLine => "Command Line",
-            Panel::Output => "Output",
-            Panel::Canvases => "Canvases",
-            Panel::Cameras => "Cameras",
-            Panel::Lyrics => "Lyrics",
+            Panel::CueList => vec![PaneKind::CueList],
+            Panel::Visualizer => vec![PaneKind::Visualizer],
+            Panel::Transport => vec![PaneKind::Transport],
+            Panel::Busking => Preset::Console.build(&[]).panes(),
+            Panel::Palettes => vec![
+                PaneKind::Colours,
+                PaneKind::Splits,
+                PaneKind::Focus,
+                PaneKind::Groups,
+            ],
+            Panel::Library => vec![
+                PaneKind::Effects,
+                PaneKind::Tricks,
+                PaneKind::Bundles,
+                PaneKind::Looks,
+                PaneKind::Macros,
+                PaneKind::Library,
+            ],
+            Panel::Programmer => vec![PaneKind::Programmer],
+            Panel::CommandLine => vec![PaneKind::CommandLine],
+            Panel::Output => vec![PaneKind::Output],
+            Panel::Canvases => vec![PaneKind::Canvases],
+            Panel::Cameras => vec![PaneKind::Cameras],
+            Panel::Lyrics => vec![PaneKind::Lyrics],
         }
     }
+}
 
-    /// The layout-file spelling, which doubles as a CSS class.
-    pub fn key(self) -> &'static str {
-        match self {
-            Panel::CueList => "cue_list",
-            Panel::Visualizer => "visualizer",
-            Panel::Transport => "transport",
-            Panel::Busking => "busking",
-            Panel::Palettes => "palettes",
-            Panel::Library => "library",
-            Panel::Programmer => "programmer",
-            Panel::CommandLine => "command_line",
-            Panel::Output => "output",
-            Panel::Canvases => "canvases",
-            Panel::Cameras => "cameras",
-            Panel::Lyrics => "lyrics",
+/// An old `panels` array as a tree: one `Tabs` leaf of every pane the
+/// panels stood for, except that a `busking` panel keeps the Console
+/// shape (with the other panels tabbed into its first column) — a
+/// tab strip of eight busking panes is not what that window was.
+// r[impl studio.dock] - old layouts open as one tabbed leaf
+pub fn migrate(panels: &[Panel]) -> DockNode {
+    let mut panes: Vec<PaneKind> = Vec::new();
+    for panel in panels {
+        for pane in panel.panes() {
+            if !panes.contains(&pane) {
+                panes.push(pane);
+            }
         }
     }
+    if panels.contains(&Panel::Busking) {
+        let others: Vec<PaneKind> = panes
+            .iter()
+            .copied()
+            .filter(|p| !Panel::Busking.panes().contains(p))
+            .collect();
+        return Preset::Console.build(&others);
+    }
+    DockNode::tabs(panes)
 }
 
 /// Where on a monitor a docked window sits.
@@ -128,8 +148,13 @@ impl View {
     }
 }
 
-/// One window of the layout.
+/// One window of the layout: where it sits and the dock tree it draws.
+///
+/// Written with a `tree`; read with either a `tree` or the older
+/// `panels` array, which becomes a tree on the way in.
+// r[impl studio.dock] - a window is a tree
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(from = "RawWindowSpec")]
 pub struct WindowSpec {
     /// An output name (`DP-4`), a `x,y` corner, `left` / `centre` /
     /// `right` by position, or `primary`. Empty means the compositor's
@@ -138,10 +163,36 @@ pub struct WindowSpec {
     pub monitor: String,
     #[serde(default = "fullscreen")]
     pub placement: Placement,
-    #[serde(default)]
-    pub panels: Vec<Panel>,
+    pub tree: DockNode,
     #[serde(default)]
     pub view: View,
+}
+
+#[derive(Deserialize)]
+struct RawWindowSpec {
+    #[serde(default)]
+    monitor: String,
+    #[serde(default = "fullscreen")]
+    placement: Placement,
+    #[serde(default)]
+    tree: Option<DockNode>,
+    #[serde(default)]
+    panels: Vec<Panel>,
+    #[serde(default)]
+    view: View,
+}
+
+impl From<RawWindowSpec> for WindowSpec {
+    fn from(raw: RawWindowSpec) -> Self {
+        let mut tree = raw.tree.unwrap_or_else(|| migrate(&raw.panels));
+        tree.normalize();
+        WindowSpec {
+            monitor: raw.monitor,
+            placement: raw.placement,
+            tree,
+            view: raw.view,
+        }
+    }
 }
 
 fn fullscreen() -> Placement {
@@ -149,13 +200,19 @@ fn fullscreen() -> Placement {
 }
 
 impl WindowSpec {
+    /// The panes the window holds, leaves left to right.
+    pub fn panes(&self) -> Vec<PaneKind> {
+        self.tree.panes()
+    }
+
     /// `Ignition Studio — Cue List, Transport`. The title is what a
-    /// compositor rule matches on, so it is deterministic in the panels.
+    /// compositor rule matches on, so it is deterministic in the panes.
     pub fn title(&self) -> String {
-        if self.panels.is_empty() {
+        let panes = self.panes();
+        if panes.is_empty() {
             return "Ignition Studio".to_string();
         }
-        let names: Vec<&str> = self.panels.iter().map(|p| p.label()).collect();
+        let names: Vec<&str> = panes.iter().map(|p| p.label()).collect();
         format!("Ignition Studio — {}", names.join(", "))
     }
 }
@@ -177,12 +234,24 @@ impl Layout {
             windows: vec![WindowSpec {
                 monitor: String::new(),
                 placement: Placement::Fullscreen,
-                panels: vec![
-                    Panel::CueList,
-                    Panel::Transport,
-                    Panel::Visualizer,
-                    Panel::Busking,
-                ],
+                // Cue list down the left; transport over the visualizer
+                // over the console.
+                tree: DockNode::split_with(
+                    Axis::Row,
+                    vec![0.18, 0.82],
+                    vec![
+                        DockNode::tab(PaneKind::CueList),
+                        DockNode::split_with(
+                            Axis::Col,
+                            vec![0.07, 0.43, 0.5],
+                            vec![
+                                DockNode::tab(PaneKind::Transport),
+                                DockNode::tab(PaneKind::Visualizer),
+                                Preset::Console.build(&[]),
+                            ],
+                        ),
+                    ],
+                ),
                 view: View::Live,
             }],
         }
@@ -365,7 +434,7 @@ mod tests {
         assert_eq!(layout.windows.len(), 3);
         assert_eq!(layout.windows[0].monitor, "DP-5");
         assert_eq!(layout.windows[0].placement, Placement::Fullscreen);
-        assert_eq!(layout.windows[0].panels, vec![Panel::CueList]);
+        assert_eq!(layout.windows[0].tree, DockNode::tab(PaneKind::CueList));
         assert_eq!(layout.windows[0].view, View::Live);
         assert_eq!(
             layout.windows[1].placement,
@@ -376,10 +445,50 @@ mod tests {
         );
         // No view named: Program, the default.
         assert_eq!(layout.windows[1].view, View::Program);
+        // The old busking window becomes the Console, with the palettes'
+        // and library's panes tabbed into its first column.
+        let third = &layout.windows[2].tree;
+        assert!(matches!(
+            third,
+            DockNode::Split {
+                axis: Axis::Col,
+                ..
+            }
+        ));
+        assert!(third.contains(PaneKind::Faders));
+        assert!(third.contains(PaneKind::Splits));
+        assert!(third.contains(PaneKind::Library));
+        assert_eq!(third.find(PaneKind::Looks), Some((vec![0, 0], 0)));
+    }
+
+    /// r[verify studio.dock]
+    #[test]
+    fn an_old_panels_array_becomes_one_tabbed_leaf() {
+        let layout =
+            parse(r#"{"windows":[{"monitor":"DP-4","panels":["visualizer","transport"]}]}"#)
+                .unwrap();
         assert_eq!(
-            layout.windows[2].panels,
-            vec![Panel::Busking, Panel::Palettes, Panel::Library]
+            layout.windows[0].tree,
+            DockNode::tabs(vec![PaneKind::Visualizer, PaneKind::Transport])
         );
+        // Written back, it is a tree, not a panels array.
+        let json = serde_json::to_string(&layout.windows[0]).unwrap();
+        assert!(
+            json.contains(r#""tree""#) && !json.contains(r#""panels""#),
+            "{json}"
+        );
+        // A tree wins over panels when both are present.
+        let both =
+            parse(r#"{"windows":[{"panels":["cue_list"],"tree":{"tabs":{"panes":["faders"]}}}]}"#)
+                .unwrap();
+        assert_eq!(both.windows[0].tree, DockNode::tab(PaneKind::Faders));
+        // A tree with an empty leaf inside is tidied on the way in.
+        let messy = parse(
+            r#"{"windows":[{"tree":{"split":{"axis":"row","children":[
+                {"tabs":{"panes":[]}},{"tabs":{"panes":["looks"]}}]}}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(messy.windows[0].tree, DockNode::tab(PaneKind::Looks));
     }
 
     /// r[verify studio.operators.layout]
@@ -392,10 +501,24 @@ mod tests {
         let raw = std::fs::read_to_string(path).expect("data/operators/cody.ig-user");
         let layout = parse(&raw).unwrap();
         assert_eq!(layout.windows.len(), 3);
-        assert_eq!(
-            layout.windows[1].panels,
-            vec![Panel::Visualizer, Panel::Transport]
-        );
+        // DP-5: the cue list alone, filling the window.
+        assert_eq!(layout.windows[0].tree, DockNode::tab(PaneKind::CueList));
+        // DP-4: visualizer over transport, 80/20.
+        let DockNode::Split {
+            axis,
+            ratios,
+            children,
+        } = &layout.windows[1].tree
+        else {
+            panic!("DP-4 is a split")
+        };
+        assert_eq!(*axis, Axis::Col);
+        assert!((ratios[0] - 0.8).abs() < 1e-6);
+        assert_eq!(children[0], DockNode::tab(PaneKind::Visualizer));
+        assert_eq!(children[1], DockNode::tab(PaneKind::Transport));
+        // DP-3: the Console, Live.
+        assert_eq!(layout.windows[2].tree, Preset::Console.build(&[]));
+        assert_eq!(layout.windows[2].view, View::Live);
     }
 
     /// r[verify studio.operators.layout]
@@ -403,7 +526,8 @@ mod tests {
     fn a_file_with_no_windows_is_the_single_window() {
         let layout = parse(r#"{"name":"x","favourites":{}}"#).unwrap();
         assert_eq!(layout, Layout::default_single_window());
-        assert_eq!(layout.windows[0].panels.len(), 4);
+        let panes = layout.windows[0].panes();
+        assert!(panes.contains(&PaneKind::CueList) && panes.contains(&PaneKind::Faders));
     }
 
     /// r[verify studio.operators.layout]
@@ -529,7 +653,7 @@ mod tests {
         let spec = WindowSpec {
             monitor: String::new(),
             placement: Placement::Fullscreen,
-            panels: vec![Panel::Visualizer, Panel::Transport],
+            tree: DockNode::tabs(vec![PaneKind::Visualizer, PaneKind::Transport]),
             view: View::Live,
         };
         assert_eq!(spec.title(), "Ignition Studio — Visualizer, Transport");

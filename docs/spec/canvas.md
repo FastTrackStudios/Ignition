@@ -39,6 +39,15 @@ A clip playing on a canvas MUST be one kind of source among the procedural
 ones, on the same clock, so a show can crossfade from a clip to a gradient
 and a lyric layer can sit over either.
 
+r[canvas.camera-source]
+A canvas MUST accept a **camera** as its source — `camera:programme` for
+the programme camera (`r[viz.programme-view]`), or `camera:<preset>` for a
+fixed camera on one of the venue's presets — so `--canvas
+side-left=camera:programme` puts the cut onto the side screens, the IMAG
+path a real show runs. The canvas quad samples the camera's render target
+directly, and the source can be switched live from the Cameras pane (TO
+SCREENS) without reloading the venue.
+
 ## Implementation notes
 
 The procedural sources, the `CanvasRecipe` (`source` + ordinary recipe

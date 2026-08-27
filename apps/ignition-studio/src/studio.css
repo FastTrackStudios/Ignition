@@ -23,15 +23,21 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
                text-transform: uppercase; font-size: 10px; color: #8d8d99;
                border-bottom: 1px solid #26262c; }
 .cues ol { list-style: none; margin: 0; padding: 0; }
-.cue { display: flex; gap: 10px; align-items: center; padding: 14px;
-       cursor: pointer; border-bottom: 1px solid #1c1c22; }
+/* A row is a block, not a flex line: the main line, then whatever the
+   Program preset opens under it — note, commands, parts. */
+.cue { display: block; padding: 0; cursor: pointer;
+       border-bottom: 1px solid #1c1c22; }
+.cues .cue-main { display: flex; gap: 10px; align-items: center; padding: 14px; }
 .cue:hover { background: #1b1b21; }
 .cue.on { background: #23233a; color: #fff; }
 /* Hits: the song fires these, GO never does. Quiet until one lands. */
-.cue.hit { padding: 6px 14px; color: #6f6f80; font-size: 0.85em; }
+.cue.hit .cue-main { padding: 6px 14px; color: #6f6f80; font-size: 0.85em; }
 .cue.hit .num { color: #4a4a5c; }
 .cue.hit.on { background: #3a2f10; color: #ffe9a8; }
 .num { width: 22px; color: #6f6f7d; text-align: right; }
+.cues .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+              white-space: nowrap; }
+
 .go { background: #2c4a2c; color: #cfe8cf; border: 1px solid #3d663d;
       border-radius: 5px; padding: 8px 18px; font-size: 11px; font-weight: bold;
       letter-spacing: 0.08em; cursor: pointer; }
@@ -44,6 +50,110 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
                     font-size: 12px; }
 .play { background: #2c3f5a; color: #cfe0f0; border: 1px solid #3d5a80; }
 .play:hover { background: #365070; }
+
+/* ── The cue list's Program preset ──────────────────────────────────
+   The same rows and the same order; more columns, and wider, which is
+   the only thing a Program list needs that a Live one does not.
+   r[impl studio.cuelist.one-panel]
+
+   Every selector below is anchored on `.cues` on purpose. A cue-list
+   rule spelled `.col` or `.name` is not a cue-list rule: `col` is what
+   the dock calls a column split and what the busking surface calls its
+   columns, and an unanchored rule here silently restyles both. */
+.cues.program { width: 460px; min-width: 460px; }
+.dock .cues.program { width: 100%; min-width: 0; }
+.cues.program .cue-main { padding: 9px 14px; font-size: 12px; }
+.cues .preset { background: #232330; color: #9a9ab0; border: 1px solid #34343f;
+                border-radius: 5px; padding: 6px 10px; font-size: 9px;
+                font-weight: bold; letter-spacing: 0.08em; cursor: pointer; }
+.cues .preset.on { background: #2f3a52; color: #cfe0f0; border-color: #45587c; }
+/* Columns switched off on top of the preset. */
+.cues .colbar { display: flex; gap: 4px; flex-wrap: wrap; padding: 6px 12px;
+                border-bottom: 1px solid #26262c; }
+.cues .colbar .col { background: #1a1a20; color: #55555f;
+                     border: 1px solid #2a2a32; border-radius: 4px;
+                     padding: 3px 7px; font-size: 9px; letter-spacing: 0.04em;
+                     cursor: pointer; }
+.cues .colbar .col.on { background: #26263a; color: #a6a6c0; border-color: #3a3a52; }
+
+/* The appearance stripe — what makes a hundred rows scannable.
+   r[impl cues.appearance] */
+.cues .tint { width: 4px; align-self: stretch; min-height: 16px;
+              border-radius: 2px; background: transparent; font-size: 8px;
+              color: #0b0b0e; text-align: center; flex: none; }
+.cues .cue.hit .tint { background: transparent; }
+
+/* How the cue is taken, one glyph. r[impl cues.trig] */
+.cues .trig { width: 12px; color: #6f6f8a; text-align: center; flex: none; }
+.cues .at { color: #7d8fa8; font-size: 0.85em; white-space: nowrap; }
+.cues .fade { color: #6f6f7d; font-size: 0.85em; white-space: nowrap;
+              min-width: 30px; text-align: right; }
+
+/* Per-class timing, condensed. r[impl studio.cuelist.condensed-timing] */
+.cues .times { display: flex; gap: 5px; }
+.cues .tcell { background: #1c1c26; border: 1px solid #2a2a36;
+               border-radius: 3px; padding: 1px 4px; font-size: 10px;
+               color: #9a9ab0; white-space: nowrap; }
+.cues .tclass { color: #5a5a6a; margin-right: 3px; }
+.cues .ease { color: #7a6f95; margin-left: 3px; }
+
+/* The flags, as chips. Each is one letter with the whole rule on hover. */
+.cues .flags { display: flex; gap: 3px; }
+.cues .chip { width: 15px; height: 15px; line-height: 15px; text-align: center;
+              border-radius: 3px; background: #2a2a36; color: #a0a0b8;
+              font-size: 9px; font-weight: bold; }
+.cues .mib { color: #8a7fb0; font-size: 10px; white-space: nowrap; }
+.cues .cue-cmds { display: flex; gap: 5px; padding: 0 14px 8px 44px; }
+.cues .cmd { background: #22202c; border: 1px solid #34304a; border-radius: 3px;
+             padding: 1px 5px; font-size: 10px; color: #a89ac0; }
+
+/* Coverage, and the direct values that will not follow a rig change.
+   r[impl cues.recipes-not-values] */
+.cues .cover { color: #6f7d6f; font-size: 10px; white-space: nowrap; }
+.cues .direct { color: #c0913a; margin-left: 3px; }
+
+/* The cook status, as MA3's pot colours. r[impl studio.cuelist.status] */
+.cues .dot { width: 7px; height: 7px; border-radius: 50%; flex: none;
+             background: #3a3a44; }
+.cues .dot.ok { background: #4f9e4f; }
+.cues .dot.bad { background: #c04a3a; }
+.cues .dot.warn { background: #c08a3a; }
+.cues .dot.direct { background: #6a7a9a; }
+.cues .dot.dead { background: #c04a3a; box-shadow: 0 0 0 3px rgba(192,74,58,0.2); }
+.cues .dot.unknown { background: #2e2e38; }
+
+/* The standing cue's fade, as a bar across the top of its row, and the
+   countdown on a cue that takes itself.
+   r[impl studio.cuelist.live-state] */
+.cues .fading { height: 2px; background: #1c1c26; }
+.cues .fadefill { height: 100%; background: #4a7fbf; }
+.cues .countdown { background: #3a2f10; color: #ffe9a8; border-radius: 3px;
+                   padding: 1px 5px; font-size: 10px; white-space: nowrap; }
+
+.cues .expand { background: none; border: none; color: #6f6f8a;
+                cursor: pointer; font-size: 10px; padding: 0 2px; }
+
+/* The note gets its own line — it is the thing that never fits in a
+   column. r[impl cues.note] */
+.cues .cue-note { padding: 0 14px 9px 44px; color: #8a8a9c; font-size: 11px;
+                  font-style: italic; line-height: 1.4; }
+
+/* Parts: a cue's recipes, indented under it.
+   r[impl studio.cuelist.expand] r[impl cues.parts-are-recipes] */
+.cues .parts { background: #101015; border-top: 1px solid #1c1c22; }
+.cues .part { display: flex; gap: 8px; align-items: center;
+              padding: 5px 14px 5px 34px; font-size: 11px; color: #9a9ab0;
+              border-bottom: 1px solid #17171d; }
+.cues .part:last-child { border-bottom: none; }
+.cues .part.over { color: #7d8fa8; }
+.cues .part.off { opacity: 0.45; text-decoration: line-through; }
+.cues .pnum { width: 14px; color: #4a4a5c; text-align: right; flex: none; }
+.cues .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+               white-space: nowrap; }
+.cues .ptarget { color: #6f7d8a; font-size: 10px; white-space: nowrap; }
+.cues .pcover { color: #6f7d6f; font-size: 10px; }
+.cues .pcover.none { color: #c04a3a; }
+.cues .pnote { color: #6a6a7c; font-style: italic; font-size: 10px; }
 
 /* ── Stage: visualizer over the busking surface ───────────────────── */
 .stage { flex: 1; height: 100%; display: flex; flex-direction: column; }

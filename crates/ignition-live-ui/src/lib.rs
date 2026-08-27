@@ -12,13 +12,19 @@
 // r[impl studio.touch.ipad] - one set of components, native and wasm
 // r[impl studio.one-truth] - the playhead is fed, never computed here
 
+pub mod cameras;
 pub mod command;
+pub mod cuelist;
 pub mod desk;
 pub mod faders;
 pub mod library;
 pub mod live;
 pub mod operators;
+pub mod panes;
+pub mod pointer;
 pub mod program;
+
+pub use cuelist::CueList;
 
 pub use command::{Command, PageMove, Playhead, SpeedKey};
 use dioxus::prelude::*;
@@ -82,6 +88,22 @@ pub fn use_playhead() -> Signal<Playhead> {
 pub fn use_current_cue() -> Memo<Option<usize>> {
     let playhead = use_playhead();
     use_memo(move || playhead().cue)
+}
+
+/// The standing cue's fade, 0 to 1, and which cue is next with how long
+/// until it takes itself. Narrowed from the playhead for the same
+/// reason `use_current_cue` is: a hundred rows should not re-render
+/// because the song clock moved.
+// r[impl studio.cuelist.live-state]
+pub fn use_cue_progress() -> Memo<(f32, Option<usize>, Option<f32>)> {
+    let playhead = use_playhead();
+    use_memo(move || {
+        let p = playhead();
+        // A countdown is quantised to a tenth, so the memo settles
+        // between frames instead of diffing sixty times a second.
+        let next_in = p.next_in.map(|s| (s * 10.0).round() / 10.0);
+        (((p.cue_fade * 100.0).round() / 100.0), p.next_cue, next_in)
+    })
 }
 
 /// Which hit is ringing, for the list.
@@ -159,15 +181,260 @@ pub struct Surface {
 /// `docs/spec/triggers.md`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Row {
-    Cue {
-        index: usize,
-        name: String,
-    },
+    Cue(Box<CueRow>),
     Hit {
         index: usize,
         name: String,
         at: ignition_core::Bars,
     },
+}
+
+/// Everything the list draws for one cue, pre-formatted.
+///
+/// A presentation struct, not a cue: every number is already a string in
+/// the units it is shown in, so the component does no domain work and
+/// the browser client needs no copy of the engine to render a sheet.
+/// The studio fills it once at load; nothing here changes per frame
+/// (what does — the standing cue, its fade's progress, a ringing hit —
+/// rides the playhead).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CueRow {
+    /// Where this cue sits in the list — what `Command::Cue` takes.
+    pub index: usize,
+    /// What it is *called*, which is not the index.
+    // r[impl cues.number]
+    pub number: String,
+    pub name: String,
+    // r[impl cues.note]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    // r[impl cues.appearance]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub appearance: Option<ignition_core::cue::Appearance>,
+    /// The musical position, as the author wrote it — "CH 1 +4".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<String>,
+    /// Where the clock finds it, for a click that locates there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<ignition_core::Bars>,
+    pub trig: TrigKind,
+    /// The cue's own fade — "2.0s".
+    pub fade: String,
+    /// One cell per attribute class, condensed: fade and delay
+    /// together, and only where the class differs from the cue's own.
+    // r[impl studio.cuelist.condensed-timing]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub timing: Vec<ClassCell>,
+    pub flags: Flags,
+    /// Pre-positioning, when it is not the default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mib: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commands: Vec<String>,
+    /// What this cue resolves to on the rig it was loaded against.
+    /// `None` when nothing has cooked it — an honest blank, not a
+    /// guessed green.
+    // r[impl studio.cuelist.status]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<CookStatus>,
+    /// Its parts, one row each when the cue is expanded.
+    // r[impl studio.cuelist.expand]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<PartRow>,
+}
+
+/// One part of a cue — a recipe, or a named timing override — as an
+/// indented sub-row. A cue's recipes *are* its parts, so both draw the
+/// same shape and a cue has one kind of subdivision rather than two.
+// r[impl cues.parts-are-recipes]
+// r[impl studio.cuelist.expand]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PartRow {
+    /// The part number — the recipe's place in the cue.
+    pub number: usize,
+    /// The part's own name, else what it is: a library effect's name, a
+    /// look's, or the selection an override names.
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    /// Who it covers, as written — "role Movers".
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub target: String,
+    /// Its own arrival, when it carries one.
+    // r[impl cues.recipe.timing]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub timing: Vec<ClassCell>,
+    /// How many fixtures it resolved to, when something cooked it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub covers: Option<usize>,
+    /// A timing override rather than a recipe: same shape, drawn
+    /// quieter, because it sets no values.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub is_override: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub disabled: bool,
+}
+
+/// One class's timing, condensed to a single cell.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ClassCell {
+    /// "dim", "col", "pos", "beam".
+    pub class: String,
+    /// "2.0" — or "2.0/0.5" when the fade and delay differ, which is
+    /// the whole reason this is one column instead of eight.
+    pub value: String,
+    /// The curve, when it is not linear.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ease: Option<String>,
+}
+
+/// How a cue is taken.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+// r[impl cues.trig]
+pub enum TrigKind {
+    Go,
+    At,
+    Follow,
+    Sound,
+}
+
+impl TrigKind {
+    /// The glyph the list draws. One character, because the trigger
+    /// column is read at a glance in the dark and a word is not.
+    pub fn glyph(self) -> &'static str {
+        match self {
+            TrigKind::Go => "▶",
+            TrigKind::At => "♪",
+            TrigKind::Follow => "↳",
+            TrigKind::Sound => "≈",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            TrigKind::Go => "taken by hand",
+            TrigKind::At => "taken by the clock",
+            TrigKind::Follow => "follows the cue before it",
+            TrigKind::Sound => "taken by a sound event",
+        }
+    }
+}
+
+/// The flags a cue carries, as the list shows them: a row of chips,
+/// each present only when set.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Flags {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub block: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub assert: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cue_only: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub breaks: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub morph: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fan: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub release: bool,
+}
+
+impl Flags {
+    /// `(chip, what it means)` for every flag that is set.
+    pub fn chips(self) -> Vec<(&'static str, &'static str)> {
+        let mut out = Vec::new();
+        if self.block {
+            out.push(("B", "blocks: nothing tracks in"));
+        }
+        if self.assert {
+            out.push(("A", "asserts: tracked values re-arrive on this cue's time"));
+        }
+        if self.cue_only {
+            out.push(("Q", "cue only: does not track onward"));
+        }
+        if self.breaks {
+            out.push(("K", "breaks tracking for some attributes"));
+        }
+        if self.morph {
+            out.push(("M", "morphs from the cue before it"));
+        }
+        if self.fan {
+            out.push(("F", "fanned: the cue wipes across its fixtures"));
+        }
+        if self.release {
+            out.push(("R", "releases attributes to whatever is beneath"));
+        }
+        out
+    }
+}
+
+/// What a cue resolved to on this rig — the one-glance verdict, plus
+/// the counts the Program preset shows.
+// r[impl cues.cooked-status]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CookStatus {
+    pub state: CookState,
+    /// Fixtures covered across every recipe.
+    pub covers: usize,
+    /// Recipes that resolved to something.
+    pub recipes: usize,
+    /// Direct values — the portability smell, per
+    /// `r[cues.recipes-not-values]`.
+    pub direct: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CookState {
+    /// Every recipe resolved and nothing but recipes.
+    Cooked,
+    /// At least one recipe resolved to nothing.
+    Failed,
+    /// Recipes *and* hand-placed direct values.
+    Mixed,
+    /// Direct values only.
+    Direct,
+    /// Nothing in it at all — a dead cue.
+    Empty,
+}
+
+impl CookState {
+    pub fn css(self) -> &'static str {
+        match self {
+            CookState::Cooked => "ok",
+            CookState::Failed => "bad",
+            CookState::Mixed => "warn",
+            CookState::Direct => "direct",
+            CookState::Empty => "dead",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            CookState::Cooked => "every recipe resolves",
+            CookState::Failed => "a recipe resolves to nothing on this rig",
+            CookState::Mixed => "recipes and hand-placed values",
+            CookState::Direct => "hand-placed values only",
+            CookState::Empty => "dead: nothing in this cue resolves",
+        }
+    }
+}
+
+/// Which columns the list shows. The same rows either way — a view
+/// setting, not a different panel.
+// r[impl studio.cuelist.one-panel]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Preset {
+    /// Running a night: what can be read at arm's length in the dark.
+    // r[impl studio.cuelist.live-columns]
+    #[default]
+    Live,
+    /// Building a show: everything a cue carries.
+    // r[impl studio.cuelist.program-columns]
+    Program,
 }
 
 /// Everything a Live client needs to draw before the first playhead
@@ -205,92 +472,43 @@ pub const HSLIDER_WIDTH: f32 = 90.0;
 
 /// A small horizontal slider, for the trims. Divs, not a range input,
 /// so it draws the same on Blitz and in Safari and so the grab area is
-/// the whole track.
+/// the whole track. Latched on press, it follows the window's pointer
+/// (`pointer::PointerRoot`) until the release, wherever that is, and
+/// the value moves by how far the hand moved.
 #[component]
 pub fn HSlider(initial: f32, on_change: EventHandler<f32>) -> Element {
     let mut level = use_signal(|| initial);
-    let mut held = use_signal(|| false);
-    let mut set_from = move |x: f64| {
-        let v = (x as f32 / HSLIDER_WIDTH).clamp(0.0, 1.0);
-        level.set(v);
-        on_change.call(v);
-    };
+    let mut latch = use_signal(|| Option::<pointer::Latch>::None);
+    let feed = pointer::use_pointer_feed();
+    use_effect(move || {
+        // Reading the feed only while latched: an idle slider does not
+        // re-render with the mouse.
+        let Some(l) = latch() else {
+            return;
+        };
+        let p = feed();
+        if pointer::released(&l, &p) {
+            latch.set(None);
+            return;
+        }
+        let v = pointer::drag_right(&l, p.x, HSLIDER_WIDTH);
+        if v != *level.peek() {
+            level.set(v);
+            on_change.call(v);
+        }
+    });
     rsx! {
         div {
             class: "hslider",
             onpointerdown: move |e| {
-                held.set(true);
-                set_from(e.data.element_coordinates().x);
+                let p = e.data.client_coordinates();
+                latch.set(Some(pointer::Latch {
+                    at: (p.x as f32, p.y as f32),
+                    level: level(),
+                    ups: feed.peek().ups,
+                }));
             },
-            onpointermove: move |e| {
-                if held() {
-                    set_from(e.data.element_coordinates().x);
-                }
-            },
-            onpointerup: move |_| held.set(false),
-            onpointerleave: move |_| held.set(false),
             div { class: "hfill", style: "width: {level() * 100.0}%" }
-        }
-    }
-}
-
-/// The cue stack. Underneath the busking layer, not beside it: a cue
-/// fills in whatever the operator is not currently holding.
-#[component]
-pub fn CueList(cues: Vec<Row>) -> Element {
-    // What the player is actually standing on, not what was last
-    // clicked. A click still fires the cue; it just no longer decides
-    // what the list *shows*.
-    let current = use_current_cue();
-    let ringing = use_ringing_hit();
-
-    rsx! {
-        aside { class: "cues",
-            header {
-                span { "Cue List" }
-                button {
-                    class: "go",
-                    onclick: move |_| send(Command::Go),
-                    "GO"
-                }
-                // GO on the look list — the list beneath the song's that
-                // the operator steps by hand.
-                button {
-                    class: "go look",
-                    onclick: move |_| send(Command::LookGo),
-                    "LOOK"
-                }
-            }
-            ol {
-                for (i, row) in cues.iter().enumerate() {
-                    match row {
-                        Row::Cue { index, name } => {
-                            let index = *index;
-                            rsx! {
-                                li {
-                                    key: "c{i}",
-                                    class: if current() == Some(index) { "cue on" } else { "cue" },
-                                    onclick: move |_| send(Command::Cue(index)),
-                                    span { class: "num", "{index}" }
-                                    span { class: "name", "{name}" }
-                                }
-                            }
-                        }
-                        Row::Hit { index, name, at } => {
-                            let (index, at) = (*index, *at);
-                            rsx! {
-                                li {
-                                    key: "h{i}",
-                                    class: if ringing() == Some(index) { "cue hit on" } else { "cue hit" },
-                                    onclick: move |_| send(Command::Locate(at)),
-                                    span { class: "num", "♪" }
-                                    span { class: "name", "{name}" }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }

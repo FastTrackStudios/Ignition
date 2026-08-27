@@ -3,6 +3,7 @@
 //! ```text
 //! viz --venue data/venues/norco
 //! viz --venue data/venues/norco --snapshot out.png --view house
+//! viz --venue data/venues/norco --snapshot out.png --camera "Drums"
 //! viz --venue data/venues/norco --cuelist data/songs/x.json --bpm 128 \
 //!     --export out.mp4 --from-bar 9 --to-bar 17 --fps 30 --width 1280 --height 720
 //! ```
@@ -65,6 +66,9 @@ fn main() -> anyhow::Result<()> {
     let mut cuelist: Option<PathBuf> = None;
     let mut recipes: Option<PathBuf> = None;
     let mut cue: Option<usize> = None;
+    // A profile look held for the still — `--look` is already the
+    // camera's target, so this one is `--look-name`.
+    let mut look_name: Option<String> = None;
     let mut bar: Option<u32> = None;
     let mut song_bpm: Option<f32> = None;
     let mut effect_time: Option<f32> = None;
@@ -91,6 +95,9 @@ fn main() -> anyhow::Result<()> {
     let mut fps = false;
     let mut eye: Option<Vec3> = None;
     let mut look: Option<Vec3> = None;
+    // `--camera <preset>`: start on one of the venue's named cameras
+    // (`cameras.json`) — the way a snapshot of the drum cam is taken.
+    let mut camera_preset: Option<String> = None;
     // `--output` sends DMX from the venue's config; off unless asked,
     // since a laptop opening a window should not take over a rig.
     let mut output = false;
@@ -163,6 +170,7 @@ fn main() -> anyhow::Result<()> {
             // at the room. Both are needed; either alone is ignored.
             "--eye" => eye = Some(parse_point(&next("x,y,z in metres"))?),
             "--look" => look = Some(parse_point(&next("x,y,z in metres"))?),
+            "--camera" => camera_preset = Some(next("a preset name from cameras.json")),
             // A programmed show. The two spellings are the same format
             // now — a cue carries direct values and recipes as the two
             // layers of one cascade — and both are kept because both
@@ -172,6 +180,9 @@ fn main() -> anyhow::Result<()> {
             "--cuelist" => cuelist = Some(PathBuf::from(next("a path"))),
             "--recipes" => recipes = Some(PathBuf::from(next("a path"))),
             "--cue" => cue = Some(next("a 0-based cue index").parse()?),
+            // A profile look (baked or authored) latched on the
+            // programmer's held layer, for a preview of the look.
+            "--look-name" => look_name = Some(next("a look name")),
             // Address the show musically rather than by list index.
             "--bar" => bar = Some(next("a bar number, 1-based").parse()?),
             // Seeds the `Song` speed master, so effects slaved to the
@@ -216,6 +227,24 @@ fn main() -> anyhow::Result<()> {
     let view = ViewPreset::parse(&view)
         .ok_or_else(|| anyhow::anyhow!("unknown --view {view}; use house, stage, or top"))?;
     let venue = Venue::load(&venue_dir)?;
+    let cameras = {
+        let (min, max) = venue.bounds();
+        ignition_viz::Cameras::load_or_builtin(&venue_dir, min, max)
+    };
+    if let Some(name) = &camera_preset
+        && cameras.preset(name).is_none()
+    {
+        anyhow::bail!(
+            "--camera {name}: no such preset; {} has {}",
+            venue_dir.join(ignition_viz::camera::FILE).display(),
+            cameras
+                .presets
+                .iter()
+                .map(|p| p.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
     println!(
         "loaded venue {:?}: {} fixtures, {} room objects",
         venue_dir,
@@ -277,6 +306,12 @@ fn main() -> anyhow::Result<()> {
         song_bpm,
         None,
     )?;
+    if let Some(name) = &look_name {
+        anyhow::ensure!(
+            playback.hold_look(name),
+            "no look named {name:?} in the profile"
+        );
+    }
     if let Some(select) = &select {
         let chans = ignition_viz::picking::parse_chan_ranges(select)?;
         playback
@@ -304,6 +339,8 @@ fn main() -> anyhow::Result<()> {
         settle_frames,
         show_props,
         camera: eye.zip(look),
+        cameras,
+        camera_preset,
         overlay: draw_overlay,
         // The studio draws the fps readout; so does the bench.
         fps: fps || bench.is_some(),
