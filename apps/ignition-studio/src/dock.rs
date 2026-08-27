@@ -45,6 +45,11 @@ pub enum PaneKind {
     Splits,
     Focus,
     Effects,
+    /// Movement effects only. They read differently from the rest —
+    /// what matters is where the beams go, not what the rig does — and
+    /// a column of them beside the others is easier to scan than a
+    /// hundred and thirty-one of everything mixed together.
+    Movers,
     Tricks,
     Bundles,
     Programmer,
@@ -61,7 +66,7 @@ pub enum PaneKind {
 }
 
 impl PaneKind {
-    pub const ALL: [PaneKind; 22] = [
+    pub const ALL: [PaneKind; 23] = [
         PaneKind::CueList,
         PaneKind::Visualizer,
         PaneKind::Transport,
@@ -73,6 +78,7 @@ impl PaneKind {
         PaneKind::Splits,
         PaneKind::Focus,
         PaneKind::Effects,
+        PaneKind::Movers,
         PaneKind::Tricks,
         PaneKind::Bundles,
         PaneKind::Programmer,
@@ -100,6 +106,7 @@ impl PaneKind {
             PaneKind::Splits => "Splits",
             PaneKind::Focus => "Focus",
             PaneKind::Effects => "Effects",
+            PaneKind::Movers => "Movers",
             PaneKind::Tricks => "Tricks",
             PaneKind::Bundles => "Bundles",
             PaneKind::Programmer => "Programmer",
@@ -128,6 +135,7 @@ impl PaneKind {
             PaneKind::Splits => "splits",
             PaneKind::Focus => "focus",
             PaneKind::Effects => "effects",
+            PaneKind::Movers => "movers",
             PaneKind::Tricks => "tricks",
             PaneKind::Bundles => "bundles",
             PaneKind::Programmer => "programmer",
@@ -186,9 +194,10 @@ pub enum DockNode {
 /// The chrome is hairline-thin on purpose: the content gets the pixels.
 pub const TAB_BAR: f32 = 18.0;
 pub const SPLITTER: f32 = 2.0;
-/// How far either side of a splitter a press still grabs it. The bar
-/// itself is two pixels; the hand gets eight.
-pub const SPLITTER_GRAB: f32 = 4.0;
+/// How far either side of a splitter a press still grabs it. Six
+/// pixels of target in all, which is enough for a mouse and narrow
+/// enough that a press near the edge of a pane lands in the pane.
+pub const SPLITTER_GRAB: f32 = 2.0;
 
 impl DockNode {
     pub fn tabs(panes: impl Into<Vec<PaneKind>>) -> Self {
@@ -632,13 +641,25 @@ pub enum Preset {
 /// window — see `console_fits_a_1440p_monitor`.
 pub const CONSOLE_FADERS_BAND: f32 = 0.27;
 
+/// How wide each of the Console's top panes is, as a share of the row.
+///
+/// Not even shares: each pane holds a different shape and wants a whole
+/// number of columns of it. Looks are three cards across, groups and
+/// focus a single column of names, colours three discs, effects two
+/// cards, movers and macros one card each. The widths follow from that
+/// — and the slack goes to Looks, which is the pane most reached for.
+/// The CSS pins the column counts so the two cannot drift apart.
+pub const CONSOLE_TOP_RATIOS: [f32; 7] = [0.36, 0.07, 0.11, 0.07, 0.20, 0.095, 0.095];
+
 /// The panes across the top of the Console preset, left to right.
-pub const CONSOLE_TOP: [PaneKind; 5] = [
+pub const CONSOLE_TOP: [PaneKind; 7] = [
     PaneKind::Looks,
     PaneKind::Groups,
     PaneKind::Colours,
     PaneKind::Focus,
     PaneKind::Effects,
+    PaneKind::Movers,
+    PaneKind::Macros,
 ];
 
 impl Preset {
@@ -684,8 +705,9 @@ impl Preset {
                 Axis::Col,
                 vec![1.0 - CONSOLE_FADERS_BAND, CONSOLE_FADERS_BAND],
                 vec![
-                    DockNode::split(
+                    DockNode::split_with(
                         Axis::Row,
+                        CONSOLE_TOP_RATIOS.to_vec(),
                         CONSOLE_TOP.iter().map(|p| DockNode::tab(*p)).collect(),
                     ),
                     DockNode::tab(PaneKind::Faders),
@@ -1628,7 +1650,7 @@ mod tests {
         let effects = t.find(Effects).unwrap().0;
         assert!(t.drop_pane(Faders, &effects, DropZone::Bottom));
         assert_eq!(t.find(Faders).unwrap().0, vec![4, 1]);
-        assert_eq!(t.panes().len(), 6);
+        assert_eq!(t.panes().len(), CONSOLE_TOP.len() + 1);
     }
 
     /// r[verify studio.dock.drop-zones]
@@ -1705,12 +1727,12 @@ mod tests {
             t.remove(Effects);
         });
         assert!(!d.is_solo());
-        assert_eq!(d.tree.panes().len(), 5);
+        assert_eq!(d.tree.panes().len(), CONSOLE_TOP.len() + 1 - 1);
         assert!(!d.solo(Effects));
         d.solo(Looks);
         d.restore();
         d.restore();
-        assert_eq!(d.tree.panes().len(), 5);
+        assert_eq!(d.tree.panes().len(), CONSOLE_TOP.len() + 1 - 1);
     }
 
     /// r[verify studio.dock.presets]
@@ -1776,7 +1798,7 @@ mod tests {
                 active: 0
             })
         );
-        assert_eq!(with.panes().len(), 7);
+        assert_eq!(with.panes().len(), CONSOLE_TOP.len() + 2);
     }
 
     /// r[verify studio.dock.drop-zones]
@@ -1864,7 +1886,7 @@ mod tests {
         // the top.
         let window = Rect::new(0.0, 0.0, 2560.0, 1440.0 - view::STRIP);
         let placed = layout(&console(), window);
-        assert_eq!(placed.leaves.len(), 6);
+        assert_eq!(placed.leaves.len(), CONSOLE_TOP.len() + 1);
         let faders = placed.rect_of(Faders).unwrap();
         // The fader pane's tallest column: tab 22 + head 44 + gaps +
         // badges 18 + track 120 + param 42 + label/value 26 + key 44
@@ -1872,13 +1894,27 @@ mod tests {
         assert!(faders.h >= 340.0, "fader band is {}px", faders.h);
         assert!((faders.bottom() - window.bottom()).abs() < 0.01);
         assert_eq!(faders.w, 2560.0);
-        for pane in CONSOLE_TOP {
+        // Each pane holds a whole number of columns of its own shape,
+        // and they are not the same number: three look cards, one
+        // column of group names, three colour discs, one of focus
+        // names, four effect cards. `(columns, tile width)`, in
+        // `CONSOLE_TOP` order — kept in step with the column counts
+        // pinned in `live.css`.
+        const SHAPES: [(f32, f32); 7] = [
+            (3.0, 240.0), // Looks — three cards, the pane most used
+            (1.0, 150.0), // Groups — a name tile
+            (3.0, 84.0),  // Colours — discs
+            (1.0, 150.0), // Focus — a name tile
+            (2.0, 180.0), // Effects — two cards, everything but movement
+            (1.0, 200.0), // Movers — one card, wide enough for 16:9
+            (1.0, 200.0), // Macros — the same
+        ];
+        for (pane, (columns, tile)) in CONSOLE_TOP.into_iter().zip(SHAPES) {
             let r = placed.rect_of(pane).unwrap();
-            // Three 150px tiles and their gaps fit across each column,
-            // and a column holds a good many rows of 52px tiles.
+            let want = columns * tile + (columns - 1.0) * 6.0 + 16.0;
             assert!(
-                r.w >= 3.0 * 150.0 + 2.0 * 6.0 + 16.0,
-                "{pane:?} is {}px wide",
+                r.w >= want,
+                "{pane:?} is {}px wide, too narrow for {columns} columns of {tile}px",
                 r.w
             );
             assert!(r.h >= 900.0, "{pane:?} is {}px tall", r.h);
@@ -1888,8 +1924,9 @@ mod tests {
             assert!(leaf.rect.right() <= window.right() + 0.01);
             assert!(leaf.rect.bottom() <= window.bottom() + 0.01);
         }
-        // Splitters: four across the top row, one under it.
-        assert_eq!(placed.splitters.len(), 5);
+        // Splitters: one between each pair across the top row, and one
+        // under the row.
+        assert_eq!(placed.splitters.len(), CONSOLE_TOP.len());
         let under = placed.splitter(&[], 0).unwrap();
         assert_eq!(under.axis, Axis::Col);
         assert_eq!(under.pair, window);
@@ -1916,6 +1953,20 @@ mod tests {
             css.contains("overflow: hidden"),
             "panes clip, the window never scrolls"
         );
+        // A nested split — a row of panes inside a column — gets its
+        // main size from `flex-grow` but its cross size only from
+        // stretching, and a stretched-but-indefinite size is `auto` to
+        // Taffy. The leaf's `height: 100%` then resolves against
+        // nothing and collapses to its tab bar, which is how five panes
+        // came to draw as five tab bars over empty grey.
+        assert!(
+            css.contains(".dock-split.row > .dock-child { height: 100%; }"),
+            "a row split's children need a definite height or nested leaves collapse"
+        );
+        assert!(
+            css.contains(".dock-split.col > .dock-child { width: 100%; }"),
+            "a column split's children need a definite width for the same reason"
+        );
     }
 
     #[test]
@@ -1935,10 +1986,13 @@ mod tests {
         let s = placed.splitter(&[1], 0).unwrap();
         assert_eq!(s.rect, Rect::new(502.0, 250.0, 500.0, 2.0));
         assert!((fraction_for(s, 0.0, 100.0) - 0.2).abs() < 0.01);
-        // The two-pixel bar is grabbed from four pixels either side.
-        assert_eq!(placed.splitter_at(700.0, 247.0).map(|s| s.index), Some(0));
-        assert_eq!(placed.splitter_at(700.0, 255.0).map(|s| s.index), Some(0));
-        assert!(placed.splitter_at(700.0, 245.0).is_none());
+        // The two-pixel bar is grabbed from two pixels either side —
+        // six pixels of target in all. Wider than that and a press
+        // meant for the edge of a pane grabs the splitter instead.
+        assert_eq!(placed.splitter_at(700.0, 249.0).map(|s| s.index), Some(0));
+        assert_eq!(placed.splitter_at(700.0, 253.0).map(|s| s.index), Some(0));
+        assert!(placed.splitter_at(700.0, 247.0).is_none());
+        assert!(placed.splitter_at(700.0, 255.0).is_none());
         assert_eq!(
             placed.splitter_at(499.0, 300.0).map(|s| &s.path),
             Some(&vec![])

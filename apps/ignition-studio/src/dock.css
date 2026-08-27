@@ -26,6 +26,15 @@
 .dock-split.row { flex-direction: row; }
 .dock-split.col { flex-direction: column; }
 .dock-child { display: flex; flex-shrink: 1; flex-basis: 0; min-width: 0; min-height: 0; overflow: hidden; }
+/* The cross size has to be definite too, not just the main one. A child
+   of a row split gets its width from `flex-grow` but its height only
+   from stretching, and a stretched-but-indefinite height is `auto` to
+   Taffy — so the `height: 100%` on the leaf inside resolves against
+   nothing and the leaf collapses to its tab bar. That is why a nested
+   split (a row of panes inside a column) drew five tab bars over empty
+   grey while an unnested leaf beside it drew fine. */
+.dock-split.row > .dock-child { height: 100%; }
+.dock-split.col > .dock-child { width: 100%; }
 .dock-splitter { flex: 0 0 2px; background: #1f1f26; }
 .dock-split.row > .dock-splitter { cursor: col-resize; }
 .dock-split.col > .dock-splitter { cursor: row-resize; }

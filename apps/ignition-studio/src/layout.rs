@@ -501,24 +501,59 @@ mod tests {
         let raw = std::fs::read_to_string(path).expect("data/operators/cody.ig-user");
         let layout = parse(&raw).unwrap();
         assert_eq!(layout.windows.len(), 3);
-        // DP-5: the cue list alone, filling the window.
-        assert_eq!(layout.windows[0].tree, DockNode::tab(PaneKind::CueList));
-        // DP-4: visualizer over transport, 80/20.
+        // DP-5: the cue list, with the transport as a thin band under
+        // it. Where the song is and which cue is standing are the same
+        // question, and answering it should not mean looking at another
+        // monitor.
         let DockNode::Split {
             axis,
             ratios,
             children,
-        } = &layout.windows[1].tree
+        } = &layout.windows[0].tree
         else {
-            panic!("DP-4 is a split")
+            panic!("DP-5 is a split")
         };
         assert_eq!(*axis, Axis::Col);
-        assert!((ratios[0] - 0.8).abs() < 1e-6);
-        assert_eq!(children[0], DockNode::tab(PaneKind::Visualizer));
+        assert_eq!(children[0], DockNode::tab(PaneKind::CueList));
         assert_eq!(children[1], DockNode::tab(PaneKind::Transport));
-        // DP-3: the Console, Live.
-        assert_eq!(layout.windows[2].tree, Preset::Console.build(&[]));
+        assert!(
+            ratios[1] < 0.08,
+            "the transport is a bar, not a panel: {ratios:?}"
+        );
+        // DP-4: the ultrawide, fullscreen, split down the middle. It is
+        // two 1440p screens' worth of pixels, so it holds two 2560×1440
+        // views side by side — the cut on the left, the wide shot on the
+        // right. Both live, neither hiding the other behind a tab.
+        assert_eq!(layout.windows[1].placement, Placement::Fullscreen);
+        let DockNode::Split { axis, children, .. } = &layout.windows[1].tree else {
+            panic!("DP-4 is a split")
+        };
+        assert_eq!(*axis, Axis::Row);
+        assert_eq!(children[0], DockNode::tab(PaneKind::Programme));
+        assert_eq!(children[1], DockNode::tab(PaneKind::Visualizer));
+        // DP-3: the Console, Live. The *panes* are the Console's, in
+        // the Console's order — Colours being one pane that holds the
+        // whole palette, gels and multi-colour alike, so no leaf is
+        // needed for splits. The ratios are deliberately not checked:
+        // they are what the operator last dragged the splitters to, and
+        // a test that pins them fails every time somebody makes the
+        // effects column wider, which is the file working as intended.
         assert_eq!(layout.windows[2].view, View::Live);
+        let DockNode::Split { children, .. } = &layout.windows[2].tree else {
+            panic!("DP-3 is a split")
+        };
+        let DockNode::Split { children: top, .. } = &children[0] else {
+            panic!("the Console's top row is a split")
+        };
+        let got: Vec<PaneKind> = top
+            .iter()
+            .map(|leaf| match leaf {
+                DockNode::Tabs { panes, active } => panes[*active],
+                _ => panic!("every top leaf is tabs"),
+            })
+            .collect();
+        assert_eq!(got, crate::dock::CONSOLE_TOP.to_vec());
+        assert_eq!(children[1], DockNode::tab(PaneKind::Faders));
     }
 
     /// r[verify studio.operators.layout]

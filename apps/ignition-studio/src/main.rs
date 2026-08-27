@@ -1467,25 +1467,45 @@ fn Viewport() -> Element {
         }))
     });
 
-    // Blitz repaints on demand and a `Widget` has no way to ask for a
-    // frame, so a signal keeps the DOM dirty and the visualizer
-    // animating. It ticks when the widget says a frame is *done*, not on
-    // a timer: a timer started after a vsync-blocking present always
-    // fired a frame late, which halved the frame rate. The timeout is
-    // only for before the widget is painting at all (no device yet),
-    // when nothing would otherwise ask for the first frame.
-    let mut frame = use_signal(|| 0u64);
-    use_future(move || async move {
-        let done = viz_widget::FRAME_DONE.clone();
-        loop {
-            let _ =
-                tokio::time::timeout(std::time::Duration::from_millis(100), done.notified()).await;
-            frame += 1;
+    // Blitz repaints on demand, so something has to ask for the next
+    // frame. It asks *winit*, directly.
+    //
+    // This used to bump a signal written into a `data-frame` attribute,
+    // on the reasoning that a `Widget` has no way to request a frame and
+    // a dirty DOM is what makes Blitz redraw. It does — and it also
+    // makes Blitz re-render a component, diff it, mutate the document,
+    // restyle it and hand the whole tree to taffy, sixty times a second,
+    // to change a number nothing reads. Four milliseconds a frame of
+    // layout for a picture that had not changed shape since the window
+    // opened.
+    //
+    // `use_window` hands over the `Arc<dyn Window>` this component's
+    // window was built on, and `request_redraw` is exactly the ask: the
+    // next `RedrawRequested` paints, the widget steps the visualizer
+    // during that paint, and nothing in the document is touched at all.
+    //
+    // It still ticks when the widget says a frame is *done*, not on a
+    // timer: a timer started after a vsync-blocking present always fired
+    // a frame late, which halved the frame rate. The timeout is only for
+    // before the widget is painting at all (no device yet), when nothing
+    // would otherwise ask for the first frame.
+    // r[impl studio.profiling] - the frame loop costs no layout
+    let window = dioxus_native::use_window();
+    use_future(move || {
+        let window = window.clone();
+        async move {
+            let done = viz_widget::FRAME_DONE.clone();
+            loop {
+                let _ =
+                    tokio::time::timeout(std::time::Duration::from_millis(100), done.notified())
+                        .await;
+                window.request_redraw();
+            }
         }
     });
 
     rsx! {
-        div { class: "viz", "data-frame": "{frame}",
+        div { class: "viz",
             object { "data": widget_attr }
         }
     }

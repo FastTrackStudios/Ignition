@@ -447,17 +447,24 @@ pub fn Programme() -> dioxus::prelude::Element {
     use dioxus::prelude::*;
     let widget_attr =
         use_hook(|| dioxus_native_dom::CustomWidgetAttr::new(ProgrammeWidget::attach()));
-    let mut frame = use_signal(|| 0u64);
-    use_future(move || async move {
-        let done = FRAME_DONE.clone();
-        loop {
-            let _ =
-                tokio::time::timeout(std::time::Duration::from_millis(100), done.notified()).await;
-            frame += 1;
+    // Winit, not the DOM — see the Viewport's own loop in `main.rs` for
+    // why a signal here cost four milliseconds a frame of layout.
+    // r[impl studio.profiling] - the frame loop costs no layout
+    let window = dioxus_native::use_window();
+    use_future(move || {
+        let window = window.clone();
+        async move {
+            let done = FRAME_DONE.clone();
+            loop {
+                let _ =
+                    tokio::time::timeout(std::time::Duration::from_millis(100), done.notified())
+                        .await;
+                window.request_redraw();
+            }
         }
     });
     rsx! {
-        div { class: "viz programme", "data-frame": "{frame}",
+        div { class: "viz programme",
             object { "data": widget_attr }
         }
     }

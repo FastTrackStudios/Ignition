@@ -569,12 +569,19 @@ pub fn PaneBody(pane: PaneKind) -> Element {
         PaneKind::Transport => rsx! { crate::Transport {} },
         PaneKind::Faders => rsx! { panes::FadersPane {} },
         PaneKind::Looks => kind_pane(Tab::Kind(Kind::Look)),
-        PaneKind::Macros => kind_pane(Tab::Kind(Kind::Macro)),
+        PaneKind::Macros => rsx! {
+            panes::EffectsPane { surface: surface.clone(), only: panes::EffectKinds::Macros }
+        },
         PaneKind::Groups => kind_pane(Tab::Kind(Kind::Group)),
         PaneKind::Colours => kind_pane(Tab::Kind(Kind::Colour)),
         PaneKind::Splits => kind_pane(Tab::Splits),
         PaneKind::Focus => kind_pane(Tab::Kind(Kind::Focus)),
-        PaneKind::Effects => kind_pane(Tab::Kind(Kind::Effect)),
+        PaneKind::Effects => rsx! {
+            panes::EffectsPane { surface: surface.clone(), only: panes::EffectKinds::Rig }
+        },
+        PaneKind::Movers => rsx! {
+            panes::EffectsPane { surface: surface.clone(), only: panes::EffectKinds::Movement }
+        },
         PaneKind::Tricks => kind_pane(Tab::Kind(Kind::Trick)),
         PaneKind::Bundles => kind_pane(Tab::Kind(Kind::Bundle)),
         PaneKind::Programmer => rsx! { crate::program::Programmer { surface: surface.clone() } },
@@ -708,6 +715,28 @@ mod tests {
             ]}"#,
         )
         .unwrap())
+    }
+
+    /// The chrome is not selectable, and that is a crash fix rather than
+    /// a matter of taste: a text selection whose anchor is removed by a
+    /// re-render makes blitz compare two nodes with no common root, and
+    /// `compare_document_order` underflows into a `usize::MAX` index.
+    /// Inputs keep their selection, or the search fields stop working.
+    #[test]
+    fn the_chrome_cannot_be_drag_selected_but_inputs_can() {
+        let css = include_str!("studio.css");
+        assert!(
+            css.contains(".window, .window * { -webkit-user-select: none; user-select: none; }"),
+            "the window is drag-selectable; a stale selection anchor panics blitz"
+        );
+        let inputs = css
+            .split(".window input, .window textarea")
+            .nth(1)
+            .expect("inputs are exempted");
+        assert!(
+            inputs.starts_with(" { -webkit-user-select: text; user-select: text; }"),
+            "a search field you cannot select in is a search field you cannot edit"
+        );
     }
 
     /// r[verify studio.windows.multiple]
