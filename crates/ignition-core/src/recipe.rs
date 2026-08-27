@@ -465,6 +465,24 @@ impl Slot {
 pub struct Recipe {
     pub target: Selection,
     pub steps: Vec<Step>,
+    /// What this piece of the cue is called, for the list to label its
+    /// sub-row with. A cue's recipes are its parts, and a part with a
+    /// name — "movers swing in" beside "house to half" — is the
+    /// difference between a cue somebody can read and one opaque row.
+    // r[impl cues.recipe.name]
+    // r[impl cues.parts-are-recipes]
+    pub name: Option<String>,
+    /// Why this piece is the way it is. Never affects output.
+    // r[impl cues.recipe.name]
+    pub note: Option<String>,
+    /// This piece's **own** fade, delay and ease per class, overriding
+    /// the cue's for every key it covers. Distinct from `timing`, which
+    /// is the effect's rate; this is the arrival. It is the whole
+    /// reason a console needs cue parts — a cue-wide class fade cannot
+    /// say "*these* movers over five seconds, everything else over
+    /// one", and a per-piece one can.
+    // r[impl cues.recipe.timing]
+    pub cue_timing: Option<crate::cue::CueTiming>,
     // r[impl recipes.timing-in-musical-terms] - rate against a named master via Speed::Master
     pub timing: Timing,
     // r[impl tricks.on-the-recipe]
@@ -519,6 +537,9 @@ impl Default for Recipe {
         Self {
             target: Selection::Chans(Vec::new()),
             steps: Vec::new(),
+            name: None,
+            note: None,
+            cue_timing: None,
             timing: Timing::default(),
             tricks: Vec::new(),
             stack: false,
@@ -593,6 +614,17 @@ pub enum RecipeRef {
     /// speed routing, since a cue has no family table to route by.
     Named {
         effect: String,
+        /// This part's label and note, and its own arrival — the same
+        /// three a `Recipe` carries, so a library effect can be a named,
+        /// separately-timed part of a cue without being inlined.
+        // r[impl cues.recipe.name]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        note: Option<String>,
+        // r[impl cues.recipe.timing]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cue_timing: Option<crate::cue::CueTiming>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         target: Option<Selection>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -640,6 +672,9 @@ impl RecipeRef {
     pub fn named(effect: &str) -> Self {
         RecipeRef::Named {
             effect: effect.to_string(),
+            name: None,
+            note: None,
+            cue_timing: None,
             target: None,
             bars: None,
             tricks: None,
@@ -664,6 +699,9 @@ impl RecipeRef {
             RecipeRef::Named {
                 target: _,
                 effect,
+                name,
+                note,
+                cue_timing,
                 bars,
                 tricks,
                 params,
@@ -671,6 +709,9 @@ impl RecipeRef {
                 speed,
             } => RecipeRef::Named {
                 effect,
+                name,
+                note,
+                cue_timing,
                 target: Some(selection),
                 bars,
                 tricks,
@@ -693,6 +734,9 @@ impl RecipeRef {
         match self {
             RecipeRef::Named {
                 effect,
+                name: part,
+                note,
+                cue_timing,
                 target,
                 bars,
                 tricks,
@@ -703,6 +747,9 @@ impl RecipeRef {
                 params.insert(name.to_string(), value);
                 RecipeRef::Named {
                     effect,
+                    name: part,
+                    note,
+                    cue_timing,
                     target,
                     bars,
                     tricks,
@@ -721,6 +768,9 @@ impl RecipeRef {
         match self {
             RecipeRef::Named {
                 effect,
+                name,
+                note,
+                cue_timing,
                 target,
                 bars,
                 tricks,
@@ -729,6 +779,9 @@ impl RecipeRef {
                 ..
             } => RecipeRef::Named {
                 effect,
+                name,
+                note,
+                cue_timing,
                 target,
                 bars,
                 tricks,
@@ -740,11 +793,86 @@ impl RecipeRef {
         }
     }
 
+    /// This reference as a named part of a cue. A `Named` reference
+    /// takes the label; anything else is returned unchanged.
+    // r[impl cues.recipe.name]
+    pub fn part(self, label: &str) -> Self {
+        match self {
+            RecipeRef::Named {
+                effect,
+                note,
+                cue_timing,
+                target,
+                bars,
+                tricks,
+                params,
+                filter,
+                speed,
+                ..
+            } => RecipeRef::Named {
+                effect,
+                name: Some(label.to_string()),
+                note,
+                cue_timing,
+                target,
+                bars,
+                tricks,
+                params,
+                filter,
+                speed,
+            },
+            RecipeRef::Inline(mut r) => {
+                r.name = Some(label.to_string());
+                RecipeRef::Inline(r)
+            }
+            other => other,
+        }
+    }
+
+    /// This reference with its own arrival — the part's fade, delay and
+    /// ease, overriding the cue's for everything it covers.
+    // r[impl cues.recipe.timing]
+    pub fn arriving(self, timing: crate::cue::CueTiming) -> Self {
+        match self {
+            RecipeRef::Named {
+                effect,
+                name,
+                note,
+                target,
+                bars,
+                tricks,
+                params,
+                filter,
+                speed,
+                ..
+            } => RecipeRef::Named {
+                effect,
+                name,
+                note,
+                cue_timing: Some(timing),
+                target,
+                bars,
+                tricks,
+                params,
+                filter,
+                speed,
+            },
+            RecipeRef::Inline(mut r) => {
+                r.cue_timing = Some(timing);
+                RecipeRef::Inline(r)
+            }
+            other => other,
+        }
+    }
+
     /// A `Named` reference at an explicit speed.
     pub fn at(self, speed: Speed) -> Self {
         match self {
             RecipeRef::Named {
                 effect,
+                name,
+                note,
+                cue_timing,
                 target,
                 bars,
                 tricks,
@@ -753,6 +881,9 @@ impl RecipeRef {
                 ..
             } => RecipeRef::Named {
                 effect,
+                name,
+                note,
+                cue_timing,
                 target,
                 bars,
                 tricks,
@@ -769,6 +900,9 @@ impl RecipeRef {
         match self {
             RecipeRef::Named {
                 effect,
+                name,
+                note,
+                cue_timing,
                 target,
                 bars,
                 params,
@@ -777,6 +911,9 @@ impl RecipeRef {
                 ..
             } => RecipeRef::Named {
                 effect,
+                name,
+                note,
+                cue_timing,
                 target,
                 bars,
                 tricks: Some(tricks),
@@ -805,6 +942,9 @@ impl RecipeRef {
             RecipeRef::Inline(recipe) => vec![recipe.clone()],
             RecipeRef::Named {
                 effect,
+                name,
+                note,
+                cue_timing,
                 target,
                 bars,
                 tricks,
@@ -826,6 +966,21 @@ impl RecipeRef {
                     }
                     if let Some(s) = speed {
                         r.timing.speed = s.clone();
+                    }
+                    // The reference's own part label and arrival win
+                    // over whatever the library effect was authored
+                    // with — the cue is where a part is named and
+                    // timed, not the library.
+                    // r[impl cues.recipe.name]
+                    // r[impl cues.recipe.timing]
+                    if name.is_some() {
+                        r.name = name.clone();
+                    }
+                    if note.is_some() {
+                        r.note = note.clone();
+                    }
+                    if cue_timing.is_some() {
+                        r.cue_timing = *cue_timing;
                     }
                     r
                 })
@@ -931,6 +1086,17 @@ pub fn apply_params(recipe: &mut Recipe, params: &BTreeMap<String, f32>) {
 // r[impl effects.waveform.is-sugar] - the waveform spelling on disk
 struct RecipeWire {
     target: Selection,
+    /// `"name": "movers swing in"` on disk — the part's label.
+    // r[impl cues.recipe.name]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    note: Option<String>,
+    /// `"cue_timing": {"position": 4.0}` on disk — this part's own
+    /// arrival, in beats.
+    // r[impl cues.recipe.timing]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cue_timing: Option<crate::cue::CueTiming>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     apply: Option<RecipeApply>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1000,6 +1166,9 @@ impl From<RecipeWire> for Recipe {
         Self {
             target: w.target,
             steps,
+            name: w.name,
+            note: w.note,
+            cue_timing: w.cue_timing,
             timing: w.timing,
             tricks: w.tricks,
             stack: w.stack,
@@ -1024,6 +1193,9 @@ impl From<Recipe> for RecipeWire {
         };
         Self {
             target: r.target,
+            name: r.name,
+            note: r.note,
+            cue_timing: r.cue_timing,
             apply: terse.clone(),
             waveform: None,
             steps: if terse.is_some() { Vec::new() } else { r.steps },

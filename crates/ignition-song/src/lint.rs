@@ -1425,6 +1425,9 @@ mod tests {
                         look("Back", 0.7, "Amber"),
                         RecipeRef::Named {
                             effect: "chase".into(),
+                            name: None,
+                            note: None,
+                            cue_timing: None,
                             target: Some(Selection::Role("Key".into())),
                             bars: None,
                             tricks: None,

@@ -19,10 +19,32 @@ and [docs/domain/musical-time-cues.md](../domain/musical-time-cues.md).
 ## What a cue is
 
 r[cues.shape]
-A cue MUST carry: a name, a fade time, its direct values, its recipes, a
-blocking flag, and an optional musical position. Nothing else is a property of
-a cue; timing that varies per attribute belongs to the recipe that sets it, and
-per-cue-part timing is deferred (see below).
+A cue MUST carry: a number, a name, a fade time, its direct values, its
+recipes, a blocking flag, and an optional musical position. Nothing else is a
+property of a cue; timing that varies per attribute belongs to the recipe that
+sets it, and a subdivision of a cue into separately-timed pieces is a
+subdivision into recipes (`r[cues.parts-are-recipes]`).
+
+r[cues.number]
+A cue MUST carry a **number** that is stable under insertion, distinct from its
+index in the list. Numbers MUST be able to be fractional, so a cue inserted
+between 5 and 6 is 5.5 and every note, cue sheet and spoken call that said
+"six" still means the same cue. A list whose cues are addressed by index
+renumbers half the show every time somebody adds a look, which is how a
+rehearsal note stops matching the desk.
+
+r[cues.note]
+A cue MAY carry a **note** of arbitrary length, distinct from its name. The
+name is what fits in a column and gets called over comms; the note is why the
+cue is the way it is — "wait for the bass drop, MD holds the bar if the crowd
+goes" — and it is the first thing lost when the only text field is one line
+wide. A note MUST NOT affect output.
+
+r[cues.appearance]
+A cue MAY carry an **appearance**: a colour, and optionally a short label,
+used only to draw it. A hundred-cue list is scanned, not read, and section
+boundaries the eye can find are worth more than any single column of data.
+Appearance MUST NOT affect output.
 
 r[cues.recipes-not-values]
 A cue written by a person or a generator SHOULD consist of recipes, and MUST be
@@ -178,14 +200,39 @@ A cue none of whose recipes cover any fixture MUST be reported on load, by
 name, and MUST NOT abort the load. See
 `r[recipes.status.selects-nothing-is-not-an-error]`.
 
-## Deferred
+## Parts
 
-Cue parts — MA3's subdivision of a cue into parts with their own fade and delay
-— are not modelled. Nothing in the current rig needs them, and the cascade is
-written so a part boundary can be inserted as a layer inside a layer rather
-than a re-ordering. Move-in-black (pre-positioning movers while dark), follow
-and hang times, and assert/cue-only are likewise deferred; each is a property
-that attaches to the existing cue shape rather than a change to it.
+r[cues.parts-are-recipes]
+A cue's **recipes ARE its parts**. A console that stores values needs a
+separate part object to hold a second set of fade times; a cue that stores
+recipes already has an ordered list of named pieces, and MUST NOT grow a second
+ordering axis beside it. The recipe's index is the part number, and
+`r[recipes.absolute-last-wins]` — which takes grandMA3's "highest cue part
+number wins" as its source — is already the precedence rule parts need.
+
+r[cues.recipe.name]
+A recipe on a cue MAY carry a **name** and a **note**. This is the half of
+parts that is documentation: "movers swing in" beside "house to half" tells the
+next person what the cue is doing far better than one opaque row, and it gives
+the list something to label a sub-row with.
+
+r[cues.recipe.timing]
+A recipe MAY carry its **own fade, delay and ease per attribute class**,
+overriding the cue's for every key it covers. This is the half of parts that is
+timing, and it is the reason parts exist at all: a cue-wide class fade cannot
+say "*these* movers over five seconds, everything else over one" — only a
+per-piece one can. A recipe that says nothing here MUST take the cue's timing
+exactly as it does today.
+
+r[cues.recipe.timing-precedence]
+Where several timings could apply to one key, the more specific MUST win, in
+this order: a pre-position's own timing (`r[cues.mib.timing]`), then a named
+selection's override (`r[cues.timing-overrides]`), then the recipe's own, then
+the cue's class timing. A fan (`r[cues.fan]`) adds its delay on top of whichever
+won, because a fan is a spread across a timing rather than a timing of its own.
+Where two recipes on one cue both cover a key and both carry timing, the later
+MUST win, per `r[recipes.absolute-last-wins]` — the same rule that decides its
+value decides its fade.
 
 ## Timing per attribute
 
@@ -310,3 +357,10 @@ r[cues.generator-emits-mib]
 A generated list MUST set pre-positioning on every cue whose position recipe
 differs from the previous cue's for a fixture that is dark at the boundary.
 The engine having MIB does nothing if the generator never asks for it.
+
+## Deferred
+
+Per-part move-in-black, per-part snap delay, and grandMA3's *allow duplicates*
+— one attribute holding a value in several parts at once — are not modelled.
+Each is a field that would attach to a recipe under `r[cues.parts-are-recipes]`
+rather than a change to the shape, and nothing in the current rig asks for one.

@@ -50,6 +50,28 @@ pub struct CueValue {
 // r[impl cues.shape]
 pub struct Cue {
     pub name: String,
+    /// This cue's number — what a rehearsal note, a cue sheet and a
+    /// call over comms all mean by "cue six". Stable under insertion
+    /// and deliberately *not* the index: a cue put between 5 and 6 is
+    /// 5.5, and nothing downstream of it renumbers. Absent means "take
+    /// the position in the list", which is what every file written
+    /// before numbers existed says.
+    // r[impl cues.number]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number: Option<f32>,
+    /// Why this cue is the way it is — "wait for the bass drop, MD
+    /// holds the bar if the crowd goes". The name is what fits in a
+    /// column; this is everything that does not, and it never affects
+    /// output.
+    // r[impl cues.note]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    /// How the list draws this cue. A hundred-cue list is scanned, not
+    /// read, and a section boundary the eye can find is worth more than
+    /// any column of data. Never affects output.
+    // r[impl cues.appearance]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub appearance: Option<Appearance>,
     #[serde(default)]
     // r[impl cues.fade-is-arrival]
     pub fade_secs: f32,
@@ -167,6 +189,19 @@ pub struct Cue {
     // r[impl cues.command]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commands: Vec<String>,
+}
+
+/// A cue's colour in the list, and optionally a short label beside it.
+///
+/// Drawing only. The colour is a CSS string the surface hands straight
+/// to a stylesheet, because the list is the only thing that ever reads
+/// it.
+// r[impl cues.appearance]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Appearance {
+    pub color: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 
 impl Cue {
@@ -589,6 +624,47 @@ pub enum StoreMode {
 }
 
 impl CueList {
+    /// What cue `index` is *called* — its stored number, or its
+    /// position in the list for a cue that has never been numbered.
+    ///
+    /// Every surface that shows a cue number goes through here, so a
+    /// file written before numbers existed reads as 1, 2, 3 rather than
+    /// as blanks.
+    // r[impl cues.number]
+    pub fn number_of(&self, index: usize) -> f32 {
+        self.cues
+            .get(index)
+            .and_then(|c| c.number)
+            .unwrap_or(index as f32 + 1.0)
+    }
+
+    /// The number a cue inserted at `index` should take: halfway
+    /// between its neighbours, so inserting between 5 and 6 gives 5.5
+    /// and nothing after it renumbers. Appending continues by whole
+    /// numbers.
+    // r[impl cues.number]
+    pub fn number_for_insert(&self, index: usize) -> f32 {
+        let before = index.checked_sub(1).map(|i| self.number_of(i));
+        let after = (index < self.cues.len()).then(|| self.number_of(index));
+        match (before, after) {
+            (Some(b), Some(a)) if a > b => (b + a) / 2.0,
+            (Some(b), _) => b + 1.0,
+            (None, Some(a)) => a - 1.0,
+            (None, None) => 1.0,
+        }
+    }
+
+    /// Stamps every cue with a whole number in list order, discarding
+    /// the fractions insertion left behind. A deliberate, destructive
+    /// tidy — every note and cue sheet that said "5.5" stops matching —
+    /// so nothing calls it but an operator asking for it.
+    // r[impl cues.number]
+    pub fn renumber(&mut self) {
+        for (i, cue) in self.cues.iter_mut().enumerate() {
+            cue.number = Some(i as f32 + 1.0);
+        }
+    }
+
     /// Replaces cue `index` with `edited`, and for the shielding modes
     /// inserts the compensating restatements that stop the edit at the
     /// cue the mode names — the surgical form of cue-only.
@@ -842,6 +918,14 @@ struct StageTiming {
     /// Keys with their own timing regardless of class — pre-positions.
     // r[impl cues.mib.timing]
     per_key: HashMap<(ChanId, Attribute), (f32, f32)>,
+    /// Keys covered by a recipe that carries its own arrival. A cue's
+    /// recipes are its parts, so this is per-part timing; it is keyed
+    /// per `(chan, attr)` rather than per channel because two parts of
+    /// one cue routinely share a fixture and differ on what they set —
+    /// the colour part and the position part of the same mover.
+    // r[impl cues.recipe.timing]
+    // r[impl cues.parts-are-recipes]
+    per_recipe: HashMap<(ChanId, Attribute), ClassTable>,
     /// When the last of the above has arrived.
     span: f32,
 }
@@ -896,6 +980,7 @@ impl StageTiming {
             overrides: HashMap::new(),
             per_chan: HashMap::new(),
             per_key: HashMap::new(),
+            per_recipe: HashMap::new(),
             span: 0.0,
         };
         timing.recompute_span();
@@ -906,6 +991,7 @@ impl StageTiming {
         let base = self
             .overrides
             .values()
+            .chain(self.per_recipe.values())
             .map(ClassTable::longest)
             .fold(self.base.longest(), f32::max);
         let fanned = self
@@ -932,7 +1018,7 @@ impl StageTiming {
         if let Some(own) = self.per_key.get(key) {
             return *own;
         }
-        let table = self.overrides.get(&key.0).unwrap_or(&self.base);
+        let table = self.table_for(key);
         let index = class_index(&key.1);
         let (mut delay, mut fade) = table.class[index];
         if index == 0 && falling {
@@ -953,8 +1039,18 @@ impl StageTiming {
         if self.per_key.contains_key(key) {
             return Ease::Linear;
         }
-        let table = self.overrides.get(&key.0).unwrap_or(&self.base);
-        table.ease[class_index(&key.1)]
+        self.table_for(key).ease[class_index(&key.1)]
+    }
+
+    /// Which class table one key runs on. The more specific wins: a
+    /// named selection's override, then the recipe (the cue part) that
+    /// covers the key, then the cue's own.
+    // r[impl cues.recipe.timing-precedence]
+    fn table_for(&self, key: &(ChanId, Attribute)) -> &ClassTable {
+        self.overrides
+            .get(&key.0)
+            .or_else(|| self.per_recipe.get(key))
+            .unwrap_or(&self.base)
     }
 }
 
@@ -1537,6 +1633,35 @@ impl CuePlayer {
         Some(since + beats * 60.0 / self.bpm - self.wall)
     }
 
+    /// How far into its arrival the standing cue is, 0 to 1.
+    ///
+    /// One means everything it set has landed — which is what the list
+    /// draws as a filled row. A cue with no fade is arrived the moment
+    /// it is taken, so it reports 1 rather than dividing by zero.
+    // r[impl studio.cuelist.live-state]
+    pub fn fade_progress(&self) -> f32 {
+        match self.stack.last() {
+            Some(stage) if stage.timing.span > 0.0 => {
+                (stage.elapsed / stage.timing.span).clamp(0.0, 1.0)
+            }
+            _ => 1.0,
+        }
+    }
+
+    /// Wall seconds until the next cue takes *itself* — a follow
+    /// counting down. `None` for a cue somebody has to press GO on,
+    /// which is most of them.
+    // r[impl studio.cuelist.live-state]
+    // r[impl cues.trig] - a follow is the trigger an operator cannot see coming
+    pub fn next_in(&self) -> Option<f32> {
+        self.follow_due_in().map(|s| s.max(0.0))
+    }
+
+    /// Which cue a GO would take next, for the list to count down on.
+    pub fn next_cue(&self) -> Option<usize> {
+        self.next_index()
+    }
+
     /// Advances fades *and* takes any follow that has come due. Follows
     /// chain: a run of follow cues is taken one after another at their
     /// own spacing, each counted from the moment the previous was due
@@ -1756,8 +1881,22 @@ impl CuePlayer {
             });
             let expansion = expand_recipe_full(&recipe, show, self.recipe_time(id));
             let aimed: HashSet<ChanId> = expansion.focus_points.iter().map(|(c, _)| *c).collect();
+            // A recipe carrying its own arrival *is* a cue part: every
+            // key it covers takes its fade, delay and ease instead of
+            // the cue's. Later parts overwrite earlier ones on a shared
+            // key, so the same rule decides a key's timing as decides
+            // its value.
+            // r[impl cues.recipe.timing]
+            // r[impl cues.recipe.timing-precedence]
+            // r[impl cues.parts-are-recipes]
+            let part_table = recipe
+                .cue_timing
+                .map(|t| ClassTable::new(&t, cue.fade_secs, spb));
             for emit in expansion.emits {
                 let key = (emit.value.chan, emit.value.attr);
+                if let Some(table) = &part_table {
+                    timing.per_recipe.insert(key.clone(), table.clone());
+                }
                 owned.insert(key.clone());
                 // r[impl recipes.relative-is-a-separate-layer]
                 if emit.relative {
@@ -3843,10 +3982,251 @@ mod tests {
         })
         .unwrap();
         for key in [
-            "timing", "mib", "trig", "assert", "cue_only", "release", "morph", "fan",
+            "timing",
+            "mib",
+            "trig",
+            "assert",
+            "cue_only",
+            "release",
+            "morph",
+            "fan",
+            "number",
+            "note",
+            "appearance",
         ] {
             assert!(!json.contains(key), "{key} leaked into {json}");
         }
+    }
+
+    /// The list needs to draw what the player is doing: how far into
+    /// its arrival the standing cue is, and how long until a follow
+    /// takes itself.
+    // r[verify studio.cuelist.live-state]
+    #[test]
+    fn the_player_reports_its_fade_and_its_next_take() {
+        let (groups, speeds) = show_120();
+        let show = with_speeds(&groups, &speeds);
+        let mut player = CuePlayer::new(vec![
+            cue("Up", 4.0, vec![(1, Attribute::Dimmer, 1.0)]),
+            Cue {
+                trig: Trig::Follow { beats: 4.0 }, // two seconds
+                ..cue("Follows", 1.0, vec![(1, Attribute::Dimmer, 0.5)])
+            },
+        ]);
+        // Nothing taken: nothing arriving, and the next cue is the
+        // first one, which nobody counts down to.
+        assert_eq!(player.fade_progress(), 1.0);
+        assert_eq!(player.next_cue(), Some(0));
+        assert!(player.next_in().is_none(), "cue 1 waits for a hand");
+
+        player.go(&show);
+        player.tick_with(1.0, &show);
+        let fade = player.fade_progress();
+        assert!(
+            (fade - 0.25).abs() < 1e-3,
+            "a second into a four-second arrival: {fade}"
+        );
+        // The follow is counting itself down from two seconds.
+        let left = player.next_in().expect("a follow counts down");
+        assert!((left - 1.0).abs() < 1e-3, "one second left of two: {left}");
+
+        player.tick_with(3.0, &show);
+        assert_eq!(player.current_index(), Some(1), "the follow took itself");
+        assert_eq!(player.fade_progress(), 1.0, "and has arrived");
+    }
+
+    /// A cue inserted between 5 and 6 is 5.5, and nothing after it
+    /// renumbers — which is the whole point of a number that is not an
+    /// index.
+    // r[verify cues.number]
+    #[test]
+    fn a_cue_number_survives_insertion() {
+        let mut list = CueList {
+            cues: (0..6).map(|i| cue(&format!("c{i}"), 1.0, vec![])).collect(),
+            ..Default::default()
+        };
+        // Unnumbered, a cue is called by its place in the list.
+        assert_eq!(list.number_of(0), 1.0);
+        assert_eq!(list.number_of(5), 6.0);
+        list.renumber();
+        let between = list.number_for_insert(5);
+        assert_eq!(between, 5.5);
+        let mut inserted = cue("new", 1.0, vec![]);
+        inserted.number = Some(between);
+        list.cues.insert(5, inserted);
+        // Everything that was called six is still called six.
+        assert_eq!(list.number_of(5), 5.5);
+        assert_eq!(list.number_of(6), 6.0);
+        // Appending continues by whole numbers; inserting at the top
+        // goes below the first.
+        assert_eq!(list.number_for_insert(list.cues.len()), 7.0);
+        assert_eq!(list.number_for_insert(0), 0.0);
+    }
+
+    /// The identity fields are drawing and documentation only, and a
+    /// file that has never heard of them loads unchanged.
+    // r[verify cues.note]
+    // r[verify cues.appearance]
+    // r[verify cues.recipe.name]
+    #[test]
+    fn notes_numbers_and_appearance_round_trip_without_touching_output() {
+        let mut part = Recipe::new(
+            Selection::Group("Pars".to_string()),
+            RecipeApply::Dimmer(1.0),
+        );
+        part.name = Some("pars up".into());
+        part.note = Some("MD holds the bar if the crowd goes".into());
+        part.cue_timing = Some(CueTiming {
+            position: Some(4.0),
+            ..Default::default()
+        });
+        let written = Cue {
+            name: "Chorus".into(),
+            number: Some(5.5),
+            note: "wait for the bass drop".into(),
+            appearance: Some(Appearance {
+                color: "#c0392b".into(),
+                label: Some("CH".into()),
+            }),
+            recipes: vec![RecipeRef::Inline(part)],
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&written).unwrap();
+        let back: Cue = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, written, "{json}");
+        let RecipeRef::Inline(r) = &back.recipes[0] else {
+            panic!("the part came back as something else");
+        };
+        assert_eq!(r.name.as_deref(), Some("pars up"));
+        assert_eq!(r.cue_timing.unwrap().position, Some(4.0));
+
+        // A reference can be a named, separately-timed part too.
+        let referenced = RecipeRef::named("chase")
+            .part("movers swing in")
+            .arriving(CueTiming {
+                position: Some(8.0),
+                ..Default::default()
+            });
+        let back: RecipeRef =
+            serde_json::from_str(&serde_json::to_string(&referenced).unwrap()).unwrap();
+        assert_eq!(back, referenced);
+
+        // And a recipe written before any of this loads as it did.
+        let old: Recipe =
+            serde_json::from_str(r#"{"target":{"Group":"Pars"},"apply":{"Dimmer":1.0}}"#).unwrap();
+        assert!(old.name.is_none() && old.note.is_none() && old.cue_timing.is_none());
+    }
+
+    /// One recipe on a cue, carrying its own arrival. A cue's recipes
+    /// are its parts, and this is the whole reason parts exist: the
+    /// part arrives on its own fade, not the cue's.
+    // r[verify cues.recipe.timing]
+    // r[verify cues.parts-are-recipes]
+    #[test]
+    fn a_recipes_own_timing_beats_the_cues() {
+        let (groups, speeds) = show_120();
+        let show = with_speeds(&groups, &speeds);
+        let mut part = Recipe::new(
+            Selection::Group("Pars".to_string()),
+            RecipeApply::Dimmer(1.0),
+        );
+        // One beat is half a second here; the cue's own fade is four.
+        part.cue_timing = Some(CueTiming {
+            dimmer_in: Some(1.0),
+            ..Default::default()
+        });
+        part.name = Some("pars up".into());
+        let mut player = CuePlayer::new(vec![Cue {
+            name: "Part".into(),
+            fade_secs: 4.0,
+            recipes: vec![RecipeRef::Inline(part)],
+            ..Default::default()
+        }]);
+        player.go(&show);
+        player.tick(0.5);
+        let level = get(&player, &show, 1, Attribute::Dimmer);
+        assert!(
+            (level - 1.0).abs() < 1e-3,
+            "the part's own half-second fade has arrived, not the cue's four: {level}"
+        );
+    }
+
+    /// Two parts covering one key: the later one's timing wins, the
+    /// same rule that decides its value.
+    // r[verify cues.recipe.timing-precedence]
+    #[test]
+    fn the_later_part_owns_the_timing_of_a_shared_key() {
+        let (groups, speeds) = show_120();
+        let show = with_speeds(&groups, &speeds);
+        let part = |beats: f32| {
+            let mut r = Recipe::new(
+                Selection::Group("Pars".to_string()),
+                RecipeApply::Dimmer(1.0),
+            );
+            r.cue_timing = Some(CueTiming {
+                dimmer_in: Some(beats),
+                ..Default::default()
+            });
+            RecipeRef::Inline(r)
+        };
+        let mut player = CuePlayer::new(vec![Cue {
+            name: "Both".into(),
+            fade_secs: 4.0,
+            // Eight beats (4 s) first, one beat (0.5 s) second.
+            recipes: vec![part(8.0), part(1.0)],
+            ..Default::default()
+        }]);
+        player.go(&show);
+        player.tick(0.5);
+        let level = get(&player, &show, 1, Attribute::Dimmer);
+        assert!(
+            (level - 1.0).abs() < 1e-3,
+            "the second part's half-second fade wins: {level}"
+        );
+    }
+
+    /// A named selection is more specific than a part, so its override
+    /// wins over the part's own timing.
+    // r[verify cues.recipe.timing-precedence]
+    #[test]
+    fn a_named_override_beats_a_parts_own_timing() {
+        let (groups, speeds) = show_120();
+        let show = with_speeds(&groups, &speeds);
+        let mut part = Recipe::new(
+            Selection::Group("Pars".to_string()),
+            RecipeApply::Dimmer(1.0),
+        );
+        part.cue_timing = Some(CueTiming {
+            dimmer_in: Some(1.0), // half a second
+            ..Default::default()
+        });
+        let mut player = CuePlayer::new(vec![Cue {
+            name: "Exception".into(),
+            fade_secs: 4.0,
+            recipes: vec![RecipeRef::Inline(part)],
+            timing_overrides: vec![TimingOverride {
+                selection: Selection::Chans(vec![1]),
+                timing: CueTiming {
+                    dimmer_in: Some(8.0), // four seconds
+                    ..Default::default()
+                },
+            }],
+            ..Default::default()
+        }]);
+        player.go(&show);
+        player.tick(0.5);
+        // Chan 1 was named, so it takes the slow override; 2 and 3 keep
+        // the part's own fast one.
+        let named = get(&player, &show, 1, Attribute::Dimmer);
+        let rest = get(&player, &show, 2, Attribute::Dimmer);
+        assert!(
+            (named - 0.125).abs() < 1e-3,
+            "the named fixture is an eighth into four seconds: {named}"
+        );
+        assert!(
+            (rest - 1.0).abs() < 1e-3,
+            "the rest arrived on the part's own fade: {rest}"
+        );
     }
 
     /// The dimmer goes out faster than it came up.
