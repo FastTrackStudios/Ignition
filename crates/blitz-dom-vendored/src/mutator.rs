@@ -5,6 +5,7 @@ use std::ops::{Deref, DerefMut};
 use crate::document::make_device;
 use crate::layout::damage::ALL_DAMAGE;
 use crate::net::{ImageHandler, ResourceHandler, StylesheetHandler};
+use crate::node::ImageData;
 use crate::node::{CanvasData, NodeFlags, SpecialElementData};
 use crate::util::ImageType;
 use crate::{
@@ -13,6 +14,7 @@ use crate::{
 use blitz_traits::shell::Viewport;
 use style::Atom;
 use style::invalidation::element::restyle_hints::RestyleHint;
+use style::selector_parser::RestyleDamage;
 use style::stylesheets::OriginSet;
 
 macro_rules! tag_and_attr {
@@ -215,7 +217,33 @@ impl DocumentMutator<'_> {
 
     pub fn set_attribute(&mut self, node_id: usize, name: QualName, value: &str) {
         let node_is_in_document = self.doc.nodes[node_id].flags.is_in_document();
-        if node_is_in_document {
+        // IGNITION PATCH (perf): a new `src` on an `img` is not a
+        // restyle of its subtree.
+        //
+        // Upstream marks `ALL_DAMAGE` and a subtree restyle hint for
+        // *any* attribute on any element, with a `TODO: make this fine
+        // grained` beside it. For `img src` the consequence is severe
+        // and specific: the swap that plays a thumbnail loop relayouts
+        // the entire document, and the studio's library panes swap
+        // twelve times a second across a screenful of cards.
+        //
+        // `load_image`, a few lines below, is what actually knows what
+        // changed, and now says so — a repaint when the new picture is
+        // the same size as the old, the full damage when it is not. So
+        // this hands the decision there rather than pre-empting it.
+        //
+        // The narrowness is the safety. `src` is not a styling input in
+        // any stylesheet this fork serves, and every other attribute
+        // keeps upstream's blanket behaviour: an `[attr]` selector, a
+        // presentational `width`, a `type` that changes an input's box
+        // all still restyle exactly as before.
+        // r[impl studio.profiling] - the frame that changes nothing costs nothing
+        let is_image_src = name.local == local_name!("src")
+            && matches!(
+                self.doc.nodes[node_id].element_data().map(|e| &e.name.local),
+                Some(tag) if *tag == local_name!("img")
+            );
+        if node_is_in_document && !is_image_src {
             self.doc.snapshot_node(node_id);
 
             let node = &mut self.doc.nodes[node_id];
@@ -850,10 +878,40 @@ impl<'doc> DocumentMutator<'doc> {
                     #[cfg(feature = "tracing")]
                     tracing::info!("Loading image {src_string} from cache");
                     let node = &mut self.doc.nodes[target_id];
+                    // IGNITION PATCH (perf): a same-sized image is a
+                    // repaint, not a relayout.
+                    //
+                    // An `img` whose `src` changes to a picture of
+                    // exactly the same intrinsic size cannot change any
+                    // box on the page: its own intrinsic size is what
+                    // layout reads, and it did not move. Marking
+                    // `ALL_DAMAGE` and throwing away the taffy cache
+                    // says otherwise, and the cost is not local — a
+                    // damaged node relayouts the whole document.
+                    //
+                    // The studio's library panes animate their
+                    // thumbnails by swapping `src` twelve times a second
+                    // across a screenful of cards, every frame of every
+                    // loop the same 320x180. That was a full layout of
+                    // five and a half thousand nodes on half of all
+                    // frames, six and a half milliseconds each.
+                    // r[impl studio.profiling] - the frame that changes nothing costs nothing
+                    let same_size = matches!(
+                        (
+                            node.element_data().and_then(|data| data.image_data()),
+                            &cached_image,
+                        ),
+                        (Some(ImageData::Raster(old)), ImageData::Raster(new))
+                            if old.width == new.width && old.height == new.height
+                    );
                     node.element_data_mut().unwrap().special_data =
                         SpecialElementData::Image(Box::new(cached_image.clone()));
-                    node.cache.clear();
-                    node.insert_damage(ALL_DAMAGE);
+                    if same_size {
+                        node.insert_damage(RestyleDamage::REPAINT);
+                    } else {
+                        node.cache.clear();
+                        node.insert_damage(ALL_DAMAGE);
+                    }
                     return;
                 }
 

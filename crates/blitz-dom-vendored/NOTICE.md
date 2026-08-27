@@ -39,3 +39,16 @@ underflows. Upstream only `debug_assert!`s that this "is impossible".
   `blitz.layout` — behind this crate's `tracing` feature. Same profiler
   as the `dioxus-native-vendored` hunks: `r[studio.profiling]`,
   `docs/ops/profiling.md`, `crates/ignition-profile`.
+- `src/resolve.rs`, `src/mutator.rs`: three hunks that together stop a
+  frame which changes nothing from costing anything, marked
+  `IGNITION PATCH (perf)`. `resolve` skips box construction and taffy
+  when no node carries damage that layout has to answer for — the check
+  sits after `resolve_stylist`, which is what discovers damage, and a
+  scroll animation or a non-incremental document never skips.
+  `set_attribute` no longer marks `ALL_DAMAGE` and a subtree restyle for
+  `img src` specifically (upstream does it for every attribute, with a
+  `TODO: make this fine grained` beside it), and `load_image` marks only
+  `REPAINT` when the new picture is the same size as the old. The studio
+  animates thumbnails by swapping `src` twelve times a second across a
+  screenful of cards; that was a full layout of 5,509 nodes on half of
+  all frames. See `r[studio.profiling]` and `docs/ops/profiling.md`.

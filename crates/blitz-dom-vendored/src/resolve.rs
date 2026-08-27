@@ -32,7 +32,7 @@ use crate::{
             ConstructionTaskResultData, LayoutChildren, build_inline_layout_into,
             collect_layout_children,
         },
-        damage::{ALL_DAMAGE, CONSTRUCT_BOX, CONSTRUCT_DESCENDENT, CONSTRUCT_FC},
+        damage::{ALL_DAMAGE, CONSTRUCT_BOX, CONSTRUCT_DESCENDENT, CONSTRUCT_FC, ONLY_RELAYOUT},
     },
     node::TextBrush,
 };
@@ -72,31 +72,84 @@ impl BaseDocument {
         self.resolve_stylist(current_time_for_animations);
         timer.record_time("style");
 
+        // IGNITION PATCH (perf): nothing to lay out, nothing laid out.
+        //
+        // The studio asks for a frame at the refresh rate so the
+        // embedded visualizer animates, and every one of those frames
+        // arrived here and rebuilt the box tree, re-merged stylo into
+        // taffy and ran a full layout over five and a half thousand
+        // nodes — to arrive at the layout already sitting in
+        // `final_layout`. Sampled in the studio, the overwhelming
+        // majority of frames had *zero* damaged nodes; it cost three
+        // milliseconds of a thirteen millisecond frame.
+        //
+        // The check is made after `resolve_stylist`, which is what
+        // *discovers* damage: a restyle, a transition, an animation, a
+        // viewport or device change all reach layout by marking nodes,
+        // and all of them are seen here. Propagation only spreads
+        // damage that already exists, so no damage before it means none
+        // after it either.
+        //
+        // Deliberately narrow. `resolve_transforms`, the damage clear
+        // and every sub-document still run below, and a scroll
+        // animation in flight is treated as work: this skips the box
+        // tree and taffy, and nothing else.
+        //
+        // Without `incremental_layout` the damage flags are not
+        // maintained, so there is nothing to trust and the skip never
+        // happens.
+        // r[impl studio.profiling] - the frame that changes nothing costs nothing
+        // Damage that layout has to answer for. `REPAINT` and the
+        // stacking-context and overflow bits are not on this list: a
+        // node that only needs drawing again is drawn again below,
+        // without taffy hearing about it. That distinction is what
+        // makes a thumbnail loop free — see `load_image` in
+        // `mutator.rs`, which marks a same-sized image swap as a
+        // repaint.
+        const NEEDS_LAYOUT: RestyleDamage = RestyleDamage::from_bits_retain(
+            ONLY_RELAYOUT.bits()
+                | CONSTRUCT_BOX.bits()
+                | CONSTRUCT_FC.bits()
+                | CONSTRUCT_DESCENDENT.bits(),
+        );
+        let clean = self.incremental_layout
+            && self.deferred_construction_nodes.is_empty()
+            && matches!(self.scroll_animation, ScrollAnimationState::None)
+            && !self
+                .nodes
+                .iter()
+                .any(|(_, node)| node.damage().is_some_and(|d| d.intersects(NEEDS_LAYOUT)));
+
         // Propagate damage flags (from mutation and restyles) up and down the tree
-        if self.incremental_layout {
+        if self.incremental_layout && !clean {
             self.propagate_damage_flags(root_node_id, RestyleDamage::empty());
             timer.record_time("damage");
         }
 
-        // Fix up tree for layout (insert anonymous blocks as necessary, etc)
-        self.resolve_layout_children();
-        timer.record_time("construct");
+        if !clean {
+            // Fix up tree for layout (insert anonymous blocks as necessary, etc)
+            self.resolve_layout_children();
+            timer.record_time("construct");
 
-        self.resolve_deferred_tasks();
-        timer.record_time("pconstruct");
+            self.resolve_deferred_tasks();
+            timer.record_time("pconstruct");
 
-        // Merge stylo into taffy
-        self.flush_styles_to_layout(root_node_id);
-        timer.record_time("flush");
+            // Merge stylo into taffy
+            self.flush_styles_to_layout(root_node_id);
+            timer.record_time("flush");
 
-        // Next we resolve layout with the data resolved by stlist
-        self.resolve_layout();
-        timer.record_time("layout");
+            // Next we resolve layout with the data resolved by stlist
+            self.resolve_layout();
+            timer.record_time("layout");
+        }
 
         self.resolve_transforms(root_node_id);
         timer.record_time("transform");
 
-        // Clear all damage and dirty flags
+        // Clear all damage and dirty flags. Unconditionally, including
+        // on a skipped frame: the paint that follows this resolve is
+        // what a `REPAINT` was asking for, and damage left standing
+        // would make every frame after it look dirty for ever.
         if self.incremental_layout {
             for (_, node) in self.nodes.iter_mut() {
                 node.clear_damage_mut();
