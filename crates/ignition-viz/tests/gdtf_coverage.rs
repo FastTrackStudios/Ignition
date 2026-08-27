@@ -9,8 +9,13 @@ use ignition_viz::venue::Venue;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
+/// A decoded 3DS/primitive mesh, or a GLB `bevy_gltf` will load — both
+/// are the profile's real geometry.
 fn meshes(node: &GdtfNode) -> usize {
-    let own = usize::from(matches!(node.shape, GdtfShape::Mesh(_)));
+    let own = usize::from(matches!(
+        node.shape,
+        GdtfShape::Mesh(_) | GdtfShape::Gltf { .. }
+    ));
     own + node.children.iter().map(meshes).sum::<usize>()
 }
 

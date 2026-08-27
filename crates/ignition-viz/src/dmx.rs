@@ -158,6 +158,17 @@ impl DmxUniverses {
                 Attribute::Zoom => resolved.zoom = Some(v as f32 / 255.0),
                 Attribute::Strobe => resolved.strobe = Some(v as f32 / 255.0),
                 Attribute::GoboWheel { .. } => resolved.gobo = Some(v),
+                // GDTF names the rest of a wheel mover's beam channels
+                // as custom attributes; the two the renderer draws.
+                Attribute::Custom(name) if name.starts_with("Prism") => {
+                    resolved.prism = Some(v)
+                }
+                Attribute::Custom(name)
+                    if name.starts_with("Gobo")
+                        && (name.contains("Pos") || name.contains("Rotate")) =>
+                {
+                    resolved.gobo_rotation = Some(v as f32 / 255.0)
+                }
                 _ => {}
             }
         }
@@ -196,9 +207,13 @@ pub struct ResolvedAttributes {
     pub zoom: Option<f32>,
     /// The strobe byte as a fraction; zero is open.
     pub strobe: Option<f32>,
-    /// The raw gobo-wheel byte. Carried so a snapshot of the decoded
-    /// frame is complete; the renderer has no gobo texture yet.
+    /// The raw gobo-wheel byte; `gobo.rs` turns it into a slot.
     pub gobo: Option<u8>,
+    /// The gobo rotation / position byte as a fraction of a turn, when
+    /// the personality has one (`Gobo1Pos`, `Gobo1PosRotate`).
+    pub gobo_rotation: Option<f32>,
+    /// The raw prism byte (`Prism1`), when the personality has one.
+    pub prism: Option<u8>,
 }
 
 impl Default for ResolvedAttributes {
@@ -218,6 +233,8 @@ impl Default for ResolvedAttributes {
             zoom: None,
             strobe: None,
             gobo: None,
+            gobo_rotation: None,
+            prism: None,
         }
     }
 }

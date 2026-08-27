@@ -15,9 +15,25 @@ frame by frame against the song's clock, at a chosen size — so a look can be
 reviewed away from the desk and sent to someone who has no console.
 
 r[viz.gobo-raster]
-A fixture with a gobo selected SHOULD render that gobo's pattern in its beam
-and on the surface it lands on. (Deferred until the beam material supports a
-projected texture; noted, not built.)
+A fixture with a gobo selected MUST render that gobo's pattern on the surface
+its beam lands on, as a **clustered decal** hung off the emitter — a child of
+the `<Beam>` node in the fixture's own transform tree (`r[viz.one-emitter-tree]`),
+so pan and tilt reach it by propagation and it is aligned with the beam by
+construction. The decal paints black wherever the gobo is closed, masking the
+spill light to the pattern; it is sized every frame to the beam's field angle
+at the surface the beam reaches (`BeamThrow`), so the pattern is the beam's
+width where it lands. The wheel comes from the profile: the `Gobo1` channel's
+`ChannelSet`s map bytes to `WheelSlotIndex`, and each slot's `MediaFileName`
+is the PNG in the `.gdtf` archive (opaque white is open; black and transparent
+are blocked, which reads both manufacturers' conventions the same). A profile
+that names a gobo wheel but ships no art gets a built-in set of eight
+procedural patterns (dots, bars, breakup, star, spiral, radial, tri, open); a
+fixture with a `GoboWheel` channel and no profile gets the same set at uniform
+eight-byte steps. A `Prism1` channel in its "in" range splits the pattern into
+three decals thrown a few degrees off axis, 120 degrees apart, turning when
+the prism-rotation range is engaged; the spill light itself is not split.
+Bevy's volumetric fog does not read decals, so the shaft in the haze stays
+unbroken — only what lands on a surface carries the pattern.
 
 r[viz.gdtf-meshes]
 A fixture with a GDTF profile MUST be drawn with that profile's **real
@@ -26,10 +42,14 @@ that `models/3ds/*.3ds`) renders that mesh, and a `<Model>` that names one of
 the spec's standard primitives (Base, Yoke, Head, Scanner, Conventional and
 their 1.1 variants; Cube, Cylinder, Sphere, Pigtail) renders the spec's own
 primitive mesh, not a box. Every mesh is scaled to the Model's declared
-Length/Width/Height (X/Y/Z), as the spec requires, in the venue's fixture
-material — the file's own materials and textures are ignored. A file that
-cannot be decoded falls back to a box of the declared size rather than
-vanishing.
+Length/Width/Height (X/Y/Z), as the spec requires. A GLB is loaded by Bevy's
+own glTF loader (`bevy_gltf`) straight from the `.gdtf` zip, through a
+`gdtf://` asset source, so it keeps the materials, tangents and node
+hierarchy the file ships; the load is asynchronous, and until it lands the
+part is a box of the declared size, swapped for the scene without touching
+the fixture's emitter. A 3DS carries no materials and is drawn in the venue's
+fixture material. A file that cannot be decoded falls back to a box of the
+declared size rather than vanishing.
 
 r[viz.gdtf-generated]
 A fixture with no manufacturer GDTF MAY be given a **generated profile**
@@ -90,12 +110,18 @@ the whole room; and a shaft in the haze ends only where the fog's own
 extinction and the light's inverse-square decay end it.
 
 r[viz.exposure]
+Lights carry their real photometry and the camera decides the picture.
 A spill light MUST be fed the fixture's real peak candela (lumens over its
 field cone) — Bevy spreads a spot light's lumens over the full sphere
 whatever its cone, so raw lumens made a 1.7-degree beam and a 60-degree par
-equally bright per direction — scaled by one exposure dial that is a plain
-multiplier on real photometry. Candela is capped so a beam fixture reads as
-a hard shaft in the same frame as a par without flooding the haze.
+equally bright per direction — with nothing scaled and nothing capped: a
+150 W beam fixture is its datasheet's million candela. The level is the
+camera's: every main camera carries a physical `Exposure` at one stage
+EV100 (`STAGE_EV100`, chosen so a 36 W par's 180 lux at 3 m reads as a soft
+wash on a black deck and the beam saturates through its core), the haze
+camera carries the same one so the fog is at the level the room is, the
+ambient fill is lux under the same exposure, and the operator's
+`--exposure` is stops on that EV, not a multiplier on the lights.
 
 r[viz.bar-emitters]
 A profile with four or more `<Beam>` nodes on one line, firing the same way
@@ -136,6 +162,36 @@ shows in the air is decided by the haze in the room, not per fixture:
   `light_intensity` lifts what the air scatters toward the camera so a par's
   cone reads at a density that leaves a twenty-metre house visible through
   it; extinction stays physical.
+
+r[viz.post-processing]
+The picture is Bevy's post-process stack and nothing hand-rolled, and every
+feature in it is an explicit `RenderQuality` switch, set separately for a
+live view and a still:
+
+- **Auto exposure** adapts like an eye, not a light meter: Bevy's
+  `AutoExposure`, whose compensation curve holds a full chorus at the stage
+  exposure and opens up part of the way (`AUTO_EXPOSURE_GAIN`) toward a
+  darker frame, never more than `AUTO_EXPOSURE_RANGE_STOPS` either way — a
+  blackout stays black and a verse stays a verse. A flash is met in about
+  half a second and a drop to one par takes a couple of seconds to open up
+  to; a still lands on its level in one frame. It is on by default,
+  `--auto-exposure off` fixes the stage exposure, and it never meters the
+  overlay, which is drawn after tonemapping. It runs on the main camera
+  only: the haze composite is added into the main camera's HDR frame before
+  its tonemapping, which is where the adaptation lands, so fog and room are
+  adapted together.
+- **Temporal anti-aliasing** on every camera (MSAA stays off; the deferred
+  deck and the ambient occlusion do not multisample), which is also what
+  averages the haze camera's per-frame jitter into a smooth cone.
+- **Screen-space reflections** on the stage deck, the one material with a
+  wet-look roughness (`DECK_ROUGHNESS`) and the one that takes the deferred
+  path; **screen-space ambient occlusion** for the room. Both live and
+  still.
+- **Depth of field**, focused on the point the camera looks at, in a still
+  or an export only: a blurred house is a photograph, not an operator's
+  view.
+- **Tonemapping** is `TonyMcMapface`, and a `--grade` is a `ColorGrading`
+  preset on top of it, neutral by default.
 
 r[viz.performance-budget]
 The studio's viewport MUST hold **120 frames per second at 5120×1440** on the

@@ -27,10 +27,10 @@ use std::collections::HashMap;
 /// rather than "load this file".
 pub const PROC_PREFIX: &str = "proc:";
 
-/// The widest a procedural frame is rendered. It is sampled by three
-/// TVs' worth of quad, not read up close, and it is rasterised on the
-/// CPU every frame — 320 wide is smooth on a gradient and cheap enough
-/// to never be the thing that drops a frame.
+/// The widest a procedural frame is rendered by the CPU reference
+/// ([`ProceduralSource`]). The screens themselves no longer go through
+/// it — `canvas_material.rs` evaluates the recipe on the GPU at native
+/// resolution — so this is the size a test or an offline consumer gets.
 pub const PROC_MAX_WIDTH: u32 = 320;
 
 /// Reads a `proc:` content string.
@@ -52,14 +52,17 @@ pub fn parse_procedural(content: &str) -> Result<CanvasRecipe, String> {
     }
 }
 
-/// A generated canvas source, presented against the same clock as a
-/// clip and handing over frames of the same shape.
+/// A generated canvas source on the CPU: the **reference** picture,
+/// presented against the same clock as a clip and handing over frames
+/// of the same shape.
 ///
-/// Nothing here knows about Bevy: `frame_at` returns bytes, and
-/// `spawn.rs` copies them into the canvas `Image` exactly as it does a
-/// decoded video frame. Which is the point — cover-fit, slices, and the
-/// texture path are shared, so a screen cannot tell a sweep from a clip.
-// r[impl canvas.clip-is-a-source] - same clock, same frame shape, same texture path
+/// Nothing here knows about Bevy: `frame_at` returns bytes. The
+/// visualizer's screens do not use it any more — `canvas_material.rs`
+/// paints the same recipe on the GPU, and its test holds that picture
+/// to this one — but a bitmap channel, the cooker and anything without
+/// a GPU do.
+// r[impl canvas.clip-is-a-source] - same clock, same frame shape
+// r[impl canvas.procedural] - the CPU reference the GPU is held to
 pub struct ProceduralSource {
     recipe: CanvasRecipe,
     width: u32,

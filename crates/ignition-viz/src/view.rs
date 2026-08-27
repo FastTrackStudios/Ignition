@@ -49,9 +49,20 @@ impl ViewPreset {
 
     /// Where to put the camera for this preset, given the venue's bounds.
     pub fn transform(self, min: Vec3, max: Vec3) -> Transform {
+        let (eye, target, up) = self.eye_target_up(min, max);
+        Transform::from_translation(eye).looking_at(target, up)
+    }
+
+    /// The preset's eye and the point it looks at.
+    pub fn eye_target(self, min: Vec3, max: Vec3) -> (Vec3, Vec3) {
+        let (eye, target, _) = self.eye_target_up(min, max);
+        (eye, target)
+    }
+
+    fn eye_target_up(self, min: Vec3, max: Vec3) -> (Vec3, Vec3, Vec3) {
         let size = max - min;
         let center = (min + max) * 0.5;
-        let (eye, target, up) = match self {
+        match self {
             Self::House => (
                 Vec3::new(
                     center.x + size.x * 0.15,
@@ -76,8 +87,7 @@ impl ViewPreset {
                     Vec3::Y,
                 )
             }
-        };
-        Transform::from_translation(eye).looking_at(target, up)
+        }
     }
 
     /// Frames an arbitrary eye/target pair instead of a preset.

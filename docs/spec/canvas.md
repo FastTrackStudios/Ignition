@@ -16,7 +16,12 @@ r[canvas.procedural]
 A canvas MUST be able to show **procedural** content — a gradient, a wipe, a
 noise field, a scrolling band, a sparkle — authored as a recipe against the
 canvas role, timed like any effect, and resolved per member from its grid
-position. No file is needed for a colour sweep.
+position. No file is needed for a colour sweep. On a screen the visualizer
+MUST evaluate the recipe on the GPU, per fragment at the screen's own
+resolution, with no per-frame CPU raster; the CPU evaluation
+(`CanvasRecipe::sample`/`render`) is the **reference** — what the cooker and
+bitmap channels use — and the GPU MUST paint the same picture as it for the
+same recipe and clock.
 
 r[canvas.bitmap-channels]
 The content's brightness or hue at a member's position MUST be applicable to
@@ -55,6 +60,19 @@ other recipe output (`r[canvas.on-the-stack]`).
 by file extension, or procedural when it starts with `proc:` — either a
 built-in name (`proc:rainbow`, `proc:wipe`, `proc:noise`, `proc:bands`,
 `proc:sparkle`) or a JSON `CanvasRecipe` literal (`proc:{"source":…,
-"timing":…}`). Procedural frames are rasterised at most 320 px wide at the
-canvas's own aspect, on the same `CanvasClock` as a clip, and go through
-the same slice and cover-fit path.
+"timing":…}`).
+
+**GPU evaluation, CPU reference.** A procedural canvas is a `Material`
+(`ignition_viz::canvas_material`, shader `canvas.wgsl`) on each panel's
+quad: the recipe is packed into a uniform block once, and per frame the
+only CPU work is writing the effect clock (`CanvasRecipe::cycles_at` on
+the same `CanvasClock` a clip is presented at, against the playback's
+speed masters) into it. The shader is `CanvasRecipe::sample` transcribed
+— same hash, same noise, same ramp — so the picture is the CPU one at
+native resolution. Slices, cover-fit and focus are the same
+`Slice::cover_at` arithmetic as a clip, worked out at spawn and carried
+in the uniform as a rectangle. The CPU raster (`CanvasRecipe::render`,
+`canvas::ProceduralSource`) remains the reference for the cooker's
+bitmap channels and for tests; `canvas_material::tests::the_gpu_paints_
+what_the_cpu_paints` renders one frame of each source headlessly and
+compares it pixel for pixel with the reference.

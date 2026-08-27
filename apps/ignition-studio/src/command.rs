@@ -5,7 +5,7 @@
 //! transport for them — an mpsc into the Blitz widget and a tokio watch
 //! out of it. Everything in this crate keeps saying `crate::command::`.
 
-pub use ignition_live_ui::command::{Command, PageMove, Playhead, SpeedKey};
+pub use ignition_live_ui::command::{Command, OverlayKind, PageMove, Playhead, SpeedKey};
 
 pub type Sender = std::sync::mpsc::Sender<Command>;
 pub type Receiver = std::sync::mpsc::Receiver<Command>;

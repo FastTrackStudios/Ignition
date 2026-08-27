@@ -19,6 +19,10 @@ hap = ["dep:hap-qt", "dep:texpresso"]
 # libav*, so `pkgs.ffmpeg` has to be in the dev shell and in whatever
 # builds a release. See src/video/ffmpeg.rs.
 ffmpeg = ["dep:ffmpeg-next"]
+# Spike: Bevy Solari, real-time raytraced direct lighting in place of
+# the shadow-map budget. Needs a device with ray-query support (see
+# src/solari.rs for what it does and does not buy). Off by default.
+solari = ["bevy/bevy_solari"]
 
 [dependencies]
 anyhow = "1.0.104"
@@ -30,10 +34,14 @@ tracing = "0.1"
 # disables it, since a host owns the subscriber), so it installs one itself.
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 gdtf = "0.3.0"
-# GLB decoding for the 3D model files inside a .gdtf zip (and nothing
-# else: no image decoding, no file-system import). Same version Bevy's own
-# glTF loader already pulls in, so it costs no extra crate in the tree.
+# Reads a GLB's header — the accessor bounds — so a fixture part can be
+# sized before Bevy's own glTF loader has drawn it. Same version that
+# loader already pulls in, so it costs no extra crate in the tree.
 gltf = { version = "1.4.1", default-features = false, features = ["utils"] }
+# The `gdtf://` asset source (src/gdtf_assets.rs) serves a profile's
+# model files straight out of its zip to Bevy's glTF loader. Same
+# version and features as the vendored `gdtf` crate, so it is one copy.
+zip = { version = "8.6", features = ["deflate"], default-features = false }
 ignition-core.workspace = true
 ignition-io.workspace = true
 ignition-proto.workspace = true
@@ -42,6 +50,8 @@ ignition-proto.workspace = true
 # duplicate rather than an error. Bevy only needs 0.25.2.
 image = { version = "0.25.6", default-features = false, features = ["png"] }
 sacn = "0.11.1"
+# The host pointer's stable `PointerId::Custom` — see `picking.rs`.
+uuid = "1"
 serde.workspace = true
 serde_json.workspace = true
 thiserror = "2.0.20"

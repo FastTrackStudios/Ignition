@@ -198,14 +198,6 @@ pub struct VizSettings {
     pub overlay: bool,
     /// Whether to draw the frame-rate readout — see `VizConfig::fps`.
     pub fps: bool,
-    /// Global exposure: a multiplier on every fixture's *real* luminous
-    /// output (`fixture_profile::power_watts` x `LUMENS_PER_WATT`).
-    ///
-    /// This replaced a single absolute lumen figure applied to every
-    /// fixture alike, which meant a 36W par and a 150W beam fixture were
-    /// equally bright and therefore cut equally visible shafts. Relative
-    /// output is now the fixture's own; this only sets the overall level.
-    pub exposure: f32,
     /// Whether a lit fixture's housing glows in the colour it is putting
     /// out. Off by default: the real fixtures are black boxes, and a
     /// par that lights up orange when it is sending orange reads as a
@@ -213,6 +205,11 @@ pub struct VizSettings {
     /// affordance `FixtureBody` describes.
     // r[impl viz.body-glow] - the switch, off unless asked
     pub body_glow: bool,
+    /// Whether the deck takes the deferred path, for the camera's
+    /// screen-space reflections — `RenderQuality::ssr`. A deferred
+    /// material on a camera with no deferred prepass is a panic in
+    /// Bevy's prepass queue, so the two are one switch.
+    pub reflective_deck: bool,
     /// Asset path of what every screen displays, or `None` for screens
     /// that are off. One image for all of them is the placeholder; real
     /// projection mapping needs per-surface content and its own
@@ -629,6 +626,37 @@ fn solid(
     })
 }
 
+/// The stage deck: black plywood with a coat of paint on it, so the rig
+/// and the band show in it a little. Roughness low enough for the
+/// screen-space reflections to pick it up (see `app::spawn_camera`),
+/// and the one material that takes the deferred path, which is what
+/// those reflections march against. On a camera without a deferred
+/// prepass it is drawn forward like everything else.
+// r[impl viz.post-processing] - the deck is the one reflective surface
+fn deck(
+    materials: &mut Assets<StandardMaterial>,
+    color: Color,
+    deferred: bool,
+) -> Handle<StandardMaterial> {
+    use bevy::material::OpaqueRendererMethod;
+    materials.add(StandardMaterial {
+        base_color: color,
+        perceptual_roughness: DECK_ROUGHNESS,
+        metallic: 0.0,
+        reflectance: 0.5,
+        opaque_render_method: if deferred {
+            OpaqueRendererMethod::Deferred
+        } else {
+            OpaqueRendererMethod::Auto
+        },
+        ..default()
+    })
+}
+
+/// A wet-look deck: reflective enough to mirror a beam, rough enough
+/// that the reflection is a smear and not a second rig.
+pub const DECK_ROUGHNESS: f32 = 0.25;
+
 /// A screen showing content: emitting its own image rather than merely
 /// reflecting the room's light.
 fn display(
@@ -690,70 +718,29 @@ impl CanvasClock {
     }
 }
 
-/// What a moving canvas is showing: a decoded clip, or a generated
-/// picture. Both present against the same clock and hand over the same
-/// RGBA frames, which is what lets a show swap one for the other.
+/// What a moving canvas is showing on the texture path: a decoded clip.
+/// A generated picture presents against the same clock, but as a
+/// material rather than a texture — see `canvas_material.rs`.
 // r[impl canvas.clip-is-a-source]
 enum CanvasSource {
     Clip(VideoSource),
-    /// A generated picture, rastered on the compute task pool. The
-    /// three procedural canvases at Norco cost three milliseconds a
-    /// frame on the render thread — a third of the studio's whole
-    /// budget — for pixels no one needs *this* frame rather than next.
-    /// So a frame is asked for when the clock moves and collected when
-    /// it is ready; at most one is in flight per canvas, and the
-    /// picture it shows is one frame behind the clock, which on a
-    /// screen across the room is nothing.
-    // r[impl viz.performance-budget] - procedural canvases raster off the frame
-    Procedural {
-        source: crate::canvas::ProceduralSource,
-        pending: Option<bevy::tasks::Task<Vec<u8>>>,
-        frame: Vec<u8>,
-    },
 }
 
 impl CanvasSource {
     fn size(&self) -> (u32, u32) {
         match self {
             CanvasSource::Clip(v) => v.size(),
-            CanvasSource::Procedural { source, .. } => source.size(),
         }
     }
 
     fn frame_at(&mut self, secs: f64) -> Option<&[u8]> {
         match self {
             CanvasSource::Clip(v) => v.frame_at(secs),
-            CanvasSource::Procedural {
-                source,
-                pending,
-                frame,
-            } => {
-                let mut fresh = false;
-                if let Some(task) = pending.as_mut()
-                    && let Some(done) = bevy::tasks::futures::check_ready(task)
-                {
-                    *frame = done;
-                    *pending = None;
-                    fresh = true;
-                }
-                if pending.is_none()
-                    && let Some(cycles) = source.advance(secs)
-                {
-                    let recipe = source.recipe().clone();
-                    let (width, height) = source.size();
-                    *pending = Some(
-                        bevy::tasks::AsyncComputeTaskPool::get()
-                            .spawn(async move { recipe.render(width, height, cycles) }),
-                    );
-                }
-                fresh.then_some(frame.as_slice())
-            }
         }
     }
 }
 
-/// A canvas whose source moves — a clip or a procedural recipe — rather
-/// than a still.
+/// A canvas whose source is a clip rather than a still.
 struct CanvasVideo {
     canvas: String,
     source: CanvasSource,
@@ -795,8 +782,7 @@ fn blank_frame((width, height): (u32, u32)) -> Image {
 /// canvas's texture.
 ///
 /// Nothing here decodes: a clip's `frame_at` only ever hands over what a
-/// worker thread has already produced, and a procedural source renders
-/// at most `PROC_MAX_WIDTH` wide on the spot. Both answer `None` when
+/// worker thread has already produced, and answers `None` when
 /// what is on screen is already right. `None` is the *usual* answer — the visualizer runs
 /// at 120 fps and a clip at 30 — and it is what keeps this from
 /// re-uploading eight megabytes four times per clip frame.
@@ -850,6 +836,7 @@ pub fn spawn_venue(
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    mut canvas_materials: ResMut<Assets<crate::canvas_material::CanvasMaterial>>,
     gdtf_library: Res<GdtfLibraryRes>,
     asset_server: Res<AssetServer>,
 ) {
@@ -920,9 +907,14 @@ pub fn spawn_venue(
                 Name::new(g.name.clone()),
             ))
             .id();
+        let material = if g.name.starts_with("Stage") {
+            deck(&mut standard, color, settings.reflective_deck)
+        } else {
+            solid(&mut standard, color, UNLIT)
+        };
         commands.spawn((
             Mesh3d(unit_cube.clone()),
-            MeshMaterial3d(solid(&mut standard, color, UNLIT)),
+            MeshMaterial3d(material),
             Transform::from_scale(size),
             ChildOf(anchor),
         ));
@@ -1032,6 +1024,10 @@ pub fn spawn_venue(
     let mut source_aspect: std::collections::HashMap<String, f32> =
         std::collections::HashMap::new();
     let mut playing: Vec<CanvasVideo> = Vec::new();
+    // `proc:` canvases: no texture at all — each panel gets a material
+    // that paints the recipe itself (`canvas_material.rs`).
+    let mut procedural: std::collections::HashMap<String, ignition_core::canvas::CanvasRecipe> =
+        std::collections::HashMap::new();
     // Two canvases showing the same clip share one decoder and one
     // texture. The side TVs both play the same loop; decoding it twice
     // was two threads and two uploads for one picture.
@@ -1098,27 +1094,12 @@ pub fn spawn_venue(
             // r[impl canvas.procedural] - a sweep on the back wall with no clip
             ContentKind::Procedural => match crate::canvas::parse_procedural(path) {
                 Ok(recipe) => {
-                    // Rendered at the canvas's own aspect, so the
-                    // cover-fit below is the identity and the picture
-                    // spans the panels edge to edge.
+                    // A recipe is drawn at the canvas's own aspect, so
+                    // the cover-fit below is the identity and the
+                    // picture spans the panels edge to edge.
                     let aspect = aspects.get(&canvas).copied().unwrap_or(16.0 / 9.0);
-                    let source = crate::canvas::ProceduralSource::new(recipe, aspect);
-                    let (w, h) = source.size();
-                    source_aspect.insert(canvas.clone(), w as f32 / h.max(1) as f32);
-                    let handle = images.add(blank_frame(source.size()));
-                    canvas_content.insert(canvas.clone(), handle.clone());
-                    // Not shared through `by_path`: two canvases of
-                    // different aspect asking for the same recipe want
-                    // two renders.
-                    playing.push(CanvasVideo {
-                        canvas,
-                        source: CanvasSource::Procedural {
-                            source,
-                            pending: None,
-                            frame: Vec::new(),
-                        },
-                        image: handle,
-                    });
+                    source_aspect.insert(canvas.clone(), aspect);
+                    procedural.insert(canvas, recipe);
                 }
                 Err(error) => tracing::warn!(
                     canvas,
@@ -1160,31 +1141,43 @@ pub fn spawn_venue(
             Transform::from_scale(Vec3::new(size.x, size.y, depth)),
             ChildOf(body),
         ));
-        if let Some(content) = canvas_content.get(g.canvas_name()) {
+        // This panel's piece of its canvas, cover-fitted and focused.
+        let slice = slices
+            .get(&g.name)
+            .copied()
+            .unwrap_or(crate::canvas::Slice::FULL)
+            .cover_at(
+                aspects.get(g.canvas_name()).copied().unwrap_or(16.0 / 9.0),
+                source_aspect
+                    .get(g.canvas_name())
+                    .copied()
+                    .unwrap_or(16.0 / 9.0),
+                settings
+                    .canvas_focus
+                    .get(g.canvas_name())
+                    .copied()
+                    .unwrap_or(0.5),
+            );
+        if let Some(recipe) = procedural.get(g.canvas_name()) {
+            // A generated picture: the material paints it at the
+            // screen's own resolution, no texture in between.
+            crate::canvas_material::spawn_panel(
+                &mut commands,
+                body,
+                recipe,
+                slice,
+                size,
+                depth,
+                SCREEN_GLOW,
+                &mut canvas_materials,
+                &mut meshes,
+            );
+        } else if let Some(content) = canvas_content.get(g.canvas_name()) {
             // The display itself: a quad just proud of the bezel, lit by
             // its own content rather than by the room.
             commands.spawn((
                 ScreenSurface,
-                Mesh3d(
-                    meshes.add(crate::canvas::sliced_quad(
-                        slices
-                            .get(&g.name)
-                            .copied()
-                            .unwrap_or(crate::canvas::Slice::FULL)
-                            .cover_at(
-                                aspects.get(g.canvas_name()).copied().unwrap_or(16.0 / 9.0),
-                                source_aspect
-                                    .get(g.canvas_name())
-                                    .copied()
-                                    .unwrap_or(16.0 / 9.0),
-                                settings
-                                    .canvas_focus
-                                    .get(g.canvas_name())
-                                    .copied()
-                                    .unwrap_or(0.5),
-                            ),
-                    )),
-                ),
+                Mesh3d(meshes.add(crate::canvas::sliced_quad(slice))),
                 MeshMaterial3d(display(&mut standard, content.clone())),
                 Transform {
                     translation: Vec3::Z * (depth * 0.5 + 0.005),
@@ -1364,6 +1357,7 @@ pub fn spawn_venue(
                 &gdtf.root,
                 &mut shared_meshes,
                 &body_material,
+                Some(&asset_server),
                 &mut emitters,
                 &mut nodes,
             );
@@ -1810,29 +1804,15 @@ pub fn zoomed_half_angle_deg(nominal_half_deg: f32, zoom: Option<f32>) -> f32 {
 /// own field cone to get its candela, and the light is given the lumens
 /// an omnidirectional source of that candela would have.
 ///
-/// `exposure` is then a plain multiplier on real photometry. At 1.0 a
-/// 36 W par (1,370 lm over a 60-degree field, ~1,600 cd) puts 180 lux
-/// on a stage 3 m away, which the camera's default exposure renders as
-/// a dim pool; the shipped default of 12 lifts that to a soft wash and
-/// leaves a 150 W beam fixture (capped at `MAX_CANDELA`) a hard,
-/// saturated shaft.
-// r[impl viz.exposure] - real candela in, one exposure dial
-pub fn spot_lumens(lumens: f32, field_half_angle_rad: f32, exposure: f32) -> f32 {
-    let candela = peak_candela(lumens, field_half_angle_rad.to_degrees()).min(MAX_CANDELA);
-    candela * 4.0 * core::f32::consts::PI * exposure
+/// That is the whole of it: real photometry in, nothing scaled, nothing
+/// capped. How bright it all comes out is the camera's business —
+/// `app::stage_exposure` sets the stage EV100, `--exposure` is stops on
+/// it, and the auto exposure rides the frame from there — the same way
+/// a 150 W beam and a 36 W par share a venue and a phone camera copes.
+// r[impl viz.exposure] - real candela in, the camera decides the rest
+pub fn spot_lumens(lumens: f32, field_half_angle_rad: f32) -> f32 {
+    peak_candela(lumens, field_half_angle_rad.to_degrees()) * 4.0 * core::f32::consts::PI
 }
-
-/// The most candela any fixture is allowed to put down its axis.
-///
-/// A 150 W beam fixture's real figure is around a million (the
-/// Betopper's datasheet says 125,000 lux at 3 m), and that is genuinely
-/// how a beam works: a few lumens in a 1.7-degree cone. But a renderer
-/// that has to show it *and* a 1,600 cd par in the same frame cannot
-/// hold four orders of magnitude — at the real number the beam lit the
-/// haze of the whole room to milk and its own shaft to a flat white
-/// slab. Capped at forty times a par: still unmistakably a hard shaft
-/// that saturates to white through its core, no longer a floodlight.
-const MAX_CANDELA: f32 = 60_000.0;
 
 /// Aims and colours every spill from where its emitter actually ended
 /// up. The spill is the fixture's whole light: what lands on the room,
@@ -1847,7 +1827,6 @@ const MAX_CANDELA: f32 = 60_000.0;
 pub fn update_beams(
     time: Res<Time>,
     venue: Res<VenueRes>,
-    settings: Res<VizSettings>,
     mut standard: ResMut<Assets<StandardMaterial>>,
     emitters: Query<(
         &EmitterState,
@@ -1940,7 +1919,7 @@ pub fn update_beams(
                         light.inner_angle = inner;
                         light.range = throw.spill_range();
                         light.color = Color::srgb(color[0], color[1], color[2]);
-                        light.intensity = spot_lumens(state.lumens, outer, settings.exposure);
+                        light.intensity = spot_lumens(state.lumens, outer);
                     }
                     None => {
                         *visibility = Visibility::Hidden;
@@ -2031,11 +2010,20 @@ pub fn resolve_live_dmx(venue: Res<VenueRes>, dmx: Option<Res<DmxRes>>, mut out:
 }
 
 /// Applies the ambient dial to Bevy's global ambient light.
+// r[impl viz.exposure] - the fill is photometric too
 pub fn apply_ambient(settings: Res<VizSettings>, mut ambient: ResMut<GlobalAmbientLight>) {
     if settings.is_changed() {
-        ambient.brightness = settings.ambient * 200.0;
+        ambient.brightness = settings.ambient * AMBIENT_LUX_PER_UNIT;
     }
 }
+
+/// What one unit of the ambient dial is worth, in lux on every surface.
+/// A dial of one is a dim room's worklight; the shipped 0.15 is a
+/// couple of lux, just enough to find the truss by. Calibrated against
+/// `app::STAGE_EV100` the same as the fixtures are: this was 200 under
+/// Bevy's Blender exposure, and the stage camera is 3.6 stops more
+/// open than that.
+pub const AMBIENT_LUX_PER_UNIT: f32 = 200.0 / 12.0;
 
 #[cfg(test)]
 mod rigging_tests {
@@ -2263,17 +2251,17 @@ mod body_and_bar_tests {
 
     /// Per-direction brightness, not raw lumens, is what the spot light
     /// is fed — so a beam fixture out-shines a par by its optics, and
-    /// the cap keeps it from flooding the room.
-    // r[verify viz.exposure] - candela in, capped
+    /// nothing scales or caps it: the numbers are the datasheet's.
+    // r[verify viz.exposure] - real candela in, uncapped
     #[test]
     fn a_beam_fixture_is_brighter_per_direction_than_a_par_of_more_watts() {
-        let par = spot_lumens(36.0 * LUMENS_PER_WATT, 30f32.to_radians(), 1.0);
-        let beam = spot_lumens(150.0 * LUMENS_PER_WATT, 1.29f32.to_radians(), 1.0);
+        let par = spot_lumens(36.0 * LUMENS_PER_WATT, 30f32.to_radians());
+        let beam = spot_lumens(150.0 * LUMENS_PER_WATT, 1.29f32.to_radians());
         assert!(beam > par * 20.0, "beam {beam} vs par {par}");
-        // The cap: doubling the beam's wattage changes nothing.
-        let beam2 = spot_lumens(300.0 * LUMENS_PER_WATT, 1.29f32.to_radians(), 1.0);
-        assert_eq!(beam, beam2);
-        // And the par is uncapped, real photometry: ~1,600 cd.
+        // No cap: doubling the beam's wattage doubles it.
+        let beam2 = spot_lumens(300.0 * LUMENS_PER_WATT, 1.29f32.to_radians());
+        assert!((beam2 / beam - 2.0).abs() < 1e-3);
+        // Real photometry: the par is ~1,600 cd.
         let par_cd = par / (4.0 * core::f32::consts::PI);
         assert!((1500.0..1800.0).contains(&par_cd), "{par_cd}");
     }
@@ -2320,6 +2308,7 @@ mod body_and_bar_tests {
                 &fixture.root,
                 &mut gdtf_geometry::SharedMeshes::new(&mut meshes),
                 &material,
+                None,
                 &mut emitters,
                 &mut nodes,
             );

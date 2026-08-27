@@ -29,7 +29,7 @@
 use crate::spawn::VizSettings;
 use bevy::asset::embedded_asset;
 use bevy::camera::visibility::RenderLayers;
-use bevy::camera::{ClearColorConfig, Hdr, RenderTarget};
+use bevy::camera::{ClearColorConfig, Exposure, Hdr, RenderTarget};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::image::Image;
 use bevy::light::{FogVolume, NotShadowCaster, ShadowFilteringMethod, VolumetricFog};
@@ -291,9 +291,19 @@ fn spawn_haze_cameras(
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut composites: ResMut<Assets<HazeCompositeMaterial>>,
-    cameras: Query<(Entity, &HazeView, &Camera, &Transform, &Projection), Added<HazeView>>,
+    cameras: Query<
+        (
+            Entity,
+            &HazeView,
+            &Camera,
+            &Transform,
+            &Projection,
+            Option<&Exposure>,
+        ),
+        Added<HazeView>,
+    >,
 ) {
-    for (main, view, camera, transform, projection) in &cameras {
+    for (main, view, camera, transform, projection, exposure) in &cameras {
         if view.scale == 1 {
             // Full size: the fog on the camera itself, as Bevy ships it
             // and as every still was made.
@@ -328,6 +338,14 @@ fn spawn_haze_cameras(
             Hdr,
             Msaa::Off,
             Tonemapping::None,
+            // The same static exposure as the main camera, so the fog
+            // is at the level the room is: `view.exposure` scales what
+            // the raymarch scatters, and the composite is added into
+            // the main camera's HDR frame *before* its tonemapping,
+            // which is where the auto exposure lands — so the eye
+            // adapts to the composite, fog and room together, and the
+            // haze camera itself never needs to adapt.
+            exposure.copied().unwrap_or_default(),
             RenderLayers::layer(HAZE_LAYER),
             ShadowFilteringMethod::Hardware2x2,
             VolumetricFog {

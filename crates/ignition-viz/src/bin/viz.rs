@@ -14,7 +14,7 @@ use bevy::math::Vec3;
 use ignition_viz::gdtf_geometry::GdtfLibrary;
 use ignition_viz::playback::Playback;
 use ignition_viz::video::export::ExportRequest;
-use ignition_viz::{RenderQuality, Venue, ViewPreset, VizConfig, run, run_export};
+use ignition_viz::{Grade, RenderQuality, Venue, ViewPreset, VizConfig, run, run_export};
 use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
@@ -30,13 +30,14 @@ fn main() -> anyhow::Result<()> {
     // A multiplier on the hazers' output, roughly 0..2, where 1.0 is a
     // normally hazed room with the hazers up — see `VizSettings::haze`.
     let mut haze = 1.6f32;
-    // Multiplier on each fixture's real luminous output. Large because
-    // it is doing the job a camera's aperture and shutter would: the
-    // room is otherwise unlit, the surfaces in it are mostly black
-    // (black plywood deck, black ceiling), and the fog absorbs some of
-    // what does reach them. The *relative* brightness between fixtures
-    // comes from their own wattage and beam angle now, not from this.
-    let mut exposure = 12.0f32;
+    // Stops on the stage camera's EV100 (`app::STAGE_EV100`). Zero is
+    // the calibrated camera; the lights themselves are real photometry
+    // and never scaled. `+1` doubles the picture.
+    let mut exposure = 0.0f32;
+    // The eye that follows the frame. `--auto-exposure off` for a
+    // picture at the fixed stage exposure.
+    let mut auto_exposure = true;
+    let mut grade = Grade::Neutral;
     // Not zero. A real dark venue genuinely has no ambient fill, but a
     // visualizer the operator is *working* in is not a photograph: with
     // nothing lit you need to still see the stage, the truss and where
@@ -72,6 +73,11 @@ fn main() -> anyhow::Result<()> {
     // `--body-glow`: lit housings glow their own colour. Off by default,
     // the real fixtures being black.
     let mut body_glow = false;
+    // `--labels`: the DMX address over every fixture, from frame one.
+    let mut labels = false;
+    // `--select 1-8`: start with these channels in the programmer's
+    // selection, so a still can show what the beams and tints look like.
+    let mut select: Option<String> = None;
     // Ships with the crate, so the visualizer runs from any directory.
     // Packaging this properly is a later problem.
     let mut assets_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string();
@@ -104,13 +110,30 @@ fn main() -> anyhow::Result<()> {
         match arg.as_str() {
             "--loopback" => loopback = true,
             "--body-glow" => body_glow = true,
+            "--labels" => labels = true,
+            "--select" => select = Some(next("channels, e.g. 1-8,12")),
             "--venue" => venue_dir = PathBuf::from(next("a path")),
             "--view" => view = next("house|stage|top"),
             "--width" => width = next("a number").parse()?,
             "--height" => height = next("a number").parse()?,
             "--haze" => haze = next("a number, 0..2, 1.0 = normally hazed").parse()?,
             "--exposure" => {
-                exposure = next("a multiplier on real fixture candela, e.g. 12").parse()?
+                exposure = next("stops on the stage exposure, e.g. +1 or -0.5").parse()?
+            }
+            "--auto-exposure" => {
+                auto_exposure = match next("on|off").as_str() {
+                    "on" => true,
+                    "off" => false,
+                    other => anyhow::bail!("--auto-exposure {other}: on or off"),
+                }
+            }
+            // A look after tonemapping: neutral (the default), warm,
+            // cool or punchy.
+            "--grade" => {
+                let name = next("neutral|warm|cool|punchy");
+                grade = Grade::parse(&name).ok_or_else(|| {
+                    anyhow::anyhow!("--grade {name}: neutral, warm, cool or punchy")
+                })?
             }
             "--ambient" => ambient = next("a number 0..1").parse()?,
             "--max-universe" => max_universe = next("a number").parse()?,
@@ -243,7 +266,7 @@ fn main() -> anyhow::Result<()> {
         overlay
     };
     let draw_overlay = overlay.unwrap_or(!headless);
-    let playback = Playback::load(
+    let mut playback = Playback::load(
         &venue,
         cuelist.as_deref(),
         recipes.as_deref(),
@@ -254,6 +277,12 @@ fn main() -> anyhow::Result<()> {
         song_bpm,
         None,
     )?;
+    if let Some(select) = &select {
+        let chans = ignition_viz::picking::parse_chan_ranges(select)?;
+        playback
+            .programmer
+            .select(ignition_core::Selection::Chans(chans));
+    }
 
     // A still keeps the quality every existing snapshot was made at; a
     // window gets the same dials as the studio.
@@ -280,6 +309,8 @@ fn main() -> anyhow::Result<()> {
         fps: fps || bench.is_some(),
         exclude,
         exposure,
+        auto_exposure,
+        grade,
         screen_content,
         canvas_content,
         canvas_focus: Default::default(),
@@ -287,6 +318,7 @@ fn main() -> anyhow::Result<()> {
         output,
         loopback,
         body_glow,
+        labels,
     };
     match (bench, export) {
         (Some(frames), _) => {

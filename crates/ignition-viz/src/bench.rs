@@ -165,13 +165,28 @@ pub fn headless_gpu() -> anyhow::Result<HostGpu> {
         compatible_surface: None,
         force_fallback_adapter: false,
     }))?;
-    let wanted = STUDIO_FEATURES
+    #[allow(unused_mut, reason = "the solari feature adds to it")]
+    let mut wanted = STUDIO_FEATURES
         | wgpu::Features::TIMESTAMP_QUERY
         | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS;
+    #[cfg(feature = "solari")]
+    {
+        wanted |= crate::solari::required_features();
+    }
+    #[allow(unused_mut, reason = "the solari feature adds to it")]
+    let mut limits = studio_limits();
+    #[cfg(feature = "solari")]
+    {
+        limits = crate::solari::widen_limits(limits, &adapter.limits());
+    }
     let (device, queue) = bevy::tasks::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         label: Some("ignition bench (blitz-shaped)"),
         required_features: adapter.features() & wanted,
-        required_limits: studio_limits(),
+        required_limits: limits,
+        // Ray queries are behind wgpu's experimental gate; the token is
+        // `unsafe` because wgpu does not promise validation for them.
+        #[cfg(feature = "solari")]
+        experimental_features: unsafe { wgpu::ExperimentalFeatures::enabled() },
         ..Default::default()
     }))?;
     let info = adapter.get_info();

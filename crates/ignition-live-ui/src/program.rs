@@ -17,7 +17,7 @@
 // r[impl studio.program.cue-editing] - select, set, store, see the list
 // r[impl studio.views] - the Program view
 
-use crate::command::Command;
+use crate::command::{Command, OverlayKind};
 use crate::library::{Library, Tab, css_of, use_operator};
 use crate::operators::Kind;
 use crate::{CueList, HSlider, Surface, send, use_playhead};
@@ -34,6 +34,7 @@ pub fn Programmer(surface: Surface) -> Element {
     let mut mode = use_signal(|| StoreMode::Track);
     let mut look_name = use_signal(String::new);
     let mut look_kind = use_signal(|| LookKind::Bed);
+    let mut overlays = use_signal(Overlays::default);
     let profile = crate::library::profile();
     let p = playhead();
     let favs = operator().favourites.clone();
@@ -144,6 +145,33 @@ pub fn Programmer(surface: Surface) -> Element {
                 button { class: "ptile warn", onpointerdown: move |_| send(Command::Release), span { class: "pname", "RELEASE" } }
                 button { class: "ptile warn", onpointerdown: move |_| send(Command::ClearValues), span { class: "pname", "CLEAR" } }
             }
+            // r[impl studio.program.pick-and-gizmos] - the overlay keys
+            div { class: "prog-row overlays",
+                span { class: "prog-label", "3D" }
+                for kind in OverlayKind::ALL {
+                    button {
+                        key: "{kind.label()}",
+                        class: if overlays().is_on(kind) { "ptile small on" } else { "ptile small" },
+                        title: "draw this overlay on the visualizer while in Program",
+                        onpointerdown: move |_| {
+                            let on = !overlays().is_on(kind);
+                            overlays.write().set(kind, on);
+                            send(Command::Overlay { kind, on });
+                        },
+                        span { class: "pname", "{kind.label()}" }
+                    }
+                }
+                button {
+                    class: if overlays().labels { "ptile small on" } else { "ptile small" },
+                    title: "the DMX address over every fixture",
+                    onpointerdown: move |_| {
+                        let on = !overlays().labels;
+                        overlays.write().labels = on;
+                        send(Command::Labels(on));
+                    },
+                    span { class: "pname", "LABELS" }
+                }
+            }
             // r[impl cues.shield] - the store modes are the engine's own
             div { class: "prog-row store",
                 span { class: "prog-label", "Store" }
@@ -245,5 +273,60 @@ pub fn Program(surface: Surface) -> Element {
             Programmer { surface: surface.clone() }
             Library { surface: surface.clone(), open: Tab::Kind(Kind::Effect) }
         }
+    }
+}
+
+/// The overlay keys' own state — what the widget starts with, mirrored
+/// here so the keys light without a round trip.
+// r[impl studio.program.pick-and-gizmos] - FOCUS / BEAMS / GROUPS / LABELS
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Overlays {
+    pub focus: bool,
+    pub beams: bool,
+    pub groups: bool,
+    pub labels: bool,
+}
+
+impl Default for Overlays {
+    fn default() -> Self {
+        Self {
+            focus: true,
+            beams: true,
+            groups: true,
+            labels: false,
+        }
+    }
+}
+
+impl Overlays {
+    pub fn is_on(&self, kind: OverlayKind) -> bool {
+        match kind {
+            OverlayKind::Focus => self.focus,
+            OverlayKind::Beams => self.beams,
+            OverlayKind::Groups => self.groups,
+        }
+    }
+
+    pub fn set(&mut self, kind: OverlayKind, on: bool) {
+        match kind {
+            OverlayKind::Focus => self.focus = on,
+            OverlayKind::Beams => self.beams = on,
+            OverlayKind::Groups => self.groups = on,
+        }
+    }
+}
+
+#[cfg(test)]
+mod overlay_tests {
+    use super::*;
+
+    /// r[verify studio.program.pick-and-gizmos] - the keys start where the widget does
+    #[test]
+    fn overlay_keys_default_to_the_widgets_defaults_and_toggle_one_at_a_time() {
+        let mut o = Overlays::default();
+        assert!(o.focus && o.beams && o.groups && !o.labels);
+        o.set(OverlayKind::Beams, false);
+        assert!(!o.is_on(OverlayKind::Beams));
+        assert!(o.is_on(OverlayKind::Focus) && o.is_on(OverlayKind::Groups));
     }
 }

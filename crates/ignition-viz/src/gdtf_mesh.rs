@@ -1,20 +1,24 @@
-//! Decoders for the 3D model files a GDTF profile can carry — the raw
-//! triangle soup behind `gdtf_geometry.rs`'s real-mesh shapes. Two
-//! formats, because the spec (gdtf-spec.md, "3D Models") requires a
-//! reader to accept both: `models/gltf/<file>.glb` (preferred by the
-//! spec, and by most recent uploads) and `models/3ds/<file>.3ds` (what
-//! the older half of GDTF Share, and the spec's own standard-primitive
-//! meshes, are authored in).
+//! Readers for the 3D model files a GDTF profile can carry. Two formats,
+//! because the spec (gdtf-spec.md, "3D Models") requires a reader to
+//! accept both: `models/gltf/<file>.glb` (preferred by the spec, and by
+//! most recent uploads) and `models/3ds/<file>.3ds` (what the older half
+//! of GDTF Share, and the spec's own standard-primitive meshes, are
+//! authored in).
 //!
-//! Both decode into the same [`RawMesh`] in GDTF's own frame — metres,
-//! right-handed, Z-up, the fixture hanging with its beam along -Z — so
-//! `gdtf_geometry.rs` only has to scale to the `<Model>` dimensions and
-//! hand the result to Bevy. 3DS is Z-up natively; glTF is Y-up, so its
-//! vertices are remapped `(x, y, z) -> (x, -z, y)` on the way in.
+//! The two are handled differently. 3DS has no Bevy loader, so
+//! [`parse_3ds`] decodes it here into a [`RawMesh`] in GDTF's own frame
+//! — metres, right-handed, Z-up, the fixture hanging with its beam along
+//! -Z — and `gdtf_geometry.rs` scales that to the `<Model>` dimensions
+//! and hands it to Bevy. 3DS carries no materials, so the body is drawn
+//! in the venue's own body material (`spawn.rs`).
 //!
-//! Neither decoder reads materials or textures: a fixture body is drawn
-//! in the venue's own body material (`spawn.rs`), the same as the
-//! primitive fallbacks, and the lens is the emitter, not a mesh.
+//! GLB is Bevy's own format: `bevy_gltf` loads it, materials and node
+//! hierarchy included, through the `gdtf://` asset source in
+//! `gdtf_assets.rs`. All this module reads from a GLB is its extent
+//! ([`glb_bounds`]) — from the accessor `min`/`max` the format requires —
+//! so the importer can size it and stand a box in for it while it loads.
+//! glTF is Y-up; the extent is remapped `(x, y, z) -> (x, -z, y)` here
+//! and the spawned scene gets the same rotation as a transform.
 
 use bevy::math::{Mat4, Vec3};
 
@@ -197,84 +201,107 @@ fn f32_at(b: &[u8], at: usize) -> anyhow::Result<f32> {
 // GLB
 // ---------------------------------------------------------------------
 
-/// Decodes a binary glTF 2.0 file into one [`RawMesh`], walking every
-/// node of the default scene (or all scenes, if none is marked default)
-/// and baking each node's world transform into its vertices. Only the
-/// embedded BIN buffer is read: the spec forbids external buffers and
-/// extensions in a GDTF model, and a file that does need them decodes to
-/// whatever primitives don't.
+/// The bounds of a binary glTF 2.0 file's default scene (or of every
+/// scene, if none is marked default), in GDTF's Z-up frame, without
+/// decoding a single vertex.
 ///
-/// glTF is Y-up; the result is remapped to GDTF's Z-up.
-pub fn parse_glb(bytes: &[u8]) -> anyhow::Result<RawMesh> {
+/// The mesh itself is not read here any more: `bevy_gltf` loads it —
+/// materials, tangents and node hierarchy included — through the
+/// `gdtf://` asset source (`gdtf_assets.rs`). What the importer still
+/// needs synchronously is the model's extent, to scale it to the
+/// `<Model>` dimensions and to place the box that stands in for it until
+/// the load lands. glTF requires every `POSITION` accessor to carry its
+/// `min`/`max`, so that comes straight out of the JSON header: each
+/// primitive's box, transformed by its node's world matrix, unioned.
+///
+/// `None` when the file has no positioned primitive at all.
+// r[impl viz.gdtf-meshes] - the GLB's extent is read from its header; bevy_gltf draws it
+pub fn glb_bounds(bytes: &[u8]) -> anyhow::Result<Option<(Vec3, Vec3)>> {
     let gltf = gltf::Gltf::from_slice(bytes).map_err(|e| anyhow::anyhow!("GLB: {e}"))?;
-    let blob = gltf.blob.as_deref();
     let doc = &gltf.document;
-
-    let mut out = RawMesh::default();
     let roots: Vec<gltf::Node> = match doc.default_scene() {
         Some(scene) => scene.nodes().collect(),
         None => doc.scenes().flat_map(|s| s.nodes()).collect(),
     };
+    let mut acc: Option<(Vec3, Vec3)> = None;
     for node in roots {
-        walk_node(&node, Mat4::IDENTITY, blob, &mut out);
+        walk_bounds(&node, Mat4::IDENTITY, &mut acc);
     }
-
     // Y-up -> Z-up: (x, y, z) -> (x, -z, y).
-    for p in &mut out.positions {
-        *p = [p[0], -p[2], p[1]];
-    }
-    for n in &mut out.normals {
-        *n = [n[0], -n[2], n[1]];
-    }
-    Ok(out)
+    Ok(acc.map(|(lo, hi)| {
+        let corners = [
+            Vec3::new(lo.x, lo.y, lo.z),
+            Vec3::new(hi.x, lo.y, lo.z),
+            Vec3::new(lo.x, hi.y, lo.z),
+            Vec3::new(hi.x, hi.y, lo.z),
+            Vec3::new(lo.x, lo.y, hi.z),
+            Vec3::new(hi.x, lo.y, hi.z),
+            Vec3::new(lo.x, hi.y, hi.z),
+            Vec3::new(hi.x, hi.y, hi.z),
+        ];
+        corners
+            .into_iter()
+            .map(y_up_to_z_up)
+            .fold((Vec3::MAX, Vec3::MIN), |(lo, hi), p| (lo.min(p), hi.max(p)))
+    }))
 }
 
-fn walk_node(node: &gltf::Node, parent: Mat4, blob: Option<&[u8]>, out: &mut RawMesh) {
+/// glTF's frame into GDTF's: `(x, y, z) -> (x, -z, y)`. The same
+/// permutation `gdtf_assets::GLTF_TO_GDTF` applies to the spawned scene.
+pub fn y_up_to_z_up(p: Vec3) -> Vec3 {
+    Vec3::new(p.x, -p.z, p.y)
+}
+
+fn walk_bounds(node: &gltf::Node, parent: Mat4, acc: &mut Option<(Vec3, Vec3)>) {
     let world = parent * Mat4::from_cols_array_2d(&node.transform().matrix());
     if let Some(mesh) = node.mesh() {
         for prim in mesh.primitives() {
             if prim.mode() != gltf::mesh::Mode::Triangles {
                 continue;
             }
-            let reader = prim.reader(|buffer| match buffer.source() {
-                gltf::buffer::Source::Bin => blob,
-                gltf::buffer::Source::Uri(_) => None,
-            });
-            let Some(positions) = reader.read_positions() else {
+            let Some(positions) = prim.get(&gltf::Semantic::Positions) else {
                 continue;
             };
-            let mut part = RawMesh::default();
-            part.positions = positions
-                .map(|p| world.transform_point3(Vec3::from(p)).to_array())
-                .collect();
-            if let Some(normals) = reader.read_normals() {
-                let normal_mat = world.inverse().transpose();
-                part.normals = normals
-                    .map(|n| {
-                        normal_mat
-                            .transform_vector3(Vec3::from(n))
-                            .normalize_or_zero()
-                            .to_array()
-                    })
-                    .collect();
-                if part.normals.len() != part.positions.len() {
-                    part.normals.clear();
-                }
-            }
-            part.indices = match reader.read_indices() {
-                Some(idx) => idx.into_u32().collect(),
-                None => (0..part.positions.len() as u32).collect(),
-            };
-            let n = part.positions.len() as u32;
-            if part.indices.iter().any(|i| *i >= n) {
+            let (Some(lo), Some(hi)) = (
+                positions.min().and_then(|v| vec3_of(&v)),
+                positions.max().and_then(|v| vec3_of(&v)),
+            ) else {
                 continue;
+            };
+            for corner in [
+                Vec3::new(lo.x, lo.y, lo.z),
+                Vec3::new(hi.x, lo.y, lo.z),
+                Vec3::new(lo.x, hi.y, lo.z),
+                Vec3::new(hi.x, hi.y, lo.z),
+                Vec3::new(lo.x, lo.y, hi.z),
+                Vec3::new(hi.x, lo.y, hi.z),
+                Vec3::new(lo.x, hi.y, hi.z),
+                Vec3::new(hi.x, hi.y, hi.z),
+            ] {
+                let w = world.transform_point3(corner);
+                *acc = Some(match *acc {
+                    Some((lo, hi)) => (lo.min(w), hi.max(w)),
+                    None => (w, w),
+                });
             }
-            out.append(part);
         }
     }
     for child in node.children() {
-        walk_node(&child, world, blob, out);
+        walk_bounds(&child, world, acc);
     }
+}
+
+/// An accessor `min`/`max` JSON array as a point.
+fn vec3_of(v: &serde_json::Value) -> Option<Vec3> {
+    let a = v.as_array()?;
+    if a.len() < 3 {
+        return None;
+    }
+    Some(Vec3::new(
+        a[0].as_f64()? as f32,
+        a[1].as_f64()? as f32,
+        a[2].as_f64()? as f32,
+    ))
 }
 
 #[cfg(test)]

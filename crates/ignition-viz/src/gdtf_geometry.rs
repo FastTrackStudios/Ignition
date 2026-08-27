@@ -27,15 +27,16 @@
 //! the placeholder mesh today.
 //!
 //! Shapes come from three sources, in order: a real 3D model file the
-//! profile ships (`Model::file` -> `models/gltf/<file>.glb`, falling back
-//! to `models/3ds/<file>.3ds`, decoded by `gdtf_mesh.rs`), one of the
-//! spec's own standard primitive meshes (`PrimitiveType::Base/Yoke/Head/
-//! Scanner/Conventional/...`, embedded from `assets/gdtf-primitives/`),
+//! profile ships (`Model::file` -> `models/gltf/<file>.glb`, loaded by
+//! `bevy_gltf` through the `gdtf://` source in `gdtf_assets.rs`, falling
+//! back to `models/3ds/<file>.3ds`, decoded by `gdtf_mesh.rs`), one of
+//! the spec's own standard primitive meshes (`PrimitiveType::Base/Yoke/
+//! Head/Scanner/Conventional/...`, embedded from `assets/gdtf-primitives/`),
 //! or a procedural Cube/Cylinder/Sphere. Whatever the source, the mesh is
 //! scaled to the `<Model>`'s declared Length/Width/Height — the spec
 //! (gdtf-spec.md, "3D Models") says those dimensions always govern, no
-//! matter how the file itself is scaled. Materials and textures in the
-//! files are ignored: the body is drawn in the venue's fixture material.
+//! matter how the file itself is scaled. A GLB keeps the materials it
+//! ships; a 3DS carries none and is drawn in the venue's fixture material.
 
 use bevy::math::{Mat3, Quat, Vec3};
 use bevy::prelude::*;
@@ -53,7 +54,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use crate::gdtf_mesh::{RawMesh, parse_3ds, parse_glb};
+use crate::gdtf_mesh::{RawMesh, glb_bounds, parse_3ds};
 
 /// A real fixture-shape node, one per `<Geometry>`/`<Axis>`/`<Beam>` XML
 /// element, in the mesh's own local frame (matches `ObjMesh`'s convention:
@@ -188,6 +189,7 @@ impl GdtfNode {
                     }
                 }
             }
+            GdtfShape::Gltf { scale, .. } => *scale *= factor,
             GdtfShape::None => {}
         }
         for c in &mut self.children {
@@ -224,6 +226,7 @@ impl GdtfNode {
                     )
                 })
                 .map(|(lo, hi)| box_corners(lo, hi)),
+            GdtfShape::Gltf { lo, hi, scale, .. } => Some(box_corners(*lo * *scale, *hi * *scale)),
             GdtfShape::None => None,
         };
         if let Some(corners) = corners {
@@ -267,6 +270,18 @@ pub enum GdtfShape {
     /// the `<Model>` dimensions and in the node's local Z-up frame.
     /// Cloned into the asset store each time the fixture is spawned.
     Mesh(Mesh),
+    /// The profile's own GLB, loaded by `bevy_gltf` from the `.gdtf` zip
+    /// (`gdtf_assets.rs`) when the fixture is spawned. `asset` is its
+    /// asset path; `lo..hi` its extent in the node's Z-up frame as the
+    /// file has it, and `scale` the per-axis fit of that extent to the
+    /// `<Model>` dimensions — the drawn part spans `lo * scale..hi *
+    /// scale`, and a box of that size stands in until the load lands.
+    Gltf {
+        asset: String,
+        lo: Vec3,
+        hi: Vec3,
+        scale: Vec3,
+    },
     /// A `<Beam>` node (the light-exit point) or any geometry with no
     /// resolvable primitive (an `Undefined`/real-mesh-only model this
     /// slice doesn't import) — present in the tree for its transform and
@@ -381,6 +396,7 @@ pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<G
 
     let mut models = ModelCache {
         resources,
+        gdtf_file: path,
         loaded: HashMap::new(),
     };
     let root = build_node(
@@ -466,50 +482,72 @@ fn geometry_position(g: &Geometry) -> Matrix {
     }
 }
 
-/// The model files of one `.gdtf`, decoded at most once each: a file's
+/// What a `<Model>`'s file resolved to.
+#[derive(Clone)]
+enum ModelSource {
+    /// A GLB the asset server will load: only its extent is known here.
+    Gltf { lo: Vec3, hi: Vec3 },
+    /// A 3DS, decoded on the spot.
+    Raw(RawMesh),
+}
+
+/// The model files of one `.gdtf`, read at most once each: a file's
 /// geometries routinely share a Model (every cell of a bar, both arms
 /// of a yoke), and the zip is read through a seeking cursor, so this
-/// keeps the decode per distinct file rather than per node.
+/// keeps the read per distinct file rather than per node.
 struct ModelCache<'a> {
     resources: &'a mut ResourceMap,
-    loaded: HashMap<String, Option<RawMesh>>,
+    /// The `.gdtf` itself, for the asset path a GLB is loaded by.
+    gdtf_file: &'a Path,
+    loaded: HashMap<String, Option<ModelSource>>,
 }
 
 impl ModelCache<'_> {
     // r[impl viz.gdtf-meshes] - a profile's own glb/3ds is what gets drawn
-    fn get(&mut self, file: &str) -> Option<RawMesh> {
+    fn get(&mut self, file: &str) -> Option<ModelSource> {
         if let Some(hit) = self.loaded.get(file) {
             return hit.clone();
         }
-        let raw = read_model_file(self.resources, file);
-        self.loaded.insert(file.to_string(), raw.clone());
-        raw
+        let source = read_model_file(self.resources, file);
+        self.loaded.insert(file.to_string(), source.clone());
+        source
+    }
+
+    fn scene_path(&self, file: &str) -> String {
+        crate::gdtf_assets::model_scene_path(self.gdtf_file, file).to_string()
     }
 }
 
 /// Reads `models/gltf/<file>.glb`, or failing that `models/3ds/<file>.3ds`
 /// — the spec prefers glTF, and a file that ships both is meant to be
-/// the same model twice. A missing or undecodable file is reported and
-/// yields `None`, so the node falls back to a box of the declared size
-/// rather than taking the fixture down with it.
-fn read_model_file(resources: &mut ResourceMap, file: &str) -> Option<RawMesh> {
-    let attempts: [(Model3Format, fn(&[u8]) -> anyhow::Result<RawMesh>); 2] = [
-        (Model3Format::Gltf, parse_glb),
-        (Model3Format::Max3ds, parse_3ds),
-    ];
-    let mut last_err = None;
-    for (format, decode) in attempts {
+/// the same model twice. The GLB is only measured here (`glb_bounds`);
+/// `bevy_gltf` loads it later. A missing or undecodable file is reported
+/// and yields `None`, so the node falls back to a box of the declared
+/// size rather than taking the fixture down with it.
+fn read_model_file(resources: &mut ResourceMap, file: &str) -> Option<ModelSource> {
+    fn read(resources: &mut ResourceMap, file: &str, format: Model3Format) -> Option<Vec<u8>> {
         let mut bytes = Vec::new();
-        let read = resources
+        resources
             .read_model_mesh(file, format, Model3Detail::Default)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .and_then(|mut r| r.read_to_end(&mut bytes).map_err(Into::into));
-        if read.is_err() {
-            continue;
+            .ok()?
+            .read_to_end(&mut bytes)
+            .ok()?;
+        Some(bytes)
+    }
+    let mut last_err = None;
+    if let Some(bytes) = read(resources, file, Model3Format::Gltf) {
+        match glb_bounds(&bytes) {
+            Ok(Some((lo, hi))) if (hi - lo).max_element() > 0.0 => {
+                return Some(ModelSource::Gltf { lo, hi });
+            }
+            Ok(_) => last_err = Some(anyhow::anyhow!("Gltf model has no triangles")),
+            Err(e) => last_err = Some(e),
         }
-        match decode(&bytes) {
-            Ok(raw) if !raw.is_empty() => return Some(raw),
-            Ok(_) => last_err = Some(anyhow::anyhow!("{format:?} model has no triangles")),
+    }
+    if let Some(bytes) = read(resources, file, Model3Format::Max3ds) {
+        match parse_3ds(&bytes) {
+            Ok(raw) if !raw.is_empty() => return Some(ModelSource::Raw(raw)),
+            Ok(_) => last_err = Some(anyhow::anyhow!("Max3ds model has no triangles")),
             Err(e) => last_err = Some(e),
         }
     }
@@ -584,8 +622,17 @@ fn geometry_shape(
     // (`File=""` is how most authoring tools write "no file".)
     let file = model.file.as_deref().filter(|f| !f.is_empty());
     if let Some(file) = file {
-        if let Some(raw) = models.get(file) {
-            return GdtfShape::Mesh(raw_to_mesh(&raw, size));
+        match models.get(file) {
+            Some(ModelSource::Gltf { lo, hi }) => {
+                return GdtfShape::Gltf {
+                    asset: models.scene_path(file),
+                    lo,
+                    hi,
+                    scale: fit_scale_bounds(lo, hi, size),
+                };
+            }
+            Some(ModelSource::Raw(raw)) => return GdtfShape::Mesh(raw_to_mesh(&raw, size)),
+            None => {}
         }
     }
 
@@ -632,6 +679,11 @@ fn fit_scale(raw: &RawMesh, size: Vec3) -> Vec3 {
     let Some((lo, hi)) = raw.bounds() else {
         return Vec3::ONE;
     };
+    fit_scale_bounds(lo, hi, size)
+}
+
+/// `fit_scale` on bounds already known — a GLB's, read from its header.
+fn fit_scale_bounds(lo: Vec3, hi: Vec3, size: Vec3) -> Vec3 {
     let extent = hi - lo;
     let ratio = |i: usize| -> Option<f32> {
         (extent[i] > 1e-6 && size[i] > 1e-6).then(|| size[i] / extent[i])
@@ -967,12 +1019,18 @@ impl<'a> SharedMeshes<'a> {
     }
 }
 
+///
+/// `assets` is what a GLB part is loaded through (`gdtf_assets`); with
+/// `None` (a headless test with no asset server) such a part keeps its
+/// placeholder box.
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_gdtf_tree(
     commands: &mut Commands,
     parent: Entity,
     node: &GdtfNode,
     meshes: &mut SharedMeshes<'_>,
     material: &Handle<StandardMaterial>,
+    assets: Option<&AssetServer>,
     emitters: &mut Vec<Entity>,
     nodes: &mut Vec<Entity>,
 ) {
@@ -1031,6 +1089,30 @@ pub fn spawn_gdtf_tree(
                 ChildOf(id),
             ));
         }
+        // The file's own GLB: a box of the part's size now, the scene
+        // — with the file's materials — when `bevy_gltf` has it.
+        GdtfShape::Gltf {
+            ref asset,
+            lo,
+            hi,
+            scale,
+        } => {
+            let key = (node as *const GdtfNode as usize, 0);
+            let placeholder = meshes.get_or_add(key, || {
+                Cuboid::from_size(((hi - lo) * scale).max(Vec3::splat(0.005))).into()
+            });
+            crate::gdtf_assets::spawn_model(
+                commands,
+                id,
+                assets,
+                asset,
+                placeholder,
+                material,
+                lo,
+                hi,
+                scale,
+            );
+        }
         // Nothing to draw — a `<Beam>` node, or a socket/inlet with no
         // model. Only the former is a light source, decided below.
         GdtfShape::None => {}
@@ -1048,7 +1130,7 @@ pub fn spawn_gdtf_tree(
     }
 
     for child in &node.children {
-        spawn_gdtf_tree(commands, id, child, meshes, material, emitters, nodes);
+        spawn_gdtf_tree(commands, id, child, meshes, material, assets, emitters, nodes);
     }
 }
 
@@ -1124,7 +1206,7 @@ mod tests {
 
     fn count_shapes(node: &GdtfNode, meshes: &mut usize, boxes: &mut usize, drawn: &mut usize) {
         match node.shape {
-            GdtfShape::Mesh(_) => {
+            GdtfShape::Mesh(_) | GdtfShape::Gltf { .. } => {
                 *meshes += 1;
                 *drawn += 1;
             }
@@ -1313,9 +1395,9 @@ mod tests {
         assert!(parse_3ds(&bytes[..bytes.len() - 5]).is_err(), "truncated");
     }
 
-    // r[impl viz.gdtf-meshes] - a real manufacturer GLB decodes to triangles
+    // r[verify viz.gdtf-meshes] - a real manufacturer GLB is measured, then loaded by bevy_gltf
     #[test]
-    fn decodes_a_real_glb_from_a_gdtf_zip() {
+    fn a_real_glb_imports_as_a_sized_scene() {
         let Some(path) = real_gdtf_files()
             .into_iter()
             .find(|p| p.to_string_lossy().contains("SlimPAR_Quad_12"))
@@ -1330,22 +1412,15 @@ mod tests {
             .expect("the file ships models/gltf/Body.glb")
             .read_to_end(&mut bytes)
             .unwrap();
-        let raw = parse_glb(&bytes).expect("decodes");
-        assert!(!raw.is_empty());
-        assert_eq!(raw.indices.len() % 3, 0);
-        assert!(
-            raw.indices
-                .iter()
-                .all(|i| (*i as usize) < raw.positions.len())
-        );
-        let (lo, hi) = raw.bounds().unwrap();
+        let (lo, hi) = glb_bounds(&bytes).expect("reads").expect("has geometry");
         assert!(
             (hi - lo).min_element() > 0.0,
             "a body has volume: {lo:?} {hi:?}"
         );
 
-        // And through the whole import it lands as a Mesh shape, sized to
-        // the Model, not as the box fallback.
+        // Through the whole import it lands as a GLB shape sized to the
+        // Model — not as the box fallback — addressed through the
+        // `gdtf://` source, where bevy_gltf finds the same file.
         let fixture = import_geometry(&path, None).unwrap();
         let (mut meshes, mut boxes, mut drawn) = (0, 0, 0);
         count_shapes(&fixture.root, &mut meshes, &mut boxes, &mut drawn);
@@ -1353,9 +1428,44 @@ mod tests {
             meshes >= 1,
             "expected real meshes, got {boxes} boxes and {drawn} drawn"
         );
+        let mut scenes = Vec::new();
+        collect_gltf(&fixture.root, &mut scenes);
+        let (asset, lo, hi, scale) = scenes.first().cloned().expect("a GLB shape");
+        assert!(asset.starts_with("gdtf://"), "{asset}");
+        let drawn = (hi - lo) * scale;
+        // The Body model declares its dimensions; the fit lands on them.
+        let body = gdtf.description.fixture_types[0]
+            .models
+            .iter()
+            .find(|m| m.file.as_deref() == Some("Body"))
+            .expect("a Body model");
+        let size = Vec3::new(body.length as f32, body.width as f32, body.height as f32);
+        assert!(
+            (drawn - size).abs().max_element() < 1e-3,
+            "drawn {drawn:?} vs model {size:?}"
+        );
+
+        let mut app = crate::gdtf_assets::test_support::asset_app();
+        let gltf = crate::gdtf_assets::test_support::load_gltf(&mut app, &asset);
+        assert!(gltf.meshes >= 1);
     }
 
-    // r[impl viz.gdtf-meshes] - every shipped profile has something real to draw
+    fn collect_gltf(node: &GdtfNode, out: &mut Vec<(String, Vec3, Vec3, Vec3)>) {
+        if let GdtfShape::Gltf {
+            asset,
+            lo,
+            hi,
+            scale,
+        } = &node.shape
+        {
+            out.push((asset.clone(), *lo, *hi, *scale));
+        }
+        for c in &node.children {
+            collect_gltf(c, out);
+        }
+    }
+
+    // r[verify viz.gdtf-meshes] - every shipped profile has something real to draw
     #[test]
     fn every_real_gdtf_file_draws_at_least_one_mesh() {
         let files = real_gdtf_files();
@@ -1363,6 +1473,9 @@ mod tests {
             eprintln!("skipping: no data/gdtf directory");
             return;
         }
+        // Every GLB the importer points at must come through the source
+        // as a scene with a mesh in it — one app, every profile's files.
+        let mut app = crate::gdtf_assets::test_support::asset_app();
         for path in files {
             let fixture =
                 import_geometry(&path, None).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
@@ -1384,6 +1497,12 @@ mod tests {
                 "{}: {boxes} boxes and no real mesh",
                 path.display()
             );
+            let mut scenes = Vec::new();
+            collect_gltf(&fixture.root, &mut scenes);
+            for (asset, ..) in scenes {
+                let gltf = crate::gdtf_assets::test_support::load_gltf(&mut app, &asset);
+                assert!(gltf.meshes >= 1, "{asset}: no mesh in the scene");
+            }
         }
     }
 
@@ -1471,6 +1590,7 @@ mod tests {
                     &fixture.root,
                     &mut SharedMeshes::new(&mut meshes),
                     &material,
+                    None,
                     &mut emitters,
                     &mut nodes,
                 );
@@ -1590,6 +1710,7 @@ mod tests {
                 &fixture.root,
                 &mut SharedMeshes::new(&mut meshes),
                 &material,
+                None,
                 &mut emitters,
                 &mut nodes,
             );

@@ -23,6 +23,9 @@ osc = ["dep:rosc"]
 remote = ["midi", "osc"]
 # An audio input driving the `Tap` master and band levels — `sound.rs`.
 sound = ["dep:cpal"]
+# Bevy Solari raytraced lighting in the embedded view — a spike, see
+# crates/ignition-viz/src/solari.rs.
+solari = ["ignition-viz/solari"]
 
 [dev-dependencies]
 tokio-tungstenite = "0.28"

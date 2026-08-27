@@ -75,6 +75,20 @@ visualizer and in the cue list without leaving the view. The Program
 view's cue list and the Live view's cue list are the same panel with
 different chrome.
 
+r[studio.program.pick-and-gizmos]
+The Program view's visualizer is part of the programmer. Clicking a
+fixture in it selects that fixture (shift adds to the selection, ctrl
+toggles it), hovering one tints it and names it, and the selection made
+there is the same selection every other surface sees — it travels as the
+one `Select` command and comes back on the playhead. Over the room the
+view draws the venue's focus points, the selected fixtures' beam axes,
+the outline of whichever group the Library is hovering, and — when asked
+— the DMX address above every fixture; each overlay switches on its own
+from a FOCUS / BEAMS / GROUPS / LABELS row, and all of them are off in
+Live. Picking and drawing use the engine's own facilities (`bevy_picking`
+with the mesh backend, `Gizmos`), not a raycast or a line renderer of the
+studio's own.
+
 ## Panels and windows
 
 r[studio.panels]

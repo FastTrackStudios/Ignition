@@ -17,7 +17,7 @@
 //! them to one crate and one `Device` type. A major-version split either
 //! side of this and the approach is dead.
 
-use crate::app::{VizConfig, VizPlugin, camera_bundle};
+use crate::app::{CameraSpec, VizConfig, VizPlugin, spawn_camera};
 use crate::dmx::DmxUniverses;
 use crate::gdtf_geometry::GdtfLibrary;
 use crate::playback::Playback;
@@ -127,10 +127,8 @@ impl EmbeddedViz {
         gpu: HostGpu,
         configure: impl FnOnce(&mut App),
     ) -> Self {
-        let (min, max) = config.venue.bounds();
-        let view = config.view;
-        let free_camera = config.camera;
         let quality = config.quality.for_rig(&config.venue, gdtf.as_ref());
+        let spec = CameraSpec::new(&config, quality);
         let size = (config.width.max(1), config.height.max(1));
         let assets_dir = config.assets_dir.clone();
         // Bound here, on the host's universes, so the studio's OUTPUT
@@ -139,6 +137,7 @@ impl EmbeddedViz {
 
         let adapter_info = gpu.adapter.get_info();
         let mut app = App::new();
+        app.add_plugins(crate::gdtf_assets::GdtfSourcePlugin);
         app.add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
@@ -192,6 +191,9 @@ impl EmbeddedViz {
         })
         .insert_resource(playback);
 
+        // The host takes selections and sends them as `Command::Select`,
+        // so a click in the viewport travels the same road as a tile.
+        app.insert_resource(crate::picking::SelectionRoute::Host);
         configure(&mut app);
         let mailbox = TargetMailbox::default();
         if let Some(render) = app.get_sub_app_mut(RenderApp) {
@@ -203,12 +205,16 @@ impl EmbeddedViz {
         let target = add_target(&mut app, size);
         mailbox.0.lock().expect("target mailbox").wanted = Some(target.id());
         let camera_target: RenderTarget = target.clone().into();
-        app.add_systems(Startup, move |mut commands: Commands| {
-            commands.spawn((
-                camera_bundle(view, free_camera, min, max, quality),
-                camera_target.clone(),
-            ));
-        });
+        app.add_systems(
+            Startup,
+            move |mut commands: Commands,
+                  mut curves: ResMut<
+                Assets<bevy::post_process::auto_exposure::AutoExposureCompensationCurve>,
+            >| {
+                let camera = spawn_camera(&mut commands, &mut curves, spec);
+                commands.entity(camera).insert(camera_target.clone());
+            },
+        );
 
         let mut viz = Self {
             app,
@@ -330,6 +336,60 @@ impl EmbeddedViz {
     /// The image the camera renders into.
     pub fn target(&self) -> Handle<Image> {
         self.target.clone()
+    }
+
+    /// The host's pointer, in pixels of the target texture — what
+    /// `picking.rs` turns into `bevy_picking` input on the next frame.
+    /// `None` for a pointer that has left the viewport.
+    // r[impl studio.program.pick-and-gizmos] - pointer input arrives from the host
+    pub fn pointer(
+        &mut self,
+        position: Option<(f32, f32)>,
+        primary: bool,
+        shift: bool,
+        ctrl: bool,
+    ) {
+        let next = crate::picking::HostPointer {
+            position: position.map(|(x, y)| Vec2::new(x, y)),
+            primary,
+            shift,
+            ctrl,
+        };
+        let mut pointer = self
+            .app
+            .world_mut()
+            .resource_mut::<crate::picking::HostPointer>();
+        if *pointer != next {
+            *pointer = next;
+        }
+    }
+
+    /// A selection the viewport asked for since the last take — the
+    /// channels clicked, or an empty list for a click that cleared it.
+    pub fn take_selection(&mut self) -> Option<Vec<ignition_proto::ChanId>> {
+        self.app
+            .world_mut()
+            .resource_mut::<crate::picking::SelectionRequest>()
+            .take()
+    }
+
+    /// One of the programmer's overlays, or the master switch — see
+    /// `gizmos::ProgramOverlays`.
+    pub fn overlays_mut(&mut self) -> Mut<'_, crate::gizmos::ProgramOverlays> {
+        self.app
+            .world_mut()
+            .resource_mut::<crate::gizmos::ProgramOverlays>()
+    }
+
+    /// The group the Library is hovering, outlined in the room.
+    pub fn highlight_group(&mut self, name: Option<String>) {
+        let mut highlight = self
+            .app
+            .world_mut()
+            .resource_mut::<crate::gizmos::HighlightGroup>();
+        if highlight.0 != name {
+            highlight.0 = name;
+        }
     }
 
     /// How many render pipelines the render world had compiled as of

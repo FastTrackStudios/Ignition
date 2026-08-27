@@ -657,6 +657,13 @@ pub fn Views(boot: Bootstrap) -> Element {
             View::Live
         }
     });
+    // The viewport draws the programmer's overlays only in Program.
+    // r[impl studio.program.pick-and-gizmos] - Live has the overlays off
+    use_effect(move || {
+        crate::send(crate::command::Command::ProgramView(
+            view() == View::Program,
+        ))
+    });
     let lan = boot.lan.join("  ");
     rsx! {
         div { class: "views",

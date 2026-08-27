@@ -213,13 +213,24 @@ fn main() -> anyhow::Result<()> {
     // whatever they asked for, and a missing feature surfaces as a
     // validation error mid-frame rather than at startup. Bloom's HDR
     // buffer is `Rg11b10Ufloat`, not renderable without the first.
+    #[allow(unused_mut, reason = "the solari feature adds to them")]
+    let mut features = wgpu::Features::RG11B10UFLOAT_RENDERABLE
+        | wgpu::Features::FLOAT32_FILTERABLE
+        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+    #[allow(unused_mut, reason = "the solari feature adds to them")]
+    let mut limits = wgpu::Limits::default();
+    #[cfg(feature = "solari")]
+    {
+        // The adapter is not known until Blitz has made the device, so
+        // the binding-array limit is a figure any RT-capable adapter
+        // clears rather than the adapter's own.
+        features |= ignition_viz::solari::required_features();
+        limits.max_binding_array_elements_per_shader_stage = 100_000;
+        limits.max_binding_array_sampler_elements_per_shader_stage = 1_000;
+    }
     let config: Vec<Box<dyn Any>> = vec![
-        Box::new(
-            wgpu::Features::RG11B10UFLOAT_RENDERABLE
-                | wgpu::Features::FLOAT32_FILTERABLE
-                | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
-        ),
-        Box::new(wgpu::Limits::default()),
+        Box::new(features),
+        Box::new(limits),
         Box::new(window_attributes()),
     ];
 
@@ -1263,7 +1274,9 @@ fn Viewport() -> Element {
             // 12, the same as `viz` — a multiplier on real candela, see
             // `spawn::spot_lumens`. It was 2500 back when the spill
             // light was fed raw lumens.
-            exposure: 12.0,
+            exposure: 0.0,
+            auto_exposure: true,
+            grade: ignition_viz::Grade::Neutral,
             screen_content: Some("screens/rockstars-logo.webp".to_string()),
             // The three back-wall TVs share one canvas, so this single
             // image spans all of them and each takes the slice matching
@@ -1336,6 +1349,7 @@ fn Viewport() -> Element {
             // key in the transport bar flips it live.
             // r[impl viz.body-glow] - off by default, remembered by env
             body_glow: body_glow_default(),
+            labels: false,
             camera: None,
             overlay: false,
             // On, because the visualizer is the thing that has to hold

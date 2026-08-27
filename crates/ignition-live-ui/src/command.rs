@@ -222,6 +222,49 @@ pub enum Command {
         name: String,
         kind: ignition_core::profile::LookKind,
     },
+    // ── Additive, for the 3D-aware programmer (`r[studio.program.pick-and-gizmos]`).
+    /// One of the Program view's overlays on the visualizer, on or off.
+    // r[impl studio.program.pick-and-gizmos] - FOCUS / BEAMS / GROUPS keys
+    Overlay {
+        kind: OverlayKind,
+        on: bool,
+    },
+    /// The DMX address over every fixture in the visualizer.
+    // r[impl studio.program.pick-and-gizmos] - the LABELS key
+    Labels(bool),
+    /// Outline this group's fixtures in the visualizer — what hovering
+    /// a group tile in the Library sends; `None` when the pointer leaves.
+    // r[impl studio.program.pick-and-gizmos] - a hovered group is outlined
+    HighlightGroup(Option<String>),
+    /// Whether the Program view is showing. The overlays draw only
+    /// while it is; Live is the stage, not the rig.
+    // r[impl studio.program.pick-and-gizmos] - Live has the overlays off
+    ProgramView(bool),
+}
+
+/// The switchable overlays of the Program view's visualizer.
+// r[impl studio.program.pick-and-gizmos]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OverlayKind {
+    /// The venue's focus points.
+    Focus,
+    /// The selected fixtures' beam axes.
+    Beams,
+    /// The outline of the group under the pointer.
+    Groups,
+}
+
+impl OverlayKind {
+    pub const ALL: [OverlayKind; 3] = [OverlayKind::Focus, OverlayKind::Beams, OverlayKind::Groups];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            OverlayKind::Focus => "FOCUS",
+            OverlayKind::Beams => "BEAMS",
+            OverlayKind::Groups => "GROUPS",
+        }
+    }
 }
 
 /// The keys beside RATE. `Tap` is a learn tap — averaged, so a hand a

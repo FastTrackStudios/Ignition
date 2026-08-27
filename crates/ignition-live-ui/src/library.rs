@@ -485,8 +485,13 @@ pub fn LibraryTile(
     let swatch = entry.css.clone();
     let tap_entry = entry.clone();
     let star_entry = entry.clone();
+    // r[impl studio.program.pick-and-gizmos] - a hovered group tile is outlined in the room
+    let is_group = entry.tab == Tab::Kind(Kind::Group);
+    let hover_name = entry.name.clone();
     rsx! {
         div { class: "{class}", title: "{entry.about}",
+            onmouseenter: move |_| if is_group { send(Command::HighlightGroup(Some(hover_name.clone()))) },
+            onmouseleave: move |_| if is_group { send(Command::HighlightGroup(None)) },
             button {
                 class: "lib-body",
                 onpointerdown: move |_| tap(&tap_entry, &playhead()),

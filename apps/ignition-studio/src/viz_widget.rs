@@ -70,6 +70,47 @@ pub struct VizCore {
     /// lets go of what the old one took.
     // r[impl playback.macro-runner] - the widget ticks it every frame
     macro_runner: Option<MacroRunner>,
+    /// The latest pointer over the viewport, and the DPI scale paint
+    /// last saw, which turns its CSS pixels into texture pixels.
+    pointer: PointerSample,
+    scale: f64,
+}
+
+/// The pointer as Blitz last reported it over the viewport, in the
+/// element's own CSS pixels. Scaled to texture pixels on the way in.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+struct PointerSample {
+    position: Option<(f32, f32)>,
+    primary: bool,
+    shift: bool,
+    ctrl: bool,
+}
+
+impl PointerSample {
+    /// `keyboard_types::Modifiers` bits — the crate is not a direct
+    /// dependency here, and the two flags wanted are stable.
+    const SHIFT: u32 = 0x200;
+    const CONTROL: u32 = 0x8;
+
+    fn of(p: &blitz_traits::events::BlitzPointerEvent, down: bool, up: bool) -> Self {
+        let primary_held = p
+            .buttons
+            .contains(blitz_traits::events::MouseEventButtons::Primary);
+        let primary = if down {
+            true
+        } else if up {
+            false
+        } else {
+            primary_held
+        };
+        let mods = p.mods.bits();
+        Self {
+            position: Some((p.element.x, p.element.y)),
+            primary,
+            shift: mods & Self::SHIFT != 0,
+            ctrl: mods & Self::CONTROL != 0,
+        }
+    }
 }
 
 /// The sound fade: a one-pole smoother over the band levels, with the
@@ -205,7 +246,26 @@ impl Widget for VizWidget {
         self.with_core(|core| core.destroy_surfaces());
     }
 
-    fn handle_event(&mut self, _event: &blitz_traits::events::UiEvent) {}
+    /// Blitz forwards the pointer events that land on the widget's node.
+    /// They are kept as the latest sample and handed to the visualizer
+    /// on the next paint, which is when it steps — so a click and the
+    /// frame it lands on are the same frame.
+    // r[impl studio.program.pick-and-gizmos] - Blitz pointer events reach the viewport
+    fn handle_event(&mut self, event: &blitz_traits::events::UiEvent) {
+        use blitz_traits::events::UiEvent;
+        let sample = match event {
+            UiEvent::PointerMove(p) | UiEvent::PointerDown(p) | UiEvent::PointerUp(p) => {
+                PointerSample::of(
+                    p,
+                    matches!(event, UiEvent::PointerDown(_)),
+                    matches!(event, UiEvent::PointerUp(_)),
+                )
+            }
+            UiEvent::PointerCancel(_) => PointerSample::default(),
+            _ => return,
+        };
+        self.with_core(|core| core.pointer = sample);
+    }
 
     fn paint(
         &mut self,
@@ -213,11 +273,17 @@ impl Widget for VizWidget {
         _styles: &ComputedStyles,
         width: u32,
         height: u32,
-        _scale: f64,
+        scale: f64,
     ) -> Scene {
         let mut registered = self.registered.take();
         let scene = self
-            .with_core(|core| core.paint(render_ctx, width, height, &mut registered))
+            .with_core(|core| {
+                // The pointer arrives in CSS pixels; the texture is
+                // `scale` times that. Kept here so the sample is scaled
+                // by the value this paint actually used.
+                core.scale = scale;
+                core.paint(render_ctx, width, height, &mut registered)
+            })
             .unwrap_or_else(Scene::new);
         self.registered = registered;
         scene
@@ -288,6 +354,8 @@ impl VizCore {
             report,
             sound: SoundFade::default(),
             macro_runner: None,
+            pointer: PointerSample::default(),
+            scale: 1.0,
         }
     }
 }
@@ -346,6 +414,13 @@ impl VizCore {
             tracing::debug!(width, height, "viz.embed: paint with no active viz");
             return scene;
         };
+        let scale = self.scale as f32;
+        viz.pointer(
+            self.pointer.position.map(|(x, y)| (x * scale, y * scale)),
+            self.pointer.primary,
+            self.pointer.shift,
+            self.pointer.ctrl,
+        );
         drain(
             &self.commands,
             viz,
@@ -415,6 +490,16 @@ fn drain(
 ) {
     use ignition_core::{Class, RecipeApply, Show};
 
+    // A click in the viewport, as the command every other surface
+    // sends — so it is logged, applied and published like one.
+    // r[impl studio.program.pick-and-gizmos] - a viewport click is a Command::Select
+    let picked = viz.take_selection().map(|chans| {
+        if chans.is_empty() {
+            Command::Deselect
+        } else {
+            Command::Select(ignition_core::Selection::Chans(chans))
+        }
+    });
     let world = viz.app_mut().world_mut();
     let Some(mut playback) = world.remove_resource::<Playback>() else {
         return;
@@ -444,7 +529,8 @@ fn drain(
             // r[impl profile.protected-roles] - the programmer learns them from the profile
             programmer.protected = shipped.protected.clone();
         }
-        while let Ok(command) = commands.try_recv() {
+        let queued = std::iter::from_fn(|| commands.try_recv().ok());
+        for command in picked.into_iter().chain(queued) {
             crate::live_commands::note(&command);
             // Rebuilt per command because `Rate` mutates `speeds`, which
             // the `Show` borrows. Cheap — it is four references.
@@ -523,6 +609,42 @@ fn drain(
                         settings.body_glow = on;
                     }
                     tracing::info!(on, "studio: fixture body glow");
+                }
+                // r[impl studio.program.pick-and-gizmos] - the overlay keys flip the viz resource
+                Command::Overlay { kind, on } => {
+                    if let Some(mut overlays) =
+                        world.get_resource_mut::<ignition_viz::gizmos::ProgramOverlays>()
+                    {
+                        use crate::command::OverlayKind;
+                        match kind {
+                            OverlayKind::Focus => overlays.focus = on,
+                            OverlayKind::Beams => overlays.beams = on,
+                            OverlayKind::Groups => overlays.groups = on,
+                        }
+                    }
+                }
+                Command::Labels(on) => {
+                    if let Some(mut overlays) =
+                        world.get_resource_mut::<ignition_viz::gizmos::ProgramOverlays>()
+                    {
+                        overlays.labels = on;
+                    }
+                }
+                Command::ProgramView(on) => {
+                    if let Some(mut overlays) =
+                        world.get_resource_mut::<ignition_viz::gizmos::ProgramOverlays>()
+                        && overlays.program != on
+                    {
+                        overlays.program = on;
+                    }
+                }
+                Command::HighlightGroup(name) => {
+                    if let Some(mut highlight) =
+                        world.get_resource_mut::<ignition_viz::gizmos::HighlightGroup>()
+                        && highlight.0 != name
+                    {
+                        highlight.0 = name;
+                    }
                 }
                 // r[impl dmx.output-toggle] - flips the transmitter without touching the engine
                 Command::Output(on) => {
