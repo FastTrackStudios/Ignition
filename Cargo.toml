@@ -3,6 +3,7 @@
 resolver = "3"
 
 members = [
+    "crates/bevy-pbr-vendored",
     "crates/gdtf-vendored",
     "crates/dioxus-native-vendored",
     "crates/anyrender-vello-vendored",
@@ -112,6 +113,12 @@ gdtf = { path = "crates/gdtf-vendored" }
 # Vendored, one-hunk patch: one wgpu instance and device pool for every
 # Blitz window in the process — see crates/anyrender-vello-vendored/NOTICE.md.
 anyrender_vello = { path = "crates/anyrender-vello-vendored" }
+# Vendored `bevy_pbr`, one hunk: a light may scatter in volumetric fog
+# without casting a shadow. Upstream ties the two together, which for a
+# lighting visualiser means only the eight fixtures that can afford a
+# shadow map appear in the haze — see crates/bevy-pbr-vendored/NOTICE.md
+# and docs/domain/beams-in-the-air.md.
+bevy_pbr = { path = "crates/bevy-pbr-vendored" }
 # Vendored: text-selection endpoints are cleared when the node they point at
 # is removed, and the document-order walk no longer panics on a detached
 # node (studio crash in traversal.rs `compare_document_order`) — see

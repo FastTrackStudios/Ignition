@@ -423,6 +423,39 @@ pub fn fixture_optics(
     }
 }
 
+/// The lens a beam leaves through, as a radius in metres.
+///
+/// A fixture is not a point and it matters most exactly where a point
+/// model is worst: at the apex, where the inverse square runs away and
+/// the cone is narrower than a pixel of the haze buffer. Give the light
+/// its real lens and the near field is bounded and a couple of hundred
+/// millimetres wide, which is both what the fixture looks like and what
+/// the raymarch can resolve.
+///
+/// Zero by default, which is upstream's behaviour, because a lens does
+/// **not** fix the blocky cone apex — that was the theory and it was
+/// measured wrong. Setting it changes the near field markedly (79% of
+/// pixels move between 75 mm and 2 m), so it is a look decision, not a
+/// bug fix, and it stays off until someone decides they prefer it.
+///
+/// The clamp it feeds is still worth having and still correct: without
+/// it `1/d²` runs to infinity at the light's position. Nothing is ever
+/// *at* a light on a surface, so upstream never has to care; in fog it
+/// is a singularity in the middle of the picture.
+///
+/// GDTF carries `BeamRadius` per beam geometry, so the honest version of
+/// this reads it per fixture rather than taking one number for the rig.
+/// `IGNITION_LENS_RADIUS` sets it, for comparing.
+// r[impl viz.haze-is-volumetric] - a beam may start at the lens, not at a point
+pub const DEFAULT_LENS_RADIUS_M: f32 = 0.0;
+
+pub fn lens_radius() -> f32 {
+    std::env::var("IGNITION_LENS_RADIUS")
+        .ok()
+        .and_then(|v| v.trim().parse::<f32>().ok())
+        .unwrap_or(DEFAULT_LENS_RADIUS_M)
+}
+
 /// A fixture's spill: the light it actually throws onto the room, as
 /// and, through the haze, the shaft it shows in the air. Also a
 /// child of the emitter, with an identity local transform — a Bevy spot
@@ -597,6 +630,8 @@ fn spawn_bar_emitter(
             intensity: 0.0,
             range: spill_range,
             shadow_maps_enabled: false,
+            // The lens, not a point — see `lens_radius`.
+            radius: lens_radius(),
             ..default()
         },
         VolumetricLight,
@@ -1638,6 +1673,8 @@ pub fn spawn_venue(
                 SpotLight {
                     intensity: 0.0,
                     range: throw.spill_range(),
+                    // The lens, not a point — see `lens_radius`.
+                    radius: lens_radius(),
                     // A shadow map is a render pass per light per
                     // frame and a texture the fog samples at every
                     // step — the budgeted part of the frame. The
