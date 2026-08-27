@@ -351,15 +351,21 @@ pub fn auto_exposure(
 ) -> AutoExposure {
     let range = AUTO_EXPOSURE_RANGE_STOPS;
     // Bevy steps the exposure by `speed * dt * delta / transition`
-    // toward the target, so the transition distance has to stay
-    // above `speed * dt` or the step overshoots and the exposure
-    // rings. Instant is a thousand stops a second against a twenty-
-    // stop transition: half the gap per 10 ms frame, settled well
-    // within a still's settle frames, stable to a 50 ms frame.
+    // toward the target (`auto_exposure_step`), so `speed * dt` has to
+    // stay below the transition distance or the step overshoots and
+    // the exposure rings. Instant is a thousand stops a second against
+    // a twenty-stop transition: half the gap per 10 ms frame, settled
+    // well within a still's settle frames, and only stable up to a
+    // 20 ms frame — a still's real frame time, never a video's, which
+    // is why `run_export` adapts at the live speeds instead.
     let (speed_brighten, speed_darken, transition) = if instant {
-        (1.0e3, 1.0e3, 20.0)
+        (
+            AUTO_EXPOSURE_INSTANT_SPEED,
+            AUTO_EXPOSURE_INSTANT_SPEED,
+            AUTO_EXPOSURE_INSTANT_TRANSITION,
+        )
     } else {
-        (range / 2.0, range / 0.5, 0.5)
+        (range / 2.0, range / 0.5, AUTO_EXPOSURE_LIVE_TRANSITION)
     };
     AutoExposure {
         // The histogram's span, in log2 luminance: everything a stage
@@ -409,6 +415,45 @@ pub fn adaptation_stops(log_luminance: f32) -> f32 {
 /// How far, in stops, the auto exposure may pull the picture from
 /// `stage_exposure` either way.
 pub const AUTO_EXPOSURE_RANGE_STOPS: f32 = 1.5;
+
+/// The instant adaptation's speed in stops per second and the distance
+/// over which it goes exponential: a still's settle frames land it.
+const AUTO_EXPOSURE_INSTANT_SPEED: f32 = 1.0e3;
+const AUTO_EXPOSURE_INSTANT_TRANSITION: f32 = 20.0;
+
+/// How far from its target, in stops, a live adaptation eases in
+/// exponentially rather than moving at full speed.
+const AUTO_EXPOSURE_LIVE_TRANSITION: f32 = 0.5;
+
+/// How long an export runs the clock before its first frame so the
+/// exposure has adapted: the full range at the slower (brightening)
+/// speed is a second and a third to the transition distance, and the
+/// exponential tail inside it decays at `speed / transition` = 1.5/s,
+/// another 2.6 seconds to a hundredth of a stop; four seconds covers
+/// the worst case at any frame rate (the test walks them).
+pub const AUTO_EXPOSURE_PREROLL_SECS: f32 = 4.0;
+
+/// One frame of Bevy's adaptation (`auto_exposure.wgsl`): the exposure
+/// moves toward `target` by `delta * speed * dt / transition`, capped at
+/// `speed * dt` — the same arithmetic, so the speeds can be checked for
+/// ringing without a GPU.
+pub fn auto_exposure_step(
+    exposure: f32,
+    target: f32,
+    speed_brighten: f32,
+    speed_darken: f32,
+    transition: f32,
+    dt: f32,
+) -> f32 {
+    let delta = target - exposure;
+    if target > exposure {
+        let speed = speed_darken * dt;
+        exposure + (delta * speed / transition).min(speed)
+    } else {
+        let speed = speed_brighten * dt;
+        exposure + (delta * speed / transition).max(-speed)
+    }
+}
 
 /// Stops of correction per stop the frame sits from the chorus level.
 /// One would hold every look at the same brightness — a light meter,
@@ -592,7 +637,9 @@ impl Plugin for VizPlugin {
             let gdtf = self.gdtf.lock().expect("gdtf lock");
             CameraSpec::new(
                 &self.config,
-                self.config.quality.for_rig(&self.config.venue, gdtf.as_ref()),
+                self.config
+                    .quality
+                    .for_rig(&self.config.venue, gdtf.as_ref()),
             )
         };
         app.insert_resource(ClearColor(Color::BLACK))
@@ -803,7 +850,8 @@ fn run_windowed(
         .insert_resource(playback)
         .add_systems(
             Startup,
-            move |mut commands: Commands, mut curves: ResMut<Assets<AutoExposureCompensationCurve>>| {
+            move |mut commands: Commands,
+                  mut curves: ResMut<Assets<AutoExposureCompensationCurve>>| {
                 spawn_camera(&mut commands, &mut curves, spec);
             },
         )
@@ -884,7 +932,8 @@ impl Headless {
         let camera_target = target.clone();
         app.add_systems(
             Startup,
-            move |mut commands: Commands, mut curves: ResMut<Assets<AutoExposureCompensationCurve>>| {
+            move |mut commands: Commands,
+                  mut curves: ResMut<Assets<AutoExposureCompensationCurve>>| {
                 // `RenderTarget` is its own component — adding it to the
                 // camera is what points it at the offscreen image instead
                 // of a window.
@@ -992,20 +1041,34 @@ pub fn run_export(
     );
 
     let dmx = DmxUniverses::new();
+    // A video adapts like an eye, not a still: the instant speeds are
+    // set for a still's real 10 ms frames, and at a video's 33 ms
+    // frame they overshoot the level and ring, so each frame comes out
+    // alternately blown out and black. The live speeds converge at any
+    // frame rate a video is exported at (`auto_exposure_step` tests).
+    // r[impl viz.post-processing] - an export adapts at an eye's pace
+    let mut config = config;
+    config.quality.instant_adaptation = false;
     let mut headless = Headless::build(config, dmx, playback, gdtf);
-    // Warm up with the clock stopped, so the first exported frame is
-    // frame 0 of the song range, not settle_frames later.
-    headless
-        .subapps
-        .main
-        .world_mut()
-        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::ZERO));
-    for _ in 0..settle_frames {
+    let dt = Duration::from_secs_f64(schedule.dt());
+    // Pre-roll: the song held at frame 0 while the clock runs at the
+    // export's frame time, so the exposure has adapted to the first
+    // frame's look — Bevy's auto exposure steps by `speed * dt`, and
+    // with the clock stopped it would never move at all — and the
+    // temporal passes have settled, before frame 0 is written.
+    let first = schedule.frames().next();
+    let preroll =
+        settle_frames.max((AUTO_EXPOSURE_PREROLL_SECS * schedule.fps as f32).ceil() as u32);
+    for _ in 0..preroll {
+        let world = headless.subapps.main.world_mut();
+        if let Some(frame) = &first {
+            follow_position(world, frame.position, song_secs(&schedule, frame.position));
+        }
+        world.insert_resource(TimeUpdateStrategy::ManualDuration(dt));
         headless.step();
     }
 
     let (tx, rx) = std::sync::mpsc::channel::<Image>();
-    let dt = Duration::from_secs_f64(schedule.dt());
     for frame in schedule.frames() {
         // Frame 0 renders the located moment; every later frame first
         // advances the clock by one dt.
@@ -1017,10 +1080,7 @@ pub fn run_export(
         // exactly as the studio's transport does frame by frame.
         // r[impl viz.export] - the cues follow the song, so the cut does too
         // r[impl viz.camera-cuts] - an export renders the cut programme
-        let song_secs = ((frame.position.bar.max(1) - 1) as f64 * schedule.secs_per_bar()
-            + (frame.position.beat - 1.0).max(0.0) * 60.0 / schedule.bpm)
-            as f32;
-        follow_position(world, frame.position, song_secs);
+        follow_position(world, frame.position, song_secs(&schedule, frame.position));
         world.insert_resource(TimeUpdateStrategy::ManualDuration(advance));
         let tx = tx.clone();
         world
@@ -1062,6 +1122,12 @@ pub fn run_export(
     sink.finish()?;
     println!("export finished: {}", request.path.display());
     Ok(())
+}
+
+/// Seconds into the song at a musical position, on the export's tempo.
+fn song_secs(schedule: &FrameSchedule, position: ignition_core::Bars) -> f32 {
+    ((position.bar.max(1) - 1) as f64 * schedule.secs_per_bar()
+        + (position.beat - 1.0).max(0.0) * 60.0 / schedule.bpm) as f32
 }
 
 /// Points the song list and the hits at a musical position — what the
@@ -1298,6 +1364,58 @@ mod quality_tests {
     }
 
     /// Live and still say, for each feature, whether it is on.
+    /// Steps `auto_exposure_step` from `start` toward `target` at `dt`,
+    /// failing on the first step that crosses the target (ringing), and
+    /// returns the frames it took to get within a hundredth of a stop.
+    fn adapt_without_ringing(start: f32, target: f32, speeds: (f32, f32, f32), dt: f32) -> u32 {
+        let (brighten, darken, transition) = speeds;
+        let mut exposure = start;
+        for frame in 0..10_000 {
+            if (target - exposure).abs() < 0.01 {
+                return frame;
+            }
+            let next = auto_exposure_step(exposure, target, brighten, darken, transition, dt);
+            assert!(
+                (target - next) * (target - start) >= 0.0,
+                "rang past {target} at frame {frame}: {exposure} -> {next} (dt {dt})"
+            );
+            exposure = next;
+        }
+        panic!("never adapted at dt {dt}");
+    }
+
+    // r[verify viz.post-processing] - an export adapts at an eye's pace, without ringing
+    #[test]
+    fn the_export_adaptation_converges_at_every_video_frame_rate() {
+        let range = AUTO_EXPOSURE_RANGE_STOPS;
+        let live = (range / 2.0, range / 0.5, AUTO_EXPOSURE_LIVE_TRANSITION);
+        for fps in [24u32, 25, 30, 48, 50, 60, 120] {
+            let dt = 1.0 / fps as f32;
+            for (start, target) in [(0.0, range), (0.0, -range), (range, 0.0), (-0.3, 0.2)] {
+                let frames = adapt_without_ringing(start, target, live, dt);
+                assert!(
+                    frames as f32 * dt <= AUTO_EXPOSURE_PREROLL_SECS,
+                    "{start} -> {target} took {frames} frames at {fps} fps, past the pre-roll"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_instant_adaptation_rings_at_a_video_frame_but_not_at_a_stills() {
+        let instant = (
+            AUTO_EXPOSURE_INSTANT_SPEED,
+            AUTO_EXPOSURE_INSTANT_SPEED,
+            AUTO_EXPOSURE_INSTANT_TRANSITION,
+        );
+        // A still's 10 ms frame: half the gap a frame, settled in 20.
+        let frames = adapt_without_ringing(0.0, 1.5, instant, 0.010);
+        assert!(frames <= 20, "{frames}");
+        // A 30 fps video frame: the first step overshoots (the bug).
+        let next = auto_exposure_step(0.0, 1.5, instant.0, instant.1, instant.2, 1.0 / 30.0);
+        assert!(next > 1.5, "{next}");
+    }
+
     // r[verify viz.post-processing] - each feature is a RenderQuality switch
     #[test]
     fn a_still_pays_for_everything_and_a_live_view_for_what_fits() {
@@ -1307,7 +1425,10 @@ mod quality_tests {
         let live = RenderQuality::live();
         assert!(live.taa && !live.msaa);
         assert!(!live.dof, "an operator's view is not a photograph");
-        assert!(!live.instant_adaptation, "a live view adapts at an eye's pace");
+        assert!(
+            !live.instant_adaptation,
+            "a live view adapts at an eye's pace"
+        );
     }
 
     /// The dots inside a narrow shaft are the raymarch crossing it a

@@ -109,7 +109,8 @@ impl GoboMask {
         for y in 0..size {
             for x in 0..size {
                 let p = rgba.get_pixel(x, y).0;
-                let lum = (0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32) / 255.0;
+                let lum =
+                    (0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32) / 255.0;
                 let open = lum * (p[3] as f32 / 255.0);
                 out.extend_from_slice(&[0, 0, 0, blocked_byte(open)]);
             }
@@ -146,7 +147,11 @@ impl GoboMask {
     /// The fraction of the whole mask that lets light through.
     pub fn open_fraction(&self) -> f32 {
         let n = (self.size * self.size) as f32;
-        self.rgba.chunks_exact(4).map(|p| 1.0 - p[3] as f32 / 255.0).sum::<f32>() / n
+        self.rgba
+            .chunks_exact(4)
+            .map(|p| 1.0 - p[3] as f32 / 255.0)
+            .sum::<f32>()
+            / n
     }
 
     /// The mask as a Bevy image for the decal to sample.
@@ -231,7 +236,11 @@ impl Builtin {
             Builtin::Dots => GoboMask::procedural(size, move |u, v| {
                 let pitch = 0.36;
                 let row = (v / (pitch * 0.866)).round();
-                let shift = if row as i32 % 2 == 0 { 0.0 } else { pitch * 0.5 };
+                let shift = if row as i32 % 2 == 0 {
+                    0.0
+                } else {
+                    pitch * 0.5
+                };
                 let cx = ((u - shift) / pitch).round() * pitch + shift;
                 let cy = row * pitch * 0.866;
                 let d = ((u - cx).powi(2) + (v - cy).powi(2)).sqrt();
@@ -285,7 +294,11 @@ impl Builtin {
                 let row = vv.floor();
                 let fx = (uu - 0.5 * row).rem_euclid(1.0);
                 let fy = vv - row;
-                let inside = if fx + fy < 1.0 { 1.0 - fx - fy } else { fx + fy - 1.0 };
+                let inside = if fx + fy < 1.0 {
+                    1.0 - fx - fy
+                } else {
+                    fx + fy - 1.0
+                };
                 step((inside.min(fx).min(fy).min(1.0 - fx).min(1.0 - fy)) - 0.08)
             }),
         }
@@ -396,7 +409,8 @@ impl WheelSpec {
 /// when the mode has no `Gobo1` channel.
 pub fn wheel_from_gdtf(path: &Path, mode_name: Option<&str>) -> anyhow::Result<Option<WheelSpec>> {
     let file = std::fs::File::open(path)?;
-    let mut gdtf = GdtfFile::new(file).map_err(|e| anyhow::anyhow!("parsing {}: {e}", path.display()))?;
+    let mut gdtf =
+        GdtfFile::new(file).map_err(|e| anyhow::anyhow!("parsing {}: {e}", path.display()))?;
     let GdtfFile {
         description,
         resources,
@@ -434,7 +448,11 @@ pub fn wheel_from_gdtf(path: &Path, mode_name: Option<&str>) -> anyhow::Result<O
                         wheel_name = f.wheel.as_ref().map(|w| w.to_string());
                     }
                     if fattr.contains("Spin") {
-                        let name = f.name.as_deref().map(|n| n.to_lowercase()).unwrap_or_default();
+                        let name = f
+                            .name
+                            .as_deref()
+                            .map(|n| n.to_lowercase())
+                            .unwrap_or_default();
                         let sign = if name.contains("counter") || name.contains("ccw") {
                             -1.0
                         } else {
@@ -475,7 +493,11 @@ pub fn wheel_from_gdtf(path: &Path, mode_name: Option<&str>) -> anyhow::Result<O
                 let functions = &logical.channel_functions;
                 for f in functions {
                     let fattr = f.attribute.to_string();
-                    let name = f.name.as_deref().map(|n| n.to_lowercase()).unwrap_or_default();
+                    let name = f
+                        .name
+                        .as_deref()
+                        .map(|n| n.to_lowercase())
+                        .unwrap_or_default();
                     let from = dmx_byte(f.dmx_from);
                     let closed = name.contains("closed")
                         || name.contains("off")
@@ -514,7 +536,9 @@ pub fn wheel_from_gdtf(path: &Path, mode_name: Option<&str>) -> anyhow::Result<O
 fn dmx_byte(value: gdtf::values::DmxValue) -> u8 {
     let bits = 8 * value.bytes().get() as u32;
     let max = ((1u64 << bits) - 1) as f64;
-    ((value.value() as f64 / max) * 255.0).round().clamp(0.0, 255.0) as u8
+    ((value.value() as f64 / max) * 255.0)
+        .round()
+        .clamp(0.0, 255.0) as u8
 }
 
 // ── library ──────────────────────────────────────────────────────────────
@@ -592,7 +616,9 @@ pub fn gdtf_files() -> Vec<PathBuf> {
     files.sort();
     subdirs.sort();
     for sub in subdirs {
-        let Ok(entries) = std::fs::read_dir(&sub) else { continue };
+        let Ok(entries) = std::fs::read_dir(&sub) else {
+            continue;
+        };
         let mut nested: Vec<_> = entries
             .filter_map(|e| e.ok().map(|e| e.path()))
             .filter(|p| is_gdtf(p))
@@ -621,7 +647,9 @@ fn normalize(s: &str) -> String {
 
 fn load_gobo_library(mut library: ResMut<GoboLibrary>, mut images: ResMut<Assets<Image>>) {
     for path in gdtf_files() {
-        let Some(name) = fixture_type_name(&path) else { continue };
+        let Some(name) = fixture_type_name(&path) else {
+            continue;
+        };
         match wheel_from_gdtf(&path, None) {
             Ok(Some(spec)) => {
                 library
@@ -632,7 +660,10 @@ fn load_gobo_library(mut library: ResMut<GoboLibrary>, mut images: ResMut<Assets
             Err(e) => eprintln!("viz: gobo wheel of {}: {e}", path.display()),
         }
     }
-    library.fallback = Some(LoadedWheel::upload(WheelSpec::builtin_default(), &mut images));
+    library.fallback = Some(LoadedWheel::upload(
+        WheelSpec::builtin_default(),
+        &mut images,
+    ));
 }
 
 // ── entities ─────────────────────────────────────────────────────────────
@@ -663,17 +694,15 @@ fn attach_gobo_projectors(
     emitters: Query<(Entity, &BeamEmitter), Added<BeamEmitter>>,
 ) {
     for (entity, emitter) in &emitters {
-        let Some(record) = venue.0.fixtures.get(emitter.fixture) else { continue };
-        let has_wheel = venue
-            .0
-            .patch()
-            .get(emitter.fixture)
-            .is_some_and(|p| {
-                p.map
-                    .channels
-                    .iter()
-                    .any(|(_, a)| matches!(a, Attribute::GoboWheel { .. }))
-            });
+        let Some(record) = venue.0.fixtures.get(emitter.fixture) else {
+            continue;
+        };
+        let has_wheel = venue.0.patch().get(emitter.fixture).is_some_and(|p| {
+            p.map
+                .channels
+                .iter()
+                .any(|(_, a)| matches!(a, Attribute::GoboWheel { .. }))
+        });
         if !has_wheel {
             continue;
         }
@@ -768,7 +797,12 @@ fn update_gobo_projectors(
         &Children,
         &mut GoboProjector,
     )>,
-    mut facets: Query<(&GoboFacet, &mut Transform, &mut Visibility, &mut ClusteredDecal)>,
+    mut facets: Query<(
+        &GoboFacet,
+        &mut Transform,
+        &mut Visibility,
+        &mut ClusteredDecal,
+    )>,
 ) {
     let forced = *forced.get_or_insert_with(forced_bytes);
     let throw = BeamThrow::for_venue(&venue.0);
@@ -811,7 +845,8 @@ fn update_gobo_projectors(
         let width = pattern_width(reach, state.field_half_angle_deg);
 
         for child in children.iter() {
-            let Ok((facet, mut transform, mut visibility, mut decal)) = facets.get_mut(child) else {
+            let Ok((facet, mut transform, mut visibility, mut decal)) = facets.get_mut(child)
+            else {
                 continue;
             };
             let shown = lit && (facet.0 == 0 || prism_in);
@@ -863,7 +898,11 @@ mod tests {
         assert!(spec.has_art);
         assert_eq!(spec.slots.len(), 8);
         let art: Vec<_> = spec.slots.iter().filter(|s| s.is_some()).collect();
-        assert_eq!(art.len(), 7, "seven slots carry PNGs, the placeholder is open");
+        assert_eq!(
+            art.len(),
+            7,
+            "seven slots carry PNGs, the placeholder is open"
+        );
         assert!(spec.slots[7].is_none());
         // The wheel's default byte, 20, is gobo 3.
         assert_eq!(spec.slot_for_byte(20), Some(2));
@@ -872,7 +911,10 @@ mod tests {
         let mask = spec.slots[0].as_ref().unwrap();
         assert_eq!(mask.size, 128);
         let open = mask.open_fraction();
-        assert!(open > 0.05 && open < 0.7, "a gobo is partly open, got {open}");
+        assert!(
+            open > 0.05 && open < 0.7,
+            "a gobo is partly open, got {open}"
+        );
         assert!(spec.prism_from.is_none());
     }
 
@@ -929,7 +971,10 @@ mod tests {
             if *name == "open" {
                 assert!(open > 0.75, "open is the whole gate, got {open}");
             } else {
-                assert!(open > 0.05 && open < 0.7, "{name} is partly open, got {open}");
+                assert!(
+                    open > 0.05 && open < 0.7,
+                    "{name} is partly open, got {open}"
+                );
             }
             // Outside the gate is always blocked.
             assert_eq!(mask.openness(0, 0), 0.0);
@@ -970,7 +1015,10 @@ mod tests {
             .collect();
         for axis in &axes {
             let off = axis.angle_between(Vec3::NEG_Z).to_degrees();
-            assert!((off - PRISM_SPREAD_DEG).abs() < 0.01, "facet is {off} deg off axis");
+            assert!(
+                (off - PRISM_SPREAD_DEG).abs() < 0.01,
+                "facet is {off} deg off axis"
+            );
         }
         for i in 0..PRISM_FACETS {
             let a = axes[i];
@@ -981,9 +1029,13 @@ mod tests {
             assert!((sep - 360.0 / PRISM_FACETS as f32).abs() < 0.1, "{sep}");
         }
         // Rotating the prism turns the triplet round the beam.
-        let turned = facet_transform(0, reach, width, 0.0, true, 0.3 + TAU / 4.0).rotation
-            * Vec3::NEG_Z;
-        let sep = axes[0].truncate().angle_to(turned.truncate()).abs().to_degrees();
+        let turned =
+            facet_transform(0, reach, width, 0.0, true, 0.3 + TAU / 4.0).rotation * Vec3::NEG_Z;
+        let sep = axes[0]
+            .truncate()
+            .angle_to(turned.truncate())
+            .abs()
+            .to_degrees();
         assert!((sep - 90.0).abs() < 0.1, "{sep}");
     }
 

@@ -1130,7 +1130,9 @@ pub fn spawn_gdtf_tree(
     }
 
     for child in &node.children {
-        spawn_gdtf_tree(commands, id, child, meshes, material, assets, emitters, nodes);
+        spawn_gdtf_tree(
+            commands, id, child, meshes, material, assets, emitters, nodes,
+        );
     }
 }
 

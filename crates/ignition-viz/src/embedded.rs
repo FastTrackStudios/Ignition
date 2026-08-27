@@ -208,7 +208,9 @@ impl EmbeddedViz {
         // The host owns the keyboard and drains the cue commands itself
         // (`Command::Camera`, and `camera …` beside `macro …`).
         {
-            let mut active = app.world_mut().resource_mut::<crate::camera::ActiveCamera>();
+            let mut active = app
+                .world_mut()
+                .resource_mut::<crate::camera::ActiveCamera>();
             active.keys = false;
             active.host_drains_cues = true;
         }
@@ -326,7 +328,11 @@ impl EmbeddedViz {
             view.host_wants = wants;
         }
         let id = view.target.id();
-        self.mailbox.0.lock().expect("target mailbox").programme_wanted = wants.then_some(id);
+        self.mailbox
+            .0
+            .lock()
+            .expect("target mailbox")
+            .programme_wanted = wants.then_some(id);
     }
 
     /// The programme camera's texture, once it has rendered — `None`

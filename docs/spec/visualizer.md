@@ -178,7 +178,9 @@ live view and a still:
   darker frame, never more than `AUTO_EXPOSURE_RANGE_STOPS` either way — a
   blackout stays black and a verse stays a verse. A flash is met in about
   half a second and a drop to one par takes a couple of seconds to open up
-  to; a still lands on its level in one frame. It is on by default,
+  to; a still lands on its level in one frame, and an export adapts at
+  the eye's pace against its own frame time, pre-rolled so its first
+  frame is already adapted. It is on by default,
   `--auto-exposure off` fixes the stage exposure, and it never meters the
   overlay, which is drawn after tonemapping. It runs on the main camera
   only: the haze composite is added into the main camera's HDR frame before

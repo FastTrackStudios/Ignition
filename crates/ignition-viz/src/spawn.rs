@@ -366,14 +366,19 @@ impl FixtureBody {
     /// Every material a hover or selection tint applies to: the body
     /// material and each non-lens GLB part.
     pub fn tintable(&self) -> impl Iterator<Item = &Handle<StandardMaterial>> {
-        std::iter::once(&self.material)
-            .chain(self.parts.iter().filter(|p| !p.is_lens()).map(|p| &p.material))
+        std::iter::once(&self.material).chain(
+            self.parts
+                .iter()
+                .filter(|p| !p.is_lens())
+                .map(|p| &p.material),
+        )
     }
 
     /// Whether `handle` is one of this fixture's own — the body material
     /// or a clone — rather than a file material still to be adopted.
     pub fn owns(&self, handle: &Handle<StandardMaterial>) -> bool {
-        self.material.id() == handle.id() || self.parts.iter().any(|p| p.material.id() == handle.id())
+        self.material.id() == handle.id()
+            || self.parts.iter().any(|p| p.material.id() == handle.id())
     }
 }
 
@@ -1113,8 +1118,7 @@ pub fn spawn_venue(
         // camera's, allocated here and drawn into once the camera is up.
         // r[impl canvas.camera-source] - `camera:programme` / `camera:<preset>` at spawn
         if let Some(source) = crate::camera::CameraSource::parse(path) {
-            let target =
-                camera_sources.target_for(&source, &mut programme_view, &mut images);
+            let target = camera_sources.target_for(&source, &mut programme_view, &mut images);
             let (w, h) = crate::camera::SOURCE_SIZE;
             source_aspect.insert(canvas.clone(), w as f32 / h as f32);
             canvas_content.insert(canvas, target);
@@ -1251,7 +1255,10 @@ pub fn spawn_venue(
             );
             commands.entity(panel).insert(crate::camera::CanvasPanel {
                 canvas: g.canvas_name().to_string(),
-                slice: slices.get(&g.name).copied().unwrap_or(crate::canvas::Slice::FULL),
+                slice: slices
+                    .get(&g.name)
+                    .copied()
+                    .unwrap_or(crate::canvas::Slice::FULL),
                 size,
                 depth,
                 body,
@@ -1263,7 +1270,10 @@ pub fn spawn_venue(
                 ScreenSurface,
                 crate::camera::CanvasPanel {
                     canvas: g.canvas_name().to_string(),
-                    slice: slices.get(&g.name).copied().unwrap_or(crate::canvas::Slice::FULL),
+                    slice: slices
+                        .get(&g.name)
+                        .copied()
+                        .unwrap_or(crate::canvas::Slice::FULL),
                     size,
                     depth,
                     body,

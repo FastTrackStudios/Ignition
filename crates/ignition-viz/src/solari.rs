@@ -64,7 +64,12 @@ impl Plugin for SolariPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(SolariPlugins).add_systems(
             Update,
-            (tag_meshes, tag_cameras, spawn_area_lights, drive_area_lights),
+            (
+                tag_meshes,
+                tag_cameras,
+                spawn_area_lights,
+                drive_area_lights,
+            ),
         );
     }
 }
@@ -109,7 +114,10 @@ fn tag_meshes(
             && mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0)
             && let Err(e) = mesh.generate_tangents()
         {
-            warn!("solari: {:?}: no tangents ({e}); left out of the raytracing scene", name);
+            warn!(
+                "solari: {:?}: no tangents ({e}); left out of the raytracing scene",
+                name
+            );
             commands.entity(entity).insert(NotRaytraced);
             continue;
         }
@@ -134,7 +142,9 @@ fn tag_meshes(
             commands.entity(entity).insert(NotRaytraced);
             continue;
         }
-        commands.entity(entity).insert(RaytracingMesh3d(mesh3d.0.clone()));
+        commands
+            .entity(entity)
+            .insert(RaytracingMesh3d(mesh3d.0.clone()));
     }
 }
 
@@ -146,7 +156,14 @@ struct NotRaytraced;
 /// fog march, and Solari has no fog).
 fn tag_cameras(
     mut commands: Commands,
-    cameras: Query<Entity, (Added<Camera3d>, Without<HazeCamera>, Without<SolariLighting>)>,
+    cameras: Query<
+        Entity,
+        (
+            Added<Camera3d>,
+            Without<HazeCamera>,
+            Without<SolariLighting>,
+        ),
+    >,
 ) {
     for camera in &cameras {
         commands.entity(camera).insert((
@@ -268,8 +285,11 @@ fn drive_area_lights(
             if let Ok(light) = lights.get(child)
                 && let Some(mut material) = materials.get_mut(&light.material)
             {
-                material.emissive =
-                    LinearRgba::rgb(color.red * radiance, color.green * radiance, color.blue * radiance);
+                material.emissive = LinearRgba::rgb(
+                    color.red * radiance,
+                    color.green * radiance,
+                    color.blue * radiance,
+                );
             }
             if let Ok(mut transform) = snoots.get_mut(child) {
                 let h = (LENS_RADIUS * 1.05 / spot.outer_angle.tan().max(1e-3)).min(MAX_SNOOT);

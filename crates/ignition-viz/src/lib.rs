@@ -47,7 +47,9 @@ pub mod video;
 pub mod view;
 
 pub use app::{Grade, RenderQuality, VizConfig, run, run_export};
-pub use camera::{ActiveCamera, CameraCommand, CameraPreset, CameraSetup, CameraState, CameraTarget, Cameras};
+pub use camera::{
+    ActiveCamera, CameraCommand, CameraPreset, CameraSetup, CameraState, CameraTarget, Cameras,
+};
 pub use dmx::{DmxUniverses, ResolvedAttributes};
 pub use output::{DmxOutput, OutputSummary};
 pub use spawn::CanvasClock;

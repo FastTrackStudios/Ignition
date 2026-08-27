@@ -246,7 +246,10 @@ impl Plugin for CanvasMaterialPlugin {
         embedded_asset!(app, "canvas.wgsl");
         app.add_plugins(MaterialPlugin::<CanvasMaterial>::default())
             .init_resource::<CanvasClock>()
-            .add_systems(Update, drive_canvases.after(crate::spawn::update_canvas_videos));
+            .add_systems(
+                Update,
+                drive_canvases.after(crate::spawn::update_canvas_videos),
+            );
     }
 }
 
@@ -307,11 +310,11 @@ mod tests {
     fn the_gpu_paints_what_the_cpu_paints() {
         use bevy::asset::RenderAssetUsages;
         use bevy::camera::{RenderTarget, ScalingMode};
+        use bevy::render::RenderPlugin;
         use bevy::render::gpu_readback::{Readback, ReadbackComplete};
         use bevy::render::render_resource::{
             Extent3d, TextureDimension, TextureFormat, TextureUsages,
         };
-        use bevy::render::RenderPlugin;
         use bevy::window::ExitCondition;
         use bevy::winit::WinitPlugin;
         use std::sync::{Arc, Mutex};
@@ -383,7 +386,9 @@ mod tests {
             let material = world
                 .resource_mut::<Assets<CanvasMaterial>>()
                 .add(CanvasMaterial { params });
-            let quad = world.resource_mut::<Assets<Mesh>>().add(Rectangle::new(1.0, 1.0));
+            let quad = world
+                .resource_mut::<Assets<Mesh>>()
+                .add(Rectangle::new(1.0, 1.0));
             world.spawn((Mesh3d(quad), MeshMaterial3d(material)));
             world.spawn((
                 Camera3d::default(),

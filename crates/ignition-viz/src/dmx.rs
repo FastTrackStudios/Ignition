@@ -160,9 +160,7 @@ impl DmxUniverses {
                 Attribute::GoboWheel { .. } => resolved.gobo = Some(v),
                 // GDTF names the rest of a wheel mover's beam channels
                 // as custom attributes; the two the renderer draws.
-                Attribute::Custom(name) if name.starts_with("Prism") => {
-                    resolved.prism = Some(v)
-                }
+                Attribute::Custom(name) if name.starts_with("Prism") => resolved.prism = Some(v),
                 Attribute::Custom(name)
                     if name.starts_with("Gobo")
                         && (name.contains("Pos") || name.contains("Rotate")) =>

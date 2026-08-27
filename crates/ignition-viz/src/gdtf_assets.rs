@@ -25,12 +25,12 @@
 //! asset source can only be registered before `AssetPlugin` builds the
 //! server. `GdtfAssetsPlugin` (the swap system) goes anywhere after.
 
-use bevy::asset::io::{AssetReader, AssetReaderError, PathStream, Reader, VecReader};
 use crate::spawn::{Fixture, FixtureBody, PartMaterial};
 use bevy::asset::io::AssetSourceBuilder;
-use bevy::picking::Pickable;
+use bevy::asset::io::{AssetReader, AssetReaderError, PathStream, Reader, VecReader};
 use bevy::asset::{AssetApp, AssetPath};
 use bevy::gltf::GltfAssetLabel;
+use bevy::picking::Pickable;
 use bevy::prelude::*;
 use bevy::world_serialization::{WorldAssetRoot, WorldInstance};
 use std::io::Read;
@@ -141,10 +141,7 @@ pub struct GdtfSourcePlugin;
 
 impl Plugin for GdtfSourcePlugin {
     fn build(&self, app: &mut App) {
-        app.register_asset_source(
-            SOURCE,
-            AssetSourceBuilder::new(|| Box::new(GdtfZipReader)),
-        );
+        app.register_asset_source(SOURCE, AssetSourceBuilder::new(|| Box::new(GdtfZipReader)));
     }
 }
 
@@ -205,13 +202,12 @@ pub fn adopt_scene_materials(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (mesh, MeshMaterial3d(handle)) in &fresh {
-        let Some(root) = parents
-            .iter_ancestors(mesh)
-            .find(|&e| roots.get(e).is_ok())
-        else {
+        let Some(root) = parents.iter_ancestors(mesh).find(|&e| roots.get(e).is_ok()) else {
             continue;
         };
-        let Ok(mut body) = bodies.get_mut(root) else { continue };
+        let Ok(mut body) = bodies.get_mut(root) else {
+            continue;
+        };
         // The scene's meshes are what the ray hits; the root's observers
         // hear about it by bubbling. The marker is what keeps that true
         // if picking is ever made opt-in.
@@ -316,17 +312,21 @@ pub(crate) mod test_support {
 
     pub fn asset_app() -> App {
         let mut app = App::new();
-        app.add_plugins((bevy::MinimalPlugins, GdtfSourcePlugin, AssetPlugin::default()))
-            .insert_resource(CompressedImageFormatSupport(CompressedImageFormats::NONE))
-            .init_asset::<Mesh>()
-            .init_asset::<Image>()
-            .init_asset::<StandardMaterial>()
-            .add_plugins((
-                bevy::transform::TransformPlugin,
-                bevy::scene::ScenePlugin,
-                WorldSerializationPlugin,
-                GltfPlugin::default(),
-            ));
+        app.add_plugins((
+            bevy::MinimalPlugins,
+            GdtfSourcePlugin,
+            AssetPlugin::default(),
+        ))
+        .insert_resource(CompressedImageFormatSupport(CompressedImageFormats::NONE))
+        .init_asset::<Mesh>()
+        .init_asset::<Image>()
+        .init_asset::<StandardMaterial>()
+        .add_plugins((
+            bevy::transform::TransformPlugin,
+            bevy::scene::ScenePlugin,
+            WorldSerializationPlugin,
+            GltfPlugin::default(),
+        ));
         app.finish();
         app.cleanup();
         app
@@ -396,7 +396,10 @@ mod tests {
     /// `spawn_model` nests it: root -> node -> "gltf" -> mesh.
     fn scene_mesh(app: &mut App, root: Entity, material: &Handle<StandardMaterial>) -> Entity {
         let node = app.world_mut().spawn(ChildOf(root)).id();
-        let scene = app.world_mut().spawn((Name::new("gltf"), ChildOf(node))).id();
+        let scene = app
+            .world_mut()
+            .spawn((Name::new("gltf"), ChildOf(node)))
+            .id();
         app.world_mut()
             .spawn((MeshMaterial3d(material.clone()), ChildOf(scene)))
             .id()
@@ -442,29 +445,59 @@ mod tests {
         app.update();
 
         let ma1 = material_of(&app, a1);
-        assert_ne!(ma1.id(), shared.id(), "the file's material is not drawn with directly");
-        assert_eq!(material_of(&app, a2).id(), ma1.id(), "one clone per fixture and source");
-        assert_ne!(material_of(&app, b1).id(), ma1.id(), "the next fixture has its own");
-        assert_eq!(material_of(&app, a_prim).id(), body.id(), "the body material is not cloned");
-        assert_eq!(material_of(&app, stray).id(), shared.id(), "nothing outside a fixture is touched");
+        assert_ne!(
+            ma1.id(),
+            shared.id(),
+            "the file's material is not drawn with directly"
+        );
+        assert_eq!(
+            material_of(&app, a2).id(),
+            ma1.id(),
+            "one clone per fixture and source"
+        );
+        assert_ne!(
+            material_of(&app, b1).id(),
+            ma1.id(),
+            "the next fixture has its own"
+        );
+        assert_eq!(
+            material_of(&app, a_prim).id(),
+            body.id(),
+            "the body material is not cloned"
+        );
+        assert_eq!(
+            material_of(&app, stray).id(),
+            shared.id(),
+            "nothing outside a fixture is touched"
+        );
 
         let body_a = app.world().get::<FixtureBody>(a).unwrap();
         assert_eq!(body_a.parts.len(), 2, "the shared material and the lens");
-        assert_eq!(body_a.tintable().count(), 2, "the body and the housing, not the lens");
+        assert_eq!(
+            body_a.tintable().count(),
+            2,
+            "the body and the housing, not the lens"
+        );
         let lens_part = body_a.parts.iter().find(|p| p.source == lens.id()).unwrap();
         assert!(lens_part.is_lens());
         assert_eq!(material_of(&app, a_lens).id(), lens_part.material.id());
         let body_b = app.world().get::<FixtureBody>(b).unwrap();
         assert_eq!(body_b.parts.len(), 1);
         for mesh in [a1, a2, a_lens, b1] {
-            assert!(app.world().get::<Pickable>(mesh).is_some(), "a scene mesh is pickable");
+            assert!(
+                app.world().get::<Pickable>(mesh).is_some(),
+                "a scene mesh is pickable"
+            );
         }
         assert!(app.world().get::<Pickable>(stray).is_none());
     }
 
     #[test]
     fn a_zip_path_splits_at_the_gdtf() {
-        for p in ["a/b/M@F@R.gdtf/models/gltf/Body.glb", "/a/b/M@F@R.gdtf/models/gltf/Body.glb"] {
+        for p in [
+            "a/b/M@F@R.gdtf/models/gltf/Body.glb",
+            "/a/b/M@F@R.gdtf/models/gltf/Body.glb",
+        ] {
             let (archive, entry) = GdtfZipReader::split(Path::new(p)).unwrap();
             assert_eq!(archive, PathBuf::from("/a/b/M@F@R.gdtf"));
             assert_eq!(entry, "models/gltf/Body.glb");
