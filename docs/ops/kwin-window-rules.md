@@ -95,3 +95,36 @@ always land somewhere in particular.
   until the rule says otherwise.
 * KWin does not expose "monitor by connector name" in a rule; the rule
   uses the screen index or an absolute position in the global layout.
+
+## Keeping the studio out of your way: the Ignition activity
+
+Wayland has no protocol for a client to choose its Plasma *activity*
+either, so the same lever applies: a KWin rule that forces one. Without
+it, launching the studio throws three fullscreen windows across whatever
+activity you happen to be working in.
+
+Find the activity's UUID — the names are in `~/.config/kactivitymanagerdrc`
+under `[activities]` — and force it by app id in `~/.config/kwinrulesrc`:
+
+```ini
+[General]
+count=1
+rules=<any uuid>
+
+[<the same uuid>]
+Description=Ignition Studio — open in the Ignition activity
+activity=6ac15d7c-ad50-4ad4-ab74-04b8d6b3ea1f
+activityrule=2
+wmclass=ignition-studio
+wmclasscomplete=false
+wmclassmatch=1
+```
+
+`activityrule=2` is *Force*, and `wmclass` is matched against the
+Wayland app id — which is why every studio window carries the same one
+(`windows::APP_ID`). Reload with `qdbus org.kde.KWin /KWin reconfigure`;
+no restart needed.
+
+Merge this with the docked-window rules above rather than replacing
+them: `count` and `rules` list every rule, and a second `[General]`
+block silently wins.

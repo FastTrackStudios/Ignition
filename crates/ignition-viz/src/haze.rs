@@ -57,6 +57,9 @@ pub const HAZE_LAYER: usize = 1;
 pub struct HazeView {
     pub fog_steps: u32,
     pub scale: u32,
+    /// How many pixels the haze camera may have when `scale` is 0 —
+    /// the quality preset's `haze_pixels`. See [`haze_scale`].
+    pub pixels: u32,
 }
 
 /// The haze camera itself, and which main camera it follows.
@@ -261,18 +264,18 @@ fn fog_jitter() -> f32 {
 pub const HAZE_PIXEL_BUDGET: u32 = 640 * 960;
 
 /// The scale for `main`: the smallest whole divisor that brings the
-/// haze camera under `HAZE_PIXEL_BUDGET`; a given scale is used as is.
-pub fn haze_scale(main: UVec2, scale: u32) -> u32 {
+/// haze camera under `budget` pixels; a given scale is used as is.
+pub fn haze_scale(main: UVec2, scale: u32, budget: u32) -> u32 {
     if scale > 0 {
         return scale;
     }
     let pixels = f64::from(main.x) * f64::from(main.y);
-    ((pixels / f64::from(HAZE_PIXEL_BUDGET)).sqrt().ceil() as u32).max(1)
+    ((pixels / f64::from(budget.max(1))).sqrt().ceil() as u32).max(1)
 }
 
 /// The haze camera's target: `main / scale`, never below one pixel.
-pub fn haze_size(main: UVec2, scale: u32) -> UVec2 {
-    let scale = haze_scale(main, scale);
+pub fn haze_size(main: UVec2, scale: u32, budget: u32) -> UVec2 {
+    let scale = haze_scale(main, scale, budget);
     UVec2::new(main.x.div_ceil(scale).max(1), main.y.div_ceil(scale).max(1))
 }
 
@@ -320,6 +323,26 @@ fn spawn_haze_cameras(
                 .physical_viewport_size()
                 .unwrap_or(UVec2::new(64, 64)),
             view.scale,
+            view.pixels,
+        );
+        // What the haze actually costs, in the log, once per camera.
+        // The three numbers multiply into the raymarch's whole bill and
+        // not one of them is visible from the outside — a viewport that
+        // silently landed on a different scale is exactly the kind of
+        // thing that makes a quality dial look like it does nothing.
+        // r[impl studio.profiling] - the haze says what it is marching
+        tracing::info!(
+            width = size.x,
+            height = size.y,
+            scale = haze_scale(
+                camera
+                    .physical_viewport_size()
+                    .unwrap_or(UVec2::new(64, 64)),
+                view.scale,
+                view.pixels,
+            ),
+            steps = view.fog_steps,
+            "viz.haze: marching"
         );
         let image = haze_target(&mut images, size);
         commands.spawn((
@@ -410,7 +433,7 @@ fn follow_main_camera(
         let Some(main_size) = camera.physical_viewport_size() else {
             continue;
         };
-        let wanted = haze_size(main_size, view.scale);
+        let wanted = haze_size(main_size, view.scale, view.pixels);
         if wanted == haze.size {
             continue;
         }
@@ -423,6 +446,13 @@ fn follow_main_camera(
                 m.haze = image.clone();
             }
         }
+        tracing::info!(
+            width = wanted.x,
+            height = wanted.y,
+            scale = haze_scale(main_size, view.scale, view.pixels),
+            steps = view.fog_steps,
+            "viz.haze: resized"
+        );
         haze.image = image;
         haze.size = wanted;
     }
@@ -573,9 +603,18 @@ mod tests {
     /// r[verify viz.performance-budget]
     #[test]
     fn the_haze_camera_is_a_fraction_of_the_view_and_never_nothing() {
-        assert_eq!(haze_size(UVec2::new(5120, 1440), 2), UVec2::new(2560, 720));
-        assert_eq!(haze_size(UVec2::new(2560, 1440), 3), UVec2::new(854, 480));
-        assert_eq!(haze_size(UVec2::new(1, 1), 4), UVec2::new(1, 1));
+        assert_eq!(
+            haze_size(UVec2::new(5120, 1440), 2, HAZE_PIXEL_BUDGET),
+            UVec2::new(2560, 720)
+        );
+        assert_eq!(
+            haze_size(UVec2::new(2560, 1440), 3, HAZE_PIXEL_BUDGET),
+            UVec2::new(854, 480)
+        );
+        assert_eq!(
+            haze_size(UVec2::new(1, 1), 4, HAZE_PIXEL_BUDGET),
+            UVec2::new(1, 1)
+        );
     }
 
     /// Auto scale: the studio's two viewports land under the pixel
@@ -585,9 +624,9 @@ mod tests {
     #[test]
     fn the_automatic_scale_keeps_the_haze_under_its_pixel_budget() {
         for (w, h) in [(5120, 1440), (2560, 1440), (1920, 1080), (640, 360)] {
-            let size = haze_size(UVec2::new(w, h), 0);
+            let size = haze_size(UVec2::new(w, h), 0, HAZE_PIXEL_BUDGET);
             assert!(size.x * size.y <= HAZE_PIXEL_BUDGET, "{w}x{h} -> {size}");
-            let scale = haze_scale(UVec2::new(w, h), 0);
+            let scale = haze_scale(UVec2::new(w, h), 0, HAZE_PIXEL_BUDGET);
             if scale > 1 {
                 let coarser = UVec2::new(w.div_ceil(scale - 1), h.div_ceil(scale - 1));
                 assert!(
@@ -597,8 +636,8 @@ mod tests {
                 );
             }
         }
-        assert_eq!(haze_scale(UVec2::new(640, 360), 0), 1);
-        assert_eq!(haze_scale(UVec2::new(2560, 1440), 0), 3);
-        assert_eq!(haze_scale(UVec2::new(5120, 1440), 0), 4);
+        assert_eq!(haze_scale(UVec2::new(640, 360), 0, HAZE_PIXEL_BUDGET), 1);
+        assert_eq!(haze_scale(UVec2::new(2560, 1440), 0, HAZE_PIXEL_BUDGET), 3);
+        assert_eq!(haze_scale(UVec2::new(5120, 1440), 0, HAZE_PIXEL_BUDGET), 4);
     }
 }

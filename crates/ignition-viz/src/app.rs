@@ -180,10 +180,100 @@ impl VizConfig {
 /// were most of the frame in the studio, where the picture has to
 /// arrive every 8 ms; a snapshot has all day and keeps the old numbers
 /// so stills do not change.
+/// The quality ladder, coarsest first.
+///
+/// One name for a whole set of dials, because the dials are not
+/// independent and an operator should not have to know that. The two
+/// that matter are the raymarch's step count and how many pixels the
+/// haze camera may have, and they trade against exactly one thing: a
+/// mover's shaft staying a solid cone rather than breaking into a
+/// string of dots. Everything else — the reflections, the occlusion,
+/// the anti-aliasing — is worth a couple of frames a second between
+/// them and is switched with the tier rather than argued about.
+///
+/// Measured on the benchmark cue at 5120x1440, rig lit, effects
+/// running, screens playing — `just profile-bench`. The numbers are in
+/// `docs/ops/profiling.md`, and they are a reference GPU's, not a
+/// promise.
+// r[impl viz.quality-presets]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Preset {
+    /// Whatever it takes. The shafts *will* break into dots and the
+    /// room will be flat — this is for a laptop on a bus, or for
+    /// finding out whether a stutter is the GPU at all.
+    Potato,
+    /// A thin picture that still reads as lighting: solid-ish shafts,
+    /// no reflections, no occlusion.
+    Low,
+    /// The default, and what the studio has always rendered: the fewest
+    /// steps that keep every shaft solid, a haze camera bounded by a
+    /// pixel budget, and the whole post chain.
+    #[default]
+    Medium,
+    /// A finer march and twice the haze pixels, for a machine with room
+    /// to spare.
+    High,
+    /// As close to a still as a live view gets — the haze marched on
+    /// the camera itself, at full size.
+    Ultra,
+}
+
+impl Preset {
+    /// `IGNITION_QUALITY`, or [`Preset::Medium`].
+    ///
+    /// An unknown name is a warning and the default rather than an
+    /// error: a typo in an environment variable should not stop a show
+    /// from opening.
+    pub fn from_env() -> Self {
+        let Ok(name) = std::env::var("IGNITION_QUALITY") else {
+            return Preset::default();
+        };
+        match Self::parse(&name) {
+            Some(preset) => preset,
+            None => {
+                tracing::warn!(
+                    name,
+                    "viz: no such quality preset; using medium (potato, low, medium, high, ultra)"
+                );
+                Preset::default()
+            }
+        }
+    }
+
+    pub fn parse(name: &str) -> Option<Self> {
+        match name.trim().to_ascii_lowercase().as_str() {
+            "potato" => Some(Preset::Potato),
+            "low" => Some(Preset::Low),
+            "medium" | "med" => Some(Preset::Medium),
+            "high" => Some(Preset::High),
+            "ultra" => Some(Preset::Ultra),
+            _ => None,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Preset::Potato => "potato",
+            Preset::Low => "low",
+            Preset::Medium => "medium",
+            Preset::High => "high",
+            Preset::Ultra => "ultra",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RenderQuality {
     /// `VolumetricFog::step_count`.
     pub fog_steps: u32,
+    /// How many pixels the haze camera may have when `fog_scale` is 0.
+    ///
+    /// A budget rather than a divisor, because a divisor means
+    /// something different on every viewport: the fog's cost is this
+    /// times the step count, so this is the number that fixes the
+    /// haze's share of the frame whatever the window is doing. See
+    /// `haze::haze_scale`.
+    pub haze_pixels: u32,
     /// Whether the camera multisamples. Bloom and fog blur beam edges
     /// enough that turning it off is hard to see and easy to measure.
     pub msaa: bool,
@@ -218,6 +308,8 @@ impl RenderQuality {
     // r[impl viz.post-processing] - a still pays for everything
     pub const STILL: Self = Self {
         fog_steps: 192,
+        // Unused at `fog_scale: 1`, which marches on the camera itself.
+        haze_pixels: crate::haze::HAZE_PIXEL_BUDGET,
         // Off since the deferred deck and SSAO do not multisample; TAA
         // over the settle frames takes the edges instead.
         msaa: false,
@@ -229,47 +321,141 @@ impl RenderQuality {
         instant_adaptation: true,
     };
 
-    /// What a window or the studio renders at. `IGNITION_FOG_STEPS`
-    /// overrides the step count, for comparing on a given GPU without a
-    /// rebuild.
+    /// The dials for one rung of the ladder.
+    ///
+    /// The two that carry it are `fog_steps` and `haze_pixels`, and
+    /// they multiply: the raymarch costs one times the other times the
+    /// number of lights in the fog. Medium is not a compromise between
+    /// the others — it is the setting the studio has always had, kept
+    /// byte for byte so that naming the tiers changed no picture.
+    // r[impl viz.quality-presets]
+    pub const fn preset(preset: Preset) -> Self {
+        // Every tier below shares these: MSAA off (the deferred deck and
+        // SSAO do not multisample), no depth of field (a blurred house
+        // is a photograph, not an operator's view), and an eye's pace
+        // for the exposure rather than a still's instant.
+        let base = Self {
+            msaa: false,
+            dof: false,
+            instant_adaptation: false,
+            ..Self::STILL
+        };
+        match preset {
+            // Enough steps to say there is a beam, and a haze buffer
+            // small enough that the raymarch is nearly free. It will
+            // dot; that is the deal.
+            Preset::Potato => Self {
+                fog_steps: 32,
+                haze_pixels: 160 * 240,
+                fog_scale: 0,
+                taa: false,
+                ssr: false,
+                ssao: false,
+                ..base
+            },
+            Preset::Low => Self {
+                fog_steps: 64,
+                haze_pixels: 320 * 480,
+                fog_scale: 0,
+                taa: true,
+                ssr: false,
+                ssao: false,
+                ..base
+            },
+            // 128 rather than 64: at 64 the raymarch quantises a
+            // mover's cone into rings and dots, and a 1.7-degree beam
+            // vanishes outright for whole frames. 128 is the fewest
+            // that keeps every shaft a solid shaft; the frame budget is
+            // spent on that before anything else, and the haze camera's
+            // pixel budget is what pays for it.
+            Preset::Medium => Self {
+                fog_steps: 128,
+                haze_pixels: crate::haze::HAZE_PIXEL_BUDGET,
+                fog_scale: 0,
+                taa: true,
+                ssr: true,
+                ssao: true,
+                ..base
+            },
+            Preset::High => Self {
+                fog_steps: 192,
+                haze_pixels: crate::haze::HAZE_PIXEL_BUDGET * 2,
+                fog_scale: 0,
+                taa: true,
+                ssr: true,
+                ssao: true,
+                ..base
+            },
+            // `fog_scale: 1` marches on the camera itself, at the
+            // picture's own size — the pixel budget stops applying and
+            // `for_rig` is free to raise the count for a narrow shaft.
+            Preset::Ultra => Self {
+                fog_steps: 192,
+                haze_pixels: crate::haze::HAZE_PIXEL_BUDGET * 2,
+                fog_scale: 1,
+                taa: true,
+                ssr: true,
+                ssao: true,
+                ..base
+            },
+        }
+    }
+
+    /// What a window or the studio renders at: a preset from
+    /// `IGNITION_QUALITY`, with each dial still overridable on its own.
+    ///
+    /// The per-dial variables outrank the preset deliberately. A tier
+    /// is for choosing a picture; `IGNITION_FOG_STEPS=96` is for
+    /// finding out what a step costs on *this* GPU, and that is a
+    /// different job that should not need a new tier invented for it.
     pub fn live() -> Self {
-        let fog_steps = std::env::var("IGNITION_FOG_STEPS")
-            .ok()
-            .and_then(|v| v.trim().parse::<u32>().ok())
-            .filter(|n| *n > 0)
-            // 128 rather than 64: at 64 the raymarch quantises a mover's
-            // cone into rings and dots, and a 1.7-degree beam vanishes
-            // outright for whole frames. 128 is the fewest that keeps
-            // every shaft a solid shaft; the frame budget is spent on
-            // that before anything else, and the haze camera's pixel
-            // budget is what pays for it.
-            .unwrap_or(128);
-        // By pixel budget: the fog's cost is the haze camera's pixels
-        // times the steps, and a viewport twice as wide should not cost
-        // twice as much haze. `IGNITION_FOG_SCALE` forces a scale.
-        let fog_scale = std::env::var("IGNITION_FOG_SCALE")
-            .ok()
-            .and_then(|v| v.trim().parse::<u32>().ok())
-            .unwrap_or(0);
+        let preset = Preset::from_env();
+        let quality = Self::preset(preset);
+        let number = |name: &str, fallback: u32| {
+            std::env::var(name)
+                .ok()
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .filter(|n| *n > 0)
+                .unwrap_or(fallback)
+        };
         // `IGNITION_TAA`, `IGNITION_SSR`, `IGNITION_SSAO` = 0 switch one
         // off, for measuring what each costs on a given GPU.
-        let switch = |name: &str| {
+        let switch = |name: &str, fallback: bool| {
             std::env::var(name)
                 .ok()
                 .map(|v| v.trim() != "0")
-                .unwrap_or(true)
+                .unwrap_or(fallback)
         };
         // r[impl viz.post-processing] - the live picture keeps what fits the budget
-        Self {
-            fog_steps,
-            msaa: false,
-            fog_scale,
-            taa: switch("IGNITION_TAA"),
-            ssr: switch("IGNITION_SSR"),
-            ssao: switch("IGNITION_SSAO"),
-            dof: false,
-            instant_adaptation: false,
-        }
+        let live = Self {
+            fog_steps: number("IGNITION_FOG_STEPS", quality.fog_steps),
+            haze_pixels: number("IGNITION_HAZE_PIXELS", quality.haze_pixels),
+            // `IGNITION_FOG_SCALE` forces a divisor; 0 is the budget.
+            fog_scale: std::env::var("IGNITION_FOG_SCALE")
+                .ok()
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .unwrap_or(quality.fog_scale),
+            taa: switch("IGNITION_TAA", quality.taa),
+            ssr: switch("IGNITION_SSR", quality.ssr),
+            ssao: switch("IGNITION_SSAO", quality.ssao),
+            ..quality
+        };
+        // Which tier, and what it actually resolved to after any
+        // per-dial override — because "I set IGNITION_QUALITY and
+        // nothing changed" is otherwise a guess, and a stale
+        // `IGNITION_FOG_STEPS` in a shell is exactly how that happens.
+        // r[impl viz.quality-presets]
+        tracing::info!(
+            preset = preset.name(),
+            fog_steps = live.fog_steps,
+            haze_pixels = live.haze_pixels,
+            fog_scale = live.fog_scale,
+            taa = live.taa,
+            ssr = live.ssr,
+            ssao = live.ssao,
+            "viz: render quality"
+        );
+        live
     }
 
     /// The same dials, with the raymarch made fine enough for the rig
@@ -861,13 +1047,13 @@ fn run_windowed(
 /// A headless app rendering into an offscreen image target, finished
 /// and cleaned up, its sub-apps handed back for a loop to pump by hand.
 /// Shared by the snapshot and the export.
-struct Headless {
-    subapps: SubApps,
+pub(crate) struct Headless {
+    pub(crate) subapps: SubApps,
     target: RenderTarget,
 }
 
 impl Headless {
-    fn build(
+    pub(crate) fn build(
         config: VizConfig,
         dmx: DmxUniverses,
         playback: Playback,
@@ -952,7 +1138,7 @@ impl Headless {
 
     /// One frame, waited for on the GPU so a capture requested this
     /// frame is complete before the next one starts.
-    fn step(&mut self) {
+    pub(crate) fn step(&mut self) {
         self.subapps.update();
         self.subapps
             .main
@@ -966,7 +1152,7 @@ impl Headless {
             .expect("polling the render device");
     }
 
-    fn target_image(&self) -> Handle<Image> {
+    pub(crate) fn target_image(&self) -> Handle<Image> {
         self.target
             .as_image()
             .expect("offscreen target is an image")
@@ -1281,6 +1467,7 @@ pub(crate) fn spawn_camera(
         crate::haze::HazeView {
             fog_steps: quality.fog_steps,
             scale: quality.fog_scale,
+            pixels: quality.haze_pixels,
         },
     ));
     if adapt {
@@ -1457,5 +1644,116 @@ mod quality_tests {
             NARROW_BEAM_FOG_STEPS.max(RenderQuality::STILL.fog_steps),
             "a still is never made coarser"
         );
+    }
+}
+
+#[cfg(test)]
+mod quality_preset_tests {
+    use super::*;
+
+    /// Medium is not a new setting. It is what the studio has rendered
+    /// all along, and naming the tiers must not have moved a pixel.
+    /// r[verify viz.quality-presets]
+    #[test]
+    fn medium_is_what_the_studio_already_had() {
+        let medium = RenderQuality::preset(Preset::Medium);
+        assert_eq!(medium.fog_steps, 128);
+        assert_eq!(medium.haze_pixels, crate::haze::HAZE_PIXEL_BUDGET);
+        assert_eq!(medium.fog_scale, 0);
+        assert!(medium.taa && medium.ssr && medium.ssao);
+        assert!(!medium.msaa && !medium.dof && !medium.instant_adaptation);
+    }
+
+    /// The ladder has to be a ladder: every rung at least as fine as
+    /// the one below it, on both dials that carry the cost. A tier that
+    /// is prettier in one respect and coarser in another is not a tier,
+    /// it is a preference.
+    /// r[verify viz.quality-presets]
+    #[test]
+    fn the_ladder_only_climbs() {
+        let rungs = [
+            Preset::Potato,
+            Preset::Low,
+            Preset::Medium,
+            Preset::High,
+            Preset::Ultra,
+        ];
+        for pair in rungs.windows(2) {
+            let (lower, upper) = (
+                RenderQuality::preset(pair[0]),
+                RenderQuality::preset(pair[1]),
+            );
+            assert!(
+                upper.fog_steps >= lower.fog_steps,
+                "{} marches coarser than {}",
+                pair[1].name(),
+                pair[0].name()
+            );
+            // Ultra marches on the camera itself (`fog_scale: 1`), where
+            // the pixel budget does not apply at all — which is the
+            // finest of the lot rather than an exception to the rule.
+            if upper.fog_scale == 0 {
+                assert!(
+                    upper.haze_pixels >= lower.haze_pixels,
+                    "{} hazes coarser than {}",
+                    pair[1].name(),
+                    pair[0].name()
+                );
+            }
+            for (name, lo, up) in [
+                ("taa", lower.taa, upper.taa),
+                ("ssr", lower.ssr, upper.ssr),
+                ("ssao", lower.ssao, upper.ssao),
+            ] {
+                assert!(
+                    up || !lo,
+                    "{} drops {name} that {} has",
+                    pair[1].name(),
+                    pair[0].name()
+                );
+            }
+        }
+    }
+
+    /// A typo in an environment variable must not stop a show opening.
+    /// r[verify viz.quality-presets]
+    #[test]
+    fn a_name_round_trips_and_nonsense_is_not_fatal() {
+        for preset in [
+            Preset::Potato,
+            Preset::Low,
+            Preset::Medium,
+            Preset::High,
+            Preset::Ultra,
+        ] {
+            assert_eq!(Preset::parse(preset.name()), Some(preset));
+        }
+        assert_eq!(Preset::parse("  ULTRA "), Some(Preset::Ultra));
+        assert_eq!(Preset::parse("med"), Some(Preset::Medium));
+        assert_eq!(Preset::parse("cinematic"), None);
+    }
+
+    /// The haze budget is a budget: the coarser tier really does march
+    /// fewer pixels at a real viewport size, not merely claim to.
+    /// r[verify viz.quality-presets]
+    #[test]
+    fn a_coarser_tier_marches_fewer_pixels_at_5120x1440() {
+        let view = bevy::math::UVec2::new(4142, 577);
+        let pixels = |preset: Preset| {
+            let q = RenderQuality::preset(preset);
+            let size = crate::haze::haze_size(view, q.fog_scale, q.haze_pixels);
+            size.x * size.y
+        };
+        assert!(pixels(Preset::Potato) < pixels(Preset::Low));
+        assert!(pixels(Preset::Low) < pixels(Preset::Medium));
+        assert!(pixels(Preset::Medium) <= pixels(Preset::High));
+        // And the whole raymarch bill, which is what actually shows up
+        // in the frame: pixels times steps.
+        let bill = |preset: Preset| {
+            u64::from(pixels(preset)) * u64::from(RenderQuality::preset(preset).fog_steps)
+        };
+        assert!(bill(Preset::Potato) < bill(Preset::Low));
+        assert!(bill(Preset::Low) < bill(Preset::Medium));
+        assert!(bill(Preset::Medium) < bill(Preset::High));
     }
 }

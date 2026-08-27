@@ -198,6 +198,41 @@ touches nothing: 3.9 ms to 1.4, and 77 fps to 105.
 Neither of those is a thing to guess at, and both are obvious in the
 table. That is the argument for the profiler.
 
+## Render quality presets
+
+`IGNITION_QUALITY=potato|low|medium|high|ultra`, default `medium` —
+`r[viz.quality-presets]`. Measured on the benchmark cue at 5120x1440
+with the rig lit, the effects running and the screens playing, on an RTX
+4080; the haze camera's size is the one the studio logs
+(`viz.haze: resized`).
+
+| preset | haze camera | steps | fps |
+| --- | --- | --- | --- |
+| potato | 518x72 | 32 | 123 |
+| low | 1036x144 | 64 | 125 |
+| **medium** | 2071x288 | 128 | **97** |
+| high | 2071x288 | 192 | 84 |
+| ultra | full size, on the camera itself | 192 (256 for a narrow shaft) | 25 |
+
+Three things in that table are worth more than the numbers.
+
+**Potato and low are the same speed**, and that is not a mistake in the
+ladder. Below `medium` the frame stops being GPU-bound: what is left is
+Blitz painting the document and Bevy stepping its main world, about
+8 ms of CPU, and no graphics setting touches it. **~125 fps is the
+ceiling on this machine** until that CPU work comes down. Potato earns
+its rung on a weaker GPU, not this one.
+
+**High marches the same haze camera as medium**, because the scale is a
+whole divisor: doubling the budget is not enough to reach the next one
+at this viewport. High is a finer march over the same pixels, which is
+the dial that matters anyway.
+
+**Ultra is a quarter of the frame rate** — it marches on the camera
+itself at the picture's full size, and `for_rig` is then free to raise
+the count to 256 for a narrow shaft. It is for looking closely at
+something, not for running a show.
+
 ## Where it stands, and the dial that moves it
 
 On the benchmark cue at 5120x1440 with the screens playing: **101 fps,
@@ -219,11 +254,10 @@ solid shaft rather than a column of rings (see `RenderQuality::live`):
 `IGNITION_SSR=0` is worth about 3 fps, `IGNITION_TAA=0` about 2,
 `IGNITION_SSAO=0` none.
 
-One measurement in there does not add up and is the thread to pull
-next. `IGNITION_FOG_SCALE=2` gives the haze camera **four times** the
-pixels of the automatic scale at this resolution and costs nothing at
-all, while halving the step count over those same pixels is worth
-seventeen per cent. Cost should be pixels times steps times lights; two
-of those three behave and one does not. Whatever is really being paid
-for there is likely worth more than a step count, and it would cost no
-beam quality to collect.
+One earlier reading here was wrong and is worth recording as such:
+`IGNITION_FOG_SCALE=2` appeared to give the haze camera four times the
+pixels for free. It gave it exactly the pixels it already had — the
+automatic scale had *already* chosen 2 at this viewport, which the
+studio now says out loud in `viz.haze: resized`. The cost model holds:
+pixels times steps times lights, with the pixels already budgeted, which
+is why the step count is the dial that moves.

@@ -69,6 +69,16 @@ fn main() -> anyhow::Result<()> {
     // A profile look held for the still — `--look` is already the
     // camera's target, so this one is `--look-name`.
     let mut look_name: Option<String> = None;
+    // A library effect staged alone over a flat white rig, for the
+    // effects library's previews.
+    let mut effect_name: Option<String> = None;
+    // `--previews DIR`: every named effect (and look) rendered to
+    // frames, in one process. `--preview-effects all` for the library.
+    let mut previews: Option<PathBuf> = None;
+    let mut preview_frames = 16u32;
+    let mut preview_effects: Option<String> = None;
+    let mut preview_looks: Option<String> = None;
+    let mut preview_macros: Option<String> = None;
     let mut bar: Option<u32> = None;
     let mut song_bpm: Option<f32> = None;
     let mut effect_time: Option<f32> = None;
@@ -183,6 +193,12 @@ fn main() -> anyhow::Result<()> {
             // A profile look (baked or authored) latched on the
             // programmer's held layer, for a preview of the look.
             "--look-name" => look_name = Some(next("a look name")),
+            "--effect-name" => effect_name = Some(next("a library effect or bundle name")),
+            "--previews" => previews = Some(PathBuf::from(next("a directory"))),
+            "--preview-frames" => preview_frames = next("frames per loop").parse()?,
+            "--preview-effects" => preview_effects = Some(next("names, comma separated, or all")),
+            "--preview-looks" => preview_looks = Some(next("names, comma separated, or all")),
+            "--preview-macros" => preview_macros = Some(next("names, comma separated, or all")),
             // Address the show musically rather than by list index.
             "--bar" => bar = Some(next("a bar number, 1-based").parse()?),
             // Seeds the `Song` speed master, so effects slaved to the
@@ -312,6 +328,12 @@ fn main() -> anyhow::Result<()> {
             "no look named {name:?} in the profile"
         );
     }
+    if let Some(name) = &effect_name {
+        anyhow::ensure!(
+            playback.preview_effect(name),
+            "no library effect or bundle named {name:?}"
+        );
+    }
     if let Some(select) = &select {
         let chans = ignition_viz::picking::parse_chan_ranges(select)?;
         playback
@@ -357,6 +379,55 @@ fn main() -> anyhow::Result<()> {
         body_glow,
         labels,
     };
+    // Previews own the process: they stage each subject themselves, so
+    // nothing else may have been staged first.
+    if let Some(out_dir) = previews {
+        use ignition_viz::preview::{PreviewRequest, Subject};
+        let pick = |arg: Option<String>, all: Vec<String>| -> Vec<String> {
+            match arg.as_deref() {
+                None => Vec::new(),
+                Some("all") => all,
+                Some(list) => list
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
+            }
+        };
+        let mut subjects: Vec<Subject> =
+            pick(preview_effects, playback.library.keys().cloned().collect())
+                .into_iter()
+                .map(Subject::Effect)
+                .collect();
+        subjects.extend(
+            pick(preview_looks, playback.looks.keys().cloned().collect())
+                .into_iter()
+                .map(Subject::Look),
+        );
+        subjects.extend(
+            // The macros are in the shipped profile, not the venue's.
+            // `all` reads it here so the flag can name them; the
+            // generator loads it again for the runner.
+            pick(preview_macros, ignition_viz::preview::macro_names())
+                .into_iter()
+                .map(Subject::Macro),
+        );
+        anyhow::ensure!(
+            !subjects.is_empty(),
+            "--previews needs --preview-effects, --preview-looks or --preview-macros"
+        );
+        println!("rendering {} previews at {width}x{height}", subjects.len());
+        return ignition_viz::preview::run_previews(
+            config,
+            playback,
+            gdtf,
+            &PreviewRequest {
+                out_dir,
+                frames: preview_frames,
+                subjects,
+            },
+        );
+    }
     match (bench, export) {
         (Some(frames), _) => {
             let report = ignition_viz::bench::run_bench(

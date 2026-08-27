@@ -37,6 +37,7 @@ pub mod output;
 pub mod overlay;
 pub mod picking;
 pub mod playback;
+pub mod preview;
 pub mod props;
 pub mod show;
 #[cfg(feature = "solari")]

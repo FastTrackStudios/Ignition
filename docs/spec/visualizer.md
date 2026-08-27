@@ -167,6 +167,23 @@ shows in the air is decided by the haze in the room, not per fixture:
   cone reads at a density that leaves a twenty-metre house visible through
   it; extinction stays physical.
 
+r[viz.quality-presets]
+The live picture is chosen by name from a ladder — `potato`, `low`,
+`medium`, `high`, `ultra` — set with `IGNITION_QUALITY` and defaulting to
+`medium`, which is what the studio has always rendered and must stay so
+byte for byte. Every dial remains overridable on its own
+(`IGNITION_FOG_STEPS`, `IGNITION_HAZE_PIXELS`, `IGNITION_FOG_SCALE`,
+`IGNITION_TAA`, `IGNITION_SSR`, `IGNITION_SSAO`), and a per-dial variable
+outranks the preset: a tier is for choosing a picture, an override is for
+finding out what one dial costs on one GPU.
+
+Two dials carry the cost and they multiply — the raymarch's step count
+and how many pixels the haze camera may have — and they trade against
+exactly one thing: a mover's shaft staying a solid cone rather than
+breaking into a string of dots. The ladder only climbs: no rung is
+coarser than the one below it on either dial, or in what it switches on.
+An unknown name is a warning and the default, never a failure to open.
+
 r[viz.post-processing]
 The picture is Bevy's post-process stack and nothing hand-rolled, and every
 feature in it is an explicit `RenderQuality` switch, set separately for a

@@ -166,6 +166,22 @@ profile *ARGS:
 profile-bench *ARGS:
     IGNITION_BENCH=1 just profile {{ARGS}}
 
+# Every quality preset in turn, on the benchmark cue, with the haze
+# camera each one resolved to. The table in docs/ops/profiling.md is
+# this recipe's output on an RTX 4080 — re-run it on the machine that
+# has to hold the show. `r[viz.quality-presets]`
+quality-ladder:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    log=$(mktemp -d)/q.log
+    for q in potato low medium high ultra; do
+      IGNITION_QUALITY=$q IGNITION_BENCH=1 IGNITION_MONITOR={{studio_monitor}}         IGNITION_PROFILE=1 IGNITION_PROFILE_INTERVAL=6 IGNITION_LOG_FILE=$log         timeout 28 cargo run -q --release -p ignition-studio >/dev/null 2>&1 || true
+      printf "%-8s " "$q"
+      grep "viz.haze: resized" $log | tail -1         | grep -oE "width=[0-9]+ height=[0-9]+ scale=[0-9]+ steps=[0-9]+" | tr "\n" " "
+      grep "^profile:" $log | tail -2 | grep -oE "[0-9.]+ fps" | tr "\n" " "
+      echo
+    done
+
 # `just profile ALL=1` only has Bevy's per-system spans to aggregate if
 # the binary was built with them. This is that binary — a full release
 # rebuild of the visualizer, so expect a few minutes.
