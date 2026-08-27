@@ -34,3 +34,8 @@ underflows. Upstream only `debug_assert!`s that this "is impossible".
   (new `BaseDocument::is_attached_to_root`).
 - `src/traversal.rs`: `detached_node_tests` covering all three.
 - `Cargo.toml`: generated header replaced, `publish = false`.
+- `src/resolve.rs`, `src/stylo.rs`: frame-stage `tracing` spans on the
+  target `ignition::profile` — `blitz.resolve`, `blitz.style`,
+  `blitz.layout` — behind this crate's `tracing` feature. Same profiler
+  as the `dioxus-native-vendored` hunks: `r[studio.profiling]`,
+  `docs/ops/profiling.md`, `crates/ignition-profile`.

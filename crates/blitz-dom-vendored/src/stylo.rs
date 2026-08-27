@@ -59,6 +59,9 @@ use style::values::computed::text::TextAlign as StyloTextAlign;
 
 impl crate::document::BaseDocument {
     pub fn resolve_stylist(&mut self, now: f64) {
+        // IGNITION PATCH (profiling): r[impl studio.profiling] - stylo, on its own
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!(target: "ignition::profile", "blitz.style").entered();
         style::thread_state::enter(ThreadState::LAYOUT);
 
         let guard = &self.guard;

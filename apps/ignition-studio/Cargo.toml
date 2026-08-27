@@ -26,6 +26,12 @@ sound = ["dep:cpal"]
 # Bevy Solari raytraced lighting in the embedded view — a spike, see
 # crates/ignition-viz/src/solari.rs.
 solari = ["ignition-viz/solari"]
+# `IGNITION_PROFILE=all` down to individual Bevy systems. The stage
+# table needs nothing built in — its spans are always compiled and cost
+# nothing while the filter has them off — so reach for this only once
+# the table has said `viz.step` is the problem and the question is
+# *which system*.
+trace = ["ignition-viz/trace"]
 
 [dev-dependencies]
 tokio-tungstenite = "0.28"
@@ -34,6 +40,10 @@ futures-util = "0.3"
 [dependencies]
 ignition-core.workspace = true
 ignition-live-ui.workspace = true
+# Where the frame went — a tracing layer over the stage spans this app,
+# the visualizer and the vendored Blitz crates emit. Always compiled;
+# `IGNITION_PROFILE` is what turns it on. See its lib.rs.
+ignition-profile.workspace = true
 # The Live view to an iPad: HTTP for the wasm bundle, a WebSocket for
 # the commands and the playhead — `live_web.rs`. Opt-in at run time
 # (`IGNITION_LIVE=1`), always compiled: hyper was already in the tree.
@@ -57,7 +67,7 @@ serde_json.workspace = true
 # rev already resolves to wgpu 29.0.4 — the same one Bevy 0.19.1 picks.
 # Bump this rev deliberately and in lockstep with FTS.
 dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false, features = ["lib"] }
-dioxus-native = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", features = ["prelude", "system-fonts", "svg", "vello"] }
+dioxus-native = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", features = ["prelude", "system-fonts", "svg", "vello", "tracing"] }
 dioxus-native-dom = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc" }
 
 # Versions matched to that rev's own pins — a mismatch here is a second

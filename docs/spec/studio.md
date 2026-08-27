@@ -237,9 +237,14 @@ Colours | Focus | Effects, with any other panes of the window tabbed
 into the first column. Any preset round-trips through the layout file.
 
 r[studio.dock.no-scroll]
-Panes fill their leaf and never scroll the window: a leaf clips
+Panes fill their leaf and never scroll the *window*: a leaf clips
 (`overflow: hidden`), a pane's grid wraps and shrinks, and no tile is
-smaller than 44 px. A layout's fit is arithmetic — the same ratios and
+smaller than 44 px. A pane's own content MAY scroll inside its leaf —
+a library of a hundred and thirty-one effects cannot be made to fit by
+wrapping, and a pane that shows the first twenty is a library whose
+other hundred and eleven entries nobody knows are there. What must not
+happen is the window growing a scrollbar and the layout moving under
+the operator's hands. A layout's fit is arithmetic — the same ratios and
 splitter widths the flexbox uses — so the Console preset is checked by
 a test to fit a 2560×1440 window: the fader row holds a fader column
 with its badges, track, key and parameter slider, and each top column
@@ -348,3 +353,23 @@ The studio never caches lighting state of its own. What a control shows
 comes from the playhead watch; what a control does goes down the command
 channel. A panel that needs a value the playhead does not carry adds it to
 `Playhead` rather than computing it locally.
+
+r[studio.profiling]
+The studio can say where a frame went, in the running studio, without a
+rebuild. Every stage of a frame — Blitz's style, layout, scene build and
+submit; the visualizer's command drain, main-world step and render —
+opens a `tracing` span on the target `ignition::profile`, and
+`IGNITION_PROFILE=1` installs a layer that aggregates them and logs a
+table every couple of seconds, sorted by **self** time so the top row is
+the stage to go and look at. `IGNITION_PROFILE=all` extends this to every
+span in the process, which in a build with the `trace` feature is one per
+Bevy system. `IGNITION_PROFILE_TRACE=<path>` additionally writes a Chrome
+trace-event file, so the shape of a frame — and of a stall — can be read
+on a timeline rather than in an average.
+
+The spans are always compiled and cost nothing while the log filter has
+them off, because the profiler is only useful on the machine and the
+build that is actually slow: a measurement that needs a special binary
+measures the special binary. What holds the numbers to account is
+`r[viz.performance-budget]` — the table marks any stage over the whole
+120 Hz budget on its own.

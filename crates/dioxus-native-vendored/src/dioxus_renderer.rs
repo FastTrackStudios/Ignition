@@ -115,7 +115,23 @@ impl WindowRenderer for DioxusNativeWindowRenderer {
         self.inner.borrow_mut().set_size(width, height)
     }
 
+    /// One window's whole frame: build the scene, then submit it.
+    ///
+    /// The two are split apart deliberately. `blitz.scene` is the DOM
+    /// walk — and, inside one element of it, the entire visualizer, because
+    /// the viz widget steps Bevy from its `paint`. Whatever is left of
+    /// `blitz.render` after that is Vello encoding and the GPU submit.
+    /// Which of those two is over budget is the first question about a
+    /// slow studio frame, and until these spans existed nothing in the
+    /// process could answer it.
+    // IGNITION PATCH (profiling): r[impl studio.profiling] - the two halves of a Blitz frame
     fn render<F: FnOnce(&mut Self::ScenePainter<'_>)>(&mut self, draw_fn: F) {
-        self.inner.borrow_mut().render(draw_fn)
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!(target: "ignition::profile", "blitz.render").entered();
+        self.inner.borrow_mut().render(|scene| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::info_span!(target: "ignition::profile", "blitz.scene").entered();
+            draw_fn(scene)
+        })
     }
 }

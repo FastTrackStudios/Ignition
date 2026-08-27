@@ -27,3 +27,13 @@ dioxus crates still come from the pinned git revision.
   window; the factory built in `launch_cfg_with_props`; re-exports.
 
 Spec: `r[studio.windows.implementation]` in `docs/spec/studio.md`.
+- `dioxus_renderer.rs`, `dioxus_application.rs`: frame-stage `tracing`
+  spans on the target `ignition::profile` — `blitz.render` / `blitz.scene`
+  around the window renderer's two halves, and `loop.window_event` /
+  `loop.wake` / `loop.wait` / `loop.new_events` around the winit handler.
+  Behind this crate's `tracing` feature, and disabled by the log filter
+  unless `IGNITION_PROFILE` is set, so the cost when off is a branch on a
+  static. Without them the studio's frame stages accounted for barely
+  half of a frame — `loop.wake` turned out to be most of the rest. See
+  `r[studio.profiling]`, `docs/ops/profiling.md` and
+  `crates/ignition-profile`.

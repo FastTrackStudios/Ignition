@@ -40,6 +40,9 @@ use crate::{
 impl BaseDocument {
     /// Restyle the tree and then relayout it
     pub fn resolve(&mut self, current_time_for_animations: f64) {
+        // IGNITION PATCH (profiling): r[impl studio.profiling] - the document half of the frame
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!(target: "ignition::profile", "blitz.resolve").entered();
         if TDocument::as_node(&&self.nodes[0])
             .first_element_child()
             .is_none()
@@ -361,6 +364,9 @@ impl BaseDocument {
     /// TODO: update taffy to use an associated type instead of slab key
     /// TODO: update taffy to support traited styles so we don't even need to rely on taffy for storage
     pub fn resolve_layout(&mut self) {
+        // IGNITION PATCH (profiling): r[impl studio.profiling] - taffy, on its own
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!(target: "ignition::profile", "blitz.layout").entered();
         let size = self.stylist.device().au_viewport_size();
 
         let available_space = taffy::Size {

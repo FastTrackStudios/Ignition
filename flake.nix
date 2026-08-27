@@ -177,7 +177,25 @@
               # `libspa-sys` is what needs it: PipeWire's SPA headers
               # are compiled against, not dlopened.
               pkgs.rustPlatform.bindgenHook
-            ] ++ lib.optionals stdenv.hostPlatform.isLinux linuxBuildInputs;
+            ]
+            ++ lib.optionals stdenv.hostPlatform.isLinux [
+              # `just perf-studio` — a sampling profile of the whole
+              # process, for everything the frame-stage spans cannot
+              # see: Vello's encoding, wgpu, the image decoders behind
+              # the library thumbnails, malloc. The spans say *which
+              # stage*; this says which function inside it.
+              #
+              # Deliberately not Tracy, which would be the obvious
+              # choice: Bevy 0.19 pins `tracing-tracy` 0.11, whose
+              # protocol wants a Tracy 0.11 server, and nixpkgs ships
+              # 0.13. See crates/ignition-profile/src/lib.rs.
+              # `linuxPackages.perf` is deprecated in favour of the top-level one.
+              pkgs.perf
+              # Reads perf.data as a flame graph without leaving the
+              # desktop, which `perf report`'s TUI does not.
+              pkgs.hotspot
+            ]
+            ++ lib.optionals stdenv.hostPlatform.isLinux linuxBuildInputs;
 
             # Read by `crates/ignition-viz/build.rs`, which copies the
             # file into OUT_DIR so it ends up *embedded in the binary*

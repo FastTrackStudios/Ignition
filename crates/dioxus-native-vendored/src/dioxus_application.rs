@@ -308,6 +308,13 @@ impl ApplicationHandler for DioxusNativeApplication {
     }
 
     fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
+        // Where the shell decides whether to ask for another frame, and
+        // where the document is re-resolved. Measured because the frame
+        // stages alone accounted for barely half of a studio frame, and
+        // the missing half had to be somewhere in the event loop.
+        // IGNITION PATCH (profiling): r[impl studio.profiling] - the event loop's own share
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!(target: "ignition::profile", "loop.wait").entered();
         self.inner.about_to_wait(event_loop);
     }
 
@@ -323,6 +330,9 @@ impl ApplicationHandler for DioxusNativeApplication {
     }
 
     fn new_events(&mut self, event_loop: &dyn ActiveEventLoop, cause: StartCause) {
+        // IGNITION PATCH (profiling): r[impl studio.profiling] - the event loop's own share
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!(target: "ignition::profile", "loop.new_events").entered();
         self.inner.new_events(event_loop, cause);
     }
 
@@ -332,6 +342,17 @@ impl ApplicationHandler for DioxusNativeApplication {
         window_id: WindowId,
         event: WindowEvent,
     ) {
+        // The event's own name as a field: a frame lost to a flood of
+        // pointer moves and one lost to a slow redraw look identical in
+        // a total, and are not the same problem.
+        // IGNITION PATCH (profiling): r[impl studio.profiling] - the event loop's own share
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!(
+            target: "ignition::profile",
+            "loop.window_event",
+            event = window_event_name(&event)
+        )
+        .entered();
         self.event_handlers
             .apply_event(window_id, &event, event_loop);
         // IGNITION PATCH: route the close through our own path so the
@@ -345,6 +366,9 @@ impl ApplicationHandler for DioxusNativeApplication {
     }
 
     fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
+        // IGNITION PATCH (profiling): r[impl studio.profiling] - the event loop's own share
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!(target: "ignition::profile", "loop.wake").entered();
         while let Ok(event) = self.inner.event_queue.try_recv() {
             match event {
                 BlitzShellEvent::Embedder(event) => {
@@ -369,6 +393,27 @@ impl ApplicationHandler for DioxusNativeApplication {
                 event => self.inner.handle_blitz_shell_event(event_loop, event),
             }
         }
+    }
+}
+
+/// A `WindowEvent`'s variant, as a `&'static str` for a span field.
+///
+/// `Debug` would do it, but formats the payload too — a pointer move a
+/// frame is a string allocation a frame, in the profiler, about the
+/// profiler.
+// IGNITION PATCH (profiling): r[impl studio.profiling] - which event, without allocating to say so
+#[cfg(feature = "tracing")]
+fn window_event_name(event: &WindowEvent) -> &'static str {
+    match event {
+        WindowEvent::RedrawRequested => "redraw",
+        WindowEvent::PointerMoved { .. } => "pointer-moved",
+        WindowEvent::PointerButton { .. } => "pointer-button",
+        WindowEvent::MouseWheel { .. } => "wheel",
+        WindowEvent::KeyboardInput { .. } => "key",
+        WindowEvent::SurfaceResized { .. } => "resize",
+        WindowEvent::ScaleFactorChanged { .. } => "scale",
+        WindowEvent::CloseRequested => "close",
+        _ => "other",
     }
 }
 

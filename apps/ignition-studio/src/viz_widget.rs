@@ -362,6 +362,8 @@ impl VizCore {
         height: u32,
         registered: &mut Option<(ResourceId, u32, u32)>,
     ) -> Scene {
+        // r[impl studio.profiling] - the second pane's share
+        let _span = tracing::info_span!(target: "ignition::profile", "viz.programme").entered();
         let mut scene = Scene::new();
         if width == 0 || height == 0 {
             return scene;
@@ -594,6 +596,8 @@ impl VizCore {
         height: u32,
         registered: &mut Option<(ResourceId, u32, u32)>,
     ) -> Scene {
+        // r[impl studio.profiling] - the visualizer's share of a Blitz scene
+        let _span = tracing::info_span!(target: "ignition::profile", "viz.paint").entered();
         let mut scene = Scene::new();
         if matches!(self.state, State::Ready(_)) && width > 0 && height > 0 {
             self.activate(width, height);
@@ -609,17 +613,25 @@ impl VizCore {
             self.pointer.shift,
             self.pointer.ctrl,
         );
-        drain(
-            &self.commands,
-            viz,
-            self.transport.as_ref(),
-            &mut self.sound,
-            &mut self.macro_runner,
-            self.show.as_ref().map(|(path, _)| path.as_str()),
-        );
-        smooth_sound(&mut self.sound, viz);
-        follow_song(self.transport.as_ref(), viz);
-        publish(&self.report, self.transport.as_ref(), viz);
+        // Everything between the operator and the show: the UI's
+        // commands, the sound fade, the transport, the state published
+        // back. Cheap by construction — if it ever is not, the table
+        // says so rather than the frame just being slower.
+        // r[impl studio.profiling] - the show side of a frame
+        {
+            let _span = tracing::info_span!(target: "ignition::profile", "viz.commands").entered();
+            drain(
+                &self.commands,
+                viz,
+                self.transport.as_ref(),
+                &mut self.sound,
+                &mut self.macro_runner,
+                self.show.as_ref().map(|(path, _)| path.as_str()),
+            );
+            smooth_sound(&mut self.sound, viz);
+            follow_song(self.transport.as_ref(), viz);
+            publish(&self.report, self.transport.as_ref(), viz);
+        }
         // The programme camera renders only while a Programme pane is
         // up, at that pane's size.
         // r[impl viz.programme-view] - on while a pane shows it

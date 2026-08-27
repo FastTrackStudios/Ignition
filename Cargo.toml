@@ -9,6 +9,7 @@ members = [
     "crates/blitz-dom-vendored",
     "crates/ignition-proto",
     "crates/ignition-core",
+    "crates/ignition-profile",
     "crates/ignition-song",
     "crates/ignition-viz",
     "crates/ignition-io",
@@ -29,6 +30,7 @@ repository = "https://github.com/FastTrackStudios/Ignition"
 [workspace.dependencies]
 ignition-proto = { path = "crates/ignition-proto" }
 ignition-core = { path = "crates/ignition-core" }
+ignition-profile = { path = "crates/ignition-profile" }
 ignition-song = { path = "crates/ignition-song" }
 ignition-viz = { path = "crates/ignition-viz" }
 ignition-io = { path = "crates/ignition-io" }

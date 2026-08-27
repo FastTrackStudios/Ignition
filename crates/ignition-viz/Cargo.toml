@@ -23,6 +23,11 @@ ffmpeg = ["dep:ffmpeg-next"]
 # the shadow-map budget. Needs a device with ray-query support (see
 # src/solari.rs for what it does and does not buy). Off by default.
 solari = ["bevy/bevy_solari"]
+# Bevy's own instrumentation: a span per system, per schedule and per
+# render pass, which `IGNITION_PROFILE=all` then aggregates. Off by
+# default because the spans cost something even unread, and the stage
+# table answers the usual question without them.
+trace = ["bevy/trace"]
 
 [dependencies]
 anyhow = "1.0.104"

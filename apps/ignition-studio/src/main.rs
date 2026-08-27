@@ -55,7 +55,9 @@ fn log_file_path() -> std::path::PathBuf {
     }
     let state = std::env::var("XDG_STATE_HOME")
         .map(std::path::PathBuf::from)
-        .or_else(|_| std::env::var("HOME").map(|h| std::path::PathBuf::from(h).join(".local/state")))
+        .or_else(|_| {
+            std::env::var("HOME").map(|h| std::path::PathBuf::from(h).join(".local/state"))
+        })
         .unwrap_or_else(|_| std::path::PathBuf::from("."));
     state.join("ignition").join("studio.log")
 }
@@ -108,6 +110,18 @@ fn main() -> anyhow::Result<()> {
              ignition_viz=info,bevy_pbr::ssao=error",
         )
     });
+    // The profiler's stage spans are `info` on one target of their own,
+    // so they are off under the default filter and on with one
+    // directive — no rebuild, and no turning up Blitz's own logging to
+    // reach the spans that live inside it.
+    // r[impl studio.profiling] - `IGNITION_PROFILE=1` and the filter follows
+    let filter =
+        ignition_profile::filter_directives()
+            .into_iter()
+            .fold(filter, |filter, directive| match directive.parse() {
+                Ok(directive) => filter.add_directive(directive),
+                Err(_) => filter,
+            });
     let log_path = log_file_path();
     let log_file = std::fs::create_dir_all(log_path.parent().unwrap_or(std::path::Path::new(".")))
         .and_then(|_| std::fs::File::create(&log_path))
@@ -125,6 +139,9 @@ fn main() -> anyhow::Result<()> {
             .with(filter)
             .with(stderr)
             .with(file)
+            // Below the filter, so it only ever sees spans the filter
+            // let through — which is what makes "off" free.
+            .with(ignition_profile::from_env())
             .try_init();
     }
     tracing::info!(path = %log_path.display(), "studio: logging to a file");
@@ -175,18 +192,15 @@ fn main() -> anyhow::Result<()> {
             .palettes
             .colors
             .iter()
-            .map(|c| ColorChip {
-                name: c.name.clone(),
+            .map(|c| {
                 // The palette is linear 0–1 like the fixtures; the disc
                 // only has to look like the gel, so a plain byte scale
                 // is close enough and avoids a colour-management rabbit
                 // hole for a swatch.
-                css: format!(
-                    "rgb({} {} {})",
-                    (c.red * 255.0) as u8,
-                    (c.green * 255.0) as u8,
-                    (c.blue * 255.0) as u8
-                ),
+                ColorChip {
+                    light: ColorChip::is_light(c.red, c.green, c.blue),
+                    ..ColorChip::solid(c.name.clone(), rgb(c))
+                }
             })
             .collect(),
         splits: venue
@@ -197,17 +211,7 @@ fn main() -> anyhow::Result<()> {
                 let (colors, distribute) = venue
                     .palettes
                     .resolve_split(&ignition_core::Ref::Named(split.name.clone()))?;
-                let stops: Vec<String> = colors
-                    .iter()
-                    .map(|c| {
-                        format!(
-                            "rgb({} {} {})",
-                            (c.red * 255.0) as u8,
-                            (c.green * 255.0) as u8,
-                            (c.blue * 255.0) as u8
-                        )
-                    })
-                    .collect();
+                let stops: Vec<String> = colors.iter().map(rgb).collect();
                 // Spread is a gradient; cycle and block are hard bands,
                 // which is also how they land on the rig.
                 let css = match distribute {
@@ -224,9 +228,24 @@ fn main() -> anyhow::Result<()> {
                         format!("linear-gradient(90deg, {})", bands.join(", "))
                     }
                 };
+                // A palette is light when its colours average light —
+                // Ice reads as light, Hot/Deep does not, and the name
+                // written across it has to follow.
+                let light = colors
+                    .iter()
+                    .map(|c| ColorChip::is_light(c.red, c.green, c.blue) as u32)
+                    .sum::<u32>() as usize
+                    * 2
+                    > colors.len();
                 Some(ColorChip {
                     name: split.name.clone(),
                     css,
+                    light,
+                    // The individual colours travel too: a bar can be a
+                    // gradient, but a disc has to be wedges, and only
+                    // the surface knows which shape it is drawing.
+                    colors: stops,
+                    spread: matches!(distribute, ignition_core::Distribute::Spread),
                 })
             })
             .collect(),
@@ -368,6 +387,16 @@ fn pick_monitor(
         "left" => monitors.iter().min_by_key(|m| x_of(m)).cloned(),
         _ => None,
     }
+}
+
+/// A palette colour as CSS. Linear 0–1 in, plain bytes out.
+fn rgb(c: &ignition_core::preset::ColorPreset) -> String {
+    format!(
+        "rgb({} {} {})",
+        (c.red * 255.0) as u8,
+        (c.green * 255.0) as u8,
+        (c.blue * 255.0) as u8
+    )
 }
 
 /// The groups worth a button. The venue carries 127, most of them

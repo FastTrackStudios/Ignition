@@ -269,6 +269,8 @@ impl EmbeddedViz {
                 return false;
             }
         }
+        // r[impl studio.profiling] - the main-world update, on its own
+        let _span = tracing::info_span!(target: "ignition::profile", "viz.step").entered();
         self.app.update();
         true
     }
@@ -280,6 +282,12 @@ impl EmbeddedViz {
     /// which takes a frame or two — the host draws nothing rather than
     /// a black hole.
     pub fn render(&mut self, width: u32, height: u32) -> Option<wgpu::Texture> {
+        // The whole visualizer frame: resize, main-world update,
+        // extraction and command encoding. With pipelined rendering the
+        // GPU keeps working after this returns — what it costs shows up
+        // as `blitz.render`'s own self time, when the submit waits.
+        // r[impl studio.profiling] - one visualizer frame
+        let _span = tracing::info_span!(target: "ignition::profile", "viz.render").entered();
         if width > 0 && height > 0 && (width, height) != self.size {
             self.resize(width, height);
         }
