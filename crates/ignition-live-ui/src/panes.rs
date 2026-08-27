@@ -654,8 +654,15 @@ fn look_kind_css(kind: &str) -> &'static str {
 }
 
 /// The path a look's preview is rendered to.
+///
+/// Slugged, and it has to be: the pane points at it with a `file:` URL,
+/// a URL percent-encodes a space, and Blitz reads the path back without
+/// decoding it — so "chorus full.png" simply never loaded. Kept in step
+/// with `ignition_viz::preview::slug`, the same file-name contract the
+/// effect previews use.
+// r[impl studio.views.whole-profile] - a preview's name is a slug
 pub fn preview_path(name: &str) -> std::path::PathBuf {
-    std::path::Path::new(PREVIEW_DIR).join(format!("{name}.png"))
+    std::path::Path::new(PREVIEW_DIR).join(format!("{}.png", crate::library::slug(name)))
 }
 
 /// The look's preview as a `file:` URL, if it has been rendered.
@@ -686,10 +693,18 @@ pub fn preview_data_uri(name: &str) -> Option<String> {
 pub fn file_uri(path: &std::path::Path) -> Option<String> {
     let absolute = std::fs::canonicalize(path).ok()?;
     let mut out = String::from("file://");
-    // Percent-encode what a path may hold and a URL may not. The
-    // preview directories are slugs, but the *repository* can live
-    // anywhere — a checkout under "My Documents" would otherwise
-    // produce a URL that parses to the wrong path, silently.
+    // Percent-encode what a path may hold and a URL may not, because
+    // the string has to survive `Url::parse` — which would encode it
+    // anyway, and mangle what it did not expect.
+    //
+    // It does *not* make an awkward path safe, and an earlier version
+    // of this comment claimed it did. Blitz reads a `file:` URL back
+    // with `url.path()`, which is still encoded, and hands that
+    // straight to `std::fs::read` — so a path needing any encoding at
+    // all does not open, silently. That is why every preview's file
+    // name is a slug (`preview_path`, `library::slug`), and why a
+    // checkout under a path with a space in it would still not show
+    // thumbnails.
     for byte in absolute.to_str()?.bytes() {
         match byte {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {

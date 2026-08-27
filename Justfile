@@ -66,7 +66,15 @@ shot OUT="/tmp/ignition.png" *ARGS:
         --venue data/venues/norco --snapshot {{OUT}} {{ARGS}}
 
 # One 320×180 still per profile look (baked + authored) for the Looks
-# pane's thumbnails. GPU; a minute or so for four looks.
+# pane's thumbnails. GPU; every look in one process, so a few seconds
+# rather than a few seconds each.
+#
+# Through `--previews` rather than one `--snapshot` per look, because
+# that is the path that writes the file name the pane looks for: a slug.
+# Naming them after the look wrote "chorus full.png", which the pane
+# then referred to as a `file:` URL — and a URL percent-encodes a space,
+# which Blitz reads back without decoding. The picture silently did not
+# load. See `ignition_viz::preview::slug`.
 #
 # The wide camera: dead centre of the house, far enough out to hold the
 # whole stage. A look is a thing that happens across the room, so the
@@ -81,15 +89,10 @@ shot OUT="/tmp/ignition.png" *ARGS:
 #   just look-previews CAMERA="Wide"   to frame them differently
 CAMERA := "Wide"
 look-previews:
-    mkdir -p data/looks/previews
-    python3 -c 'import json,glob; \
-      names=set(json.load(open("data/profiles/ignition.ig-profile")).get("looks",{})); \
-      [names.update(json.load(open(f)).get("looks",{})) for f in glob.glob("data/profiles/*.looks.json")]; \
-      print("\n".join(sorted(names)))' | while IFS= read -r name; do \
-        cargo run -q -p ignition-viz --bin viz -- --venue data/venues/norco \
-          --camera {{quote(CAMERA)}} --auto-exposure off --screens-off \
-          --width 320 --height 180 --look-name "$name" --snapshot "data/looks/previews/$name.png"; \
-      done
+    cargo run -q -p ignition-viz --bin viz -- --venue data/venues/norco \
+      --camera {{quote(CAMERA)}} --auto-exposure off --screens-off \
+      --width 320 --height 180 \
+      --previews data/looks/previews --preview-looks all
 
 # One 16-frame loop per library effect, for the Effects pane's hover
 # previews. Every effect renders in a single process — the rig is built

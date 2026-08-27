@@ -200,7 +200,16 @@ pub fn run_previews(
             // the clock by one step of the loop first.
             let advance = if frame == 0 { Duration::ZERO } else { dt };
             let path = match subject {
-                Subject::Look(_) => dir.join(format!("{name}.png")),
+                // Slugged, like an effect's directory, and for a
+                // reason that is not tidiness: a look called "chorus
+                // full" wrote "chorus full.png", the pane referred to
+                // it as a `file:` URL, and a URL has to percent-encode
+                // that space — which Blitz then read back *without*
+                // decoding, so the picture silently did not load. The
+                // file-name contract is the fix, and it is the one the
+                // effects already had.
+                // r[impl studio.views.whole-profile] - a preview's name is a slug
+                Subject::Look(_) => dir.join(format!("{}.png", slug(name))),
                 Subject::Effect(_) | Subject::Macro(_) => dir.join(format!("{frame:02}.png")),
             };
             if let (Subject::Macro(_), Some(p)) = (subject, shipped.as_ref())

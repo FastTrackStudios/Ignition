@@ -385,6 +385,26 @@ What is left is not a trick, it is less work:
   on the picture, and it is the one that would let the haze budget come
   *down* rather than up.
 
+* **A cheaper Programme camera — tried, and it broke the pane.** The
+  Programme pane and the canvas sources render with the *viewport's*
+  dials, so each pays for screen-space reflections and ambient occlusion
+  over a preview nobody inspects. Giving them a `RenderQuality::preview`
+  with `ssr` and `ssao` off took the operator layout from 76 fps to
+  **200**, and `viz.step` from 5.2 ms to 2.4.
+
+  It was reverted, because the Programme pane rendered *nothing*. The
+  number was real and it was measuring a blank pane: dropping `ssr`
+  takes the camera off the deferred path the venue's deck needs, and
+  what came back was an empty target rather than a preview without
+  reflections. The only reason this did not ship is that the pane was
+  looked at; the profiler was perfectly happy.
+
+  The prize is still there — a second camera on the same room costing
+  what the first one does is wrong — but it has to be a quality that the
+  render graph actually supports, and finding that means understanding
+  which passes the deck's material requires, not switching flags off and
+  reading the frame rate.
+
 * **Less CPU.** The 8 ms floor is Blitz painting 5,509 nodes and Bevy
   stepping its main world. Cut that and the ceiling moves for every
   preset at once — and it is the only lever that helps `low` and
