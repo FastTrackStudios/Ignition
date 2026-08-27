@@ -322,13 +322,23 @@ of the difference.
 
 What is left is not a trick, it is less work:
 
-* **Fewer haze pixels without the dots.** The shafts break up at a
-  coarser haze camera because a thin bright feature is undersampled, not
-  because the upsample is naive — so a bilateral or depth-aware
-  upsample will not rescue it. Something that keeps thin features across
-  the resolution drop would: rendering the beam cones as geometry and
-  the ambient scatter as the low-resolution march, for instance, so the
-  cheap pass never has to carry the thin thing.
+* **Fewer haze pixels without the pattern.** Halving the budget
+  (`IGNITION_HAZE_PIXELS=307200`, scale 3 at this viewport) is worth
+  110 fps to 122 — over the line — and it is not shippable as it
+  stands: a wide beam picks up a visible cross-hatch at its mouth.
+  Note *what* the artifact is, because it changes what would fix it.
+  It is not lost detail; a beam's mouth is a smooth low-frequency
+  gradient and the information is all there. It is the ray-start
+  jitter's own noise pattern, magnified by the upsample — at scale 2 it
+  is two pixels across, at scale 3 three, and the bigger it gets the
+  less TAA averages it away, because after a bilinear stretch the noise
+  is spatially correlated rather than per-pixel.
+
+  So the tractable version of this is the reconstruction, not the
+  sampling: a jitter pattern chosen so it still decorrelates *after*
+  the upsample, or an upsample that is aware it is stretching noise.
+  Sizing the jitter in steps was the same class of bug and was worth
+  12%; this one is worth another 10% and puts medium over 120.
 * **Less CPU.** The 8 ms floor is Blitz painting 5,509 nodes and Bevy
   stepping its main world. Cut that and the ceiling moves for every
   preset at once — and it is the only lever that helps `low` and
