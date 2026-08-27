@@ -1,80 +1,74 @@
 // IGNITION PATCH: froxel volumetrics — the injection pass.
 //
-// One fragment per froxel. The grid is a frustum-aligned voxel volume
-// stored as a 2D texture with its Z slices tiled left to right, top to
-// bottom: `slice = tile_y * tiles_x + tile_x`, and a froxel's address is
-// arithmetic either way. Tiled rather than a `texture_3d` because the
-// pass that writes it is a fragment pass, and it is a fragment pass
-// because Bevy declares its view bindings — the clustered light lists
-// and the shadow atlas this needs — `ShaderStages::FRAGMENT`.
+// One invocation per froxel of a frustum-aligned voxel grid: X and Y
+// are screen tiles, Z is depth slices. Writes in-scattered light and
+// extinction into a 3D storage texture, which the integrate pass then
+// walks front to back and the apply pass samples at a pixel's depth.
+//
+// Compute, over our own bind group. Bevy's *own* view bind group is
+// declared `ShaderStages::FRAGMENT` and so cannot be bound here, but
+// visibility belongs to the layout, not to the buffers — the lights,
+// the clusters and the shadow atlas are all reachable and are bound
+// below with `ShaderStages::COMPUTE`.
 //
 // See docs/domain/froxel-volumetrics.md.
 
-#import bevy_pbr::mesh_view_bindings::view
 #import bevy_render::view::View
 
 struct FroxelGrid {
     // Froxels across, up, and deep.
     dimensions: vec3<u32>,
-    // Slices tiled across the target, so a slice's origin in texels is
-    // `vec2(slice % tiles_x, slice / tiles_x) * dimensions.xy`.
-    tiles_x: u32,
+    // Frames advance this so the sample point inside each froxel moves,
+    // which is what the temporal pass turns into resolution.
+    jitter: f32,
     // Where the grid starts and stops in view space, in metres. Near is
-    // not the camera's near plane: a froxel grid that begins at 0.1 m
-    // spends most of its depth on air nobody is looking through.
+    // not the camera's near plane: a grid that begins at 0.1 m spends
+    // most of its depth on air nobody is looking through.
     near: f32,
     far: f32,
-    // Frames advance it so the sample point inside each froxel moves,
-    // which is what the temporal pass averages into resolution.
-    jitter: f32,
-    _pad: f32,
+    // The medium, matching `FogVolume`.
+    scattering: f32,
+    absorption: f32,
 }
 
-@group(1) @binding(0) var<uniform> grid: FroxelGrid;
-
-// Which froxel this fragment is, from its position in the tiled target.
-fn froxel_of(frag_coord: vec2<f32>) -> vec3<u32> {
-    let texel = vec2<u32>(frag_coord);
-    let tile = texel / grid.dimensions.xy;
-    let slice = tile.y * grid.tiles_x + tile.x;
-    return vec3<u32>(texel % grid.dimensions.xy, slice);
-}
+@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(1) var<uniform> grid: FroxelGrid;
+@group(0) @binding(2) var scattering_grid: texture_storage_3d<rgba16float, write>;
 
 // The view-space depth at a froxel's centre.
 //
-// Exponential, so the near froxels are small. A beam's apex is near the
-// fixture and the fixture is usually well inside the room, but the
-// steep gradient a cone has at its mouth is always nearer the camera
-// than the wall behind it, and this is where the resolution wants to
-// be. Linear slices spend their precision on the far half of the room,
-// which is mostly wall.
+// Exponential, so near froxels are small. A cone has its steepest
+// gradient at its mouth, which is nearer the eye than the wall behind
+// it; linear slices would spend their precision on the wall.
 fn froxel_depth(z: u32) -> f32 {
     let slices = f32(grid.dimensions.z);
     let t = (f32(z) + 0.5 + grid.jitter) / slices;
     return grid.near * pow(grid.far / grid.near, t);
 }
 
-struct FragmentOutput {
-    // rgb: in-scattered light reaching the eye from this froxel.
-    // a:   extinction over the froxel's own depth.
-    @location(0) scattering: vec4<f32>,
+// The thickness of a froxel at `z`, for turning a density into an
+// extinction over the froxel's own depth.
+fn froxel_thickness(z: u32) -> f32 {
+    return froxel_depth(z + 1u) - froxel_depth(z);
 }
 
-@fragment
-fn inject(@builtin(position) position: vec4<f32>) -> FragmentOutput {
-    let froxel = froxel_of(position.xy);
-    var out: FragmentOutput;
-
-    // Outside the grid — the target is tiled, so its corner tiles can
-    // be past the last slice. Nothing there.
-    if (froxel.z >= grid.dimensions.z) {
-        out.scattering = vec4(0.0);
-        return out;
+@compute @workgroup_size(4, 4, 4)
+fn inject(@builtin(global_invocation_id) id: vec3<u32>) {
+    if (any(id >= grid.dimensions)) {
+        return;
     }
 
-    // SPIKE: a constant, to prove the target, the pass and the read.
-    // The light loop replaces this once the plumbing renders.
-    let depth = froxel_depth(froxel.z);
-    out.scattering = vec4(vec3(0.02), 0.02);
-    return out;
+    // SPIKE: a constant medium, to prove the grid, the passes and the
+    // read before the clustered light walk goes on top. What lands here
+    // in the next stage is the same loop `volumetric_fog.wgsl` runs —
+    // cluster lookup, spot and point attenuation, shadow fetch, phase
+    // function — evaluated once per froxel instead of once per pixel
+    // per step, which is the whole point of the exercise.
+    let thickness = froxel_thickness(id.z);
+    let extinction = (grid.scattering + grid.absorption) * thickness;
+    textureStore(
+        scattering_grid,
+        vec3<i32>(id),
+        vec4(vec3(0.02), extinction),
+    );
 }

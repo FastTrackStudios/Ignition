@@ -30,31 +30,29 @@ to put one.
 
 ## Shape
 
-Everyone else writes this with compute shaders. We cannot, and the
-constraint improves the design.
+Compute, as everyone else writes it.
 
-Bevy declares its view bind group — the view uniform, the clustered
-light lists, the shadow atlas, everything the injection needs — with
-`ShaderStages::FRAGMENT`. A compute pipeline cannot bind it. We could
-patch that visibility, since we vendor the crate, but it is a central
-file and a permissive change to a layout every pipeline in the engine
-shares is a poor thing to carry across Bevy bumps for one feature.
+There is a wrong turn recorded here because it was nearly taken. Bevy
+declares *its* view bind group — the one the existing fog shader uses —
+with `ShaderStages::FRAGMENT`, so a compute pipeline cannot bind that
+group. From which it does not follow that the pass must be a fragment
+pass: visibility belongs to the layout you create, not to the buffers,
+and everything the injection needs is public with public GPU handles —
+`ViewShadowBindings` (both shadow textures), `LightMeta`,
+`GlobalClusterableObjectMeta`, `ViewClusterBindings`. Declaring our own
+layout over the same buffers with `ShaderStages::COMPUTE` is the whole
+of it, and we vendor the crate besides.
 
-So: **fragment passes, and the grid is a 2D texture with its Z slices
-tiled across it.** That is an old technique and it costs nothing here —
-a froxel's address is arithmetic either way.
+Four passes, three of them compute:
 
-    inject     grid, RGB = in-scattered light, A = extinction, one
-               fragment per froxel, over a tiled 2D target
+    inject     3D texture, RGB = in-scattered light, A = extinction
     reproject  blend with last frame's grid, offset by camera motion
-    apply      per pixel, walk Z up to the pixel's depth, accumulating
+    integrate  one invocation per (x, y), walking Z front to back
+    apply      per pixel: sample the integrated grid at the pixel's depth
 
-**There is no integrate pass**, and dropping it is the second thing the
-constraint bought. A separate prefix-sum along Z exists to save the
-apply pass from walking the grid; but walking it is now sixty-four
-texture reads of a grid that is *already lit*, against the current
-march's sixty-four iterations of the whole clustered light loop. The
-expensive part was never the walking.
+Real 3D storage textures, an integration pass that walks Z once per
+column rather than once per pixel, and the published literature applying
+directly rather than through a translation.
 
 **The grid.** Frustum-aligned: X and Y are screen tiles, Z is depth
 slices distributed exponentially so near froxels are small — a beam's
@@ -71,12 +69,14 @@ moves lights constantly, so the blend weight has to be conservative and
 this needs judging by eye against `just beam-test` with the movers
 running, not against a still.
 
+**Integration.** One invocation per (x, y), walking Z and accumulating
+scattered light and transmittance front to back, into a second 3D
+texture the apply pass can read at any depth.
+
 **Apply.** `volumetric_fog.wgsl` already does the hard parts: the
 fullscreen pass, the blend state, the view bindings, the depth buffer.
-Replace the *body* of the raymarch loop — the clustered light walk, the
-shadow fetches, the phase function — with a read of the grid, and the
-loop structure, the front-to-back accumulation and the rest of the file
-stay as they are.
+Replace the raymarch with a single sample of the integrated grid at the
+pixel's linear depth; the rest of the file stays.
 
 ## Where it lives
 
@@ -110,3 +110,24 @@ workaround is gone".
 3. Temporal reprojection. The quality win, and the part that needs
    judging with the movers running.
 4. Gobos: sample the fixture's projected texture per froxel.
+
+## Upstream
+
+Bevy knows about both halves of this and neither is being worked on.
+
+[#18151](https://github.com/bevyengine/bevy/issues/18151), "Physically
+based unified volumetrics system", proposes very nearly what is
+described above — froxel sampling, density evolution in compute passes,
+an eight-frame history with temporal reprojection. Opened March 2025, no
+assignee, no linked PR, no branch, "Needs SME Triage". It is a design
+document, not work in flight.
+
+[#16701](https://github.com/bevyengine/bevy/issues/16701) asks for
+volumetric fog at half or quarter resolution, because the author gets
+86 fps at 3440x1440 with `step_count: 256` on a 7900XTX. That is
+`haze.rs`, arrived at independently by someone with the same problem —
+which is some comfort about the instinct and none at all about the
+timeline. No PR, no assignee.
+
+So this is ours to build, and worth writing in a shape that could be
+offered upstream if it works.
