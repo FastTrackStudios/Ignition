@@ -557,8 +557,11 @@ impl Plugin for VizPlugin {
                 self.gdtf.lock().expect("gdtf library lock").take(),
             ))
             // r[impl studio.program.pick-and-gizmos] - picking and the programmer's overlays
+            // Off unless asked: a still is a picture of the rig, and the
+            // studio switches the overlays on when its Program view shows.
             .insert_resource(crate::gizmos::ProgramOverlays {
                 labels: self.config.labels,
+                program: self.config.labels,
                 ..Default::default()
             })
             .add_plugins((

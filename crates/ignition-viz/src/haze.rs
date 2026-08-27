@@ -94,7 +94,7 @@ impl Default for HazeLevel {
 /// hazed does not clear, and a show that never touches its hazers is
 /// lit in that residual rather than in clean air. A venue with no hazer
 /// patched at all is taken as normally hazed.
-pub const HAZE_RESIDUAL: f32 = 0.35;
+pub const HAZE_RESIDUAL: f32 = 0.15;
 
 /// Seconds for the haze to close most of the gap toward a hazer that
 /// has just come up: fluid takes a while to fill a room.

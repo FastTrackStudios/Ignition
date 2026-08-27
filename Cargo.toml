@@ -91,6 +91,8 @@ bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_ui_render",
     "bevy_text",
     "default_font",
+    # Clustered decals: the gobo projector (`crates/ignition-viz/src/gobo.rs`).
+    "pbr_clustered_decals",
     "bevy_camera_controller",
     "free_camera",
     "pan_camera",
