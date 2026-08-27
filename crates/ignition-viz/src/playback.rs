@@ -341,7 +341,7 @@ impl Playback {
                 None => {
                     let index = jump_to_cue.unwrap_or(0);
                     player.jump_to_end_of(index, &show);
-                    println!("cue -> {index} {:?}", player.current_name());
+                    tracing::info!(cue = index, name = ?player.current_name(), "cue ->");
                 }
             }
         }
