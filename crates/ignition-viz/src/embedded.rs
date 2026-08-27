@@ -314,11 +314,24 @@ impl EmbeddedViz {
         self.size = (width, height);
         let target = add_target(&mut self.app, self.size);
         let render_target: RenderTarget = target.clone().into();
+        // Only the cameras that drew into the old target follow it: the
+        // haze camera has a target of its own, and pointing it at the
+        // main image made its composite quad sample the texture it was
+        // rendering into — a wgpu validation panic on the render
+        // thread, which with pipelined rendering the main thread then
+        // waits on forever. That was "the visualizer freezes when I
+        // resize it".
+        // r[impl studio.windows.visualizer-anywhere] - a resize re-points only the main target's cameras
+        let old = self.target.id();
         let mut cameras = self
             .app
             .world_mut()
-            .query_filtered::<Entity, With<Camera>>();
-        let entities: Vec<Entity> = cameras.iter(self.app.world()).collect();
+            .query_filtered::<(Entity, &RenderTarget), With<Camera>>();
+        let entities: Vec<Entity> = cameras
+            .iter(self.app.world())
+            .filter(|(_, t)| matches!(t, RenderTarget::Image(img) if img.handle.id() == old))
+            .map(|(e, _)| e)
+            .collect();
         for entity in entities {
             self.app
                 .world_mut()

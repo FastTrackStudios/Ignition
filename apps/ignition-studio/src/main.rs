@@ -47,6 +47,18 @@ const TAILWIND: Asset = asset!("/assets/tailwind.css");
 /// driving should not be a recompile.
 const DEFAULT_VENUE: &str = "data/venues/norco";
 
+/// Where the studio's log file goes.
+fn log_file_path() -> std::path::PathBuf {
+    if let Ok(p) = std::env::var("IGNITION_LOG_FILE") {
+        return std::path::PathBuf::from(p);
+    }
+    let state = std::env::var("XDG_STATE_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|_| std::env::var("HOME").map(|h| std::path::PathBuf::from(h).join(".local/state")))
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+    state.join("ignition").join("studio.log")
+}
+
 pub fn venue_dir() -> String {
     std::env::var("IGNITION_VENUE").unwrap_or_else(|_| DEFAULT_VENUE.to_string())
 }
@@ -77,26 +89,51 @@ fn main() -> anyhow::Result<()> {
     // didn't. The failure then looks like a dead audio device. Default
     // to info for our own crates and let RUST_LOG override; Bevy and wgpu
     // stay quiet because at info they are not.
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                tracing_subscriber::EnvFilter::new(
-                    // `bevy_pbr::ssao` is silenced rather than the
-                    // plugin disabled. Screen-space ambient occlusion
-                    // declines on this device — its limits allow four
-                    // storage textures per shader stage where SSAO wants
-                    // five — and we do not use it. Calling
-                    // `.disable::<ScreenSpaceAmbientOcclusionPlugin>()`
-                    // panics with "cannot disable a plugin that does not
-                    // exist", because PbrPlugin adds it rather than it
-                    // being a member of the group, and a crash is a poor
-                    // trade for a tidy log.
-                    "warn,ignition_studio=info,ignition_song=info,\
-                     ignition_viz=info,bevy_pbr::ssao=error",
-                )
-            }),
+    // r[impl studio.one-truth] - the log is the record: stderr for the
+    // terminal and a file for whoever debugs later, so nothing has to be
+    // copied out of a scrollback. `$XDG_STATE_HOME/ignition/studio.log`
+    // (`~/.local/state/ignition/studio.log`), or `IGNITION_LOG_FILE`.
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        tracing_subscriber::EnvFilter::new(
+            // `bevy_pbr::ssao` is silenced rather than the plugin
+            // disabled. Screen-space ambient occlusion declines on this
+            // device — its limits allow four storage textures per shader
+            // stage where SSAO wants five — and we do not use it.
+            // Calling `.disable::<ScreenSpaceAmbientOcclusionPlugin>()`
+            // panics with "cannot disable a plugin that does not exist",
+            // because PbrPlugin adds it rather than it being a member of
+            // the group, and a crash is a poor trade for a tidy log.
+            "warn,ignition_studio=info,ignition_song=info,\
+             ignition_viz=info,bevy_pbr::ssao=error",
         )
-        .try_init();
+    });
+    let log_path = log_file_path();
+    let log_file = std::fs::create_dir_all(log_path.parent().unwrap_or(std::path::Path::new(".")))
+        .and_then(|_| std::fs::File::create(&log_path))
+        .ok();
+    {
+        use tracing_subscriber::layer::SubscriberExt as _;
+        use tracing_subscriber::util::SubscriberInitExt as _;
+        let stderr = tracing_subscriber::fmt::layer().with_writer(std::io::stderr);
+        let file = log_file.map(|f| {
+            tracing_subscriber::fmt::layer()
+                .with_ansi(false)
+                .with_writer(std::sync::Mutex::new(f))
+        });
+        let _ = tracing_subscriber::registry()
+            .with(filter)
+            .with(stderr)
+            .with(file)
+            .try_init();
+    }
+    tracing::info!(path = %log_path.display(), "studio: logging to a file");
+    // A panic on any thread lands in the log too — a render-thread
+    // panic otherwise shows only as a frozen picture.
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        tracing::error!(%info, thread = ?std::thread::current().name(), "studio: panic");
+        default_hook(info);
+    }));
 
     // The DAW backend's service layer spawns tasks through architect,
     // which panics rather than erroring if no runtime is current — see

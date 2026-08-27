@@ -127,6 +127,42 @@ pub struct VizConfig {
     pub labels: bool,
 }
 
+impl VizConfig {
+    /// A config for a headless host — the bench and the tests — with the
+    /// CLI's defaults and the live quality, so a test drives the same
+    /// path the studio does.
+    pub fn headless(venue: Venue, width: u32, height: u32) -> Self {
+        Self {
+            quality: RenderQuality::live(),
+            venue,
+            view: ViewPreset::House,
+            width,
+            height,
+            haze: 1.6,
+            ambient: 0.15,
+            max_universe: 4,
+            snapshot: None,
+            settle_frames: 20,
+            show_props: true,
+            camera: None,
+            overlay: false,
+            fps: false,
+            exclude: Vec::new(),
+            exposure: 0.0,
+            auto_exposure: true,
+            grade: Grade::Neutral,
+            screen_content: None,
+            canvas_content: Default::default(),
+            canvas_focus: Default::default(),
+            assets_dir: concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string(),
+            output: false,
+            loopback: false,
+            body_glow: false,
+            labels: false,
+        }
+    }
+}
+
 /// The per-pixel cost dials: what a still can afford and a live view
 /// cannot.
 ///

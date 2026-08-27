@@ -984,6 +984,28 @@ fn smooth_sound(fade: &mut SoundFade, viz: &mut EmbeddedViz) {
 /// is `PartialEq` for exactly this: seconds change constantly while
 /// playing, so the UI does re-render then, but a stopped show settles.
 fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut EmbeddedViz) {
+    // A heartbeat in the log: what the song is doing and which cue is
+    // up, once a second, so a "nothing happens" report can be read off
+    // the file instead of reproduced.
+    {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static LAST: AtomicU64 = AtomicU64::new(0);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        if now != LAST.swap(now, Ordering::Relaxed) {
+            match transport {
+                Some(t) => tracing::info!(
+                    playing = t.is_playing(),
+                    secs = t.seconds(),
+                    position = ?t.position(),
+                    "studio: transport"
+                ),
+                None => tracing::info!("studio: transport none"),
+            }
+        }
+    }
     let playback = viz.app_mut().world().get_resource::<Playback>();
     let cue = playback
         .and_then(|p| p.song())
