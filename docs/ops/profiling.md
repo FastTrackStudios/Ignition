@@ -287,13 +287,22 @@ is not blocking on acquiring a swapchain image, so there is no point
 patching `anyrender-vello-vendored` for it — that patch was written,
 measured, and reverted.
 
-What remains plausible, and is the next thing to try: composite the
-visualizer's **previous** frame rather than the one being rendered. The
-mailbox in `embedded.rs` already keeps it (`last_good`), and handing
-that to Vello breaks the read-after-write dependency, so the
-visualizer's volumetrics and Vello's composite can run over each other
-instead of in sequence. The cost is one frame of latency on the
-viewport, which for a lighting visualizer is not a cost at all. If the
-two do overlap, medium's 2.3 ms disappears under the 8 ms of CPU and
-medium runs at low's frame rate with medium's picture — which is the
-whole objective.
+What remains plausible, and is the next thing to try: let the
+visualizer's volumetric pass and Vello's composite overlap instead of
+serialising, by giving the visualizer **two target textures** and
+alternating them — Vello samples the one the GPU finished last frame
+while Bevy writes the other.
+
+Note what this is *not*. `EmbeddedViz::last_good` looks like it already
+holds the previous frame and does not: there is one target `Image`,
+rendered into every frame, and `last_good` is a second handle to the
+same `wgpu::Texture`. It exists so a resize shows the old picture rather
+than a black flash. Reordering the calls in `VizCore::paint` therefore
+buys nothing at all; the targets have to actually be two, which means
+the resize path and the camera retargeting in `embedded.rs` both have to
+learn to ping-pong.
+
+The cost is one frame of latency on the viewport, which for a lighting
+visualizer is not a cost. If the two halves do overlap, medium's 2.3 ms
+disappears under the 8 ms of CPU and medium runs at low's frame rate
+with medium's picture — which is the whole objective.
