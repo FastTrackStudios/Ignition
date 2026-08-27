@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "profile": "Ignition",
+  "name": "Beam alias",
+  "about": "A test picture, not a look. Every mover at full white into a hazed room with nothing else lit, the two ranks aimed across each other so the beams cross in the air at a steep angle. Steep is the point: a camera ray crosses a near-vertical beam's *width* rather than running along its length, so the beam is only as continuous as the raymarch's step count allows, and too few steps read as beads or as smooth bulges along the shaft. Crossed rather than parallel because a beam is easiest to judge against another one, and deliberately off the vertical so an artefact that only appears at exactly ninety degrees is not mistaken for one that never appears. Render it with `just beam-test`.",
+  "cues": [
+    {
+      "name": "beams crossed",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                },
+                {
+                  "FocusPoint": [
+                    -4.2,
+                    0.4,
+                    9.0
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Beam Movers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                },
+                {
+                  "FocusPoint": [
+                    4.2,
+                    -0.4,
+                    9.0
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

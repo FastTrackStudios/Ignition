@@ -131,6 +131,28 @@ macro-previews:
       --haze 1.6 --screens-off --width 320 --height 180 \
       --previews data/macros/previews --preview-frames {{FRAMES}} --preview-macros all
 
+# The beam test: `data/songs/beam-alias.json` rendered headlessly at
+# whatever quality you name, for judging what the volumetric raymarch
+# does to a *steep* beam. Every mover at full white into a hazed room,
+# the two ranks crossed, nothing else lit.
+#
+# This is the picture that decides the step count, and it is not the
+# benchmark cue: a diagonal beam runs along the camera ray and hides the
+# artefact, while a near-vertical one is crossed by it and shows every
+# step boundary as a bead or a bulge. A step count chosen against the
+# benchmark cue will be too low.
+#
+#   just beam-test                          medium, into /tmp
+#   just beam-test QUALITY=ultra            what it looks like when it is right
+#   IGNITION_FOG_STEPS=256 just beam-test   what one dial buys
+QUALITY := "medium"
+BEAM_OUT := "/tmp/ignition-beam-test.png"
+beam-test:
+    IGNITION_QUALITY={{QUALITY}} cargo run -q --release -p ignition-viz --bin viz -- \
+      --venue data/venues/norco --cuelist data/songs/beam-alias.json --cue 0 \
+      --camera {{quote(CAMERA)}} --width 2560 --height 1440 --snapshot {{BEAM_OUT}}
+    @echo "wrote {{BEAM_OUT}}"
+
 # Everything the library panes draw, in one go.
 previews: look-previews effect-previews macro-previews
 

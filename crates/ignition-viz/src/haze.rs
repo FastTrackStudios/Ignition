@@ -275,14 +275,14 @@ pub const FOG_JITTER_REFERENCE_STEPS: f32 = 128.0;
 ///
 /// `IGNITION_FOG_JITTER` still forces a fixed value, for measuring.
 // r[impl viz.quality-presets] - the dither follows the march and the stretch
-pub fn fog_jitter_for(steps: u32, scale: u32) -> f32 {
+pub fn fog_jitter_for(steps: u32) -> f32 {
     if let Some(forced) = std::env::var("IGNITION_FOG_JITTER")
         .ok()
         .and_then(|v| v.trim().parse::<f32>().ok())
     {
         return forced;
     }
-    FOG_JITTER_METRES * FOG_JITTER_REFERENCE_STEPS / (steps.max(1) as f32) / (scale.max(1) as f32)
+    FOG_JITTER_METRES * FOG_JITTER_REFERENCE_STEPS / (steps.max(1) as f32)
 }
 
 /// How many pixels the haze may march in a **frame** when the scale is
@@ -439,16 +439,7 @@ fn spawn_haze_cameras(
             VolumetricFog {
                 ambient_intensity: 0.0,
                 step_count: view.fog_steps,
-                jitter: fog_jitter_for(
-                    view.fog_steps,
-                    haze_scale(
-                        camera
-                            .physical_viewport_size()
-                            .unwrap_or(UVec2::new(64, 64)),
-                        view.scale,
-                        budget,
-                    ),
-                ),
+                jitter: fog_jitter_for(view.fog_steps),
                 ..default()
             },
             *transform,
@@ -531,7 +522,7 @@ fn follow_main_camera(
         // The dither follows the march *and* the stretch, so a resize
         // that changes the scale changes it — see `fog_jitter_for`.
         let scale = haze_scale(main_size, view.scale, budget);
-        let jitter = fog_jitter_for(view.fog_steps, scale);
+        let jitter = fog_jitter_for(view.fog_steps);
         if fog.jitter != jitter {
             fog.jitter = jitter;
         }
@@ -700,14 +691,11 @@ mod tests {
         // SAFETY: single-threaded test, and the variable is removed
         // again before anything else reads it.
         unsafe { std::env::remove_var("IGNITION_FOG_JITTER") };
-        assert!((fog_jitter_for(128, 1) - FOG_JITTER_METRES).abs() < 1e-6);
-        assert!((fog_jitter_for(64, 1) - FOG_JITTER_METRES * 2.0).abs() < 1e-6);
-        assert!((fog_jitter_for(256, 1) - FOG_JITTER_METRES / 2.0).abs() < 1e-6);
-        // And less again for every step of the stretch, which smooths
-        // the boundaries the dither is there to hide.
-        assert!((fog_jitter_for(128, 3) - FOG_JITTER_METRES / 3.0).abs() < 1e-6);
-        // Neither a step count nor a scale of zero is a divide by zero.
-        assert!(fog_jitter_for(0, 0).is_finite());
+        assert!((fog_jitter_for(128) - FOG_JITTER_METRES).abs() < 1e-6);
+        assert!((fog_jitter_for(64) - FOG_JITTER_METRES * 2.0).abs() < 1e-6);
+        assert!((fog_jitter_for(256) - FOG_JITTER_METRES / 2.0).abs() < 1e-6);
+        // A step count of zero is not a divide by zero.
+        assert!(fog_jitter_for(0).is_finite());
     }
 
     /// The budget is the frame's, so a second pane halves each share

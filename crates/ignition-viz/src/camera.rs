@@ -1395,7 +1395,12 @@ pub fn manage_camera_views(
                 let target = images.add(camera_target(programme.size));
                 programme.target = target;
             }
-            let camera = crate::app::spawn_camera(&mut commands, &mut curves, spec.0);
+            // A preview of the room the viewport is already showing —
+            // see `RenderQuality::preview`.
+            // r[impl viz.performance-budget] - a preview is not the viewport
+            let mut spec = spec.0;
+            spec.quality = spec.quality.preview();
+            let camera = crate::app::spawn_camera(&mut commands, &mut curves, spec);
             commands.entity(camera).remove::<MainCamera>().insert((
                 ProgrammeCamera,
                 Name::new("Programme camera"),
@@ -1433,7 +1438,12 @@ pub fn manage_camera_views(
             continue;
         };
         let state = preset.state();
-        let camera = crate::app::spawn_camera(&mut commands, &mut curves, spec.0);
+        // Likewise a canvas source: a screen in the room, not the
+        // operator's view of it.
+        // r[impl viz.performance-budget] - a preview is not the viewport
+        let mut spec = spec.0;
+        spec.quality = spec.quality.preview();
+        let camera = crate::app::spawn_camera(&mut commands, &mut curves, spec);
         commands.entity(camera).remove::<MainCamera>().insert((
             SourceCamera(name.clone()),
             Name::new(format!("Camera: {name}")),

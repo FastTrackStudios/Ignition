@@ -355,55 +355,39 @@ of the difference.
 
 What is left is not a trick, it is less work:
 
-* **The gaps in a steep shaft are the haze camera's resolution**, and
-  that is now proven rather than suspected. Render the benchmark cue
-  headlessly at two tiers and crop the same shaft:
+* **The gaps in a steep beam are the raymarch's step count**, and
+  nothing else was ever going to fix them. `just beam-test` renders
+  `data/songs/beam-alias.json` — every mover at full white into a hazed
+  room, the two ranks crossed, nothing else lit — which is the picture
+  that decides this. A diagonal beam runs *along* the camera ray and
+  hides the artefact; a near-vertical one is crossed by it and shows
+  every step boundary. A step count chosen against the benchmark cue is
+  too low, which is how 96 briefly became the default.
 
-      IGNITION_QUALITY=medium cargo run --release -p ignition-viz --bin viz -- \
-        --venue data/venues/norco --cuelist data/songs/benchmark.json --cue 0 \
-        --width 2560 --height 1440 --snapshot /tmp/medium.png
-      IGNITION_QUALITY=ultra  …                                --snapshot /tmp/ultra.png
+  What the test shows, at 2560x1440:
 
-  At medium the shaft is solid at the top, dashes halfway down and ends
-  as a row of separate **axis-aligned squares** — the haze camera's own
-  texels, because the shaft is thinner than one. At ultra, which marches
-  on the camera itself at full size, the identical shaft is a clean
-  unbroken cone. Nothing else differs.
+  | steps | haze | the beam |
+  | --- | --- | --- |
+  | 64 | budgeted | coarse stipple the whole length |
+  | 128 (default) | budgeted | solid at the top, dashes below |
+  | 128 | full size | no noise, but smooth *bulges* — the bands themselves |
+  | 256 | budgeted | clean, continuous shaft |
+  | 256 | full size | clean, continuous shaft |
 
-  Steps and pixels are **not** interchangeable, which is the trap. Both
-  were tried at equal cost: fewer steps over more pixels dashes the
-  shaft along its *length* (the samples are too far apart), fewer pixels
-  over more steps blocks it across its *width*. The march needs enough
-  of both, and a thin shaft is exactly the case that needs the most of
-  each.
+  Read the third row twice. At full resolution with no dither the
+  artefact is a low-frequency ripple along the beam, which is what
+  raymarch banding actually looks like; every other row is that same
+  banding wearing a different disguise, dithered into beads by the
+  jitter or into stipple by the upsample. Resolution and dither change
+  its *appearance*. Only steps change whether it is there.
 
-  So this cannot be tuned away, and the fix is structural: the thin
-  shaft must not be carried by the cheap pass at all. Draw the beam
-  cones at full resolution — as geometry, or as a narrow-shaft pass over
-  the few fixtures that cut one — and leave the low-resolution march
-  the ambient scatter it is good at. That is the next real piece of work
-  on the picture, and it is the one that would let the haze budget come
-  *down* rather than up.
-
-* **A cheaper Programme camera — tried, and it broke the pane.** The
-  Programme pane and the canvas sources render with the *viewport's*
-  dials, so each pays for screen-space reflections and ambient occlusion
-  over a preview nobody inspects. Giving them a `RenderQuality::preview`
-  with `ssr` and `ssao` off took the operator layout from 76 fps to
-  **200**, and `viz.step` from 5.2 ms to 2.4.
-
-  It was reverted, because the Programme pane rendered *nothing*. The
-  number was real and it was measuring a blank pane: dropping `ssr`
-  takes the camera off the deferred path the venue's deck needs, and
-  what came back was an empty target rather than a preview without
-  reflections. The only reason this did not ship is that the pane was
-  looked at; the profiler was perfectly happy.
-
-  The prize is still there — a second camera on the same room costing
-  what the first one does is wrong — but it has to be a quality that the
-  render graph actually supports, and finding that means understanding
-  which passes the deck's material requires, not switching flags off and
-  reading the frame rate.
+  So the two dials are not interchangeable, and not in the way an equal
+  cost model suggests. `pixels x steps` says 256 steps over half the
+  pixels should cost what 128 over all of them does; measured in the
+  operator layout it is **52 fps against 81**. Steps dominate. Doubling
+  them to fix the beams costs about a third of the frame rate, and that
+  is the honest price of the fix — there is no arrangement of the two
+  that avoids it.
 
 * **Less CPU.** The 8 ms floor is Blitz painting 5,509 nodes and Bevy
   stepping its main world. Cut that and the ceiling moves for every

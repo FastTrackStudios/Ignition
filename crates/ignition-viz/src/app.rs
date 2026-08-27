@@ -288,8 +288,16 @@ pub struct RenderQuality {
     /// a smooth cone.
     pub taa: bool,
     /// Screen-space reflections: the wet-look deck mirrors the rig
-    /// standing on it. Puts the deck through the deferred path.
+    /// standing on it. Marches against the deferred prepasses, which
+    /// `deferred` is what actually asks for.
     pub ssr: bool,
+    /// Whether the camera runs the depth and deferred prepasses.
+    ///
+    /// Separate from `ssr` because the venue's deck is a *deferred*
+    /// material: without these passes it does not render, reflections
+    /// or no reflections. A camera that wants a cheap picture of the
+    /// room still needs the room.
+    pub deferred: bool,
     /// Screen-space ambient occlusion: contact shadow where the risers
     /// meet the deck and the people stand on it.
     pub ssao: bool,
@@ -308,6 +316,7 @@ impl RenderQuality {
     // r[impl viz.post-processing] - a still pays for everything
     pub const STILL: Self = Self {
         fog_steps: 192,
+        deferred: true,
         // Unused at `fog_scale: 1`, which marches on the camera itself.
         haze_pixels: crate::haze::HAZE_PIXEL_BUDGET,
         // Off since the deferred deck and SSAO do not multisample; TAA
@@ -320,6 +329,35 @@ impl RenderQuality {
         dof: true,
         instant_adaptation: true,
     };
+
+    /// What a *second* view of the same room costs.
+    ///
+    /// The Programme pane and a canvas source are previews: a small
+    /// picture of the scene the operator is already looking at. They
+    /// rendered with the viewport's own dials, so each paid for
+    /// screen-space reflections and ambient occlusion over a picture
+    /// nobody inspects — and both are full-screen passes over their own
+    /// target, so a small pane still pays a real share.
+    ///
+    /// What stays is as deliberate as what goes. `deferred` stays,
+    /// because the deck is a deferred material and a preview without
+    /// the room in it is not a preview — dropping it with `ssr` is
+    /// exactly the mistake this exists to make impossible. Temporal
+    /// anti-aliasing stays, because it is what averages the haze's
+    /// per-frame jitter into a solid shaft, and beads on the Programme
+    /// pane would be worse than reflections missing from it. The march
+    /// stays too: the haze budget is already shared across cameras, so
+    /// a preview's share shrinks without its quality being singled out.
+    // r[impl viz.performance-budget] - a preview is not the viewport
+    pub const fn preview(self) -> Self {
+        Self {
+            ssr: false,
+            ssao: false,
+            dof: false,
+            deferred: true,
+            ..self
+        }
+    }
 
     /// The dials for one rung of the ladder.
     ///
@@ -362,23 +400,30 @@ impl RenderQuality {
                 ssao: false,
                 ..base
             },
-            // 96, and it was 128 until the dither was sized properly.
+            // 128, and it went to 96 for a while on the strength of a
+            // comparison that did not cover the worst case.
             //
-            // The rule has not changed — this is the fewest steps that
-            // keep every shaft a solid shaft rather than a string of
-            // beads — but the number the rule produces did, because
-            // `haze::fog_jitter_for` now scatters the ring a step
-            // boundary draws by about one step *whatever the count is*.
-            // With a jitter fixed at one 128-step step, a 96-step march
-            // was dithered by three quarters of its own step and rang;
-            // that read as "96 is not enough steps" and it was not, it
-            // was not enough dither. 64 still beads a mover's thin
-            // shaft, so the floor moved rather than vanished.
+            // The rule is unchanged: the fewest steps that keep every
+            // shaft a solid shaft rather than a string of beads. What
+            // moved was the evidence. Sizing the dither properly
+            // (`haze::fog_jitter_for`) made 96 look identical to 128 on
+            // the beams that were compared — and those were all
+            // diagonal.
             //
-            // Worth 102 fps to 110 on the benchmark cue at 5120x1440,
-            // for a picture that does not differ.
+            // A beam pointing *straight up*, seen from the house, is
+            // the case that decides this, and it is the one that was
+            // not looked at. The camera ray crosses such a beam's
+            // width rather than running along its length: over a
+            // thirty-metre room a 96-step march is a step every 0.31 m,
+            // so a beam a couple of decimetres across collects one
+            // sample or none, and comes out as beads. At 128 the step
+            // is 0.23 m and it holds.
+            //
+            // So the number goes back, and the eight frames a second it
+            // was worth go with it. A quality dial justified against
+            // the wrong picture is not justified.
             Preset::Medium => Self {
-                fog_steps: 96,
+                fog_steps: 128,
                 // The full budget, and it stays there.
                 //
                 // Halving it is worth about ten per cent — 110 fps to
@@ -1500,19 +1545,26 @@ pub(crate) fn spawn_camera(
     if quality.taa && !quality.msaa {
         camera.insert(TemporalAntiAliasing::default());
     }
+    // The deck is the one deferred material (`spawn::deck`), so the
+    // prepasses are not optional wherever it has to appear — the
+    // reflections that march against them are.
+    //
+    // These used to be one switch, and that is a bug waiting to be
+    // found: turning `ssr` off to make a preview camera cheaper took
+    // `DeferredPrepass` with it, and the pane rendered nothing at all.
+    // A camera can want the deferred path and not want reflections;
+    // saying so takes two flags.
+    // r[impl viz.post-processing] - the deferred path and the reflections are separate costs
+    if quality.ssr || quality.deferred {
+        camera.insert((DepthPrepass, DeferredPrepass));
+    }
     if quality.ssr {
-        // The deck is the one deferred material (`spawn::deck`); the
-        // prepasses are what the reflections march against.
-        camera.insert((
-            DepthPrepass,
-            DeferredPrepass,
-            ScreenSpaceReflections {
-                // A wet deck, not a mirror: the reflection fades out
-                // toward the deck's own roughness.
-                max_perceptual_roughness: 0.3..0.45,
-                ..default()
-            },
-        ));
+        camera.insert(ScreenSpaceReflections {
+            // A wet deck, not a mirror: the reflection fades out
+            // toward the deck's own roughness.
+            max_perceptual_roughness: 0.3..0.45,
+            ..default()
+        });
     }
     if quality.ssao {
         camera.insert((
@@ -1684,7 +1736,7 @@ mod quality_preset_tests {
     #[test]
     fn medium_is_the_studio_s_own_picture() {
         let medium = RenderQuality::preset(Preset::Medium);
-        assert_eq!(medium.fog_steps, 96);
+        assert_eq!(medium.fog_steps, 128);
         assert_eq!(medium.haze_pixels, crate::haze::HAZE_PIXEL_BUDGET);
         assert_eq!(medium.fog_scale, 0);
         assert!(medium.taa && medium.ssr && medium.ssao);
