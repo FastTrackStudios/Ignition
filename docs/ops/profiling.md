@@ -198,6 +198,39 @@ touches nothing: 3.9 ms to 1.4, and 77 fps to 105.
 Neither of those is a thing to guess at, and both are obvious in the
 table. That is the argument for the profiler.
 
+## Measure the layout the operator actually runs
+
+```
+IGNITION_OPERATOR=cody just profile-bench
+```
+
+Without it the studio draws its built-in single-window layout, and every
+number is a third too good. The operator layout is **three windows** —
+Cue List + Transport, the library panes, and Programme + Visualizer —
+and it changes the shape of the frame twice over:
+
+* Only the window holding the Viewport asks for frames. The other two
+  repaint when their content changes, which since the frame loop stopped
+  dirtying the DOM is rarely — so they cost almost nothing, and
+  `blitz.scene` drops from 1.9 ms to 0.4.
+* The Programme pane is a **second camera on the same scene**, so the
+  visualizer renders it twice: `viz.step` goes from 3.0 ms to 5.0.
+
+Measured on the benchmark cue at 5120x1440: **70 fps, 14.3 ms**, against
+110 fps for the same cue in the single-window layout. `blitz.render`'s
+self time is 8.7 ms of it — over the whole 120 Hz budget on its own,
+waiting on a GPU now drawing the venue twice.
+
+**The haze pixel budget is per camera, not per frame**, and with two
+viz panes up the frame pays it twice — the log shows two haze cameras at
+620x752 (scale 1, so no downscale at all) beside the viewport's 847x464.
+`HAZE_PIXEL_BUDGET`'s own comment calls it "the one number that sets the
+haze's share of the frame", and with more than one camera it does not.
+Dividing it among the live haze cameras, or simply giving a preview pane
+a fraction, is worth about 2 ms of the 6 ms deficit and is the cheapest
+thing left on this list. It is a quality decision about the Programme
+pane, which is why it is written down here rather than done.
+
 ## Render quality presets
 
 `IGNITION_QUALITY=potato|low|medium|high|ultra`, default `medium` —
