@@ -289,7 +289,29 @@ impl VideoSource {
     pub fn frame_at(&mut self, secs: f64) -> Option<&[u8]> {
         let t = wrap_time(secs, self.duration);
 
-        while let Ok(frame) = self.frames.try_recv() {
+        // Take only enough to keep a few frames of lookahead.
+        //
+        // Draining the channel dry every call is what this used to do,
+        // and it quietly defeated the whole design. `QUEUE_DEPTH` is
+        // three because the worker is meant to find the channel full
+        // and decode no further; emptying it into `pending` — which is
+        // unbounded — freed it again every render frame, so the worker
+        // never found it full and decoded for ever.
+        //
+        // Against a *stopped* transport, where not one of those frames
+        // could ever come due, two 640x360 clips held two cores at
+        // ninety-five per cent and `pending` grew by two hundred frames
+        // a second. At RGBA that is a hundred and eighty megabytes a
+        // second of pictures nobody will ever look at — a leak as much
+        // as a cost, and it had four thousand frames in hand inside
+        // twenty seconds.
+        //
+        // Bounded, the channel does the job it was built for again.
+        // r[impl studio.profiling] - the frame that changes nothing costs nothing
+        while self.cursor.pending.len() < QUEUE_DEPTH {
+            let Ok(frame) = self.frames.try_recv() else {
+                break;
+            };
             // Frames from before the last scrub. Dropping them here
             // rather than in the worker keeps the worker's job to one
             // thing, and the cost is a few frames of decode after a
