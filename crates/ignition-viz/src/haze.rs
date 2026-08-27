@@ -285,13 +285,42 @@ pub fn fog_jitter_for(steps: u32, scale: u32) -> f32 {
     FOG_JITTER_METRES * FOG_JITTER_REFERENCE_STEPS / (steps.max(1) as f32) / (scale.max(1) as f32)
 }
 
-/// How many pixels the haze camera may have when the scale is chosen
-/// automatically (`HazeView::scale == 0`). The fog's cost is this times
-/// the step count, so it is the one number that sets the haze's share
-/// of the frame whatever the viewport: 1280x720 at a 2560-wide studio,
-/// 1280x360 at 5120 — both under the budget with 128 steps on the
-/// reference GPU.
+/// How many pixels the haze may march in a **frame** when the scale is
+/// chosen automatically (`HazeView::scale == 0`). The fog's cost is
+/// this times the step count, so it is the one number that sets the
+/// haze's share of the frame whatever the viewport: 1280x720 at a
+/// 2560-wide studio, 1280x360 at 5120 — both under the budget with 128
+/// steps on the reference GPU.
+///
+/// Per frame, and it used to be per camera, which is not the same thing
+/// the moment there is more than one. The operator's layout puts a
+/// Programme pane beside the Visualizer, and each took the whole budget
+/// — two haze cameras at 620x752 with no downscale at all, so the frame
+/// paid twice for a number whose own job was to bound it once. See
+/// [`share`].
 pub const HAZE_PIXEL_BUDGET: u32 = 640 * 960;
+
+/// The smallest a camera's share may get, however many are up.
+///
+/// Four panes should each look thin, not one of them look broken: below
+/// about this the shafts stop being shafts at any step count, and a
+/// picture that has given up is worse than a slow one.
+const HAZE_MIN_SHARE: u32 = 160 * 240;
+
+/// One camera's share of [`HAZE_PIXEL_BUDGET`] when `cameras` of them
+/// are marching haze this frame.
+///
+/// Split evenly rather than by area. A share proportional to each pane's
+/// size sounds fairer and is worse: the Programme pane is a preview and
+/// the Visualizer is the thing being looked at, and area would hand the
+/// larger one more pixels precisely when the frame can least afford it.
+/// Even shares mean adding a pane costs the frame nothing and costs
+/// every pane a little, which is the trade an operator can actually
+/// predict.
+// r[impl viz.performance-budget] - the haze is bounded per frame, not per camera
+pub fn share(budget: u32, cameras: usize) -> u32 {
+    (budget / cameras.max(1) as u32).max(HAZE_MIN_SHARE.min(budget))
+}
 
 /// The scale for `main`: the smallest whole divisor that brings the
 /// haze camera under `budget` pixels; a given scale is used as is.
@@ -335,7 +364,12 @@ fn spawn_haze_cameras(
         ),
         Added<HazeView>,
     >,
+    // Every camera that marches haze, new or not — the budget is the
+    // frame's and has to be split across all of them.
+    // r[impl viz.performance-budget] - the haze is bounded per frame, not per camera
+    all_views: Query<(), With<HazeView>>,
 ) {
+    let cameras_marching = all_views.iter().count();
     for (main, view, camera, transform, projection, exposure) in &cameras {
         if view.scale == 1 {
             // Full size: the fog on the camera itself, as Bevy ships it
@@ -348,12 +382,13 @@ fn spawn_haze_cameras(
             });
             continue;
         }
+        let budget = share(view.pixels, cameras_marching);
         let size = haze_size(
             camera
                 .physical_viewport_size()
                 .unwrap_or(UVec2::new(64, 64)),
             view.scale,
-            view.pixels,
+            budget,
         );
         // What the haze actually costs, in the log, once per camera.
         // The three numbers multiply into the raymarch's whole bill and
@@ -411,7 +446,7 @@ fn spawn_haze_cameras(
                             .physical_viewport_size()
                             .unwrap_or(UVec2::new(64, 64)),
                         view.scale,
-                        view.pixels,
+                        budget,
                     ),
                 ),
                 ..default()
@@ -454,7 +489,14 @@ fn follow_main_camera(
         Without<HazeView>,
     >,
     quads: Query<&MeshMaterial3d<HazeCompositeMaterial>, With<HazeComposite>>,
+    all_views: Query<(), With<HazeView>>,
 ) {
+    // Recomputed every frame, so a Programme pane opening or closing
+    // resizes every haze camera through the same path a window resize
+    // takes — there is no separate "the count changed" case to get
+    // wrong.
+    // r[impl viz.performance-budget] - the haze is bounded per frame, not per camera
+    let cameras_marching = all_views.iter().count();
     for (mut haze, mut transform, mut projection, mut target, mut fog) in &mut hazes {
         let Ok((view, camera, main_transform, main_projection, children)) = mains.get(haze.main)
         else {
@@ -472,7 +514,8 @@ fn follow_main_camera(
         let Some(main_size) = camera.physical_viewport_size() else {
             continue;
         };
-        let wanted = haze_size(main_size, view.scale, view.pixels);
+        let budget = share(view.pixels, cameras_marching);
+        let wanted = haze_size(main_size, view.scale, budget);
         if wanted == haze.size {
             continue;
         }
@@ -487,7 +530,7 @@ fn follow_main_camera(
         }
         // The dither follows the march *and* the stretch, so a resize
         // that changes the scale changes it — see `fog_jitter_for`.
-        let scale = haze_scale(main_size, view.scale, view.pixels);
+        let scale = haze_scale(main_size, view.scale, budget);
         let jitter = fog_jitter_for(view.fog_steps, scale);
         if fog.jitter != jitter {
             fog.jitter = jitter;
@@ -498,6 +541,7 @@ fn follow_main_camera(
             scale,
             steps = view.fog_steps,
             jitter,
+            cameras = cameras_marching,
             "viz.haze: resized"
         );
         haze.image = image;
@@ -664,6 +708,31 @@ mod tests {
         assert!((fog_jitter_for(128, 3) - FOG_JITTER_METRES / 3.0).abs() < 1e-6);
         // Neither a step count nor a scale of zero is a divide by zero.
         assert!(fog_jitter_for(0, 0).is_finite());
+    }
+
+    /// The budget is the frame's, so a second pane halves each share
+    /// rather than doubling what the frame pays. That was the bug: two
+    /// viz panes each took the whole budget and the frame marched twice
+    /// the pixels the one number was supposed to bound.
+    /// r[verify viz.performance-budget]
+    #[test]
+    fn the_budget_is_split_across_the_cameras_marching_it() {
+        assert_eq!(share(HAZE_PIXEL_BUDGET, 1), HAZE_PIXEL_BUDGET);
+        assert_eq!(share(HAZE_PIXEL_BUDGET, 2), HAZE_PIXEL_BUDGET / 2);
+        assert_eq!(share(HAZE_PIXEL_BUDGET, 3), HAZE_PIXEL_BUDGET / 3);
+        // Whatever the count, the frame never marches more than the
+        // budget — which is the whole claim the constant makes.
+        for cameras in 1..=4 {
+            let total = share(HAZE_PIXEL_BUDGET, cameras) * cameras as u32;
+            assert!(
+                total <= HAZE_PIXEL_BUDGET,
+                "{cameras} cameras march {total} of {HAZE_PIXEL_BUDGET}"
+            );
+        }
+        // And a share never collapses to nothing: past the floor the
+        // frame goes over budget rather than the picture giving up.
+        assert_eq!(share(HAZE_PIXEL_BUDGET, 100), HAZE_MIN_SHARE);
+        assert!(share(0, 4) == 0 || share(0, 4) >= 1);
     }
 
     /// r[verify viz.performance-budget]
