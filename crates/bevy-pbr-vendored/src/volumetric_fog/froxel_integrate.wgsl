@@ -8,12 +8,20 @@
 // See docs/domain/froxel-volumetrics.md.
 
 struct FroxelGrid {
-    dimensions: vec3<u32>,
-    jitter: f32,
-    near: f32,
-    far: f32,
-    scattering: f32,
-    absorption: f32,
+    // Every member is sixteen bytes wide and sixteen-byte aligned, so
+    // the Rust declaration and this one cannot disagree about offsets.
+    // They did once — WGSL's uniform layout rounds a `vec3` up to
+    // sixteen bytes while `encase` packs `UVec3` into twelve — and the
+    // shader then read `near` as `far` and `far` as `scattering`, which
+    // put every froxel at the wrong depth and rendered a room with no
+    // beams in it. Scalars live in the lanes of a vector now.
+    dimensions: vec4<u32>,
+    range: vec4<f32>,
+    medium: vec4<f32>,
+    flags: vec4<f32>,
+    density_offset: vec4<f32>,
+    prev_clip_from_world: mat4x4<f32>,
+    uvw_from_world: mat4x4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> grid: FroxelGrid;
@@ -33,7 +41,10 @@ fn integrate(@builtin(global_invocation_id) id: vec3<u32>) {
     var accumulated = vec3(0.0);
     var transmittance = 1.0;
 
-    for (var z = 0u; z < grid.dimensions.z; z = z + 1u) {
+    // Clamped: a loop bound taken from a uniform is a GPU hang if the
+    // uniform is ever misread, and this one has been.
+    let depth_slices = min(grid.dimensions.z, 512u);
+    for (var z = 0u; z < depth_slices; z = z + 1u) {
         let froxel = vec3<i32>(vec3<u32>(id.xy, z));
         let sample = textureLoad(scattering_grid, froxel, 0);
         let scattered = sample.rgb;
@@ -43,7 +54,14 @@ fn integrate(@builtin(global_invocation_id) id: vec3<u32>) {
         // constant extinction, rather than a rectangle rule over it.
         // At the depths a froxel covers this is the difference between
         // a beam that fades and a beam that steps.
-        let slab = 1.0 - exp(-extinction);
+        //
+        // `scattered` is in-scattered light *per unit length* and
+        // `extinction` is the slab's optical depth, so the integral is
+        // `S/o * (1 - exp(-t))` — not `S * t`, which is the same
+        // quantity short by a factor of the extinction coefficient and
+        // is why the first grid rendered black.
+        let sigma_t = max((grid.range.z + grid.range.w) * grid.medium.x, 1e-6);
+        let slab = (1.0 - exp(-extinction)) / sigma_t;
         accumulated += scattered * slab * transmittance;
         transmittance *= exp(-extinction);
 

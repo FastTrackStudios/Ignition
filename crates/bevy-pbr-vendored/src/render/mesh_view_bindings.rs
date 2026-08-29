@@ -510,7 +510,11 @@ fn layout_entries(
         ));
     }
 
-    let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
+    // IGNITION PATCH: compute too, so the froxel injection can read the
+    // clustered decals — a gobo is a stencil at the gate, and the fog
+    // wants it as much as the wall does. Same reasoning as VIEW_STAGES
+    // above; visibility belongs to the layout, not to the buffers.
+    let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(VIEW_STAGES);
     if layout_key.contains(MeshPipelineViewLayoutKey::ENVIRONMENT_MAP) {
         binding_array_entries = binding_array_entries.extend_with_indices((
             (0, environment_map_entries[0]),
