@@ -18,7 +18,11 @@ for f in sorted(glob.glob(f"{ROOT}/docs/spec/*.md")):
     for m in re.finditer(r"^r\[([a-z0-9.-]+)\]", open(f).read(), re.M):
         spec[m.group(1)] = f.split("/")[-1]
 impl, verify, unknown = collections.defaultdict(list), collections.defaultdict(list), []
-files = [p for pat in ("crates/**/*.rs", "apps/**/*.rs") for p in glob.glob(f"{ROOT}/{pat}", recursive=True) if "/target/" not in p]
+# Tools count too: a rule can be carried by a generator as much as by a
+# crate, and `viz.gdtf-generated` is — `tools/make_gdtf.py` has said so
+# since it was written, and this script could not see it.
+PATTERNS = ("crates/**/*.rs", "apps/**/*.rs", "tools/*.py", "tools/*.sh")
+files = [p for pat in PATTERNS for p in glob.glob(f"{ROOT}/{pat}", recursive=True) if "/target/" not in p]
 for f in files:
     for m in re.finditer(r"r\[(impl|verify) ([a-z0-9.-]+)\]", open(f).read()):
         rel = f[len(ROOT) + 1 :]
