@@ -41,6 +41,67 @@ const MIN_VISIBLE_DIMMER: f32 = 0.02;
 /// to the world rather than snapping to something across the room.
 const MAX_RIG_DISTANCE: f32 = 0.6;
 
+/// The room's real world-space box, corners rotated.
+///
+/// `Venue::room_extent` takes each surface's `position ± size/2` in the
+/// surface's *own* axes and ignores its orientation, which is right for
+/// a room of unrotated boxes and wrong for this one: Norco's walls are
+/// specified in a frame where the long axis is not the room's, so the
+/// extent comes out 25 m tall and 6 m deep — a volume standing on its
+/// end, mostly below the floor.
+///
+/// Nothing noticed while the fog covered the whole frustum regardless.
+/// The froxel path clips to the volume, as the march's hull does, and
+/// a beam ten metres into the room fell outside it — which is how a
+/// room of beams rendered with none.
+///
+/// This rotates each box's eight corners before taking the union, and
+/// applies the same base-pivot correction the spawn loop does for walls
+/// and faces. `room_extent` is left alone: `BeamThrow` is calibrated
+/// against it.
+///
+/// It also unions in every fixture's own position. The room records are
+/// the *surfaces* — floor, walls, ceiling — and the truss hangs outside
+/// them, so a volume built from surfaces alone stops below the lamps
+/// and every beam starts in clean air. The comment at the call site has
+/// always said the fog "has to reach past every wall, the fixtures and
+/// the floor"; this is that sentence, made true.
+// r[impl viz.beam-reach] - the haze volume is the room's rotated extent
+fn haze_bounds(venue: &crate::venue::Venue) -> (Vec3, Vec3) {
+    let (mut min, mut max) = (Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY));
+    for g in &venue.room {
+        let rot = g.orientation();
+        let size = g.size.to_vec3().max(Vec3::splat(0.02));
+        let pos = g.position.to_vec3();
+        let centre = if g.name.starts_with("Wall") || g.name.starts_with("Face") {
+            pos + rot * Vec3::Z * (size.z * 0.5)
+        } else {
+            pos
+        };
+        let half = size * 0.5;
+        for corner in 0..8 {
+            let signs = Vec3::new(
+                if corner & 1 == 0 { -1.0 } else { 1.0 },
+                if corner & 2 == 0 { -1.0 } else { 1.0 },
+                if corner & 4 == 0 { -1.0 } else { 1.0 },
+            );
+            let world = centre + rot * (half * signs);
+            min = min.min(world);
+            max = max.max(world);
+        }
+    }
+    for f in &venue.fixtures {
+        let at = f.position.to_vec3();
+        min = min.min(at);
+        max = max.max(at);
+    }
+
+    if !min.is_finite() || !max.is_finite() {
+        return venue.room_extent();
+    }
+    (min, max)
+}
+
 /// Maps the operator's haze dial onto Bevy's `FogVolume::density_factor`,
 /// whose own default is 0.1. Above roughly 0.3 the room stops being a
 /// room: the fog absorbs its own light shafts and everything goes flat.
@@ -1334,7 +1395,7 @@ pub fn spawn_venue(
         // to reach past every wall, the fixtures and the floor, not
         // stop at them.
         // r[impl viz.beam-reach] - haze fills the whole room
-        let (min, max) = venue.room_extent();
+        let (min, max) = haze_bounds(venue);
         let center = (min + max) * 0.5;
         // Twice the room, so a beam that escapes through a gap in the
         // venue's walls dies of distance long before it meets the

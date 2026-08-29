@@ -274,6 +274,32 @@ pub struct RenderQuality {
     /// haze's share of the frame whatever the window is doing. See
     /// `haze::haze_scale`.
     pub haze_pixels: u32,
+    /// The froxel grid's shape, when the froxel path is running.
+    ///
+    /// Width is what a beam's *sharpness* costs: the grid is sampled
+    /// trilinearly, so a tile covering sixteen screen pixels gives a
+    /// beam a sixteen-pixel edge. Depth is what its *continuity*
+    /// costs, and `froxel_samples` buys that far more cheaply — which
+    /// is why the ladder below spends its budget sideways.
+    ///
+    /// The grid is what resolves a beam, so this is that path's
+    /// equivalent of `fog_steps` and `haze_pixels` together — and it
+    /// is far cheaper than either. At 5120x1440 on the benchmark cue
+    /// the whole pass costs 0.22 ms at 160x90x64 and 1.5 ms at
+    /// 320x180x192, against 18 ms a frame for the march it replaces.
+    pub froxel_grid: (u32, u32, u32),
+    /// Points lit per froxel. One leans on the temporal blend alone,
+    /// which needs frames a still does not have; more resolves a thin
+    /// beam within the frame itself.
+    pub froxel_samples: u32,
+    /// How much of last frame's froxel grid survives into this one, as
+    /// a percentage — a whole number so the ladder stays comparable.
+    ///
+    /// The other half of resolving a beam thinner than a froxel, and
+    /// the half that costs nothing. Too much smears behind a moving
+    /// mover, so a tier that already pays for samples can afford less
+    /// of it.
+    pub froxel_history_pct: u32,
     /// Whether the camera multisamples. Bloom and fog blur beam edges
     /// enough that turning it off is hard to see and easy to measure.
     pub msaa: bool,
@@ -316,6 +342,9 @@ impl RenderQuality {
     // r[impl viz.post-processing] - a still pays for everything
     pub const STILL: Self = Self {
         fog_steps: 192,
+        froxel_samples: 4,
+        froxel_history_pct: 85,
+        froxel_grid: (640, 360, 128),
         deferred: true,
         // Unused at `fog_scale: 1`, which marches on the camera itself.
         haze_pixels: crate::haze::HAZE_PIXEL_BUDGET,
@@ -383,6 +412,9 @@ impl RenderQuality {
             // small enough that the raymarch is nearly free. It will
             // dot; that is the deal.
             Preset::Potato => Self {
+                froxel_history_pct: 94,
+                froxel_samples: 1,
+                froxel_grid: (200, 112, 64),
                 fog_steps: 32,
                 haze_pixels: 160 * 240,
                 fog_scale: 0,
@@ -392,6 +424,9 @@ impl RenderQuality {
                 ..base
             },
             Preset::Low => Self {
+                froxel_history_pct: 92,
+                froxel_samples: 2,
+                froxel_grid: (280, 158, 80),
                 fog_steps: 64,
                 haze_pixels: 320 * 480,
                 fog_scale: 0,
@@ -423,6 +458,9 @@ impl RenderQuality {
             // was worth go with it. A quality dial justified against
             // the wrong picture is not justified.
             Preset::Medium => Self {
+                froxel_history_pct: 90,
+                froxel_samples: 2,
+                froxel_grid: (360, 203, 96),
                 fog_steps: 128,
                 // The full budget, and it stays there.
                 //
@@ -447,6 +485,9 @@ impl RenderQuality {
                 ..base
             },
             Preset::High => Self {
+                froxel_history_pct: 88,
+                froxel_samples: 2,
+                froxel_grid: (440, 248, 96),
                 fog_steps: 192,
                 haze_pixels: crate::haze::HAZE_PIXEL_BUDGET * 2,
                 fog_scale: 0,
@@ -459,6 +500,9 @@ impl RenderQuality {
             // picture's own size — the pixel budget stops applying and
             // `for_rig` is free to raise the count for a narrow shaft.
             Preset::Ultra => Self {
+                froxel_history_pct: 85,
+                froxel_samples: 3,
+                froxel_grid: (560, 315, 96),
                 fog_steps: 192,
                 haze_pixels: crate::haze::HAZE_PIXEL_BUDGET * 2,
                 fog_scale: 1,
@@ -959,6 +1003,7 @@ impl Plugin for VizPlugin {
             // `proc:` canvases, evaluated on the GPU.
             .add_plugins(crate::canvas_material::CanvasMaterialPlugin)
             .add_plugins(crate::gobo::GoboPlugin)
+            .add_plugins(crate::haze_texture::HazeTexturePlugin)
             .add_plugins(SolariIfEnabled)
             // Not in `DefaultPlugins`: the eye that follows the frame.
             .add_plugins(bevy::post_process::auto_exposure::AutoExposurePlugin)
@@ -1489,6 +1534,34 @@ impl Plugin for SolariIfEnabled {
     fn build(&self, _app: &mut App) {}
 }
 
+/// `IGNITION_FROXEL_GRID=WxHxD`, for finding the right grid by eye.
+pub fn froxel_grid_override() -> Option<(u32, u32, u32)> {
+    let raw = std::env::var("IGNITION_FROXEL_GRID").ok()?;
+    let mut parts = raw.split(['x', 'X']).map(|n| n.trim().parse::<u32>());
+    let (x, y, z) = (
+        parts.next()?.ok()?,
+        parts.next()?.ok()?,
+        parts.next()?.ok()?,
+    );
+    Some((x.max(1), y.max(1), z.max(1)))
+}
+
+/// Whether the froxel volumetric path replaces the screen-space march.
+///
+/// **Off.** The march is the picture that ships. The grid is roughly
+/// three times cheaper and does not bead a beam, and it carries gobos
+/// and shadows in the air, but as it stands it renders a room with no
+/// beams in it at all — `beam-tests.json` shows that plainly against
+/// the march, and the cause is not yet found. A path that is cheaper
+/// and wrong is not a default.
+///
+/// `IGNITION_FROXEL=1` selects it, which is how the regression is
+/// being chased. See docs/domain/froxel-volumetrics.md.
+// r[impl viz.haze-is-volumetric] - the march by default, IGNITION_FROXEL=1 for froxels
+pub fn froxels_wanted() -> bool {
+    std::env::var("IGNITION_FROXEL").is_ok_and(|v| v.trim() == "1")
+}
+
 pub(crate) fn spawn_camera(
     commands: &mut Commands,
     curves: &mut Assets<AutoExposureCompensationCurve>,
@@ -1553,18 +1626,35 @@ pub(crate) fn spawn_camera(
         // because a beam crossing a 20 m room at the default spacing
         // comes out in stair-steps, and a live view pays for fewer
         // pixels instead.
-        // IGNITION PATCH (froxel volumetrics): the new path, opt-in and
-        // beside the old one until it is better. Adding the component
-        // is all it takes — see `bevy_pbr::volumetric_fog::froxel`.
-        // r[impl viz.haze-is-volumetric] - froxels, behind IGNITION_FROXEL
         crate::haze::HazeView {
             fog_steps: quality.fog_steps,
             scale: quality.fog_scale,
             pixels: quality.haze_pixels,
         },
     ));
-    if std::env::var("IGNITION_FROXEL").is_ok_and(|v| v.trim() == "1") {
-        camera.insert(bevy::pbr::froxel::FroxelVolumetrics::default());
+    // The froxel path replaces the screen-space march rather than
+    // joining it: with both running the beams are drawn twice and
+    // neither can be judged. `HazeView` is what sets the march up, so
+    // taking it off is how the old path is turned off.
+    // r[impl viz.haze-is-volumetric] - froxels, behind IGNITION_FROXEL
+    if froxels_wanted() {
+        // The preset sizes the grid; `IGNITION_FROXEL_GRID` still
+        // outranks it, the way every other dial here works.
+        let (x, y, z) = froxel_grid_override().unwrap_or(quality.froxel_grid);
+        camera.remove::<crate::haze::HazeView>();
+        camera.insert(bevy::pbr::froxel::FroxelVolumetrics {
+            dimensions: bevy::math::UVec3::new(x, y, z),
+            samples: std::env::var("IGNITION_FROXEL_SAMPLES")
+                .ok()
+                .and_then(|v| v.trim().parse().ok())
+                .unwrap_or(quality.froxel_samples),
+            history_weight: std::env::var("IGNITION_FROXEL_HISTORY")
+                .ok()
+                .and_then(|v| v.trim().parse::<f32>().ok())
+                .unwrap_or(quality.froxel_history_pct as f32 / 100.0),
+            dilution: crate::haze_texture::HazeLook::default().dilution,
+            ..bevy::pbr::froxel::FroxelVolumetrics::default()
+        });
     }
     if adapt {
         camera.insert(auto_exposure(curves, quality.instant_adaptation));

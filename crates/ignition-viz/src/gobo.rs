@@ -18,10 +18,15 @@
 //! nearer than that — a person in the beam — gets the wall's pattern
 //! size, a little too large; nothing else about it is wrong.
 //!
-//! The volumetric fog does not read decals (`volumetric_fog.wgsl` knows
-//! lights and their shadow maps, nothing about decals), so the shaft in
-//! the haze stays unbroken; only what lands on a surface carries the
-//! pattern. Noted in the spec.
+//! The screen-space march does not read decals (`volumetric_fog.wgsl`
+//! knows lights and their shadow maps, nothing about decals), so under
+//! it the shaft in the haze stays unbroken and only what lands on a
+//! surface carries the pattern. The froxel path reads them: its
+//! injection walks the same decal cluster list, matches each stencil to
+//! the lamp at whose gate it hangs, and rescales the decal's parallel
+//! projection by the beam's radius at that depth — so the pattern is in
+//! the air too, converging on the gate. See
+//! `docs/domain/froxel-volumetrics.md`.
 //!
 //! The wheel comes from the fixture's GDTF: the `Gobo1` channel's
 //! `ChannelSet`s say which byte ranges land on which `WheelSlotIndex`,
