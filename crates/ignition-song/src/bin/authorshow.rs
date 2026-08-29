@@ -2044,6 +2044,133 @@ mod tests {
         }
     }
 
+    /// A figure's moments each become one trigger against one zone, and
+    /// a hit's class chooses how deep the bump goes.
+    ///
+    /// The chart is the authority and a trigger list is its rendering,
+    /// so this is the join that has to hold: charted moments in, named
+    /// triggers out, one per moment, positioned where the chart put
+    /// them. Two hits on the same eighth are one moment — a snare and a
+    /// crash together should light one zone, not two.
+    ///
+    /// r[verify triggers.from-the-chart]
+    #[test]
+    fn a_figure_renders_one_trigger_per_moment() {
+        use ignition_song::chart::{ChartHit, Group as ChartGroup, HitChart};
+
+        let song = arrangement(8.0);
+        // Four moments, one of them struck twice at the same instant.
+        let at = |bar: u32, beat: f64| Bars::new(bar, beat);
+        let hits = vec![
+            ChartHit {
+                at: at(10, 1.0),
+                class: HitClass::High,
+                velocity: 100,
+                group: Some(0),
+            },
+            ChartHit {
+                at: at(10, 1.0),
+                class: HitClass::Low,
+                velocity: 90,
+                group: Some(0),
+            },
+            ChartHit {
+                at: at(10, 2.0),
+                class: HitClass::High,
+                velocity: 100,
+                group: Some(0),
+            },
+            ChartHit {
+                at: at(10, 3.0),
+                class: HitClass::High,
+                velocity: 100,
+                group: Some(0),
+            },
+            ChartHit {
+                at: at(10, 4.0),
+                class: HitClass::High,
+                velocity: 100,
+                group: Some(0),
+            },
+        ];
+        let chart = HitChart {
+            groups: vec![ChartGroup {
+                start: at(10, 1.0),
+                end: at(10, 4.0),
+                members: (0..hits.len()).collect(),
+            }],
+            hits,
+        };
+
+        let fired = triggers(&chart, &song);
+        assert!(!fired.is_empty(), "a charted figure rendered nothing");
+
+        // Five hits, four moments — the doubled instant is one.
+        let mut moments: Vec<Bars> = fired.iter().filter_map(|t| t.bars()).collect();
+        moments.sort_by(|a, b| a.partial_cmp(b).expect("charted bars compare"));
+        moments.dedup();
+        assert_eq!(moments.len(), 4, "moments: {moments:?}");
+
+        // Every trigger is named after its figure and placed where the
+        // chart put it, and none is left ringing past the figure: the
+        // last moment falls so the look comes back.
+        for trigger in &fired {
+            assert!(
+                trigger.name.starts_with("fig "),
+                "a figure's trigger is not named for it: {}",
+                trigger.name
+            );
+            assert!(trigger.recipe.timing.once, "a hit that would never stop");
+        }
+        let last = fired
+            .iter()
+            .filter(|t| t.bars() == Some(at(10, 4.0)))
+            .collect::<Vec<_>>();
+        assert!(!last.is_empty(), "the closing moment did not render");
+        assert!(
+            last.iter().all(|t| !t.hold),
+            "the figure's last moment holds, so the stage stays carved"
+        );
+    }
+
+    /// A louder class digs a deeper bump.
+    ///
+    /// Class is what says how big a hit is — velocity is charted but
+    /// deliberately not applied (`r[song.chart.class-is-intensity]`), so
+    /// the depth has to move with the class and nothing else.
+    ///
+    /// r[verify triggers.from-the-chart]
+    #[test]
+    fn a_bigger_class_digs_a_deeper_bump() {
+        assert!(
+            HitClass::High.weight() > HitClass::Kick.weight(),
+            "class weights do not order the tiers"
+        );
+
+        let depth = |class: HitClass| {
+            let recipe = bump(wash(), class, class.weight());
+            recipe
+                .steps
+                .iter()
+                .flat_map(|s| &s.apply)
+                .filter_map(|a| match a {
+                    RecipeApply::Delta(pairs) => pairs
+                        .iter()
+                        .find(|(attr, _)| *attr == Attribute::Dimmer)
+                        .map(|(_, v)| v.abs()),
+                    _ => None,
+                })
+                .fold(0.0f32, f32::max)
+        };
+
+        let soft = depth(HitClass::Kick);
+        let hard = depth(HitClass::High);
+        assert!(
+            hard > soft,
+            "a band hit is no deeper than a kick: {hard} vs {soft}"
+        );
+    }
+
     /// The real project, when it is on this machine.
     fn real() -> Option<(String, SongMap)> {
         let path = concat!(env!("HOME"), "/Downloads/Bye Bye Bye/Bye Bye Bye.RPP");

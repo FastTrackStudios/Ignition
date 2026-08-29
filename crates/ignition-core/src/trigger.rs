@@ -540,6 +540,139 @@ mod tests {
         assert_eq!(bus.live_count(), 0);
     }
 
+    /// The ringing set is capped, and it is the *oldest* that go.
+    ///
+    /// A scrub or a stall can sweep across more hits than a song has any
+    /// business ringing at once. What survives has to be the newest —
+    /// dropping the newest would silence the hit the operator just
+    /// heard, which is the one thing the cap must never do.
+    ///
+    /// r[verify triggers.bounded]
+    #[test]
+    fn the_ringing_set_is_capped_and_the_oldest_go_first() {
+        let many: Vec<Trigger> = (1..=MAX_LIVE as u32 + 8)
+            .map(|bar| trigger(bar, 1.0, 0.1))
+            .collect();
+        let last = many.last().expect("triggers").name.clone();
+        let mut bus = TriggerBus::new(many);
+
+        bus.locate(Bars::bar(1));
+        // One sweep over the whole song: every trigger crosses at once.
+        bus.advance(Bars::bar(MAX_LIVE as u32 + 9), 0.0);
+
+        assert_eq!(bus.live_count(), MAX_LIVE, "the cap did not hold");
+        assert_eq!(
+            bus.last_fired(),
+            Some(last.as_str()),
+            "the newest hit was dropped instead of the oldest"
+        );
+    }
+
+    /// A hit's envelope runs from the moment it fired, not from the
+    /// shared clock — `r[recipes.one-shot-clock]` applied to triggers.
+    ///
+    /// Fire the same hit at two different show times and it must look
+    /// identical at the same *age*. If the envelope read the shared
+    /// clock instead, a hit fired late in a set would arrive already
+    /// finished.
+    ///
+    /// r[verify triggers.own-clock]
+    #[test]
+    fn a_hit_runs_its_envelope_from_when_it_fired() {
+        let groups = pars();
+        let show = Show::new(&groups, &EMPTY_RIG);
+
+        let mut early = TriggerBus::new(vec![trigger(1, 2.0, 0.5)]);
+        early.locate(Bars::bar(1));
+        early.advance(Bars::new(1, 2.5), 0.0);
+        let at_birth = early.output(&show, 0.05)[&(1, Attribute::Dimmer)];
+
+        // The same hit, fired a minute into the show.
+        let mut late = TriggerBus::new(vec![trigger(1, 2.0, 0.5)]);
+        late.locate(Bars::bar(1));
+        late.advance(Bars::new(1, 2.5), 60.0);
+        let a_minute_in = late.output(&show, 60.05)[&(1, Attribute::Dimmer)];
+
+        assert!(
+            (at_birth - a_minute_in).abs() < 1e-4,
+            "the envelope followed the shared clock: {at_birth} then {a_minute_in}"
+        );
+    }
+
+    /// The overlay can say how many hits are ringing and which fired
+    /// last. "Was that hit fired, or did it do nothing" is the first
+    /// question at every rehearsal.
+    ///
+    /// r[verify triggers.visible]
+    #[test]
+    fn the_overlay_can_see_the_count_and_the_last_fired() {
+        let mut bus = TriggerBus::new(vec![trigger(1, 2.0, 0.5), trigger(1, 3.0, 0.5)]);
+        assert_eq!(bus.live_count(), 0);
+        assert_eq!(bus.last_fired(), None, "nothing has fired yet");
+
+        bus.locate(Bars::bar(1));
+        bus.advance(Bars::new(1, 2.5), 0.0);
+        assert_eq!(bus.live_count(), 1);
+        assert_eq!(bus.last_fired(), Some("hit 1.2"));
+
+        bus.advance(Bars::new(1, 3.5), 0.0);
+        assert_eq!(bus.live_count(), 2);
+        assert_eq!(
+            bus.last_fired(),
+            Some("hit 1.3"),
+            "the newer hit is the last"
+        );
+    }
+
+    /// Triggers sit at layer 5: above the cue player, below the hand.
+    ///
+    /// The fold itself lives in the visualizer's playback loop, but the
+    /// order it folds in is the part that matters and it is made of
+    /// these three pieces. A hit *adds* to what the show is doing — it
+    /// outranks the section it lands on without erasing it — and the
+    /// operator's hand replaces both.
+    ///
+    /// r[verify triggers.layer]
+    /// r[verify playback.stack]
+    #[test]
+    fn a_hit_is_above_the_cue_player_and_below_the_hand() {
+        use crate::programmer::Programmer;
+
+        let groups = pars();
+        let show = Show::new(&groups, &EMPTY_RIG);
+        let mut bus = TriggerBus::new(vec![trigger(1, 2.0, 0.3)]);
+        bus.locate(Bars::bar(1));
+        bus.advance(Bars::new(1, 2.5), 0.0);
+
+        // Layer 6: what the cue player is holding.
+        let mut out: HashMap<(ChanId, Attribute), f32> = HashMap::new();
+        out.insert((1, Attribute::Dimmer), 0.4);
+
+        // Layer 5: the hit, summed on top rather than replacing.
+        for (key, delta) in bus.output(&show, 0.0) {
+            *out.entry(key).or_insert(0.0) += delta;
+        }
+        let with_hit = out[&(1, Attribute::Dimmer)];
+        assert!(
+            with_hit > 0.4,
+            "the hit did not outrank the cue player: {with_hit}"
+        );
+
+        // Layer 1: the operator's hand, which replaces both.
+        // `new` rather than `default`: the default leaves the grand
+        // master at zero, and a desk whose controls start somewhere
+        // other than neutral makes every first look a surprise.
+        let mut hand = Programmer::new();
+        hand.selection = Some(Selection::Group("Pars".into()));
+        hand.apply(RecipeApply::Dimmer(1.0), &show);
+        hand.apply_to(&mut out, &show, 0.0);
+        let with_hand = out[&(1, Attribute::Dimmer)];
+        assert!(
+            (with_hand - 1.0).abs() < 1e-4,
+            "the hand did not outrank the hit: {with_hand}"
+        );
+    }
+
     /// A finished envelope is dropped, so the bus does not grow across a
     /// three-minute song.
     /// r[verify triggers.retire]

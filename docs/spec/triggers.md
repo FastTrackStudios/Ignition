@@ -123,9 +123,10 @@ duration and hands it back.
 r[triggers.wired]
 The trigger bus MUST be driven by the same transport that seeks the cue player,
 in the same frame, so a section cue and the hit on its downbeat land together.
-(Not yet built: the bus exists and is tested, but `authorshow` still emits hits
-as cues and the playback loop does not advance a bus. Migrating is the next
-step; the cue-based form keeps working until then.)
+`authorshow` writes hits into the show file's own `triggers` field and the
+playback loop advances the bus on the line above the player's seek; the charted
+song puts a hit on the downbeat of 96 of its cues, so this is the ordinary case
+rather than an edge one.
 
 ## Reporting
 
