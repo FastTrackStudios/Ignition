@@ -36,8 +36,13 @@ fixture with a `GoboWheel` channel and no profile gets the same set at uniform
 eight-byte steps. A `Prism1` channel in its "in" range splits the pattern into
 three decals thrown a few degrees off axis, 120 degrees apart, turning when
 the prism-rotation range is engaged; the spill light itself is not split.
-Bevy's volumetric fog does not read decals, so the shaft in the haze stays
-unbroken — only what lands on a surface carries the pattern.
+On the screen-space march, the fog does not read decals, so the shaft in the
+haze stays unbroken and only what lands on a surface carries the pattern. On
+the froxel path (`r[viz.haze-is-volumetric]`) the injection reads the same
+decals, so a gobo MUST also appear **in the air**: each froxel takes the
+stencil of the lamp whose gate the decal hangs from, sampled with the beam's
+radius at that depth so the pattern converges on the gate rather than running
+down the beam as a cylinder.
 
 r[viz.gdtf-meshes]
 A fixture with a GDTF profile MUST be drawn with that profile's **real
@@ -162,22 +167,62 @@ shows in the air is decided by the haze in the room, not per fixture:
   occluders' extinction on the haze camera, so the composite dims the room
   exactly as much as the fog lights it. At a dial of zero, or with no haze
   in the room, nothing shows in the air — only the pools on surfaces.
+- **The haze is uneven and it drifts.** A hazed room is not a
+  homogeneous medium: the output hangs in banks, thins where the air
+  moves, and crosses the stage all night. The room's density is
+  therefore multiplied by a tileable 3D noise texture scrolled slowly
+  over time (`FogVolume::density_texture` and `density_texture_offset`),
+  so a beam brightens and fades along its length instead of reading as a
+  clean bar. The texture MUST average one — both renderers multiply by
+  it, so any other average silently rescales the room and every
+  calibration above it. `IGNITION_HAZE_ANIMATE=0` returns the room to
+  one flat density, and `IGNITION_HAZE_SWING`, `IGNITION_HAZE_BANKS` and
+  `IGNITION_HAZE_DRIFT` shape it. What the air *looks* like is settings,
+  not a quality tier: these live in one resource that may change while
+  the show runs, and they are listed with every other dial in
+  `docs/ops/visualizer-dials.md`.
 - **Haze is a gain on scatter, not on extinction:** the fog's
   `light_intensity` lifts what the air scatters toward the camera so a par's
   cone reads at a density that leaves a twenty-metre house visible through
   it; extinction stays physical.
 
+Two implementations of that fog exist and MUST agree about the room's
+brightness — and until they demonstrably do, the screen-space raymarch is
+what ships. The other is a **froxel grid**: a frustum-aligned voxel grid,
+lit once per froxel rather than once per pixel per step, integrated front to
+back and sampled at each pixel's own depth. `IGNITION_FROXEL=1` selects it. The froxel path MUST carry the same lighting the march does —
+the same clustered light walk, spot cone, distance attenuation and shadow
+map — and MUST additionally read the gobo decals (`r[viz.gobo-raster]`), so
+a stencil shows in the air and not only where the beam lands. Because a
+beam's bright core is thinner than a froxel, the grid is sampled at more
+than one point per froxel and blended with the previous frame's grid,
+reprojected through the camera's motion; without both a beam renders as a
+dashed line down its own length.
+
 r[viz.quality-presets]
 The live picture is chosen by name from a ladder — `potato`, `low`,
 `medium`, `high`, `ultra` — set with `IGNITION_QUALITY` and defaulting to
 `medium`, which is what the studio has always rendered and must stay so
-byte for byte. Every dial remains overridable on its own
-(`IGNITION_FOG_STEPS`, `IGNITION_HAZE_PIXELS`, `IGNITION_FOG_SCALE`,
-`IGNITION_TAA`, `IGNITION_SSR`, `IGNITION_SSAO`), and a per-dial variable
-outranks the preset: a tier is for choosing a picture, an override is for
+byte for byte. Every dial remains overridable on its own — on the froxel path
+`IGNITION_FROXEL_GRID`, `IGNITION_FROXEL_SAMPLES` and
+`IGNITION_FROXEL_HISTORY`; on the march `IGNITION_FOG_STEPS`,
+`IGNITION_HAZE_PIXELS` and `IGNITION_FOG_SCALE`; and either way
+`IGNITION_TAA`, `IGNITION_SSR`, `IGNITION_SSAO` — and a per-dial
+variable outranks the preset: a tier is for choosing a picture, an override is for
 finding out what one dial costs on one GPU.
 
-Two dials carry the cost and they multiply — the raymarch's step count
+How far a beam *reads* is a look decision, not only a physical one. The
+fog's distance attenuation carries an exponent — `IGNITION_HAZE_DILUTION`,
+two being the physical inverse square — and lowering it carries a shaft
+further than its own falloff would, which is what a real room does for
+reasons a homogeneous medium does not model. It applies to the fog
+alone; surfaces stay physical either way.
+
+On the froxel path the cost is carried by the grid's shape and its samples
+per froxel: width buys a beam's *sharpness*, since the grid is filtered and
+a tile spanning sixteen screen pixels gives a beam a sixteen-pixel edge,
+while depth and samples buy its *continuity*. On the march, two dials carry
+the cost and they multiply — the raymarch's step count
 and how many pixels the haze camera may have — and they trade against
 exactly one thing: a mover's shaft staying a solid cone rather than
 breaking into a string of dots. A third dial exists only to serve that

@@ -153,6 +153,21 @@ beam-test:
       --camera {{quote(CAMERA)}} --width 2560 --height 1440 --snapshot {{BEAM_OUT}}
     @echo "wrote {{BEAM_OUT}}"
 
+# The whole beam matrix, both renderers, contact-sheeted.
+#
+# `beam-test` is one picture and it decides one dial. This is the set:
+# a cue per case — vertical, crossed, aimed at the house, long and short
+# throws, a par's mouth, and the whole rig at once — rendered through
+# the froxel grid and the screen-space march alike, because the two fail
+# differently and each was tuned against a case the other hides.
+#
+#   just beam-matrix                              both sheets into /tmp
+#   IGNITION_FOG_STEPS=256 just beam-matrix       what one march dial buys
+#   IGNITION_FROXEL_SAMPLES=4 just beam-matrix    what one froxel dial buys
+BEAM_MATRIX_OUT := "/tmp/ignition-beam-matrix"
+beam-matrix:
+    tools/beam_matrix.sh {{BEAM_MATRIX_OUT}} 1280 720
+
 # Everything the library panes draw, in one go.
 previews: look-previews effect-previews macro-previews
 

@@ -1,0 +1,365 @@
+{
+  "version": 1,
+  "profile": "Ignition",
+  "name": "Beam tests",
+  "about": "A matrix for judging what the air looks like, one cue per case, not a look. Each cue isolates one thing a beam artefact is known to depend on: the angle between the camera ray and the beam, the beam's length, whether it is a mover or a par, and how many fixtures are lit at once. Render the lot with `just beam-matrix`, which contact-sheets both renderers side by side. The point of a matrix rather than one picture is that the two paths fail differently \u2014 the screen-space march beads a beam it crosses, the froxel grid softens one, and neither shows up in the case the other was tuned against.",
+  "cues": [
+    {
+      "name": "vertical",
+      "about": "Overhead movers straight down. The worst case for any raymarch: the camera ray crosses the beam's width rather than running along its length, so a beam is only as continuous as the sampling allows.",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                },
+                {
+                  "FocusPoint": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "crossed steep",
+      "about": "The two ranks aimed across each other, off the vertical so an artefact that only shows at exactly ninety degrees is not mistaken for one that never shows.",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                },
+                {
+                  "FocusPoint": [
+                    -4.2,
+                    0.4,
+                    9.0
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        },
+        {
+          "target": {
+            "Group": "Beam Movers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                },
+                {
+                  "FocusPoint": [
+                    4.2,
+                    -0.4,
+                    9.0
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "toward the house",
+      "about": "Aimed back at the camera, so the ray runs *along* the beam instead of across it. The easy case: the same beam that beads when crossed is smooth here, which is how you tell a sampling artefact from a shading one.",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "OH Movers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                },
+                {
+                  "FocusPoint": [
+                    0.0,
+                    1.6,
+                    -12.0
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "long throw",
+      "about": "Aimed at the far corner. A long beam spans many depth slices and many raymarch steps, and its far end is where step size is largest.",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Beam Movers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                },
+                {
+                  "FocusPoint": [
+                    7.0,
+                    0.0,
+                    14.0
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "short throw",
+      "about": "Aimed at the deck just downstage. A short beam is where the near end of any exponential depth distribution is finest and a screen-space march's steps are shortest.",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Beam Movers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                },
+                {
+                  "FocusPoint": [
+                    0.0,
+                    0.0,
+                    2.0
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "single beam",
+      "about": "One rank only, at full. The cleanest read there is: nothing else in the air to confuse an edge with a crossing.",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Beam Movers"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                },
+                {
+                  "FocusPoint": [
+                    -2.0,
+                    0.2,
+                    8.0
+                  ]
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pars wide",
+      "about": "Pars, not movers. A par's cone is wide and short, and its artefact is at the *mouth* \u2014 the blocks at the apex that survived every step-count change.",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "Pars"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "everything",
+      "about": "Every fixture in the rig at full white. Not a picture, a load: the case where clusters are full and a froxel's light list is longest.",
+      "fade_secs": 0.0,
+      "block": true,
+      "recipes": [
+        {
+          "target": {
+            "Group": "Hazers"
+          },
+          "apply": {
+            "Dimmer": 1.0
+          }
+        },
+        {
+          "target": {
+            "Group": "All"
+          },
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Open White"
+                }
+              ],
+              "width": 1.0,
+              "transition": 0.0,
+              "ease": "Linear"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
