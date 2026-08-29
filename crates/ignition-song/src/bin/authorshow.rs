@@ -2171,6 +2171,169 @@ mod tests {
         );
     }
 
+    /// Band hits become one-shot triggers; the pulse classes get none.
+    ///
+    /// A note must not flash twice. `Kick` and `Snare` are the pattern
+    /// each section plays and are rendered as a running effect in the
+    /// look; if they also produced triggers, every backbeat would fire
+    /// a bump on top of the pulse already playing it. That half of
+    /// `r[song.chart.hit]` is what this pins.
+    ///
+    /// The other half does not hold as written, and the test says so
+    /// rather than asserting the code back at itself. The rule reads
+    /// "`Low`, `Medium` and `High` hits MUST become hits ... one per
+    /// charted note"; the renderer keeps only `High` and `Medium`, and
+    /// thins even those to the guide's density — at most one a bar, one
+    /// per two bars in a verse. Both are deliberate (see the comment
+    /// above `candidates`), so it is the spec that is behind the code,
+    /// not the code that is broken. Worth settling before either is
+    /// leaned on.
+    ///
+    /// r[verify song.chart.hit] - the pulse classes never double-fire
+    #[test]
+    fn band_hits_become_triggers_and_pulse_classes_do_not() {
+        use ignition_song::chart::{ChartHit, HitChart};
+
+        let song = arrangement(8.0);
+        let hit = |bar: u32, class: HitClass| ChartHit {
+            at: Bars::new(bar, 1.0),
+            class,
+            velocity: 100,
+            group: None,
+        };
+        let render = |hits: Vec<ChartHit>| -> Vec<u32> {
+            let chart = HitChart {
+                hits,
+                groups: Vec::new(),
+            };
+            triggers(&chart, &song)
+                .iter()
+                .filter_map(|t| t.bars())
+                .map(|b| b.bar)
+                .collect()
+        };
+
+        // One tier at a time, and far apart: the renderer thins hits to
+        // the guide's density, so two in one span would prove only that
+        // the louder of them won.
+        for (bar, class) in [(13, HitClass::Medium), (25, HitClass::High)] {
+            let bars = render(vec![hit(bar, class)]);
+            assert!(
+                bars.contains(&bar),
+                "the {class:?} hit in bar {bar} produced no trigger: {bars:?}"
+            );
+        }
+
+        // The pulse classes, on their own, produce nothing at all.
+        let bars = render(vec![hit(10, HitClass::Kick), hit(11, HitClass::Snare)]);
+        for pulsed in [10, 11] {
+            assert!(
+                !bars.contains(&pulsed),
+                "a pulse class also fired a trigger in bar {pulsed}, so the note flashes twice"
+            );
+        }
+    }
+
+    /// The pulse classes become a looping effect in the section's look,
+    /// and a section whose chart carries none gets none.
+    ///
+    /// A snare two to the bar for fifty-six bars is three hundred cues
+    /// saying "flash on two and four"; on a console it is one running
+    /// effect.
+    ///
+    /// r[verify song.chart.pulse]
+    #[test]
+    fn the_pulse_classes_become_one_looping_effect_per_section() {
+        use ignition_song::chart::{ChartHit, HitChart};
+
+        let song = arrangement(8.0);
+        // A backbeat through the first chorus: bars 23..31, on two and four.
+        let mut hits = Vec::new();
+        for bar in 23..31 {
+            for beat in [2.0, 4.0] {
+                hits.push(ChartHit {
+                    at: Bars::new(bar, beat),
+                    class: HitClass::Snare,
+                    velocity: 100,
+                    group: None,
+                });
+            }
+        }
+        let chart = HitChart {
+            hits,
+            groups: Vec::new(),
+        };
+
+        let chorus = pulses(&chart, &song, "CH 1");
+        assert!(!chorus.is_empty(), "a charted backbeat produced no pulse");
+        for recipe in &chorus {
+            assert!(
+                !recipe.timing.once,
+                "a pulse that does not loop is a one-shot, which is the other thing"
+            );
+        }
+
+        // The verse before it has no charted hits of its own.
+        let verse = pulses(&chart, &song, "VS 1");
+        assert!(
+            verse.is_empty(),
+            "a section with nothing charted was given a pulse anyway"
+        );
+    }
+
+    /// Zones are equal slices of the *room's* width, addressed by where
+    /// the light lands.
+    ///
+    /// Cut from the room rather than from whichever fixtures matched, so
+    /// "stage left" is the same place for a two-moment figure and a
+    /// six-moment one — and selected by coverage, because a front wash
+    /// hung over the left of the stage aims at the centre.
+    ///
+    /// r[verify song.chart.figure.zones]
+    #[test]
+    fn zones_are_equal_slices_of_the_room_selected_by_coverage() {
+        let bounds = |selection: &Selection| match selection {
+            Selection::Where {
+                filter: Where::Covers { min, max, .. },
+                ..
+            } => (min.x, max.x),
+            other => panic!("a zone is not a coverage filter: {other:?}"),
+        };
+
+        // Three zones tile the width, left to right, without gaps.
+        let (a_min, a_max) = bounds(&zone(0, 3));
+        let (b_min, b_max) = bounds(&zone(1, 3));
+        let (c_min, c_max) = bounds(&zone(2, 3));
+        assert!((a_max - b_min).abs() < 1e-9, "a gap between zones 0 and 1");
+        assert!((b_max - c_min).abs() < 1e-9, "a gap between zones 1 and 2");
+        assert!(
+            a_min < b_min && b_min < c_min,
+            "zones are not left to right"
+        );
+        assert!(
+            (c_max - -a_min).abs() < 1e-9,
+            "the zones are not centred on the room"
+        );
+
+        // The leftmost zone starts at the same edge however many there
+        // are: the slices come from the room, not from the figure.
+        let (two_min, _) = bounds(&zone(0, 2));
+        let (six_min, _) = bounds(&zone(0, 6));
+        assert!(
+            (two_min - six_min).abs() < 1e-9,
+            "the left edge moved with the moment count: {two_min} vs {six_min}"
+        );
+
+        // One moment addresses the whole wash rather than a third of it.
+        assert!(
+            matches!(
+                zone(0, 1),
+                Selection::Union(_) | Selection::Role(_) | Selection::Group(_)
+            ),
+            "a single-moment figure was given a slice"
+        );
+    }
+
     /// The real project, when it is on this machine.
     fn real() -> Option<(String, SongMap)> {
         let path = concat!(env!("HOME"), "/Downloads/Bye Bye Bye/Bye Bye Bye.RPP");
