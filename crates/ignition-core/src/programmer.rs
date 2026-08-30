@@ -2379,6 +2379,86 @@ mod tests {
         assert_eq!(scaled.size, 0.125);
     }
 
+    /// Two cues carrying the same chase both answer the operator's
+    /// size, and neither of them stores it.
+    ///
+    /// If size lived on the recipe, the show file would depend on where
+    /// somebody left a fader at the end of the last gig — and the two
+    /// cues here, which share one chase deliberately, would fight over
+    /// it: taking the second would silently rewrite what the first
+    /// does. So the number lives on the operator, and the file that
+    /// travels between rooms says nothing about it.
+    ///
+    /// r[verify recipes.live-control-is-not-stored]
+    #[test]
+    fn two_cues_sharing_a_chase_answer_the_operator_and_store_nothing() {
+        let groups = groups();
+        let venue = roles();
+        let show = show_with_roles(&groups, &venue);
+
+        let shared = Recipe {
+            target: Selection::Chans(vec![1]),
+            steps: vec![Step::new(vec![RecipeApply::Delta(vec![(
+                Attribute::Dimmer,
+                -0.5,
+            )])])],
+            timing: Timing::default(),
+            tricks: Vec::new(),
+            stack: false,
+            ..Default::default()
+        };
+
+        // The recipe as it goes into a show file: no operator state
+        // anywhere in it, at any depth.
+        let text = serde_json::to_string(&shared).expect("a recipe serialises");
+        for live in ["\"size\"", "\"rate\"", "\"speed_scale\""] {
+            assert!(
+                !text.contains(live),
+                "the recipe stores {live}, so the file now depends on where a fader was \
+                 left: {text}"
+            );
+        }
+
+        // Two faders carrying the same chase, and one size dial.
+        let mut p = Programmer::new();
+        for slot in [0, 1] {
+            p.set_fader(
+                slot,
+                Fader {
+                    name: format!("Chase {slot}"),
+                    recipe: Some(shared.clone()),
+                    level: 1.0,
+                    ..Default::default()
+                },
+            );
+        }
+
+        let run = |p: &Programmer| {
+            let mut out = HashMap::new();
+            out.insert((1, Attribute::Dimmer), 0.8);
+            p.apply_to(&mut out, &show, 0.0);
+            out[&(1, Attribute::Dimmer)]
+        };
+
+        let full = run(&p);
+        p.size = 0.5;
+        let half = run(&p);
+        assert!(
+            (full - half).abs() > 1e-3,
+            "the size dial did not reach a recipe it does not live on: {full} / {half}"
+        );
+
+        // And the recipes are still what they were — running them did
+        // not write the operator's dial back into either one.
+        for slot in [0, 1] {
+            assert_eq!(
+                p.faders[slot].recipe.as_ref(),
+                Some(&shared),
+                "taking a cue rewrote the chase it shares with the other"
+            );
+        }
+    }
+
     /// A held look beats the faders while the key is down and is gone
     /// the moment it is released — there is no envelope to wait out.
     #[test]

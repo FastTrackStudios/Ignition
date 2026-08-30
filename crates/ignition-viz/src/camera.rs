@@ -1003,6 +1003,125 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// A cut list addresses a setup's slots, and the shipped venue
+    /// ships the three the spec names.
+    ///
+    /// A show authored for eight cameras cuts to slot 8. Whether that
+    /// means anything is the venue's answer, not the show's, and it is
+    /// the file that has to be right: a setup with a hole in it, or one
+    /// naming a preset that was renamed, resolves to nothing and the
+    /// cut silently does not happen.
+    ///
+    /// r[verify viz.camera-setups]
+    #[test]
+    fn a_cut_list_addresses_a_setups_slots_and_the_shipped_setups_are_whole() {
+        let mut c = cameras();
+        c.setups.push(CameraSetup {
+            name: "four".into(),
+            slots: vec![
+                "Wide".into(),
+                "Singer".into(),
+                "Drums".into(),
+                "Bird's eye".into(),
+            ],
+        });
+
+        // The same slot number is a different camera under each setup,
+        // and different again with no setup at all.
+        assert_eq!(c.slot(3, Some("four")), Some("Drums"));
+        assert_eq!(c.slot(3, Some("two")), None, "a two-camera setup has no slot 3");
+        assert_eq!(c.slot(3, None), Some("Drums"), "no setup: the favourites");
+        assert_eq!(c.slot(2, Some("two")), Some("Singer"));
+
+        // And a cut resolves through the setup that is active.
+        let target = CameraTarget::Slot(2);
+        assert_eq!(
+            c.resolve(&target, Some("four")).map(|p| p.name.as_str()),
+            Some("Singer")
+        );
+
+        // The shipped room ships `two`, `four` and `eight`, each whole.
+        let dir = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/venues/norco"
+        ));
+        let Ok(Some(shipped)) = Cameras::load(dir) else {
+            return; // repo data absent — a runner outside the checkout
+        };
+        for (name, count) in [("two", 2), ("four", 4), ("eight", 8)] {
+            let setup = shipped
+                .setups
+                .iter()
+                .find(|s| s.name == name)
+                .unwrap_or_else(|| panic!("norco ships no {name:?} setup"));
+            assert_eq!(setup.slots.len(), count, "{name} is not {count} cameras");
+            for (i, slot) in setup.slots.iter().enumerate() {
+                assert!(
+                    shipped.preset(slot).is_some(),
+                    "{name} slot {} names {slot:?}, which this room has no preset for",
+                    i + 1
+                );
+            }
+        }
+        assert!(
+            shipped.dangling().is_empty(),
+            "norco's cameras name presets it does not have: {:?}",
+            shipped.dangling()
+        );
+    }
+
+    /// The main view keeps its own wide preset while the cuts go
+    /// somewhere else, and nothing pays for a programme camera nobody
+    /// is looking at.
+    ///
+    /// The pair is the rule: an operator docks the whole rig beside the
+    /// cut, so the cut must not drag the wide view along with it — and
+    /// a lone viewport, which is most of the time, must not be
+    /// rendering a second camera into a texture no one reads.
+    ///
+    /// r[verify viz.programme-view]
+    #[test]
+    fn the_wide_view_holds_while_the_cuts_move_and_an_unwatched_programme_costs_nothing() {
+        let mut active = ActiveCamera::new(
+            cameras(),
+            Some("Wide"),
+            CameraState::new(Vec3::ZERO, Vec3::Y, 60.0),
+            100.0,
+        );
+
+        // The wide view is selectable and its own choice.
+        assert_eq!(active.wide_name().as_deref(), Some("Wide"), "the first favourite");
+        assert!(active.set_wide(&CameraTarget::Preset("Bird's eye".into())));
+        assert_eq!(active.wide_name().as_deref(), Some("Bird's eye"));
+
+        // A cut moves what the programme camera shows...
+        assert!(active.cut_to(&CameraTarget::Slot(2), 0.0, 0.0, 120.0));
+        assert_eq!(active.preset.as_deref(), Some("Singer"));
+        let singer = active.cameras.preset("Singer").expect("Singer").state();
+        assert_eq!(active.state_at(0.0).eye, singer.eye);
+
+        // ...and leaves the wide view where the operator put it, which
+        // is what makes the two panes worth having.
+        assert_eq!(active.wide_name().as_deref(), Some("Bird's eye"));
+
+        // The second camera exists only while something shows it.
+        let mut view = ProgrammeView {
+            target: Handle::default(),
+            size: SOURCE_SIZE,
+            host_wants: false,
+            canvas_wants: false,
+            camera: None,
+        };
+        assert!(!view.wanted(), "a lone viewport pays for no second camera");
+        view.host_wants = true;
+        assert!(view.wanted());
+        view.host_wants = false;
+        view.canvas_wants = true;
+        assert!(view.wanted(), "a canvas sampling it is reason enough");
+        view.canvas_wants = false;
+        assert!(!view.wanted());
+    }
+
     /// r[verify viz.camera-favourites] - keys 1..9 then 0, and a setup overrides the favourites
     #[test]
     fn slots_map_the_keys_and_setups_override_favourites() {
