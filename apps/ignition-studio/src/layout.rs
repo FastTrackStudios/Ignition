@@ -693,4 +693,57 @@ mod tests {
         };
         assert_eq!(spec.title(), "Ignition Studio — Visualizer, Transport");
     }
+
+    /// Every panel the spec names still opens, and each one lands on
+    /// panes rather than nothing.
+    ///
+    /// The dock replaced the flat panel list, but layout files written
+    /// before it are still on operators' disks. A name that quietly
+    /// mapped to nothing would open an empty window and look like a
+    /// broken layout rather than a migration that missed one.
+    ///
+    /// r[verify studio.panels]
+    #[test]
+    fn every_named_panel_still_opens_onto_panes() {
+        let named = [
+            Panel::CueList,
+            Panel::Visualizer,
+            Panel::Transport,
+            Panel::Busking,
+            Panel::Palettes,
+            Panel::Library,
+            Panel::Programmer,
+            Panel::CommandLine,
+            Panel::Output,
+            Panel::Canvases,
+            Panel::Cameras,
+            Panel::Lyrics,
+        ];
+        for panel in named {
+            assert!(
+                !panel.panes().is_empty(),
+                "{panel:?} migrates to no pane, so an old layout naming it opens empty"
+            );
+        }
+
+        // And a panel is not tied to one window: the same pane kind can
+        // be placed in any of them, which is what "each of which can
+        // live in any window" means for the dock.
+        let anywhere = Panel::Visualizer.panes();
+        for placement in [
+            Placement::Fullscreen,
+            Placement::Docked {
+                region: Region::Right,
+                fraction: 0.5,
+            },
+        ] {
+            let spec = WindowSpec {
+                monitor: String::new(),
+                placement,
+                tree: DockNode::tabs(anywhere.clone()),
+                view: View::Program,
+            };
+            assert!(!spec.tree.panes().is_empty(), "a pane refused a window");
+        }
+    }
 }

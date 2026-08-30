@@ -463,3 +463,91 @@ where
         self.shared.record(name, busy, own);
     }
 }
+
+#[cfg(test)]
+mod spec_tests {
+    use super::*;
+
+    /// The studio can say where a frame went, and the stages it names
+    /// cover the whole of one.
+    ///
+    /// The reason the loop stages are in here at all is that the render
+    /// and document stages together accounted for barely half a studio
+    /// frame, and the missing half turned out to *be* the answer. A
+    /// profiler that measures the parts somebody already suspected is
+    /// the one that finds nothing.
+    ///
+    /// r[verify studio.profiling]
+    #[test]
+    fn every_stage_of_a_frame_is_named_and_carries_one_target() {
+        for stage in [
+            // Blitz's style, layout, scene build and submit.
+            "blitz.style",
+            "blitz.layout",
+            "blitz.scene",
+            "blitz.submit",
+            // The visualizer's command drain, main-world step, render.
+            "viz.commands",
+            "viz.step",
+            "viz.render",
+            // And the loop around them, which is where the missing half
+            // of the frame was.
+            "loop.window_event",
+            "loop.wait",
+        ] {
+            assert!(
+                STAGES.contains(&stage),
+                "`{stage}` is not a measured stage, so a frame spent there is invisible"
+            );
+        }
+
+        // One target for all of them, so a single directive turns the
+        // profiler on wherever the spans live — including inside the
+        // vendored Blitz crates, whose own logging nobody wants turned
+        // up to reach them.
+        assert_eq!(TARGET, "ignition::profile");
+    }
+
+    /// `IGNITION_PROFILE` is what installs the spans, and without it
+    /// nothing is constructed at all.
+    ///
+    /// A span below the filter's level is never built, so a profiler
+    /// with nothing to say looks exactly like a fast frame. That is the
+    /// failure this dial has to avoid on both sides: off means no cost,
+    /// on means the spans actually exist.
+    ///
+    /// r[verify studio.profiling]
+    #[test]
+    fn the_profile_dial_turns_the_spans_on_and_off() {
+        // Serialised against the other env-reading test in this module
+        // by being the only one that touches it.
+        let restore = std::env::var("IGNITION_PROFILE").ok();
+
+        unsafe { std::env::remove_var("IGNITION_PROFILE") };
+        assert!(
+            filter_directives().is_empty(),
+            "the profiler costs something when nobody asked for it"
+        );
+
+        for on in ["1", "stages", "true", "on"] {
+            unsafe { std::env::set_var("IGNITION_PROFILE", on) };
+            assert!(
+                filter_directives().contains(&"ignition::profile=info"),
+                "`IGNITION_PROFILE={on}` did not raise the stage spans into existence"
+            );
+        }
+
+        unsafe { std::env::set_var("IGNITION_PROFILE", "all") };
+        let all = filter_directives();
+        assert!(all.contains(&"ignition::profile=info"));
+        assert!(
+            all.iter().any(|d| d.starts_with("bevy_")),
+            "`all` does not reach Bevy's own spans, which is what it is for"
+        );
+
+        match restore {
+            Some(value) => unsafe { std::env::set_var("IGNITION_PROFILE", value) },
+            None => unsafe { std::env::remove_var("IGNITION_PROFILE") },
+        }
+    }
+}
