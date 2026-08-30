@@ -1,0 +1,899 @@
+{
+ "looks": {
+  "purple": {
+   "kind": "Full",
+   "about": "the whole rig purple",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Movers"
+       },
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Beams"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.85
+        },
+        {
+         "Color": "Purple"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "red": {
+   "kind": "Full",
+   "about": "the whole rig red",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Movers"
+       },
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Beams"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.85
+        },
+        {
+         "Color": "Red"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "green": {
+   "kind": "Full",
+   "about": "the whole rig green",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Movers"
+       },
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Beams"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.85
+        },
+        {
+         "Color": "Green"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "blue": {
+   "kind": "Full",
+   "about": "the whole rig blue",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Movers"
+       },
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Beams"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.85
+        },
+        {
+         "Color": "Blue"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "orange": {
+   "kind": "Full",
+   "about": "the whole rig orange",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Movers"
+       },
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Beams"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.85
+        },
+        {
+         "Color": "Amber"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "white stage": {
+   "kind": "Full",
+   "about": "everything open white at full — the work light of looks",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Movers"
+       },
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Beams"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 1.0
+        },
+        {
+         "Color": "Open White"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "red and green": {
+   "kind": "Full",
+   "about": "red on the faces and wash, green behind — two colours, not their average",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.85
+        },
+        {
+         "Color": "Red"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Beams"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.85
+        },
+        {
+         "Color": "Green"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "rainbow": {
+   "kind": "Full",
+   "about": "the rainbow palette spread across the rig",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Movers"
+       },
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Beams"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.85
+        },
+        {
+         "Split": "Rainbow"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "silhouette": {
+   "kind": "Bed",
+   "about": "no front light at all — the band as shapes against a lit back wall",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       }
+      ]
+     },
+     "apply": {
+      "Dimmer": 0.0
+     }
+    },
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Bars"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.9
+        },
+        {
+         "Color": "Deep Blue"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "split wash": {
+   "kind": "Bed",
+   "about": "warm on the faces, cool behind — depth from two temperatures rather than one level",
+   "recipes": [
+    {
+     "target": {
+      "Role": "Key"
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.75
+        },
+        {
+         "Color": "Warm White"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "target": {
+      "Role": "Wash"
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.5
+        },
+        {
+         "Color": "Cool White"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Bars"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.6
+        },
+        {
+         "Color": "Congo"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "ember": {
+   "kind": "Bed",
+   "about": "low amber with the flicker running — a room burning down slowly",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.35
+        },
+        {
+         "Color": "Deep Amber"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Back"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.5
+        },
+        {
+         "Color": "Red"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "effect": "fire flicker",
+     "target": {
+      "Union": [
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Back"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "deep water": {
+   "kind": "Bed",
+   "about": "the room under water: cool and slow, the wash breathing",
+   "recipes": [
+    {
+     "target": {
+      "Role": "Key"
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.4
+        },
+        {
+         "Color": "Cool White"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.7
+        },
+        {
+         "Color": "Cyan"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "target": {
+      "Role": "Bars"
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.6
+        },
+        {
+         "Color": "Deep Blue"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "effect": "breathe",
+     "target": {
+      "Union": [
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "hot pursuit": {
+   "kind": "Full",
+   "about": "hot front, movers running a circle — the chorus look that is all motion",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.9
+        },
+        {
+         "Color": "Hot"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "target": {
+      "Role": "Movers"
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 1.0
+        },
+        {
+         "Color": "Open White"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "effect": "circle",
+     "target": {
+      "Role": "Movers"
+     }
+    },
+    {
+     "target": {
+      "Role": "Bars"
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.8
+        },
+        {
+         "Color": "Magenta"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "cold open": {
+   "kind": "Punt",
+   "about": "one cold shaft and nothing else — for a first line before the band comes in",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Bars"
+       }
+      ]
+     },
+     "apply": {
+      "Dimmer": 0.0
+     }
+    },
+    {
+     "target": {
+      "Role": "Key"
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.85
+        },
+        {
+         "Color": "Cool White"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "house lights": {
+   "kind": "Safe",
+   "about": "the room up, the stage down — between sets",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       },
+       {
+        "Role": "Back"
+       },
+       {
+        "Role": "Movers"
+       },
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Beams"
+       }
+      ]
+     },
+     "apply": {
+      "Dimmer": 0.0
+     }
+    },
+    {
+     "target": {
+      "Role": "House Lights"
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 0.9
+        },
+        {
+         "Color": "Open White"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  "strobe wall": {
+   "kind": "Full",
+   "about": "the back wall alone, hitting on every beat",
+   "recipes": [
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Key"
+       },
+       {
+        "Role": "Wash"
+       }
+      ]
+     },
+     "apply": {
+      "Dimmer": 0.0
+     }
+    },
+    {
+     "target": {
+      "Union": [
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Back"
+       }
+      ]
+     },
+     "steps": [
+      {
+       "apply": [
+        {
+         "Dimmer": 1.0
+        },
+        {
+         "Color": "Open White"
+        }
+       ],
+       "ease": "Linear",
+       "transition": 0.0,
+       "width": 1.0
+      }
+     ]
+    },
+    {
+     "effect": "bar tick",
+     "target": {
+      "Union": [
+       {
+        "Role": "Bars"
+       },
+       {
+        "Role": "Back"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

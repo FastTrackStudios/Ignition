@@ -1,98 +1,166 @@
 {
-  "name": "cody",
-  "windows": [
-    {
-      "monitor": "DP-5",
-      "placement": "fullscreen",
-      "tree": {
-        "tabs": {
-          "panes": [
-            "cue_list"
-          ],
-          "active": 0
-        }
+ "favourites": {},
+ "name": "cody",
+ "windows": [
+  {
+   "monitor": "DP-5",
+   "placement": "fullscreen",
+   "tree": {
+    "split": {
+     "axis": "col",
+     "children": [
+      {
+       "tabs": {
+        "active": 0,
+        "panes": [
+         "cue_list"
+        ]
+       }
       },
-      "view": "live"
-    },
-    {
-      "monitor": "DP-4",
-      "placement": {
-        "docked": {
-          "region": "right",
-          "fraction": 0.5
-        }
-      },
-      "tree": {
-        "split": {
-          "axis": "col",
-          "ratios": [
-            0.8,
-            0.2
-          ],
-          "children": [
-            {
-              "tabs": {
-                "panes": [
-                  "visualizer"
-                ],
-                "active": 0
-              }
-            },
-            {
-              "tabs": {
-                "panes": [
-                  "transport"
-                ],
-                "active": 0
-              }
-            }
-          ]
-        }
+      {
+       "tabs": {
+        "active": 0,
+        "panes": [
+         "transport"
+        ]
+       }
       }
-    },
-    {
-      "monitor": "DP-3",
-      "placement": "fullscreen",
-      "tree": {
-        "split": {
-          "axis": "col",
-          "ratios": [
-            0.73,
-            0.27
-          ],
-          "children": [
-            {
-              "split": {
-                "axis": "row",
-                "ratios": [
-                  0.2,
-                  0.2,
-                  0.2,
-                  0.2,
-                  0.2
-                ],
-                "children": [
-                  { "tabs": { "panes": ["looks"], "active": 0 } },
-                  { "tabs": { "panes": ["groups"], "active": 0 } },
-                  { "tabs": { "panes": ["colours"], "active": 0 } },
-                  { "tabs": { "panes": ["focus"], "active": 0 } },
-                  { "tabs": { "panes": ["effects"], "active": 0 } }
-                ]
-              }
-            },
-            {
-              "tabs": {
-                "panes": [
-                  "faders"
-                ],
-                "active": 0
-              }
-            }
-          ]
-        }
-      },
-      "view": "live"
+     ],
+     "ratios": [
+      0.9549999833106996,
+      0.04500000178813934
+     ]
     }
-  ],
-  "favourites": {}
+   },
+   "view": "live"
+  },
+  {
+   "monitor": "DP-4",
+   "placement": "fullscreen",
+   "tree": {
+    "split": {
+     "axis": "row",
+     "ratios": [
+      0.5,
+      0.5
+     ],
+     "children": [
+      {
+       "tabs": {
+        "panes": [
+         "programme"
+        ],
+        "active": 0
+       }
+      },
+      {
+       "tabs": {
+        "panes": [
+         "visualizer"
+        ],
+        "active": 0
+       }
+      }
+     ]
+    }
+   },
+   "view": "program"
+  },
+  {
+   "monitor": "DP-3",
+   "placement": "fullscreen",
+   "tree": {
+    "split": {
+     "axis": "col",
+     "children": [
+      {
+       "split": {
+        "axis": "row",
+        "children": [
+         {
+          "tabs": {
+           "panes": [
+            "looks"
+           ],
+           "active": 0
+          }
+         },
+         {
+          "tabs": {
+           "panes": [
+            "groups"
+           ],
+           "active": 0
+          }
+         },
+         {
+          "tabs": {
+           "panes": [
+            "colours"
+           ],
+           "active": 0
+          }
+         },
+         {
+          "tabs": {
+           "panes": [
+            "focus"
+           ],
+           "active": 0
+          }
+         },
+         {
+          "tabs": {
+           "panes": [
+            "effects"
+           ],
+           "active": 0
+          }
+         },
+         {
+          "tabs": {
+           "panes": [
+            "movers"
+           ],
+           "active": 0
+          }
+         },
+         {
+          "tabs": {
+           "panes": [
+            "macros"
+           ],
+           "active": 0
+          }
+         }
+        ],
+        "ratios": [
+         0.36,
+         0.07,
+         0.11,
+         0.07,
+         0.2,
+         0.095,
+         0.095
+        ]
+       }
+      },
+      {
+       "tabs": {
+        "active": 0,
+        "panes": [
+         "faders"
+        ]
+       }
+      }
+     ],
+     "ratios": [
+      0.7300000190734863,
+      0.27000001072883606
+     ]
+    }
+   },
+   "view": "live"
+  }
+ ]
 }

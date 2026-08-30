@@ -11,3 +11,12 @@ result-*
 *.a3d
 /.direnv/
 tools/__pycache__/
+
+# Effect previews: 131 effects x 16 frames of 320x180 PNG is ~175MB, and
+# PNGs do not delta-compress, so every regeneration would add that again
+# to the history. They are a build artifact — deterministic from the
+# profile, two minutes of GPU to remake (`just effect-previews`) — and a
+# missing one degrades to a row with no thumbnail rather than an error.
+# The looks' four stills stay committed; they are a quarter of a megabyte.
+data/effects/previews/
+data/macros/previews/

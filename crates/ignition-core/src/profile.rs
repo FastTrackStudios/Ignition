@@ -479,6 +479,13 @@ pub struct EffectNote {
 pub struct VenueProfile {
     // r[impl profile.venue-declares-what-it-implements]
     /// Which profile this venue claims to implement.
+    ///
+    /// Empty is a legitimate answer, and the field is optional in the
+    /// file for the same reason: a room programmed directly against its
+    /// own group names implements no profile, and it still has bindings
+    /// worth writing down. What it gives up by saying nothing here is
+    /// being checked — a visible absence, not a parse error.
+    #[serde(default)]
     pub profile: String,
     #[serde(default)]
     pub groups: BTreeMap<String, crate::Selection>,
@@ -1301,6 +1308,131 @@ mod tests {
     #[test]
     fn the_default_profile_declares_no_area() {
         assert!(default_profile().vocabulary(RoleKind::Area).is_empty());
+    }
+
+    /// A role no line of this code knows about is bound by a venue no
+    /// line of this code knows about, and the check still works.
+    ///
+    /// This is what "a trait, not an enum" buys, stated as the thing it
+    /// prevents: adding a role must be editing a data file, and adding
+    /// a *kind* of venue must be implementing five methods — never a
+    /// patch to a match arm in here. The bindings below come from a
+    /// plain set standing in for whatever a future venue reads from,
+    /// and the role name is one a church would want and this file has
+    /// never heard of.
+    ///
+    /// r[verify profile.trait-not-hardcode]
+    #[test]
+    fn a_role_and_a_venue_this_code_has_never_heard_of_check_against_each_other() {
+        struct Elsewhere(std::collections::HashSet<&'static str>);
+        impl Bindings for Elsewhere {
+            fn has_group(&self, name: &str) -> bool {
+                self.0.contains(name)
+            }
+            fn has_focus(&self, _: &str) -> bool {
+                false
+            }
+            fn has_canvas(&self, _: &str) -> bool {
+                false
+            }
+            fn has_area(&self, _: &str) -> bool {
+                false
+            }
+        }
+
+        let profile = Profile::parse(
+            r#"{"name":"church","roles":[
+                {"name":"Baptistry","kind":"Group","required":true},
+                {"name":"Choir Loft","kind":"Group","required":true}
+            ]}"#,
+        )
+        .expect("a profile is a data file");
+
+        let half_patched = Elsewhere(["Baptistry"].into_iter().collect());
+        assert!(!profile.satisfied_by(&half_patched));
+        let gaps = profile.gaps(&half_patched);
+        assert_eq!(gaps.len(), 1, "{gaps:?}");
+        assert_eq!(gaps[0].role, "Choir Loft");
+
+        let finished = Elsewhere(["Baptistry", "Choir Loft"].into_iter().collect());
+        assert!(
+            profile.satisfied_by(&finished),
+            "a venue this code does not know satisfied nothing, so the interface is not \
+             really a trait"
+        );
+    }
+
+    /// A venue names the profile it implements, and one that names none
+    /// still loads.
+    ///
+    /// The second half is the point. A room programmed directly against
+    /// its own group names is a legitimate room; what it gives up by
+    /// declaring no profile is being *checked*, and that has to be a
+    /// visible absence rather than a load error.
+    ///
+    /// r[verify profile.venue-declares-what-it-implements]
+    #[test]
+    fn a_venue_names_its_profile_and_one_that_names_none_still_loads() {
+        let declared: VenueProfile = serde_json::from_str(
+            r#"{"profile":"ignition","groups":{"Key":{"Group":"Front Truss"}}}"#,
+        )
+        .expect("a venue profile parses");
+        assert_eq!(declared.profile, "ignition");
+        assert!(declared.has_group("Key"));
+
+        let anonymous: VenueProfile =
+            serde_json::from_str(r#"{"groups":{"Key":{"Group":"Front Truss"}}}"#)
+                .expect("a venue implementing no profile is still a venue");
+        assert!(
+            anonymous.profile.is_empty(),
+            "a venue that claims nothing must say so plainly, so a checker can tell the \
+             difference between unchecked and passing"
+        );
+        assert!(anonymous.has_group("Key"), "and it still binds its names");
+    }
+
+    /// Binding the focus point does not bind the area.
+    ///
+    /// A venue binds an area *by* a focus-point name, which is exactly
+    /// why the two could quietly collapse into one lookup. They must
+    /// not: a focus point answers "where do I aim", an area answers
+    /// "where is the talent", and the day something wants the fixtures
+    /// that *cover* a region rather than the aim that reaches its
+    /// centre, the distinction has to already be in the files.
+    ///
+    /// r[verify profile.areas.not-a-focus-point]
+    #[test]
+    fn a_venue_that_binds_a_focus_point_has_not_thereby_bound_an_area() {
+        let venue: VenueProfile = serde_json::from_str(
+            r#"{"profile":"ignition","focus":{"Centre":"Downstage Centre"}}"#,
+        )
+        .expect("a venue profile parses");
+
+        assert!(venue.has_focus("Centre"));
+        assert!(
+            !venue.has_area("Centre"),
+            "the focus binding answered an area question, so the two kinds are one lookup"
+        );
+
+        let profile = Profile::parse(
+            r#"{"name":"stage","roles":[
+                {"name":"Centre","kind":"Focus","required":true},
+                {"name":"Centre","kind":"Area","required":true}
+            ]}"#,
+        )
+        .expect("a profile may require both of a name");
+        let gaps = profile.gaps(&venue);
+        assert_eq!(gaps.len(), 1, "{gaps:?}");
+        assert_eq!(gaps[0].kind, RoleKind::Area);
+
+        // And binding the area — to the very same focus point — closes it.
+        let both: VenueProfile = serde_json::from_str(
+            r#"{"profile":"ignition","focus":{"Centre":"Downstage Centre"},
+                "areas":{"Centre":"Downstage Centre"}}"#,
+        )
+        .expect("parses");
+        assert!(profile.satisfied_by(&both));
+        assert_eq!(both.area("Centre"), Some("Downstage Centre"));
     }
 
     /// r[verify profile.several-may-exist]

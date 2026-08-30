@@ -19,6 +19,11 @@ ignition-proto.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow = "1"
+# The effect previews step their frames on a timer. Not tokio: this
+# crate is also compiled to wasm for the iPad's Live view, and
+# `futures-timer` is the one that works on both without assuming a
+# runtime.
+futures-timer = "3"
 tracing = "0.1"
 # Same rev as the studio — the two have to agree on one Dioxus.
 dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false, features = ["lib"] }
