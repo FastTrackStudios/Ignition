@@ -1,0 +1,90 @@
+/* Ignition — dark console styling. Inline-ish and self-contained: the app
+   pulls no shared theme crate, so it has no cross-repo asset dependency. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0b0b0d;
+  --panel: #151517;
+  --line: #26262b;
+  --text: #ececf0;
+  --dim: #8a8a94;
+  --amber: #ff8a2b;
+  --amber-dim: #7a3f10;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+.body { flex: 1; overflow-y: auto; padding: 16px 16px 0; }
+
+.head { margin-bottom: 14px; }
+.head h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+.sub { color: var(--dim); font-size: 13px; }
+
+.cuelist { list-style: none; margin-bottom: 18px; }
+.cue {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 14px; margin-bottom: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+}
+.cue.active { border-color: var(--amber); background: var(--amber-dim); }
+.cue-name { font-weight: 550; }
+.cue-fade { color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* Six dimmer meters. Fixed height so the fill reads as a level, not as
+   layout shifting under the row. */
+.levels {
+  display: flex; gap: 8px; align-items: flex-end;
+  height: 110px; margin-bottom: 18px;
+}
+.meter {
+  position: relative; flex: 1; height: 100%;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; overflow: hidden;
+}
+.meter-fill {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, var(--amber), #ffc48a);
+  transition: height 120ms linear;
+}
+.meter-label {
+  position: absolute; bottom: 4px; left: 0; right: 0;
+  text-align: center; font-size: 11px; color: var(--dim);
+}
+
+.go {
+  width: 100%; padding: 18px; margin-bottom: 16px;
+  background: var(--amber); color: #1a0d02;
+  border: none; border-radius: 12px;
+  font-size: 19px; font-weight: 700; letter-spacing: 0.06em;
+}
+.go:active { opacity: 0.75; }
+
+.rows { list-style: none; }
+.row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 14px; margin-bottom: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+}
+.chan {
+  min-width: 26px; text-align: center;
+  color: var(--amber); font-weight: 650; font-variant-numeric: tabular-nums;
+}
+.name { flex: 1; }
+.addr { color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* Tab bar sits above the home indicator. */
+.tabs {
+  display: flex; border-top: 1px solid var(--line);
+  background: var(--panel); padding-bottom: env(safe-area-inset-bottom);
+}
+.tab {
+  flex: 1; padding: 14px 0; text-align: center;
+  color: var(--dim); text-decoration: none; font-size: 13px; font-weight: 550;
+}
+.tab:active { color: var(--amber); }
