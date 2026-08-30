@@ -2465,6 +2465,19 @@ impl CueCook {
         }
     }
 
+    /// Nothing in this cue resolves to a fixture.
+    ///
+    /// Narrower than `Status::Failed`, which one empty recipe among
+    /// live ones is enough for: a room that lacks one role should not
+    /// make every cue mentioning it look dead. This is the cue that
+    /// will do *nothing* when it is taken, which is the one worth a
+    /// line at load — and only a line, because a room legitimately
+    /// missing a role is not a reason to refuse to open the show.
+    // r[impl cues.dead-cue-warns] - what "resolves to nothing" means; the caller warns and carries on
+    pub fn is_dead(&self) -> bool {
+        !self.recipes.is_empty() && self.recipes.iter().all(|c| *c == Cook::Empty)
+    }
+
     /// A compact marker for a cue sheet or a status line.
     ///
     /// MA3 shows these as coloured pots; this is the monochrome port.
@@ -2984,6 +2997,61 @@ mod tests {
             "the recipe naming an unknown group looked fine, which is the \
              failure this affordance exists to catch: {:?}",
             cooked.recipes
+        );
+    }
+
+    /// A cue that resolves to nothing is picked out by name, and
+    /// cooking the list to find it never fails.
+    ///
+    /// Both halves matter. A show opened in a room that lacks a role is
+    /// still the show, so the load carries on; but a cue that will do
+    /// nothing at all when its GO is pressed is worth one line before
+    /// the doors open rather than a puzzled look from the stage. The
+    /// line is narrow on purpose — one empty recipe among live ones is
+    /// a cue that still does something.
+    ///
+    /// r[verify cues.dead-cue-warns]
+    #[test]
+    fn a_cue_that_resolves_to_nothing_is_named_and_the_load_goes_on() {
+        let groups = groups();
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
+
+        let dead = Cue {
+            name: "Balcony Specials".to_string(),
+            recipes: vec![
+                Recipe::new(
+                    Selection::Group("nothing-here".to_string()),
+                    RecipeApply::Dimmer(1.0),
+                )
+                .into(),
+            ],
+            ..Default::default()
+        };
+        let mut half = dead.clone();
+        half.name = "Chorus".to_string();
+        half.recipes.push(
+            Recipe::new(
+                Selection::Group("Pars".to_string()),
+                RecipeApply::Dimmer(1.0),
+            )
+            .into(),
+        );
+        let blackout = Cue {
+            name: "Blackout".to_string(),
+            ..Default::default()
+        };
+
+        let cooked = cook_list(&[dead, half, blackout], &show, 0.0);
+        let named: Vec<&str> = cooked
+            .iter()
+            .filter(|c| c.is_dead())
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(
+            named,
+            ["Balcony Specials"],
+            "the report either missed the dead cue or swept in cues that still do \
+             something: {cooked:?}"
         );
     }
 

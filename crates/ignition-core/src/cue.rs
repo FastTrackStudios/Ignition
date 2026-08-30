@@ -3383,6 +3383,114 @@ mod tests {
         );
     }
 
+    /// A one-shot fired late in a long show still lands.
+    ///
+    /// `compact` renumbers the live recipes every GO. When the take
+    /// times were held in a second vector keyed by that number, they
+    /// were not renumbered with them: after the first compaction a hit
+    /// read some earlier recipe's stamp, measured its envelope from a
+    /// take minutes ago, judged itself finished and withdrew in the
+    /// frame it was fired. From the stage that was the hit doing
+    /// nothing while the chase underneath went on as if nothing had
+    /// happened — which is why the check here is not "the struct has
+    /// one field" but "the twentieth hit of the show is as visible as
+    /// the first".
+    ///
+    /// r[verify cues.one-shot.stamp-travels-with-recipe]
+    #[test]
+    fn a_hit_late_in_a_long_show_lands_as_the_first_one_did() {
+        let groups = pars();
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
+
+        // Alternating sections and hits, each section blocking so the
+        // stage before it is dropped and `compact` has work to do.
+        let mut cues = Vec::new();
+        for i in 0..8 {
+            let mut section = recipe_cue(&format!("Section {i}"), 0.3);
+            section.block = true;
+            cues.push(section);
+            cues.push(accent(0.5, true));
+        }
+        let mut player = CuePlayer::new(cues);
+
+        let mut landed = Vec::new();
+        for _ in 0..8 {
+            player.go(&show); // the section
+            player.go(&show); // the hit on it
+            landed.push(player.output(&show)[&(1, Attribute::Dimmer)]);
+            // Long enough for this hit to finish and withdraw before
+            // the next section is taken, so each one is measured on its
+            // own rather than on the tail of its predecessor.
+            player.tick(10.0);
+        }
+
+        let first = landed[0];
+        assert!(first > 0.7, "the first hit never landed: {first}");
+        for (i, level) in landed.iter().enumerate() {
+            assert!(
+                (level - first).abs() < 1e-4,
+                "hit {i} landed at {level} where the first landed at {first} — a stamp \
+                 read from another recipe, so the envelope was measured from a take that \
+                 was not this one\'s"
+            );
+        }
+    }
+
+    /// A cue carries what a cue is, and it survives the file.
+    ///
+    /// The list is short on purpose: a number, a name, a fade, direct
+    /// values, recipes, a blocking flag and a position. What the rule
+    /// forbids is a *second* way to subdivide a cue — a parts list
+    /// beside the recipes — because then two orderings would have to be
+    /// kept in step and one of them would be wrong.
+    ///
+    /// r[verify cues.shape]
+    #[test]
+    fn a_cue_carries_a_cues_seven_properties_and_no_second_ordering() {
+        let cue = Cue {
+            name: "Chorus 1".to_string(),
+            number: Some(5.5),
+            fade_secs: 2.0,
+            values: vec![CueValue {
+                chan: 1,
+                attr: Attribute::Dimmer,
+                value: 0.7,
+            }],
+            recipes: vec![
+                Recipe::new(
+                    Selection::Group("Pars".to_string()),
+                    RecipeApply::Dimmer(0.4),
+                )
+                .into(),
+            ],
+            block: true,
+            at: Some(Position::Absolute(Bars::bar(33))),
+            ..Default::default()
+        };
+
+        let text = serde_json::to_string(&cue).expect("a cue serialises");
+        let again: Cue = serde_json::from_str(&text).expect("and parses back");
+        assert_eq!(again, cue, "a cue did not survive its own file");
+
+        // Every one of the seven is on the far side of the file.
+        assert_eq!(again.number, Some(5.5));
+        assert_eq!(again.name, "Chorus 1");
+        assert_eq!(again.fade_secs, 2.0);
+        assert_eq!(again.values.len(), 1);
+        assert_eq!(again.recipes.len(), 1);
+        assert!(again.block);
+        assert!(again.at.is_some());
+
+        // And no parallel subdivision beside the recipes.
+        for second_axis in ["\"parts\"", "\"part\"", "\"cue_parts\""] {
+            assert!(
+                !text.contains(second_axis),
+                "a cue carries {second_axis} beside its recipes, which is a second \
+                 ordering to keep in step: {text}"
+            );
+        }
+    }
+
     /// A look at `level`, with a steady relative `lift` on top of it.
     fn look_with_modulation(level: f32, lift: f32) -> Cue {
         Cue {

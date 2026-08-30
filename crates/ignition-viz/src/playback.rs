@@ -524,12 +524,7 @@ impl Playback {
                     // empty recipe among live ones — a role this room
                     // lacks, say — is reported once above, not as a
                     // dead cue.
-                    .filter(|c| {
-                        !c.recipes.is_empty()
-                            && c.recipes
-                                .iter()
-                                .all(|r| matches!(r, ignition_core::Cook::Empty))
-                    })
+                    .filter(|c| c.is_dead())
                     .collect();
                 for (i, cook) in cooked.iter().enumerate() {
                     tracing::debug!(
