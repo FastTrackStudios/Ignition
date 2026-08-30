@@ -717,6 +717,48 @@ mod tests {
         .unwrap())
     }
 
+    /// Multi-window is the patched `dioxus-native`, not a fork of Blitz
+    /// and not the one-window-per-monitor fallback.
+    ///
+    /// The rule names a specific route because the alternatives are
+    /// expensive in different ways: forking Blitz means carrying a
+    /// renderer, and the fallback means a process that cannot open a
+    /// window an operator asks for after launch. What makes the chosen
+    /// route work is a runtime embedder event reaching the shell's
+    /// window map, and a `VirtualDom` per window — so those are what is
+    /// checked, in the vendored crate the workspace actually builds
+    /// against.
+    ///
+    /// r[verify studio.windows.implementation]
+    #[test]
+    fn windows_come_from_the_patched_dioxus_native_at_runtime() {
+        let manifest = include_str!("../../../Cargo.toml");
+        assert!(
+            manifest.contains("dioxus-native = { path = \"crates/dioxus-native-vendored\" }"),
+            "the workspace no longer builds against the vendored dioxus-native, so this \
+             studio's windows come from somewhere else"
+        );
+
+        let vendored =
+            include_str!("../../../crates/dioxus-native-vendored/src/dioxus_application.rs");
+        assert!(
+            vendored.contains("NewWindow {"),
+            "the runtime embedder event the patch adds is gone"
+        );
+        assert!(
+            vendored.contains("IGNITION PATCH"),
+            "the vendored crate carries no marked patch, so it is either upstream or a fork"
+        );
+
+        // And the studio opens its windows through it, rather than
+        // making them all at launch.
+        let source = include_str!("windows.rs");
+        assert!(
+            source.contains("dioxus_native::open_window_with_props("),
+            "windows are not opened through the patched hook"
+        );
+    }
+
     /// The chrome is not selectable, and that is a crash fix rather than
     /// a matter of taste: a text selection whose anchor is removed by a
     /// re-render makes blitz compare two nodes with no common root, and

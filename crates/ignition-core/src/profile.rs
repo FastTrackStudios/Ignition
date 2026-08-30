@@ -1403,10 +1403,9 @@ mod tests {
     /// r[verify profile.areas.not-a-focus-point]
     #[test]
     fn a_venue_that_binds_a_focus_point_has_not_thereby_bound_an_area() {
-        let venue: VenueProfile = serde_json::from_str(
-            r#"{"profile":"ignition","focus":{"Centre":"Downstage Centre"}}"#,
-        )
-        .expect("a venue profile parses");
+        let venue: VenueProfile =
+            serde_json::from_str(r#"{"profile":"ignition","focus":{"Centre":"Downstage Centre"}}"#)
+                .expect("a venue profile parses");
 
         assert!(venue.has_focus("Centre"));
         assert!(

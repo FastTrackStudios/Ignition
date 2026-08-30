@@ -774,6 +774,66 @@ mod tests {
         }
     }
 
+    /// Both views stay mounted, and switching sends nothing that could
+    /// change what the rig is doing.
+    ///
+    /// A UI this shallow cannot be rendered headlessly, so what is
+    /// checked is the two things the rule is actually about, in the
+    /// source that decides them. First: the switch hides a view rather
+    /// than unmounting it — an `if` here would drop every open pane,
+    /// scroll position and half-typed field on the way past, which is
+    /// exactly the "without losing state" the rule asks for. Second:
+    /// the only command the switch sends is `ProgramView`, which turns
+    /// the viewport's overlays on and off. Any other command from this
+    /// function would be a view changing the show.
+    ///
+    /// r[verify studio.views]
+    #[test]
+    fn both_views_stay_mounted_and_switching_touches_nothing_but_the_overlays() {
+        let source = include_str!("live.rs");
+        let start = source
+            .find("pub fn Views(")
+            .expect("the Program / Live switch");
+        let body = &source[start..];
+        let body = &body[..body.find("\n}\n").expect("the end of Views")];
+
+        // Both views are constructed, unconditionally, and hidden by a
+        // class rather than by an `if` that would unmount one.
+        assert!(body.contains("Live {"), "the Live view is not mounted here");
+        assert!(
+            body.contains("program::Program {"),
+            "the Program view is not mounted here"
+        );
+        let hidden = body.matches("\"view hidden\"").count();
+        assert_eq!(
+            hidden, 2,
+            "a view is switched by mounting rather than by hiding, so switching loses \
+             whatever it was holding"
+        );
+        assert!(
+            LIVE_CSS.contains(".view.hidden { display: none; }"),
+            "the hidden class does not actually hide"
+        );
+
+        // And the switch sends one command: the overlays.
+        let sent: std::collections::BTreeSet<&str> = body
+            .match_indices("Command::")
+            .map(|(i, _)| {
+                let rest = &body[i + "Command::".len()..];
+                let end = rest
+                    .find(|c: char| !c.is_alphanumeric() && c != '_')
+                    .unwrap_or(rest.len());
+                &rest[..end]
+            })
+            .collect();
+        assert_eq!(
+            sent,
+            ["ProgramView"].into_iter().collect(),
+            "the view switch sends something beyond the viewport's overlays, so changing \
+             view changes the show: {sent:?}"
+        );
+    }
+
     /// r[verify studio.touch]
     /// Under a finger the targets are larger still, and a track drag
     /// does not scroll the page.

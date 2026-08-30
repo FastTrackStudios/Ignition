@@ -324,6 +324,13 @@ mod tests {
     /// and sees the playhead the engine publishes.
     // r[impl studio.touch.ipad] - the wire works end to end
     // r[impl studio.touch.presence] - a published playhead reaches the client
+    ///
+    /// The types on the wire are the desk's own — `Command` in,
+    /// `ServerMessage::Playhead` out, both from `ignition_live_ui` —
+    /// so there is no second touch UI to keep in step with this one and
+    /// no translation layer to disagree at.
+    ///
+    /// r[verify studio.touch.ipad]
     #[tokio::test]
     async fn a_client_sends_commands_and_receives_the_playhead() {
         let (tx, rx) = crate::command::channel();
@@ -374,6 +381,83 @@ mod tests {
         assert_eq!(playhead.cue, Some(4));
         assert_eq!(playhead.grand, 0.5);
         let _ = Playhead::default();
+    }
+
+    /// Two clients, one rig: what one moves, the other sees.
+    ///
+    /// This is the whole of "presence" and it is not free — a server
+    /// that kept one connection's playhead, or fanned out only to the
+    /// client whose command caused the change, would pass every
+    /// single-client test above and still leave the desk and the iPad
+    /// showing different faders. Which is worse than either being
+    /// wrong, because the operator then has no way to tell which one
+    /// the rig is actually on.
+    ///
+    /// r[verify studio.touch.presence]
+    #[tokio::test]
+    async fn two_clients_see_the_same_state_within_a_tick() {
+        let (tx, rx) = crate::command::channel();
+        let (state_tx, state_rx) = crate::command::state_channel();
+        let server = Server::new(tx, state_rx, boot(), None);
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(serve(listener, server));
+
+        let mut clients = Vec::new();
+        for _ in 0..2 {
+            let (mut ws, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/ws"))
+                .await
+                .expect("connect");
+            // Hello, then the playhead as it stands.
+            let hello = ws.next().await.unwrap().unwrap().into_text().unwrap();
+            assert!(matches!(
+                serde_json::from_str(&hello).unwrap(),
+                ServerMessage::Hello(_)
+            ));
+            let first = ws.next().await.unwrap().unwrap().into_text().unwrap();
+            assert!(matches!(
+                serde_json::from_str(&first).unwrap(),
+                ServerMessage::Playhead(_)
+            ));
+            clients.push(ws);
+        }
+
+        // The first client moves a fader. It goes down the one command
+        // channel, exactly as a click on the desk would.
+        let json = serde_json::to_string(&Command::Level(2, 0.75)).unwrap();
+        clients[0]
+            .send(tungstenite::Message::Text(json.into()))
+            .await
+            .unwrap();
+        let got =
+            tokio::task::spawn_blocking(move || rx.recv_timeout(std::time::Duration::from_secs(5)))
+                .await
+                .unwrap()
+                .expect("the command reached the studio");
+        assert!(matches!(got, Command::Level(2, v) if (v - 0.75).abs() < 1e-6));
+
+        // The studio applies it and publishes one playhead. Both
+        // clients see it — including the one that did not send it, and
+        // including the one that did, which is what keeps a client from
+        // trusting its own optimistic copy.
+        state_tx.send_modify(|p| {
+            p.cue = Some(7);
+            p.grand = 0.75;
+        });
+        for (i, ws) in clients.iter_mut().enumerate() {
+            let text = tokio::time::timeout(std::time::Duration::from_secs(5), ws.next())
+                .await
+                .unwrap_or_else(|_| panic!("client {i} was never told"))
+                .unwrap()
+                .unwrap()
+                .into_text()
+                .unwrap();
+            let ServerMessage::Playhead(playhead) = serde_json::from_str(&text).unwrap() else {
+                panic!("client {i}: a playhead, not {text}");
+            };
+            assert_eq!(playhead.cue, Some(7), "client {i}");
+            assert_eq!(playhead.grand, 0.75, "client {i}");
+        }
     }
 
     /// Without a built bundle, `/` explains itself rather than 404ing.

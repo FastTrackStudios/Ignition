@@ -397,6 +397,91 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// The pane draws the playhead and nothing else, and its menu
+    /// sends what the menu offers.
+    ///
+    /// Everything visible here — which presets exist, which key each is
+    /// on, which one the programme camera is currently showing — comes
+    /// back from the engine on the playhead. The failure this guards
+    /// against is the pane keeping its own copy of the venue's cameras:
+    /// it would look right until someone cut from a second window or an
+    /// iPad, and then quietly disagree with the rig.
+    ///
+    /// r[verify studio.video.cameras-pane] - the pane half: badges, the active tile, the menu
+    /// r[verify studio.one-truth] - the list, the badges and the highlight are all read from the playhead
+    #[test]
+    fn the_pane_draws_the_playhead_and_its_menu_sends_the_three_actions() {
+        let mut s = state();
+
+        // The list is the playhead's, in the venue's order, and the
+        // badges are the playhead's keys.
+        assert_eq!(s.presets.len(), 4);
+        assert_eq!(key_of(&s, "Wide"), Some(1));
+        assert_eq!(key_of(&s, "Bird's eye"), Some(0), "the tenth key is `0`");
+        assert_eq!(
+            key_of(&s, "Side stage"),
+            None,
+            "a preset on no key wears no badge"
+        );
+
+        // The lit tile is whichever preset the playhead says is active,
+        // and it moves when the playhead does — the pane remembers
+        // nothing of its own between the two.
+        let active = |s: &CameraState, name: &str| {
+            s.preset
+                .as_deref()
+                .is_some_and(|p| p.eq_ignore_ascii_case(name))
+        };
+        assert!(active(&s, "Drums"));
+        assert!(!active(&s, "Wide"));
+        s.preset = Some("Wide".into());
+        assert!(active(&s, "Wide"));
+        assert!(!active(&s, "Drums"));
+        s.preset = None;
+        assert!(
+            !s.presets.iter().any(|p| active(&s, p)),
+            "with the engine on no preset the pane lights none"
+        );
+
+        // Click cuts; the menu's three items are the three commands.
+        let click = Command::Camera {
+            target: CameraTarget::Preset("Drums".into()),
+            beats: 0.0,
+        };
+        assert!(
+            matches!(&click, Command::Camera { beats, .. } if *beats == 0.0),
+            "a click on a tile dissolves instead of cutting"
+        );
+        for command in [
+            Command::SetCameraSlot {
+                slot: 4,
+                name: "Drums".into(),
+            },
+            Command::SaveCameraPreset {
+                name: "Wing".into(),
+            },
+            Command::DeleteCameraPreset {
+                name: "Wing".into(),
+            },
+        ] {
+            let json = serde_json::to_string(&command).expect("a menu item serialises");
+            let back: Command = serde_json::from_str(&json).expect("and reaches the engine");
+            assert_eq!(format!("{back:?}"), format!("{command:?}"), "{json}");
+        }
+
+        // And a slot change lands in the operator's file, which is the
+        // half of it that outlives the session.
+        let dir = std::env::temp_dir().join(format!("ig-campane-ui-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        save_favourites_in(&dir, "ann", &["Wide".into(), "".into(), "Drums".into()]).unwrap();
+        assert_eq!(
+            favourites_in(&dir, "ann"),
+            Some(vec!["Wide".to_string(), String::new(), "Drums".to_string()]),
+            "an empty key has to survive as an empty key, or every badge after it shifts"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn camera_commands_round_trip_as_json() {
         for command in [

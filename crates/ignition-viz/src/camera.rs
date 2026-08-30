@@ -219,6 +219,11 @@ impl Cameras {
 
     /// The preset on key `slot` (`1`..`9`, `0` is the tenth) — from the
     /// setup when one is named, else from the favourites.
+    ///
+    /// An empty entry is a key with nothing on it, and reads as `None`:
+    /// a preset moved to another key leaves an empty behind it, and a
+    /// caller handed `Some("")` would have to know that to avoid
+    /// drawing a badge for a camera that is not there.
     // r[impl viz.camera-favourites] - ten slots, 1..9 then 0
     pub fn slot(&self, slot: u8, setup: Option<&str>) -> Option<&str> {
         let index = slot_index(slot)?;
@@ -226,7 +231,9 @@ impl Cameras {
             Some(setup) => &setup.slots,
             None => &self.favourites,
         };
-        list.get(index).map(String::as_str)
+        list.get(index)
+            .map(String::as_str)
+            .filter(|name| !name.is_empty())
     }
 
     /// Which key a preset is on, if any: `1`..`9`, `0` for the tenth.
@@ -1003,6 +1010,70 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// The Cameras pane's three menu items, at the layer that outlives
+    /// the pane: the venue file.
+    ///
+    /// *Set as slot N*, *save current view as preset* and *delete* are
+    /// worth checking together because they share one failure — a
+    /// change that lives only in the running studio and is gone at the
+    /// next launch. So each is followed through the file it is supposed
+    /// to land in, and the deletion is followed one step further: a
+    /// preset removed while it is on a key has to leave the key too, or
+    /// the venue ships a slot pointing at nothing.
+    ///
+    /// r[verify studio.video.cameras-pane] - the venue half: presets and slots survive the file
+    #[test]
+    fn the_cameras_menu_writes_presets_and_slots_into_the_venue_file() {
+        let dir = std::env::temp_dir().join(format!("ig-campane-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut c = cameras();
+
+        // Save the view the viewport is on, as a preset.
+        c.store(CameraPreset::new(
+            "Wing",
+            [4.0, -3.0, 2.0],
+            [0.0, 0.0, 1.5],
+            40.0,
+        ));
+        // Put it on key 4.
+        assert!(c.set_slot(4, "Wing"));
+        c.save(&dir).unwrap();
+
+        let back = Cameras::load(&dir)
+            .unwrap()
+            .expect("the venue file was written");
+        assert!(
+            back.preset("Wing").is_some(),
+            "the saved view is not in the file"
+        );
+        assert_eq!(back.slot(4, None), Some("Wing"));
+        assert_eq!(
+            back.slot(1, None),
+            Some("Wide"),
+            "putting one preset on a key moved another off its own"
+        );
+
+        // A preset moved to a second key leaves the first: one preset,
+        // one key, or the pane's badges say two things at once.
+        let mut back = back;
+        assert!(back.set_slot(5, "Wing"));
+        assert_eq!(back.slot(4, None), None);
+        assert_eq!(back.slot(5, None), Some("Wing"));
+
+        // Delete, and the key it was on goes with it.
+        assert!(back.remove("Wing"));
+        back.save(&dir).unwrap();
+        let after = Cameras::load(&dir).unwrap().expect("still a file");
+        assert!(after.preset("Wing").is_none());
+        assert_eq!(after.slot(5, None), None);
+        assert!(
+            after.dangling().is_empty(),
+            "the venue now ships a key pointing at a preset it does not have: {:?}",
+            after.dangling()
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// A cut list addresses a setup's slots, and the shipped venue
     /// ships the three the spec names.
     ///
@@ -1029,7 +1100,11 @@ mod tests {
         // The same slot number is a different camera under each setup,
         // and different again with no setup at all.
         assert_eq!(c.slot(3, Some("four")), Some("Drums"));
-        assert_eq!(c.slot(3, Some("two")), None, "a two-camera setup has no slot 3");
+        assert_eq!(
+            c.slot(3, Some("two")),
+            None,
+            "a two-camera setup has no slot 3"
+        );
         assert_eq!(c.slot(3, None), Some("Drums"), "no setup: the favourites");
         assert_eq!(c.slot(2, Some("two")), Some("Singer"));
 
@@ -1090,7 +1165,11 @@ mod tests {
         );
 
         // The wide view is selectable and its own choice.
-        assert_eq!(active.wide_name().as_deref(), Some("Wide"), "the first favourite");
+        assert_eq!(
+            active.wide_name().as_deref(),
+            Some("Wide"),
+            "the first favourite"
+        );
         assert!(active.set_wide(&CameraTarget::Preset("Bird's eye".into())));
         assert_eq!(active.wide_name().as_deref(), Some("Bird's eye"));
 
@@ -1137,11 +1216,12 @@ mod tests {
         // Moving a preset to another key vacates its old one.
         c.set_slot(2, "Drums");
         assert_eq!(c.slot(2, None), Some("Drums"));
-        assert_eq!(c.slot(3, None), Some(""));
+        // Vacated, and a vacated key has nothing on it.
+        assert_eq!(c.slot(3, None), None);
         assert!(!c.set_slot(11, "Wide"));
         assert!(c.remove("Drums"));
         assert!(c.preset("Drums").is_none());
-        assert_eq!(c.slot(2, None), Some(""));
+        assert_eq!(c.slot(2, None), None);
     }
 
     /// r[verify viz.camera-cuts] - `camera 3`, `camera Drums in 2`, and the rest of the grammar

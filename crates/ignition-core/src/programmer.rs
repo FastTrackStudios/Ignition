@@ -1796,7 +1796,6 @@ fn apply_family(apply: &RecipeApply) -> u8 {
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
     use crate::group::Group;

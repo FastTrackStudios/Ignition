@@ -2880,8 +2880,8 @@ mod tests {
     /// r[verify recipes.selection-owns-order]
     #[test]
     fn reordering_the_selection_turns_the_chase_around() {
-        use crate::selection::{Dir, FixtureInfo, Order, Rig};
         use crate::selection::Axis;
+        use crate::selection::{Dir, FixtureInfo, Order, Rig};
         use ignition_proto::{Placement, Quat, Vec3};
 
         let at = |chan, x| FixtureInfo {

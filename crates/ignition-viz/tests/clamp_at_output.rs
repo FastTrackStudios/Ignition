@@ -9,9 +9,7 @@
 //! defensible, neither is reproducible, and the difference only shows
 //! up on the one cue that stacks a deep cut under a lift.
 
-use ignition_core::{
-    Attribute, Cue, CuePlayer, Recipe, RecipeApply, Selection, Show, Step,
-};
+use ignition_core::{Attribute, Cue, CuePlayer, Recipe, RecipeApply, Selection, Show, Step};
 use ignition_viz::DmxUniverses;
 use ignition_viz::show::apply_cue_output;
 use ignition_viz::venue::Venue;
@@ -36,9 +34,7 @@ fn a_cut_deeper_than_the_level_reaches_zero_and_not_before_the_wire() {
 
     let level = Cue {
         name: "Look".to_string(),
-        recipes: vec![
-            Recipe::new(Selection::Chans(vec![chan]), RecipeApply::Dimmer(0.55)).into(),
-        ],
+        recipes: vec![Recipe::new(Selection::Chans(vec![chan]), RecipeApply::Dimmer(0.55)).into()],
         block: true,
         ..Default::default()
     };
@@ -61,7 +57,10 @@ fn a_cut_deeper_than_the_level_reaches_zero_and_not_before_the_wire() {
     let dmx = DmxUniverses::new();
     apply_cue_output(&dmx, &venue, &player.output(&show));
     let lit = dmx.resolve(&fixture.address, &fixture.map).dimmer;
-    assert!((lit - 0.55).abs() < 0.02, "the look never reached the wire: {lit}");
+    assert!(
+        (lit - 0.55).abs() < 0.02,
+        "the look never reached the wire: {lit}"
+    );
 
     player.go(&show);
     let values = player.output(&show);

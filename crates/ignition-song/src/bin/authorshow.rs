@@ -2155,7 +2155,10 @@ mod tests {
         // No chart: an ordinary show, and not a hit in it beyond the
         // section markers the arrangement itself provides.
         let bare = build(&song, None);
-        assert!(!bare.cues.is_empty(), "a show with no chart is still a show");
+        assert!(
+            !bare.cues.is_empty(),
+            "a show with no chart is still a show"
+        );
         let section_triggers = bare.triggers.len();
         assert!(
             !bare.triggers.iter().any(|t| t.name.starts_with("fig ")),
@@ -2214,7 +2217,11 @@ mod tests {
 
         // And every one of them sits where the chart put it — not
         // where an onset happened to be.
-        for trigger in charted.triggers.iter().filter(|t| t.name.starts_with("fig ")) {
+        for trigger in charted
+            .triggers
+            .iter()
+            .filter(|t| t.name.starts_with("fig "))
+        {
             let at = trigger.bars().expect("a charted hit has a position");
             assert_eq!(at.bar, 10, "{}: {at:?}", trigger.name);
             assert!(
