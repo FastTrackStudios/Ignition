@@ -175,10 +175,24 @@ fn snap(position: Bars, song: &SongMap, grid: u32) -> Bars {
 }
 
 /// The last bar the song's sections reach.
+///
+/// `Section::end` is the first position *after* the section, so a
+/// two-bar song ends at bar 3 beat 1 — one past the last bar there is.
+/// A section ending on a downbeat therefore gives back the bar before
+/// it; one ending mid-bar (which the sections of a real arrangement do
+/// not, but nothing forbids) reaches into the bar it stops in, and that
+/// bar counts.
 fn last_bar(song: &SongMap) -> u32 {
     song.sections
         .last()
-        .map(|s| s.end(&song.tempo).bar)
+        .map(|s| {
+            let end = s.end(&song.tempo);
+            if (end.beat - 1.0).abs() < 1e-6 {
+                end.bar.saturating_sub(1).max(1)
+            } else {
+                end.bar
+            }
+        })
         .unwrap_or(1)
 }
 
@@ -240,6 +254,105 @@ mod tests {
         let at = snap(song.tempo.position_at(0.25), &song, 2);
         assert_eq!(at.bar, 1);
         assert!((at.beat - 1.5).abs() < 1e-6, "{at:?}");
+    }
+
+    /// Every part of a detected hit survives being placed, and the
+    /// dynamics curve is one number per bar.
+    ///
+    /// Each field is here because something downstream needs it and
+    /// nothing else carries it: the snapped position is what a cue is
+    /// written at, the raw seconds are how a suspicious hit is checked
+    /// against the recording rather than argued about, the strength is
+    /// against the whole song rather than the recent past, and the
+    /// per-bar dynamics are what lets a show know the second chorus is
+    /// bigger than the first without carrying seventeen thousand
+    /// numbers to say so.
+    ///
+    /// The bar curve is sampled at each bar's *midpoint*, which the
+    /// ramp below is built to catch: a downbeat sample would read 0.0
+    /// for bar 1 where the midpoint reads the middle of the bar.
+    ///
+    /// r[verify song.hits.detected]
+    #[test]
+    fn a_placed_hit_keeps_its_seconds_strength_band_and_level() {
+        use hit_detect_dsp::Hit as Onset;
+
+        // Two bars at 120 bpm: 2 s each, 4 s in all.
+        let mut song = song(120.0);
+        song.sections = vec![ignition_core::Section {
+            name: "VS".into(),
+            start: Bars::bar(1),
+            bars: 2.0,
+        }];
+
+        // A dynamics ramp from 0 to 1 across four seconds, one frame
+        // per 10 ms, so the value at a moment is that moment's fraction
+        // of the song.
+        let frame_rate = 100.0;
+        let frames = 400;
+        let analysis = Analysis {
+            hits: vec![
+                // 20 ms early on beat 4 of bar 1 — the window latency
+                // every detector carries.
+                Onset {
+                    secs: 1.48,
+                    strength: 1.0,
+                    band: Band::Low,
+                },
+                Onset {
+                    secs: 3.02,
+                    strength: 0.25,
+                    band: Band::High,
+                },
+            ],
+            dynamics: (0..frames)
+                .map(|i| i as f32 / (frames - 1) as f32)
+                .collect(),
+            frame_rate,
+        };
+
+        let placed = place(&analysis, &song, 2);
+        assert_eq!(placed.song, "test");
+        assert_eq!(placed.grid, 2);
+        assert_eq!(placed.hits.len(), 2);
+
+        let first = placed.hits[0];
+        assert_eq!(first.at, Bars::new(1, 4.0), "the hit did not snap");
+        assert!(
+            (first.secs - 1.48).abs() < 1e-6,
+            "the raw second was lost to the snap: {}",
+            first.secs
+        );
+        assert_eq!(first.strength, 1.0);
+        assert_eq!(first.band, HitBand::Low);
+        assert!(
+            (first.dynamics - 0.37).abs() < 0.02,
+            "the level was not read at the hit's own moment: {}",
+            first.dynamics
+        );
+
+        let second = placed.hits[1];
+        assert_eq!(second.at, Bars::new(2, 3.0));
+        assert_eq!(second.band, HitBand::High);
+        assert!((0.0..=1.0).contains(&second.strength));
+        assert!(
+            second.dynamics > first.dynamics,
+            "the later, louder moment read quieter"
+        );
+
+        // One value per bar, at the midpoint: bar 1's middle is 1 s
+        // into a four-second song, bar 2's is 3 s.
+        assert_eq!(placed.dynamics_by_bar.len(), 2);
+        assert!(
+            (placed.dynamics_by_bar[0] - 0.25).abs() < 0.02,
+            "bar 1: {:?}",
+            placed.dynamics_by_bar
+        );
+        assert!(
+            (placed.dynamics_by_bar[1] - 0.75).abs() < 0.02,
+            "bar 2: {:?}",
+            placed.dynamics_by_bar
+        );
     }
 
     #[test]

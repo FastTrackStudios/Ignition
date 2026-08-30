@@ -2133,6 +2133,98 @@ mod tests {
         );
     }
 
+    /// Where a chart exists it is the only thing consulted, and where
+    /// none does the generator does not go looking for onsets.
+    ///
+    /// The detector finds a thousand onsets in a three-minute song and
+    /// is right about nearly all of them, which is exactly the problem:
+    /// a hi-hat is a real onset and wants no cue. Which handful of hits
+    /// carries the song is a musical judgement made in a MIDI editor
+    /// with the track playing. So detection is a draft a person reads,
+    /// never an input to this — and the check is both halves of that:
+    /// an empty chart yields a show with no charted hits in it, rather
+    /// than one quietly filled in from the audio.
+    ///
+    /// r[verify song.hits.detection-is-a-draft]
+    #[test]
+    fn the_chart_is_the_only_source_of_hits_and_nothing_fills_in_for_it() {
+        use ignition_song::chart::{ChartHit, Group as ChartGroup, HitChart};
+
+        let song = arrangement(8.0);
+
+        // No chart: an ordinary show, and not a hit in it beyond the
+        // section markers the arrangement itself provides.
+        let bare = build(&song, None);
+        assert!(!bare.cues.is_empty(), "a show with no chart is still a show");
+        let section_triggers = bare.triggers.len();
+        assert!(
+            !bare.triggers.iter().any(|t| t.name.starts_with("fig ")),
+            "a figure appeared with no chart to have charted it: {:?}",
+            bare.triggers.iter().map(|t| &t.name).collect::<Vec<_>>()
+        );
+
+        // The same song with one charted figure: the hits that appear
+        // are that figure's, and the cue list is otherwise the same.
+        let at = |bar: u32, beat: f64| Bars::new(bar, beat);
+        let hits: Vec<ChartHit> = [1.0, 2.0, 3.0]
+            .into_iter()
+            .map(|beat| ChartHit {
+                at: at(10, beat),
+                class: HitClass::High,
+                velocity: 100,
+                group: Some(0),
+            })
+            .collect();
+        let chart = HitChart {
+            groups: vec![ChartGroup {
+                start: at(10, 1.0),
+                end: at(10, 3.0),
+                members: (0..hits.len()).collect(),
+            }],
+            hits,
+        };
+        let charted = build(&song, Some(&chart));
+
+        assert_eq!(
+            charted.cues.len(),
+            bare.cues.len(),
+            "the chart changed the section list, which is the arrangement's business"
+        );
+        let figures: Vec<&str> = charted
+            .triggers
+            .iter()
+            .filter(|t| t.name.starts_with("fig "))
+            .map(|t| t.name.as_str())
+            .collect();
+        assert!(!figures.is_empty(), "the charted figure rendered nothing");
+        let mut moments: Vec<Bars> = charted
+            .triggers
+            .iter()
+            .filter(|t| t.name.starts_with("fig "))
+            .filter_map(|t| t.bars())
+            .collect();
+        moments.sort_by(|a, b| a.partial_cmp(b).expect("charted bars compare"));
+        moments.dedup();
+        assert_eq!(moments.len(), 3, "{moments:?}");
+        assert_eq!(
+            charted.triggers.len(),
+            section_triggers + figures.len(),
+            "the chart added something that is not one of its own hits"
+        );
+
+        // And every one of them sits where the chart put it — not
+        // where an onset happened to be.
+        for trigger in charted.triggers.iter().filter(|t| t.name.starts_with("fig ")) {
+            let at = trigger.bars().expect("a charted hit has a position");
+            assert_eq!(at.bar, 10, "{}: {at:?}", trigger.name);
+            assert!(
+                (1.0..=3.0).contains(&at.beat),
+                "{}: {at:?} is outside the charted figure",
+                trigger.name
+            );
+        }
+    }
+
     /// A louder class digs a deeper bump.
     ///
     /// Class is what says how big a hit is — velocity is charted but
