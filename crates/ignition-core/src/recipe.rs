@@ -2855,6 +2855,138 @@ mod tests {
         assert_eq!(red_of(&emits, 6), Some(0.0));
     }
 
+    /// Direction comes from the selection's order, and the recipe has
+    /// no second opinion about it.
+    ///
+    /// "Left to right" is an X-ordered selection. Two authorities on
+    /// direction is how a cue ends up with its chase running one way
+    /// and its colour spread running the other — so the same recipe,
+    /// against the same fixtures ordered the other way, must lead from
+    /// the other end.
+    ///
+    /// r[verify recipes.selection-owns-order]
+    #[test]
+    fn reordering_the_selection_turns_the_chase_around() {
+        use crate::selection::{Dir, FixtureInfo, Order, Rig};
+        use crate::selection::Axis;
+        use ignition_proto::{Placement, Quat, Vec3};
+
+        let at = |chan, x| FixtureInfo {
+            chan,
+            placement: Some(Placement {
+                position: Vec3 { x, y: 0.0, z: 0.0 },
+                orientation: Quat {
+                    w: 1.0,
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+            }),
+            manufacturer: String::new(),
+            model: String::new(),
+            tags: Vec::new(),
+        };
+        let rig = Rig::new(vec![at(1, -2.0), at(2, 2.0)]);
+        let groups: Vec<Group> = Vec::new();
+        let show = Show::new(&groups, &rig);
+
+        // One chase, spread across the selection, ordered two ways.
+        let chase = |by: Order| Recipe {
+            target: Selection::Order {
+                of: Box::new(Selection::Chans(vec![1, 2])),
+                by,
+            },
+            steps: vec![
+                Step::new(vec![RecipeApply::Dimmer(1.0)]),
+                Step::new(vec![RecipeApply::Dimmer(0.0)]),
+            ],
+            timing: crate::step::Timing {
+                speed: crate::step::Speed::Bpm(60.0),
+                measure: 1.0,
+                // A full cycle across two fixtures, so the leader is at
+                // one end of the wave and the follower at the other.
+                phase_spread_deg: 360.0,
+                ..Default::default()
+            },
+            tricks: Vec::new(),
+            stack: false,
+            ..Default::default()
+        };
+
+        let level = |emits: &[Emit], chan| {
+            emits
+                .iter()
+                .find(|e| e.value.chan == chan && e.value.attr == Attribute::Dimmer)
+                .map(|e| e.value.value)
+        };
+
+        let rightward = expand_recipe(&chase(Order::Axis(Axis::X, Dir::Asc)), &show, 0.0);
+        let leftward = expand_recipe(&chase(Order::Axis(Axis::X, Dir::Desc)), &show, 0.0);
+
+        // Whoever leads swaps, and the recipe itself never said so.
+        assert_eq!(level(&rightward, 1), level(&leftward, 2));
+        assert_eq!(level(&rightward, 2), level(&leftward, 1));
+        assert_ne!(
+            level(&rightward, 1),
+            level(&rightward, 2),
+            "the spread put both fixtures at the same point, so this proves nothing"
+        );
+    }
+
+    /// A cue's status can be read before it is taken.
+    ///
+    /// "Will this cue do what I think" should be answerable by looking
+    /// rather than by running the show — a generator can be wrong, and
+    /// finding out during the set is the expensive way. Cooking a cue
+    /// touches nothing: no player, no clock, nothing fired.
+    ///
+    /// r[verify recipes.status.visible-per-cue]
+    #[test]
+    fn a_cue_can_be_read_before_it_is_ever_taken() {
+        let groups = vec![Group {
+            name: "Pars".to_string(),
+            chans: vec![1, 2, 3],
+        }];
+        let show = bare(&groups);
+
+        let cue = Cue {
+            name: "Wash".into(),
+            recipes: vec![
+                Recipe::new(
+                    Selection::Group("Pars".to_string()),
+                    RecipeApply::Dimmer(0.8),
+                )
+                .into(),
+                // And one that names a group this show has never heard
+                // of, which is the case worth seeing early.
+                Recipe::new(
+                    Selection::Group("Nothing Here".to_string()),
+                    RecipeApply::Dimmer(0.8),
+                )
+                .into(),
+            ],
+            ..Default::default()
+        };
+
+        let cooked = cook_cue(&cue, &show, 0.0);
+        assert_eq!(cooked.name, "Wash");
+        assert_eq!(cooked.recipes.len(), 2, "a cue's recipes are all reported");
+        assert!(
+            cooked
+                .recipes
+                .iter()
+                .any(|c| matches!(c, Cook::Ok(n) if *n > 0)),
+            "the resolving recipe reported no fixtures: {:?}",
+            cooked.recipes
+        );
+        assert!(
+            cooked.recipes.contains(&Cook::Empty),
+            "the recipe naming an unknown group looked fine, which is the \
+             failure this affordance exists to catch: {:?}",
+            cooked.recipes
+        );
+    }
+
     /// A relative recipe touches the attributes it names and no others.
     ///
     /// A chase that dims says how much to take away; what colour the
