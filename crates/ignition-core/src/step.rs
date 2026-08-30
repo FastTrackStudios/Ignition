@@ -140,10 +140,14 @@ pub enum Speed {
     Bpm(f32),
     /// Seconds per beat.
     Secs(f32),
-    /// Slaved to a named master. An unknown name resolves to *stopped*
-    /// rather than to some default tempo: a phaser frozen at its first
-    /// step is an obvious "that is not wired up", where a phaser running
-    /// at a plausible-but-wrong speed is not.
+    /// Slaved to a named master.
+    ///
+    /// A name nobody has set runs at `FALLBACK_BPM` and is reported
+    /// against every cue that asked for it, rather than freezing —
+    /// `r[effects.masters.unknown]`, which weighed the other way round
+    /// and chose this. A frozen chase on a stage is indistinguishable
+    /// from a look that was meant to be still; a chase at the wrong
+    /// tempo is at least obviously running.
     Master(String),
     /// A named master at a multiple — half, double, ×3 — without a
     /// second master. The strobe runs double-time off the same tap the
@@ -1390,5 +1394,97 @@ mod transform_tests {
 
     fn delta_pan(v: f32) -> Step {
         Step::new(vec![RecipeApply::Delta(vec![(Attribute::Pan, v)])])
+    }
+
+    /// An effect that does not say how fast it goes holds still.
+    ///
+    /// A one-step recipe never asks. A multi-step one that forgot to
+    /// say is a mistake, and a still chase is a visible mistake where a
+    /// chase running at some plausible default is an invisible one.
+    ///
+    /// r[verify effects.speed.default-is-still]
+    #[test]
+    fn an_effect_that_names_no_speed_holds_still() {
+        let timing = Timing::default();
+        let masters = SpeedMasters::default();
+        for secs in [0.0, 0.5, 10.0, 600.0] {
+            assert_eq!(
+                timing.cycles(secs, &masters),
+                0.0,
+                "a speechless effect ran at {secs}s"
+            );
+        }
+    }
+
+    /// The phase offset shifts every fixture by the same amount.
+    ///
+    /// Two recipes on Pan and Tilt a quarter-cycle apart *are* a circle,
+    /// and this is how that is said without a dedicated position-effect
+    /// type — so the offset has to be uniform across the selection,
+    /// unlike the spread, which is deliberately not.
+    ///
+    /// r[verify effects.phase.offset]
+    #[test]
+    fn the_phase_offset_moves_every_fixture_together() {
+        let masters = SpeedMasters::from([("Song".to_string(), 120.0f32)]);
+        let quarter = Timing {
+            speed: Speed::Master("Song".into()),
+            phase_offset_deg: 90.0,
+            ..Default::default()
+        };
+        let plain = Timing {
+            phase_offset_deg: 0.0,
+            ..quarter.clone()
+        };
+
+        // Same shift for the first fixture and the last: an offset is
+        // not a spread.
+        let at = |x: usize| crate::tricks::UnitPos {
+            x,
+            y: 0,
+            z: 0,
+            count: [4, 1, 1],
+        };
+        for index in [0usize, 3] {
+            let a = plain.cycles_at_pos(1.0, &at(index), &masters);
+            let b = quarter.cycles_at_pos(1.0, &at(index), &masters);
+            assert!(
+                ((b - a) - 0.25).abs() < 1e-5,
+                "fixture {index} shifted by {} rather than a quarter",
+                b - a
+            );
+        }
+    }
+
+    /// Reverse mirrors the spread; it is not how an author says "left
+    /// to right".
+    ///
+    /// Direction belongs to the selection's order. Reverse exists for
+    /// when that order is already the one meant and the other end
+    /// should lead — so it flips which end of the *same* selection
+    /// leads, and nothing else.
+    ///
+    /// r[verify effects.play.is-not-direction]
+    #[test]
+    fn reverse_flips_which_end_leads_and_nothing_else() {
+        let forward = Timing::default();
+        let backward = Timing {
+            direction: Play::Reverse,
+            ..Default::default()
+        };
+
+        let count = 4;
+        for index in 0..count {
+            let f = forward.spread_fraction(index, count);
+            let b = backward.spread_fraction(index, count);
+            assert!(
+                (f + b - 1.0).abs() < 1e-5,
+                "fixture {index} is not mirrored: {f} and {b}"
+            );
+        }
+
+        // The leading end swaps, which is the whole of what it does.
+        assert!(forward.spread_fraction(0, count) < forward.spread_fraction(3, count));
+        assert!(backward.spread_fraction(0, count) > backward.spread_fraction(3, count));
     }
 }
