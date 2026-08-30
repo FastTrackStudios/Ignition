@@ -3352,4 +3352,32 @@ mod tests {
             "the fader stays"
         );
     }
+
+    /// Size and rate are the operator's, not the recipe's.
+    ///
+    /// They are live controls: a hand on a wheel while the show runs,
+    /// the same two numbers over every effect at once. Stored on the
+    /// recipe instead, a library would need a timid spelling and a bold
+    /// one of everything to work around their absence — which is the
+    /// shape `r[recipes.live-control-is-not-stored]` refuses.
+    ///
+    /// r[verify effects.live-control-on-programmer]
+    #[test]
+    fn size_and_rate_live_on_the_programmer_and_not_on_a_recipe() {
+        // They are here, and they start neutral.
+        let programmer = Programmer::new();
+        assert_eq!(programmer.size, 1.0);
+        assert_eq!(programmer.rate, 1.0);
+
+        // And nowhere on a recipe: a stored effect that carried its own
+        // size would take it to every show that named it.
+        let recipe = Recipe::new(Selection::Group("Pars".into()), RecipeApply::Dimmer(1.0));
+        let json = serde_json::to_string(&recipe).expect("a recipe serialises");
+        for live in ["\"size\"", "\"rate\""] {
+            assert!(
+                !json.contains(live),
+                "a recipe carries {live}, so a library entry could ship one: {json}"
+            );
+        }
+    }
 }

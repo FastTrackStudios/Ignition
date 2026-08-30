@@ -2855,6 +2855,69 @@ mod tests {
         assert_eq!(red_of(&emits, 6), Some(0.0));
     }
 
+    /// A blocked pair shares a moment and still aims individually.
+    ///
+    /// That is what blocking is supposed to mean: phase is decided per
+    /// *unit*, but the value is still resolved per fixture, because a
+    /// step can say something fixture-relative. A focus point is a
+    /// different pan and tilt for every head aiming at it — two heads
+    /// hung apart, told to light the same spot, must not be handed the
+    /// same angles.
+    ///
+    /// r[verify effects.phase.values-per-fixture]
+    #[test]
+    fn a_blocked_pair_shares_a_moment_and_still_aims_individually() {
+        use crate::selection::{FixtureInfo, Rig};
+        use ignition_proto::{Placement, Quat, Vec3};
+
+        let head = |chan, x| FixtureInfo {
+            chan,
+            placement: Some(Placement {
+                position: Vec3 { x, y: 0.0, z: 5.0 },
+                orientation: Quat {
+                    w: 1.0,
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+            }),
+            manufacturer: String::new(),
+            model: String::new(),
+            tags: Vec::new(),
+        };
+        // Hung four metres apart, so a shared point is genuinely a
+        // different angle for each.
+        let rig = Rig::new(vec![head(1, -2.0), head(2, 2.0)]);
+        let groups: Vec<Group> = Vec::new();
+        let show = Show::new(&groups, &rig);
+
+        let mut recipe = Recipe::new(
+            Selection::Chans(vec![1, 2]),
+            RecipeApply::FocusPoint(Ref::Inline(Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            })),
+        );
+        // One unit, so the two share a phase slot.
+        recipe.tricks = vec![crate::tricks::Trick::Block(2)];
+
+        let emits = expand_recipe(&recipe, &show, 0.0);
+        let pan_of = |chan| {
+            emits
+                .iter()
+                .find(|e| e.value.chan == chan && e.value.attr == Attribute::Pan)
+                .map(|e| e.value.value)
+        };
+        let (left, right) = (pan_of(1), pan_of(2));
+        assert!(left.is_some() && right.is_some(), "the pair did not aim");
+        assert!(
+            (left.unwrap() - right.unwrap()).abs() > 1e-3,
+            "blocked heads were handed the same pan ({left:?}) — blocking shared the \
+             value, not just the moment"
+        );
+    }
+
     /// One missing name empties the whole apply, and each missing name
     /// is reported — the same split single `Color` gets.
     // r[verify color.unresolved-is-visible]

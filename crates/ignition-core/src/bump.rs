@@ -201,6 +201,7 @@ mod tests {
     use crate::group::Group;
     use crate::recipe::{Emit, Show, expand_recipe};
     use crate::selection::EMPTY_RIG;
+    use crate::step::SpeedMasters;
 
     fn show(groups: &[Group]) -> Show<'_> {
         Show::new(groups, &EMPTY_RIG)
@@ -330,5 +331,42 @@ mod tests {
     fn a_bump_cannot_stick_on() {
         let recipe = bump(Selection::Group("Pars".into()), Kind::Level, 1.0);
         assert!(recipe.timing.once);
+    }
+
+    /// A bump falls in beats against `Song`, and clears before the next
+    /// eighth arrives.
+    ///
+    /// Measured in seconds it would smear at a slow tempo and tick at a
+    /// fast one. Measured in beats it is the same gesture at any tempo,
+    /// and just under an eighth is what lets a figure written in
+    /// eighths read as separate punches rather than one smear.
+    ///
+    /// r[verify effects.bump.fall-beats]
+    #[test]
+    fn a_bump_falls_in_beats_and_clears_the_next_eighth() {
+        let recipe = bump(Selection::Group("Pars".into()), Kind::Level, 1.0);
+
+        assert_eq!(
+            recipe.timing.speed,
+            Speed::Master("Song".into()),
+            "a fall in seconds is a gesture for one tempo"
+        );
+        assert!(
+            FALL_BEATS < 0.5,
+            "the fall is not under an eighth: {FALL_BEATS}"
+        );
+        assert!((recipe.timing.measure - FALL_BEATS).abs() < 1e-6);
+
+        // At any tempo the envelope is finished within an eighth, so
+        // the next hit in a run of eighths lands on a clear rig.
+        for bpm in [60.0f32, 86.28, 128.0, 174.0] {
+            let masters = SpeedMasters::from([("Song".to_string(), bpm)]);
+            let eighth = 60.0 / bpm / 2.0;
+            let cycles = recipe.timing.cycles(eighth, &masters);
+            assert!(
+                cycles >= 1.0,
+                "at {bpm} bpm the bump was still falling an eighth later: {cycles} cycles"
+            );
+        }
     }
 }

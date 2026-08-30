@@ -3499,6 +3499,69 @@ mod tests {
         assert!((later - 0.3).abs() < 0.05, "the bump looped: {later}");
     }
 
+    /// A looping chase carried by two cues stays in phase across the
+    /// cut between them.
+    ///
+    /// This is MA3's Sync. A loop reads the shared show clock, so
+    /// taking the next cue does not restart the chase — an operator
+    /// running sections during a chase should see the sections change
+    /// underneath it, not the chase stutter back to its first step.
+    /// `r[recipes.one-shot-clock]` is the same seam from the other
+    /// side: a one-shot, and only a one-shot, gets its own start.
+    ///
+    /// r[verify effects.sync.shared-clock]
+    #[test]
+    fn a_chase_carried_by_two_cues_does_not_restart_on_the_cut() {
+        use crate::step::{Speed, Step, Timing};
+        let groups = pars();
+        let show = Show::new(&groups, &crate::selection::EMPTY_RIG);
+
+        // A slow two-step loop, so a restart would be unmistakable.
+        let chase = || Recipe {
+            target: Selection::Group("Pars".to_string()),
+            steps: vec![
+                Step::new(vec![RecipeApply::Dimmer(1.0)]),
+                Step::new(vec![RecipeApply::Dimmer(0.0)]),
+            ],
+            timing: Timing {
+                speed: Speed::Bpm(60.0),
+                measure: 4.0,
+                once: false,
+                ..Default::default()
+            },
+            tricks: Vec::new(),
+            stack: false,
+            ..Default::default()
+        };
+        let cue = |name: &str| Cue {
+            name: name.to_string(),
+            recipes: vec![chase().into()],
+            ..Default::default()
+        };
+
+        let mut player = CuePlayer::new(vec![cue("A"), cue("B")]);
+        player.go(&show);
+        player.tick(1.5);
+        let before = player
+            .output(&show)
+            .get(&(1, Attribute::Dimmer))
+            .copied()
+            .unwrap_or_default();
+
+        // The cut. The same chase is now carried by the next cue.
+        player.go(&show);
+        let after = player
+            .output(&show)
+            .get(&(1, Attribute::Dimmer))
+            .copied()
+            .unwrap_or_default();
+
+        assert!(
+            (before - after).abs() < 0.05,
+            "the chase jumped across the cut: {before} then {after} — a restart, not a sync"
+        );
+    }
+
     // r[verify groups.resolution-is-live]
 
     // r[verify cues.recipes-not-values]

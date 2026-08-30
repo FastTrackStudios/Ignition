@@ -1487,4 +1487,62 @@ mod transform_tests {
         assert!(forward.spread_fraction(0, count) < forward.spread_fraction(3, count));
         assert!(backward.spread_fraction(0, count) > backward.spread_fraction(3, count));
     }
+
+    /// A ramp's snap-back is a very narrow step, not a discontinuity.
+    ///
+    /// It reads as instant and keeps the whole model to one mechanism:
+    /// everything is steps with widths and transitions, including the
+    /// one place a waveform appears to jump.
+    ///
+    /// r[verify effects.waveform.ramp-snaps]
+    #[test]
+    fn a_ramps_snap_back_is_a_step_and_not_a_jump() {
+        for waveform in [Waveform::RampUp, Waveform::RampDown] {
+            let steps = waveform.steps(Attribute::Dimmer, 0.5, 0.5, true);
+            assert_eq!(steps.len(), 2, "{waveform:?} is not two steps");
+
+            let snap = &steps[0];
+            assert!(
+                snap.width > 0.0 && snap.width <= 0.05,
+                "{waveform:?}'s snap is {} of the cycle — not near-zero, \
+                 and a width of zero would be the discontinuity this avoids",
+                snap.width
+            );
+            assert_eq!(snap.transition, 0.0, "the snap eases, so it is not a snap");
+
+            // The ramp proper is the rest of the cycle and travels the
+            // whole way.
+            let ramp = &steps[1];
+            assert!((snap.width + ramp.width - 1.0).abs() < 1e-6);
+            assert_eq!(ramp.transition, 1.0);
+        }
+    }
+
+    /// Timing is carried once per effect and applies to every step.
+    ///
+    /// A per-step speed is a different effect wearing the same name,
+    /// and a reader cannot tell which step is setting the pace. The
+    /// guard is structural: a `Step` serialises with no timing on it at
+    /// all, so there is nowhere for a second opinion to live.
+    ///
+    /// r[verify effects.timing.uniform]
+    #[test]
+    fn timing_is_carried_once_and_not_per_step() {
+        let step = Step {
+            apply: vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.5)])],
+            width: 1.0,
+            transition: 1.0,
+            ease: Ease::Sine,
+        };
+        let json = serde_json::to_string(&step).expect("a step serialises");
+
+        for field in ["speed", "measure", "phase", "direction", "once"] {
+            assert!(!json.contains(field), "a step carries `{field}`: {json}");
+        }
+
+        // And the effect carries them, once.
+        let timing = Timing::default();
+        let json = serde_json::to_string(&timing).expect("timing serialises");
+        assert!(json.contains("measure"), "the effect does not carry timing");
+    }
 }
