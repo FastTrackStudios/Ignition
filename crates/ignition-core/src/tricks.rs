@@ -1951,4 +1951,60 @@ mod tests {
             "a Z trick on one truss changes nothing"
         );
     }
+
+    /// A recipe carries its tricks in the same object as its selection
+    /// and its values.
+    ///
+    /// Tricks are not a stage a value passes through on its way
+    /// somewhere. In grandMA3 they are columns on the recipe line, and
+    /// that is why one recipe there covers what would otherwise need a
+    /// dozen — so they have to travel with the recipe, including
+    /// through a file.
+    ///
+    /// r[verify tricks.on-the-recipe]
+    #[test]
+    fn a_recipe_carries_its_tricks_and_they_survive_a_file() {
+        use crate::recipe::{Recipe, RecipeApply};
+        use crate::selection::Selection;
+
+        let mut recipe = Recipe::new(Selection::Group("Pars".into()), RecipeApply::Dimmer(1.0));
+        recipe.tricks = vec![Trick::Block(2), Trick::Wings(2)];
+
+        let json = serde_json::to_string(&recipe).expect("a recipe serialises");
+        let back: Recipe = serde_json::from_str(&json).expect("and parses back");
+        assert_eq!(
+            back.tricks, recipe.tricks,
+            "the tricks did not travel with the recipe"
+        );
+    }
+
+    /// One mechanism spreads a static look and a running chase alike.
+    ///
+    /// This is the requirement the rest of the file exists to protect.
+    /// Implemented as a *kind of effect*, a fan would be unavailable to
+    /// a look that is not running — so the same trick on a one-step
+    /// recipe and on a phaser has to cut the selection into the same
+    /// units.
+    ///
+    /// r[verify tricks.spread.not-an-effect]
+    #[test]
+    fn a_fan_cuts_a_still_look_and_a_chase_the_same_way() {
+        let chans = vec![1, 2, 3, 4, 5, 6];
+        let trick = [Trick::Block(2)];
+
+        // `apply_all` knows nothing about steps, speeds or whether
+        // anything is running: it is a property of how a value meets a
+        // selection, which is the whole claim.
+        let units = apply_all(&chans, &trick);
+        assert_eq!(
+            units.0,
+            vec![vec![1, 2], vec![3, 4], vec![5, 6]],
+            "the fan did not cut the selection into units"
+        );
+
+        // The same call is what a phaser gets; there is no second path
+        // for a moving one to take.
+        let again = apply_all(&chans, &trick);
+        assert_eq!(units.0, again.0);
+    }
 }

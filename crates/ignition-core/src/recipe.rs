@@ -2855,6 +2855,47 @@ mod tests {
         assert_eq!(red_of(&emits, 6), Some(0.0));
     }
 
+    /// A relative recipe touches the attributes it names and no others.
+    ///
+    /// A chase that dims says how much to take away; what colour the
+    /// fixture is doing at the time is not its business. This is what
+    /// makes an effect layerable over a look instead of replacing it —
+    /// and it fails invisibly, since a chase that quietly zeroed the
+    /// colour looks like a colour that was never set.
+    ///
+    /// r[verify recipes.relative-leaves-colour-alone]
+    #[test]
+    fn a_relative_dimmer_chase_says_nothing_about_colour() {
+        let recipe = Recipe {
+            target: Selection::Chans(vec![1]),
+            steps: vec![
+                Step::new(vec![RecipeApply::Delta(vec![(Attribute::Dimmer, -0.4)])]),
+                Step::new(vec![RecipeApply::Delta(vec![(Attribute::Dimmer, 0.0)])]),
+            ],
+            timing: crate::step::Timing {
+                speed: crate::step::Speed::Bpm(60.0),
+                measure: 1.0,
+                ..Default::default()
+            },
+            tricks: Vec::new(),
+            stack: false,
+            ..Default::default()
+        };
+
+        for at in [0.0, 0.25, 0.5, 0.75] {
+            let emits = expand_recipe(&recipe, &bare(&[]), at);
+            assert!(!emits.is_empty(), "the chase emitted nothing at {at}");
+            for Emit { value, .. } in &emits {
+                assert_eq!(
+                    value.attr,
+                    Attribute::Dimmer,
+                    "a dimmer chase spoke about {:?} at {at}",
+                    value.attr
+                );
+            }
+        }
+    }
+
     /// A blocked pair shares a moment and still aims individually.
     ///
     /// That is what blocking is supposed to mean: phase is decided per

@@ -553,4 +553,78 @@ mod tests {
             vec![(Class::Show, Some(0.5)), (Class::Song, Some(1.0))]
         );
     }
+
+    /// Folding twice at one clock gives one answer, and going back to
+    /// an earlier clock gives the earlier answer.
+    ///
+    /// The output is a pure function of the stack, the rig, the show
+    /// clock and the operator's state. That is what makes the stack
+    /// inspectable: a frame can be re-resolved offline to answer "why
+    /// was that light on" — which is only true if resolving it again
+    /// does not change it, and if nothing has cached a value from a
+    /// frame that has been and gone.
+    ///
+    /// r[verify playback.output-is-pure]
+    #[test]
+    fn folding_the_same_frame_twice_gives_the_same_answer() {
+        use crate::step::{Speed, Step, Timing};
+
+        let groups = vec![Group {
+            name: "Pars".into(),
+            chans: vec![1, 2],
+        }];
+        let show = show(&groups);
+
+        // Something that moves, so a cached value would show up.
+        let chase = Cue {
+            name: "chase".into(),
+            recipes: vec![
+                crate::recipe::Recipe {
+                    target: crate::selection::Selection::Group("Pars".into()),
+                    steps: vec![
+                        Step::new(vec![crate::recipe::RecipeApply::Dimmer(1.0)]),
+                        Step::new(vec![crate::recipe::RecipeApply::Dimmer(0.0)]),
+                    ],
+                    timing: Timing {
+                        speed: Speed::Bpm(60.0),
+                        measure: 4.0,
+                        ..Default::default()
+                    },
+                    tricks: Vec::new(),
+                    stack: false,
+                    ..Default::default()
+                }
+                .into(),
+            ],
+            ..Default::default()
+        };
+
+        let mut pb = Playbacks::default();
+        let mut player = CuePlayer::new(vec![chase]);
+        player.go(&show);
+        // A quarter of the way round: inside the first step.
+        player.tick(1.0);
+        pb.push(Class::Show, player);
+
+        let ringing = HashSet::new();
+        let once = pb.output(&show, &ringing);
+        let twice = pb.output(&show, &ringing);
+        assert_eq!(once, twice, "resolving the same frame twice moved it");
+
+        // Move on, then come back: the earlier clock resolves to the
+        // earlier frame, because nothing kept the later one.
+        // Three quarters round, which is the *other* step — so a value
+        // held over from the last frame would be visible.
+        if let Some(p) = pb.of_class(Class::Show) {
+            p.tick(2.0);
+        }
+        let later = pb.output(&show, &ringing);
+        assert_ne!(later, once, "a moving chase did not move");
+
+        if let Some(p) = pb.of_class(Class::Show) {
+            p.set_clock(1.0);
+        }
+        let back = pb.output(&show, &ringing);
+        assert_eq!(back, once, "going back to a clock gave a different frame");
+    }
 }
