@@ -149,6 +149,56 @@ mod tests {
             .then(|| load(path).expect("the project parses"))
     }
 
+    /// A project with two regions and a tempo, as REAPER writes one.
+    ///
+    /// Small enough to read, real enough to parse: a region is a pair of
+    /// `MARKER` lines sharing an index, the second unnamed. At 120 in
+    /// 4/4 a bar is two seconds, so this is four bars of intro and eight
+    /// of verse.
+    const TWO_SECTIONS: &str = concat!(
+        "<REAPER_PROJECT 0.1 \"7.42/linux-x86_64\" 1758256717\n",
+        "  TEMPO 120 4 4 0\n",
+        "  MARKER 1 0 Intro 1 0 1 B {6119B43A-A96B-2DD3-43E2-B8BCEE058174} 0\n",
+        "  MARKER 1 8 \"\" 1\n",
+        "  MARKER 2 8 \"VS 1\" 1 0 1 B {A848D0F5-F978-0A1C-F3AD-7F804905D8EB} 0\n",
+        "  MARKER 2 24 \"\" 1\n",
+        ">\n",
+    );
+
+    /// The arrangement comes out of the project, not out of a second
+    /// copy somebody typed.
+    ///
+    /// Moving a section in the DAW moves the lighting with it precisely
+    /// because the lighting never had its own copy of where the section
+    /// was. This is the import that makes that true: names, order,
+    /// starts and lengths, all read from the regions.
+    ///
+    /// r[verify song.map.imported]
+    #[test]
+    fn the_arrangement_is_read_from_the_project() {
+        let song = from_rpp(TWO_SECTIONS, "Two Sections").expect("the project parses");
+
+        assert_eq!(song.name, "Two Sections");
+        let names: Vec<&str> = song.sections.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, ["Intro", "VS 1"], "regions became the arrangement");
+
+        // A bar is two seconds at 120, so the intro is four bars and the
+        // verse eight, and the verse starts where the intro ends.
+        assert!(
+            (song.sections[0].bars - 4.0).abs() < 1e-6,
+            "{:?}",
+            song.sections[0]
+        );
+        assert!(
+            (song.sections[1].bars - 8.0).abs() < 1e-6,
+            "{:?}",
+            song.sections[1]
+        );
+        assert_eq!(song.sections[0].start.bar, 1);
+        assert_eq!(song.sections[1].start.bar, 5);
+        assert!((song.tempo.at(Bars::START).bpm - 120.0).abs() < 1e-9);
+    }
+
     #[test]
     /// r[verify song.tempo-map] - fractional tempo
     fn reads_the_songs_fractional_tempo() {

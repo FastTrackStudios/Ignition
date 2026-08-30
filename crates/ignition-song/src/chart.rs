@@ -402,8 +402,8 @@ mod tests {
     /// The whole point: three hits under one `Connected` note come back
     /// as one idea, which is what lets a programmer throw them left,
     /// centre and right instead of flashing three times in one place.
-    #[test]
     /// r[verify song.chart.figure]
+    #[test]
     fn a_connected_note_gathers_its_hits() {
         let chart = assemble(
             vec![
@@ -418,6 +418,41 @@ mod tests {
         assert_eq!(chart.groups.len(), 1);
         assert_eq!(chart.groups[0].members.len(), 3);
         assert!(chart.hits.iter().all(|h| h.group == Some(0)));
+    }
+
+    /// A project with no HITS track is a project with no chart, and
+    /// that is not an error.
+    ///
+    /// Most projects have no chart. If reading one failed, every song
+    /// without a charted hit would fail to import at all — so the
+    /// absence has to be an empty chart, and a show with no hits is
+    /// still a show.
+    ///
+    /// r[verify song.chart] - an absent track is not an error
+    #[test]
+    fn a_project_with_no_hits_track_charts_nothing() {
+        let project = concat!(
+            "<REAPER_PROJECT 0.1 \"7.42/linux-x86_64\" 1758256717\n",
+            "  TEMPO 120 4 4 0\n",
+            "  MARKER 1 0 Intro 1 0 1 B {6119B43A-A96B-2DD3-43E2-B8BCEE058174} 0\n",
+            "  MARKER 1 8 \"\" 1\n",
+            ">\n",
+        );
+        // Unique per process: this file is written and removed, and a
+        // shared name means one run can delete another's fixture
+        // mid-read — which reads as "the project is empty" and fails
+        // somewhere else entirely.
+        let path =
+            std::env::temp_dir().join(format!("ignition-chartless-{}.RPP", std::process::id()));
+        std::fs::write(&path, project).expect("writing the fixture");
+
+        let chart = read(&path, &song()).expect("a chartless project still reads");
+        assert!(
+            chart.is_empty(),
+            "a project with no HITS track charted hits"
+        );
+
+        let _ = std::fs::remove_file(&path);
     }
 
     /// Hits outside every span stay ungrouped rather than being swept
