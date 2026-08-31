@@ -11,7 +11,7 @@
 
 use dioxus::prelude::*;
 use futures_util::StreamExt;
-use ignition_live_ui::live::{LIVE_CSS, Views};
+use ignition_live_ui::live::{LIVE_CSS, TOKENS_CSS, Views};
 use ignition_live_ui::{Bootstrap, Command, Playhead, PlayheadFeed, ServerMessage};
 use std::cell::RefCell;
 use wasm_bindgen::JsCast;
@@ -124,6 +124,7 @@ fn App() -> Element {
         document::Meta { name: "apple-mobile-web-app-title", content: "Ignition Live" }
         document::Meta { name: "theme-color", content: "#0b0b0d" }
         document::Link { rel: "manifest", href: MANIFEST }
+        style { {TOKENS_CSS} }
         style { {BASE_CSS} }
         style { {LIVE_CSS} }
         div { class: "page",

@@ -539,6 +539,7 @@ pub fn WindowRoot(host: HostId) -> Element {
     let popped = current.popped;
 
     rsx! {
+        style { {ignition_live_ui::live::TOKENS_CSS} }
         style { {include_str!("studio.css")} }
         style { {ignition_live_ui::live::LIVE_CSS} }
         style { {PANEL_CSS} }

@@ -1,0 +1,94 @@
+/* The desk's palette, defined once.
+ *
+ * Every colour the studio, the Live page and the dock draw with lives
+ * here and nowhere else. Before this file there were 190 distinct hex
+ * literals across four stylesheets, 31 of them repeated in two or three
+ * of those sheets — so "the selected blue" was five separate strings
+ * that happened to agree, and stayed agreeing only as long as nobody
+ * edited one of them. `live.rs`'s `no_raw_hex_outside_the_token_sheet`
+ * is what keeps it that way.
+ *
+ * Custom properties rather than Tailwind's `@theme`: these sheets are
+ * injected as `<style>` blocks into a Blitz document (stylo, so the
+ * cascade is real and `var()` resolves properly), and only the studio
+ * compiles Tailwind at all. `tailwind.css` mirrors the surface/ink/
+ * selection subset it needs for utility classes; the pairing is
+ * asserted by `the_theme_agrees_with_the_tokens`.
+ *
+ * Naming is by ROLE, not by appearance. `--sel-line` is "the edge of
+ * the selected thing", and if the desk ever goes light it is still
+ * that. A name like `--purple` would have to be a lie by then.
+ */
+:root {
+  /* ── Surfaces, darkest to lightest ──────────────────────────────
+     The desk is a stack of planes: the window behind everything, a
+     panel on it, a pad on the panel, and a tile on the pad. */
+  --bg: #0b0b0d;              /* the window itself */
+  --well: #0f0f12;            /* sunk: a fader track, a header strip */
+  --panel: #131317;           /* a panel's ground */
+  --panel-2: #17171d;         /* a panel's second tone, for banding */
+  --pad: #1b1b22;             /* a control's own surface */
+  --tile: #1e1e26;            /* a tile or preset chip */
+  --pad-hover: #24242e;       /* a pad under the pointer */
+  --raised: #23232e;          /* something sitting proud of the pad */
+
+  /* ── Lines ───────────────────────────────────────────────────────
+     Three weights. `--line-soft` separates rows inside one surface;
+     `--line` is the ordinary border; `--line-strong` is for an edge
+     that has to read against a pad rather than against a panel. */
+  --line-soft: #1f1f26;
+  --line: #26262c;
+  --line-pad: #2c2c36;        /* the commonest line in the desk */
+  --line-strong: #33333f;
+  --line-bright: #3d3d4a;
+
+  /* ── Ink ─────────────────────────────────────────────────────────
+     Bright for the thing being read, dim for the label beside it. */
+  --ink-bright: #ffffff;
+  --ink: #e6e6e6;
+  --ink-soft: #cfcfdb;
+  --ink-2: #d6d6e0;
+  --ink-3: #b0b0c0;
+  --ink-dim: #9a9aa6;
+  --ink-label: #8d8d99;       /* uppercase section headers */
+  --ink-faint: #6f6f7d;       /* a cue number, a disabled row */
+  --ink-fainter: #6a6a78;
+  --ink-ghost: #55555f;      /* an empty column, a dashed placeholder */
+  --ink-inverse: #14121a;     /* on a pressed, light-filled control */
+
+  /* ── Selection ───────────────────────────────────────────────────
+     What the operator has picked. The single most important state on
+     the surface, which is why it gets a fill and an edge of its own. */
+  --sel: #3a3a6b;
+  --sel-line: #6a6ad0;
+  --sel-deep: #2c2c40;
+  --sel-deep-2: #2c2c3a;
+
+  /* ── GO / active ─────────────────────────────────────────────────
+     Green means the show is moving. */
+  --go: #2c4a2c;
+  --go-line: #3d663d;
+  --go-ink: #cfe8cf;
+
+  /* ── Hit / armed ─────────────────────────────────────────────────
+     Amber means the song fires this, not the operator. Used for hits,
+     favourites, and the tap-tempo learn state. */
+  --hit: #3a2f10;
+  --hit-line: #8a6a20;
+  --hit-ink: #ffe9a8;
+  --hit-bright: #e8a040;
+  --hit-soft: #e0b860;
+  --hit-pale: #f0d880;
+
+  /* ── Alarm ───────────────────────────────────────────────────────
+     Red is reserved for a cue that resolves to nothing and a fixture
+     that is not answering. It must not be spent on anything routine. */
+  --bad: #c04a3a;
+  --bad-bright: #e86060;
+
+  /* ── Meters ──────────────────────────────────────────────────────
+     A level readout is not a control: it gets its own hue so a filled
+     bar is never mistaken for a selected one. */
+  --meter: #6ea8c0;
+  --meter-ink: #cfe0f0;
+}

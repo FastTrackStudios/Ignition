@@ -10,7 +10,7 @@
 .pointer-root, .window { display: flex; flex-direction: column; width: 100%; height: 100vh;
                          min-height: 0; min-width: 0; overflow: hidden; }
 .dock { position: relative; flex: 1 1 0; min-height: 0; min-width: 0; display: flex;
-        overflow: hidden; background: #0e0e12; }
+        overflow: hidden; background: var(--well); }
 /* No text selection anywhere in the dock furniture, not just while a drag
    is in flight. A mouse drag over a tab, splitter, fader or tile used to
    start a Blitz text selection; the 30 Hz playhead re-render then removed
@@ -35,24 +35,24 @@
    grey while an unnested leaf beside it drew fine. */
 .dock-split.row > .dock-child { height: 100%; }
 .dock-split.col > .dock-child { width: 100%; }
-.dock-splitter { flex: 0 0 2px; background: #1f1f26; }
+.dock-splitter { flex: 0 0 2px; background: var(--line-soft); }
 .dock-split.row > .dock-splitter { cursor: col-resize; }
 .dock-split.col > .dock-splitter { cursor: row-resize; }
-.dock.splitting .dock-splitter, .dock-splitter:hover { background: #3a3a6b; }
+.dock.splitting .dock-splitter, .dock-splitter:hover { background: var(--sel); }
 
 /* A leaf: the tab bar is the handle (r[impl studio.dock.tabs-are-handles]). */
 .dock-leaf { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; min-height: 0;
-             width: 100%; height: 100%; overflow: hidden; background: #121216; }
+             width: 100%; height: 100%; overflow: hidden; background: var(--panel); }
 .tab-bar { display: flex; align-items: stretch; height: 18px; flex: 0 0 18px; min-height: 18px;
-           background: #0e0e12; border-bottom: 1px solid #1f1f26; overflow: hidden; }
+           background: var(--well); border-bottom: 1px solid var(--line-soft); overflow: hidden; }
 .tab { display: flex; align-items: center; padding: 0 8px; font-size: 10px; letter-spacing: 0.08em;
        text-transform: uppercase; color: #5e5e6c; cursor: grab; white-space: nowrap;
        border-bottom: 2px solid transparent; }
-.tab:hover { color: #b0b0c0; }
-.tab.on { color: #e8a040; border-bottom-color: #e8a040; }
+.tab:hover { color: var(--ink-3); }
+.tab.on { color: var(--hit-bright); border-bottom-color: var(--hit-bright); }
 .tab.insert-before { border-left: 2px solid #6a9ad0; }
 .tab-note { margin-left: auto; padding: 0 8px; font-size: 9px; letter-spacing: 0.1em;
-            color: #e8a040; display: flex; align-items: center; }
+            color: var(--hit-bright); display: flex; align-items: center; }
 .tab-body { flex: 1 1 0; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .tab-body > * { flex: 1 1 0; min-height: 0; min-width: 0; }
 
@@ -63,7 +63,7 @@
 
 /* Drag furniture. */
 .tab-ghost { position: absolute; padding: 3px 10px; font-size: 10px; letter-spacing: 0.08em;
-             text-transform: uppercase; color: #fff; background: #3a3a6b; border: 1px solid #6a6ad0;
+             text-transform: uppercase; color: var(--ink-bright); background: var(--sel); border: 1px solid var(--sel-line);
              border-radius: 3px; pointer-events: none; z-index: 30; }
 .drop-preview { position: absolute; background: rgba(106, 154, 208, 0.22); border: 1px solid #6a9ad0;
                 display: flex; align-items: center; justify-content: center; pointer-events: none;
@@ -71,21 +71,21 @@
 .drop-preview span { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #dbe8f8;
                      background: rgba(14, 14, 18, 0.8); padding: 3px 8px; border-radius: 3px; }
 .drop-detach { position: absolute; left: 0; right: 0; top: 0; padding: 4px; text-align: center;
-               font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #ffe9a8;
-               background: rgba(58, 47, 16, 0.85); border-bottom: 1px solid #8a6a20;
+               font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--hit-ink);
+               background: rgba(58, 47, 16, 0.85); border-bottom: 1px solid var(--hit-line);
                pointer-events: none; z-index: 20; }
 
 /* The right-click menu. */
-.dock-menu { position: absolute; min-width: 200px; padding: 2px 0; background: #17171d;
-             border: 1px solid #33333f; border-radius: 4px; z-index: 40; display: flex;
+.dock-menu { position: absolute; min-width: 200px; padding: 2px 0; background: var(--panel-2);
+             border: 1px solid var(--line-strong); border-radius: 4px; z-index: 40; display: flex;
              flex-direction: column; }
 .menu-title { padding: 4px 10px; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
-              color: #e8a040; border-bottom: 1px solid #26262c; margin-bottom: 2px; }
+              color: var(--hit-bright); border-bottom: 1px solid var(--line); margin-bottom: 2px; }
 .menu-sub { padding: 5px 10px 1px; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
-            color: #6a6a78; }
+            color: var(--ink-fainter); }
 .menu-item { display: block; width: 100%; text-align: left; padding: 5px 10px; font-size: 11px;
-             color: #d0d0dc; background: transparent; border: none; cursor: pointer; }
-.menu-item:hover { background: #2c2c40; color: #fff; }
+             color: var(--ink-soft); background: transparent; border: none; cursor: pointer; }
+.menu-item:hover { background: var(--sel-deep); color: var(--ink-bright); }
 .menu-item.indent { padding-left: 20px; }
 .menu-item:disabled { color: #4a4a55; cursor: default; }
 .menu-grid { display: flex; flex-wrap: wrap; max-width: 440px; }
