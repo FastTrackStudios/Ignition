@@ -1,0 +1,9 @@
+# dx config for the Ignition iOS app.
+[application]
+name = "ignition-mobile"
+
+# App bundle identity (iOS CFBundleIdentifier / TestFlight App ID).
+# App Store Connect record 6806678359.
+[bundle]
+identifier = "app.fasttrackstudio.ignition"
+publisher = "FastTrackStudio"

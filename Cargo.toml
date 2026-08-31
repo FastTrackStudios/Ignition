@@ -8,6 +8,7 @@ members = [
     "crates/ignition-core",
     "crates/ignition-viz",
     "apps/ignition-engine",
+    "apps/mobile",
 ]
 
 [workspace.package]
@@ -23,6 +24,24 @@ ignition-viz = { path = "crates/ignition-viz" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Dioxus for the iOS app. Pinned to the SAME git rev the sibling FTS repos
+# use -- the `dx` CLI in the devshell is 0.8.0-alpha.0 and refuses to build
+# against a mismatched dioxus, so this rev moves in lockstep with them.
+dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false, features = ["lib"] }
+ignition-mobile = { path = "apps/mobile" }
+
+# Telemetry -- Ignition's ONLY dependency on architect, taken deliberately
+# narrow: just the telemetry feature crate, not the framework. Traces, logs
+# and metrics go to the FTS collector so the lighting app is observable
+# alongside the other products. `otel` is inert unless the build bakes
+# TASK_OTLP_ENDPOINT, so a dev build ships no telemetry at all.
+#
+# Pinned to a tag like every cross-repo dep here. If Ignition later takes a
+# wider architect dependency, that one must use this SAME tag -- a split tag
+# means two copies of the architect crates whose traits refuse to unify.
+architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.5.0", features = ["otel"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Vendored fork — see crates/gdtf-vendored/PATCH-NOTES.md. Redirects every
 # `gdtf = "0.3.0"` dependency (currently just ignition-viz) to the local
