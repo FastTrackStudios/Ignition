@@ -37,54 +37,58 @@ Resolume box.
 
 ## Repo layout
 
+Follows [architect](https://github.com/FastTrackStudios/architect)'s
+monorepo shape: `features/` for capability slices, `crates/` for the
+libraries that compose them, `apps/` for things you run.
+
 ```
+features/                one capability per directory, backends beside the facade
+  colour/                what a value is — presets, splits, emitter resolve
+  rig/                   what it lands on — selections, groups, tricks, focus
+  show/                  recipes, cues, tracking, the programmer, the show file
+  effects/               the shipped effect library
+  playback/              the priority stack and the desk macros
+  dmx/                   ignition-dmx-proto · -sacn · -artnet · the facade
+  daw/                   ignition-daw-proto · -reaper · -transport · the facade
 crates/
-  ignition-proto       wire contract — the types every other crate shares
-  ignition-core        the lighting domain, no I/O: attribute model, patch
-                        resolve, selections and tricks, recipes/effects,
-                        the cue + tracking engine, the priority stack
-  ignition-profile     the frame profiler — a tracing Layer that splits a
-                        frame into Blitz's half and Bevy's. Nothing to do
-                        with a lighting "profile", which is a domain term
-                        this crate name unfortunately collides with
-  ignition-io          sACN / Art-Net transmit, rate + keep-alive, and the
-                        loopback that feeds the visualizer the same bytes
-  ignition-song        the song level: DAW song map, hit chart, transport,
-                        timecode, cue generation and the show lint
-  ignition-viz         Bevy/wgpu 3D visualizer, GDTF meshes, haze, gobos,
-                        canvases and the projection-mapping render path
-  ignition-live-ui     Dioxus panes shared by the desk and the iPad Live
-                        page — cue list, faders, library, cameras
-  *-vendored           one-hunk forks of upstream crates, each with a
-                        NOTICE.md saying exactly what changed and why
+  ignition-proto         the types every crate shares
+  ignition-core          composes the five domain slices into one namespace
+  ignition-profile       the frame profiler — a tracing Layer that splits a
+                          frame into Blitz's half and Bevy's. Nothing to do
+                          with a lighting "profile", which is a domain term
+                          this crate name unfortunately collides with
+  ignition-viz           Bevy/wgpu visualizer, GDTF meshes, haze, gobos, canvases
+  ignition-live-ui       Dioxus panes shared by the desk and the iPad Live page
+  *-vendored             one-hunk forks of upstream crates, each with a NOTICE.md
 apps/
-  ignition-studio      the operator desk: multi-window Dioxus shell with
-                        the visualizer embedded on Blitz's own wgpu device
-  ignition-live-web    the same Live panes built for a browser/iPad
-  ignition-engine      the headless engine binary
-  mobile               the Ignition iPhone app (package `ignition-mobile`)
-docs/
-  spec/                normative requirements, `r[topic.id]` per paragraph,
-                        traced to code by tracey (`just`-free:
-                        `python3 tools/spec_coverage.py`)
-  domain/              domain model (ASLS-style, grounded in a real venue)
-  research/            landscape studies — OSS/industry comparison, grandMA3
-                        recipes/phasers, Resolume mapping, venue reference
-  ops/                 profiling and the iPad Live runbook
-data/
-  venues/norco/        real fixture patch + room geometry, extracted from an
-                        actual Eos show file, used as the first visualizer
-                        test case (see docs/domain/norco-venue-reference.md)
-  profiles/            the shipped profile, baked from `ignition-core`
-  songs/               song maps, hit charts and per-song cue lists
-  gdtf/                the fixture library, real and generated
-tools/                 GDTF generation and the spec-coverage reporter
-nix/                   flake-parts modules: toolchain, dx, dev + CI shells
+  ignition-studio        the operator desk — multi-window Dioxus, viz embedded
+  ignition-live-web      the Live panes, built for a browser/iPad
+  ignition-engine        the headless engine binary
+  ignition-mobile        the Ignition iPhone app
+docs/spec/               normative `r[topic.id]` requirements, traced by tracey
+docs/domain/             the domain model, grounded in a real venue
+docs/research/           landscape studies — grandMA3, Resolume, OSS comparison
+data/                    venues, profiles, songs, the GDTF library
+tools/                   GDTF generation and the spec-coverage reporter
+nix/                     flake-parts modules: toolchain, dx, dev + CI shells
 ```
 
-Not yet built: `ignition-video` (media decode for mapped surfaces) and the
-Graphics/Video studio modes — the only five requirements in `docs/spec/`
-with no implementation. Lights first, deliberately (`r[studio.modes.lights-first]`).
+The domain's layering is one-way and was derived, not decided —
+`colour` and `rig` are leaves, `show` is the mutually-recursive core
+that cannot be split further without redesigning what a cue means, and
+`effects` then `playback` sit above it. `ignition-core` re-exports the
+lot so an application sees one flat namespace.
+
+Package names carry an `ignition-` prefix rather than architect's bare
+`<feature>-<role>`: `daw`, `daw-proto`, `daw-audio-io`, `daw-control`,
+`daw-module` and `daw-standalone` are already in this workspace's
+dependency graph from the `FastTrackStudios/daw` repo, so the bare
+namespace is taken and the tree is consistent about it.
+
+Not yet built: `ignition-video` (media decode for mapped surfaces) and
+the Graphics/Video studio modes — the only five requirements in
+`docs/spec/` with no implementation. Lights first, deliberately
+(`r[studio.modes.lights-first]`).
 
 ## Licence
 
