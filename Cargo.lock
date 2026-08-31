@@ -6521,11 +6521,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignition-colour"
+version = "0.1.0"
+dependencies = [
+ "ignition-proto",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ignition-core"
 version = "0.1.0"
 dependencies = [
+ "ignition-colour",
  "ignition-daw-proto",
+ "ignition-effects",
+ "ignition-playback",
  "ignition-proto",
+ "ignition-rig",
+ "ignition-show",
  "serde",
  "serde_json",
 ]
@@ -6538,10 +6552,15 @@ dependencies = [
  "daw",
  "fts-sample",
  "hit-detect-dsp",
- "ignition-core",
+ "ignition-colour",
  "ignition-daw-proto",
  "ignition-daw-reaper",
  "ignition-daw-transport",
+ "ignition-effects",
+ "ignition-playback",
+ "ignition-proto",
+ "ignition-rig",
+ "ignition-show",
  "keyflow-proto",
  "serde",
  "serde_json",
@@ -6618,6 +6637,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignition-effects"
+version = "0.1.0"
+dependencies = [
+ "ignition-colour",
+ "ignition-daw-proto",
+ "ignition-proto",
+ "ignition-rig",
+ "ignition-show",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ignition-engine"
 version = "0.1.0"
 dependencies = [
@@ -6669,6 +6701,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignition-playback"
+version = "0.1.0"
+dependencies = [
+ "ignition-colour",
+ "ignition-daw-proto",
+ "ignition-effects",
+ "ignition-proto",
+ "ignition-rig",
+ "ignition-show",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ignition-profile"
 version = "0.1.0"
 dependencies = [
@@ -6680,6 +6726,27 @@ dependencies = [
 name = "ignition-proto"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ignition-rig"
+version = "0.1.0"
+dependencies = [
+ "ignition-proto",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ignition-show"
+version = "0.1.0"
+dependencies = [
+ "ignition-colour",
+ "ignition-daw-proto",
+ "ignition-proto",
+ "ignition-rig",
  "serde",
  "serde_json",
 ]

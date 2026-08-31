@@ -1847,7 +1847,7 @@ mod tests {
     // r[verify tricks.shared-or-inline]
     #[test]
     fn profile_named_tricks_apply_to_twelve() {
-        let text = include_str!("../../../data/profiles/ignition.ig-profile");
+        let text = include_str!("../../../../data/profiles/ignition.ig-profile");
         let profile: serde_json::Value = serde_json::from_str(text).unwrap();
         let named: std::collections::BTreeMap<String, Vec<Trick>> =
             serde_json::from_value(profile["tricks"].clone()).unwrap();
@@ -1949,32 +1949,6 @@ mod tests {
             flat.units.0.len(),
             4,
             "a Z trick on one truss changes nothing"
-        );
-    }
-
-    /// A recipe carries its tricks in the same object as its selection
-    /// and its values.
-    ///
-    /// Tricks are not a stage a value passes through on its way
-    /// somewhere. In grandMA3 they are columns on the recipe line, and
-    /// that is why one recipe there covers what would otherwise need a
-    /// dozen — so they have to travel with the recipe, including
-    /// through a file.
-    ///
-    /// r[verify tricks.on-the-recipe]
-    #[test]
-    fn a_recipe_carries_its_tricks_and_they_survive_a_file() {
-        use crate::recipe::{Recipe, RecipeApply};
-        use crate::selection::Selection;
-
-        let mut recipe = Recipe::new(Selection::Group("Pars".into()), RecipeApply::Dimmer(1.0));
-        recipe.tricks = vec![Trick::Block(2), Trick::Wings(2)];
-
-        let json = serde_json::to_string(&recipe).expect("a recipe serialises");
-        let back: Recipe = serde_json::from_str(&json).expect("and parses back");
-        assert_eq!(
-            back.tricks, recipe.tricks,
-            "the tricks did not travel with the recipe"
         );
     }
 

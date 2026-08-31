@@ -75,19 +75,23 @@
 //! | Outro       | `drain and hold`, `lift off`, an `s_curve` fall to black over eight beats, `osc /show/end` and `"macro end"`; `House Lights` (protected, optional) held at Warm 0.3 through the black |
 //! | safe/reset  | open on the `punt` look, then say what differs                       |
 
-use ignition_core::canvas::{BitmapChannel, CanvasRecipe, Procedural, Quantity};
-use ignition_core::cue::{CueFan, CurveName, Trig};
-use ignition_core::music::Position;
-use ignition_core::preset::{ColorSplit, Ref};
-use ignition_core::recipe::Distribute;
-use ignition_core::selection::{Axis, Dir, Order, Where};
-use ignition_core::tricks::{Fan, InvertStyle};
-use ignition_core::{
-    AttrFilter, Attribute, Bars, Cue, CueList, Ease, Play, Recipe, RecipeApply, RecipeRef,
-    Selection, SongMap, Speed, Step, Timing, Trick, Trigger, Waveform,
-};
+use ignition_colour::preset::{ColorSplit, Ref};
 use ignition_daw::chart::{HitChart, HitClass};
 use ignition_daw::generate::{Kind, kind_of};
+use ignition_daw_proto::Position;
+use ignition_daw_proto::{Bars, SongMap};
+use ignition_proto::Attribute;
+use ignition_rig::selection::{Axis, Dir, Order, Where};
+use ignition_rig::tricks::{Fan, InvertStyle};
+use ignition_rig::{Selection, Trick};
+use ignition_show::AttrFilter;
+use ignition_show::canvas::{BitmapChannel, CanvasRecipe, Procedural, Quantity};
+use ignition_show::cue::{CueFan, CurveName, Trig};
+use ignition_show::recipe::Distribute;
+use ignition_show::{
+    Cue, CueList, Ease, Play, Recipe, RecipeApply, RecipeRef, Speed, Step, Timing, Trigger,
+    Waveform,
+};
 
 // r[impl song.chart] - the chart is re-read from the project on every run
 // r[impl cues.sorted-by-position]
@@ -202,10 +206,10 @@ fn main() -> anyhow::Result<()> {
     // which project it was written against, so `igcheck` can hold it to
     // the profile without being told, and a second show can find its
     // song. r[impl files.show.song-binding] r[impl profile.ignition-is-per-song]
-    let document = ignition_core::show_file::ShowDocument::new(
+    let document = ignition_show::show_file::ShowDocument::new(
         list,
         "Ignition",
-        ignition_core::show_file::SongBinding {
+        ignition_show::show_file::SongBinding {
             project: opts.project.clone(),
             name: song.name.clone(),
         },
@@ -849,7 +853,7 @@ fn canvas_noise_on_bars(colour: &str) -> RecipeRef {
 // r[impl profile.effect-parameters] - `bars` is written as the `bars` parameter
 fn effect(name: &str, target: Option<Selection>, bars: Option<f32>) -> RecipeRef {
     assert!(
-        ignition_core::effects::library().contains_key(name),
+        ignition_effects::effects::library().contains_key(name),
         "no library effect named {name:?}"
     );
     let mut r = RecipeRef::named(name);
@@ -911,7 +915,7 @@ fn at_speed(r: RecipeRef, speed: Speed) -> RecipeRef {
 // r[impl profile.looks] - authored use in a cue
 fn look_ref(name: &str) -> RecipeRef {
     assert!(
-        ignition_core::macros::looks().contains_key(name),
+        ignition_playback::macros::looks().contains_key(name),
         "no profile look named {name:?}"
     );
     RecipeRef::look(name)
@@ -924,7 +928,7 @@ fn look_ref(name: &str) -> RecipeRef {
 #[allow(dead_code)]
 fn bundle(name: &str) -> RecipeRef {
     assert!(
-        ignition_core::effects::bundles().contains_key(name),
+        ignition_effects::effects::bundles().contains_key(name),
         "no library bundle named {name:?}"
     );
     RecipeRef::Bundle {
@@ -1676,12 +1680,12 @@ fn zone(n: usize, count: usize) -> Selection {
         // almost every front wash in every room does; "the left third of
         // the stage" is a question about coverage.
         filter: Where::Covers {
-            min: ignition_core::Vec3 {
+            min: ignition_proto::Vec3 {
                 x: min_x,
                 y: -30.0,
                 z: 0.0,
             },
-            max: ignition_core::Vec3 {
+            max: ignition_proto::Vec3 {
                 x: min_x + width,
                 y: 30.0,
                 z: 0.0,
@@ -1797,11 +1801,11 @@ fn pulses(chart: &HitChart, song: &SongMap, section: &str) -> Vec<Recipe> {
 // r[impl playback.flash-equals-hit]
 fn bump(target: Selection, class: HitClass, depth: f32) -> Recipe {
     let kind = if class == HitClass::High || depth >= 0.6 {
-        ignition_core::BumpKind::White
+        ignition_show::BumpKind::White
     } else {
-        ignition_core::BumpKind::Level
+        ignition_show::BumpKind::Level
     };
-    ignition_core::bump::bump(target, kind, depth)
+    ignition_show::bump::bump(target, kind, depth)
 }
 
 /// A relative envelope with the bump's shape, scaled by `depth` —
@@ -1812,7 +1816,7 @@ fn bump(target: Selection, class: HitClass, depth: f32) -> Recipe {
 /// `bump`'s own depth, which clamps to one: a reveal summed with a cut
 /// needs the lift to be cut-plus-level, which is more than one.
 fn envelope(target: Selection, depth: f32) -> Recipe {
-    let mut r = ignition_core::bump::bump(target, ignition_core::BumpKind::Level, 1.0);
+    let mut r = ignition_show::bump::bump(target, ignition_show::BumpKind::Level, 1.0);
     for step in r.steps.iter_mut() {
         for apply in step.apply.iter_mut() {
             if let RecipeApply::Delta(pairs) = apply {
@@ -1991,7 +1995,7 @@ fn triggers(chart: &HitChart, song: &SongMap) -> Vec<Trigger> {
 fn section_triggers(song: &SongMap) -> Vec<Trigger> {
     let mut out = Vec::new();
     if song.section("Break").is_some() {
-        let mut flash = ignition_core::effects::library()["negative flash"].clone();
+        let mut flash = ignition_effects::effects::library()["negative flash"].clone();
         flash.target = everything();
         out.push(Trigger {
             at: at("Break", 0),
@@ -2007,7 +2011,7 @@ fn section_triggers(song: &SongMap) -> Vec<Trigger> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ignition_core::{Section, TempoMap};
+    use ignition_daw_proto::{Section, TempoMap};
 
     /// An arrangement with the real song's shape, at a chosen verse length.
     fn arrangement(verse: f64) -> SongMap {
@@ -2446,7 +2450,7 @@ mod tests {
     fn profile_splits() -> Vec<ColorSplit> {
         splits(std::path::Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../data/profiles/ignition.ig-profile"
+            "/../../../data/profiles/ignition.ig-profile"
         )))
     }
 
@@ -2481,7 +2485,7 @@ mod tests {
     /// r[verify cues.timing.per-attribute]
     #[test]
     fn every_cue_that_reaims_the_movers_asks_for_mib_and_no_other_does() {
-        use ignition_core::cue::{Mib, MibMode};
+        use ignition_show::cue::{Mib, MibMode};
         let list = author(&arrangement(8.0));
         let mut flagged = 0;
         for (i, cue) in list.cues.iter().enumerate() {
@@ -2698,9 +2702,9 @@ mod tests {
         ] {
             assert!(named.contains(&name), "{name} missing from {named:?}");
         }
-        let library = ignition_core::effects::library();
-        let bundles = ignition_core::effects::bundles();
-        let looks = ignition_core::macros::looks();
+        let library = ignition_effects::effects::library();
+        let bundles = ignition_effects::effects::bundles();
+        let looks = ignition_playback::macros::looks();
         for name in &named {
             assert!(
                 library.contains_key(*name)

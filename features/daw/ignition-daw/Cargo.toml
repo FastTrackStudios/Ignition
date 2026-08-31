@@ -55,7 +55,17 @@ name = "playsong"
 required-features = ["play"]
 
 [dependencies]
-ignition-core.workspace = true
+# The domain, by layer rather than through `ignition-core`. A feature
+# depends on features -- and naming the layers is also documentation:
+# this crate reaches for cues and recipes (`show`), the effect library
+# (`effects`), the desk macros (`playback`), selections and tricks
+# (`rig`), colour presets, and the musical vocabulary below all of them.
+ignition-proto.workspace = true
+ignition-colour.workspace = true
+ignition-rig.workspace = true
+ignition-show.workspace = true
+ignition-effects.workspace = true
+ignition-playback.workspace = true
 # The feature's own siblings: the vocabulary, the reader, the playhead.
 ignition-daw-proto.workspace = true
 ignition-daw-reaper.workspace = true

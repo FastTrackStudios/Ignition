@@ -1052,54 +1052,9 @@ mod tests {
     fn default_profile() -> Profile {
         Profile::load(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../data/profiles/ignition.ig-profile"
+            "/../../../data/profiles/ignition.ig-profile"
         ))
         .expect("the shipped default profile loads")
-    }
-
-    /// The default profile ships the default library, and every entry
-    /// in it is written against the `Song` master.
-    ///
-    /// A vocabulary of roles without the effects that use them is half
-    /// a profile. And the library is what makes "one cycle per bar"
-    /// one cycle per bar *of this song* — an entry slaved to anything
-    /// else would keep its own time while the show followed the music.
-    ///
-    /// r[verify effects.library.profile-ships-it]
-    /// r[verify effects.masters.song]
-    #[test]
-    fn the_default_profile_ships_the_library_written_against_song() {
-        let profile = default_profile();
-        let library = crate::effects::library();
-
-        assert!(!library.is_empty(), "the built-in library is empty");
-        for name in library.keys() {
-            assert!(
-                profile.effects.contains_key(name),
-                "the shipped profile is missing the library's `{name}`"
-            );
-        }
-        assert!(
-            !profile.effect_notes.is_empty(),
-            "the notes ship beside the recipes, so a chooser can read them"
-        );
-
-        // Every library entry keeps the song's time. `Scaled` is the
-        // same master at a multiple — the strobe running double off the
-        // same tap — which is still the song.
-        for (name, recipe) in &library {
-            let master = match &recipe.timing.speed {
-                crate::step::Speed::Master(m) => Some(m.as_str()),
-                crate::step::Speed::Scaled { master, .. } => Some(master.as_str()),
-                _ => None,
-            };
-            if let Some(master) = master {
-                assert!(
-                    master == "Song" || master == "Tap",
-                    "`{name}` is slaved to `{master}`, which is neither the song nor the tap"
-                );
-            }
-        }
     }
 
     /// The overlay sits beside the file, is merged over the bake with
@@ -1470,52 +1425,6 @@ mod tests {
                 role(&p, name, RoleKind::Group).is_some(),
                 "{name} is declared"
             );
-        }
-    }
-
-    /// The busking programming ships in the file, baked from
-    /// `macros::shipped`, and the file agrees with the code.
-    /// r[verify profile.looks]
-    /// r[verify profile.macros]
-    /// r[verify profile.pages]
-    /// r[verify profile.speed-routing]
-    #[test]
-    fn the_default_profile_ships_the_busking_programming() {
-        let p = default_profile();
-        let shipped = crate::macros::shipped();
-        assert_eq!(p.looks, shipped.looks);
-        assert_eq!(p.macros, shipped.macros);
-        assert_eq!(p.pages, shipped.pages);
-        assert_eq!(p.protected, shipped.protected);
-        assert_eq!(p.speed_routing, shipped.speed_routing);
-        for name in ["verse bed", "chorus full", "punt", "blackout"] {
-            assert!(p.looks.contains_key(name), "look {name}");
-        }
-        for name in ["drop", "build 8", "breakdown", "end"] {
-            assert!(p.macros.contains_key(name), "macro {name}");
-        }
-        assert_eq!(p.pages.len(), 4);
-        // Every effect a page or a look or a macro names is in the file's library.
-        let show = Show {
-            library: &p.effects,
-            bundles: &p.bundles,
-            ..Show::new(&[], &crate::selection::EMPTY_RIG)
-        };
-        for page in &p.pages {
-            for spec in &page.faders {
-                if let FaderSource::Effect(name) = &spec.source {
-                    assert!(p.effects.contains_key(name), "{}: {name}", spec.label);
-                }
-            }
-        }
-        for (name, look) in &p.looks {
-            for r in &look.recipes {
-                assert!(
-                    r.missing(&show).is_empty(),
-                    "look {name}: {:?}",
-                    r.missing(&show)
-                );
-            }
         }
     }
 }

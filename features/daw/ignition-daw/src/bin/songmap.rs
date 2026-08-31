@@ -8,7 +8,7 @@
 //! whether its sections land where you think they do, which is the first
 //! question when a show does not line up.
 
-use ignition_core::Bars;
+use ignition_daw_proto::Bars;
 
 fn main() -> anyhow::Result<()> {
     let path = std::env::args()

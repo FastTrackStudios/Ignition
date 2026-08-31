@@ -1059,7 +1059,7 @@ mod tests {
 
     fn data(rel: &str) -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../data")
+            .join("../../../data")
             .join(rel)
     }
 

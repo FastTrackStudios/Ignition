@@ -17,12 +17,12 @@
 //! the last chorus — those are the parts a person adds, and the parts a
 //! chart will eventually carry. See `docs/domain/musical-time-cues.md`.
 
-use ignition_core::preset::Ref;
-use ignition_core::selection::{Axis, Cmp, Dir, Order, Where};
-use ignition_core::{
-    Attribute, Cue, CueList, Recipe, RecipeApply, Section, Selection, SongMap, Speed, Timing,
-    Waveform,
-};
+use ignition_colour::preset::Ref;
+use ignition_daw_proto::{Section, SongMap};
+use ignition_proto::Attribute;
+use ignition_rig::Selection;
+use ignition_rig::selection::{Axis, Cmp, Dir, Order, Where};
+use ignition_show::{Cue, CueList, Recipe, RecipeApply, Speed, Timing, Waveform};
 
 /// What part of a song a section is.
 ///
@@ -308,7 +308,7 @@ fn cue_for(song: &SongMap, section: &Section, roles: &Roles) -> Cue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ignition_core::{Bars, TempoMap, TimeSignature};
+    use ignition_daw_proto::{Bars, TempoMap, TimeSignature};
 
     fn song() -> SongMap {
         SongMap {

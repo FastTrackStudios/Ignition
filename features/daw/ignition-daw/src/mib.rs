@@ -7,8 +7,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ignition_core::cue::{Mib, MibMode};
-use ignition_core::{CueList, RecipeApply, RecipeRef, Selection};
+use ignition_rig::Selection;
+use ignition_show::cue::{Mib, MibMode};
+use ignition_show::{CueList, RecipeApply, RecipeRef};
 
 use crate::generate::{Kind, kind_of};
 
@@ -178,8 +179,8 @@ pub fn set_class_timing(list: &mut CueList) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ignition_core::preset::Ref;
-    use ignition_core::{Cue, Recipe};
+    use ignition_colour::preset::Ref;
+    use ignition_show::{Cue, Recipe};
 
     fn movers() -> Selection {
         Selection::Role("Movers".into())

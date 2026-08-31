@@ -10,8 +10,10 @@
 //! this prints the chorus while the chorus is playing, the rest is
 //! drawing.
 
-use ignition_core::{Bars, CuePlayer, Rig, Show, SpeedMasters};
 use ignition_daw::SongTransport;
+use ignition_daw_proto::Bars;
+use ignition_rig::Rig;
+use ignition_show::{CuePlayer, Show, SpeedMasters};
 use std::time::Duration;
 
 fn main() -> anyhow::Result<()> {
@@ -40,7 +42,7 @@ fn main() -> anyhow::Result<()> {
     let list = match &cues_path {
         Some(path) => {
             let raw = std::fs::read_to_string(path)?;
-            serde_json::from_str::<ignition_core::CueList>(&raw)?
+            serde_json::from_str::<ignition_show::CueList>(&raw)?
         }
         None => ignition_daw::generate(&song, &ignition_daw::Roles::default()),
     };

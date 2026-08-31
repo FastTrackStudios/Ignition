@@ -1,0 +1,18 @@
+[package]
+name = "ignition-rig"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Addressing the rig: selections, groups, tricks and focus"
+
+[dependencies]
+ignition-proto.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lib]
+name = "ignition_rig"
+path = "src/lib.rs"
+

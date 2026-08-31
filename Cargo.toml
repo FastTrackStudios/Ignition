@@ -16,6 +16,11 @@ members = [
     "features/dmx/ignition-dmx-sacn",
     "features/dmx/ignition-dmx-artnet",
     "features/dmx/ignition-dmx",
+    "features/colour/ignition-colour",
+    "features/rig/ignition-rig",
+    "features/show/ignition-show",
+    "features/effects/ignition-effects",
+    "features/playback/ignition-playback",
     "features/daw/ignition-daw-proto",
     "features/daw/ignition-daw-reaper",
     "features/daw/ignition-daw-transport",
@@ -47,6 +52,11 @@ ignition-dmx-proto = { path = "features/dmx/ignition-dmx-proto" }
 ignition-dmx-sacn = { path = "features/dmx/ignition-dmx-sacn" }
 ignition-dmx-artnet = { path = "features/dmx/ignition-dmx-artnet" }
 ignition-dmx = { path = "features/dmx/ignition-dmx" }
+ignition-colour = { path = "features/colour/ignition-colour" }
+ignition-rig = { path = "features/rig/ignition-rig" }
+ignition-show = { path = "features/show/ignition-show" }
+ignition-effects = { path = "features/effects/ignition-effects" }
+ignition-playback = { path = "features/playback/ignition-playback" }
 ignition-daw-proto = { path = "features/daw/ignition-daw-proto" }
 ignition-daw-transport = { path = "features/daw/ignition-daw-transport" }
 ignition-daw-reaper = { path = "features/daw/ignition-daw-reaper" }

@@ -17,7 +17,7 @@
 //! syllables get filled in against those anchors; this is the scaffold.
 
 use anyhow::{Context, Result};
-use ignition_core::{Bars, SongMap};
+use ignition_daw_proto::{Bars, SongMap};
 use keyflow_proto::lrc;
 use std::path::Path;
 
@@ -119,7 +119,7 @@ pub fn place(parsed: &lrc::Lrc, song: &SongMap) -> Lyrics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ignition_core::{TempoMap, TimeSignature};
+    use ignition_daw_proto::{TempoMap, TimeSignature};
 
     fn song(bpm: f64) -> SongMap {
         SongMap {

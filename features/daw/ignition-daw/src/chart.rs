@@ -41,7 +41,7 @@
 use crate::SongMap;
 use anyhow::{Context, Result};
 use daw::file::{ReaperProject, parse_rpp_file};
-use ignition_core::Bars;
+use ignition_daw_proto::Bars;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -374,7 +374,7 @@ fn beats_between(from: Bars, to: Bars, beats_per_bar: u32) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ignition_core::{TempoMap, TimeSignature};
+    use ignition_daw_proto::{TempoMap, TimeSignature};
 
     fn song() -> SongMap {
         SongMap {

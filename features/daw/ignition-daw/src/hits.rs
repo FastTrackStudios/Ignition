@@ -20,7 +20,7 @@
 use crate::SongMap;
 use anyhow::{Context, Result};
 use hit_detect_dsp::{Analysis, Band, Config, analyze};
-use ignition_core::Bars;
+use ignition_daw_proto::Bars;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -199,7 +199,7 @@ fn last_bar(song: &SongMap) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ignition_core::{TempoMap, TimeSignature};
+    use ignition_daw_proto::{TempoMap, TimeSignature};
 
     fn song(bpm: f64) -> SongMap {
         SongMap {
@@ -279,7 +279,7 @@ mod tests {
 
         // Two bars at 120 bpm: 2 s each, 4 s in all.
         let mut song = song(120.0);
-        song.sections = vec![ignition_core::Section {
+        song.sections = vec![ignition_daw_proto::Section {
             name: "VS".into(),
             start: Bars::bar(1),
             bars: 2.0,

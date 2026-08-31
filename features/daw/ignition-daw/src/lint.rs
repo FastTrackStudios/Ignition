@@ -13,11 +13,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ignition_core::cue::MibMode;
-use ignition_core::preset::{ColorSplit, Ref};
-use ignition_core::{
-    Attribute, Bars, Cue, CueList, Recipe, RecipeApply, RecipeRef, Selection, SongMap, Trigger,
-};
+use ignition_colour::preset::{ColorSplit, Ref};
+use ignition_daw_proto::{Bars, SongMap};
+use ignition_proto::Attribute;
+use ignition_rig::Selection;
+use ignition_show::cue::MibMode;
+use ignition_show::{Cue, CueList, Recipe, RecipeApply, RecipeRef, Trigger};
 
 use crate::generate::{Kind, kind_of};
 use crate::mib::leaves;
@@ -404,14 +405,14 @@ fn read_cue(index: usize, cue: &Cue, song: &SongMap) -> Info {
     // library, bundles and looks — so the lint judges what will play:
     // a look's recipes count as the cue's, a `bars` param is the loop
     // the rules measure.
-    let library = ignition_core::effects::library();
-    let bundles = ignition_core::effects::bundles();
-    let looks = ignition_core::macros::looks();
-    let show = ignition_core::Show {
+    let library = ignition_effects::effects::library();
+    let bundles = ignition_effects::effects::bundles();
+    let looks = ignition_playback::macros::looks();
+    let show = ignition_show::Show {
         library: &library,
         bundles: &bundles,
         looks: &looks,
-        ..ignition_core::Show::new(&[], &ignition_core::selection::EMPTY_RIG)
+        ..ignition_show::Show::new(&[], &ignition_rig::selection::EMPTY_RIG)
     };
     for r in &cue.recipes {
         let name = match r {
@@ -1363,7 +1364,7 @@ fn portability(list: &CueList, push: &mut Push<'_>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ignition_core::{Section, TempoMap};
+    use ignition_daw_proto::{Section, TempoMap};
 
     fn song() -> SongMap {
         let mut sections = Vec::new();
@@ -1396,7 +1397,7 @@ mod tests {
             name: name.into(),
             recipes,
             block: !name.starts_with('·'),
-            at: Some(ignition_core::Position::at(section, 0)),
+            at: Some(ignition_daw_proto::Position::at(section, 0)),
             ..Default::default()
         }
     }

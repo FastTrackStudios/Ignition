@@ -11,14 +11,14 @@
 //!
 //! Positions used to be a second sidecar, `<song>.positions.json`,
 //! because `Cue.at` carried only the resolved bar. It now carries the
-//! relative [`Position`](ignition_core::music::Position) itself, so the
+//! relative [`Position`](ignition_daw_proto::Position) itself, so the
 //! show file is self-describing and [`reposition`] resolves it against
 //! whatever arrangement is loaded. [`reposition_from_sidecar`] still
 //! reads an old file's sidecar into it.
 
-use ignition_core::cue::Positions;
-use ignition_core::music::SongMap;
-use ignition_core::{Cue, CueList};
+use ignition_daw_proto::SongMap;
+use ignition_show::cue::Positions;
+use ignition_show::{Cue, CueList};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -114,7 +114,7 @@ mod tests {
     /// failed when it is not on this machine — it lives in Downloads,
     /// not in the repo, and a test that fails on a colleague's checkout
     /// teaches people to ignore failures.
-    fn project_song() -> Option<ignition_core::SongMap> {
+    fn project_song() -> Option<ignition_daw_proto::SongMap> {
         let path = concat!(env!("HOME"), "/Downloads/Bye Bye Bye/Bye Bye Bye.RPP");
         std::path::Path::new(path)
             .exists()
@@ -132,7 +132,7 @@ mod tests {
         let Some(song) = project_song() else { return };
         let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../data/songs");
         let raw = std::fs::read_to_string(format!("{dir}/bye-bye-bye.json")).unwrap();
-        let mut list: ignition_core::CueList = serde_json::from_str(&raw).unwrap();
+        let mut list: ignition_show::CueList = serde_json::from_str(&raw).unwrap();
         let before: Vec<_> = list
             .cues
             .iter()
@@ -142,7 +142,7 @@ mod tests {
         assert!(
             list.cues
                 .iter()
-                .all(|c| !matches!(c.at, Some(ignition_core::music::Position::Absolute(_)))),
+                .all(|c| !matches!(c.at, Some(ignition_daw_proto::Position::Absolute(_)))),
             "every cue is placed relative to a section"
         );
         let unresolved = reposition(&mut list, &song);
@@ -159,11 +159,11 @@ mod tests {
         let pre2 = list.cues.iter().find(|c| c.name == "PRE 2").unwrap();
         assert_eq!(
             pre2.at,
-            Some(ignition_core::music::Position::nth("PRE", 1, 0))
+            Some(ignition_daw_proto::Position::nth("PRE", 1, 0))
         );
     }
-    use ignition_core::music::Position;
-    use ignition_core::{Bars, Section, TempoMap};
+    use ignition_daw_proto::Position;
+    use ignition_daw_proto::{Bars, Section, TempoMap};
 
     fn cue(name: &str, bar: u32, fade: f32) -> Cue {
         Cue {

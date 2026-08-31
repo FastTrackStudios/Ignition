@@ -4650,42 +4650,6 @@ mod grid_tests {
         )
     }
 
-    /// A 4 × 4 matrix, channel `y * 4 + x + 1` at `(x, y)`.
-    fn matrix4() -> Rig {
-        let mut f = Vec::new();
-        for y in 0..4 {
-            for x in 0..4 {
-                f.push(fixture((y * 4 + x + 1) as ChanId, x as f64, y as f64));
-            }
-        }
-        Rig::new(f)
-    }
-
-    fn chan_at(x: usize, y: usize) -> ChanId {
-        (y * 4 + x + 1) as ChanId
-    }
-
-    fn dimmer_of(emits: &[Emit], chan: ChanId) -> Option<f32> {
-        emits
-            .iter()
-            .find(|e| e.value.chan == chan && e.value.attr == Attribute::Dimmer)
-            .map(|e| e.value.value)
-    }
-
-    /// Four steps of dimmer, so a unit's step index is its phase.
-    fn four_step(tricks: Vec<Trick>, timing: Timing) -> Recipe {
-        let mut r = Recipe::new(
-            Selection::Chans((1..=16).collect()),
-            RecipeApply::Dimmer(0.1),
-        );
-        r.steps = (1..=4)
-            .map(|i| Step::new(vec![RecipeApply::Dimmer(i as f32 / 10.0)]))
-            .collect();
-        r.tricks = tricks;
-        r.timing = timing;
-        r
-    }
-
     /// On a one-truss rig the grid is `[n, 1, 1]` and every quantity
     /// the expansion reads off it — units, inverts, the phase clock,
     /// the Build threshold — is exactly what the one-dimensional
@@ -4699,7 +4663,16 @@ mod grid_tests {
         let rig = truss(8);
         let chans: Vec<ChanId> = (1..=8).collect();
         let show = Show::new(&[], &rig);
-        let library = crate::effects::library();
+        // The shipped library, read from the profile file rather than
+        // from `ignition-effects` — that crate sits *above* this one, and
+        // a unit test may not reach up. `ignition-effects`' own
+        // `across_layers` test is what pins the file to the code.
+        let profile = crate::profile::Profile::load(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../data/profiles/ignition.ig-profile"
+        ))
+        .expect("the shipped profile loads");
+        let library = profile.effects;
         assert!(!library.is_empty());
         for (name, effect) in &library {
             let mut recipe = effect.clone();
@@ -4739,6 +4712,42 @@ mod grid_tests {
                 "{name}"
             );
         }
+    }
+
+    /// A 4 × 4 matrix, channel `y * 4 + x + 1` at `(x, y)`.
+    fn matrix4() -> Rig {
+        let mut f = Vec::new();
+        for y in 0..4 {
+            for x in 0..4 {
+                f.push(fixture((y * 4 + x + 1) as ChanId, x as f64, y as f64));
+            }
+        }
+        Rig::new(f)
+    }
+
+    fn chan_at(x: usize, y: usize) -> ChanId {
+        (y * 4 + x + 1) as ChanId
+    }
+
+    fn dimmer_of(emits: &[Emit], chan: ChanId) -> Option<f32> {
+        emits
+            .iter()
+            .find(|e| e.value.chan == chan && e.value.attr == Attribute::Dimmer)
+            .map(|e| e.value.value)
+    }
+
+    /// Four steps of dimmer, so a unit's step index is its phase.
+    fn four_step(tricks: Vec<Trick>, timing: Timing) -> Recipe {
+        let mut r = Recipe::new(
+            Selection::Chans((1..=16).collect()),
+            RecipeApply::Dimmer(0.1),
+        );
+        r.steps = (1..=4)
+            .map(|i| Step::new(vec![RecipeApply::Dimmer(i as f32 / 10.0)]))
+            .collect();
+        r.tricks = tricks;
+        r.timing = timing;
+        r
     }
 
     /// The selection's order is the order along a row: a right-to-left
