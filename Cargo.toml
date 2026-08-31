@@ -59,7 +59,10 @@ ignition-live-ui = { path = "crates/ignition-live-ui" }
 # `file` is the only feature on: it brings `daw::file` (the RPP/`.daw`
 # parser) and nothing else. Transport and playback arrive with
 # `standalone-*` when there is a clock to drive.
-daw = { path = "../daw/crates/daw/daw", default-features = false, features = [
+# Tagged git dep, NOT a sibling path. `../daw/...` only resolves when the
+# repos happen to sit side by side on one disk, so CI -- which checks out
+# ONE repo -- could not build this workspace at all.
+daw = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", default-features = false, features = [
     "file",
 ] }
 

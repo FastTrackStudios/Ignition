@@ -53,19 +53,19 @@ required-features = ["play"]
 [dependencies]
 ignition-core.workspace = true
 daw.workspace = true
-daw-proto = { path = "../../../daw/crates/daw/proto", optional = true }
+daw-proto = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", optional = true }
 # Only for `AudioIoPrefs`, to ask the output stream for a small buffer
 # — the playhead advances once per callback, so the buffer *is* the
 # clock's resolution.
-daw-audio-io = { path = "../../../daw/features/audio/daw-audio-io", optional = true }
+daw-audio-io = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", optional = true }
 # The `.lrc` parser. keyflow-proto rather than keyflow-sync: sync is the
 # alignment crate and pulls audio decoding with it, which reading a text
 # file has no business costing. Syllable timing will come from sync
 # later and can pay for itself then.
-keyflow-proto = { path = "../../../daw/crates/keyflow/keyflow-proto" }
+keyflow-proto = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3" }
 # Offline hit detection, and the decoder to feed it.
-hit-detect-dsp = { path = "../../../signal/features/fx/hit-detect/hit-detect-dsp" }
-fts-sample = { path = "../../../daw/crates/audiocore/fts-sample", default-features = false, features = ["decode-compressed"] }
+hit-detect-dsp = { git = "https://github.com/FastTrackStudios/signal", tag = "v0.0.3" }
+fts-sample = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", default-features = false, features = ["decode-compressed"] }
 anyhow = "1"
 serde.workspace = true
 serde_json.workspace = true

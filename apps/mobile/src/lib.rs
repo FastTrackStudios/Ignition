@@ -6,7 +6,8 @@
 //! fades included. When the vox link lands, `show::` is the only module
 //! that has to change.
 use dioxus::prelude::*;
-use ignition_core::{Attribute, ChanId, CuePlayer};
+use ignition_core::{Attribute, ChanId, CuePlayer, Show};
+use ignition_core::selection::EMPTY_RIG;
 use std::collections::HashMap;
 
 pub mod show;
@@ -58,8 +59,15 @@ fn Cues() -> Element {
     // Fades are wall-clock in the console; stepping to the end of the move
     // on GO keeps this honest without an animation loop the prototype has
     // no use for yet.
+    // `go`/`output` resolve against a Show -- the groups, rig, palettes and
+    // role bindings a recipe needs to know what "the key light" means here.
+    // This prototype drives explicit per-channel values, so the minimal
+    // Show (venue groups + an empty rig) is enough and nothing is faked.
+    let groups = use_signal(show::groups);
     let mut go = move || {
-        player.write().go();
+        let g = groups.read();
+        let s = Show::new(&g, &EMPTY_RIG);
+        player.write().go(&s);
         let fade = player.read().current_index().map(|i| list.read().cues[i].fade_secs);
         if let Some(f) = fade {
             player.write().tick(f);
@@ -67,7 +75,10 @@ fn Cues() -> Element {
     };
 
     let current = player.read().current_index();
-    let out: HashMap<(ChanId, Attribute), f32> = player.read().output();
+    let out: HashMap<(ChanId, Attribute), f32> = {
+        let g = groups.read();
+        player.read().output(&Show::new(&g, &EMPTY_RIG))
+    };
 
     rsx! {
         header { class: "head",
