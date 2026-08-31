@@ -14,6 +14,7 @@ dial costs on one GPU, or for judging one decision by eye.
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `IGNITION_FROXEL` | off | `1` selects the froxel grid instead of the screen-space march. The march is what ships: the grid is roughly three times cheaper, does not bead a beam and carries gobos and shadows in the air, but as it stands it renders a room with no beams in it — see `docs/domain/froxel-volumetrics.md`. |
+| `IGNITION_FOG_SCALE` | `1` | `0` marches the fog on a reduced-size haze camera instead of on the camera itself. Cheaper and sharper; off by default — see [The march](#the-march--what-ships). |
 
 ## Cost — the froxel grid
 
@@ -59,11 +60,52 @@ first cut centred on 0.75 dimmed the benchmark cue by eighteen per cent.
 
 ## The march — what ships
 
+The fog is Bevy's own volumetric fog, on each camera, at the picture's
+own size. That is the whole of it: no second camera, no occluder twins,
+no composite.
+
+There was a cheaper arrangement — a **haze camera** marching the fog at
+a fraction of the size into a small texture, composited back over the
+picture — and it is roughly four times cheaper and holds a solid shaft
+at 128 steps where the stock path beads. It is off because of two
+faults that only a second pane reveals:
+
+- Its composite quad sat on the default render layer, so **every**
+  camera drew it: with a Visualizer and a Programme pane up, each
+  window composited the other's haze over its own picture, occlusion
+  included. A person blocking a shaft in one punched a hole in the
+  other's fog. *This one is fixed* — each quad now has a layer of its
+  own — but the path stayed off, because:
+- The occluders it marches against are twin meshes on their own layer,
+  a second copy of every moving thing in the room, and the fog was seen
+  trailing a moving person. That is not fully diagnosed.
+
+`IGNITION_FOG_SCALE=0` turns it back on for a viewport, and it is worth
+turning on to measure. It should not go back on the ladder until the
+trailing is understood.
+
 | Variable | What it does |
 | --- | --- |
-| `IGNITION_FOG_STEPS` | Raymarch steps. |
-| `IGNITION_HAZE_PIXELS` | The pixel budget for the reduced-size haze camera. |
-| `IGNITION_FOG_SCALE` | Forces a divisor for that camera; `0` uses the budget, `1` marches on the camera itself. |
+| `IGNITION_FOG_STEPS` | Raymarch steps. The one dial that carries the cost now: the fog is pixels times steps times the lights in it, and the pixels are the picture's. |
+| `IGNITION_FOG_SCALE` | `1` (the default everywhere) marches on the camera itself; `0` restores the reduced haze camera at whatever divisor the pixel budget picks; a number forces that divisor. |
+| `IGNITION_HAZE_PIXELS` | The pixel budget for the haze camera. Dormant unless `IGNITION_FOG_SCALE=0`. |
+
+### The ladder, measured
+
+`data/songs/benchmark.json` at 2560x1200 — effects, pulses and mover
+effects all running — on the machine this was tuned on:
+
+    potato   12 steps    84 fps
+    low      20          68
+    medium   32          52
+    high     48          42
+    ultra    64          35
+
+against **79 fps** for the old medium on its haze camera at 128 steps.
+That is the trade, and it is a real one: at these counts a
+near-vertical beam beads, which `data/songs/beam-alias.json` shows
+plainly. A still is unaffected — it marches at 192 steps and takes the
+narrow-shaft raise to 256, where the time is free.
 
 ## Everything else
 

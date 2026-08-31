@@ -50,6 +50,34 @@ const COMPOSITE_SHADER: &str = "embedded://ignition_viz/haze_composite.wgsl";
 /// lights, nothing else.
 pub const HAZE_LAYER: usize = 1;
 
+/// The first layer a composite quad may be given.
+///
+/// Above 0 (the room) and 1 (the twins), with room left between for
+/// anything that wants a layer of its own later.
+pub const FIRST_COMPOSITE_LAYER: usize = 8;
+
+/// A layer no composite quad is on, so this camera's haze reaches this
+/// camera and nothing else.
+///
+/// A quad on the default layer is drawn by *every* camera, which is
+/// invisible with one viewport and wrong the moment there are two: the
+/// quad sits a tenth of a metre in front of its own camera, is two
+/// hundred metres across and skips frustum culling, so the second
+/// camera draws it as a wall of the first camera's haze — the first
+/// camera's beams, and the first camera's occlusion, from a viewpoint
+/// that is not its own. From the studio that was a person blocking a
+/// shaft in the Visualizer punching a hole in the Programme pane's fog,
+/// and it is why the fog is marched on the camera itself for now.
+///
+/// Layers are recycled by looking at what is in use rather than by
+/// keeping a free list, because a pane can close at any time and a list
+/// that leaks a layer per closed pane grows the bitmask forever.
+pub fn free_composite_layer(in_use: &[usize]) -> usize {
+    (FIRST_COMPOSITE_LAYER..)
+        .find(|layer| !in_use.contains(layer))
+        .expect("the layers above the first are unbounded")
+}
+
 /// On the main camera: "march the haze for this view at `1/scale` of
 /// its size, with `fog_steps` samples per pixel". At a scale of one the
 /// fog goes on the camera itself; above it, on a haze camera.
@@ -369,8 +397,12 @@ fn spawn_haze_cameras(
     // frame's and has to be split across all of them.
     // r[impl viz.performance-budget] - the haze is bounded per frame, not per camera
     all_views: Query<(), With<HazeView>>,
+    // The layers already spoken for, so a new pane takes one nobody is
+    // compositing on — see `free_composite_layer`.
+    composites_up: Query<&RenderLayers, With<HazeComposite>>,
 ) {
     let cameras_marching = all_views.iter().count();
+    let mut in_use: Vec<usize> = composites_up.iter().flat_map(RenderLayers::iter).collect();
     for (main, view, camera, transform, projection, exposure, taa) in &cameras {
         if view.scale == 1 {
             // Full size: the fog on the camera itself, as Bevy ships
@@ -464,11 +496,21 @@ fn spawn_haze_cameras(
         // A quad just past the near plane, big enough to fill any field
         // of view, a child of the camera so it rides along. Nearest
         // thing in the transparent pass, so it is drawn last.
+        //
+        // On a layer of its own, which the main camera is given as well
+        // as the room's: this camera's haze is for this camera, and a
+        // second pane must not draw it. See `free_composite_layer`.
+        let layer = free_composite_layer(&in_use);
+        in_use.push(layer);
+        commands
+            .entity(main)
+            .insert(RenderLayers::from_layers(&[0, layer]));
         commands.spawn((
             HazeComposite,
             Mesh3d(meshes.add(Rectangle::new(200.0, 200.0))),
             MeshMaterial3d(composites.add(HazeCompositeMaterial { haze: image })),
             Transform::from_xyz(0.0, 0.0, -0.1),
+            RenderLayers::layer(layer),
             bevy::camera::visibility::NoFrustumCulling,
             NotShadowCaster,
             ChildOf(main),
@@ -764,6 +806,46 @@ mod tests {
     /// viz panes each took the whole budget and the frame marched twice
     /// the pixels the one number was supposed to bound.
     /// r[verify viz.performance-budget]
+    /// Two panes, two layers: a camera composites its own haze and
+    /// nobody else's.
+    ///
+    /// The quad is two hundred metres across, sits a tenth of a metre
+    /// in front of its camera and skips frustum culling — all three
+    /// deliberate, and together they mean a quad on the shared layer is
+    /// drawn by every other camera in the room as a wall of somebody
+    /// else's fog. With one viewport that is invisible. With a
+    /// Visualizer and a Programme pane it is a person occluding a shaft
+    /// in one of them punching a hole in the other's haze, from a
+    /// viewpoint that is not its own.
+    ///
+    /// r[verify viz.haze-is-volumetric] - one camera's haze reaches one camera
+    #[test]
+    fn each_pane_composites_its_own_haze_and_no_other() {
+        // Nothing up yet: the first pane takes the first layer, and
+        // never the room's or the twins'.
+        let first = free_composite_layer(&[]);
+        assert_eq!(first, FIRST_COMPOSITE_LAYER);
+        assert!(
+            first > HAZE_LAYER,
+            "a composite on the room's layer or the twins' is the bug this exists to \
+             prevent, one layer over"
+        );
+
+        // A second pane takes a different one, and a third another.
+        let second = free_composite_layer(&[first]);
+        let third = free_composite_layer(&[first, second]);
+        assert_ne!(first, second);
+        assert_ne!(second, third);
+        assert_ne!(first, third);
+
+        // A pane closing frees its layer for the next one, rather than
+        // spending a fresh layer per open — four panes over an evening
+        // of docking and undocking would otherwise walk the bitmask up
+        // forever.
+        assert_eq!(free_composite_layer(&[first, third]), second);
+        assert_eq!(free_composite_layer(&[second, third]), first);
+    }
+
     #[test]
     fn the_budget_is_split_across_the_cameras_marching_it() {
         assert_eq!(share(HAZE_PIXEL_BUDGET, 1), HAZE_PIXEL_BUDGET);
