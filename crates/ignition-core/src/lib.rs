@@ -8,7 +8,7 @@
 //! everything merges through (`playbacks`, `programmer`, `bump`), the
 //! musical clock cues are written against (`music`, `trigger`), and the
 //! files all of it is stored in (`show_file`). Nothing in this crate opens
-//! a socket, reads a frame or touches Bevy — `ignition-io` sends the
+//! a socket, reads a frame or touches Bevy — `ignition-dmx` sends the
 //! bytes, `ignition-viz` draws them, `ignition-song` supplies the
 //! arrangement, and the studio composes the three.
 //!

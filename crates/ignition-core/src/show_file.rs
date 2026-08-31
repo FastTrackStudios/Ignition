@@ -457,7 +457,7 @@ pub struct VenueManifest {
     #[serde(default = "default_assets")]
     pub assets: String,
     /// Where this room's universes go on the wire — protocol, priority,
-    /// targets — as `ignition_io::OutputConfig` JSON. Kept untyped here
+    /// targets — as `ignition_dmx::OutputConfig` JSON. Kept untyped here
     /// so the core stays free of the transmit crate; `ignition-viz`
     /// parses it. Absent means "every patched universe on sACN
     /// multicast", decided by the loader. A show never carries this.

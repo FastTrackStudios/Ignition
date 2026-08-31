@@ -6530,18 +6530,43 @@ dependencies = [
 ]
 
 [[package]]
-name = "ignition-engine"
+name = "ignition-dmx"
 version = "0.1.0"
 dependencies = [
- "ignition-core",
+ "ignition-dmx-artnet",
+ "ignition-dmx-proto",
+ "ignition-dmx-sacn",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "ignition-io"
+name = "ignition-dmx-artnet"
 version = "0.1.0"
 dependencies = [
+ "ignition-dmx-proto",
+]
+
+[[package]]
+name = "ignition-dmx-proto"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ignition-dmx-sacn"
+version = "0.1.0"
+dependencies = [
+ "ignition-dmx-proto",
+]
+
+[[package]]
+name = "ignition-engine"
+version = "0.1.0"
+dependencies = [
+ "ignition-core",
  "serde",
  "serde_json",
 ]
@@ -6669,7 +6694,7 @@ dependencies = [
  "gltf",
  "hap-qt",
  "ignition-core",
- "ignition-io",
+ "ignition-dmx",
  "ignition-proto",
  "image",
  "sacn",

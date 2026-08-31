@@ -5,13 +5,13 @@
 //! transmitter here sends them. One buffer, read twice, so what is on
 //! screen and what leaves the socket can only ever be the same bytes.
 //!
-//! The transmit crate (`ignition_io`) owns the sockets and the rate; this
+//! The transmit feature (`ignition_dmx`) owns the sockets and the rate; this
 //! module owns the seam: when to snapshot, how to say what is happening,
 //! and the switch.
 
 use crate::dmx::DmxUniverses;
 use bevy::prelude::*;
-use ignition_io::{OutputConfig, Protocol, Sender, Sink, Status};
+use ignition_dmx::{OutputConfig, Protocol, Sender, Sink, Status};
 use std::time::Instant;
 
 /// The transmitter, as a resource. `sender` is `None` for a viz with no

@@ -51,7 +51,7 @@ gltf = { version = "1.4.1", default-features = false, features = ["utils"] }
 # version and features as the vendored `gdtf` crate, so it is one copy.
 zip = { version = "8.6", features = ["deflate"], default-features = false }
 ignition-core.workspace = true
-ignition-io.workspace = true
+ignition-dmx.workspace = true
 ignition-proto.workspace = true
 # Held at 0.25.6 because blitz-dom (via the studio app) pins that
 # version exactly, and two copies of `image` in one tree is a silent

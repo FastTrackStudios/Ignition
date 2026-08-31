@@ -10,10 +10,15 @@ members = [
     "crates/blitz-dom-vendored",
     "crates/ignition-proto",
     "crates/ignition-core",
+    # features/ — one capability per directory, backends beside the
+    # facade. See docs/domain/DOMAIN.md; the shape is architect's.
+    "features/dmx/ignition-dmx-proto",
+    "features/dmx/ignition-dmx-sacn",
+    "features/dmx/ignition-dmx-artnet",
+    "features/dmx/ignition-dmx",
     "crates/ignition-profile",
     "crates/ignition-song",
     "crates/ignition-viz",
-    "crates/ignition-io",
     "crates/ignition-live-ui",
     "apps/ignition-engine",
     "apps/ignition-studio",
@@ -35,7 +40,10 @@ ignition-core = { path = "crates/ignition-core" }
 ignition-profile = { path = "crates/ignition-profile" }
 ignition-song = { path = "crates/ignition-song" }
 ignition-viz = { path = "crates/ignition-viz" }
-ignition-io = { path = "crates/ignition-io" }
+ignition-dmx-proto = { path = "features/dmx/ignition-dmx-proto" }
+ignition-dmx-sacn = { path = "features/dmx/ignition-dmx-sacn" }
+ignition-dmx-artnet = { path = "features/dmx/ignition-dmx-artnet" }
+ignition-dmx = { path = "features/dmx/ignition-dmx" }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
 
 # The DAW domain, from the `daw` repo.

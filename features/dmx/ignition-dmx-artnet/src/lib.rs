@@ -53,6 +53,18 @@ impl PortAddress {
     }
 }
 
+/// A configured universe's port address.
+///
+/// The conversion lives here rather than as a method on `ArtnetOutput`
+/// because `PortAddress` is an Art-Net wire concept and
+/// `ignition-dmx-proto` is a leaf: the contract crate must not have to
+/// know what a subnet is to describe a venue's config.
+impl From<&ignition_dmx_proto::ArtnetOutput> for PortAddress {
+    fn from(cfg: &ignition_dmx_proto::ArtnetOutput) -> Self {
+        Self::new(cfg.net, cfg.subnet, cfg.universe)
+    }
+}
+
 /// One universe of levels.
 // r[impl dmx.artnet.addressing]
 // r[impl dmx.sequence]
