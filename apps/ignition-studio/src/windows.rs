@@ -643,7 +643,7 @@ fn ModeStrip(host: HostId, view: View, title: String, popped: bool) -> Element {
                         title: "Write every window's monitor, placement and panels to the operator file",
                         onclick: move |_| {
                             let name = layout::selected_operator()
-                                .unwrap_or_else(|| crate::operators::current_name());
+                                .unwrap_or_else(crate::operators::current_name);
                             let layout = read_host(|h| h.layout()).flatten_layout();
                             match layout::save(&name, &layout) {
                                 Ok(path) => {

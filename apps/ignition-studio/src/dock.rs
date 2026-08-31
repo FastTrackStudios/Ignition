@@ -335,7 +335,7 @@ impl DockNode {
         let Some(node) = self.at_mut(path) else {
             return false;
         };
-        let old = std::mem::replace(node, DockNode::empty());
+        let old = std::mem::take(node);
         let fresh = DockNode::tab(pane);
         let children = if after {
             vec![old, fresh]
@@ -1234,7 +1234,7 @@ pub mod view {
                     drag,
                     splitting,
                     menu,
-                    on_move: EventHandler::new(move |(x, y, hover): (f32, f32, Option<(Path, usize)>)| on_move_from_child(x, y, hover)),
+                    on_move: EventHandler::new(move |(x, y, hover): MoveTo| on_move_from_child(x, y, hover)),
                 }
                 if let Some((rect, label)) = preview {
                     div {
@@ -1260,6 +1260,15 @@ pub mod view {
         }
     }
 
+    /// Where the pointer is, and which tab strip it is over.
+    ///
+    /// `(x, y)` in the host window's coordinates, plus the tab strip the
+    /// pointer is inside and the insertion index within it — `None` when
+    /// the move came from the root rather than from a strip. Named
+    /// because it is threaded through every `Node` in the tree and a
+    /// bare triple says nothing at the receiving end.
+    type MoveTo = (f32, f32, Option<(Path, usize)>);
+
     #[component]
     fn Node(
         host: HostId,
@@ -1269,7 +1278,7 @@ pub mod view {
         drag: Signal<Option<Drag>>,
         splitting: Signal<Option<SplitDrag>>,
         menu: Signal<Option<Menu>>,
-        on_move: EventHandler<(f32, f32, Option<(Path, usize)>)>,
+        on_move: EventHandler<MoveTo>,
     ) -> Element {
         match node {
             DockNode::Split {

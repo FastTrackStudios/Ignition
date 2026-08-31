@@ -6,8 +6,8 @@
 //! fades included. When the vox link lands, `show::` is the only module
 //! that has to change.
 use dioxus::prelude::*;
-use ignition_core::{Attribute, ChanId, CuePlayer, Show};
 use ignition_core::selection::EMPTY_RIG;
+use ignition_core::{Attribute, ChanId, CuePlayer, Show};
 use std::collections::HashMap;
 
 pub mod show;
@@ -55,30 +55,33 @@ fn Cues() -> Element {
     let list = use_signal(show::cues);
     // The player is real state: GO advances it and the levels below are its
     // actual interpolated output, not a lookup of the cue's target values.
-    let mut player = use_signal(|| CuePlayer::new(show::cues().cues));
-    // Fades are wall-clock in the console; stepping to the end of the move
-    // on GO keeps this honest without an animation loop the prototype has
-    // no use for yet.
+    //
+    // Built from `list`, not from a second `show::cues()` call — two
+    // independent copies of the demo show that only happened to agree is
+    // a divergence waiting for the first edit to `show::cues`.
+    let mut player = use_signal(|| CuePlayer::new(list.peek().cues.clone()));
     // `go`/`output` resolve against a Show -- the groups, rig, palettes and
     // role bindings a recipe needs to know what "the key light" means here.
     // This prototype drives explicit per-channel values, so the minimal
     // Show (venue groups + an empty rig) is enough and nothing is faked.
     let groups = use_signal(show::groups);
+    // Fades are wall-clock in the console; stepping to the end of the move
+    // on GO keeps this honest without an animation loop the prototype has
+    // no use for yet.
     let mut go = move || {
-        let g = groups.read();
-        let s = Show::new(&g, &EMPTY_RIG);
-        player.write().go(&s);
-        let fade = player.read().current_index().map(|i| list.read().cues[i].fade_secs);
+        player.write().go(&Show::new(&groups.read(), &EMPTY_RIG));
+        let fade = player
+            .read()
+            .current_index()
+            .map(|i| list.read().cues[i].fade_secs);
         if let Some(f) = fade {
             player.write().tick(f);
         }
     };
 
     let current = player.read().current_index();
-    let out: HashMap<(ChanId, Attribute), f32> = {
-        let g = groups.read();
-        player.read().output(&Show::new(&g, &EMPTY_RIG))
-    };
+    let out: HashMap<(ChanId, Attribute), f32> =
+        player.read().output(&Show::new(&groups.read(), &EMPTY_RIG));
 
     rsx! {
         header { class: "head",

@@ -35,6 +35,9 @@ thread_local! {
 /// What the socket's JS callbacks hand the Dioxus side. Signals are
 /// written from a spawned task, never from inside a JS callback, so
 /// every write happens with the runtime current.
+/// Not boxed, for the same reason `ServerMessage` is not — this wraps it
+/// straight off the socket, and `Message` is the whole traffic.
+#[allow(clippy::large_enum_variant)]
 enum Incoming {
     Open,
     Message(ServerMessage),

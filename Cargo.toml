@@ -18,7 +18,7 @@ members = [
     "apps/ignition-engine",
     "apps/ignition-studio",
     "apps/ignition-live-web",
-    "apps/mobile",
+    "apps/ignition-mobile",
 ]
 
 [workspace.package]
@@ -38,30 +38,25 @@ ignition-viz = { path = "crates/ignition-viz" }
 ignition-io = { path = "crates/ignition-io" }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
 
-# The DAW domain, from the sibling `daw` checkout.
+# The DAW domain, from the `daw` repo.
 #
-# A **path** dependency, deliberately, and unusually for a cross-repo
-# link — FTS's own rule is tagged git deps between repos. The two are
-# coupled on purpose here: the end goal is lighting as a sub-project
-# *inside* a DAW project, which is not a relationship a version pin
-# describes well, and both trees are edited together. The cost is that
-# this line is machine-specific: Ignition and daw have to be siblings
-# on disk.
+# A **tagged git dep**, not a sibling path, and this is not negotiable:
+# `../daw/...` only resolves when the two repos happen to sit side by
+# side on one disk, so CI — which checks out ONE repo — could not run
+# `cargo metadata` on this workspace at all, let alone build it.
 #
-# The path moved in the August 2026 repo split: the daw domain left the
-# FastTrackStudio monorepo for its own repo, so this points at ../daw
-# rather than ../FastTrackStudio/crates/daw/daw. Swap it for
-# `{ git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.2",
-#    default-features = false, features = ["file"] }`
-# if this ever needs to build somewhere the sibling checkout is absent
-# (CI, a fresh clone).
+# The pull the other way is real and worth naming, because it is what
+# put a path here in the first place: the end goal is lighting as a
+# sub-project *inside* a DAW project, the two trees are edited together,
+# and a version pin describes that badly. The answer is to move the tag
+# often, not to point at a directory. `crates/ignition-song` takes
+# `daw-proto`, `daw-audio-io`, `keyflow-proto` and `fts-sample` from the
+# same tag, and `hit-detect-dsp` from `signal` at its own — all six move
+# together or not at all.
 #
 # `file` is the only feature on: it brings `daw::file` (the RPP/`.daw`
 # parser) and nothing else. Transport and playback arrive with
 # `standalone-*` when there is a clock to drive.
-# Tagged git dep, NOT a sibling path. `../daw/...` only resolves when the
-# repos happen to sit side by side on one disk, so CI -- which checks out
-# ONE repo -- could not build this workspace at all.
 daw = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", default-features = false, features = [
     "file",
 ] }
@@ -112,7 +107,7 @@ bevy = { version = "0.19.1", default-features = false, features = [
 # use -- the `dx` CLI in the devshell is 0.8.0-alpha.0 and refuses to build
 # against a mismatched dioxus, so this rev moves in lockstep with them.
 dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false, features = ["lib"] }
-ignition-mobile = { path = "apps/mobile" }
+ignition-mobile = { path = "apps/ignition-mobile" }
 
 # Telemetry -- Ignition's ONLY dependency on architect, taken deliberately
 # narrow: just the telemetry feature crate, not the framework. Traces, logs

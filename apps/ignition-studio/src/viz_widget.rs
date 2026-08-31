@@ -520,13 +520,12 @@ impl VizCore {
         // positions on load, so the cues land on *this* arrangement.
         let playback = Playback::load(
             &config.venue,
-            None,
-            show.map(|(path, _)| std::path::Path::new(path)),
-            show.map(|(_, cue)| *cue),
-            None,
-            None,
-            None,
-            self.transport.as_ref().map(|t| t.song()),
+            ignition_viz::playback::LoadOptions {
+                recipes: show.map(|(path, _)| std::path::Path::new(path)),
+                jump_to_cue: show.map(|(_, cue)| *cue),
+                song: self.transport.as_ref().map(|t| t.song()),
+                ..Default::default()
+            },
         )
         .unwrap_or_default();
         // No per-studio GDTF setting yet: the workspace's own library
@@ -1516,11 +1515,11 @@ fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &mut Embedde
     // The wide preset means something only while a programme camera
     // takes the cuts; otherwise the main view is the programme.
     if let Some(camera) = next.camera.as_mut()
-        && !viz
+        && viz
             .app_mut()
             .world()
             .get_resource::<ignition_viz::camera::ProgrammeView>()
-            .is_some_and(|p| p.camera.is_some())
+            .is_none_or(|p| p.camera.is_none())
     {
         camera.wide = None;
     }

@@ -1109,7 +1109,10 @@ fn Busking(surface: Surface) -> Element {
                                         key: "{key.label}",
                                         class: if key.label == "PUNT" { "flash hold punt" } else { "flash hold" },
                                         onpointerdown: move |_| {
-                                            send(Command::Hold(Some(Box::new(recipe.clone()))))
+                                            // `KeyAction::Hold` is boxed and so is
+                                            // `Command::Hold` — the clone moves straight
+                                            // across with no second allocation.
+                                            send(Command::Hold(Some(recipe.clone())))
                                         },
                                         onpointerup: move |_| send(Command::Hold(None)),
                                         onpointerleave: move |_| send(Command::Hold(None)),
