@@ -268,6 +268,10 @@ pub struct RenderQuality {
     pub fog_steps: u32,
     /// How many pixels the haze camera may have when `fog_scale` is 0.
     ///
+    /// Unused while every tier marches on the camera itself — see
+    /// `fog_scale` — and kept because that is the dial the reduced path
+    /// is bounded by, and it is coming back.
+    ///
     /// A budget rather than a divisor, because a divisor means
     /// something different on every viewport: the fog's cost is this
     /// times the step count, so this is the number that fixes the
@@ -304,10 +308,25 @@ pub struct RenderQuality {
     /// enough that turning it off is hard to see and easy to measure.
     pub msaa: bool,
     /// The haze is marched at `1/fog_scale` of the picture's size — see
-    /// `haze.rs`. `1` marches it on the camera itself, at full size,
-    /// which is what every existing snapshot was made with; `0` picks
-    /// the scale from the picture's size so the haze camera stays
-    /// within `haze::HAZE_PIXEL_BUDGET` pixels whatever the viewport.
+    /// `haze.rs`. `1` marches it on the camera itself, at full size, as
+    /// Bevy ships volumetric fog; `0` picks the scale from the
+    /// picture's size so a separate haze camera stays within
+    /// `haze::HAZE_PIXEL_BUDGET` pixels whatever the viewport.
+    ///
+    /// **Every tier is `1`.** The reduced haze camera is roughly four
+    /// times cheaper and is the reason the ladder has a pixel budget at
+    /// all, but it is wrong in two ways that a single viewport cannot
+    /// show. Its composite quad sits on the default render layer, so
+    /// with two panes up each camera draws the *other* camera's haze
+    /// over its own picture — a person occluding a shaft in the
+    /// Visualizer punches a hole in the Programme pane's fog, from the
+    /// wrong viewpoint. And the occluders it marches against are twin
+    /// meshes on their own layer, which is a second copy of every
+    /// moving thing in the room to keep in step.
+    ///
+    /// `IGNITION_FOG_SCALE=0` restores it, per viewport, for measuring.
+    /// It should not go back on the ladder until the composite is
+    /// confined to the camera that owns it.
     pub fog_scale: u32,
     /// Temporal anti-aliasing on the camera. Needs `msaa` off. Beyond
     /// the edges, it is what averages the haze's per-frame jitter into
@@ -334,6 +353,16 @@ pub struct RenderQuality {
     /// still has no half-second to adapt in; a live view adapts at an
     /// eye's pace.
     pub instant_adaptation: bool,
+    /// Whether this tier pays [`NARROW_BEAM_FOG_STEPS`] when the rig in
+    /// front of it cuts a narrow shaft — see [`RenderQuality::for_rig`].
+    ///
+    /// A still can afford 256 steps and a live viewport cannot, and
+    /// that is the whole of it. This used to be inferred from
+    /// `fog_scale == 1`, which meant the same thing only for as long as
+    /// a still was the only thing marching at full size: the moment
+    /// every tier did, the whole ladder quietly inherited a still's
+    /// step count and the studio ran at nine frames a second.
+    pub fine_for_narrow_shafts: bool,
 }
 
 impl RenderQuality {
@@ -342,6 +371,8 @@ impl RenderQuality {
     // r[impl viz.post-processing] - a still pays for everything
     pub const STILL: Self = Self {
         fog_steps: 192,
+        // A still has all the time in the world for a narrow shaft.
+        fine_for_narrow_shafts: true,
         froxel_samples: 4,
         froxel_history_pct: 85,
         froxel_grid: (640, 360, 128),
@@ -390,11 +421,14 @@ impl RenderQuality {
 
     /// The dials for one rung of the ladder.
     ///
-    /// The two that carry it are `fog_steps` and `haze_pixels`, and
-    /// they multiply: the raymarch costs one times the other times the
-    /// number of lights in the fog. Medium is not a compromise between
-    /// the others — it is the setting the studio has always had, kept
-    /// byte for byte so that naming the tiers changed no picture.
+    /// What carries it is `fog_steps`: the raymarch costs that times
+    /// the picture's pixels times the number of lights in the fog.
+    /// `haze_pixels` used to carry the other half, by marching the fog
+    /// on a smaller camera of its own, and every tier now marches on
+    /// the camera itself instead — see `fog_scale` for what that path
+    /// got wrong with more than one pane up. The tiers below are
+    /// therefore steps-only for the moment, and each one costs more
+    /// than it did.
     // r[impl viz.quality-presets]
     pub const fn preset(preset: Preset) -> Self {
         // Every tier below shares these: MSAA off (the deferred deck and
@@ -405,19 +439,27 @@ impl RenderQuality {
             msaa: false,
             dof: false,
             instant_adaptation: false,
+            // No live tier takes the narrow-shaft raise. It is 256
+            // steps at the picture's own size — twelve frames a second
+            // at a studio pane, measured — and a rig with one beam
+            // fixture in it is an ordinary rig, so this would be the
+            // ordinary case. A dotted beam beats a slideshow; a still
+            // still marches finely, where the time is free.
+            fine_for_narrow_shafts: false,
             ..Self::STILL
         };
         match preset {
-            // Enough steps to say there is a beam, and a haze buffer
-            // small enough that the raymarch is nearly free. It will
-            // dot; that is the deal.
+            // Enough steps to say there is a beam. It will dot; that
+            // is the deal — and it dots harder now that the march is
+            // at the picture's own size with no small buffer to hide
+            // the spacing.
             Preset::Potato => Self {
                 froxel_history_pct: 94,
                 froxel_samples: 1,
                 froxel_grid: (200, 112, 64),
-                fog_steps: 32,
+                fog_steps: 12,
                 haze_pixels: 160 * 240,
-                fog_scale: 0,
+                fog_scale: 1,
                 taa: false,
                 ssr: false,
                 ssao: false,
@@ -427,9 +469,9 @@ impl RenderQuality {
                 froxel_history_pct: 92,
                 froxel_samples: 2,
                 froxel_grid: (280, 158, 80),
-                fog_steps: 64,
+                fog_steps: 20,
                 haze_pixels: 320 * 480,
-                fog_scale: 0,
+                fog_scale: 1,
                 taa: true,
                 ssr: false,
                 ssao: false,
@@ -461,8 +503,10 @@ impl RenderQuality {
                 froxel_history_pct: 90,
                 froxel_samples: 2,
                 froxel_grid: (360, 203, 96),
-                fog_steps: 128,
-                // The full budget, and it stays there.
+                fog_steps: 32,
+                // The full budget — dormant while the march is on the
+                // camera itself, and recorded because the reasoning
+                // still holds for the day it comes back.
                 //
                 // Halving it is worth about ten per cent — 110 fps to
                 // 124 on the benchmark cue — and it is available as
@@ -478,7 +522,7 @@ impl RenderQuality {
                 // The lattice is the next real piece of work here — see
                 // docs/ops/profiling.md. Fix it and this halves.
                 haze_pixels: crate::haze::HAZE_PIXEL_BUDGET,
-                fog_scale: 0,
+                fog_scale: 1,
                 taa: true,
                 ssr: true,
                 ssao: true,
@@ -488,22 +532,28 @@ impl RenderQuality {
                 froxel_history_pct: 88,
                 froxel_samples: 2,
                 froxel_grid: (440, 248, 96),
-                fog_steps: 192,
+                fog_steps: 48,
                 haze_pixels: crate::haze::HAZE_PIXEL_BUDGET * 2,
-                fog_scale: 0,
+                fog_scale: 1,
                 taa: true,
                 ssr: true,
                 ssao: true,
                 ..base
             },
-            // `fog_scale: 1` marches on the camera itself, at the
-            // picture's own size — the pixel budget stops applying and
-            // `for_rig` is free to raise the count for a narrow shaft.
+            // The tier the others have now joined: marched on the
+            // camera itself, at the picture's own size, with `for_rig`
+            // free to raise the count for a narrow shaft.
             Preset::Ultra => Self {
                 froxel_history_pct: 85,
                 froxel_samples: 3,
                 froxel_grid: (560, 315, 96),
-                fog_steps: 192,
+                // The tier that spends everything a *live* view can
+                // spend, which is not the same as everything. At 128
+                // this was eighteen frames a second at a studio pane's
+                // size, and at 128 with the narrow-shaft raise on top
+                // it was eleven — a tier an operator can select and
+                // find the studio unusable is not a quality setting.
+                fog_steps: 64,
                 haze_pixels: crate::haze::HAZE_PIXEL_BUDGET * 2,
                 fog_scale: 1,
                 taa: true,
@@ -586,14 +636,13 @@ impl RenderQuality {
             .ok()
             .and_then(|v| v.trim().parse::<u32>().ok())
             .filter(|n| *n > 0);
-        // The raise for a narrow shaft is a full-size dial: on the haze
-        // camera it doubles the fog's cost for a beam the pixel budget
-        // has already made a couple of pixels wide, and 128 steps keep
-        // that beam solid — see `haze.rs`.
-        let steps = match (forced, self.fog_scale) {
+        // Only a tier that can afford it — see `fine_for_narrow_shafts`.
+        let steps = match (forced, self.fine_for_narrow_shafts) {
             (Some(forced), _) => forced,
-            (None, 1) => fog_steps_for(self.fog_steps, narrowest_shaft_full_angle_deg(venue, gdtf)),
-            (None, _) => self.fog_steps,
+            (None, true) => {
+                fog_steps_for(self.fog_steps, narrowest_shaft_full_angle_deg(venue, gdtf))
+            }
+            (None, false) => self.fog_steps,
         };
         Self {
             fog_steps: steps,
@@ -1844,20 +1893,62 @@ mod quality_tests {
 mod quality_preset_tests {
     use super::*;
 
-    /// Medium is the studio's own picture: the whole post chain, the
-    /// haze on its pixel budget, and a march at the tuned floor — the
-    /// fewest steps that keep a shaft solid, which is a measured number
-    /// and not a round one. Naming the tiers moved no pixel; the floor
-    /// moved later, and only because the dither was sized properly.
+    /// Medium is the studio's own picture: the whole post chain, and
+    /// the fog marched on the camera itself.
+    ///
+    /// The step count is a fraction of what it was, and that is not a
+    /// downgrade of the picture so much as the price of where the march
+    /// happens. It used to run on a haze camera at a fixed pixel
+    /// budget, so 128 steps cost 128 times six hundred thousand
+    /// samples whatever the window was; on the camera itself the same
+    /// count at 5120x1440 is twelve times that. The reduced camera is
+    /// coming back — see `RenderQuality::fog_scale` for what has to be
+    /// fixed first — and the count comes back with it.
     /// r[verify viz.quality-presets]
     #[test]
     fn medium_is_the_studio_s_own_picture() {
         let medium = RenderQuality::preset(Preset::Medium);
-        assert_eq!(medium.fog_steps, 128);
-        assert_eq!(medium.haze_pixels, crate::haze::HAZE_PIXEL_BUDGET);
-        assert_eq!(medium.fog_scale, 0);
+        assert_eq!(medium.fog_steps, 32);
+        assert_eq!(medium.fog_scale, 1, "medium marches on the camera itself");
         assert!(medium.taa && medium.ssr && medium.ssao);
         assert!(!medium.msaa && !medium.dof && !medium.instant_adaptation);
+    }
+
+    /// A live tier does not pay a still's step count for a narrow
+    /// shaft.
+    ///
+    /// This is a regression, pinned. The raise to
+    /// `NARROW_BEAM_FOG_STEPS` used to be gated on `fog_scale == 1`,
+    /// which meant "a still" only for as long as a still was the only
+    /// thing marching at full size. The moment every tier did, a rig
+    /// with one beam fixture in it put the whole ladder on 256 steps at
+    /// the picture's own size, and the studio ran at nine frames a
+    /// second — for a picture nobody had asked to be finer.
+    /// r[verify viz.quality-presets]
+    #[test]
+    fn only_a_still_pays_a_stills_step_count_for_a_narrow_shaft() {
+        assert!(
+            RenderQuality::STILL.fine_for_narrow_shafts,
+            "a still has all the time in the world"
+        );
+        for preset in [
+            Preset::Potato,
+            Preset::Low,
+            Preset::Medium,
+            Preset::High,
+            Preset::Ultra,
+        ] {
+            assert!(
+                !RenderQuality::preset(preset).fine_for_narrow_shafts,
+                "{} would double the frame's largest cost for one beam fixture",
+                preset.name()
+            );
+        }
+        assert!(
+            !RenderQuality::preset(Preset::Ultra).fine_for_narrow_shafts,
+            "not even ultra: it is a tier an operator can select, and 256 steps at the \
+             picture's own size is eleven frames a second"
+        );
     }
 
     /// The ladder has to be a ladder: every rung at least as fine as
@@ -1885,9 +1976,10 @@ mod quality_preset_tests {
                 pair[1].name(),
                 pair[0].name()
             );
-            // Ultra marches on the camera itself (`fog_scale: 1`), where
-            // the pixel budget does not apply at all — which is the
-            // finest of the lot rather than an exception to the rule.
+            // A tier marching on the camera itself has no pixel budget
+            // to compare — which is every tier at present, so this
+            // holds vacuously and stays for the day the reduced haze
+            // camera is fit to come back.
             if upper.fog_scale == 0 {
                 assert!(
                     upper.haze_pixels >= lower.haze_pixels,
@@ -1929,27 +2021,36 @@ mod quality_preset_tests {
         assert_eq!(Preset::parse("cinematic"), None);
     }
 
-    /// The haze budget is a budget: the coarser tier really does march
-    /// fewer pixels at a real viewport size, not merely claim to.
+    /// A coarser tier really does cost less at a real viewport size,
+    /// not merely claim to.
+    ///
+    /// The bill is pixels times steps, and while every tier marches on
+    /// the camera the pixels are the same for all of them — so this is
+    /// the step count doing all the work. It is written as the bill
+    /// anyway, because that is the quantity that shows up in the frame
+    /// and the one that has to keep climbing when the haze camera
+    /// returns and the pixels differ per tier again.
     /// r[verify viz.quality-presets]
     #[test]
-    fn a_coarser_tier_marches_fewer_pixels_at_5120x1440() {
+    fn a_coarser_tier_costs_less_at_5120x1440() {
         let view = bevy::math::UVec2::new(4142, 577);
-        let pixels = |preset: Preset| {
+        let bill = |preset: Preset| {
             let q = RenderQuality::preset(preset);
             let size = crate::haze::haze_size(view, q.fog_scale, q.haze_pixels);
-            size.x * size.y
-        };
-        assert!(pixels(Preset::Potato) < pixels(Preset::Low));
-        assert!(pixels(Preset::Low) < pixels(Preset::Medium));
-        assert!(pixels(Preset::Medium) <= pixels(Preset::High));
-        // And the whole raymarch bill, which is what actually shows up
-        // in the frame: pixels times steps.
-        let bill = |preset: Preset| {
-            u64::from(pixels(preset)) * u64::from(RenderQuality::preset(preset).fog_steps)
+            u64::from(size.x * size.y) * u64::from(q.fog_steps)
         };
         assert!(bill(Preset::Potato) < bill(Preset::Low));
         assert!(bill(Preset::Low) < bill(Preset::Medium));
         assert!(bill(Preset::Medium) < bill(Preset::High));
+        assert!(bill(Preset::High) < bill(Preset::Ultra));
+
+        // And the coarsest tier is actually cheap: a live viewport
+        // marching the picture's own pixels is the whole reason these
+        // counts came down, so potato has to be a fraction of what the
+        // studio's own tier costs, not a rung below it.
+        assert!(
+            bill(Preset::Potato) * 2 < bill(Preset::Medium),
+            "potato is not a rescue from a slideshow"
+        );
     }
 }

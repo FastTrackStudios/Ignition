@@ -361,6 +361,7 @@ fn spawn_haze_cameras(
             &Transform,
             &Projection,
             Option<&Exposure>,
+            Option<&bevy::anti_alias::taa::TemporalAntiAliasing>,
         ),
         Added<HazeView>,
     >,
@@ -370,14 +371,28 @@ fn spawn_haze_cameras(
     all_views: Query<(), With<HazeView>>,
 ) {
     let cameras_marching = all_views.iter().count();
-    for (main, view, camera, transform, projection, exposure) in &cameras {
+    for (main, view, camera, transform, projection, exposure, taa) in &cameras {
         if view.scale == 1 {
-            // Full size: the fog on the camera itself, as Bevy ships it
-            // and as every still was made.
+            // Full size: the fog on the camera itself, as Bevy ships
+            // it and as every still is made.
+            //
+            // The dither follows the anti-aliasing, because it is only
+            // half of a technique. A live viewport marches at a low
+            // count now — twelve steps at potato, over a room thirty
+            // metres deep — and without dither that is visible bands
+            // across every shaft; with it, and with TAA to average the
+            // noise over frames, it is a soft cone. A still has no
+            // frames to average over, so it takes the bands out by
+            // marching finely instead, and dither there would only be
+            // grain nothing removes.
+            let jitter = match taa {
+                Some(_) => fog_jitter_for(view.fog_steps),
+                None => 0.0,
+            };
             commands.entity(main).insert(VolumetricFog {
                 ambient_intensity: 0.0,
                 step_count: view.fog_steps,
-                jitter: 0.0,
+                jitter,
                 ..default()
             });
             continue;
@@ -551,6 +566,14 @@ fn follow_main_camera(
 fn sort_occluders(
     mut commands: Commands,
     material: Option<Res<OccluderMaterialHandle>>,
+    // Whether anything is marching the haze on a camera of its own.
+    // With the fog on the main camera — every tier, at present — no
+    // camera renders the occluder layer at all, and a twin of every
+    // mesh in the room is a second copy of the room to animate, skin
+    // and extract for nobody to look at.
+    views: Query<&HazeView>,
+    mut twinning: Local<bool>,
+    twins: Query<Entity, With<HazeTwin>>,
     added: Query<
         (Entity, &Mesh3d, Option<&SkinnedMesh>),
         (
@@ -558,6 +581,14 @@ fn sort_occluders(
             With<MeshMaterial3d<StandardMaterial>>,
             Without<HazeTwin>,
         ),
+    >,
+    // The same set without `Added`, for the frame a haze camera first
+    // appears: the room was built long before it, and twinning only
+    // what arrives after would leave the fog marching against an empty
+    // room.
+    every: Query<
+        (Entity, &Mesh3d, Option<&SkinnedMesh>),
+        (With<MeshMaterial3d<StandardMaterial>>, Without<HazeTwin>),
     >,
     parents: Query<&ChildOf>,
     fixtures: Query<(), With<crate::spawn::Fixture>>,
@@ -572,14 +603,44 @@ fn sort_occluders(
             Err(_) => return false,
         }
     };
-    for (entity, mesh, skin) in &added {
+
+    // Nor does a housing cast a shadow: twelve shadow views a frame
+    // each culled and drew five hundred fixture meshes for silhouettes
+    // that land on the ceiling they hang from. That was most of the
+    // render thread's frame — and it is true whether or not anything
+    // is marching haze, so it is settled first and unconditionally.
+    // r[impl viz.performance-budget] - fixture bodies cast no shadow
+    for (entity, _, _) in &added {
         if under_a_fixture(entity) {
-            // Nor does a housing cast a shadow: twelve shadow views a
-            // frame each culled and drew five hundred fixture meshes
-            // for silhouettes that land on the ceiling they hang from.
-            // That was most of the render thread's frame.
-            // r[impl viz.performance-budget] - fixture bodies cast no shadow
             commands.entity(entity).insert(NotShadowCaster);
+        }
+    }
+
+    let wanted = views.iter().any(|view| view.scale != 1);
+    if !wanted {
+        if *twinning {
+            // The last haze camera went away: the twins go with it,
+            // rather than being left to animate for no viewer.
+            for twin in &twins {
+                commands.entity(twin).despawn();
+            }
+            *twinning = false;
+        }
+        return;
+    }
+    // Turning on: sweep the room once, then follow what arrives. The
+    // twins were despawned above when it last turned off, so a sweep
+    // never doubles one.
+    let sweep = !*twinning;
+    *twinning = true;
+
+    let candidates: Vec<_> = if sweep {
+        every.iter().collect()
+    } else {
+        added.iter().collect()
+    };
+    for (entity, mesh, skin) in candidates {
+        if under_a_fixture(entity) {
             continue;
         }
         let mut twin = commands.spawn((
