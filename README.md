@@ -43,7 +43,10 @@ crates/
   ignition-core        the lighting domain, no I/O: attribute model, patch
                         resolve, selections and tricks, recipes/effects,
                         the cue + tracking engine, the priority stack
-  ignition-profile     the profile/venue file pair and their validation
+  ignition-profile     the frame profiler — a tracing Layer that splits a
+                        frame into Blitz's half and Bevy's. Nothing to do
+                        with a lighting "profile", which is a domain term
+                        this crate name unfortunately collides with
   ignition-io          sACN / Art-Net transmit, rate + keep-alive, and the
                         loopback that feeds the visualizer the same bytes
   ignition-song        the song level: DAW song map, hit chart, transport,
