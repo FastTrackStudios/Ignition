@@ -839,7 +839,7 @@ pub fn check_show_against_profile(list: &CueList, profile: &Profile) -> Vec<Loca
         if !profile
             .colors
             .iter()
-            .any(|c| c.name.eq_ignore_ascii_case(&name))
+            .any(|c| c.name.eq_ignore_ascii_case(name))
         {
             used.findings.push(Located {
                 cue: None,
@@ -1191,7 +1191,7 @@ mod tests {
         assert_eq!(doc.list.cues.len(), 1);
         assert_eq!(doc.list.name, "Old Song");
         // And the shipped show carries the header the generator writes.
-        let shipped = ShowDocument::load(&data("songs/bye-bye-bye.json")).unwrap();
+        let shipped = ShowDocument::load(data("songs/bye-bye-bye.json")).unwrap();
         assert_eq!(shipped.version, Some(1));
         assert_eq!(shipped.profile.as_deref(), Some("Ignition"));
     }

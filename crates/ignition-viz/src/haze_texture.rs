@@ -81,7 +81,7 @@ pub struct HazeLook {
 impl Default for HazeLook {
     fn default() -> Self {
         Self {
-            uneven: !env_flag("IGNITION_HAZE_ANIMATE").is_some_and(|on| !on),
+            uneven: env_flag("IGNITION_HAZE_ANIMATE").is_none_or(|on| on),
             unevenness: env_num::<f32>("IGNITION_HAZE_SWING")
                 .unwrap_or(SWING)
                 .clamp(0.0, 1.0),

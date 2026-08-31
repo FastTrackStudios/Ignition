@@ -4072,7 +4072,7 @@ mod tests {
             0.0,
         );
         assert_eq!(angles(&direct, 1), angles(&offset.emits, 1));
-        assert_eq!(angles(&offset.emits, 1).unwrap().2, false, "absolute");
+        assert!(!angles(&offset.emits, 1).unwrap().2, "absolute");
         assert!(
             offset.focus_deltas.is_empty(),
             "folded in, nothing left for the player"
@@ -4184,7 +4184,7 @@ mod tests {
     fn focus_keyframes_interpolate_aims_along_the_selection() {
         let rig = truss(5);
         let show = Show::new(&[], &rig);
-        let points = vec![v(0.0, 0.0, 0.0), v(2.0, 0.0, 0.0), v(4.0, 4.0, 0.0)];
+        let points = [v(0.0, 0.0, 0.0), v(2.0, 0.0, 0.0), v(4.0, 4.0, 0.0)];
         let key = expand_recipe(
             &one_step(
                 vec![RecipeApply::FocusKeyframes(

@@ -250,28 +250,42 @@ impl Plugin for GdtfAssetsPlugin {
     }
 }
 
+/// The three numbers the importer reads off a `<Geometry>` and hands
+/// straight back: `lo..hi` is the model's unscaled extent in GDTF's frame,
+/// `scale` the per-axis fit to the `<Model>` dimensions. They travel
+/// together because they are only ever meaningful together.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ModelFit {
+    pub lo: Vec3,
+    pub hi: Vec3,
+    pub scale: Vec3,
+}
+
+/// What stands in for a model until its GLB lands — a box of the right
+/// size in the rig's default skin.
+pub struct Placeholder<'a> {
+    pub mesh: Handle<Mesh>,
+    pub material: &'a Handle<StandardMaterial>,
+}
+
 /// Spawns a GLB model under `parent`: the placeholder now, the scene
-/// when it lands. `lo..hi` is the model's unscaled extent in GDTF's
-/// frame and `scale` the per-axis fit to the `<Model>` dimensions, both
-/// from the importer. Without an `AssetServer` (a headless test with no
+/// when it lands. Without an `AssetServer` (a headless test with no
 /// asset plugin) only the placeholder is spawned.
 pub fn spawn_model(
     commands: &mut Commands,
     parent: Entity,
     assets: Option<&AssetServer>,
     asset: &str,
-    placeholder_mesh: Handle<Mesh>,
-    placeholder_material: &Handle<StandardMaterial>,
-    lo: Vec3,
-    hi: Vec3,
-    scale: Vec3,
+    placeholder: Placeholder<'_>,
+    fit: ModelFit,
 ) {
+    let ModelFit { lo, hi, scale } = fit;
     let centre = (lo + hi) * 0.5 * scale;
     let placeholder = commands
         .spawn((
             GltfPlaceholder,
-            Mesh3d(placeholder_mesh),
-            MeshMaterial3d(placeholder_material.clone()),
+            Mesh3d(placeholder.mesh),
+            MeshMaterial3d(placeholder.material.clone()),
             Transform::from_translation(centre),
             ChildOf(parent),
         ))

@@ -169,7 +169,7 @@ impl Rgb {
         Xyz {
             x: 0.4124564 * self.red + 0.3575761 * self.green + 0.1804375 * self.blue,
             y: 0.2126729 * self.red + 0.7151522 * self.green + 0.0721750 * self.blue,
-            z: 0.0193339 * self.red + 0.1191920 * self.green + 0.9503041 * self.blue,
+            z: 0.0193339 * self.red + 0.119_192 * self.green + 0.9503041 * self.blue,
         }
     }
 
@@ -194,7 +194,7 @@ impl Xyz {
     pub fn to_rgb(self) -> Rgb {
         Rgb {
             red: 3.2404542 * self.x - 1.5371385 * self.y - 0.4985314 * self.z,
-            green: -0.9692660 * self.x + 1.8760108 * self.y + 0.0415560 * self.z,
+            green: -0.969_266 * self.x + 1.8760108 * self.y + 0.0415560 * self.z,
             blue: 0.0556434 * self.x - 0.2040259 * self.y + 1.0572252 * self.z,
         }
     }
@@ -563,7 +563,7 @@ impl ColorSpace {
         match self {
             ColorSpace::Srgb => Rgb::new(a, b, c).to_xyz(),
             ColorSpace::Rec2020 => Xyz {
-                x: 0.6369580 * a + 0.1446169 * b + 0.1688810 * c,
+                x: 0.636_958 * a + 0.1446169 * b + 0.168_881 * c,
                 y: 0.2627002 * a + 0.6779981 * b + 0.0593017 * c,
                 z: 0.0000000 * a + 0.0280727 * b + 1.0609851 * c,
             },

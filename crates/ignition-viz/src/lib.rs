@@ -14,6 +14,15 @@
 //! `shot`/`live` pair, which were two binaries only because they were two
 //! separately hand-written wgpu pipelines.
 
+// A Bevy system *is* a long argument list of `Query`s, and a `Query` with
+// a filter — `Query<(Entity, &A, &B), (Added<A>, Without<C>)>` — is what
+// clippy calls a complex type. Both lints fire on the ECS's own idiom
+// rather than on anything this crate chose, and rewriting a system
+// signature to satisfy them makes it harder to read, not easier. Scoped
+// to this crate deliberately: the domain crates get no such licence, and
+// a long argument list in `ignition-core` is still a design smell there.
+#![allow(clippy::type_complexity, clippy::too_many_arguments)]
+
 pub mod app;
 pub mod bench;
 pub mod budget;

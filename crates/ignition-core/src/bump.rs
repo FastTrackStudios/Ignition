@@ -70,6 +70,12 @@ impl Kind {
 // r[impl effects.bump.fall-beats]
 pub const FALL_BEATS: f32 = 0.45;
 
+/// The "just under an eighth" above, enforced rather than described. A
+/// compile-time check, not a test: the value is a constant, so a fall
+/// that smears into the next eighth is a thing the build should refuse
+/// rather than a thing a test run discovers.
+const _: () = assert!(FALL_BEATS < 0.5);
+
 /// A bump on a selection.
 ///
 /// `depth` is 0..=1 — how hard. A charted hit passes its class weight;
@@ -351,10 +357,9 @@ mod tests {
             Speed::Master("Song".into()),
             "a fall in seconds is a gesture for one tempo"
         );
-        assert!(
-            FALL_BEATS < 0.5,
-            "the fall is not under an eighth: {FALL_BEATS}"
-        );
+        // That the fall is under an eighth is asserted at compile time
+        // beside `FALL_BEATS`; what this test owns is that the recipe
+        // actually carries it.
         assert!((recipe.timing.measure - FALL_BEATS).abs() < 1e-6);
 
         // At any tempo the envelope is finished within an eighth, so

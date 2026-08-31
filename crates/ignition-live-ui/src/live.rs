@@ -877,7 +877,7 @@ mod tests {
             let rule = LIVE_CSS
                 .split('}')
                 .find(|r| {
-                    let selector = r.rsplit('{').last().unwrap_or("").trim();
+                    let selector = r.rsplit('{').next_back().unwrap_or("").trim();
                     selector.split(',').any(|s| s.trim() == class)
                 })
                 .unwrap_or_else(|| panic!("{class} has no rule"));

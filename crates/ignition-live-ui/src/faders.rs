@@ -107,7 +107,10 @@ pub enum KeyAction {
     /// Fires a bump — an envelope that retires itself.
     Flash(Selection, BumpKind),
     /// Holds a look at full until the key comes up.
-    Hold(Recipe),
+    ///
+    /// Boxed: a `Recipe` dwarfs `Flash`'s selection-and-kind pair, and
+    /// the key table is an array of these.
+    Hold(Box<Recipe>),
 }
 
 /// A key that names something in the profile — a macro or a look.
@@ -252,11 +255,11 @@ pub fn flash_keys() -> Vec<KeySpec> {
         // Held keys. Down is on; up is off; nothing lingers.
         KeySpec {
             label: "DROP",
-            action: KeyAction::Hold(rig_drop()),
+            action: KeyAction::Hold(Box::new(rig_drop())),
         },
         KeySpec {
             label: "PUNT",
-            action: KeyAction::Hold(punt_look()),
+            action: KeyAction::Hold(Box::new(punt_look())),
         },
     ]
 }

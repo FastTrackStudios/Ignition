@@ -5257,7 +5257,7 @@ mod wave2_tests {
         player.go(&show);
         let out = player.output(&show);
         assert_eq!(out.get(&(3, Attribute::Dimmer)), Some(&0.5), "retargeted");
-        assert!(out.get(&(1, Attribute::Dimmer)).is_none());
+        assert!(!out.contains_key(&(1, Attribute::Dimmer)));
         assert!(crate::recipe::unresolved(player.cues(), &show).is_empty());
     }
 

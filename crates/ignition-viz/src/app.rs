@@ -1927,10 +1927,10 @@ mod quality_preset_tests {
     /// r[verify viz.quality-presets]
     #[test]
     fn only_a_still_pays_a_stills_step_count_for_a_narrow_shaft() {
-        assert!(
-            RenderQuality::STILL.fine_for_narrow_shafts,
-            "a still has all the time in the world"
-        );
+        // `STILL` is a constant, so "a still has all the time in the
+        // world" is checked at compile time rather than at test time —
+        // what the loop below owns is that no *live* tier claims it.
+        const _: () = assert!(RenderQuality::STILL.fine_for_narrow_shafts);
         for preset in [
             Preset::Potato,
             Preset::Low,

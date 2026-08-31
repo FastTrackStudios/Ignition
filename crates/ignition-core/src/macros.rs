@@ -388,7 +388,7 @@ fn fx(label: &str, name: &str) -> FaderSpec {
 fn static_(label: &str, target: Selection, colour: &str, level: f32) -> FaderSpec {
     FaderSpec::new(
         label,
-        FaderSource::Inline(level_and_colour(target, colour, level)),
+        FaderSource::Inline(Box::new(level_and_colour(target, colour, level))),
     )
 }
 
@@ -404,7 +404,7 @@ fn sound(
 ) -> FaderSpec {
     FaderSpec::new(
         label,
-        FaderSource::Inline(Recipe::new(
+        FaderSource::Inline(Box::new(Recipe::new(
             target,
             RecipeApply::Sound {
                 band,
@@ -413,7 +413,7 @@ fn sound(
                 high,
                 relative,
             },
-        )),
+        ))),
     )
 }
 
@@ -431,7 +431,7 @@ fn sparkle_on(label: &str, band: Band) -> FaderSpec {
         }),
     );
     recipe.timing.speed = Speed::Master("Song".into());
-    FaderSpec::new(label, FaderSource::Inline(recipe))
+    FaderSpec::new(label, FaderSource::Inline(Box::new(recipe)))
 }
 
 fn page(name: &str, faders: Vec<FaderSpec>) -> Page {

@@ -51,7 +51,7 @@ pub fn PointerRoot(children: Element) -> Element {
             class: "pointer-root",
             onpointermove: move |e| {
                 let p = e.data.client_coordinates();
-                let mut cur = feed.peek().clone();
+                let mut cur = *feed.peek();
                 cur.x = p.x as f32;
                 cur.y = p.y as f32;
                 if cur != *feed.peek() {
@@ -60,7 +60,7 @@ pub fn PointerRoot(children: Element) -> Element {
             },
             onpointerdown: move |e| {
                 let p = e.data.client_coordinates();
-                let mut cur = feed.peek().clone();
+                let mut cur = *feed.peek();
                 cur.x = p.x as f32;
                 cur.y = p.y as f32;
                 cur.down = true;
@@ -68,7 +68,7 @@ pub fn PointerRoot(children: Element) -> Element {
             },
             onpointerup: move |e| {
                 let p = e.data.client_coordinates();
-                let mut cur = feed.peek().clone();
+                let mut cur = *feed.peek();
                 cur.x = p.x as f32;
                 cur.y = p.y as f32;
                 cur.down = false;
@@ -76,7 +76,7 @@ pub fn PointerRoot(children: Element) -> Element {
                 feed.set(cur);
             },
             onpointercancel: move |_| {
-                let mut cur = feed.peek().clone();
+                let mut cur = *feed.peek();
                 cur.down = false;
                 cur.ups += 1;
                 feed.set(cur);

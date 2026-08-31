@@ -92,7 +92,7 @@ fn lit_one_way(axis: Attribute, amp: f32) -> Vec<Step> {
             // Velocity is cos(a): positive for the quarter either side
             // of the start. Counted by index rather than by sign so the
             // two zero crossings do not land on floating-point noise.
-            let lit = i < 4 || i >= 12;
+            let lit = !(4..12).contains(&i);
             Step {
                 apply: vec![RecipeApply::Delta(vec![
                     (axis.clone(), amp * a.sin()),

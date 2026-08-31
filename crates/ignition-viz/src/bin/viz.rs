@@ -313,14 +313,16 @@ fn main() -> anyhow::Result<()> {
     let draw_overlay = overlay.unwrap_or(!headless);
     let mut playback = Playback::load(
         &venue,
-        cuelist.as_deref(),
-        recipes.as_deref(),
-        cue,
-        effect_time,
-        // An export starts at its first bar.
-        export.as_ref().map(|e| e.from_bar).or(bar),
-        song_bpm,
-        None,
+        ignition_viz::playback::LoadOptions {
+            cuelist: cuelist.as_deref(),
+            recipes: recipes.as_deref(),
+            jump_to_cue: cue,
+            effect_time,
+            // An export starts at its first bar.
+            bar: export.as_ref().map(|e| e.from_bar).or(bar),
+            song_bpm,
+            song: None,
+        },
     )?;
     if let Some(name) = &look_name {
         anyhow::ensure!(

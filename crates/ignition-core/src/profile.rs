@@ -343,7 +343,12 @@ pub enum FaderSource {
     Master(String),
     /// A recipe written in place — a level and a colour on a role, a
     /// band-driven value.
-    Inline(Recipe),
+    ///
+    /// Boxed: a `Recipe` is an order of magnitude wider than the `String`
+    /// every other variant holds, and a page is `FADERS` of these — most
+    /// of them `None`. `Box<T>` is transparent to serde, so the profile
+    /// file is unchanged.
+    Inline(Box<Recipe>),
 }
 
 /// An effect parameter a fader exposes beside its level.
@@ -883,7 +888,7 @@ impl Profile {
                 Vec::new()
             }
             FaderSource::Inline(recipe) => {
-                let mut r = recipe.clone();
+                let mut r = recipe.as_ref().clone();
                 if let Some(speed) = &spec.speed {
                     r.timing.speed = speed.clone();
                 }
