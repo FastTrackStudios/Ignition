@@ -56,29 +56,39 @@ fn dim(chan: ChanId, level: f32) -> CueValue {
 }
 
 pub fn cues() -> CueList {
-    CueList {
+    let mut list = CueList {
         name: "Main".into(),
-        cues: vec![
+        // Cue and CueList have grown a lot of optional structure
+        // (numbers, notes, appearance, triggers, wrap/restart). Spreading
+        // Default keeps this demo honest about only setting what it means
+        // to set, and stops it breaking every time a field is added.
+        ..Default::default()
+    };
+    list.cues = vec![
             Cue {
                 name: "Blackout".into(),
                 fade_secs: 0.0,
                 values: (1..=6).map(|c| dim(c, 0.0)).collect(),
+                ..Default::default()
             },
             Cue {
                 name: "Preset — House".into(),
                 fade_secs: 3.0,
                 values: vec![dim(1, 0.45), dim(2, 0.45)],
+                ..Default::default()
             },
             Cue {
                 name: "Verse".into(),
                 fade_secs: 2.0,
                 values: vec![dim(1, 0.7), dim(2, 0.7), dim(5, 0.3), dim(6, 0.3)],
+                ..Default::default()
             },
             Cue {
                 name: "Chorus".into(),
                 fade_secs: 0.8,
                 values: (1..=6).map(|c| dim(c, 1.0)).collect(),
+                ..Default::default()
             },
-        ],
-    }
+    ];
+    list
 }
