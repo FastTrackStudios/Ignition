@@ -824,7 +824,7 @@ mod tests {
     }
 
     /// The names other crates reach for by hand are still here. The
-    /// show author in `ignition-song` picks these by name, and a rename
+    /// show author in `ignition-daw` picks these by name, and a rename
     /// here is a panic there.
     #[test]
     fn the_names_the_show_author_uses_survive() {

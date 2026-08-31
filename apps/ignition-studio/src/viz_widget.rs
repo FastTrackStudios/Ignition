@@ -14,7 +14,7 @@ use blitz_dom::node::ComputedStyles;
 use dioxus_native::DeviceHandle;
 use ignition_core::preset::Ref;
 use ignition_core::{HostRequest, MacroRunner};
-use ignition_song::SongTransport;
+use ignition_daw::SongTransport;
 use ignition_viz::VizConfig;
 use ignition_viz::embedded::{EmbeddedViz, HostGpu};
 use ignition_viz::playback::Playback;

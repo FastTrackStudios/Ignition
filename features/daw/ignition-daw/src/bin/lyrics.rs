@@ -7,7 +7,7 @@
 //! that is worth seeing before building a lyric screen on top of it.
 //!
 //! ```text
-//! cargo run -p ignition-song --bin lyrics -- \
+//! cargo run -p ignition-daw --bin lyrics -- \
 //!     "/home/cody/Downloads/Bye Bye Bye/Bye Bye Bye.RPP" data/songs/bye-bye-bye.lrc
 //! ```
 
@@ -19,8 +19,8 @@ fn main() -> Result<()> {
         bail!("usage: lyrics <project.RPP> <lyrics.lrc>");
     };
 
-    let song = ignition_song::load(project)?;
-    let lyrics = ignition_song::lyrics::load(lrc, &song)?;
+    let song = ignition_daw::load(project)?;
+    let lyrics = ignition_daw::lyrics::load(lrc, &song)?;
 
     if let (Some(title), Some(artist)) = (&lyrics.title, &lyrics.artist) {
         println!("{artist} — {title}");

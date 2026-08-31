@@ -1,9 +1,9 @@
 //! The *Bye Bye Bye* light show, authored against the song's own map.
 //!
 //! ```bash
-//! cargo run -p ignition-song --bin authorshow -- \
+//! cargo run -p ignition-daw --bin authorshow -- \
 //!     "Bye Bye Bye.RPP" > data/songs/bye-bye-bye.json
-//! cargo run -p ignition-song --bin authorshow -- "Bye Bye Bye.RPP" --lint
+//! cargo run -p ignition-daw --bin authorshow -- "Bye Bye Bye.RPP" --lint
 //! ```
 //!
 //! ```text
@@ -13,7 +13,7 @@
 //!            [--sidecar-dir <dir>] [--no-sidecars]
 //! ```
 //!
-//! `--lint` prints the design-guide findings (`ignition_song::lint`)
+//! `--lint` prints the design-guide findings (`ignition_daw::lint`)
 //! to stderr instead of the show, and exits non-zero if there are any.
 //!
 //! ## Regenerating without losing edits
@@ -35,7 +35,7 @@
 //! relative to its section (`"at": {"section": "CH 1", "bars": 4}`),
 //! with the bar it resolved to beside it (`"resolved"`) for a player
 //! that has no song map. A loader with one calls
-//! `ignition_song::reposition` and the show follows the arrangement it
+//! `ignition_daw::reposition` and the show follows the arrangement it
 //! has. Library effects are written by name (`{"effect": "circle"}`),
 //! never copied. The edits file is found in `--sidecar-dir` (default
 //! `data/songs`), is the person's, and is only read.
@@ -86,8 +86,8 @@ use ignition_core::{
     AttrFilter, Attribute, Bars, Cue, CueList, Ease, Play, Recipe, RecipeApply, RecipeRef,
     Selection, SongMap, Speed, Step, Timing, Trick, Trigger, Waveform,
 };
-use ignition_song::chart::{HitChart, HitClass};
-use ignition_song::generate::{Kind, kind_of};
+use ignition_daw::chart::{HitChart, HitClass};
+use ignition_daw::generate::{Kind, kind_of};
 
 // r[impl song.chart] - the chart is re-read from the project on every run
 // r[impl cues.sorted-by-position]
@@ -95,13 +95,13 @@ use ignition_song::generate::{Kind, kind_of};
 // r[impl triggers.from-the-chart]
 fn main() -> anyhow::Result<()> {
     let opts = Options::parse(std::env::args().skip(1))?;
-    let song = ignition_song::load(&opts.project)?;
+    let song = ignition_daw::load(&opts.project)?;
 
     // The chart is read from the project's own HITS track, so there is
     // nothing to pass and nothing to keep in sync: edit the MIDI in
     // REAPER, re-run this, and the show follows. An absent chart is a
     // show with no hits, which is still a show.
-    let chart = ignition_song::chart::read(&opts.project, &song)?;
+    let chart = ignition_daw::chart::read(&opts.project, &song)?;
     let mut list = build(&song, (!chart.is_empty()).then_some(&chart));
     if let Some(setup) = &opts.cameras {
         let added = camera_cuts(&mut list, &song, setup)?;
@@ -119,12 +119,11 @@ fn main() -> anyhow::Result<()> {
 
     if opts.lint {
         let splits = splits(&opts.profile);
-        for (name, energy, level, layers) in
-            ignition_song::lint::energy_curve(&list, &song, &splits)
+        for (name, energy, level, layers) in ignition_daw::lint::energy_curve(&list, &song, &splits)
         {
             eprintln!("{name:<18} energy {energy:.2}  level {level:.2}  layers {layers}");
         }
-        let findings = ignition_song::lint::lint(&list, &song, &splits);
+        let findings = ignition_daw::lint::lint(&list, &song, &splits);
         for f in &findings {
             eprintln!("{f}");
         }
@@ -143,14 +142,14 @@ fn main() -> anyhow::Result<()> {
         .clone()
         .unwrap_or_else(|| opts.sidecar_dir.join(format!("{slug}.edits.json")));
     if edits_path.exists() {
-        let edits = ignition_song::Edits::load(&edits_path)?;
+        let edits = ignition_daw::Edits::load(&edits_path)?;
         let existing = match &opts.merge {
             Some(path) => Some(serde_json::from_str::<CueList>(&std::fs::read_to_string(
                 path,
             )?)?),
             None => None,
         };
-        let merged = ignition_song::merge(&mut list, existing.as_ref(), &edits);
+        let merged = ignition_daw::merge(&mut list, existing.as_ref(), &edits);
         eprintln!(
             "kept {} edited cue(s) from {}: {:?}",
             merged.kept.len(),
@@ -432,7 +431,7 @@ fn build(song: &SongMap, chart: Option<&HitChart>) -> CueList {
 /// the named colour splits and the shared Tricks chains. Baked in at
 /// build time from the same file the venues load, so a name used here
 /// is a name the room will know.
-const PROFILE: &str = include_str!("../../../../data/profiles/ignition.ig-profile");
+const PROFILE: &str = include_str!("../../../../../data/profiles/ignition.ig-profile");
 
 #[derive(Default, serde::Deserialize)]
 struct ProfilePools {
@@ -1631,8 +1630,8 @@ fn author(song: &SongMap) -> CueList {
     // Movers that re-aim are flagged from the recipes once the order is
     // known, so a mover parked dark in the bridge swings before the chorus.
     // r[impl cues.generator-emits-mib]
-    ignition_song::set_mib(&mut list);
-    ignition_song::set_class_timing(&mut list);
+    ignition_daw::set_mib(&mut list);
+    ignition_daw::set_class_timing(&mut list);
     list
 }
 
@@ -1913,7 +1912,7 @@ fn triggers(chart: &HitChart, song: &SongMap) -> Vec<Trigger> {
     // The soft tiers are the pulse and already have their effect; a
     // trigger as well would flash twice for one hit. The rest are
     // thinned per section to the guide's density.
-    let mut candidates: Vec<&ignition_song::chart::ChartHit> = chart
+    let mut candidates: Vec<&ignition_daw::chart::ChartHit> = chart
         .ungrouped()
         .filter(|h| matches!(h.class, HitClass::High | HitClass::Medium))
         .filter(|h| !figure_bars.contains(&h.at.bar))
@@ -1943,7 +1942,7 @@ fn triggers(chart: &HitChart, song: &SongMap) -> Vec<Trigger> {
                     .iter()
                     .filter(|h| h.at.bar >= bar && h.at.bar <= span_end)
                     .max_by(|a, b| {
-                        let score = |h: &ignition_song::chart::ChartHit| {
+                        let score = |h: &ignition_daw::chart::ChartHit| {
                             (
                                 h.class == HitClass::High,
                                 h.at.beat == 1.0,
@@ -2056,7 +2055,7 @@ mod tests {
     /// r[verify triggers.from-the-chart]
     #[test]
     fn a_figure_renders_one_trigger_per_moment() {
-        use ignition_song::chart::{ChartHit, Group as ChartGroup, HitChart};
+        use ignition_daw::chart::{ChartHit, Group as ChartGroup, HitChart};
 
         let song = arrangement(8.0);
         // Four moments, one of them struck twice at the same instant.
@@ -2148,7 +2147,7 @@ mod tests {
     /// r[verify song.hits.detection-is-a-draft]
     #[test]
     fn the_chart_is_the_only_source_of_hits_and_nothing_fills_in_for_it() {
-        use ignition_song::chart::{ChartHit, Group as ChartGroup, HitChart};
+        use ignition_daw::chart::{ChartHit, Group as ChartGroup, HitChart};
 
         let song = arrangement(8.0);
 
@@ -2291,7 +2290,7 @@ mod tests {
     /// r[verify song.chart.hit] - the pulse classes never double-fire
     #[test]
     fn band_hits_become_triggers_and_pulse_classes_do_not() {
-        use ignition_song::chart::{ChartHit, HitChart};
+        use ignition_daw::chart::{ChartHit, HitChart};
 
         let song = arrangement(8.0);
         let hit = |bar: u32, class: HitClass| ChartHit {
@@ -2343,7 +2342,7 @@ mod tests {
     /// r[verify song.chart.pulse]
     #[test]
     fn the_pulse_classes_become_one_looping_effect_per_section() {
-        use ignition_song::chart::{ChartHit, HitChart};
+        use ignition_daw::chart::{ChartHit, HitChart};
 
         let song = arrangement(8.0);
         // A backbeat through the first chorus: bars 23..31, on two and four.
@@ -2439,7 +2438,7 @@ mod tests {
         std::path::Path::new(path).exists().then(|| {
             (
                 path.to_string(),
-                ignition_song::load(path).expect("the project parses"),
+                ignition_daw::load(path).expect("the project parses"),
             )
         })
     }
@@ -2486,7 +2485,7 @@ mod tests {
         let list = author(&arrangement(8.0));
         let mut flagged = 0;
         for (i, cue) in list.cues.iter().enumerate() {
-            if ignition_song::mib::reaims(&list, i) {
+            if ignition_daw::mib::reaims(&list, i) {
                 flagged += 1;
                 assert_ne!(cue.mib.mode, MibMode::None, "{}", cue.name);
                 assert_eq!(cue.mib.fade_beats, 2.0, "{}", cue.name);
@@ -2574,7 +2573,7 @@ mod tests {
     #[test]
     fn figures_and_high_hits_punch_in_to_the_drum_cam() {
         let Some((path, song)) = real() else { return };
-        let chart = ignition_song::chart::read(&path, &song).unwrap();
+        let chart = ignition_daw::chart::read(&path, &song).unwrap();
         if chart.is_empty() {
             return;
         }
@@ -2744,7 +2743,7 @@ mod tests {
     fn the_show_passes_the_design_lint() {
         let song = arrangement(8.0);
         let list = build(&song, None);
-        let findings = ignition_song::lint::lint(&list, &song, &profile_splits());
+        let findings = ignition_daw::lint::lint(&list, &song, &profile_splits());
         assert!(
             findings.is_empty(),
             "{}",
@@ -2755,9 +2754,9 @@ mod tests {
                 .join("\n")
         );
         if let Some((path, song)) = real() {
-            let chart = ignition_song::chart::read(&path, &song).unwrap();
+            let chart = ignition_daw::chart::read(&path, &song).unwrap();
             let list = build(&song, (!chart.is_empty()).then_some(&chart));
-            let findings = ignition_song::lint::lint(&list, &song, &profile_splits());
+            let findings = ignition_daw::lint::lint(&list, &song, &profile_splits());
             assert!(
                 findings.is_empty(),
                 "{}",

@@ -9,7 +9,7 @@
 //! musical clock cues are written against (`music`, `trigger`), and the
 //! files all of it is stored in (`show_file`). Nothing in this crate opens
 //! a socket, reads a frame or touches Bevy — `ignition-dmx` sends the
-//! bytes, `ignition-viz` draws them, `ignition-song` supplies the
+//! bytes, `ignition-viz` draws them, `ignition-daw` supplies the
 //! arrangement, and the studio composes the three.
 //!
 //! `no_std`-compatible is still the aim rather than the state: the merge
@@ -33,8 +33,17 @@ pub use preset::{
 pub mod focus;
 pub use focus::{pan_tilt_deg_along, pan_tilt_deg_to_point};
 
-pub mod music;
-pub use music::{Bars, Position, Section, SongMap, TempoMap, TempoPoint, TimeSignature};
+/// Musical time, from the `daw` feature.
+///
+/// Re-exported under its old module name so the domain reads the same:
+/// a cue's position is a musical fact, and `crate::music::Bars` is what
+/// twenty thousand lines of cue and recipe code call it. The types
+/// themselves live in `features/daw/ignition-daw-proto`, below both
+/// this crate and every backend that produces a song map.
+pub use ignition_daw_proto as music;
+pub use ignition_daw_proto::{
+    Bars, Position, Section, SongMap, TempoMap, TempoPoint, TimeSignature,
+};
 
 pub mod bump;
 pub mod canvas;

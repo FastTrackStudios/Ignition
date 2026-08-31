@@ -1,7 +1,7 @@
 //! Prints a project's song map — tempo, time signature, sections.
 //!
 //! ```bash
-//! cargo run -p ignition-song --bin songmap -- "path/to/song.RPP"
+//! cargo run -p ignition-daw --bin songmap -- "path/to/song.RPP"
 //! ```
 //!
 //! A tool rather than a test: the point is to look at a project and see
@@ -14,7 +14,7 @@ fn main() -> anyhow::Result<()> {
     let path = std::env::args()
         .nth(1)
         .ok_or_else(|| anyhow::anyhow!("usage: songmap <project file>"))?;
-    let song = ignition_song::load(&path)?;
+    let song = ignition_daw::load(&path)?;
     let point = song.tempo.at(Bars::START);
 
     println!(

@@ -1,9 +1,10 @@
-//! Reading a song's shape out of a DAW project.
+//! Reading a song's shape out of a REAPER project.
 //!
-//! The project file is the source of truth for tempo, time signature
-//! and section boundaries — not a second copy maintained by hand. Move
-//! a section in the DAW and the lighting moves with it, because the
-//! lighting never knew where it was in seconds.
+//! One backend of the `daw` feature: the direction "project file ->
+//! [`SongMap`]". The project file is the source of truth for tempo,
+//! time signature and section boundaries — not a second copy maintained
+//! by hand. Move a section in the DAW and the lighting moves with it,
+//! because the lighting never knew where it was in seconds.
 //!
 //! Parsing goes through `daw::file` rather than reading the text here.
 //! That is not politeness about layering: the project format carries
@@ -13,29 +14,13 @@
 //! this hit on day one was a `as i32` in the shared parser, not here.)
 //!
 //! Today the format is REAPER's. The `.daw` format is the target, and
-//! it goes through the same crate.
-
-pub mod transport;
-#[cfg(feature = "play")]
-pub use transport::SongTransport;
-pub use transport::{SourceTransport, TapClock, TransportSource};
-
-pub mod draft;
-pub mod timecode;
-pub use draft::{Edits, merge, reposition, reposition_from_sidecar};
-
-pub mod chart;
-pub mod generate;
-pub mod lint;
-pub mod mib;
-pub use mib::{set_class_timing, set_mib};
-pub mod hits;
-pub mod lyrics;
-pub use generate::{Kind, Roles, generate};
+//! it goes through the same crate — at which point this crate gains a
+//! second entry point rather than the tree gaining a second backend,
+//! because it is the same parser either way.
 
 use anyhow::{Context, Result};
 use daw::file::{ReaperProject, parse_rpp_file};
-use ignition_core::{Bars, Section, SongMap, TempoMap, TempoPoint, TimeSignature};
+use ignition_daw_proto::{Bars, Section, SongMap, TempoMap, TempoPoint, TimeSignature};
 
 /// Reads a song map from a project file on disk.
 // r[impl song.map.imported]
@@ -273,48 +258,6 @@ mod tests {
         assert_eq!(song.section_at(Bars::bar(23)).unwrap().name, "CH 1");
         assert_eq!(song.section_at(Bars::bar(30)).unwrap().name, "CH 1");
         assert_eq!(song.section_at(Bars::bar(31)).unwrap().name, "Break");
-    }
-
-    /// The shipped show is self-describing: every cue and trigger
-    /// carries its relative position, and re-resolving them against the
-    /// same arrangement lands on the bars the file already caches. This
-    /// is the load path a player takes.
-    /// r[verify song.relative-position.resolved-on-load]
-    /// r[verify song.relative-position]
-    #[test]
-    fn the_shipped_show_resolves_to_its_own_cached_bars() {
-        let Some(song) = song() else { return };
-        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/songs");
-        let raw = std::fs::read_to_string(format!("{dir}/bye-bye-bye.json")).unwrap();
-        let mut list: ignition_core::CueList = serde_json::from_str(&raw).unwrap();
-        let before: Vec<_> = list
-            .cues
-            .iter()
-            .map(|c| (c.name.clone(), c.position()))
-            .collect();
-        let triggers_before: Vec<_> = list.triggers.iter().map(|t| t.bars()).collect();
-        assert!(
-            list.cues
-                .iter()
-                .all(|c| !matches!(c.at, Some(ignition_core::music::Position::Absolute(_)))),
-            "every cue is placed relative to a section"
-        );
-        let unresolved = crate::reposition(&mut list, &song);
-        assert!(unresolved.is_empty(), "{unresolved:?}");
-        let after: Vec<_> = list
-            .cues
-            .iter()
-            .map(|c| (c.name.clone(), c.position()))
-            .collect();
-        assert_eq!(after, before);
-        let triggers_after: Vec<_> = list.triggers.iter().map(|t| t.bars()).collect();
-        assert_eq!(triggers_after, triggers_before);
-        // And the second PRE is addressed as the second PRE.
-        let pre2 = list.cues.iter().find(|c| c.name == "PRE 2").unwrap();
-        assert_eq!(
-            pre2.at,
-            Some(ignition_core::music::Position::nth("PRE", 1, 0))
-        );
     }
 
     fn names(song: &SongMap) -> Vec<String> {

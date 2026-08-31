@@ -16,7 +16,8 @@
 //! whatever arrangement is loaded. [`reposition_from_sidecar`] still
 //! reads an old file's sidecar into it.
 
-use ignition_core::music::{Positions, SongMap};
+use ignition_core::cue::Positions;
+use ignition_core::music::SongMap;
 use ignition_core::{Cue, CueList};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -108,6 +109,59 @@ pub fn reposition_from_sidecar(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The real project this was built against. Skipped rather than
+    /// failed when it is not on this machine — it lives in Downloads,
+    /// not in the repo, and a test that fails on a colleague's checkout
+    /// teaches people to ignore failures.
+    fn project_song() -> Option<ignition_core::SongMap> {
+        let path = concat!(env!("HOME"), "/Downloads/Bye Bye Bye/Bye Bye Bye.RPP");
+        std::path::Path::new(path)
+            .exists()
+            .then(|| ignition_daw_reaper::load(path).expect("the project parses"))
+    }
+
+    /// The shipped show is self-describing: every cue and trigger
+    /// carries its relative position, and re-resolving them against the
+    /// same arrangement lands on the bars the file already caches. This
+    /// is the load path a player takes.
+    /// r[verify song.relative-position.resolved-on-load]
+    /// r[verify song.relative-position]
+    #[test]
+    fn the_shipped_show_resolves_to_its_own_cached_bars() {
+        let Some(song) = project_song() else { return };
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../data/songs");
+        let raw = std::fs::read_to_string(format!("{dir}/bye-bye-bye.json")).unwrap();
+        let mut list: ignition_core::CueList = serde_json::from_str(&raw).unwrap();
+        let before: Vec<_> = list
+            .cues
+            .iter()
+            .map(|c| (c.name.clone(), c.position()))
+            .collect();
+        let triggers_before: Vec<_> = list.triggers.iter().map(|t| t.bars()).collect();
+        assert!(
+            list.cues
+                .iter()
+                .all(|c| !matches!(c.at, Some(ignition_core::music::Position::Absolute(_)))),
+            "every cue is placed relative to a section"
+        );
+        let unresolved = reposition(&mut list, &song);
+        assert!(unresolved.is_empty(), "{unresolved:?}");
+        let after: Vec<_> = list
+            .cues
+            .iter()
+            .map(|c| (c.name.clone(), c.position()))
+            .collect();
+        assert_eq!(after, before);
+        let triggers_after: Vec<_> = list.triggers.iter().map(|t| t.bars()).collect();
+        assert_eq!(triggers_after, triggers_before);
+        // And the second PRE is addressed as the second PRE.
+        let pre2 = list.cues.iter().find(|c| c.name == "PRE 2").unwrap();
+        assert_eq!(
+            pre2.at,
+            Some(ignition_core::music::Position::nth("PRE", 1, 0))
+        );
+    }
     use ignition_core::music::Position;
     use ignition_core::{Bars, Section, TempoMap};
 

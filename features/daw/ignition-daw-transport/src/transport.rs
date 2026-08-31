@@ -17,8 +17,7 @@
 //! and does the one thing they share: seconds through the tempo map to
 //! bars, holding still when the source is lost.
 
-use crate::SongMap;
-use ignition_core::Bars;
+use ignition_daw_proto::{Bars, SongMap};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -417,7 +416,7 @@ impl SongTransport {
         let ctx = ProjectContext::Project(project.project_guid.clone());
         let output = open_output(&daw, &project.project_guid)
             .map_err(|e| anyhow::anyhow!("opening the audio output: {e}"))?;
-        let song = crate::from_rpp(&text, &name)?;
+        let song = ignition_daw_reaper::from_rpp(&text, &name)?;
 
         Ok(Self {
             daw,
@@ -678,7 +677,7 @@ mod clock_tests {
             Box::leak(Box::new(Scripted(Mutex::new((None, false, false)))));
         let song = SongMap {
             name: "t".into(),
-            tempo: ignition_core::TempoMap::constant(120.0, Default::default()),
+            tempo: ignition_daw_proto::TempoMap::constant(120.0, Default::default()),
             sections: Vec::new(),
         };
         let t = SourceTransport::from_source(source, song);

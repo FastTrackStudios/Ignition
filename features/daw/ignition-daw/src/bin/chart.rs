@@ -1,7 +1,7 @@
 //! Prints the hit chart a project carries — what a person decided.
 //!
 //! ```text
-//! cargo run -p ignition-song --bin chart -- <project.RPP>
+//! cargo run -p ignition-daw --bin chart -- <project.RPP>
 //! ```
 //!
 //! The groups are the interesting part: a group of three is a phrase,
@@ -15,8 +15,8 @@ fn main() -> Result<()> {
         Some(p) => p,
         None => bail!("usage: chart <project.RPP>"),
     };
-    let song = ignition_song::load(&path)?;
-    let chart = ignition_song::chart::read(&path, &song)?;
+    let song = ignition_daw::load(&path)?;
+    let chart = ignition_daw::chart::read(&path, &song)?;
 
     if chart.is_empty() {
         println!("no HITS track in this project");

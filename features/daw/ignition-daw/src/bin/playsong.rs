@@ -1,7 +1,7 @@
 //! Plays a project and prints where the lights are, without a window.
 //!
 //! ```bash
-//! cargo run -p ignition-song --features play --bin playsong -- song.RPP
+//! cargo run -p ignition-daw --features play --bin playsong -- song.RPP
 //! ```
 //!
 //! The point is to check the *link* — that the audio plays, that its
@@ -11,7 +11,7 @@
 //! drawing.
 
 use ignition_core::{Bars, CuePlayer, Rig, Show, SpeedMasters};
-use ignition_song::SongTransport;
+use ignition_daw::SongTransport;
 use std::time::Duration;
 
 fn main() -> anyhow::Result<()> {
@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
             let raw = std::fs::read_to_string(path)?;
             serde_json::from_str::<ignition_core::CueList>(&raw)?
         }
-        None => ignition_song::generate(&song, &ignition_song::Roles::default()),
+        None => ignition_daw::generate(&song, &ignition_daw::Roles::default()),
     };
     let mut player = CuePlayer::new(list.cues);
 

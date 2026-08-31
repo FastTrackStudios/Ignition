@@ -1,0 +1,21 @@
+[package]
+name = "ignition-daw-proto"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Musical time: bars, tempo map, sections, relative positions — the daw feature's wire contract"
+
+# A leaf, deliberately. serde and nothing else: this is the vocabulary
+# `ignition-core` and every song-map producer have to agree on, and it
+# must be cheap enough that agreeing costs nothing.
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lib]
+name = "ignition_daw_proto"
+path = "src/lib.rs"

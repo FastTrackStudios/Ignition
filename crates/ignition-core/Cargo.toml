@@ -6,6 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+ignition-daw-proto.workspace = true
 ignition-proto.workspace = true
 serde.workspace = true
 serde_json.workspace = true

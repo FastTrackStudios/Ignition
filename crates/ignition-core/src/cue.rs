@@ -3001,6 +3001,80 @@ fn blend_intents(
     out
 }
 
+// ── The positions sidecar ────────────────────────────────────────────
+//
+// Lives here, next to `CueList`, rather than in `music` where the rest
+// of the musical-time types are. `music` is otherwise a leaf — bars,
+// tempo, sections, nothing that knows what a cue is — and this one
+// struct was the single edge that made `music` and `cue` mutually
+// recursive, which is what stopped the musical clock being extractable
+// into a crate of its own. It reads and writes a `CueList`, so `cue` is
+// where it belongs.
+
+/// The relative positions of a cue list, kept beside it.
+///
+/// The form the `<song>.positions.json` sidecar took before `Cue.at`
+/// and `Trigger.at` carried a [`Position`] themselves. Kept so an older
+/// show plus its sidecar still loads: [`Positions::apply`] writes the
+/// sidecar's positions *into* the list and resolves them, after which
+/// the list is self-describing and the sidecar can be deleted.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Positions {
+    /// By cue name. Names in a list are unique, which is what lets the
+    /// sidecar survive the list being re-sorted or regenerated.
+    #[serde(default)]
+    pub cues: std::collections::BTreeMap<String, Position>,
+    /// One per trigger, in the list's order — triggers are named after
+    /// their bar, so a name is no key for them.
+    #[serde(default)]
+    pub triggers: Vec<Position>,
+}
+
+impl Positions {
+    /// The relative positions of every cue and trigger in a list, read
+    /// off their resolved bars against the song they were written for.
+    pub fn of(list: &CueList, song: &SongMap) -> Self {
+        let cues = list
+            .cues
+            .iter()
+            .filter_map(|c| {
+                c.position()
+                    .map(|at| (c.name.clone(), Position::relative_to(song, at)))
+            })
+            .collect();
+        let triggers = list
+            .triggers
+            .iter()
+            .map(|t| match t.bars() {
+                Some(at) => Position::relative_to(song, at),
+                None => t.at.clone(),
+            })
+            .collect();
+        Self { cues, triggers }
+    }
+
+    /// Writes the sidecar's positions into the list's own `at` fields
+    /// and resolves them against `song` — see
+    /// [`CueList::resolve_positions`], which this defers to.
+    ///
+    /// A cue whose position no longer resolves — its section was cut —
+    /// keeps the bar it had, and its name is returned so the caller can
+    /// say so. A cue the sidecar does not mention is left alone.
+    // r[impl song.relative-position.resolved-on-load]
+    // r[impl files.additive-evolution] - an old show plus its sidecar still loads
+    pub fn apply(&self, list: &mut CueList, song: &SongMap) -> Vec<String> {
+        for cue in list.cues.iter_mut() {
+            if let Some(position) = self.cues.get(&cue.name) {
+                cue.at = Some(position.clone());
+            }
+        }
+        for (trigger, position) in list.triggers.iter_mut().zip(&self.triggers) {
+            trigger.at = position.clone();
+        }
+        list.resolve_positions(song)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5374,6 +5448,82 @@ mod wave2_tests {
                 },
             ],
         }
+    }
+
+    /// The arrangement the sidecar test repositions against. Tempo is
+    /// the default: every assertion below is about bar arithmetic, and
+    /// a relative position resolves in bars.
+    fn arrangement(verse_bars: f64) -> SongMap {
+        SongMap {
+            name: "test".into(),
+            tempo: TempoMap::default(),
+            sections: vec![
+                Section {
+                    name: "VS 1".into(),
+                    start: Bars::bar(1),
+                    bars: verse_bars,
+                },
+                Section {
+                    name: "PRE".into(),
+                    start: Bars::bar(1 + verse_bars as u32),
+                    bars: 4.0,
+                },
+                Section {
+                    name: "CH 1".into(),
+                    start: Bars::bar(5 + verse_bars as u32),
+                    bars: 8.0,
+                },
+                Section {
+                    name: "PRE".into(),
+                    start: Bars::bar(13 + verse_bars as u32),
+                    bars: 4.0,
+                },
+            ],
+        }
+    }
+
+    /// r[verify song.relative-position.resolved-on-load]
+    #[test]
+    fn a_sidecar_repositions_a_list_against_a_new_arrangement() {
+        use crate::cue::{Cue, CueList};
+        use crate::trigger::Trigger;
+        let old = arrangement(8.0);
+        let mut list = CueList {
+            name: "t".into(),
+            cues: vec![
+                Cue {
+                    name: "CH 1".into(),
+                    at: Some(Bars::bar(13).into()),
+                    ..Default::default()
+                },
+                Cue {
+                    name: "PRE 2".into(),
+                    at: Some(Bars::bar(21).into()),
+                    ..Default::default()
+                },
+            ],
+            triggers: vec![Trigger {
+                at: Bars::new(14, 2.5).into(),
+                resolved: None,
+                recipe: Recipe::new(Selection::Group("wash".into()), RecipeApply::Dimmer(1.0)),
+                name: "hit".into(),
+                hold: false,
+            }],
+            ..Default::default()
+        };
+        let positions = Positions::of(&list, &old);
+        assert_eq!(positions.cues["CH 1"], Position::at("CH 1", 0));
+        assert_eq!(positions.cues["PRE 2"], Position::nth("PRE", 1, 0));
+
+        // The verse loses two bars: everything after it moves up two.
+        let new = arrangement(6.0);
+        let unresolved = positions.apply(&mut list, &new);
+        assert!(unresolved.is_empty(), "{unresolved:?}");
+        assert_eq!(list.cues[0].position(), Some(Bars::bar(11)));
+        assert_eq!(list.cues[1].position(), Some(Bars::bar(19)));
+        assert_eq!(list.triggers[0].bars(), Some(Bars::new(12, 2.5)));
+        // And the list now carries the relative form itself.
+        assert_eq!(list.cues[0].at, Some(Position::at("CH 1", 0)));
     }
 
     fn lit(name: &str, at: Position) -> Cue {

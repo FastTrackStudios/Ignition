@@ -1,7 +1,7 @@
 //! Charts a song's hits onto its own grid, and writes them out.
 //!
 //! ```text
-//! cargo run -p ignition-song --bin hits -- <project.RPP> <audio> <out.json>
+//! cargo run -p ignition-daw --bin hits -- <project.RPP> <audio> <out.json>
 //! ```
 //!
 //! The project supplies the tempo map, so the grid the hits land on is
@@ -18,12 +18,12 @@ fn main() -> Result<()> {
         _ => bail!("usage: hits <project.RPP> <audio> <out.json>"),
     };
 
-    let song = ignition_song::load(project)?;
-    let hits = ignition_song::hits::detect(audio, &song, 2)?;
+    let song = ignition_daw::load(project)?;
+    let hits = ignition_daw::hits::detect(audio, &song, 2)?;
 
     let total = hits.hits.len();
     let count = |band| hits.hits.iter().filter(|h| h.band == band).count();
-    use ignition_song::hits::HitBand::{High, Low, Mid};
+    use ignition_daw::hits::HitBand::{High, Low, Mid};
     println!(
         "{total} hits on 1/8 · low {} · mid {} · high {}",
         count(Low),

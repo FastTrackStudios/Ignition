@@ -16,8 +16,11 @@ members = [
     "features/dmx/ignition-dmx-sacn",
     "features/dmx/ignition-dmx-artnet",
     "features/dmx/ignition-dmx",
+    "features/daw/ignition-daw-proto",
+    "features/daw/ignition-daw-reaper",
+    "features/daw/ignition-daw-transport",
+    "features/daw/ignition-daw",
     "crates/ignition-profile",
-    "crates/ignition-song",
     "crates/ignition-viz",
     "crates/ignition-live-ui",
     "apps/ignition-engine",
@@ -38,12 +41,15 @@ repository = "https://github.com/FastTrackStudios/Ignition"
 ignition-proto = { path = "crates/ignition-proto" }
 ignition-core = { path = "crates/ignition-core" }
 ignition-profile = { path = "crates/ignition-profile" }
-ignition-song = { path = "crates/ignition-song" }
+ignition-daw = { path = "features/daw/ignition-daw" }
 ignition-viz = { path = "crates/ignition-viz" }
 ignition-dmx-proto = { path = "features/dmx/ignition-dmx-proto" }
 ignition-dmx-sacn = { path = "features/dmx/ignition-dmx-sacn" }
 ignition-dmx-artnet = { path = "features/dmx/ignition-dmx-artnet" }
 ignition-dmx = { path = "features/dmx/ignition-dmx" }
+ignition-daw-proto = { path = "features/daw/ignition-daw-proto" }
+ignition-daw-transport = { path = "features/daw/ignition-daw-transport" }
+ignition-daw-reaper = { path = "features/daw/ignition-daw-reaper" }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
 
 # The DAW domain, from the `daw` repo.
@@ -57,7 +63,7 @@ ignition-live-ui = { path = "crates/ignition-live-ui" }
 # put a path here in the first place: the end goal is lighting as a
 # sub-project *inside* a DAW project, the two trees are edited together,
 # and a version pin describes that badly. The answer is to move the tag
-# often, not to point at a directory. `crates/ignition-song` takes
+# often, not to point at a directory. `features/daw/ignition-daw` takes
 # `daw-proto`, `daw-audio-io`, `keyflow-proto` and `fts-sample` from the
 # same tag, and `hit-detect-dsp` from `signal` at its own — all six move
 # together or not at all.

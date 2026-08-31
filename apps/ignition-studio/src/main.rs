@@ -146,7 +146,7 @@ fn main() -> anyhow::Result<()> {
             // panics with "cannot disable a plugin that does not exist",
             // because PbrPlugin adds it rather than it being a member of
             // the group, and a crash is a poor trade for a tidy log.
-            "warn,ignition_studio=info,ignition_song=info,\
+            "warn,ignition_studio=info,ignition_daw=info,\
              ignition_viz=info,bevy_pbr::ssao=error",
         )
     });

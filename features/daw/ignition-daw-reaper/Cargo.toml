@@ -1,0 +1,23 @@
+[package]
+name = "ignition-daw-reaper"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Reading a song map out of a REAPER project — one backend of the daw feature"
+
+# Depends on the contract and on `daw::file`, and on nothing of
+# Ignition's own above it. That is what makes it a backend: the arrow
+# runs project-file -> SongMap and never back.
+[dependencies]
+ignition-daw-proto.workspace = true
+daw.workspace = true
+anyhow = "1"
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lib]
+name = "ignition_daw_reaper"
+path = "src/lib.rs"
