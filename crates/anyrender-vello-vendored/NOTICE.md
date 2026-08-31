@@ -1,9 +1,10 @@
 # anyrender_vello — vendored copy
 
 Upstream: crates.io `anyrender_vello` 0.12.0
-(https://github.com/dioxuslabs/anyrender), licensed MIT OR Apache-2.0
-(the standard texts; see the upstream repository). The workspace
-`[patch.crates-io]` table points `anyrender_vello` here.
+(https://github.com/dioxuslabs/anyrender), licensed MIT OR Apache-2.0 —
+both texts are retained here as `LICENSE-MIT` and `LICENSE-APACHE`, as
+in the other vendored crates. The workspace `[patch.crates-io]` table
+points `anyrender_vello` here.
 
 ## What changed (marked `IGNITION PATCH` in `src/window_renderer.rs`)
 

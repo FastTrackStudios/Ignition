@@ -174,9 +174,21 @@ previews: look-previews effect-previews macro-previews
 test:
     cargo test --workspace
 
+# Every workspace member that is ours — i.e. not one of the five
+# `crates/*-vendored` forks. Those are upstream code carrying one
+# deliberate hunk each; policing their style would mean editing them for
+# reasons the NOTICE cannot justify, and every such edit makes the diff
+# against upstream harder to read at the next version bump.
+vendored := "--exclude anyrender_vello --exclude bevy_pbr --exclude blitz-dom --exclude dioxus-native --exclude gdtf"
+
+# The hygiene gate, and what CI runs. `-D warnings` is the point: a
+# clippy run that only prints is a gate nothing has to pass, and this
+# tree went from 0 to 55 warnings without anyone noticing. Bevy's two
+# unavoidable lints are allowed at the top of `ignition-viz/src/lib.rs`,
+# with the reason, rather than by loosening this line.
 lint:
     cargo fmt --all --check
-    cargo clippy --workspace --all-targets
+    cargo clippy --workspace {{vendored}} --all-targets -- -D warnings
 
 # --- performance ---------------------------------------------------
 

@@ -193,7 +193,7 @@ impl Label {
             }
         }
         let name = attrs.metadata().name();
-        if !attrs.metadata().fields().field("name").is_some() {
+        if attrs.metadata().fields().field("name").is_none() {
             return Label::Name(name);
         }
         let mut take = Take(None);

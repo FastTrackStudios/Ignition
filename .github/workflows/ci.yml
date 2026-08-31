@@ -1,0 +1,83 @@
+# Ignition CI — the workspace gate.
+#
+# This exists because it did not. The only workflow in this repo built the
+# iOS app; nothing ever ran `cargo check` on the tree, and the cost showed
+# up twice: `crates/ignition-song` reached into sibling checkouts that a
+# runner does not have (so `cargo metadata` failed before anything
+# compiled — fixed in #5), and `apps/ignition-mobile` merged in never
+# having been through rustfmt. Both are things a gate catches in a minute.
+#
+# Enters `nix develop .#ci`, which is the shell built for exactly this:
+# toolchain, native headers and tailwindcss, no interactive installers.
+# See nix/modules/shells/ci.nix.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same ref supersedes an older queued run. Unlike the
+# iOS workflow this one is cheap to cancel — nothing is uploaded anywhere.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Incremental artifacts are worthless across runner sessions and cost
+  # gigabytes of the cache we do carry between them.
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    # Bevy, wgpu and the Blitz stack are a long cold build. The Nix store
+    # and cargo caches below make the warm case a few minutes; this ceiling
+    # is for the cold one.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      # The flake already declares fasttrackstudio.cachix.org as a
+      # substituter; this makes the runner trust it for pulls.
+      - name: Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: fasttrackstudio
+          skipPush: true
+
+      - name: Cache the Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          # One cache for the whole workspace; the vendored Bevy fork is
+          # the bulk of it and never changes between runs.
+          shared-key: ignition-workspace
+
+      # `asset!()` demands the stylesheet at compile time and it is
+      # gitignored build output, so it has to exist before cargo runs.
+      # `just tailwind` is the one definition of how it is built.
+      - name: Build the stylesheet
+        run: nix develop .#ci -c just tailwind
+
+      # fmt + clippy with `-D warnings`. Kept as `just lint` so a
+      # contributor runs locally exactly what CI runs.
+      - name: Lint
+        run: nix develop .#ci -c just lint
+
+      - name: Test
+        run: nix develop .#ci -c cargo test --workspace
+
+      # The spec is normative and the coverage script is the cheap version
+      # of tracey: it also fails on an `r[impl ...]` naming a requirement
+      # no spec defines, which is how a renamed rule gets caught.
+      - name: Spec coverage
+        run: nix develop .#ci -c python3 tools/spec_coverage.py

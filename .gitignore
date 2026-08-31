@@ -10,7 +10,7 @@ result-*
 *.esf2
 *.a3d
 /.direnv/
-tools/__pycache__/
+__pycache__/
 
 # Effect previews: 131 effects x 16 frames of 320x180 PNG is ~175MB, and
 # PNGs do not delta-compress, so every regeneration would add that again
