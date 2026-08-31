@@ -1,0 +1,101 @@
+# Ignition iOS TestFlight — build the Ignition iPhone app and upload it on
+# every push to main that touches the app or the crates it renders with.
+#
+# Runs on the org-level self-hosted macOS runner `airlock`, which holds its
+# own credentials (~/.appstoreconnect + fts-build.keychain), so this needs no
+# GitHub secrets.
+#
+# Reuses the same parameterized deploy-testflight.sh the other products use;
+# only the DX_* env below differs.
+
+name: ignition-ios
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - "crates/ignition-core/**"
+      - "crates/ignition-proto/**"
+      - "flake.nix"
+      - "flake.lock"
+      - ".github/workflows/ignition-ios.yml"
+  workflow_dispatch:
+    inputs:
+      marketing_version:
+        description: "CFBundleShortVersionString (e.g. 0.0.2)"
+        required: false
+        default: "0.0.1"
+
+# Per-workflow group: a newer run supersedes an older queued one. NOT shared
+# across products — a concurrency group holds only one pending run, so a
+# shared name makes the products cancel each other (that is exactly how
+# task-ios went stale for four merges). Serialization is already guaranteed:
+# airlock is a single runner and takes one job at a time.
+concurrency:
+  group: ios-testflight-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    runs-on: [self-hosted, macos, airlock]
+    # Turn a missing runner into a red X within the hour. Without it a job
+    # with no available runner sits QUEUED and is eventually cancelled,
+    # which reads as "cancelled" rather than "failed" and alerts nobody.
+    timeout-minutes: 90
+    steps:
+      - name: Preflight — build volume mounted
+        run: |
+          if [ ! -d /Volumes/build-disk ]; then
+            echo "ERROR: /Volumes/build-disk is not mounted on this runner." >&2
+            exit 1
+          fi
+          df -h /Volumes/build-disk | tail -1
+
+      # clean:false keeps target/ between runs so cargo builds incrementally.
+      - uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Build, sign, and upload Ignition to TestFlight
+        env:
+          KEYCHAIN: fts-build.keychain
+          KEYCHAIN_PW: fts-build
+          MARKETING_VER: ${{ inputs.marketing_version || '0.0.1' }}
+          # 26.6 GM builds/signs/uploads; the beta's actool compiles the icon
+          # catalog (26.6's actool can't produce Assets.car on macOS 27).
+          ACTOOL_DEVELOPER_DIR: /Applications/Xcode-beta.app/Contents/Developer
+          # ── Telemetry ────────────────────────────────────────────────
+          # Baked at build time via option_env! in architect-telemetry: a
+          # shipped app has nobody to set env vars for it, and the exporter
+          # is built at process start -- before sign-in -- so a session
+          # token cannot be the credential. Both empty => the app is
+          # telemetry-free, which is the local-first default.
+          TASK_OTLP_ENDPOINT: ${{ vars.TASK_OTLP_ENDPOINT }}
+          TASK_OTLP_TOKEN: ${{ secrets.TASK_OTLP_TOKEN }}
+          TASK_SENTRY_DSN: ${{ secrets.TASK_SENTRY_DSN }}
+          # ── Ignition product identity ────────────────────────────────
+          DX_PACKAGE: ignition-mobile
+          DX_APP_DIR: apps/mobile
+          # Explicitly empty = the package's default features (honored: the
+          # script uses ${DX_FEATURES-<default>}, not :-).
+          DX_FEATURES: ""
+          DX_BUNDLE_ID: app.fasttrackstudio.ignition
+          # Without this the home screen shows dx's derived name
+          # ("Ignition-mobile") rather than the product name.
+          APP_DISPLAY_NAME: Ignition
+          # Own profile per product, or each build revokes the previous
+          # app's profile (mint-dev-profile.rb deletes same-named profiles).
+          PROFILE_NAME: FTS Ignition App Store
+          ICONS_DIR: ${{ github.workspace }}/apps/mobile/ios/Assets.xcassets
+        run: |
+          set -euo pipefail
+          export PATH="/nix/var/nix/profiles/default/bin:$PATH"
+          export NIX=/nix/var/nix/profiles/default/bin/nix
+          bash apps/mobile/ios/deploy-testflight.sh
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Ignition iOS TestFlight" >> "$GITHUB_STEP_SUMMARY"
+          echo "commit \`$(git rev-parse --short HEAD)\` → Ignition uploaded (see log for build number)." >> "$GITHUB_STEP_SUMMARY"
