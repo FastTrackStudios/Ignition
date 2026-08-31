@@ -24,6 +24,12 @@ specs (
                 exclude (
                     target/**
                     **/target/**
+                    // The vendored upstream forks. They carry no `r[...]`
+                    // markers and never will — a one-hunk patch against
+                    // someone else's crate is not where this project's
+                    // requirements live — so sweeping ~60k lines of them
+                    // is pure scan cost.
+                    crates/*-vendored/**
                 )
             }
         )

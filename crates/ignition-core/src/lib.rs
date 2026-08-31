@@ -1,7 +1,20 @@
-//! `no_std`-compatible core, once there is a merge stack to make that true.
-//! For now: a placeholder crate boundary so the domain split in
-//! `docs/domain/DOMAIN.md` exists in the workspace from day one, rather than
-//! being retrofitted once `ignition-ui` has already reached into internals.
+//! The lighting domain, with no I/O and no renderer in it.
+//!
+//! Everything a console *means* lives here: the attribute model and patch
+//! (`profile`, `selection`), what an operator selects and addresses
+//! (`group`, `tricks`), what a value is (`color`, `focus`, `preset`), the
+//! template layer that resolves against a live rig (`recipe`, `step`,
+//! `effects`), the cue engine and its tracking (`cue`), the priority stack
+//! everything merges through (`playbacks`, `programmer`, `bump`), the
+//! musical clock cues are written against (`music`, `trigger`), and the
+//! files all of it is stored in (`show_file`). Nothing in this crate opens
+//! a socket, reads a frame or touches Bevy — `ignition-io` sends the
+//! bytes, `ignition-viz` draws them, `ignition-song` supplies the
+//! arrangement, and the studio composes the three.
+//!
+//! `no_std`-compatible is still the aim rather than the state: the merge
+//! stack is here but `std` collections and `String` are used throughout,
+//! so the `alloc`-only split has not been made yet.
 
 pub use ignition_proto::{Attribute, ChanId, PatchEntry, Placement, Quat, Vec3};
 

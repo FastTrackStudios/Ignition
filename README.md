@@ -35,30 +35,53 @@ Resolume box.
 - **Integrates with FastTrackStudio**: control surfaces, the session/setlist
   engine, and eventually the auto-generated-cues pipeline.
 
-## Repo layout (proposed — see `docs/domain/`)
+## Repo layout
 
 ```
 crates/
-  ignition-proto     wire contract — architect-style RPC service traits
-  ignition-core       no_std+alloc: attribute model, patch resolve, cue/
-                       tracking engine, phaser maths, merge stack — no I/O
-  ignition-io          sACN / Art-Net / USB widget adapters (native only)
-  ignition-fixtures    GDTF / MVR / OFL / QLC .qxf importers → one model
-  ignition-viz         wgpu 3D visualizer + projection-mapping render path
-  ignition-video       media decode/playback for mapped surfaces
-  ignition-ui          Dioxus panels: patch, programmer, cue list, timeline,
-                       mapping editor
+  ignition-proto       wire contract — the types every other crate shares
+  ignition-core        the lighting domain, no I/O: attribute model, patch
+                        resolve, selections and tricks, recipes/effects,
+                        the cue + tracking engine, the priority stack
+  ignition-profile     the profile/venue file pair and their validation
+  ignition-io          sACN / Art-Net transmit, rate + keep-alive, and the
+                        loopback that feeds the visualizer the same bytes
+  ignition-song        the song level: DAW song map, hit chart, transport,
+                        timecode, cue generation and the show lint
+  ignition-viz         Bevy/wgpu 3D visualizer, GDTF meshes, haze, gobos,
+                        canvases and the projection-mapping render path
+  ignition-live-ui     Dioxus panes shared by the desk and the iPad Live
+                        page — cue list, faders, library, cameras
+  *-vendored           one-hunk forks of upstream crates, each with a
+                        NOTICE.md saying exactly what changed and why
 apps/
-  ignition-engine      the headless engine binary (console + I/O + viz host)
+  ignition-studio      the operator desk: multi-window Dioxus shell with
+                        the visualizer embedded on Blitz's own wgpu device
+  ignition-live-web    the same Live panes built for a browser/iPad
+  ignition-engine      the headless engine binary
+  mobile               the Ignition iPhone app (package `ignition-mobile`)
 docs/
+  spec/                normative requirements, `r[topic.id]` per paragraph,
+                        traced to code by tracey (`just`-free:
+                        `python3 tools/spec_coverage.py`)
   domain/              domain model (ASLS-style, grounded in a real venue)
   research/            landscape studies — OSS/industry comparison, grandMA3
-                       recipes/phasers, Resolume mapping, venue reference
+                        recipes/phasers, Resolume mapping, venue reference
+  ops/                 profiling and the iPad Live runbook
 data/
   venues/norco/        real fixture patch + room geometry, extracted from an
-                       actual Eos show file, used as the first visualizer
-                       test case (see docs/domain/norco-venue-reference.md)
+                        actual Eos show file, used as the first visualizer
+                        test case (see docs/domain/norco-venue-reference.md)
+  profiles/            the shipped profile, baked from `ignition-core`
+  songs/               song maps, hit charts and per-song cue lists
+  gdtf/                the fixture library, real and generated
+tools/                 GDTF generation and the spec-coverage reporter
+nix/                   flake-parts modules: toolchain, dx, dev + CI shells
 ```
+
+Not yet built: `ignition-video` (media decode for mapped surfaces) and the
+Graphics/Video studio modes — the only five requirements in `docs/spec/`
+with no implementation. Lights first, deliberately (`r[studio.modes.lights-first]`).
 
 ## Licence
 

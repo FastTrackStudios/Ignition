@@ -38,8 +38,8 @@
     crane.url = "github:ipetkov/crane";
 
     # Dedicated, current-unstable nixpkgs used ONLY to source `dx`
-    # (dioxus-cli) at the version the workspace Cargo.lock pins (0.7.9)
-    # plus binaryen 129 — see nix/modules/dx.nix.
+    # (dioxus-cli, overridden there onto 0.8.0-alpha.0) and binaryen 129
+    # — see nix/modules/dx.nix.
     nixpkgs-dx.url = "github:NixOS/nixpkgs/d99b013d5d1931ad77fe3912ed218170dec5d9a4";
   };
 

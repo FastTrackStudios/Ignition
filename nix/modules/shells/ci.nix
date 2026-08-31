@@ -5,13 +5,13 @@
 # headers + the env the build scripts need, nothing else. Workflows
 # enter it via `nix develop .#ci`.
 #
-# tailwindcss IS here, despite "CI drives plain cargo": the Task apps'
-# assets/tailwind.css is gitignored build output that `asset!()` demands
-# at compile time. `dx` generates it during a normal dx build, but CI
-# drives plain cargo, so the workflow runs `just css` first — which
-# needs this binary. It is a single prebuilt
-# store path, not a from-source cargo-install, so it does not
-# reintroduce the stall described above.
+# tailwindcss IS here, despite "CI drives plain cargo":
+# apps/ignition-studio/assets/tailwind.css is gitignored build output that
+# `asset!()` demands at compile time. `dx` generates it during a normal dx
+# build, but CI drives plain cargo, so the workflow runs `just tailwind`
+# first — which needs this binary. It is a single prebuilt store path, not
+# a from-source cargo-install, so it does not reintroduce the stall
+# described above.
 { ... }:
 {
   perSystem = { pkgs, lib, config, ... }: {
@@ -24,15 +24,14 @@
       # from a hook — see the stall note above).
       ++ lib.optionals (config.fts.cargoRail != null) [ config.fts.cargoRail ]
       ++ config.fts.buildInputs
-      # The shared native tool list (pkg-config, bindgen, tailwindcss —
-      # and on Linux, mold: .cargo/config.toml selects it for every
-      # x86_64-linux link, so a shell without it can't link at all).
+      # The shared native tool list (pkg-config, bindgen, tailwindcss and
+      # the linker/graphics headers the Bevy and Blitz builds need).
       # Consumed from toolchain.nix instead of hand-repeating entries
       # here, so the two shells can't drift again.
       ++ config.fts.nativeBuildInputs
-      # `just` so the workflow can invoke `just css` instead of
-      # repeating the tailwindcss commands — the recipe stays the one
-      # definition of how those sheets get built.
+      # `just` so the workflow can invoke `just tailwind` / `just lint`
+      # instead of repeating those commands — the recipes stay the one
+      # definition of how the sheets get built and what the gate is.
       ++ [
         pkgs.just
       ];
