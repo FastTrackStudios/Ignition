@@ -60,11 +60,8 @@ studio-windowed *ARGS:
     IGNITION_FULLSCREEN=0 just studio {{ARGS}}
 
 # One-shot window, no hot reload — a plain cargo build, so it reuses
-# target/ and starts in seconds once warm. Builds the sheet first: the
-# stylesheets are compiled by Tailwind now rather than carried in the
-# binary as `include_str!`, and a plain cargo run does not know that.
+# target/ and starts in seconds once warm.
 studio-once *ARGS:
-    just tailwind
     cargo run -p ignition-studio {{ARGS}}
 
 # A headless render of the venue. `--overlay` adds the cue sheet.

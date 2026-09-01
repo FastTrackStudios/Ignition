@@ -539,10 +539,11 @@ pub fn WindowRoot(host: HostId) -> Element {
     let popped = current.popped;
 
     rsx! {
-        // One sheet. `tailwind.css` at the crate root imports the
-        // palette and all four hand-written sheets, in the order these
-        // five `<style>` blocks used to be injected in — see that file,
-        // where the order is documented as load-bearing.
+        style { {ignition_live_ui::live::TOKENS_CSS} }
+        style { {include_str!("studio.css")} }
+        style { {ignition_live_ui::live::LIVE_CSS} }
+        style { {include_str!("panel.css")} }
+        style { {include_str!("dock.css")} }
         document::Stylesheet { href: crate::TAILWIND }
         ignition_live_ui::pointer::PointerRoot {
             div { class: "window",
@@ -732,6 +733,41 @@ mod tests {
             source.contains("dioxus_native::open_window_with_props("),
             "windows are not opened through the patched hook"
         );
+    }
+
+    /// Every stylesheet reaches the document as a `<style>` block.
+    ///
+    /// `document::Stylesheet` is inert under Blitz (Dioxus Native): a
+    /// sheet delivered only through that link never arrives. Nothing
+    /// catches it — the app compiles, the suite passes, and the desk
+    /// comes up with no layout at all, the `.viz` element collapsed to
+    /// zero size and the visualizer silently never initialising. That
+    /// is exactly what happened when these five were briefly replaced
+    /// by an `@import` into `tailwind.css` and one link.
+    ///
+    /// The Tailwind link stays, for the utility classes; it is simply
+    /// not allowed to be the only thing delivering a sheet.
+    #[test]
+    fn every_stylesheet_is_injected_as_a_style_block() {
+        let source = include_str!("windows.rs");
+        let injected: Vec<&str> = source
+            .lines()
+            .map(str::trim)
+            .filter(|l| l.starts_with("style {"))
+            .collect();
+        for sheet in [
+            "TOKENS_CSS",
+            "studio.css",
+            "LIVE_CSS",
+            "panel.css",
+            "dock.css",
+        ] {
+            assert!(
+                injected.iter().any(|l| l.contains(sheet)),
+                "{sheet} is not injected as a <style> block; under Blitz that \
+                 means it does not arrive at all. Injected: {injected:?}"
+            );
+        }
     }
 
     /// The chrome is not selectable, and that is a crash fix rather than
