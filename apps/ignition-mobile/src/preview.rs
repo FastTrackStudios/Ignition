@@ -12,12 +12,14 @@ fn main() {
     // has to survive rather than at whatever the window happens to be.
     dioxus::LaunchBuilder::desktop()
         .with_cfg(
-            dioxus::desktop::Config::new().with_window(
-                dioxus::desktop::WindowBuilder::new()
-                    .with_title("Ignition — phone preview")
-                    .with_inner_size(dioxus::desktop::tao::dpi::LogicalSize::new(393.0, 852.0))
-                    .with_resizable(true),
-            ).with_menu(None),
+            dioxus::desktop::Config::new()
+                .with_window(
+                    dioxus::desktop::WindowBuilder::new()
+                        .with_title("Ignition — phone preview")
+                        .with_inner_size(dioxus::desktop::tao::dpi::LogicalSize::new(393.0, 852.0))
+                        .with_resizable(true),
+                )
+                .with_menu(None),
         )
         .launch(ignition_mobile::App);
 }
