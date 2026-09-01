@@ -57,6 +57,8 @@ const KIND_WIPE: u32 = 2;
 const KIND_NOISE: u32 = 3;
 const KIND_BAND: u32 = 4;
 const KIND_SPARKLE: u32 = 5;
+const KIND_SNAKE: u32 = 6;
+const KIND_RAIN: u32 = 7;
 
 impl CanvasParams {
     /// The block for `recipe`, showing `rect` of the canvas at `glow`
@@ -116,6 +118,29 @@ impl CanvasParams {
                 set_colors(std::slice::from_ref(color));
                 p.ints = UVec4::new(KIND_BAND, 0, *count, travel(*direction));
                 p.scalars.w = *width;
+            }
+            // `tail` rides in `scalars.w` where `width` does for the
+            // other travelling pictures, and the row/column count in
+            // `ints.z` where `count` does — same slots, same meaning.
+            Procedural::Snake {
+                color,
+                rows,
+                tail,
+                direction,
+            } => {
+                set_colors(std::slice::from_ref(color));
+                p.ints = UVec4::new(KIND_SNAKE, 0, *rows, travel(*direction));
+                p.scalars.w = *tail;
+            }
+            Procedural::Rain {
+                color,
+                columns,
+                tail,
+                seed,
+            } => {
+                set_colors(std::slice::from_ref(color));
+                p.ints = UVec4::new(KIND_RAIN, *seed, *columns, 0);
+                p.scalars.w = *tail;
             }
             Procedural::Sparkle {
                 density,
@@ -265,6 +290,7 @@ mod tests {
                 speed: Speed::Hz(1.0),
                 ..Timing::default()
             },
+            plane: Default::default(),
         }
     }
 

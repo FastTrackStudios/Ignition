@@ -856,6 +856,7 @@ fn canvas_noise_on_bars(colour: &str) -> RecipeRef {
                     measure: 16.0,
                     ..Default::default()
                 },
+                plane: Default::default(),
             },
             channel: BitmapChannel {
                 canvas: "Main".into(),

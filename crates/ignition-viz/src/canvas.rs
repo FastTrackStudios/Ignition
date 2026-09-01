@@ -357,6 +357,7 @@ mod tests {
                 speed: Speed::Hz(1.0),
                 ..Timing::default()
             },
+            plane: Default::default(),
         };
         let mut src = ProceduralSource::new(recipe, 8.33 / 0.8);
         let (w, h) = src.size();

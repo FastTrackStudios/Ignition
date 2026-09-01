@@ -66,8 +66,62 @@ pub enum Procedural {
     /// Random cells lit at `density` (0..=1), re-rolled every cycle, each
     /// fading out across the cycle so it twinkles rather than blinks.
     Sparkle { density: f32, seed: u32, color: Rgb },
+    /// A head travelling a serpentine path with a fading tail — the
+    /// snake that walks a matrix.
+    ///
+    /// The path weaves `rows` rows: along the first, back along the
+    /// second, and so on, so the head never jumps. `tail` is how much of
+    /// the whole path is still glowing behind it, as a fraction — 0.25
+    /// is a quarter of the journey lit.
+    ///
+    /// `rows` is the picture's own, not the rig's. A picture does not
+    /// know how many fixtures are looking at it (that is the whole point
+    /// of a canvas), so the author says how tightly to weave and the
+    /// grid samples whatever that gives it.
+    Snake {
+        color: Rgb,
+        rows: u32,
+        tail: f32,
+        /// Whether the weave runs along rows or up columns.
+        #[serde(default)]
+        direction: Travel,
+    },
+    /// Drops falling down `columns` columns, each on its own offset, each
+    /// with a fading tail behind it.
+    ///
+    /// For a wall of towers this is the obvious one: the picture has a
+    /// direction the room actually has, and every column runs its own
+    /// clock so it reads as weather rather than as a chase.
+    Rain {
+        color: Rgb,
+        columns: u32,
+        tail: f32,
+        seed: u32,
+    },
     /// One colour everywhere — the "clear to a colour" source.
     Solid(Rgb),
+}
+
+/// Which two room axes the picture is painted on.
+///
+/// The canvas is a unit square and the rig is three-dimensional, so
+/// something has to say which plane the square lies in. Until this
+/// existed the answer was always X/Y, which is right for a truss seen
+/// in plan and wrong for the case that motivated it: a wall of towers
+/// varies along X and **Z** and is flat in Y, so the picture's whole
+/// vertical axis collapsed to one cell and read the middle of the
+/// image. A snake could only ever crawl sideways.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CanvasPlane {
+    /// X across, Y upstage — the room seen from above. The default, and
+    /// what every canvas recipe written before this meant.
+    #[default]
+    Plan,
+    /// X across, Z up — the room seen from the house. A wall of towers,
+    /// a truss of pars, anything hung in a vertical array.
+    Wall,
+    /// Y upstage, Z up — the room seen from the wing.
+    Side,
 }
 
 /// A procedural source with the motion that any other recipe has.
@@ -84,6 +138,10 @@ pub struct CanvasRecipe {
     pub source: Procedural,
     #[serde(default)]
     pub timing: Timing,
+    /// Which plane of the room the picture hangs in. Defaults to `Plan`,
+    /// so every recipe written before this one means what it always did.
+    #[serde(default)]
+    pub plane: CanvasPlane,
 }
 
 impl CanvasRecipe {
@@ -168,6 +226,63 @@ impl CanvasRecipe {
                 } else {
                     [0.0; 3]
                 }
+            }
+            // Where this cell sits along the weave, 0..1, then how long
+            // ago the head passed it.
+            Procedural::Snake {
+                color,
+                rows,
+                tail,
+                direction,
+            } => {
+                let rows = (*rows).max(1);
+                // Along the weave and across it — swapping the two is
+                // what `direction` means, so one picture does both a
+                // snake that crawls in rows and one that climbs columns.
+                let (across, along_row) = match direction {
+                    Travel::Horizontal => (v, u),
+                    Travel::Vertical => (u, v),
+                };
+                let row = ((across * rows as f32).floor() as u32).min(rows - 1);
+                // Odd rows run backwards, which is what makes it a
+                // serpentine rather than a carriage return: the head
+                // leaves one row where it enters the next.
+                let along_row = if row.is_multiple_of(2) {
+                    along_row
+                } else {
+                    1.0 - along_row
+                };
+                let s = (row as f32 + along_row) / rows as f32;
+                let behind = frac(cycles - s);
+                let tail = tail.clamp(1e-4, 1.0);
+                let a = if behind <= tail {
+                    1.0 - behind / tail
+                } else {
+                    0.0
+                };
+                scale(*color, a)
+            }
+            Procedural::Rain {
+                color,
+                columns,
+                tail,
+                seed,
+            } => {
+                let columns = (*columns).max(1);
+                let col = ((u * columns as f32).floor() as u32).min(columns - 1);
+                // Each column on its own offset, so the wall reads as
+                // weather rather than as one bar falling.
+                let offset = unit(hash3(col, 0, *seed));
+                // Falling: the drop is at the top when its phase is 0.
+                let drop = frac(cycles + offset);
+                let behind = frac(v - drop);
+                let tail = tail.clamp(1e-4, 1.0);
+                let a = if behind <= tail {
+                    1.0 - behind / tail
+                } else {
+                    0.0
+                };
+                scale(*color, a)
             }
         }
     }
@@ -413,6 +528,7 @@ pub fn named(name: &str) -> Option<CanvasRecipe> {
     Some(CanvasRecipe {
         source,
         timing: song(),
+        plane: CanvasPlane::default(),
     })
 }
 
@@ -425,6 +541,7 @@ mod tests {
         CanvasRecipe {
             source,
             timing: Timing::default(),
+            plane: Default::default(),
         }
     }
 

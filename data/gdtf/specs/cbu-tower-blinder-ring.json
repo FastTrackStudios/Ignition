@@ -9,7 +9,7 @@
     "height_mm": 120,
     "weight_kg": 1.2,
     "weight_kg_guess": true,
-    "power_w": 30,
+    "power_w": 18,
     "power_w_guess": true
   },
   "optics": {

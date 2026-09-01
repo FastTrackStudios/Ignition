@@ -141,7 +141,9 @@ BAND = [
 #    Two at the band wall throwing up it. Two flanking the frontman,
 #    downstage of him and angled in, so his face is lit from both sides
 #    rather than flat from one — the reason there are two and not one.
-for n, x in enumerate([-9 * FT, 9 * FT], start=1):
+# Halfway between the towers -- they sit at +/-6 and +/-18, so the gaps
+# are at -12, 0 and +12 and these take the outer two.
+for n, x in enumerate([-12 * FT, 12 * FT], start=1):
     add(f"Wall Bar {n}", "Solena Max Bar 28 RGB",
         ["Luminaire_LED_Bar", "Bars", "Wall Bars"],
         v3(x, Y_BAND_WALL - 0.4 * FT, 0.15), (0, 0.15, 1), v3(1.0, 0.09, 0.09), 30.0, 6)
@@ -195,12 +197,17 @@ for n, x in enumerate([-21 * FT, -12 * FT, 12 * FT, 21 * FT], start=1):
 VOCAL_HEAD = 1.55
 KEY_BAR_X = 5.5 * FT
 KEY_BAR_Y = VOCAL[1] - 6 * FT
+# Flat and parallel on the floor, both turned up toward the stage wall at
+# 45 degrees. Not crossed: a bar lying on the deck throws a sheet, and two
+# sheets raked back at the same angle wash the band and the wall behind
+# them. Aimed at the singer they were two narrow pools on one face.
 for n, x in enumerate([-KEY_BAR_X, KEY_BAR_X], start=1):
     add(f"Key Bar {n}", "Solena Max Bar 28 RGB",
         ["Luminaire_LED_Bar", "Bars", "Key Bars"],
         v3(x, KEY_BAR_Y, 0.15),
-        (VOCAL[0] - x, VOCAL[1] - KEY_BAR_Y, VOCAL_HEAD - 0.15),
-        v3(1.0, 0.09, 0.09), 30.0, 6)
+        (0.0, 1.0, 1.0),
+        v3(1.0, 0.09, 0.09), 45.0, 6)
+print(f"  key bars raked {math.degrees(math.atan2(1.0, 1.0)):.0f}deg up toward the stage")
 
 def by_tag(tag):
     return [f["chan"] for f in fixtures if tag in f["tags"]]

@@ -76,7 +76,7 @@ fn haze() -> f32 {
     std::env::var("IGNITION_HAZE")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(1.0)
+        .unwrap_or(0.6)
 }
 
 pub fn venue_dir() -> String {

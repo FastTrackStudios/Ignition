@@ -4967,6 +4967,7 @@ mod grid_tests {
                 speed: Speed::Hz(1.0),
                 ..Default::default()
             },
+            plane: Default::default(),
         };
         let channel = BitmapChannel {
             canvas: "row".into(),
