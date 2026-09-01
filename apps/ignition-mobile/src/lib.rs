@@ -1,14 +1,17 @@
 //! The Ignition iPhone app.
 //!
-//! A prototype: it reads a demo show (`show.rs`) rather than talking to a
-//! running console, but every screen is rendered from the real
-//! `ignition-core` types and GO drives the real `CuePlayer`, tracking and
-//! fades included. When the vox link lands, `show::` is the only module
-//! that has to change.
+//! A prototype only in that it has no link to a running console. The
+//! data is real: the shipped NSYNC cue list and Room 138's patch, groups,
+//! role bindings and palettes are compiled into the bundle (`show.rs`),
+//! so GO drives the real `CuePlayer` over the real forty-fixture rig —
+//! tracking, fades, role resolution and the effect library included. The
+//! levels below the cue list are what the rig would take.
+//!
+//! When the vox link lands, `show::` is the only module that changes.
 use dioxus::prelude::*;
-use ignition_core::selection::EMPTY_RIG;
-use ignition_core::{Attribute, ChanId, CuePlayer, Show};
+use ignition_core::{Attribute, ChanId, CuePlayer};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 pub mod show;
 
@@ -60,16 +63,22 @@ fn Cues() -> Element {
     // independent copies of the demo show that only happened to agree is
     // a divergence waiting for the first edit to `show::cues`.
     let mut player = use_signal(|| CuePlayer::new(list.peek().cues.clone()));
-    // `go`/`output` resolve against a Show -- the groups, rig, palettes and
-    // role bindings a recipe needs to know what "the key light" means here.
-    // This prototype drives explicit per-channel values, so the minimal
-    // Show (venue groups + an empty rig) is enough and nothing is faked.
-    let groups = use_signal(show::groups);
+    // `go`/`output` resolve against a `Show` — the groups, rig, palettes,
+    // role bindings and effect library a recipe needs to know what "the
+    // key light" means here. The shipped show names roles and never a
+    // group, so without the real bindings and a real rig every cue would
+    // resolve to nothing and the meters would sit at zero. Loaded once:
+    // it parses four venue files and the whole effect library.
+    // `Rc` because a hook hands back a clone each render and the
+    // cooked venue is a rig, a palette table and the whole effect
+    // library — not a thing to copy sixty times a second.
+    let cooked = use_hook(|| Rc::new(show::Cooked::load()));
     // Fades are wall-clock in the console; stepping to the end of the move
     // on GO keeps this honest without an animation loop the prototype has
     // no use for yet.
+    let for_go = cooked.clone();
     let mut go = move || {
-        player.write().go(&Show::new(&groups.read(), &EMPTY_RIG));
+        player.write().go(&for_go.show());
         let fade = player
             .read()
             .current_index()
@@ -80,8 +89,7 @@ fn Cues() -> Element {
     };
 
     let current = player.read().current_index();
-    let out: HashMap<(ChanId, Attribute), f32> =
-        player.read().output(&Show::new(&groups.read(), &EMPTY_RIG));
+    let out: HashMap<(ChanId, Attribute), f32> = player.read().output(&cooked.show());
 
     rsx! {
         header { class: "head",
@@ -100,8 +108,10 @@ fn Cues() -> Element {
                 }
             }
         }
+        // One meter per patched fixture — forty of them, so the row
+        // scrolls rather than pretending the rig is six channels wide.
         div { class: "levels",
-            for chan in 1u32..=6 {
+            for chan in cooked.channels.iter().copied() {
                 {
                     let level = out.get(&(chan, Attribute::Dimmer)).copied().unwrap_or(0.0);
                     rsx! {
