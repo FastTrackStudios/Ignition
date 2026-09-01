@@ -67,6 +67,10 @@
   --color-bad: #c04a3a;
   --color-bad-bright: #e86060;
 
+  /* Cue-adjacent blue */
+  --color-play: #2c3f5a;
+  --color-play-line: #3d5a80;
+
   /* Meters */
   --color-meter: #6ea8c0;
   --color-meter-ink: #cfe0f0;

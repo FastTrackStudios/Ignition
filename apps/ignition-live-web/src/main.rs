@@ -11,14 +11,13 @@
 
 use dioxus::prelude::*;
 use futures_util::StreamExt;
-use ignition_live_ui::live::{LIVE_CSS, TOKENS_CSS, Views};
+use ignition_live_ui::live::Views;
 use ignition_live_ui::{Bootstrap, Command, Playhead, PlayheadFeed, ServerMessage};
 use std::cell::RefCell;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::Closure;
 use web_sys::{MessageEvent, WebSocket};
 
-const BASE_CSS: &str = include_str!("base.css");
 const MANIFEST: Asset = asset!("/assets/manifest.json");
 /// Compiled by `dx build` from `tailwind.css` at the crate root, the
 /// same way the desk's is. Present so a shared `ignition-live-ui` pane
@@ -128,10 +127,10 @@ fn App() -> Element {
         document::Meta { name: "apple-mobile-web-app-title", content: "Ignition Live" }
         document::Meta { name: "theme-color", content: "#0b0b0d" }
         document::Link { rel: "manifest", href: MANIFEST }
+        // One sheet: `tailwind.css` at the crate root imports the
+        // palette, `base.css` and the shared `live.css`, in the order
+        // these blocks used to be injected in.
         document::Stylesheet { href: TAILWIND }
-        style { {TOKENS_CSS} }
-        style { {BASE_CSS} }
-        style { {LIVE_CSS} }
         div { class: "page",
             if !online() {
                 div { class: "offline", "no studio — reconnecting" }

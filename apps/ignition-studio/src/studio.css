@@ -5,10 +5,30 @@
    information that is not already visible, so nothing is lost on
    a panel that cannot hover.
 
-   This file is on its way out — see `tailwind.css`. It stays flexbox
-   and explicit values not because Blitz is limited (its style engine is
-   stylo, the same one Firefox uses, so the cascade is real) but because
-   layout is Taffy, and flexbox is the part of Taffy with no surprises. */
+   This file is NOT on its way out, which it used to claim it was. It is
+   compiled by `tailwind.css` at the crate root along with the palette
+   and the three other sheets, so there is one stylesheet and one
+   pipeline — but the rules stay rules. Two measurements decided that,
+   after a probe converted one pool of buttons to utility classes:
+
+   - a `@utility` lands in `@layer utilities`, which loses to every
+     unlayered rule, so converting these would have flipped the cascade
+     on the twenty-four selectors this file shares with `live.css` and
+     `dock.css`;
+   - and a utility is only emitted when Tailwind can *see* its name,
+     which it cannot for the classes this app builds at runtime
+     (`format!("pane pane-{}", ...)`).
+
+   The probe also drifted from the `.pad` rule it was mirroring in three
+   ways inside eight lines, which is the argument in miniature: a rule
+   used twice is one rule, and cannot disagree with itself. Utilities
+   are still the right tool for one-off layout, and every colour token
+   has one (`bg-panel`, `text-ink-dim`) — see `theme.css`.
+
+   It stays flexbox and explicit values not because Blitz is limited
+   (its style engine is stylo, the same one Firefox uses, so the cascade
+   is real) but because layout is Taffy, and flexbox is the part of
+   Taffy with no surprises. */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--ink); font-family: sans-serif; font-size: 13px; }
@@ -63,7 +83,7 @@ body { background: var(--bg); color: var(--ink); font-family: sans-serif; font-s
              border-bottom: 1px solid var(--line); }
 .transport button { flex: 1; height: 44px; border-radius: 6px; cursor: pointer;
                     font-size: 12px; }
-.play { background: #2c3f5a; color: var(--meter-ink); border: 1px solid #3d5a80; }
+.play { background: var(--play); color: var(--meter-ink); border: 1px solid var(--play-line); }
 .play:hover { background: #365070; }
 
 /* ── The cue list's Program preset ──────────────────────────────────
@@ -381,7 +401,7 @@ body { background: var(--bg); color: var(--ink); font-family: sans-serif; font-s
 .tile.mode.blind.on { background: #7a2a2a; border-color: var(--bad-bright); color: var(--ink-bright); }
 
 /* GO on the look list, beside the song's GO. */
-.go.look { background: #2c3f5a; color: var(--meter-ink); border-color: #3d5a80; margin-left: 4px; }
+.go.look { background: var(--play); color: var(--meter-ink); border-color: var(--play-line); margin-left: 4px; }
 
 /* ── Masters, parks, speed keys and the sound-in ─────────────────── */
 /* Transport keys for the song *playback*, beside the song's own

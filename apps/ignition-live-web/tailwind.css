@@ -1,12 +1,21 @@
-/* Tailwind v4 input for the Live page — the same palette and the same
-   scanned sources as the desk.
- 
-   This exists so the shared `ignition-live-ui` components may use
-   utility classes at all. Without it a utility in a shared pane would
-   render on the desk and silently not on the iPad, which is the worst
-   of the three possible outcomes: it would be found in the room. */
+/* The Live page's stylesheet — the same palette and the same shared
+ * panes as the desk, in one build.
+ *
+ * This exists so a shared `ignition-live-ui` component may use a utility
+ * class at all. Without it a utility in a shared pane would render on
+ * the desk and silently not on the iPad, which is the worst of the three
+ * possible outcomes: it would be found in the room.
+ *
+ * Import order matches what `main.rs` used to inject, for the same
+ * cascade reasons as the desk's — see that file's header.
+ */
 @import "tailwindcss";
+
 @import "../../crates/ignition-live-ui/src/theme.css";
+@import "../../crates/ignition-live-ui/src/tokens.css";
+
+@import "./src/base.css";
+@import "../../crates/ignition-live-ui/src/live.css";
 
 @source "./src/**/*.rs";
 @source "../../crates/ignition-live-ui/src/**/*.rs";

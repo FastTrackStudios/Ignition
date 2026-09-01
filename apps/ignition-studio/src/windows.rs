@@ -539,11 +539,10 @@ pub fn WindowRoot(host: HostId) -> Element {
     let popped = current.popped;
 
     rsx! {
-        style { {ignition_live_ui::live::TOKENS_CSS} }
-        style { {include_str!("studio.css")} }
-        style { {ignition_live_ui::live::LIVE_CSS} }
-        style { {PANEL_CSS} }
-        style { {crate::dock::view::DOCK_CSS} }
+        // One sheet. `tailwind.css` at the crate root imports the
+        // palette and all four hand-written sheets, in the order these
+        // five `<style>` blocks used to be injected in — see that file,
+        // where the order is documented as load-bearing.
         document::Stylesheet { href: crate::TAILWIND }
         ignition_live_ui::pointer::PointerRoot {
             div { class: "window",
@@ -674,31 +673,6 @@ impl FlattenLayout for Option<Layout> {
         self.unwrap_or_else(Layout::default_single_window)
     }
 }
-
-/// Styling for the frame this module adds around the existing panels.
-/// Inline, not in `studio.css`: that file is the panels' own, and the
-/// host should be removable without touching it.
-const PANEL_CSS: &str = r#"
-.window { display: flex; flex-direction: column; width: 100%; height: 100vh; overflow: hidden; }
-.mode-strip { display: flex; align-items: center; gap: 14px; padding: 0 10px; height: 28px;
-              background: #101014; border-bottom: 1px solid #26262c; flex: 0 0 28px; }
-.mode-strip .modes { display: flex; gap: 8px; }
-.mode-strip .mode { font-size: 10px; letter-spacing: 0.1em; color: #55555f; padding: 3px 6px; }
-.mode-strip .mode.on { color: #e8a040; border-bottom: 2px solid #e8a040; }
-.mode-strip .window-title { font-size: 10px; color: #8d8d99; letter-spacing: 0.06em;
-                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mode-strip .strip-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.mode-strip .saved { font-size: 9px; color: #6a6a78; }
-.panel-key { height: 16px; padding: 0 6px; font-size: 8px; letter-spacing: 0.08em;
-             border-radius: 3px; cursor: pointer; color: rgba(255,255,255,0.7);
-             background: #23232e; border: 1px solid #33333f; }
-.panel-key:hover { background: #2c2c3a; }
-.panel-key.view { height: 18px; font-size: 9px; color: #cfe0f0; border-color: #3d5a80; background: #2c3f5a; }
-.placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-               gap: 6px; background: #121216; color: #55555f; }
-.placeholder-name { font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: #8d8d99; }
-.placeholder-note { font-size: 10px; }
-"#;
 
 #[cfg(test)]
 mod tests {

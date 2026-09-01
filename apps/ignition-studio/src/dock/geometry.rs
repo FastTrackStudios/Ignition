@@ -456,7 +456,9 @@ mod tests {
     /// r[verify studio.dock.no-scroll]
     #[test]
     fn the_stylesheet_agrees_with_the_geometry() {
-        let css = view::DOCK_CSS;
+        // The sheet itself, not a const: `dock.css` is compiled into
+        // the one stylesheet now, so nothing else has reason to hold it.
+        let css = include_str!("../dock.css");
         assert!(
             css.contains(&format!("height: {}px", TAB_BAR as u32)),
             "tab bar height"

@@ -10,8 +10,6 @@ use super::*;
 use crate::windows::{self, HostId};
 use dioxus::prelude::*;
 
-pub const DOCK_CSS: &str = include_str!("../dock.css");
-
 /// The height of the mode strip above the dock, in CSS pixels —
 /// what turns a window-relative pointer into a dock-relative one.
 /// `.mode-strip` in `windows.rs` fixes the same number.

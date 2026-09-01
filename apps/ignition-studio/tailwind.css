@@ -1,15 +1,41 @@
-/* Tailwind v4 input. `dx serve` picks this up automatically because it
-   is named `tailwind.css` and sits at the crate root, watches it, and
-   writes the compiled sheet to `assets/tailwind.css`.
-
-   v4 rather than v3: no `tailwind.config.js`, and the source globs live
-   here. dx would infer v3 from the presence of that config file. */
+/* The desk's stylesheet — all of it, in one build.
+ *
+ * `dx serve` picks this up because it is named `tailwind.css` and sits
+ * at the crate root, watches it and its imports, and writes the compiled
+ * result to `assets/tailwind.css`. v4 rather than v3: no
+ * `tailwind.config.js`, and the source globs live here.
+ *
+ * The imports below are the sheets that used to be five separate
+ * `<style>` blocks injected by `windows.rs`. They are imported IN THE
+ * ORDER THEY WERE INJECTED, and that order is load-bearing: Tailwind
+ * emits imported CSS unlayered and in sequence, so `live.css` still wins
+ * the fifteen selectors it shares with `studio.css`, exactly as it did
+ * when the browser saw them as consecutive style blocks. Reordering
+ * these lines silently restyles the desk.
+ *
+ * They are imported rather than converted to `@utility`, which was the
+ * other candidate and is wrong here for two measured reasons: a custom
+ * utility lands in `@layer utilities`, which loses to every unlayered
+ * rule — flipping the cascade on the twenty-four selectors these sheets
+ * share — and a utility is only emitted when Tailwind can *see* its
+ * name, which it cannot for the class names this app builds at runtime
+ * (`format!("pane pane-{}", ...)`). Utilities remain available, and are
+ * the right tool for one-off layout; a rule used in more than one place
+ * stays a rule.
+ */
 @import "tailwindcss";
 
-/* The palette. Shared with the Live page rather than repeated here —
-   see `crates/ignition-live-ui/src/theme.css`, and `tokens.css` beside
-   it, which is the same palette for the hand-written sheets. */
+/* The palette, in both forms: `@theme` generates `bg-panel` and friends,
+   `tokens.css` is what every rule below reads through `var()`. A test
+   asserts the two agree colour for colour. */
 @import "../../crates/ignition-live-ui/src/theme.css";
+@import "../../crates/ignition-live-ui/src/tokens.css";
+
+/* Injection order, preserved. */
+@import "./src/studio.css";
+@import "../../crates/ignition-live-ui/src/live.css";
+@import "./src/panel.css";
+@import "./src/dock.css";
 
 /* Utilities are only emitted for classes Tailwind can see, and it does
    not know Rust — this is what makes it scan the rsx. `ignition-live-ui`

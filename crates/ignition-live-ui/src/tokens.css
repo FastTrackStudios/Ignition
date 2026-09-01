@@ -86,6 +86,13 @@
   --bad: #c04a3a;
   --bad-bright: #e86060;
 
+  /* ── Cue-adjacent blue ───────────────────────────────────────────
+     PLAY, GO-on-a-look, and the panel key that switches view. Blue
+     because none of them is a GO: they start something the show is
+     already carrying rather than taking the next cue. */
+  --play: #2c3f5a;
+  --play-line: #3d5a80;
+
   /* ── Meters ──────────────────────────────────────────────────────
      A level readout is not a control: it gets its own hue so a filled
      bar is never mistaken for a selected one. */
