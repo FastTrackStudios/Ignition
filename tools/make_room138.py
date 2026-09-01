@@ -259,6 +259,26 @@ cameras = {
         {"name": "Super wide", "eye": [-20 * FT, Y_HOUSE_BACK + 2 * FT, 9 * FT],
          "look": [0.0, 0.0, 4 * FT], "fov_deg": 70.0,
          "about": "The whole room from the back corner."},
+        # One per player, on the positions the band actually stands in
+        # above — the show's camera programme names Guitar, Bass, Keys,
+        # Side stage and Flat front, and a room that cannot answer them
+        # falls back to the wide shot with a warning. These are cheap and
+        # make the cuts land.
+        {"name": "Guitar", "eye": [9 * FT, -9 * FT, 5.4 * FT],
+         "look": [-AUDIENCE_LEFT * 5.5 * FT, BACK_LINE, 1.5], "fov_deg": 34.0,
+         "about": "Guitar cam: downstage, across at the first guitar."},
+        {"name": "Bass", "eye": [-9 * FT, -9 * FT, 5.4 * FT],
+         "look": [AUDIENCE_LEFT * 6.5 * FT, BACK_LINE, 1.5], "fov_deg": 34.0,
+         "about": "Bass cam: downstage, across at the bass player."},
+        {"name": "Keys", "eye": [-4 * FT, -10 * FT, 5.4 * FT],
+         "look": [AUDIENCE_LEFT * 15.5 * FT, BACK_LINE - 3 * FT, 1.5],
+         "fov_deg": 32.0, "about": "Keyboard cam: across the room at the player."},
+        {"name": "Side stage", "eye": [21 * FT, -2 * FT, 5.6 * FT],
+         "look": [-6 * FT, BACK_LINE, 1.5], "fov_deg": 42.0,
+         "about": "From the stage-left wall, across the band."},
+        {"name": "Flat front", "eye": [0.0, -13 * FT, 4.6 * FT],
+         "look": [0.0, BACK_LINE, 1.5], "fov_deg": 48.0,
+         "about": "Low and flat, straight on at the whole band."},
         # Above the ceiling, framed to hold the whole 48 x 35 floor: at
         # 40 ft up a 56 degree view is about 42 ft of room, so nothing
         # falls off the edge. The ceiling hides itself while this is up.
@@ -266,9 +286,13 @@ cameras = {
          "look": [0.0, (Y_BAND_WALL + Y_HOUSE_BACK) / 2, 0.0], "fov_deg": 56.0,
          "ortho": True, "about": "Plan view above the ceiling: the XY of every fixture."},
     ],
-    "favourites": ["Wide", "Singer", "Drums", "Super wide", "Bird's eye"],
+    "favourites": ["Wide", "Singer", "Drums", "Guitar", "Bass", "Keys",
+                   "Side stage", "Super wide", "Flat front", "Bird's eye"],
     "setups": [{"name": "two", "slots": ["Wide", "Singer"]},
-               {"name": "four", "slots": ["Wide", "Singer", "Drums", "Super wide"]}],
+               {"name": "four", "slots": ["Wide", "Singer", "Drums", "Side stage"]},
+               {"name": "eight", "slots": ["Wide", "Singer", "Drums", "Guitar",
+                                           "Bass", "Keys", "Side stage",
+                                           "Super wide"]}],
 }
 
 # Where people stand, so the profile's focus roles have somewhere to
@@ -303,18 +327,24 @@ profile = {
     # -- the show names them and they are skipped with a warning, which
     # is the graceful-degradation rule rather than a fault.
     "groups": {
-        # Front light on faces: the trees out in the house and the two
-        # bars crossing on the frontman, which is what makes his face
-        # read from both sides instead of flat from one.
-        "Key": {"Group": "Front Light"},
+        # Front light on faces: the trees out in the house, aimed one
+        # par per player. NOT the key bars -- those are floor-mounted and
+        # do a different job, below.
+        "Key": {"Group": "Trees"},
         # The main colourable surface, and the biggest target in the show.
         "Wash": {"Group": "Towers"},
         # Behind the band: the bars washing up the wall.
         "Back": {"Group": "Wall Bars"},
         "Bars": {"Group": "Bars"},
-        # Uplight and the floor package — the bars are floor-mounted, and
-        # the wall pair is the uplight proper.
-        "Floor": {"Group": "Wall Bars"},
+        # The floor package: the two bars on the deck at the front, which
+        # are floor-mounted uplight and genuinely a different layer from
+        # the pair washing the wall behind the band.
+        #
+        # `Back` and `Floor` both pointed at Wall Bars until this, which
+        # meant two of the show's layers were the same two fixtures --
+        # every cue that lifted the floor over the back did nothing, and
+        # the peak counted a layer it did not have.
+        "Floor": {"Group": "Key Bars"},
         # The towers carry the warm blinder and face the room.
         "Audience": {"Group": "Towers"},
         "Drums": {"Group": "Drum Towers"},

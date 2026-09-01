@@ -61,6 +61,81 @@
       "about": "The whole room from the back corner."
     },
     {
+      "name": "Guitar",
+      "eye": [
+        2.7432000000000003,
+        -2.7432000000000003,
+        1.6459200000000003
+      ],
+      "look": [
+        1.6764000000000001,
+        0.3048000000000002,
+        1.5
+      ],
+      "fov_deg": 34.0,
+      "about": "Guitar cam: downstage, across at the first guitar."
+    },
+    {
+      "name": "Bass",
+      "eye": [
+        -2.7432000000000003,
+        -2.7432000000000003,
+        1.6459200000000003
+      ],
+      "look": [
+        -1.9812,
+        0.3048000000000002,
+        1.5
+      ],
+      "fov_deg": 34.0,
+      "about": "Bass cam: downstage, across at the bass player."
+    },
+    {
+      "name": "Keys",
+      "eye": [
+        -1.2192,
+        -3.048,
+        1.6459200000000003
+      ],
+      "look": [
+        -4.7244,
+        -0.6095999999999999,
+        1.5
+      ],
+      "fov_deg": 32.0,
+      "about": "Keyboard cam: across the room at the player."
+    },
+    {
+      "name": "Side stage",
+      "eye": [
+        6.4008,
+        -0.6096,
+        1.70688
+      ],
+      "look": [
+        -1.8288000000000002,
+        0.3048000000000002,
+        1.5
+      ],
+      "fov_deg": 42.0,
+      "about": "From the stage-left wall, across the band."
+    },
+    {
+      "name": "Flat front",
+      "eye": [
+        0.0,
+        -3.9624,
+        1.40208
+      ],
+      "look": [
+        0.0,
+        0.3048000000000002,
+        1.5
+      ],
+      "fov_deg": 48.0,
+      "about": "Low and flat, straight on at the whole band."
+    },
+    {
       "name": "Bird's eye",
       "eye": [
         0.0,
@@ -81,7 +156,12 @@
     "Wide",
     "Singer",
     "Drums",
+    "Guitar",
+    "Bass",
+    "Keys",
+    "Side stage",
     "Super wide",
+    "Flat front",
     "Bird's eye"
   ],
   "setups": [
@@ -98,6 +178,19 @@
         "Wide",
         "Singer",
         "Drums",
+        "Side stage"
+      ]
+    },
+    {
+      "name": "eight",
+      "slots": [
+        "Wide",
+        "Singer",
+        "Drums",
+        "Guitar",
+        "Bass",
+        "Keys",
+        "Side stage",
         "Super wide"
       ]
     }

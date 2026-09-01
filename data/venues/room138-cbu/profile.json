@@ -2,7 +2,7 @@
   "profile": "Ignition",
   "groups": {
     "Key": {
-      "Group": "Front Light"
+      "Group": "Trees"
     },
     "Wash": {
       "Group": "Towers"
@@ -14,7 +14,7 @@
       "Group": "Bars"
     },
     "Floor": {
-      "Group": "Wall Bars"
+      "Group": "Key Bars"
     },
     "Audience": {
       "Group": "Towers"

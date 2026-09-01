@@ -572,6 +572,27 @@ fn wash_lr() -> Selection {
     }
 }
 
+/// The wash, ordered **bottom to top** by where the fixtures hang.
+///
+/// The other axis the rig has, and the one a build wants. `wash_lr`
+/// spreads an effect across the room; this spreads it up the room, so a
+/// pre-chorus build climbs instead of sweeping past.
+///
+/// Portable for the same reason `wash_lr` is: nothing here says how many
+/// steps there are or how far apart they sit. It asks the selection to
+/// order itself by height and takes whatever the room has — a rig whose
+/// wash is one flat row degrades to what it always was, a rig with
+/// vertical spread reads the build as a rise. CBU's Room 138 is four
+/// towers of six, so this is the difference between a four-step chase
+/// and a twenty-four-fixture climb.
+// r[impl recipes.selection-owns-order]
+fn wash_up() -> Selection {
+    Selection::Order {
+        of: Box::new(wash()),
+        by: Order::Axis(Axis::Z, Dir::Asc),
+    }
+}
+
 /// Front light on faces.
 fn key() -> Selection {
     Selection::Role("Key".into())
@@ -604,6 +625,18 @@ fn beams() -> Selection {
 fn audience() -> Selection {
     Selection::Role("Audience".into())
 }
+/// The blinders, bottom to top — the last chorus's climb.
+///
+/// Same reasoning as `wash_up`. A blinder chase in no particular order
+/// is a flicker; one that climbs is a move, and it is the one thing the
+/// peak has that neither earlier chorus does.
+fn audience_up() -> Selection {
+    Selection::Order {
+        of: Box::new(audience()),
+        by: Order::Axis(Axis::Z, Dir::Asc),
+    }
+}
+
 /// The drum special. Optional at most venues, and the show runs without
 /// it — a recipe covering nothing is not an error.
 fn drums() -> Selection {
@@ -1270,7 +1303,8 @@ fn author(song: &SongMap) -> CueList {
             dark(floor()),
             dark(audience()),
             dark(drums()),
-            effect("build", Some(wash_lr()), Some(1.0)),
+            // Up the rig, not across it: a pre-chorus build is a rise.
+            effect("build", Some(wash_up()), Some(1.0)),
         ]
     };
     a.cue(at("PRE", 0), "PRE", 2.0, pre());
@@ -1512,7 +1546,9 @@ fn author(song: &SongMap) -> CueList {
             // arriving over a colour effect takes the layer.
             full(bars(), 0.9, "Amber"),
             effect("random strobe", Some(beams()), Some(0.5)),
-            effect("blinder chase", None, Some(0.5)),
+            // Climbing, not scattered: the blinders come up the rig, and
+            // a room whose blinders have height reads it as a rise.
+            effect("blinder chase", Some(audience_up()), Some(0.5)),
         ],
     );
     a.cue(
