@@ -7,58 +7,67 @@
 # DP-5 1440x2560 at 0,0 · DP-4 5120x1440 at 1440,0 · DP-3 2560x1440 at 6560,0.
 studio_monitor := env_var_or_default("IGNITION_MONITOR", "right")
 
-# The operator app, hot-reloading. Native renderer only: the visualizer
-# is composited through Blitz's own wgpu device, which a webview does
-# not have — `--renderer webview` builds and runs, but the viewport is
-# empty. The first serve is a cold build into dx's own target dir.
+# The desktop app, hot-reloading, release. THE one to reach for.
+#
+# `dx serve`, so a change to the rsx appears without a restart and a
+# change to Rust rebuilds and relaunches on its own. Native renderer
+# only: the visualizer is composited through Blitz's own wgpu device,
+# which a webview does not have — `--renderer webview` builds and runs,
+# but the viewport is empty. The first serve is a cold build into dx's
+# own target dir; after that it is incremental.
 #
 # `NO_DOWNLOADS=1` is load-bearing: dx's Tailwind step otherwise fetches
 # a standalone binary into ~/.cache, which will not run on NixOS. With
-# it set, dx uses `which tailwindcss` — supplied by the flake.
+# it set, dx uses `which tailwindcss` — supplied by the flake. It also
+# means the stylesheets are rebuilt on every serve, so nothing here has
+# to run `just tailwind` by hand.
 #
 # `--release` because the visualizer has to hold 120 fps. A debug Bevy
 # is not a slightly slower Bevy: the transform/visibility/render-extract
 # passes are all generic-heavy code that optimises away to very little
 # and, unoptimised, dominate the frame. The cost is rebuild time — rsx
 # hot-reload still applies without a rebuild, but a Rust change is now a
-# release compile. `just studio-dev` is the fast-iteration escape hatch.
-studio *ARGS:
+# release compile. `just desktop-dev` is the fast-iteration escape hatch.
+desktop *ARGS:
     IGNITION_MONITOR={{studio_monitor}} NO_DOWNLOADS=1 \
         dx serve -p ignition-studio --platform desktop --renderer native \
         --hot-patch false --release {{ARGS}}
 
-# The studio unoptimised, for when the Rust edit loop matters more than
-# the frame rate. Expect the viewport to be visibly slower.
-studio-dev *ARGS:
+# The app unoptimised, for when the Rust edit loop matters more than the
+# frame rate. Expect the viewport to be visibly slower.
+desktop-dev *ARGS:
     IGNITION_MONITOR={{studio_monitor}} NO_DOWNLOADS=1 \
         dx serve -p ignition-studio --platform desktop --renderer native \
         --hot-patch false {{ARGS}}
 
-# The desktop app, release, straight off `cargo run`.
+# Windowed, for when fullscreen is in the way.
+desktop-windowed *ARGS:
+    IGNITION_FULLSCREEN=0 just desktop {{ARGS}}
+
+# One shot, release, no watcher: a plain cargo run against the workspace
+# `target/`, so it reuses whatever the tests and `just shot` already
+# built and starts in seconds once warm.
 #
-# The difference from `just studio` is the builder, not the profile:
-# both are release. `studio` goes through `dx serve`, which gets you rsx
-# hot-reload and costs a cold build into dx's own target dir the first
-# time. This is a plain cargo run against the workspace `target/`, so it
-# reuses everything the tests and `just shot` already built and starts in
-# seconds once warm — and it is the one-shot path `studio-once` was
-# meant to be, except that one is a debug build and a debug Bevy is not
-# a slightly slower Bevy (see the note on `studio` above).
-#
-# Reach for this to *look* at the app: open the show, take a cue, check
-# a change landed. Reach for `just studio` to work on the rsx.
+# Not the one to develop in — nothing here notices an edit. It is for
+# looking: open the show, take a cue, confirm a change landed, close it.
+# `just desktop` is what you leave running.
 #
 # `just tailwind` first, for 150ms of insurance: the utility classes come
 # from the committed `assets/tailwind.css`, and a class added to the rsx
 # but not compiled into that sheet does nothing at all, silently. dx
 # rebuilds it on every serve; a plain cargo run has no idea it exists.
-desktop *ARGS:
+desktop-once *ARGS:
     just tailwind
     IGNITION_MONITOR={{studio_monitor}} cargo run --release -p ignition-studio {{ARGS}}
 
-# Windowed, for when fullscreen is in the way.
-desktop-windowed *ARGS:
-    IGNITION_FULLSCREEN=0 just desktop {{ARGS}}
+# The old names. `just studio` is in the profiling and iPad runbooks, in
+# `ignition-profile`'s own docs and in `main.rs`, so it stays working —
+# as an alias rather than a second copy, because two recipes running the
+# same command is how they come to run different ones.
+alias studio := desktop
+alias studio-dev := desktop-dev
+alias studio-windowed := desktop-windowed
+alias studio-once := desktop-once
 
 # Compile the stylesheets once, for a plain `cargo run` — which knows
 # nothing about dx's Tailwind pipeline. Both apps, because both scan the
@@ -80,15 +89,6 @@ live-web:
     rm -rf apps/ignition-live-web/dist
     mkdir -p apps/ignition-live-web/dist
     cp -r target/dx/ignition-live-web/release/web/public/. apps/ignition-live-web/dist/
-
-# Windowed, for when fullscreen is in the way.
-studio-windowed *ARGS:
-    IGNITION_FULLSCREEN=0 just studio {{ARGS}}
-
-# One-shot window, no hot reload — a plain cargo build, so it reuses
-# target/ and starts in seconds once warm.
-studio-once *ARGS:
-    cargo run -p ignition-studio {{ARGS}}
 
 # A headless render of the venue. `--overlay` adds the cue sheet.
 shot OUT="/tmp/ignition.png" *ARGS:
