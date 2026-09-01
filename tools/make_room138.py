@@ -109,26 +109,14 @@ for t, x in enumerate(TOWER_X, start=1):
         } if n == 1 else None)
         add(f"Tower {t} Light {n}", "CBU Tower Blinder Ring",
             ["Luminaire_LED_Wash", "Towers", f"Tower {t}", f"Tower Row {n}"],
-            v3(x, TOWER_Y, z), (0, -1, -0.12), v3(0.18, 0.18, 0.12), 45.0, 4)
+            # Tilted well down rather than level: these sit behind the
+            # band facing downstage, so level means firing the length of
+            # the room and washing it flat. Down puts them on the players
+            # and the floor around them, which is what backlight is for.
+            v3(x, TOWER_Y, z), (0, -1, -0.55), v3(0.18, 0.18, 0.12), 40.0, 4)
 room = [r for r in room if r is not None]
 
 # ── 2 trees in the house, 4 parcans each, facing the stage.
-# A T-bar stand about 8 ft tall with the four pars side by side along
-# the crossbar, as photographed — not stacked up the pole.
-TREE_H = 8 * FT
-TREE_Y = -14 * FT
-TREE_SPAN = [-1.5 * FT, -0.5 * FT, 0.5 * FT, 1.5 * FT]
-for t, x in enumerate([-16 * FT, 16 * FT], start=1):
-    side = "Right" if x < 0 else "Left"
-    room.append({"name": f"Column - Tree {t}", "position": v3(x, TREE_Y, TREE_H / 2),
-                 "eulers": v3(0, 0, 0), "size": v3(0.09, 0.09, TREE_H)})
-    room.append({"name": f"Column - Tree {t} Bar", "position": v3(x, TREE_Y, TREE_H),
-                 "eulers": v3(0, 0, 0), "size": v3(4 * FT, 0.06, 0.06)})
-    for n, dx in enumerate(TREE_SPAN, start=1):
-        add(f"Tree {t} Par {n}", "36 LED Par Can",
-            ["Luminaire_LED_Wash", "Trees", f"Tree {t}", f"Tree {side}"],
-            v3(x + dx, TREE_Y, TREE_H), (-x * 0.22, 1, -0.34), v3(0.2, 0.2, 0.24), 25.0, 7)
-
 # ── Where the band stands. Positions are AUDIENCE-relative: "left of
 #    the drums" is the audience's left, which is stage right and -x here.
 #    One constant, so the whole band mirrors if that reading is wrong.
@@ -157,6 +145,37 @@ for n, x in enumerate([-9 * FT, 9 * FT], start=1):
     add(f"Wall Bar {n}", "Solena Max Bar 28 RGB",
         ["Luminaire_LED_Bar", "Bars", "Wall Bars"],
         v3(x, Y_BAND_WALL - 0.4 * FT, 0.15), (0, 0.15, 1), v3(1.0, 0.09, 0.09), 30.0, 6)
+
+# A T-bar stand about 8 ft tall with the four pars side by side along
+# the crossbar, as photographed — not stacked up the pole.
+TREE_H = 8 * FT
+TREE_Y = -14 * FT
+TREE_SPAN = [-1.5 * FT, -0.5 * FT, 0.5 * FT, 1.5 * FT]
+# Left to right on the audience-left tree: keys, bass, drums, singer.
+# Heads at 1.55, except the drummer, who is sitting.
+TREE_AIM = [
+    ("Keys", AUDIENCE_LEFT * 15.5 * FT, BACK_LINE - 3 * FT, 1.55),
+    ("Bass", AUDIENCE_LEFT * 6.5 * FT, BACK_LINE, 1.55),
+    ("Drums", 0.17, DRUMS_Y + 0.45, 1.15),
+    ("Vocal", VOCAL[0], VOCAL[1], 1.55),
+]
+for t, x in enumerate([-16 * FT, 16 * FT], start=1):
+    side = "Right" if x < 0 else "Left"
+    room.append({"name": f"Column - Tree {t}", "position": v3(x, TREE_Y, TREE_H / 2),
+                 "eulers": v3(0, 0, 0), "size": v3(0.09, 0.09, TREE_H)})
+    room.append({"name": f"Column - Tree {t} Bar", "position": v3(x, TREE_Y, TREE_H),
+                 "eulers": v3(0, 0, 0), "size": v3(4 * FT, 0.06, 0.06)})
+    # Each par is aimed at one player, so the four of them cover the
+    # band rather than washing it flat. The far tree takes them in the
+    # opposite order, which gives every player light from both sides —
+    # one key, one fill — instead of two pars from the same direction.
+    order = TREE_AIM if t == 1 else list(reversed(TREE_AIM))
+    for n, (dx, (who, tx, ty, tz)) in enumerate(zip(TREE_SPAN, order), start=1):
+        add(f"Tree {t} Par {n} — {who}", "36 LED Par Can",
+            ["Luminaire_LED_Wash", "Trees", f"Tree {t}", f"Tree {side}", who],
+            v3(x + dx, TREE_Y, TREE_H),
+            (tx - (x + dx), ty - TREE_Y, tz - TREE_H),
+            v3(0.2, 0.2, 0.24), 25.0, 7)
 
 # ── 4 movers on the band wall, 8 ft up — half the wall's height, above
 #    the 5 ft towers so they clear the band's heads and can sweep the

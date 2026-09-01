@@ -31,8 +31,15 @@ Ring`, generated from `data/gdtf/specs/cbu-tower-blinder-ring.json`, four
 channels: WW (the blinder), then R/G/B (the surround).
 
 **2 trees, 8 parcans.** T-bar stands about 8 ft tall at x = ±16 ft, 14 ft
-into the house, four pars side by side along each crossbar facing the
-stage. `36 LED Par Can`, 7 ch.
+into the house, four pars side by side along each crossbar. `36 LED Par
+Can`, 7 ch.
+
+Each par is aimed at one player rather than washing the band flat. Left
+to right on the audience-left tree: **keys, bass, drums, vocal**. The far
+tree takes them in the opposite order, so every player gets light from
+both sides — one key, one fill — instead of two pars from the same
+direction. The fixture names carry the target (`Tree 1 Par 3 — Drums`),
+so a repatch that moves one is obvious.
 
 **4 movers.** On the band wall at 8 ft — half the wall's height, above
 the 5 ft towers so they clear the band's heads and can sweep the room.

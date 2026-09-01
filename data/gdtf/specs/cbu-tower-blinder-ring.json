@@ -9,10 +9,11 @@
     "height_mm": 120,
     "weight_kg": 1.2,
     "weight_kg_guess": true,
-    "power_w": 60
+    "power_w": 30,
+    "power_w_guess": true
   },
   "optics": {
-    "beam_angle_deg": 60,
+    "beam_angle_deg": 40,
     "field_angle_deg": null,
     "lumens_or_lux": null,
     "source": "Warm-amber blinder strip across the centre of a honeycomb lens, with the rest of the face LED",
@@ -75,5 +76,5 @@
     ]
   },
   "confidence": "photograph",
-  "notes": "The tower fixture in CBU Room 138, from a photograph of the real stands: a round par with a honeycomb lens, a horizontal warm-amber blinder strip across the middle and LED behind the rest of the face, six to a vertical stand on a weighted base. No manufacturer mark is legible in the photo, so the footprint below is the contract (WW blinder, then R/G/B for the surround) and the physical numbers are read off the picture against the 7-inch-par-sized bodies. Replace with a real profile if the model is identified."
+  "notes": "The tower fixture in CBU Room 138, from a photograph of the real stands: a round par with a honeycomb lens, a horizontal warm-amber blinder strip across the middle and LED behind the rest of the face, six to a vertical stand on a weighted base. No manufacturer mark is legible in the photo, so the footprint below is the contract (WW blinder, then R/G/B for the surround) and the physical numbers are read off the picture against the 7-inch-par-sized bodies. Replace with a real profile if the model is identified. Power and beam angle are the two numbers that decide how much of the room one of these fills, and there are twenty-four of them in a 48 x 35 ft space: at 60 W and 60 degrees they washed the whole room flat with no contrast left. 30 W at 40 degrees is a small six-LED par of this size and leaves the beams reading as beams."
 }

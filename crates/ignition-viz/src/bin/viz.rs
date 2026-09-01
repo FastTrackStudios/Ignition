@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
     // land.
     // A multiplier on the hazers' output, roughly 0..2, where 1.0 is a
     // normally hazed room with the hazers up — see `VizSettings::haze`.
-    let mut haze = 1.6f32;
+    let mut haze = 1.0f32;
     // Stops on the stage camera's EV100 (`app::STAGE_EV100`). Zero is
     // the calibrated camera; the lights themselves are real photometry
     // and never scaled. `+1` doubles the picture.

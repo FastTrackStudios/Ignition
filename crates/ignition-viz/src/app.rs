@@ -145,7 +145,7 @@ impl VizConfig {
             view: ViewPreset::House,
             width,
             height,
-            haze: 1.6,
+            haze: 1.0,
             ambient: 0.15,
             max_universe: 4,
             snapshot: None,

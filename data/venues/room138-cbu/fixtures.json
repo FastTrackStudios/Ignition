@@ -22,8 +22,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -32,7 +32,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 1
   },
@@ -59,8 +59,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -69,7 +69,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 5
   },
@@ -96,8 +96,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -106,7 +106,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 9
   },
@@ -133,8 +133,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -143,7 +143,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 13
   },
@@ -170,8 +170,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -180,7 +180,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 17
   },
@@ -207,8 +207,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -217,7 +217,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 21
   },
@@ -244,8 +244,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -254,7 +254,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 25
   },
@@ -281,8 +281,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -291,7 +291,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 29
   },
@@ -318,8 +318,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -328,7 +328,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 33
   },
@@ -355,8 +355,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -365,7 +365,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 37
   },
@@ -392,8 +392,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -402,7 +402,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 41
   },
@@ -429,8 +429,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -439,7 +439,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 45
   },
@@ -466,8 +466,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -476,7 +476,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 49
   },
@@ -503,8 +503,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -513,7 +513,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 53
   },
@@ -540,8 +540,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -550,7 +550,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 57
   },
@@ -577,8 +577,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -587,7 +587,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 61
   },
@@ -614,8 +614,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -624,7 +624,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 65
   },
@@ -651,8 +651,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -661,7 +661,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 69
   },
@@ -688,8 +688,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -698,7 +698,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 73
   },
@@ -725,8 +725,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -735,7 +735,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 77
   },
@@ -762,8 +762,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -772,7 +772,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 81
   },
@@ -799,8 +799,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -809,7 +809,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 85
   },
@@ -836,8 +836,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -846,7 +846,7 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 89
   },
@@ -873,8 +873,8 @@
       "z": 0
     },
     "quat": {
-      "w": 0.748046,
-      "x": -0.663647,
+      "w": 0.86079,
+      "x": -0.50896,
       "y": 0.0,
       "z": -0.0
     },
@@ -883,308 +883,12 @@
       "y": 0.18,
       "z": 0.12
     },
-    "beam_angle_deg": 45.0,
+    "beam_angle_deg": 40.0,
     "universe": 1,
     "address": 93
   },
   {
     "chan": 25,
-    "name": "Tree 1 Par 1",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Trees",
-      "Tree 1",
-      "Tree Right"
-    ],
-    "patched": true,
-    "manufacturer": "",
-    "model": "36 LED Par Can",
-    "position": {
-      "x": -5.334,
-      "y": -4.2672,
-      "z": 2.4384
-    },
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "quat": {
-      "w": 0.782889,
-      "x": 0.424202,
-      "y": -0.455124,
-      "z": 0.0
-    },
-    "size": {
-      "x": 0.2,
-      "y": 0.2,
-      "z": 0.24
-    },
-    "beam_angle_deg": 25.0,
-    "universe": 1,
-    "address": 97
-  },
-  {
-    "chan": 26,
-    "name": "Tree 1 Par 2",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Trees",
-      "Tree 1",
-      "Tree Right"
-    ],
-    "patched": true,
-    "manufacturer": "",
-    "model": "36 LED Par Can",
-    "position": {
-      "x": -5.0292,
-      "y": -4.2672,
-      "z": 2.4384
-    },
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "quat": {
-      "w": 0.782889,
-      "x": 0.424202,
-      "y": -0.455124,
-      "z": 0.0
-    },
-    "size": {
-      "x": 0.2,
-      "y": 0.2,
-      "z": 0.24
-    },
-    "beam_angle_deg": 25.0,
-    "universe": 1,
-    "address": 104
-  },
-  {
-    "chan": 27,
-    "name": "Tree 1 Par 3",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Trees",
-      "Tree 1",
-      "Tree Right"
-    ],
-    "patched": true,
-    "manufacturer": "",
-    "model": "36 LED Par Can",
-    "position": {
-      "x": -4.7244,
-      "y": -4.2672,
-      "z": 2.4384
-    },
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "quat": {
-      "w": 0.782889,
-      "x": 0.424202,
-      "y": -0.455124,
-      "z": 0.0
-    },
-    "size": {
-      "x": 0.2,
-      "y": 0.2,
-      "z": 0.24
-    },
-    "beam_angle_deg": 25.0,
-    "universe": 1,
-    "address": 111
-  },
-  {
-    "chan": 28,
-    "name": "Tree 1 Par 4",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Trees",
-      "Tree 1",
-      "Tree Right"
-    ],
-    "patched": true,
-    "manufacturer": "",
-    "model": "36 LED Par Can",
-    "position": {
-      "x": -4.4196,
-      "y": -4.2672,
-      "z": 2.4384
-    },
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "quat": {
-      "w": 0.782889,
-      "x": 0.424202,
-      "y": -0.455124,
-      "z": 0.0
-    },
-    "size": {
-      "x": 0.2,
-      "y": 0.2,
-      "z": 0.24
-    },
-    "beam_angle_deg": 25.0,
-    "universe": 1,
-    "address": 118
-  },
-  {
-    "chan": 29,
-    "name": "Tree 2 Par 1",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Trees",
-      "Tree 2",
-      "Tree Left"
-    ],
-    "patched": true,
-    "manufacturer": "",
-    "model": "36 LED Par Can",
-    "position": {
-      "x": 4.4196,
-      "y": -4.2672,
-      "z": 2.4384
-    },
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "quat": {
-      "w": 0.782889,
-      "x": 0.424202,
-      "y": 0.455124,
-      "z": 0.0
-    },
-    "size": {
-      "x": 0.2,
-      "y": 0.2,
-      "z": 0.24
-    },
-    "beam_angle_deg": 25.0,
-    "universe": 1,
-    "address": 125
-  },
-  {
-    "chan": 30,
-    "name": "Tree 2 Par 2",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Trees",
-      "Tree 2",
-      "Tree Left"
-    ],
-    "patched": true,
-    "manufacturer": "",
-    "model": "36 LED Par Can",
-    "position": {
-      "x": 4.7244,
-      "y": -4.2672,
-      "z": 2.4384
-    },
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "quat": {
-      "w": 0.782889,
-      "x": 0.424202,
-      "y": 0.455124,
-      "z": 0.0
-    },
-    "size": {
-      "x": 0.2,
-      "y": 0.2,
-      "z": 0.24
-    },
-    "beam_angle_deg": 25.0,
-    "universe": 1,
-    "address": 132
-  },
-  {
-    "chan": 31,
-    "name": "Tree 2 Par 3",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Trees",
-      "Tree 2",
-      "Tree Left"
-    ],
-    "patched": true,
-    "manufacturer": "",
-    "model": "36 LED Par Can",
-    "position": {
-      "x": 5.0292,
-      "y": -4.2672,
-      "z": 2.4384
-    },
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "quat": {
-      "w": 0.782889,
-      "x": 0.424202,
-      "y": 0.455124,
-      "z": 0.0
-    },
-    "size": {
-      "x": 0.2,
-      "y": 0.2,
-      "z": 0.24
-    },
-    "beam_angle_deg": 25.0,
-    "universe": 1,
-    "address": 139
-  },
-  {
-    "chan": 32,
-    "name": "Tree 2 Par 4",
-    "tags": [
-      "Luminaire_LED_Wash",
-      "Trees",
-      "Tree 2",
-      "Tree Left"
-    ],
-    "patched": true,
-    "manufacturer": "",
-    "model": "36 LED Par Can",
-    "position": {
-      "x": 5.334,
-      "y": -4.2672,
-      "z": 2.4384
-    },
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "quat": {
-      "w": 0.782889,
-      "x": 0.424202,
-      "y": 0.455124,
-      "z": 0.0
-    },
-    "size": {
-      "x": 0.2,
-      "y": 0.2,
-      "z": 0.24
-    },
-    "beam_angle_deg": 25.0,
-    "universe": 1,
-    "address": 146
-  },
-  {
-    "chan": 33,
     "name": "Wall Bar 1",
     "tags": [
       "Luminaire_LED_Bar",
@@ -1217,10 +921,10 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 153
+    "address": 97
   },
   {
-    "chan": 34,
+    "chan": 26,
     "name": "Wall Bar 2",
     "tags": [
       "Luminaire_LED_Bar",
@@ -1253,7 +957,311 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 159
+    "address": 103
+  },
+  {
+    "chan": 27,
+    "name": "Tree 1 Par 1 \u2014 Keys",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 1",
+      "Tree Right",
+      "Keys"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": -5.334,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.785173,
+      "x": 0.610851,
+      "y": -0.101808,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 109
+  },
+  {
+    "chan": 28,
+    "name": "Tree 1 Par 2 \u2014 Bass",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 1",
+      "Tree Right",
+      "Bass"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": -5.0292,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.761448,
+      "x": 0.539357,
+      "y": -0.359571,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 116
+  },
+  {
+    "chan": 29,
+    "name": "Tree 1 Par 3 \u2014 Drums",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 1",
+      "Tree Right",
+      "Drums"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": -4.7244,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.766598,
+      "x": 0.472838,
+      "y": -0.434456,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 123
+  },
+  {
+    "chan": 30,
+    "name": "Tree 1 Par 4 \u2014 Vocal",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 1",
+      "Tree Right",
+      "Vocal"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": -4.4196,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.760964,
+      "x": 0.392123,
+      "y": -0.516889,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 130
+  },
+  {
+    "chan": 31,
+    "name": "Tree 2 Par 1 \u2014 Vocal",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 2",
+      "Tree Left",
+      "Vocal"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": 4.4196,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.760964,
+      "x": 0.392123,
+      "y": 0.516889,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 137
+  },
+  {
+    "chan": 32,
+    "name": "Tree 2 Par 2 \u2014 Drums",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 2",
+      "Tree Left",
+      "Drums"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": 4.7244,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.768377,
+      "x": 0.486437,
+      "y": 0.415903,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 144
+  },
+  {
+    "chan": 33,
+    "name": "Tree 2 Par 3 \u2014 Bass",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 2",
+      "Tree Left",
+      "Bass"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": 5.0292,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.74349,
+      "x": 0.365315,
+      "y": 0.56015,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 151
+  },
+  {
+    "chan": 34,
+    "name": "Tree 2 Par 4 \u2014 Keys",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 2",
+      "Tree Left",
+      "Keys"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": 5.334,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.735772,
+      "x": 0.231438,
+      "y": 0.636455,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 158
   },
   {
     "chan": 35,

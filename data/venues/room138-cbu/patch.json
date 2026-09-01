@@ -242,21 +242,21 @@
   {
     "chan": 25,
     "manufacturer": "",
-    "model": "36 LED Par Can",
+    "model": "Solena Max Bar 28 RGB",
     "patched": true,
     "universe": 1,
     "address": 97,
-    "footprint": 7,
+    "footprint": 6,
     "source": "make_room138.py"
   },
   {
     "chan": 26,
     "manufacturer": "",
-    "model": "36 LED Par Can",
+    "model": "Solena Max Bar 28 RGB",
     "patched": true,
     "universe": 1,
-    "address": 104,
-    "footprint": 7,
+    "address": 103,
+    "footprint": 6,
     "source": "make_room138.py"
   },
   {
@@ -265,7 +265,7 @@
     "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 111,
+    "address": 109,
     "footprint": 7,
     "source": "make_room138.py"
   },
@@ -275,7 +275,7 @@
     "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 118,
+    "address": 116,
     "footprint": 7,
     "source": "make_room138.py"
   },
@@ -285,7 +285,7 @@
     "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 125,
+    "address": 123,
     "footprint": 7,
     "source": "make_room138.py"
   },
@@ -295,7 +295,7 @@
     "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 132,
+    "address": 130,
     "footprint": 7,
     "source": "make_room138.py"
   },
@@ -305,7 +305,7 @@
     "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 139,
+    "address": 137,
     "footprint": 7,
     "source": "make_room138.py"
   },
@@ -315,28 +315,28 @@
     "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 146,
+    "address": 144,
     "footprint": 7,
     "source": "make_room138.py"
   },
   {
     "chan": 33,
     "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
+    "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 153,
-    "footprint": 6,
+    "address": 151,
+    "footprint": 7,
     "source": "make_room138.py"
   },
   {
     "chan": 34,
     "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
+    "model": "36 LED Par Can",
     "patched": true,
     "universe": 1,
-    "address": 159,
-    "footprint": 6,
+    "address": 158,
+    "footprint": 7,
     "source": "make_room138.py"
   },
   {

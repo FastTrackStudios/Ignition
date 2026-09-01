@@ -62,6 +62,23 @@ fn log_file_path() -> std::path::PathBuf {
     state.join("ignition").join("studio.log")
 }
 
+/// How much particulate is in the air. 1.0 is a normally hazed room.
+///
+/// Was 1.6, which is a room you can see the air in: every cone read from
+/// the house, and so did every cone's neighbour, until a wide look was
+/// one wall of light with the band somewhere inside it. 1.0 keeps the
+/// beams and gives the room back.
+///
+/// A dial rather than a constant because it is a taste judgement that
+/// changes with the room, the fixture count and how much a real hazer is
+/// actually putting out — `IGNITION_HAZE=1.4 just desktop`.
+fn haze() -> f32 {
+    std::env::var("IGNITION_HAZE")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0)
+}
+
 pub fn venue_dir() -> String {
     std::env::var("IGNITION_VENUE").unwrap_or_else(|_| DEFAULT_VENUE.to_string())
 }
@@ -1388,9 +1405,7 @@ fn Viewport() -> Element {
             view: ViewPreset::House,
             width: 1280,
             height: 800,
-            // 1.6, the same as `viz` — see `viz.rs`: enough particulate
-            // that a par's cone reads in the house, not only its pool.
-            haze: 1.6,
+            haze: haze(),
             // A little fill so the room reads even in a dark look — the
             // operator is looking at a panel, not sitting in the venue.
             ambient: 0.05,
