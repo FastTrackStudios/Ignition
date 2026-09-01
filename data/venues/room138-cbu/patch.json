@@ -342,20 +342,60 @@
   {
     "chan": 35,
     "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
+    "model": "150W Moving Head Beam",
     "patched": true,
     "universe": 1,
     "address": 165,
-    "footprint": 6,
+    "footprint": 12,
     "source": "make_room138.py"
   },
   {
     "chan": 36,
     "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "patched": true,
+    "universe": 1,
+    "address": 177,
+    "footprint": 12,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 37,
+    "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "patched": true,
+    "universe": 1,
+    "address": 189,
+    "footprint": 12,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 38,
+    "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "patched": true,
+    "universe": 1,
+    "address": 201,
+    "footprint": 12,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 39,
+    "manufacturer": "",
     "model": "Solena Max Bar 28 RGB",
     "patched": true,
     "universe": 1,
-    "address": 171,
+    "address": 213,
+    "footprint": 6,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 40,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 219,
     "footprint": 6,
     "source": "make_room138.py"
   }

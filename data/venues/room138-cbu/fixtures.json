@@ -1257,19 +1257,18 @@
   },
   {
     "chan": 35,
-    "name": "Floor Bar 1",
+    "name": "Mover 1",
     "tags": [
-      "Luminaire_LED_Bar",
-      "Bars",
-      "Floor Bars"
+      "Luminaire_Beam",
+      "Movers"
     ],
     "patched": true,
     "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
+    "model": "150W Moving Head Beam",
     "position": {
-      "x": -2.7432,
-      "y": -1.8288,
-      "z": 0.15
+      "x": -6.4008,
+      "y": 1.6764,
+      "z": 2.4384
     },
     "eulers": {
       "x": 0,
@@ -1277,34 +1276,139 @@
       "z": 0
     },
     "quat": {
-      "w": 0.50896,
-      "x": 0.86079,
-      "y": -0.0,
-      "z": 0.0
+      "w": 0.815583,
+      "x": -0.57864,
+      "y": 0.0,
+      "z": -0.0
     },
     "size": {
-      "x": 1.0,
-      "y": 0.09,
-      "z": 0.09
+      "x": 0.22,
+      "y": 0.26,
+      "z": 0.36
     },
-    "beam_angle_deg": 30.0,
+    "beam_angle_deg": 14.0,
     "universe": 1,
     "address": 165
   },
   {
     "chan": 36,
-    "name": "Floor Bar 2",
+    "name": "Mover 2",
+    "tags": [
+      "Luminaire_Beam",
+      "Movers"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "position": {
+      "x": -3.6576,
+      "y": 1.6764,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.815583,
+      "x": -0.57864,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.22,
+      "y": 0.26,
+      "z": 0.36
+    },
+    "beam_angle_deg": 14.0,
+    "universe": 1,
+    "address": 177
+  },
+  {
+    "chan": 37,
+    "name": "Mover 3",
+    "tags": [
+      "Luminaire_Beam",
+      "Movers"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "position": {
+      "x": 3.6576,
+      "y": 1.6764,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.815583,
+      "x": -0.57864,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.22,
+      "y": 0.26,
+      "z": 0.36
+    },
+    "beam_angle_deg": 14.0,
+    "universe": 1,
+    "address": 189
+  },
+  {
+    "chan": 38,
+    "name": "Mover 4",
+    "tags": [
+      "Luminaire_Beam",
+      "Movers"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "position": {
+      "x": 6.4008,
+      "y": 1.6764,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.815583,
+      "x": -0.57864,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.22,
+      "y": 0.26,
+      "z": 0.36
+    },
+    "beam_angle_deg": 14.0,
+    "universe": 1,
+    "address": 201
+  },
+  {
+    "chan": 39,
+    "name": "Key Bar 1",
     "tags": [
       "Luminaire_LED_Bar",
       "Bars",
-      "Floor Bars"
+      "Key Bars"
     ],
     "patched": true,
     "manufacturer": "",
     "model": "Solena Max Bar 28 RGB",
     "position": {
-      "x": 2.7432,
-      "y": -1.8288,
+      "x": -1.6764,
+      "y": -2.7432,
       "z": 0.15
     },
     "eulers": {
@@ -1313,9 +1417,9 @@
       "z": 0
     },
     "quat": {
-      "w": 0.50896,
-      "x": 0.86079,
-      "y": -0.0,
+      "w": 0.504252,
+      "x": 0.636574,
+      "y": -0.583527,
       "z": 0.0
     },
     "size": {
@@ -1325,6 +1429,42 @@
     },
     "beam_angle_deg": 30.0,
     "universe": 1,
-    "address": 171
+    "address": 213
+  },
+  {
+    "chan": 40,
+    "name": "Key Bar 2",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "position": {
+      "x": 1.6764,
+      "y": -2.7432,
+      "z": 0.15
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.504252,
+      "x": 0.636574,
+      "y": 0.583527,
+      "z": 0.0
+    },
+    "size": {
+      "x": 1.0,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 219
   }
 ]

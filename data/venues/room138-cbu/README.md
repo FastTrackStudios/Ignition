@@ -21,7 +21,7 @@ y = downstage(−)/upstage(+), z = up, playing area centred on the origin):
 | Depth | 10.668 m (35 ft), band wall at y = +1.8288, house back at y = −8.8392 |
 | Playing area | 12 ft deep, centred on y = 0 |
 
-## The rig — 36 fixtures, 176 channels, universe 1
+## The rig — 40 fixtures, 224 channels, universe 1
 
 **4 towers, 24 lights.** Symmetric at x = ±6 ft and ±18 ft, just in front of
 the band wall. Six lights stacked on each ~5 ft stand, touching, as
@@ -34,9 +34,65 @@ channels: WW (the blinder), then R/G/B (the surround).
 into the house, four pars side by side along each crossbar facing the
 stage. `36 LED Par Can`, 7 ch.
 
-**4 floor bars.** Two at the foot of the band wall throwing up it, two on
-the house floor at 6 ft throwing back at the stage. `Solena Max Bar 28
-RGB`, 6 ch.
+**4 movers.** On the band wall at 8 ft — half the wall's height, above
+the 5 ft towers so they clear the band's heads and can sweep the room.
+Placed in the gaps between and outside the towers so the two packages
+interleave rather than stack: −21, −18ᵀ, −12, −6ᵀ, +6ᵀ, +12, +18ᵀ, +21.
+`150W Moving Head Beam`, 12 ch. Hung facing downstage with a little tilt
+down; pan and tilt are live, so that is only where they sit at zero.
+
+**4 floor bars.** Two at the foot of the band wall throwing up it
+(`Wall Bars`). Two flanking the frontman, downstage of him and angled in
+so his face is lit from both sides rather than flat from one (`Key
+Bars`) — which is the reason there are two and not one. `Solena Max Bar
+28 RGB`, 6 ch.
+
+## The band
+
+Left and right below are the **audience's**, which is the reading of
+"left of the drums" this was built on. `AUDIENCE_LEFT` in the script is
+the one constant that mirrors the whole band if that is wrong.
+
+| | |
+|---|---|
+| Drums | centre, 4 ft off the band wall, drummer seated |
+| Bass | 6.5 ft audience-left of the kit |
+| Guitars | 5.5 ft and 11 ft audience-right |
+| Vocal | centre, 9 ft downstage of the wall, on a mic in front of the kit |
+| Keys | 14 ft audience-left, further out and turned in 45° |
+
+The frontman plays bass. **The bass is not modelled** — `assets/props/`
+has a drum kit, a keyboard, a PA cabinet and a floor monitor, and no
+stringed instrument — so he is a person on a mic stand, and the prop is
+named `Person - Vocal Bass` so the intent survives until there is a
+model to hang on it.
+
+## Profile bindings
+
+The NSYNC show targets **roles and never a group by name** (checked: zero
+raw `Group` targets in `bye-bye-bye.json`), so what it looks like in this
+room is entirely what these say:
+
+| Role | Group | |
+|---|---|---|
+| `Key` | Front Light | the trees, plus the two bars crossing on the frontman |
+| `Wash` | Towers | the main colourable surface, and the show's biggest target |
+| `Back` | Wall Bars | up the wall behind the band |
+| `Bars` | Bars | all four |
+| `Floor` | Wall Bars | the uplight package |
+| `Audience` | Towers | they carry the warm blinder and face the room |
+| `Drums` | Drum Towers | the middle pair, which are what is actually over the kit |
+| `Movers` | Movers | the four on the wall |
+| `Beams` | Movers | being beam movers, they are the hard-edged package too |
+
+Unbound, deliberately: **Spot, Haze, House Lights.** Room 138 has none of
+them, and the show names them rarely — House Lights twice, the others not
+at all. Those cues are skipped with a warning naming the role, which is
+the graceful-degradation rule working rather than a fault.
+
+Adding the movers closed the two gaps that actually mattered: `Movers` is
+the show's third-largest target at 71 uses and `Beams` another 21, and
+both were dark in this room before.
 
 ## Assumed, not measured
 
@@ -45,6 +101,9 @@ are listed rather than buried:
 
 - **Ceiling height** — 16 ft. Not stated; a plain classroom/black-box
   height. Only affects the walls and the plan camera.
+- **Mover positions** — "halfway up the wall, in between each tower or
+  wherever you think" was the brief, so the height and the gap spacing
+  are a judgement call.
 - **Tower and tree positions** — "spread symmetrically" and "in the
   audience" were the whole of the brief. The x spacing, the distance into
   the house and the aim angles are chosen to look like a room that works,
@@ -54,7 +113,7 @@ are listed rather than buried:
   the picture against 7-inch-par-sized bodies. Replace the spec when the
   model is identified.
 - **DMX addressing** — packed from 1 with no gaps, in the order towers,
-  trees, wall bars, floor bars. Whatever the real patch is, it goes in
+  trees, movers, wall bars, key bars. Whatever the real patch is, it goes in
   `patch.json` and `fixtures.json` together.
 - **Drum kit** — centred on the band wall at 4 ft out, borrowing
   Riverside's kit dimensions.

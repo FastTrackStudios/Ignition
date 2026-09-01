@@ -129,16 +129,59 @@ for t, x in enumerate([-16 * FT, 16 * FT], start=1):
             ["Luminaire_LED_Wash", "Trees", f"Tree {t}", f"Tree {side}"],
             v3(x + dx, TREE_Y, TREE_H), (-x * 0.22, 1, -0.34), v3(0.2, 0.2, 0.24), 25.0, 7)
 
-# ── 4 floor bars: two uplighting the wall behind the band, two on the
-#    house floor throwing back at the stage.
+# ── Where the band stands. Positions are AUDIENCE-relative: "left of
+#    the drums" is the audience's left, which is stage right and -x here.
+#    One constant, so the whole band mirrors if that reading is wrong.
+AUDIENCE_LEFT = -1.0
+DRUMS_Y = Y_BAND_WALL - 4 * FT
+BACK_LINE = Y_BAND_WALL - 5 * FT
+VOCAL = (0.0, Y_BAND_WALL - 9 * FT)      # out in front of the kit
+
+BAND = [
+    ("Person - Bass", AUDIENCE_LEFT * 6.5 * FT, BACK_LINE, 0),
+    ("Person - Guitar 1", -AUDIENCE_LEFT * 5.5 * FT, BACK_LINE, 0),
+    ("Person - Guitar 2", -AUDIENCE_LEFT * 11 * FT, BACK_LINE, 0),
+    # The frontman: centre, downstage of the kit, and playing bass — so
+    # he is on a mic and holding an instrument, not just standing. The
+    # bass itself is not modelled: `assets/props/` has a drum kit, a
+    # keyboard, a PA cabinet and a floor monitor, and no stringed
+    # instrument, so this is a person and a mic stand until there is one.
+    ("Person - Vocal Bass", VOCAL[0], VOCAL[1], 0),
+]
+
+# ── 4 floor bars.
+#    Two at the band wall throwing up it. Two flanking the frontman,
+#    downstage of him and angled in, so his face is lit from both sides
+#    rather than flat from one — the reason there are two and not one.
 for n, x in enumerate([-9 * FT, 9 * FT], start=1):
     add(f"Wall Bar {n}", "Solena Max Bar 28 RGB",
         ["Luminaire_LED_Bar", "Bars", "Wall Bars"],
         v3(x, Y_BAND_WALL - 0.4 * FT, 0.15), (0, 0.15, 1), v3(1.0, 0.09, 0.09), 30.0, 6)
-for n, x in enumerate([-9 * FT, 9 * FT], start=1):
-    add(f"Floor Bar {n}", "Solena Max Bar 28 RGB",
-        ["Luminaire_LED_Bar", "Bars", "Floor Bars"],
-        v3(x, -6 * FT, 0.15), (0, 1, 0.55), v3(1.0, 0.09, 0.09), 30.0, 6)
+
+# ── 4 movers on the band wall, 8 ft up — half the wall's height, above
+#    the 5 ft towers so they clear the band's heads and can sweep the
+#    whole room. Placed in the gaps between and outside the towers
+#    (which sit at +/-6 and +/-18) so the two packages interleave rather
+#    than stack: -21, -18T, -12, -6T, +6T, +12, +18T, +21.
+#
+#    Hung facing downstage with a little tilt down; pan and tilt are
+#    live, so this is only where they point with the desk at zero.
+MOVER_Z = HEIGHT / 2
+for n, x in enumerate([-21 * FT, -12 * FT, 12 * FT, 21 * FT], start=1):
+    add(f"Mover {n}", "150W Moving Head Beam",
+        ["Luminaire_Beam", "Movers"],
+        v3(x, Y_BAND_WALL - 0.5 * FT, MOVER_Z), (0, -1, -0.35),
+        v3(0.22, 0.26, 0.36), 14.0, 12)
+
+VOCAL_HEAD = 1.55
+KEY_BAR_X = 5.5 * FT
+KEY_BAR_Y = VOCAL[1] - 6 * FT
+for n, x in enumerate([-KEY_BAR_X, KEY_BAR_X], start=1):
+    add(f"Key Bar {n}", "Solena Max Bar 28 RGB",
+        ["Luminaire_LED_Bar", "Bars", "Key Bars"],
+        v3(x, KEY_BAR_Y, 0.15),
+        (VOCAL[0] - x, VOCAL[1] - KEY_BAR_Y, VOCAL_HEAD - 0.15),
+        v3(1.0, 0.09, 0.09), 30.0, 6)
 
 def by_tag(tag):
     return [f["chan"] for f in fixtures if tag in f["tags"]]
@@ -150,15 +193,37 @@ def by_tag(tag):
 _g = [("Towers", "Towers"), *[(f"Tower {t}", f"Tower {t}") for t in range(1, 5)],
       *[(f"Tower Row {n}", f"Tower Row {n}") for n in range(1, 7)],
       ("Trees", "Trees"), ("Tree Left", "Tree Left"), ("Tree Right", "Tree Right"),
-      ("Bars", "Bars"), ("Wall Bars", "Wall Bars"), ("Floor Bars", "Floor Bars")]
+      ("Bars", "Bars"), ("Wall Bars", "Wall Bars"), ("Key Bars", "Key Bars"),
+      ("Movers", "Movers")]
 groups = [{"target": str(i), "label": label, "channels": [str(c) for c in by_tag(tag)]}
           for i, (label, tag) in enumerate(_g, start=1)]
+# The middle pair of towers is what is actually over the kit, so the
+# drum special is those rather than a fixture of its own.
+groups.append({"target": str(len(groups) + 1), "label": "Drum Towers",
+               "channels": [str(c) for c in by_tag("Tower 2") + by_tag("Tower 3")]})
+# Everything that lights a face from the front: the trees out in the
+# house and the two bars crossing on the frontman. One group, because
+# `Key` is one role and both of these are doing its job.
+groups.append({"target": str(len(groups) + 1), "label": "Front Light",
+               "channels": [str(c) for c in by_tag("Trees") + by_tag("Key Bars")]})
 
 # The drum kit, centred on the 48 ft wall as described. Same shape the
 # other venues give it — props carry a size, not a kind.
 props = [
-    {"name": "Drum Kit", "position": v3(0, Y_BAND_WALL - 4 * FT, 0),
+    {"name": "Drum Kit", "position": v3(0, DRUMS_Y, 0),
      "eulers": v3(0, 0, 0), "size": v3(1.926, 1.632, 1.206)},
+    {"name": "Person - Drummer", "position": v3(0.17, DRUMS_Y + 0.45, 0),
+     "eulers": v3(0, 0, 0), "size": v3(0.68, 0.3, 1.8)},
+    *[{"name": name, "position": v3(x, y, 0), "eulers": v3(0, 0, yaw),
+       "size": v3(0.678, 0.302, 1.83)} for name, x, y, yaw in BAND],
+    # Further out past the bass player and turned in 45 degrees, so the
+    # player faces across the stage rather than straight down the room.
+    {"name": "Keyboard", "position": v3(AUDIENCE_LEFT * 14 * FT, BACK_LINE - 2 * FT, 0),
+     "eulers": v3(0, 0, -45 * AUDIENCE_LEFT), "size": v3(1.35, 0.42, 0.95)},
+    {"name": "Person - Keys", "position": v3(AUDIENCE_LEFT * 15.5 * FT, BACK_LINE - 3 * FT, 0),
+     "eulers": v3(0, 0, -45 * AUDIENCE_LEFT), "size": v3(0.678, 0.302, 1.83)},
+    {"name": "Mic 1", "position": v3(VOCAL[0], VOCAL[1] - 1.2 * FT, 0),
+     "eulers": v3(0, 0, 0), "size": v3(0.59, 0.52, 1.6)},
 ]
 
 cameras = {
@@ -212,9 +277,35 @@ palettes = {
 # them, which is how this room got its focus points at all.
 profile = {
     "profile": "Ignition",
-    "groups": {"Key": {"Group": "Tower Row 3"}, "Wash": {"Group": "Towers"},
-               "Back": {"Group": "Wall Bars"}, "Bars": {"Group": "Bars"},
-               "Floor": {"Group": "Trees"}},
+    # The show targets roles and never a group by name, so what it looks
+    # like here is entirely what these bindings say. Bound: everything
+    # the room can honestly answer. Unbound and left that way: Movers,
+    # Beams, Spot, Haze and House Lights, none of which exist in Room 138
+    # -- the show names them and they are skipped with a warning, which
+    # is the graceful-degradation rule rather than a fault.
+    "groups": {
+        # Front light on faces: the trees out in the house and the two
+        # bars crossing on the frontman, which is what makes his face
+        # read from both sides instead of flat from one.
+        "Key": {"Group": "Front Light"},
+        # The main colourable surface, and the biggest target in the show.
+        "Wash": {"Group": "Towers"},
+        # Behind the band: the bars washing up the wall.
+        "Back": {"Group": "Wall Bars"},
+        "Bars": {"Group": "Bars"},
+        # Uplight and the floor package — the bars are floor-mounted, and
+        # the wall pair is the uplight proper.
+        "Floor": {"Group": "Wall Bars"},
+        # The towers carry the warm blinder and face the room.
+        "Audience": {"Group": "Towers"},
+        "Drums": {"Group": "Drum Towers"},
+        # The four wall movers answer both: they are what pans and tilts,
+        # and being beams they are also the hard-edged package. Between
+        # them these were the show's two largest unbound roles -- Movers
+        # is named 71 times and Beams 21.
+        "Movers": {"Group": "Movers"},
+        "Beams": {"Group": "Movers"},
+    },
     "focus": {"Vocal": "Vocal Centre", "Stage": "Stage Wide",
               "Audience": "Audience Front", "Band": "Upstage Centre",
               "Drums": "Drums", "Back Wall": "Band Wall",

@@ -2,7 +2,7 @@
   "profile": "Ignition",
   "groups": {
     "Key": {
-      "Group": "Tower Row 3"
+      "Group": "Front Light"
     },
     "Wash": {
       "Group": "Towers"
@@ -14,7 +14,19 @@
       "Group": "Bars"
     },
     "Floor": {
-      "Group": "Trees"
+      "Group": "Wall Bars"
+    },
+    "Audience": {
+      "Group": "Towers"
+    },
+    "Drums": {
+      "Group": "Drum Towers"
+    },
+    "Movers": {
+      "Group": "Movers"
+    },
+    "Beams": {
+      "Group": "Movers"
     }
   },
   "focus": {
