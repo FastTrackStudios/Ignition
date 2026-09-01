@@ -124,6 +124,35 @@ pub enum CanvasPlane {
     Side,
 }
 
+impl CanvasPlane {
+    /// The grid axes this plane implies: which room axis is the
+    /// picture's U, which is its V, and which is the depth nothing
+    /// varies along.
+    ///
+    /// `tolerance` is left at the default — how far apart two fixtures
+    /// have to be to count as different cells is a property of the rig,
+    /// not of which way the picture faces.
+    pub fn axes(self) -> crate::tricks::GridAxes {
+        use ignition_rig::selection::Axis;
+        let d = crate::tricks::GridAxes::default();
+        match self {
+            CanvasPlane::Plan => d,
+            CanvasPlane::Wall => crate::tricks::GridAxes {
+                x: Axis::X,
+                y: Axis::Z,
+                z: Axis::Y,
+                ..d
+            },
+            CanvasPlane::Side => crate::tricks::GridAxes {
+                x: Axis::Y,
+                y: Axis::Z,
+                z: Axis::X,
+                ..d
+            },
+        }
+    }
+}
+
 /// A procedural source with the motion that any other recipe has.
 ///
 /// `timing` is the ordinary `Timing`: `speed` (including a named

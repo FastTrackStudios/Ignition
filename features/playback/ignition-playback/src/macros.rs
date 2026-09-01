@@ -211,6 +211,12 @@ pub fn speed_routing() -> BTreeMap<String, Speed> {
         ("intensity".to_string(), song()),
         ("colour".to_string(), song()),
         ("strip".to_string(), song()),
+        // A picture is on the song like the other intensity layers. It
+        // is not routed to `Tap` for the reason movers and beams are:
+        // those are position and a hand can feel a position; a snake
+        // crossing a wall is the same kind of thing a chase is, and a
+        // chase follows the music.
+        ("matrix".to_string(), song()),
         ("one-shot".to_string(), song()),
     ])
 }

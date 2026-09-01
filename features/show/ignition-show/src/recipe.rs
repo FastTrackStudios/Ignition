@@ -1851,6 +1851,21 @@ fn apply_values(
     }
 }
 
+/// The canvas plane this recipe paints on, if any of its applies is a
+/// canvas. `Plan` when none is — every non-canvas recipe means what the
+/// grid always meant.
+fn canvas_plane_of(recipe: &Recipe) -> crate::canvas::CanvasPlane {
+    recipe
+        .steps
+        .iter()
+        .flat_map(|s| s.apply.iter())
+        .find_map(|a| match a {
+            RecipeApply::Canvas { recipe, .. } => Some(recipe.plane),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
 /// Everything one step sets for one channel, keyed so two steps can be
 /// interpolated attribute by attribute — plus the focus delta it could
 /// not fold into a point, for the player.
@@ -1965,7 +1980,14 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
     // r[impl tricks.grid.explicit-override]
     // r[impl tricks.grid.degenerate-axes]
     let layout = crate::selection::layout_of(&recipe.target);
-    let grid = selection_grid(&chans, layout, show.rig, crate::tricks::GridAxes::default());
+    // Which plane of the room the grid lies in. A canvas apply says so —
+    // a picture painted on a wall of towers wants X across and Z up, not
+    // the plan view every other recipe means — and the first one in the
+    // recipe decides, since a recipe paints one picture. Everything else
+    // gets `Plan`, which is what the grid always was.
+    // r[impl canvas.grid]
+    let plane = canvas_plane_of(recipe);
+    let grid = selection_grid(&chans, layout, show.rig, plane.axes());
     // r[impl effects.phase.spread] - spread lands on Trick units
     // r[impl tricks.spread.blocks-are-units]
     // r[impl effects.phase.in-selection-order]
@@ -4944,6 +4966,80 @@ mod grid_tests {
                 assert_eq!(dimmer_of(&flat, chan_at(x, y)), Some((x + 1) as f32 / 10.0));
             }
         }
+    }
+
+    /// A wall of fixtures is a wall, not a row.
+    ///
+    /// Four towers of three, which is Room 138's shape in miniature:
+    /// they vary along X and Z and are flat in Y. Under the default plan
+    /// grid that is `[4, 1, 3]` — the whole vertical axis one cell — so
+    /// a picture's V never varies and a snake can only crawl sideways.
+    /// `CanvasPlane::Wall` maps V onto height and the wall becomes a
+    /// 4 × 3 canvas.
+    /// r[verify canvas.grid]
+    #[test]
+    fn a_wall_plane_puts_the_picture_s_vertical_axis_on_height() {
+        // Four columns at x = 0..3, three heights each, all at y = 0.
+        let mut heads = Vec::new();
+        let mut chan = 1;
+        for x in 0..4 {
+            for z in 0..3 {
+                let mut f = fixture(chan, x as f64, 0.0);
+                if let Some(p) = f.placement.as_mut() {
+                    p.position.z = z as f64;
+                }
+                heads.push(f);
+                chan += 1;
+            }
+        }
+        let rig = Rig::new(heads);
+        let show = Show::new(&[], &rig);
+        let chans: Vec<ChanId> = (1..=12).collect();
+
+        let plan = selection_grid(&chans, None, &rig, GridAxes::default());
+        assert_eq!(plan.size, [4, 1, 3], "the plan grid flattens the height");
+
+        let wall = selection_grid(&chans, None, &rig, crate::canvas::CanvasPlane::Wall.axes());
+        assert_eq!(wall.size, [4, 3, 1], "the wall grid puts height on V");
+
+        // And through a recipe: a vertical wipe on the wall plane lights
+        // one *row* at a time, so the brightest fixtures share a height
+        // rather than a column.
+        let canvas = CanvasRecipe {
+            source: Procedural::Wipe {
+                color: [1.0; 3],
+                width: 0.4,
+                direction: Travel::Vertical,
+            },
+            timing: Timing {
+                speed: Speed::Hz(1.0),
+                ..Default::default()
+            },
+            plane: crate::canvas::CanvasPlane::Wall,
+        };
+        let recipe = Recipe::new(
+            Selection::Chans(chans.clone()),
+            RecipeApply::Canvas {
+                recipe: canvas,
+                channel: BitmapChannel {
+                    canvas: "wall".into(),
+                    quantity: Quantity::Brightness,
+                    attr: Attribute::Dimmer,
+                    low: 0.0,
+                    high: 1.0,
+                    relative: false,
+                },
+            },
+        );
+        // A sixth in, the bar is square on the bottom row.
+        let emits = expand_recipe(&recipe, &show, 1.0 / 6.0);
+        let lit: Vec<ChanId> = emits
+            .iter()
+            .filter(|e| e.value.value > 0.99)
+            .map(|e| e.value.chan)
+            .collect();
+        // One per column, all at the same height: channels 1, 4, 7, 10.
+        assert_eq!(lit, vec![1, 4, 7, 10], "a row, not a column");
     }
 
     /// A canvas wipe read as dimmer across a 4 × 1 row: the brightest

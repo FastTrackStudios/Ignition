@@ -56,17 +56,21 @@ use std::collections::BTreeMap;
 mod beam;
 mod colour;
 mod intensity;
+mod matrix;
 mod movement;
 mod oneshot;
 mod strip;
 
 /// The six families, and the only six. A picker groups by these.
-pub const FAMILIES: [&str; 6] = [
+pub const FAMILIES: [&str; 7] = [
     "intensity",
     "movement",
     "colour",
     "beam",
     "strip",
+    // Pictures painted on a wall of fixtures, as against tables spread
+    // along a line — see `matrix.rs`.
+    "matrix",
     "one-shot",
 ];
 
@@ -251,6 +255,8 @@ pub fn catalogue() -> Vec<(String, EffectNote, Recipe)> {
     colour::add(&mut add);
     beam::add(&mut add);
     strip::add(&mut add);
+    // Pictures on a wall of fixtures, as against tables along a line.
+    matrix::add(&mut add);
     oneshot::add(&mut add);
     out
 }
@@ -681,6 +687,16 @@ mod tests {
                                 absolute: false,
                                 ..
                             })
+                            // A canvas whose channel is relative layers
+                            // like any other offset: the picture owns the
+                            // movement and the cue keeps its level.
+                            | RecipeApply::Canvas {
+                                channel: crate::canvas::BitmapChannel {
+                                    relative: true,
+                                    ..
+                                },
+                                ..
+                            }
                     )
                 })
             });
@@ -770,12 +786,23 @@ mod tests {
     /// Effects with two or more steps are phasers; the static ones are
     /// looks. Both are recipes, which is the point — but an effect that
     /// meant to move and has one step would silently sit still.
+    ///
+    /// A matrix effect is the exception, and the only one: its motion is
+    /// in the *picture*, not in a step table. `wall rain` has one step
+    /// and one apply, and that apply is a canvas whose own timing runs
+    /// the drops down the wall. Requiring two steps of it would mean
+    /// writing a second step that changed nothing.
     // r[verify recipes.steps-are-the-switch]
     #[test]
     fn every_effect_has_more_than_one_step() {
         for (name, recipe) in library() {
+            let is_picture = recipe.steps.iter().any(|s| {
+                s.apply
+                    .iter()
+                    .any(|a| matches!(a, RecipeApply::Canvas { .. }))
+            });
             assert!(
-                recipe.steps.len() > 1,
+                recipe.steps.len() > 1 || is_picture,
                 "{name:?} has one step and cannot move"
             );
             assert!(recipe.timing.measure > 0.0, "{name:?} has no measure");
