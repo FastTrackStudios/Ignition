@@ -813,16 +813,31 @@ fn Busking(surface: Surface) -> Element {
                     for name in surface.groups.iter().cloned() {
                         button {
                             key: "{name}",
-                            // Tailwind, as the migration probe. Same
-                            // shape as `.pad` in studio.css so the two
-                            // pools can be compared side by side.
+                            // Tailwind, as the migration probe: the same
+                            // shape as `.pad` in studio.css, so the two
+                            // pools can be compared side by side. The
+                            // Focus pool below is the `.pad` half.
+                            //
+                            // Every colour is a token utility from
+                            // `theme.css` — the palette `.pad` reads
+                            // through `var()`. It has to be spelled out
+                            // twice, once per branch, and it is the
+                            // duplication rather than the length that is
+                            // the finding: this probe had drifted from
+                            // `.pad` in three separate ways (`text-ink`
+                            // where the rule says `--ink-soft`, a raw
+                            // `#3d3d4a` for `--line-bright`, `text-white`
+                            // for `--ink-bright`) and nothing could
+                            // notice, because there is nothing for the
+                            // two to disagree *with*. One `.pad` rule
+                            // cannot drift from itself.
                             class: if selected() == Some(name.clone()) {
                                 "w-21 h-16 p-1 text-[11px] rounded-md cursor-pointer \
-                                 bg-sel border border-sel-line text-white"
+                                 bg-sel border border-sel-line text-ink-bright"
                             } else {
                                 "w-21 h-16 p-1 text-[11px] rounded-md cursor-pointer \
-                                 bg-pad border border-pad-line text-ink \
-                                 hover:bg-pad-hover hover:border-[#3d3d4a]"
+                                 bg-pad border border-line-pad text-ink-soft \
+                                 hover:bg-pad-hover hover:border-line-bright"
                             },
                             onclick: {
                                 let name = name.clone();

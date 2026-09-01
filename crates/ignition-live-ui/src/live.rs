@@ -916,7 +916,7 @@ mod token_sheet {
     const STUDIO: &str = include_str!("../../../apps/ignition-studio/src/studio.css");
     const DOCK: &str = include_str!("../../../apps/ignition-studio/src/dock.css");
     const BASE: &str = include_str!("../../../apps/ignition-live-web/src/base.css");
-    const THEME: &str = include_str!("../../../apps/ignition-studio/tailwind.css");
+    const THEME: &str = include_str!("theme.css");
 
     fn sheets() -> [(&'static str, &'static str); 4] {
         [
@@ -1036,12 +1036,16 @@ mod token_sheet {
         assert!(near.is_empty(), "{near:#?}");
     }
 
-    /// Tailwind's `@theme` and the token sheet agree.
+    /// Tailwind's `@theme` and the token sheet agree, colour for colour.
     ///
-    /// Two systems name the same colours — `@theme` because the studio's
-    /// utility classes are generated from it, `tokens.css` because the
-    /// hand-written sheets and the Live page cannot see Tailwind at all.
-    /// They may not disagree.
+    /// Two files for one palette, unavoidably: `theme.css` is what
+    /// generates `bg-panel` and friends, `tokens.css` is what the
+    /// hand-written sheets read through `var()` with no build step —
+    /// and a plain `cargo run`, which compiles no Tailwind at all, must
+    /// still come up in the right colours. This is what stops them
+    /// drifting, and it demands the *whole* palette in both, so a
+    /// colour can never be usable from a stylesheet but not from a
+    /// class.
     #[test]
     fn the_theme_agrees_with_the_tokens() {
         let tokens: std::collections::BTreeMap<_, _> = token_values().into_iter().collect();
@@ -1062,23 +1066,25 @@ mod token_sheet {
             else {
                 continue;
             };
-            // The theme's own spellings, mapped to this sheet's names.
-            let ours = match name.trim() {
-                "panel-line" => "line",
-                "pad-line" => "line-pad",
-                "ink" => "ink",
-                "ink-dim" => "ink-dim",
-                other => other,
-            };
-            if let Some(token) = tokens.get(ours) {
-                assert_eq!(
-                    &theme_hex.to_lowercase(),
-                    token,
-                    "tailwind.css --color-{name} and tokens.css --{ours} disagree"
-                );
-                checked += 1;
-            }
+            let ours = name.trim();
+            let token = tokens.get(ours).unwrap_or_else(|| {
+                panic!("theme.css has --color-{ours} but tokens.css has no --{ours}")
+            });
+            assert_eq!(
+                &theme_hex.to_lowercase(),
+                token,
+                "theme.css --color-{ours} and tokens.css --{ours} disagree"
+            );
+            checked += 1;
         }
-        assert!(checked >= 6, "only {checked} theme colours were matched up");
+        // Every token gets a utility: a colour the hand-written sheets
+        // can use but a class cannot is a hole the migration would fall
+        // into, one rule at a time.
+        assert_eq!(
+            checked,
+            tokens.len(),
+            "theme.css names {checked} colours, tokens.css names {}",
+            tokens.len()
+        );
     }
 }

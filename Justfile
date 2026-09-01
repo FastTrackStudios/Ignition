@@ -34,11 +34,15 @@ studio-dev *ARGS:
         dx serve -p ignition-studio --platform desktop --renderer native \
         --hot-patch false {{ARGS}}
 
-# Compile the stylesheet once, for a plain `cargo run` — which knows
-# nothing about dx's Tailwind pipeline.
+# Compile the stylesheets once, for a plain `cargo run` — which knows
+# nothing about dx's Tailwind pipeline. Both apps, because both scan the
+# shared `ignition-live-ui` sources: a utility used in a shared pane has
+# to be emitted into each sheet that mounts it.
 tailwind:
     tailwindcss -i apps/ignition-studio/tailwind.css \
         -o apps/ignition-studio/assets/tailwind.css
+    tailwindcss -i apps/ignition-live-web/tailwind.css \
+        -o apps/ignition-live-web/assets/tailwind.css
 
 # The Live view for an iPad: the same components as the desk, built
 # for the browser and copied to where the studio serves them from

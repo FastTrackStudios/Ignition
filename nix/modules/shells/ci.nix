@@ -5,11 +5,12 @@
 # headers + the env the build scripts need, nothing else. Workflows
 # enter it via `nix develop .#ci`.
 #
-# tailwindcss IS here, despite "CI drives plain cargo":
-# apps/ignition-studio/assets/tailwind.css is gitignored build output that
-# `asset!()` demands at compile time. `dx` generates it during a normal dx
-# build, but CI drives plain cargo, so the workflow runs `just tailwind`
-# first — which needs this binary. It is a single prebuilt store path, not
+# tailwindcss IS here, despite "CI drives plain cargo": each app's
+# assets/tailwind.css is generated output that `asset!()` demands at
+# compile time. The sheets ARE committed, so a fresh clone builds without
+# it -- but they are generated from `tailwind.css` plus every rsx file
+# that uses a utility class, so CI regenerates them (`just tailwind`)
+# rather than trusting that whoever last added a class remembered to. It is a single prebuilt store path, not
 # a from-source cargo-install, so it does not reintroduce the stall
 # described above.
 { ... }:

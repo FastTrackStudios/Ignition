@@ -20,6 +20,10 @@ use web_sys::{MessageEvent, WebSocket};
 
 const BASE_CSS: &str = include_str!("base.css");
 const MANIFEST: Asset = asset!("/assets/manifest.json");
+/// Compiled by `dx build` from `tailwind.css` at the crate root, the
+/// same way the desk's is. Present so a shared `ignition-live-ui` pane
+/// may use a utility class and have it work here too — see that file.
+const TAILWIND: Asset = asset!("/assets/tailwind.css");
 
 fn main() {
     dioxus::launch(App);
@@ -124,6 +128,7 @@ fn App() -> Element {
         document::Meta { name: "apple-mobile-web-app-title", content: "Ignition Live" }
         document::Meta { name: "theme-color", content: "#0b0b0d" }
         document::Link { rel: "manifest", href: MANIFEST }
+        document::Stylesheet { href: TAILWIND }
         style { {TOKENS_CSS} }
         style { {BASE_CSS} }
         style { {LIVE_CSS} }
