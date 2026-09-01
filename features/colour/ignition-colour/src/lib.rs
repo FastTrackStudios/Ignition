@@ -19,4 +19,4 @@ pub use preset::{
 // Re-exported so `crate::Attribute` reads the same here as it does in
 // every other crate of the domain — the proto types are the vocabulary
 // all of them share.
-pub use ignition_proto::{Attribute, ChanId, PatchEntry, Placement, Quat, Vec3};
+pub use ignition_proto::{Attribute, ChanId, ColorChannel, PatchEntry, Placement, Quat, Vec3};

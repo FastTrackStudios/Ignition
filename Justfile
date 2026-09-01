@@ -69,6 +69,17 @@ alias studio-dev := desktop-dev
 alias studio-windowed := desktop-windowed
 alias studio-once := desktop-once
 
+# The phone app in a desktop window, at iPhone dimensions.
+#
+# The same `App`, the same wry webview and the same stylesheet the device
+# gets, so the screens can be looked at from Linux — an iOS build needs a
+# Mac, and the UI wants looking at far more often than it wants shipping.
+# What it does not show is the safe-area inset, which resolves to zero
+# off-device.
+phone *ARGS:
+    cargo run -p ignition-mobile --no-default-features --features preview \
+        --bin ignition-preview {{ARGS}}
+
 # Compile the stylesheets once, for a plain `cargo run` — which knows
 # nothing about dx's Tailwind pipeline. Both apps, because both scan the
 # shared `ignition-live-ui` sources: a utility used in a shared pane has

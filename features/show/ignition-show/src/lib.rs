@@ -58,7 +58,7 @@ pub use ignition_daw_proto as music;
 pub use ignition_daw_proto::{
     Bars, Position, Section, SongMap, TempoMap, TempoPoint, TimeSignature,
 };
-pub use ignition_proto::{Attribute, ChanId, PatchEntry, Placement, Quat, Vec3};
+pub use ignition_proto::{Attribute, ChanId, ColorChannel, PatchEntry, Placement, Quat, Vec3};
 pub use ignition_rig::{
     Axis, Cmp, Dir, FixtureInfo, Group, Order, Rig, Selection, Trick, Units, Where,
     pan_tilt_deg_along, pan_tilt_deg_to_point,

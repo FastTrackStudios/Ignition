@@ -23,4 +23,4 @@ pub use group::Group;
 pub use selection::{Axis, Cmp, Dir, FixtureInfo, Order, Rig, Selection, Where};
 pub use tricks::{Trick, Units};
 
-pub use ignition_proto::{Attribute, ChanId, PatchEntry, Placement, Quat, Vec3};
+pub use ignition_proto::{Attribute, ChanId, ColorChannel, PatchEntry, Placement, Quat, Vec3};
