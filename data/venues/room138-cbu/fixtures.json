@@ -1,0 +1,1330 @@
+[
+  {
+    "chan": 1,
+    "name": "Tower 1 Light 1",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 1",
+      "Tower Row 1"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -5.4864,
+      "y": 1.524,
+      "z": 0.4572
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 1
+  },
+  {
+    "chan": 2,
+    "name": "Tower 1 Light 2",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 1",
+      "Tower Row 2"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -5.4864,
+      "y": 1.524,
+      "z": 0.6706
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 5
+  },
+  {
+    "chan": 3,
+    "name": "Tower 1 Light 3",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 1",
+      "Tower Row 3"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -5.4864,
+      "y": 1.524,
+      "z": 0.8839
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 9
+  },
+  {
+    "chan": 4,
+    "name": "Tower 1 Light 4",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 1",
+      "Tower Row 4"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -5.4864,
+      "y": 1.524,
+      "z": 1.0973
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 13
+  },
+  {
+    "chan": 5,
+    "name": "Tower 1 Light 5",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 1",
+      "Tower Row 5"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -5.4864,
+      "y": 1.524,
+      "z": 1.3106
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 17
+  },
+  {
+    "chan": 6,
+    "name": "Tower 1 Light 6",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 1",
+      "Tower Row 6"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -5.4864,
+      "y": 1.524,
+      "z": 1.524
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 21
+  },
+  {
+    "chan": 7,
+    "name": "Tower 2 Light 1",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 2",
+      "Tower Row 1"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -1.8288,
+      "y": 1.524,
+      "z": 0.4572
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 25
+  },
+  {
+    "chan": 8,
+    "name": "Tower 2 Light 2",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 2",
+      "Tower Row 2"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -1.8288,
+      "y": 1.524,
+      "z": 0.6706
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 29
+  },
+  {
+    "chan": 9,
+    "name": "Tower 2 Light 3",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 2",
+      "Tower Row 3"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -1.8288,
+      "y": 1.524,
+      "z": 0.8839
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 33
+  },
+  {
+    "chan": 10,
+    "name": "Tower 2 Light 4",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 2",
+      "Tower Row 4"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -1.8288,
+      "y": 1.524,
+      "z": 1.0973
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 37
+  },
+  {
+    "chan": 11,
+    "name": "Tower 2 Light 5",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 2",
+      "Tower Row 5"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -1.8288,
+      "y": 1.524,
+      "z": 1.3106
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 41
+  },
+  {
+    "chan": 12,
+    "name": "Tower 2 Light 6",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 2",
+      "Tower Row 6"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": -1.8288,
+      "y": 1.524,
+      "z": 1.524
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 45
+  },
+  {
+    "chan": 13,
+    "name": "Tower 3 Light 1",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 3",
+      "Tower Row 1"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 1.8288,
+      "y": 1.524,
+      "z": 0.4572
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 49
+  },
+  {
+    "chan": 14,
+    "name": "Tower 3 Light 2",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 3",
+      "Tower Row 2"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 1.8288,
+      "y": 1.524,
+      "z": 0.6706
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 53
+  },
+  {
+    "chan": 15,
+    "name": "Tower 3 Light 3",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 3",
+      "Tower Row 3"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 1.8288,
+      "y": 1.524,
+      "z": 0.8839
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 57
+  },
+  {
+    "chan": 16,
+    "name": "Tower 3 Light 4",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 3",
+      "Tower Row 4"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 1.8288,
+      "y": 1.524,
+      "z": 1.0973
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 61
+  },
+  {
+    "chan": 17,
+    "name": "Tower 3 Light 5",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 3",
+      "Tower Row 5"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 1.8288,
+      "y": 1.524,
+      "z": 1.3106
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 65
+  },
+  {
+    "chan": 18,
+    "name": "Tower 3 Light 6",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 3",
+      "Tower Row 6"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 1.8288,
+      "y": 1.524,
+      "z": 1.524
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 69
+  },
+  {
+    "chan": 19,
+    "name": "Tower 4 Light 1",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 4",
+      "Tower Row 1"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 5.4864,
+      "y": 1.524,
+      "z": 0.4572
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 73
+  },
+  {
+    "chan": 20,
+    "name": "Tower 4 Light 2",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 4",
+      "Tower Row 2"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 5.4864,
+      "y": 1.524,
+      "z": 0.6706
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 77
+  },
+  {
+    "chan": 21,
+    "name": "Tower 4 Light 3",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 4",
+      "Tower Row 3"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 5.4864,
+      "y": 1.524,
+      "z": 0.8839
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 81
+  },
+  {
+    "chan": 22,
+    "name": "Tower 4 Light 4",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 4",
+      "Tower Row 4"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 5.4864,
+      "y": 1.524,
+      "z": 1.0973
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 85
+  },
+  {
+    "chan": 23,
+    "name": "Tower 4 Light 5",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 4",
+      "Tower Row 5"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 5.4864,
+      "y": 1.524,
+      "z": 1.3106
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 89
+  },
+  {
+    "chan": 24,
+    "name": "Tower 4 Light 6",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 4",
+      "Tower Row 6"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "position": {
+      "x": 5.4864,
+      "y": 1.524,
+      "z": 1.524
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.748046,
+      "x": -0.663647,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "beam_angle_deg": 45.0,
+    "universe": 1,
+    "address": 93
+  },
+  {
+    "chan": 25,
+    "name": "Tree 1 Par 1",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 1",
+      "Tree Right"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": -5.334,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.782889,
+      "x": 0.424202,
+      "y": -0.455124,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 97
+  },
+  {
+    "chan": 26,
+    "name": "Tree 1 Par 2",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 1",
+      "Tree Right"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": -5.0292,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.782889,
+      "x": 0.424202,
+      "y": -0.455124,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 104
+  },
+  {
+    "chan": 27,
+    "name": "Tree 1 Par 3",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 1",
+      "Tree Right"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": -4.7244,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.782889,
+      "x": 0.424202,
+      "y": -0.455124,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 111
+  },
+  {
+    "chan": 28,
+    "name": "Tree 1 Par 4",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 1",
+      "Tree Right"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": -4.4196,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.782889,
+      "x": 0.424202,
+      "y": -0.455124,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 118
+  },
+  {
+    "chan": 29,
+    "name": "Tree 2 Par 1",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 2",
+      "Tree Left"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": 4.4196,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.782889,
+      "x": 0.424202,
+      "y": 0.455124,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 125
+  },
+  {
+    "chan": 30,
+    "name": "Tree 2 Par 2",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 2",
+      "Tree Left"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": 4.7244,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.782889,
+      "x": 0.424202,
+      "y": 0.455124,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 132
+  },
+  {
+    "chan": 31,
+    "name": "Tree 2 Par 3",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 2",
+      "Tree Left"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": 5.0292,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.782889,
+      "x": 0.424202,
+      "y": 0.455124,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 139
+  },
+  {
+    "chan": 32,
+    "name": "Tree 2 Par 4",
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Trees",
+      "Tree 2",
+      "Tree Left"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "position": {
+      "x": 5.334,
+      "y": -4.2672,
+      "z": 2.4384
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.782889,
+      "x": 0.424202,
+      "y": 0.455124,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.2,
+      "y": 0.2,
+      "z": 0.24
+    },
+    "beam_angle_deg": 25.0,
+    "universe": 1,
+    "address": 146
+  },
+  {
+    "chan": 33,
+    "name": "Wall Bar 1",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "position": {
+      "x": -2.7432,
+      "y": 1.7069,
+      "z": 0.15
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.074376,
+      "x": 0.99723,
+      "y": -0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 1.0,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 153
+  },
+  {
+    "chan": 34,
+    "name": "Wall Bar 2",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "position": {
+      "x": 2.7432,
+      "y": 1.7069,
+      "z": 0.15
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.074376,
+      "x": 0.99723,
+      "y": -0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 1.0,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 159
+  },
+  {
+    "chan": 35,
+    "name": "Floor Bar 1",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Floor Bars"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "position": {
+      "x": -2.7432,
+      "y": -1.8288,
+      "z": 0.15
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.50896,
+      "x": 0.86079,
+      "y": -0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 1.0,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 165
+  },
+  {
+    "chan": 36,
+    "name": "Floor Bar 2",
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Floor Bars"
+    ],
+    "patched": true,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "position": {
+      "x": 2.7432,
+      "y": -1.8288,
+      "z": 0.15
+    },
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "quat": {
+      "w": 0.50896,
+      "x": 0.86079,
+      "y": -0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 1.0,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "beam_angle_deg": 30.0,
+    "universe": 1,
+    "address": 171
+  }
+]

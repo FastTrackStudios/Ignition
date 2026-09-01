@@ -43,10 +43,10 @@ use viz_widget::VizWidget;
 const TAILWIND: Asset = asset!("/assets/tailwind.css");
 
 /// The room the studio opens, unless `IGNITION_VENUE` names another —
-/// e.g. `IGNITION_VENUE=data/venues/riverside`. A venue is data, and
-/// there is more than one of them now, so which room the surface is
-/// driving should not be a recompile.
-const DEFAULT_VENUE: &str = "data/venues/norco";
+/// e.g. `IGNITION_VENUE=data/venues/norco`. A venue is data, and there
+/// is more than one of them now, so which room the surface is driving
+/// should not be a recompile.
+const DEFAULT_VENUE: &str = "data/venues/room138-cbu";
 
 /// Where the studio's log file goes.
 fn log_file_path() -> std::path::PathBuf {

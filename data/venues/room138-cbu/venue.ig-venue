@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "name": "Room 138 - CBU",
+  "profile": "Ignition",
+  "dmx": {
+    "universes": {
+      "1": {
+        "sacn": {
+          "priority": 100
+        },
+        "artnet": {
+          "net": 0,
+          "subnet": 0,
+          "universe": 0
+        }
+      }
+    }
+  }
+}

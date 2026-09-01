@@ -1,0 +1,31 @@
+{
+  "profile": "Ignition",
+  "groups": {
+    "Key": {
+      "Group": "Tower Row 3"
+    },
+    "Wash": {
+      "Group": "Towers"
+    },
+    "Back": {
+      "Group": "Wall Bars"
+    },
+    "Bars": {
+      "Group": "Bars"
+    },
+    "Floor": {
+      "Group": "Trees"
+    }
+  },
+  "focus": {
+    "Vocal": "Vocal Centre",
+    "Stage": "Stage Wide",
+    "Audience": "Audience Front",
+    "Band": "Upstage Centre",
+    "Drums": "Drums",
+    "Back Wall": "Band Wall",
+    "House": "Audience Back"
+  },
+  "canvases": {},
+  "colors": []
+}

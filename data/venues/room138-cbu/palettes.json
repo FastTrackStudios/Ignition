@@ -1,0 +1,77 @@
+{
+  "colors": [],
+  "focus": [
+    {
+      "name": "Vocal Centre",
+      "target": {
+        "x": 0,
+        "y": -0.9144,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Vocal Stage Left",
+      "target": {
+        "x": 2.4384,
+        "y": -0.9144,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Vocal Stage Right",
+      "target": {
+        "x": -2.4384,
+        "y": -0.9144,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Upstage Centre",
+      "target": {
+        "x": 0,
+        "y": 0.6096,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Drums",
+      "target": {
+        "x": 0,
+        "y": 0.6096,
+        "z": 1.1
+      }
+    },
+    {
+      "name": "Stage Wide",
+      "target": {
+        "x": 0,
+        "y": -0.1524,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Band Wall",
+      "target": {
+        "x": 0,
+        "y": 1.8288,
+        "z": 2.4384
+      }
+    },
+    {
+      "name": "Audience Front",
+      "target": {
+        "x": 0,
+        "y": -2.4384,
+        "z": 1.55
+      }
+    },
+    {
+      "name": "Audience Back",
+      "target": {
+        "x": 0,
+        "y": -6.7056,
+        "z": 1.55
+      }
+    }
+  ]
+}

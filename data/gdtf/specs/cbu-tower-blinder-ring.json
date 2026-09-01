@@ -1,0 +1,79 @@
+{
+  "console_name": "CBU Tower Blinder Ring",
+  "manufacturer": "Generic",
+  "model": "Tower Blinder Ring",
+  "sources": [],
+  "physical": {
+    "width_mm": 180,
+    "length_mm": 180,
+    "height_mm": 120,
+    "weight_kg": 1.2,
+    "weight_kg_guess": true,
+    "power_w": 60
+  },
+  "optics": {
+    "beam_angle_deg": 60,
+    "field_angle_deg": null,
+    "lumens_or_lux": null,
+    "source": "Warm-amber blinder strip across the centre of a honeycomb lens, with the rest of the face LED",
+    "led_count": 1,
+    "emitters": [
+      "WW",
+      "R",
+      "G",
+      "B"
+    ]
+  },
+  "movement": null,
+  "wheels": null,
+  "modes": {
+    "4ch": [
+      {
+        "channel": 1,
+        "attribute": "WarmWhite",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Centre blinder 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 2,
+        "attribute": "Red",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Ring red 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 3,
+        "attribute": "Green",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Ring green 0-100%"
+          }
+        ]
+      },
+      {
+        "channel": 4,
+        "attribute": "Blue",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 255,
+            "meaning": "Ring blue 0-100%"
+          }
+        ]
+      }
+    ]
+  },
+  "confidence": "photograph",
+  "notes": "The tower fixture in CBU Room 138, from a photograph of the real stands: a round par with a honeycomb lens, a horizontal warm-amber blinder strip across the middle and LED behind the rest of the face, six to a vertical stand on a weighted base. No manufacturer mark is legible in the photo, so the footprint below is the contract (WW blinder, then R/G/B for the surround) and the physical numbers are read off the picture against the 7-inch-par-sized bodies. Replace with a real profile if the model is identified."
+}

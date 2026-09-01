@@ -786,7 +786,14 @@ pub(crate) fn active_from_config(config: &crate::app::VizConfig) -> ActiveCamera
     if config.camera_preset.is_none() {
         active.dirty = false;
     }
-    active.wide = active.wide_name();
+    // `--camera <preset>` names what the MAIN view starts on, which since
+    // the cuts moved to the programme camera means it has to seed `wide`
+    // and not only the cut. Without this the flag silently did nothing
+    // for a still: the snapshot has no Programme pane, so the main view
+    // is the whole picture, and it would have held the first favourite
+    // whatever was asked for — taking `just look-previews` and
+    // `just effect-previews`, which both pass `--camera`, with it.
+    active.wide = config.camera_preset.clone().or_else(|| active.wide_name());
     active
 }
 
