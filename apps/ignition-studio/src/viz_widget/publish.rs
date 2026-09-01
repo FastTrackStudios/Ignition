@@ -176,17 +176,6 @@ pub(super) fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &
             canvases: Vec::new(),
         });
     }
-    // The wide preset means something only while a programme camera
-    // takes the cuts; otherwise the main view is the programme.
-    if let Some(camera) = next.camera.as_mut()
-        && viz
-            .app_mut()
-            .world()
-            .get_resource::<ignition_viz::camera::ProgrammeView>()
-            .is_none_or(|p| p.camera.is_none())
-    {
-        camera.wide = None;
-    }
     // The canvases and what each shows, for TO SCREENS.
     if let Some(camera) = next.camera.as_mut() {
         let world = viz.app_mut().world_mut();
