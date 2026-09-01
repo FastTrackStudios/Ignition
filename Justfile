@@ -34,6 +34,32 @@ studio-dev *ARGS:
         dx serve -p ignition-studio --platform desktop --renderer native \
         --hot-patch false {{ARGS}}
 
+# The desktop app, release, straight off `cargo run`.
+#
+# The difference from `just studio` is the builder, not the profile:
+# both are release. `studio` goes through `dx serve`, which gets you rsx
+# hot-reload and costs a cold build into dx's own target dir the first
+# time. This is a plain cargo run against the workspace `target/`, so it
+# reuses everything the tests and `just shot` already built and starts in
+# seconds once warm — and it is the one-shot path `studio-once` was
+# meant to be, except that one is a debug build and a debug Bevy is not
+# a slightly slower Bevy (see the note on `studio` above).
+#
+# Reach for this to *look* at the app: open the show, take a cue, check
+# a change landed. Reach for `just studio` to work on the rsx.
+#
+# `just tailwind` first, for 150ms of insurance: the utility classes come
+# from the committed `assets/tailwind.css`, and a class added to the rsx
+# but not compiled into that sheet does nothing at all, silently. dx
+# rebuilds it on every serve; a plain cargo run has no idea it exists.
+desktop *ARGS:
+    just tailwind
+    IGNITION_MONITOR={{studio_monitor}} cargo run --release -p ignition-studio {{ARGS}}
+
+# Windowed, for when fullscreen is in the way.
+desktop-windowed *ARGS:
+    IGNITION_FULLSCREEN=0 just desktop {{ARGS}}
+
 # Compile the stylesheets once, for a plain `cargo run` — which knows
 # nothing about dx's Tailwind pipeline. Both apps, because both scan the
 # shared `ignition-live-ui` sources: a utility used in a shared pane has
