@@ -142,12 +142,11 @@ fn parse_trimesh(body: &[u8]) -> anyhow::Result<RawMesh> {
                 // Sub-chunks (material groups, smoothing) follow the face
                 // list inside this same chunk; nothing here needs them.
             }
-            CHUNK_LOCAL_AXES => {
+            CHUNK_LOCAL_AXES
                 // 3x3 axes + origin, 12 floats. Validated for shape only.
-                if data.len() < 48 {
+                if data.len() < 48 => {
                     anyhow::bail!("3DS: truncated local-axes chunk");
                 }
-            }
             _ => {}
         }
     }

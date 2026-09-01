@@ -1,0 +1,272 @@
+/* The phone's sheet.
+ *
+ * The palette is the desk's — `crates/ignition-live-ui/src/tokens.css`
+ * — because it is the same console seen from a different seat, and two
+ * greys that disagree by two points read as a bug rather than a theme.
+ * The values are copied rather than imported: the desk's sheet is
+ * Tailwind-authored and this bundle has no build step.
+ *
+ * Everything below is laid out for one hand on a 393pt screen. The cue
+ * list is the only thing that scrolls; the rig and GO are pinned,
+ * because a primary control at the bottom of forty-three rows is not a
+ * control. */
+:root {
+  --bg: #0d0d10;
+  --panel: #131317;
+  --panel-hi: #1b1b21;
+  --line: #26262e;
+  --ink: #e8e8ee;
+  --ink-dim: #9a9aa6;
+  --ink-faint: #63636e;
+  --accent: #ffb020;
+  --accent-ink: #1a1206;
+  --live: #35d07f;
+  --tap: rgba(255, 255, 255, 0.06);
+  /* The home-indicator strip. Real iPhones report it; a preview window
+   * and a desktop webview resolve the env() to zero, which is correct
+   * there. */
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  /* A console is not a web page: no rubber-banding, no accidental
+   * text selection under a thumb that meant to press GO. */
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Dioxus mounts the app into a div of its own. Without a height it is
+ * auto, the `height: 100%` chain below breaks at that link, and the cue
+ * list grows past the viewport — taking the pinned deck and the tab bar
+ * off the bottom of the screen with it. */
+#main { height: 100%; }
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.body { flex: 1; min-height: 0; overflow: hidden; }
+
+/* ── Chrome ──────────────────────────────────────────────────────── */
+
+.head {
+  padding: calc(10px + var(--safe-t)) 16px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.head h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.head .sub {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabs {
+  display: flex;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  padding-bottom: var(--safe-b);
+}
+.tab {
+  flex: 1;
+  padding: 11px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-dim);
+  text-decoration: none;
+}
+.tab:active { background: var(--tap); }
+
+/* ── Cues ────────────────────────────────────────────────────────── */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.cuelist {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cue {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.cue-num {
+  width: 22px;
+  flex: none;
+  text-align: right;
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.cue-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cue-fade {
+  flex: none;
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The show writes its lifts and accents with a leading `·`. They are
+ * texture between the sections, so they read as texture: smaller,
+ * dimmer, indented under the section they belong to. */
+.cue.accent {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  padding-left: 30px;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+.cue.accent .cue-num { color: #4a4a54; }
+
+.cue.active {
+  background: var(--panel-hi);
+  color: var(--ink);
+  /* The live bar, inside the padding so it does not shift the row. */
+  box-shadow: inset 3px 0 0 var(--live);
+}
+.cue.active .cue-name { font-weight: 600; }
+.cue.active .cue-num { color: var(--live); }
+
+/* ── The deck: rig state and GO, both pinned ─────────────────────── */
+
+.deck {
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  padding: 10px 16px calc(10px + var(--safe-b));
+}
+
+/* Forty fixtures. A bar each is seven pixels wide and says nothing, so
+ * each one is a cell instead: its colour is the fixture's resolved
+ * emitters, its brightness is the fixture's level. Patch order, which
+ * for Room 138 walks tower by tower — the wall reads left to right. */
+.rig {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+  margin-bottom: 10px;
+}
+.cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  /* A dark cell still has to be a *cell*, or the grid changes shape
+   * every cue and the eye has nothing to hold on to. */
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
+}
+/* Lit fixtures glow rather than merely brighten — at this size the
+ * difference between 0.3 and 0.6 is easier to read as a halo. */
+.cell.on { outline-color: rgba(255, 255, 255, 0.22); }
+
+.go {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  /* Comfortably past the 44pt tap target, because this is the one
+   * button that gets pressed in the dark. */
+  min-height: 60px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  text-align: left;
+}
+.go:active { background: #e39a12; }
+.go-label {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+/* What GO will take. Right-aligned and lighter than the word itself —
+ * the label is the control, this is the label's argument. */
+.go-next {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.72;
+}
+
+/* ── Patch and Groups ────────────────────────────────────────────── */
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.chan {
+  width: 30px;
+  flex: none;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.addr {
+  flex: none;
+  color: var(--ink-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

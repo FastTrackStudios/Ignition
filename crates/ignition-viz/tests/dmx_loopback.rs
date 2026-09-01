@@ -42,7 +42,7 @@ fn a_frame_of_the_show_round_trips_through_the_bytes_on_norco() {
         universe: 4,
         start_channel: 400,
     };
-    venue.fixtures[first].mirrors.push(mirror.clone());
+    venue.fixtures[first].mirrors.push(mirror);
 
     let groups = venue.groups();
     let rig = venue.rig();

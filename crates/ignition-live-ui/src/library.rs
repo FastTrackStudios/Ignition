@@ -499,7 +499,7 @@ pub fn tap(entry: &Entry, playhead: &crate::command::Playhead) {
     let name = entry.name.clone();
     match entry.tab {
         Tab::Kind(Kind::Effect) | Tab::Kind(Kind::Bundle) => {
-            if playhead.effects_playing.iter().any(|e| *e == name) {
+            if playhead.effects_playing.contains(&name) {
                 send(Command::Untake(name));
             } else {
                 send(Command::Take { name, level: 1.0 });
@@ -526,7 +526,7 @@ pub fn tap(entry: &Entry, playhead: &crate::command::Playhead) {
 pub fn is_on(entry: &Entry, playhead: &crate::command::Playhead) -> bool {
     match entry.tab {
         Tab::Kind(Kind::Effect) | Tab::Kind(Kind::Bundle) => {
-            playhead.effects_playing.iter().any(|e| *e == entry.name)
+            playhead.effects_playing.contains(&entry.name)
         }
         Tab::Kind(Kind::Look) => playhead.held_look.as_deref() == Some(&entry.name),
         _ => false,

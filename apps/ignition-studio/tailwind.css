@@ -1,25 +1,25 @@
-/* Tailwind v4 input. `dx serve` picks this up automatically because it
-   is named `tailwind.css` and sits at the crate root, watches it, and
-   writes the compiled sheet to `assets/tailwind.css`.
+/* Tailwind v4 input. `dx serve` picks this up because it is named
+   `tailwind.css` and sits at the crate root, watches it, and writes the
+   compiled sheet to `assets/tailwind.css`. v4 rather than v3: no
+   `tailwind.config.js`, and the source globs live here.
 
-   v4 rather than v3: no `tailwind.config.js`, and the source globs live
-   here. dx would infer v3 from the presence of that config file. */
+   Utilities ONLY. The hand-written sheets are injected as `<style>`
+   blocks by `windows.rs` and must stay that way: `document::Stylesheet`
+   is inert under Blitz (Dioxus Native), so a sheet delivered only by
+   that link never arrives. Importing them here instead cost the desk
+   its entire layout -- the `.viz` element collapsed to zero size and
+   the visualizer never initialised, with no error anywhere. If that
+   link ever starts working, this is the file to reconsider.
+
+   The palette is shared with the Live page rather than repeated --
+   see `crates/ignition-live-ui/src/theme.css`, and `tokens.css` beside
+   it, which is the same palette for the hand-written sheets. */
 @import "tailwindcss";
+@import "../../crates/ignition-live-ui/src/theme.css";
 
 /* Utilities are only emitted for classes Tailwind can see, and it does
-   not know Rust — this is what makes it scan the rsx. */
+   not know Rust — this is what makes it scan the rsx. `ignition-live-ui`
+   is scanned too: its panes are mounted here, so a utility used in a
+   shared component has to be emitted into this sheet as well. */
 @source "./src/**/*.rs";
-
-@theme {
-  /* The console palette, named once so a chip and a fader agree without
-     either repeating a hex. */
-  --color-panel: #131317;
-  --color-panel-line: #26262c;
-  --color-pad: #1b1b22;
-  --color-pad-line: #2c2c36;
-  --color-pad-hover: #24242e;
-  --color-sel: #3a3a6b;
-  --color-sel-line: #6a6ad0;
-  --color-ink: #e6e6e6;
-  --color-ink-dim: #9a9aa6;
-}
+@source "../../crates/ignition-live-ui/src/**/*.rs";

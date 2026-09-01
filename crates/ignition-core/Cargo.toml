@@ -6,6 +6,14 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+# The five slices this crate composes, plus the vocabularies below them.
+# No other dependencies: there is no code here to need any.
+ignition-colour.workspace = true
+ignition-rig.workspace = true
+ignition-show.workspace = true
+ignition-effects.workspace = true
+ignition-playback.workspace = true
+ignition-daw-proto.workspace = true
 ignition-proto.workspace = true
 serde.workspace = true
 serde_json.workspace = true

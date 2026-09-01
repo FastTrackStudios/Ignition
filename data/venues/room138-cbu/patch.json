@@ -1,0 +1,402 @@
+[
+  {
+    "chan": 1,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 1,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 2,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 5,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 3,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 9,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 4,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 13,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 5,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 17,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 6,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 21,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 7,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 25,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 8,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 29,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 9,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 33,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 10,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 37,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 11,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 41,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 12,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 45,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 13,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 49,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 14,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 53,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 15,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 57,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 16,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 61,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 17,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 65,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 18,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 69,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 19,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 73,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 20,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 77,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 21,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 81,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 22,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 85,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 23,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 89,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 24,
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "patched": true,
+    "universe": 1,
+    "address": 93,
+    "footprint": 4,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 25,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 97,
+    "footprint": 6,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 26,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 103,
+    "footprint": 6,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 27,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 109,
+    "footprint": 7,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 28,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 116,
+    "footprint": 7,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 29,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 123,
+    "footprint": 7,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 30,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 130,
+    "footprint": 7,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 31,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 137,
+    "footprint": 7,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 32,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 144,
+    "footprint": 7,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 33,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 151,
+    "footprint": 7,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 34,
+    "manufacturer": "",
+    "model": "36 LED Par Can",
+    "patched": true,
+    "universe": 1,
+    "address": 158,
+    "footprint": 7,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 35,
+    "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "patched": true,
+    "universe": 1,
+    "address": 165,
+    "footprint": 12,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 36,
+    "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "patched": true,
+    "universe": 1,
+    "address": 177,
+    "footprint": 12,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 37,
+    "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "patched": true,
+    "universe": 1,
+    "address": 189,
+    "footprint": 12,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 38,
+    "manufacturer": "",
+    "model": "150W Moving Head Beam",
+    "patched": true,
+    "universe": 1,
+    "address": 201,
+    "footprint": 12,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 39,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 213,
+    "footprint": 6,
+    "source": "make_room138.py"
+  },
+  {
+    "chan": 40,
+    "manufacturer": "",
+    "model": "Solena Max Bar 28 RGB",
+    "patched": true,
+    "universe": 1,
+    "address": 219,
+    "footprint": 6,
+    "source": "make_room138.py"
+  }
+]

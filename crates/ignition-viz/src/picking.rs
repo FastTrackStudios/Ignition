@@ -423,7 +423,7 @@ fn tint_bodies(
         // per-fixture clones (`FixtureBody::parts`).
         for handle in body.tintable() {
             if let Some(mut material) = materials.get_mut(handle) {
-                material.emissive = material.emissive + tint;
+                material.emissive += tint;
             }
         }
     }

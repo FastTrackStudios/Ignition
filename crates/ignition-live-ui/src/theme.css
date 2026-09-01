@@ -1,0 +1,77 @@
+/* Tailwind v4 theme — the same palette as `tokens.css`, in the form
+ * Tailwind needs to generate `bg-*`, `text-*` and `border-*` utilities.
+ *
+ * Two files for one palette, unavoidably: `tokens.css` is plain CSS and
+ * is what the hand-written sheets and the Live page read through
+ * `var()`, with no build step — a plain `cargo run` has no Tailwind in
+ * it and must still come up in the right colours. This file only exists
+ * for the utility classes. `the_theme_agrees_with_the_tokens` asserts
+ * every pair below matches, so the two cannot drift.
+ *
+ * Imported by both `apps/ignition-studio/tailwind.css` and
+ * `apps/ignition-live-web/tailwind.css`, so the desk and the iPad get
+ * one palette rather than two.
+ */
+@theme {
+
+  /* Surfaces, darkest to lightest */
+  --color-bg: #0b0b0d;
+  --color-well: #0f0f12;
+  --color-panel: #131317;
+  --color-panel-2: #17171d;
+  --color-pad: #1b1b22;
+  --color-tile: #1e1e26;
+  --color-pad-hover: #24242e;
+  --color-raised: #23232e;
+
+  /* Lines */
+  --color-line-soft: #1f1f26;
+  --color-line: #26262c;
+  --color-line-pad: #2c2c36;
+  --color-line-strong: #33333f;
+  --color-line-bright: #3d3d4a;
+
+  /* Ink */
+  --color-ink-bright: #ffffff;
+  --color-ink: #e6e6e6;
+  --color-ink-soft: #cfcfdb;
+  --color-ink-2: #d6d6e0;
+  --color-ink-3: #b0b0c0;
+  --color-ink-dim: #9a9aa6;
+  --color-ink-label: #8d8d99;
+  --color-ink-faint: #6f6f7d;
+  --color-ink-fainter: #6a6a78;
+  --color-ink-ghost: #55555f;
+  --color-ink-inverse: #14121a;
+
+  /* Selection */
+  --color-sel: #3a3a6b;
+  --color-sel-line: #6a6ad0;
+  --color-sel-deep: #2c2c40;
+  --color-sel-deep-2: #2c2c3a;
+
+  /* GO / active */
+  --color-go: #2c4a2c;
+  --color-go-line: #3d663d;
+  --color-go-ink: #cfe8cf;
+
+  /* Hit / armed */
+  --color-hit: #3a2f10;
+  --color-hit-line: #8a6a20;
+  --color-hit-ink: #ffe9a8;
+  --color-hit-bright: #e8a040;
+  --color-hit-soft: #e0b860;
+  --color-hit-pale: #f0d880;
+
+  /* Alarm */
+  --color-bad: #c04a3a;
+  --color-bad-bright: #e86060;
+
+  /* Cue-adjacent blue */
+  --color-play: #2c3f5a;
+  --color-play-line: #3d5a80;
+
+  /* Meters */
+  --color-meter: #6ea8c0;
+  --color-meter-ink: #cfe0f0;
+}

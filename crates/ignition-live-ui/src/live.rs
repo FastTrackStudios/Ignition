@@ -29,6 +29,14 @@ use ignition_core::{AttrFilter, Selection, Speed};
 
 /// The styles for every panel in this family. The studio includes it
 /// beside `studio.css`; the web app includes it beside its own base.
+/// The palette every sheet draws from — see `tokens.css`.
+///
+/// Injected before any other stylesheet by both the studio and the Live
+/// page. Order is not strictly required (custom properties resolve at
+/// computed-value time, not parse time) but putting the definitions
+/// first is how the cascade reads.
+pub const TOKENS_CSS: &str = include_str!("tokens.css");
+
 pub const LIVE_CSS: &str = include_str!("live.css");
 
 /// The two views of a mode.
@@ -877,7 +885,7 @@ mod tests {
             let rule = LIVE_CSS
                 .split('}')
                 .find(|r| {
-                    let selector = r.rsplit('{').last().unwrap_or("").trim();
+                    let selector = r.rsplit('{').next_back().unwrap_or("").trim();
                     selector.split(',').any(|s| s.trim() == class)
                 })
                 .unwrap_or_else(|| panic!("{class} has no rule"));
@@ -889,5 +897,196 @@ mod tests {
                 .unwrap_or_else(|| panic!("{class} has no min-height"));
             assert!(min >= 44, "{class} is {min}px");
         }
+    }
+}
+
+#[cfg(test)]
+mod token_sheet {
+    //! The palette is one file, and stays one file.
+    //!
+    //! These are the rules that make `tokens.css` a layer rather than a
+    //! one-off tidy-up. Both failures they catch had already happened
+    //! before the sheet existed: a colour written out in two stylesheets
+    //! that then drifted apart, and four different spellings of the same
+    //! grey (`#1a1a20`, `#1b1b21`, `#1b1b22`, `#1c1c22`) that no eye
+    //! could tell apart and no search could find together.
+
+    const TOKENS: &str = include_str!("tokens.css");
+    const LIVE: &str = include_str!("live.css");
+    const STUDIO: &str = include_str!("../../../apps/ignition-studio/src/studio.css");
+    const DOCK: &str = include_str!("../../../apps/ignition-studio/src/dock.css");
+    const BASE: &str = include_str!("../../../apps/ignition-live-web/src/base.css");
+    const PANEL: &str = include_str!("../../../apps/ignition-studio/src/panel.css");
+    const THEME: &str = include_str!("theme.css");
+
+    fn sheets() -> [(&'static str, &'static str); 5] {
+        [
+            ("live.css", LIVE),
+            ("studio.css", STUDIO),
+            ("dock.css", DOCK),
+            ("base.css", BASE),
+            ("panel.css", PANEL),
+        ]
+    }
+
+    /// Every `#rrggbb` (and `#rgb`) literal in a sheet, normalised to six
+    /// digits. Deliberately naive: it also sees hexes inside comments,
+    /// which is the conservative direction — a colour written in a
+    /// comment is still a colour someone will copy.
+    fn hexes(css: &str) -> Vec<String> {
+        let bytes: Vec<char> = css.chars().collect();
+        let mut out = Vec::new();
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == '#' {
+                let digits: String = bytes[i + 1..]
+                    .iter()
+                    .take_while(|c| c.is_ascii_hexdigit())
+                    .collect();
+                let n = digits.len();
+                // Only 3- and 6-digit runs are colours; 4 and 8 carry
+                // alpha and are left alone, and anything longer is not a
+                // colour at all.
+                if n == 3 {
+                    out.push(
+                        digits
+                            .chars()
+                            .flat_map(|c| [c, c])
+                            .collect::<String>()
+                            .to_lowercase(),
+                    );
+                } else if n == 6 {
+                    out.push(digits.to_lowercase());
+                }
+                i += 1 + n.max(1);
+            } else {
+                i += 1;
+            }
+        }
+        out
+    }
+
+    fn token_values() -> Vec<(String, String)> {
+        TOKENS
+            .lines()
+            .filter_map(|l| {
+                let l = l.trim();
+                let (name, rest) = l.strip_prefix("--")?.split_once(':')?;
+                // First whitespace-delimited word, *then* drop the
+                // semicolon — a trailing `/* comment */` means the line
+                // itself does not end in one.
+                let value = rest.split_whitespace().next()?.trim_end_matches(';');
+                let hex = value.strip_prefix('#')?;
+                (hex.len() == 6).then(|| (name.trim().to_string(), hex.to_lowercase()))
+            })
+            .collect()
+    }
+
+    fn rgb(hex: &str) -> [i32; 3] {
+        let p = |i: usize| i32::from_str_radix(&hex[i..i + 2], 16).unwrap_or(0);
+        [p(0), p(2), p(4)]
+    }
+
+    /// No colour is written out in more than one stylesheet.
+    ///
+    /// This is the drift that motivated the file: thirty-one colours
+    /// were duplicated across two or three sheets, so "the selected
+    /// blue" was several strings that agreed only by luck.
+    #[test]
+    fn no_colour_is_spelled_out_in_two_sheets() {
+        let mut seen: std::collections::BTreeMap<String, Vec<&str>> = Default::default();
+        for (name, css) in sheets() {
+            for h in hexes(css) {
+                let e = seen.entry(h).or_default();
+                if !e.contains(&name) {
+                    e.push(name);
+                }
+            }
+        }
+        let shared: Vec<_> = seen.iter().filter(|(_, v)| v.len() > 1).collect();
+        assert!(
+            shared.is_empty(),
+            "these colours are written out in more than one sheet; give each a \
+             token in tokens.css and use var(): {shared:?}"
+        );
+    }
+
+    /// No raw colour is close enough to a token to be mistaken for it.
+    ///
+    /// Within two per channel is below anything an eye resolves, so such
+    /// a literal is not a deliberate shade — it is the token, typed
+    /// again and slightly wrong. Eighteen of these existed when the
+    /// sheet was written.
+    #[test]
+    fn no_raw_colour_is_a_near_miss_of_a_token() {
+        let tokens = token_values();
+        let mut near = Vec::new();
+        for (sheet, css) in sheets() {
+            for h in hexes(css) {
+                for (name, value) in &tokens {
+                    if &h != value
+                        && rgb(&h)
+                            .iter()
+                            .zip(rgb(value))
+                            .all(|(a, b)| (a - b).abs() <= 2)
+                    {
+                        near.push(format!("{sheet}: #{h} is --{name} (#{value}) mistyped"));
+                    }
+                }
+            }
+        }
+        assert!(near.is_empty(), "{near:#?}");
+    }
+
+    /// Tailwind's `@theme` and the token sheet agree, colour for colour.
+    ///
+    /// Two files for one palette, unavoidably: `theme.css` is what
+    /// generates `bg-panel` and friends, `tokens.css` is what the
+    /// hand-written sheets read through `var()` with no build step —
+    /// and a plain `cargo run`, which compiles no Tailwind at all, must
+    /// still come up in the right colours. This is what stops them
+    /// drifting, and it demands the *whole* palette in both, so a
+    /// colour can never be usable from a stylesheet but not from a
+    /// class.
+    #[test]
+    fn the_theme_agrees_with_the_tokens() {
+        let tokens: std::collections::BTreeMap<_, _> = token_values().into_iter().collect();
+        // `--color-panel` in the theme is `--panel` here.
+        let mut checked = 0;
+        for line in THEME.lines() {
+            let line = line.trim();
+            let Some((name, rest)) = line
+                .strip_prefix("--color-")
+                .and_then(|l| l.split_once(':'))
+            else {
+                continue;
+            };
+            let Some(theme_hex) = rest
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.trim_end_matches(';').strip_prefix('#'))
+            else {
+                continue;
+            };
+            let ours = name.trim();
+            let token = tokens.get(ours).unwrap_or_else(|| {
+                panic!("theme.css has --color-{ours} but tokens.css has no --{ours}")
+            });
+            assert_eq!(
+                &theme_hex.to_lowercase(),
+                token,
+                "theme.css --color-{ours} and tokens.css --{ours} disagree"
+            );
+            checked += 1;
+        }
+        // Every token gets a utility: a colour the hand-written sheets
+        // can use but a class cannot is a hole the migration would fall
+        // into, one rule at a time.
+        assert_eq!(
+            checked,
+            tokens.len(),
+            "theme.css names {checked} colours, tokens.css names {}",
+            tokens.len()
+        );
     }
 }

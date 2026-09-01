@@ -1,0 +1,43 @@
+{
+  "profile": "Ignition",
+  "groups": {
+    "Key": {
+      "Group": "Trees"
+    },
+    "Wash": {
+      "Group": "Towers"
+    },
+    "Back": {
+      "Group": "Wall Bars"
+    },
+    "Bars": {
+      "Group": "Bars"
+    },
+    "Floor": {
+      "Group": "Key Bars"
+    },
+    "Audience": {
+      "Group": "Towers"
+    },
+    "Drums": {
+      "Group": "Drum Towers"
+    },
+    "Movers": {
+      "Group": "Movers"
+    },
+    "Beams": {
+      "Group": "Movers"
+    }
+  },
+  "focus": {
+    "Vocal": "Vocal Centre",
+    "Stage": "Stage Wide",
+    "Audience": "Audience Front",
+    "Band": "Upstage Centre",
+    "Drums": "Drums",
+    "Back Wall": "Band Wall",
+    "House": "Audience Back"
+  },
+  "canvases": {},
+  "colors": []
+}

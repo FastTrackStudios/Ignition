@@ -1106,11 +1106,11 @@ pub fn spawn_gdtf_tree(
                 id,
                 assets,
                 asset,
-                placeholder,
-                material,
-                lo,
-                hi,
-                scale,
+                crate::gdtf_assets::Placeholder {
+                    mesh: placeholder,
+                    material,
+                },
+                crate::gdtf_assets::ModelFit { lo, hi, scale },
             );
         }
         // Nothing to draw — a `<Beam>` node, or a socket/inlet with no

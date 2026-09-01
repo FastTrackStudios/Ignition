@@ -11,15 +11,19 @@
 
 use dioxus::prelude::*;
 use futures_util::StreamExt;
-use ignition_live_ui::live::{LIVE_CSS, Views};
+use ignition_live_ui::live::{LIVE_CSS, TOKENS_CSS, Views};
 use ignition_live_ui::{Bootstrap, Command, Playhead, PlayheadFeed, ServerMessage};
 use std::cell::RefCell;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::Closure;
 use web_sys::{MessageEvent, WebSocket};
 
-const BASE_CSS: &str = include_str!("base.css");
 const MANIFEST: Asset = asset!("/assets/manifest.json");
+/// Compiled by `dx build` from `tailwind.css` at the crate root, the
+/// same way the desk's is. Present so a shared `ignition-live-ui` pane
+/// may use a utility class and have it work here too — see that file.
+const TAILWIND: Asset = asset!("/assets/tailwind.css");
+const BASE_CSS: &str = include_str!("base.css");
 
 fn main() {
     dioxus::launch(App);
@@ -35,6 +39,9 @@ thread_local! {
 /// What the socket's JS callbacks hand the Dioxus side. Signals are
 /// written from a spawned task, never from inside a JS callback, so
 /// every write happens with the runtime current.
+/// Not boxed, for the same reason `ServerMessage` is not — this wraps it
+/// straight off the socket, and `Message` is the whole traffic.
+#[allow(clippy::large_enum_variant)]
 enum Incoming {
     Open,
     Message(ServerMessage),
@@ -121,6 +128,8 @@ fn App() -> Element {
         document::Meta { name: "apple-mobile-web-app-title", content: "Ignition Live" }
         document::Meta { name: "theme-color", content: "#0b0b0d" }
         document::Link { rel: "manifest", href: MANIFEST }
+        document::Stylesheet { href: TAILWIND }
+        style { {TOKENS_CSS} }
         style { {BASE_CSS} }
         style { {LIVE_CSS} }
         div { class: "page",

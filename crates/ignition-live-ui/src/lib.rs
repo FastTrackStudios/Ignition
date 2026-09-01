@@ -545,6 +545,13 @@ pub struct Bootstrap {
 
 /// What the server says to a client. One enum so a client can match on
 /// it; the playhead is by far the common case.
+///
+/// `Playhead` is deliberately NOT boxed, which is what the size-difference
+/// lint would ask for. `Hello` is sent once per connection and already
+/// boxed; `Playhead` goes out on every frame the show moves, and boxing it
+/// would put an allocation on that path to save width on the one message
+/// that is never in a hurry. The enum is sized for the common case.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", content = "v", rename_all = "snake_case")]
 pub enum ServerMessage {

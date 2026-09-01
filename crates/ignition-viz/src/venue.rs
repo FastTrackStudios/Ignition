@@ -290,7 +290,7 @@ pub struct Venue {
     /// `dmx` key. `None` when the manifest has none; `output_config()`
     /// is the answer either way.
     // r[impl dmx.venue-config] - the room's network lives with the room
-    pub dmx: Option<ignition_io::OutputConfig>,
+    pub dmx: Option<ignition_dmx::OutputConfig>,
 }
 
 impl Venue {
@@ -328,7 +328,7 @@ impl Venue {
     /// multicast at the default priority, which is what a rig with no
     /// configuration expects to hear.
     // r[impl dmx.venue-config] - absent config falls back to sACN multicast per patched universe
-    pub fn output_config(&self) -> ignition_io::OutputConfig {
+    pub fn output_config(&self) -> ignition_dmx::OutputConfig {
         match &self.dmx {
             Some(config) => config.clone(),
             None => default_output_config(&self.patched_universes()),
@@ -543,7 +543,7 @@ fn alias_focus(
 
 /// sACN multicast, priority 100, for each of `universes` — built as
 /// JSON and parsed, so the shape is the one the manifest would carry.
-pub fn default_output_config(universes: &[u16]) -> ignition_io::OutputConfig {
+pub fn default_output_config(universes: &[u16]) -> ignition_dmx::OutputConfig {
     let entries: serde_json::Map<String, serde_json::Value> = universes
         .iter()
         .map(|u| {
@@ -612,7 +612,7 @@ impl Venue {
         let dmx = manifest
             .dmx
             .clone()
-            .map(serde_json::from_value::<ignition_io::OutputConfig>)
+            .map(serde_json::from_value::<ignition_dmx::OutputConfig>)
             .transpose()
             .map_err(|e| anyhow::anyhow!("{}: bad `dmx` block: {e}", dir.display()))?;
         Ok(Self {
@@ -969,7 +969,7 @@ mod tests {
             } }
         });
         let manifest: VenueManifest = serde_json::from_value(json).expect("parses");
-        let config: ignition_io::OutputConfig =
+        let config: ignition_dmx::OutputConfig =
             serde_json::from_value(manifest.dmx.clone().expect("dmx kept")).expect("typed");
         assert_eq!(config.universes.len(), 2);
         assert_eq!(

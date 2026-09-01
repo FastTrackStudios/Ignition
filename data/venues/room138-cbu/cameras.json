@@ -1,0 +1,198 @@
+{
+  "presets": [
+    {
+      "name": "Wide",
+      "eye": [
+        0.0,
+        -7.620000000000002,
+        1.6764000000000001
+      ],
+      "look": [
+        0.0,
+        0.0,
+        1.2192
+      ],
+      "fov_deg": 65.0,
+      "about": "The whole room from the back of the house."
+    },
+    {
+      "name": "Singer",
+      "eye": [
+        0.0,
+        -2.4384,
+        1.5849600000000001
+      ],
+      "look": [
+        0.0,
+        0.0,
+        1.524
+      ],
+      "fov_deg": 32.0,
+      "about": "Close on the centre mic."
+    },
+    {
+      "name": "Drums",
+      "eye": [
+        0.9144000000000001,
+        -1.8288000000000002,
+        1.6764000000000001
+      ],
+      "look": [
+        0.0,
+        0.6096000000000001,
+        1.0668
+      ],
+      "fov_deg": 35.0,
+      "about": "Drum cam, past the singer's shoulder."
+    },
+    {
+      "name": "Super wide",
+      "eye": [
+        -6.096,
+        -8.229600000000001,
+        2.7432000000000003
+      ],
+      "look": [
+        0.0,
+        0.0,
+        1.2192
+      ],
+      "fov_deg": 70.0,
+      "about": "The whole room from the back corner."
+    },
+    {
+      "name": "Guitar",
+      "eye": [
+        2.7432000000000003,
+        -2.7432000000000003,
+        1.6459200000000003
+      ],
+      "look": [
+        1.6764000000000001,
+        0.3048000000000002,
+        1.5
+      ],
+      "fov_deg": 34.0,
+      "about": "Guitar cam: downstage, across at the first guitar."
+    },
+    {
+      "name": "Bass",
+      "eye": [
+        -2.7432000000000003,
+        -2.7432000000000003,
+        1.6459200000000003
+      ],
+      "look": [
+        -1.9812,
+        0.3048000000000002,
+        1.5
+      ],
+      "fov_deg": 34.0,
+      "about": "Bass cam: downstage, across at the bass player."
+    },
+    {
+      "name": "Keys",
+      "eye": [
+        -1.2192,
+        -3.048,
+        1.6459200000000003
+      ],
+      "look": [
+        -4.7244,
+        -0.6095999999999999,
+        1.5
+      ],
+      "fov_deg": 32.0,
+      "about": "Keyboard cam: across the room at the player."
+    },
+    {
+      "name": "Side stage",
+      "eye": [
+        6.4008,
+        -0.6096,
+        1.70688
+      ],
+      "look": [
+        -1.8288000000000002,
+        0.3048000000000002,
+        1.5
+      ],
+      "fov_deg": 42.0,
+      "about": "From the stage-left wall, across the band."
+    },
+    {
+      "name": "Flat front",
+      "eye": [
+        0.0,
+        -3.9624,
+        1.40208
+      ],
+      "look": [
+        0.0,
+        0.3048000000000002,
+        1.5
+      ],
+      "fov_deg": 48.0,
+      "about": "Low and flat, straight on at the whole band."
+    },
+    {
+      "name": "Bird's eye",
+      "eye": [
+        0.0,
+        -3.5052000000000008,
+        12.192
+      ],
+      "look": [
+        0.0,
+        -3.5052000000000008,
+        0.0
+      ],
+      "fov_deg": 56.0,
+      "ortho": true,
+      "about": "Plan view above the ceiling: the XY of every fixture."
+    }
+  ],
+  "favourites": [
+    "Wide",
+    "Singer",
+    "Drums",
+    "Guitar",
+    "Bass",
+    "Keys",
+    "Side stage",
+    "Super wide",
+    "Flat front",
+    "Bird's eye"
+  ],
+  "setups": [
+    {
+      "name": "two",
+      "slots": [
+        "Wide",
+        "Singer"
+      ]
+    },
+    {
+      "name": "four",
+      "slots": [
+        "Wide",
+        "Singer",
+        "Drums",
+        "Side stage"
+      ]
+    },
+    {
+      "name": "eight",
+      "slots": [
+        "Wide",
+        "Singer",
+        "Drums",
+        "Guitar",
+        "Bass",
+        "Keys",
+        "Side stage",
+        "Super wide"
+      ]
+    }
+  ]
+}

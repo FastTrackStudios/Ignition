@@ -285,6 +285,30 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
             return Some(rgb_par(3, None, 0));
         }
     }
+    // CBU Room 138's tower fixture — the one authored from a photograph
+    // rather than a chart (`data/gdtf/specs/cbu-tower-blinder-ring.json`).
+    // Four channels: the warm-amber blinder strip across the middle of
+    // the lens, then R/G/B for the LED behind the rest of the face.
+    //
+    // It needs an entry here at all because this table is the authority,
+    // not the GDTF: a model with no row is a model with no channel map,
+    // and a fixture with no channel map never lights. Twenty-four of
+    // Room 138's forty fixtures were dark for exactly that reason.
+    //
+    // No Dimmer channel, deliberately — `dmx.rs` already handles a
+    // personality without one (the bare 3ch RGB par is the other case),
+    // and nothing in the photograph suggests these have a master.
+    if mo.contains("tower blinder ring") {
+        let mut cm = rgb_par(4, None, 1);
+        cm.channels.push((
+            0,
+            Attribute::ColorAdd {
+                channel: ColorChannel::White,
+            },
+        ));
+        return Some(cm);
+    }
+
     if m == "chauvet" && mo.contains("hurricane") {
         // CONFIRMED against the real fixture's own published profile:
         // open-fixture-library fixtures/chauvet-dj/hurricane-haze-1dx.json

@@ -1,0 +1,45 @@
+[package]
+name = "ignition-daw-transport"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Where the playhead comes from: the TransportSource seam, the timecode decoders, and the ports that feed them"
+
+# The decoders are unconditional; only the ports cost a device stack.
+# Splitting the two is the whole point of this crate existing apart from
+# the facade -- `cargo test -p ignition-daw-transport` exercises every
+# byte of MTC, LTC and Art-Net timecode on a machine with no sound card
+# and no MIDI interface.
+[features]
+default = []
+# The embedded DAW: an RPP loader, the standalone sync engine and a cpal
+# output stream. By far the heaviest of the three.
+play = ["dep:daw-proto", "dep:daw-audio-io", "dep:tokio", "dep:ignition-daw-reaper", "daw/standalone-rpp"]
+# MIDI Time Code from a MIDI input port. `MtcDecoder` is always built
+# and tested; this adds only the port.
+mtc = ["dep:midir"]
+# LTC from an audio input. Likewise: the decoder is always built, the
+# cpal input stream is what this pays for.
+ltc = ["dep:cpal"]
+
+[dependencies]
+ignition-daw-proto.workspace = true
+# Only the `play` backend, which loads a project to play it.
+ignition-daw-reaper = { workspace = true, optional = true }
+daw.workspace = true
+daw-proto = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", optional = true }
+# Only for `AudioIoPrefs`, to ask the output stream for a small buffer
+# — the playhead advances once per callback, so the buffer *is* the
+# clock's resolution.
+daw-audio-io = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", optional = true }
+anyhow = "1"
+tracing = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+midir = { version = "0.11", optional = true }
+cpal = { version = "0.18", optional = true }
+
+[lib]
+name = "ignition_daw_transport"
+path = "src/lib.rs"

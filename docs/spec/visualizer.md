@@ -360,10 +360,21 @@ not a perspective of the roof.
 
 r[viz.programme-view]
 The visualizer MUST be able to render a second, **programme** camera to its
-own texture beside the main view: the number keys and the cues' `camera …`
-commands move the programme camera, and the main view stays on a *wide*
-preset of its own (selectable), so an operator can dock the whole rig and
-the cut side by side or on different monitors. The programme camera is
-spawned only while something shows it — a Programme pane, or a canvas
-sampling it — and a lone viewport pays nothing for it; with no programme
-camera the main view takes the cuts itself.
+own texture beside the main view. The number keys and the cues' `camera …`
+commands move the **programme** camera; the main view stays on a *wide*
+preset of its own (selectable) and MUST hold it whatever else is happening,
+so an operator can dock the whole rig and the cut side by side or on
+different monitors.
+
+The main view holds the wide shot even when nothing is showing the
+programme. The two panes answer different questions — *what is the rig
+doing* and *what is the cut* — and a Visualizer that silently became the
+cut whenever the Programme pane was closed answered neither reliably: the
+whole rig is what an operator is looking at the visualizer **for**, and a
+show that cuts to a drum cam fourteen times would take it away without
+being asked. A cut with nothing showing the programme is simply not
+rendered, which is what "the programme camera is spawned only while
+something shows it" already means.
+
+The programme camera is spawned only while something shows it — a Programme
+pane, or a canvas sampling it — and a lone viewport pays nothing for it.

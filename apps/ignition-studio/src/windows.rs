@@ -539,10 +539,11 @@ pub fn WindowRoot(host: HostId) -> Element {
     let popped = current.popped;
 
     rsx! {
+        style { {ignition_live_ui::live::TOKENS_CSS} }
         style { {include_str!("studio.css")} }
         style { {ignition_live_ui::live::LIVE_CSS} }
-        style { {PANEL_CSS} }
-        style { {crate::dock::view::DOCK_CSS} }
+        style { {include_str!("panel.css")} }
+        style { {include_str!("dock.css")} }
         document::Stylesheet { href: crate::TAILWIND }
         ignition_live_ui::pointer::PointerRoot {
             div { class: "window",
@@ -643,7 +644,7 @@ fn ModeStrip(host: HostId, view: View, title: String, popped: bool) -> Element {
                         title: "Write every window's monitor, placement and panels to the operator file",
                         onclick: move |_| {
                             let name = layout::selected_operator()
-                                .unwrap_or_else(|| crate::operators::current_name());
+                                .unwrap_or_else(crate::operators::current_name);
                             let layout = read_host(|h| h.layout()).flatten_layout();
                             match layout::save(&name, &layout) {
                                 Ok(path) => {
@@ -673,31 +674,6 @@ impl FlattenLayout for Option<Layout> {
         self.unwrap_or_else(Layout::default_single_window)
     }
 }
-
-/// Styling for the frame this module adds around the existing panels.
-/// Inline, not in `studio.css`: that file is the panels' own, and the
-/// host should be removable without touching it.
-const PANEL_CSS: &str = r#"
-.window { display: flex; flex-direction: column; width: 100%; height: 100vh; overflow: hidden; }
-.mode-strip { display: flex; align-items: center; gap: 14px; padding: 0 10px; height: 28px;
-              background: #101014; border-bottom: 1px solid #26262c; flex: 0 0 28px; }
-.mode-strip .modes { display: flex; gap: 8px; }
-.mode-strip .mode { font-size: 10px; letter-spacing: 0.1em; color: #55555f; padding: 3px 6px; }
-.mode-strip .mode.on { color: #e8a040; border-bottom: 2px solid #e8a040; }
-.mode-strip .window-title { font-size: 10px; color: #8d8d99; letter-spacing: 0.06em;
-                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mode-strip .strip-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.mode-strip .saved { font-size: 9px; color: #6a6a78; }
-.panel-key { height: 16px; padding: 0 6px; font-size: 8px; letter-spacing: 0.08em;
-             border-radius: 3px; cursor: pointer; color: rgba(255,255,255,0.7);
-             background: #23232e; border: 1px solid #33333f; }
-.panel-key:hover { background: #2c2c3a; }
-.panel-key.view { height: 18px; font-size: 9px; color: #cfe0f0; border-color: #3d5a80; background: #2c3f5a; }
-.placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-               gap: 6px; background: #121216; color: #55555f; }
-.placeholder-name { font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: #8d8d99; }
-.placeholder-note { font-size: 10px; }
-"#;
 
 #[cfg(test)]
 mod tests {
@@ -757,6 +733,41 @@ mod tests {
             source.contains("dioxus_native::open_window_with_props("),
             "windows are not opened through the patched hook"
         );
+    }
+
+    /// Every stylesheet reaches the document as a `<style>` block.
+    ///
+    /// `document::Stylesheet` is inert under Blitz (Dioxus Native): a
+    /// sheet delivered only through that link never arrives. Nothing
+    /// catches it — the app compiles, the suite passes, and the desk
+    /// comes up with no layout at all, the `.viz` element collapsed to
+    /// zero size and the visualizer silently never initialising. That
+    /// is exactly what happened when these five were briefly replaced
+    /// by an `@import` into `tailwind.css` and one link.
+    ///
+    /// The Tailwind link stays, for the utility classes; it is simply
+    /// not allowed to be the only thing delivering a sheet.
+    #[test]
+    fn every_stylesheet_is_injected_as_a_style_block() {
+        let source = include_str!("windows.rs");
+        let injected: Vec<&str> = source
+            .lines()
+            .map(str::trim)
+            .filter(|l| l.starts_with("style {"))
+            .collect();
+        for sheet in [
+            "TOKENS_CSS",
+            "studio.css",
+            "LIVE_CSS",
+            "panel.css",
+            "dock.css",
+        ] {
+            assert!(
+                injected.iter().any(|l| l.contains(sheet)),
+                "{sheet} is not injected as a <style> block; under Blitz that \
+                 means it does not arrive at all. Injected: {injected:?}"
+            );
+        }
     }
 
     /// The chrome is not selectable, and that is a crash fix rather than

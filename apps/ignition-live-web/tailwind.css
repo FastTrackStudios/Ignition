@@ -1,0 +1,14 @@
+/* Tailwind v4 input for the Live page — the same palette and the same
+   scanned sources as the desk.
+
+   This exists so the shared `ignition-live-ui` components may use
+   utility classes at all. Without it a utility in a shared pane would
+   render on the desk and silently not on the iPad, which is the worst
+   of the three possible outcomes: it would be found in the room.
+
+   Utilities only, for the reason the desk's copy gives. */
+@import "tailwindcss";
+@import "../../crates/ignition-live-ui/src/theme.css";
+
+@source "./src/**/*.rs";
+@source "../../crates/ignition-live-ui/src/**/*.rs";

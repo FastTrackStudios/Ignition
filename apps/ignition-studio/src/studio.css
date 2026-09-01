@@ -5,13 +5,44 @@
    information that is not already visible, so nothing is lost on
    a panel that cannot hover.
 
-   This file is on its way out — see `tailwind.css`. It stays flexbox
-   and explicit values not because Blitz is limited (its style engine is
-   stylo, the same one Firefox uses, so the cascade is real) but because
-   layout is Taffy, and flexbox is the part of Taffy with no surprises. */
+   This file is NOT on its way out, which it used to claim it was, and
+   it is injected as a `<style>` block by `windows.rs` rather than
+   compiled by Tailwind — `document::Stylesheet` is inert under Blitz,
+   and routing these rules through it cost the desk its whole layout
+   once already. Three measurements decided that. The first two are why
+   the rules are not utility classes, after a probe converted one pool
+   of buttons:
+
+   - a `@utility` lands in `@layer utilities`, which loses to every
+     unlayered rule, so converting these would have flipped the cascade
+     on the twenty-four selectors this file shares with `live.css` and
+     `dock.css`;
+   - and a utility is only emitted when Tailwind can *see* its name,
+     which it cannot for the classes this app builds at runtime
+     (`format!("pane pane-{}", ...)`).
+
+   The probe also drifted from the `.pad` rule it was mirroring in three
+   ways inside eight lines, which is the argument in miniature: a rule
+   used twice is one rule, and cannot disagree with itself.
+
+   The third measurement is the delivery one: importing these sheets
+   into `tailwind.css` and loading the result through
+   `document::Stylesheet` compiled, passed every test, and silently
+   unstyled the application — the `.viz` element collapsed to zero size
+   and the visualizer never initialised. Nothing in the suite could see
+   it. `<style>` blocks are how CSS reaches Blitz.
+
+   Utilities are still the right tool for one-off layout, and every
+   colour token has one (`bg-panel`, `text-ink-dim`) — see
+   `theme.css`.
+
+   It stays flexbox and explicit values not because Blitz is limited
+   (its style engine is stylo, the same one Firefox uses, so the cascade
+   is real) but because layout is Taffy, and flexbox is the part of
+   Taffy with no surprises. */
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 13px; }
+body { background: var(--bg); color: var(--ink); font-family: sans-serif; font-size: 13px; }
 
 /* A desk is not a document: nothing here is meant to be drag-selected,
    and letting it be is not merely untidy. A selection whose anchor node
@@ -31,39 +62,39 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .studio { display: flex; width: 100%; height: 100vh; }
 
 /* ── Cue list, left ────────────────────────────────────────────────── */
-.cues { width: 260px; min-width: 260px; height: 100%; background: #131317;
-        border-right: 1px solid #26262c; overflow-y: auto; }
+.cues { width: 260px; min-width: 260px; height: 100%; background: var(--panel);
+        border-right: 1px solid var(--line); overflow-y: auto; }
 .cues header { display: flex; justify-content: space-between; align-items: center;
                padding: 12px 14px; font-weight: bold; letter-spacing: 0.08em;
-               text-transform: uppercase; font-size: 10px; color: #8d8d99;
-               border-bottom: 1px solid #26262c; }
+               text-transform: uppercase; font-size: 10px; color: var(--ink-label);
+               border-bottom: 1px solid var(--line); }
 .cues ol { list-style: none; margin: 0; padding: 0; }
 /* A row is a block, not a flex line: the main line, then whatever the
    Program preset opens under it — note, commands, parts. */
 .cue { display: block; padding: 0; cursor: pointer;
-       border-bottom: 1px solid #1c1c22; }
+       border-bottom: 1px solid var(--pad); }
 .cues .cue-main { display: flex; gap: 10px; align-items: center; padding: 14px; }
-.cue:hover { background: #1b1b21; }
-.cue.on { background: #23233a; color: #fff; }
+.cue:hover { background: var(--pad); }
+.cue.on { background: #23233a; color: var(--ink-bright); }
 /* Hits: the song fires these, GO never does. Quiet until one lands. */
 .cue.hit .cue-main { padding: 6px 14px; color: #6f6f80; font-size: 0.85em; }
 .cue.hit .num { color: #4a4a5c; }
-.cue.hit.on { background: #3a2f10; color: #ffe9a8; }
-.num { width: 22px; color: #6f6f7d; text-align: right; }
+.cue.hit.on { background: var(--hit); color: var(--hit-ink); }
+.num { width: 22px; color: var(--ink-faint); text-align: right; }
 .cues .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
               white-space: nowrap; }
 
-.go { background: #2c4a2c; color: #cfe8cf; border: 1px solid #3d663d;
+.go { background: var(--go); color: var(--go-ink); border: 1px solid var(--go-line);
       border-radius: 5px; padding: 8px 18px; font-size: 11px; font-weight: bold;
       letter-spacing: 0.08em; cursor: pointer; }
 .go:hover { background: #386038; }
 /* Transport, under the cue-list header. PLAY hands the list to the
    song; GO steps it by hand. Both drive the same cues. */
 .transport { display: flex; gap: 8px; padding: 10px 12px;
-             border-bottom: 1px solid #26262c; }
+             border-bottom: 1px solid var(--line); }
 .transport button { flex: 1; height: 44px; border-radius: 6px; cursor: pointer;
                     font-size: 12px; }
-.play { background: #2c3f5a; color: #cfe0f0; border: 1px solid #3d5a80; }
+.play { background: var(--play); color: var(--meter-ink); border: 1px solid var(--play-line); }
 .play:hover { background: #365070; }
 
 /* ── The cue list's Program preset ──────────────────────────────────
@@ -78,14 +109,14 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .cues.program { width: 460px; min-width: 460px; }
 .dock .cues.program { width: 100%; min-width: 0; }
 .cues.program .cue-main { padding: 9px 14px; font-size: 12px; }
-.cues .preset { background: #232330; color: #9a9ab0; border: 1px solid #34343f;
+.cues .preset { background: var(--pad-hover); color: #9a9ab0; border: 1px solid var(--line-strong);
                 border-radius: 5px; padding: 6px 10px; font-size: 9px;
                 font-weight: bold; letter-spacing: 0.08em; cursor: pointer; }
-.cues .preset.on { background: #2f3a52; color: #cfe0f0; border-color: #45587c; }
+.cues .preset.on { background: #2f3a52; color: var(--meter-ink); border-color: #45587c; }
 /* Columns switched off on top of the preset. */
 .cues .colbar { display: flex; gap: 4px; flex-wrap: wrap; padding: 6px 12px;
-                border-bottom: 1px solid #26262c; }
-.cues .colbar .col { background: #1a1a20; color: #55555f;
+                border-bottom: 1px solid var(--line); }
+.cues .colbar .col { background: var(--pad); color: var(--ink-ghost);
                      border: 1px solid #2a2a32; border-radius: 4px;
                      padding: 3px 7px; font-size: 9px; letter-spacing: 0.04em;
                      cursor: pointer; }
@@ -95,18 +126,18 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
    r[impl cues.appearance] */
 .cues .tint { width: 4px; align-self: stretch; min-height: 16px;
               border-radius: 2px; background: transparent; font-size: 8px;
-              color: #0b0b0e; text-align: center; flex: none; }
+              color: var(--bg); text-align: center; flex: none; }
 .cues .cue.hit .tint { background: transparent; }
 
 /* How the cue is taken, one glyph. r[impl cues.trig] */
 .cues .trig { width: 12px; color: #6f6f8a; text-align: center; flex: none; }
 .cues .at { color: #7d8fa8; font-size: 0.85em; white-space: nowrap; }
-.cues .fade { color: #6f6f7d; font-size: 0.85em; white-space: nowrap;
+.cues .fade { color: var(--ink-faint); font-size: 0.85em; white-space: nowrap;
               min-width: 30px; text-align: right; }
 
 /* Per-class timing, condensed. r[impl studio.cuelist.condensed-timing] */
 .cues .times { display: flex; gap: 5px; }
-.cues .tcell { background: #1c1c26; border: 1px solid #2a2a36;
+.cues .tcell { background: var(--tile); border: 1px solid var(--line-pad);
                border-radius: 3px; padding: 1px 4px; font-size: 10px;
                color: #9a9ab0; white-space: nowrap; }
 .cues .tclass { color: #5a5a6a; margin-right: 3px; }
@@ -115,7 +146,7 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 /* The flags, as chips. Each is one letter with the whole rule on hover. */
 .cues .flags { display: flex; gap: 3px; }
 .cues .chip { width: 15px; height: 15px; line-height: 15px; text-align: center;
-              border-radius: 3px; background: #2a2a36; color: #a0a0b8;
+              border-radius: 3px; background: var(--line-pad); color: #a0a0b8;
               font-size: 9px; font-weight: bold; }
 .cues .mib { color: #8a7fb0; font-size: 10px; white-space: nowrap; }
 .cues .cue-cmds { display: flex; gap: 5px; padding: 0 14px 8px 44px; }
@@ -131,18 +162,18 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .cues .dot { width: 7px; height: 7px; border-radius: 50%; flex: none;
              background: #3a3a44; }
 .cues .dot.ok { background: #4f9e4f; }
-.cues .dot.bad { background: #c04a3a; }
+.cues .dot.bad { background: var(--bad); }
 .cues .dot.warn { background: #c08a3a; }
 .cues .dot.direct { background: #6a7a9a; }
-.cues .dot.dead { background: #c04a3a; box-shadow: 0 0 0 3px rgba(192,74,58,0.2); }
-.cues .dot.unknown { background: #2e2e38; }
+.cues .dot.dead { background: var(--bad); box-shadow: 0 0 0 3px rgba(192,74,58,0.2); }
+.cues .dot.unknown { background: var(--line-pad); }
 
 /* The standing cue's fade, as a bar across the top of its row, and the
    countdown on a cue that takes itself.
    r[impl studio.cuelist.live-state] */
-.cues .fading { height: 2px; background: #1c1c26; }
+.cues .fading { height: 2px; background: var(--tile); }
 .cues .fadefill { height: 100%; background: #4a7fbf; }
-.cues .countdown { background: #3a2f10; color: #ffe9a8; border-radius: 3px;
+.cues .countdown { background: var(--hit); color: var(--hit-ink); border-radius: 3px;
                    padding: 1px 5px; font-size: 10px; white-space: nowrap; }
 
 .cues .expand { background: none; border: none; color: #6f6f8a;
@@ -155,10 +186,10 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 
 /* Parts: a cue's recipes, indented under it.
    r[impl studio.cuelist.expand] r[impl cues.parts-are-recipes] */
-.cues .parts { background: #101015; border-top: 1px solid #1c1c22; }
+.cues .parts { background: #101015; border-top: 1px solid var(--pad); }
 .cues .part { display: flex; gap: 8px; align-items: center;
               padding: 5px 14px 5px 34px; font-size: 11px; color: #9a9ab0;
-              border-bottom: 1px solid #17171d; }
+              border-bottom: 1px solid var(--panel-2); }
 .cues .part:last-child { border-bottom: none; }
 .cues .part.over { color: #7d8fa8; }
 .cues .part.off { opacity: 0.45; text-decoration: line-through; }
@@ -167,7 +198,7 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
                white-space: nowrap; }
 .cues .ptarget { color: #6f7d8a; font-size: 10px; white-space: nowrap; }
 .cues .pcover { color: #6f7d6f; font-size: 10px; }
-.cues .pcover.none { color: #c04a3a; }
+.cues .pcover.none { color: var(--bad); }
 .cues .pnote { color: #6a6a7c; font-style: italic; font-size: 10px; }
 
 /* ── Stage: visualizer over the busking surface ───────────────────── */
@@ -180,32 +211,32 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 
 /* ── Busking surface ──────────────────────────────────────────────── */
 .surface { height: 320px; min-height: 320px; display: flex;
-           background: #131317; border-top: 1px solid #26262c; }
+           background: var(--panel); border-top: 1px solid var(--line); }
 /* `min-width: 0` is what lets a flex item shrink below its content —
    without it the pools refuse to give ground and push the faders off
    the right edge. */
-.col { padding: 12px; border-right: 1px solid #1f1f26;
+.col { padding: 12px; border-right: 1px solid var(--line-soft);
        overflow-y: auto; flex: 1 1 0; min-width: 0; }
 .col.groups { flex: 0 0 260px; }
 .col.intensity { flex: 0 0 210px; }
 .col.faders { flex: 0 0 470px; border-right: none; }
 .surface header { font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;
-                  font-size: 10px; color: #8d8d99; margin-bottom: 10px; }
+                  font-size: 10px; color: var(--ink-label); margin-bottom: 10px; }
 
 /* Pools — Groups and Focus share one uniform grid. Fixed-size cells
    rather than pills that size to their label: a pool you find things in
    by position has to keep the same shape every time you look at it,
    which is how every console lays a pool out. */
 .pool { display: flex; flex-wrap: wrap; gap: 8px; }
-.pad { background: #1b1b22; color: #cfcfdb; border: 1px solid #2c2c36;
+.pad { background: var(--pad); color: var(--ink-soft); border: 1px solid var(--line-pad);
        border-radius: 6px; width: 84px; height: 64px; font-size: 11px;
        padding: 4px; cursor: pointer; }
-.pad:hover { background: #24242e; border-color: #3d3d4a; }
-.pad.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.pad:hover { background: var(--pad-hover); border-color: var(--line-bright); }
+.pad.on { background: var(--sel); border-color: var(--sel-line); color: var(--ink-bright); }
 
 /* Loose buttons that are not pool entries — Release, Clear. */
 .row { display: flex; flex-wrap: wrap; gap: 8px; }
-.tile { background: #1e1e26; color: #d6d6e0; border: 1px solid #2c2c36;
+.tile { background: var(--tile); color: var(--ink-2); border: 1px solid var(--line-pad);
         border-radius: 6px; padding: 0 12px; height: 44px; min-width: 74px;
         font-size: 12px; cursor: pointer; }
 .tile:hover { background: #272733; }
@@ -223,14 +254,14 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 /* Brighten the ring rather than the disc: the disc is the gel and must
    not lie about what it will do. */
 .swatch:hover .disc { border-color: rgba(255, 255, 255, 0.65); }
-.swatch:hover .swatch-label { color: #e6e6e6; }
-.swatch-label { font-size: 10px; color: #9a9aa6; text-align: center; }
+.swatch:hover .swatch-label { color: var(--ink); }
+.swatch-label { font-size: 10px; color: var(--ink-dim); text-align: center; }
 
 /* Intensity — presets beside the fader, the way a console puts its
    dimmer pool next to the wheel. */
 .intensity-row { display: flex; gap: 12px; }
 .presets { display: flex; flex-direction: column; gap: 6px; }
-.preset { background: #1e1e26; color: #d6d6e0; border: 1px solid #2c2c36;
+.preset { background: var(--tile); color: var(--ink-2); border: 1px solid var(--line-pad);
           border-radius: 6px; width: 52px; height: 40px; font-size: 12px;
           cursor: pointer; }
 
@@ -242,7 +273,7 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
    comes from the pointer's position within this element, so the two have
    to agree. */
 .track { position: relative; width: 44px; height: 190px; border-radius: 8px;
-         background: #17171d; border: 1px solid #2c2c36; overflow: hidden;
+         background: var(--panel-2); border: 1px solid var(--line-pad); overflow: hidden;
          cursor: pointer; }
 .fill { position: absolute; left: 0; bottom: 0; width: 100%; opacity: 0.55; }
 /* A wide flat handle reads as a fader cap and gives the thumb something
@@ -250,10 +281,10 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .handle { position: absolute; left: 0; width: 100%; height: 8px;
           margin-bottom: -4px; background: #e8e8ee;
           border-top: 2px solid; border-bottom: 2px solid; }
-.fader-label { font-size: 10px; color: #9a9aa6; }
-.fader-value { font-size: 11px; color: #d6d6e0; }
+.fader-label { font-size: 10px; color: var(--ink-dim); }
+.fader-value { font-size: 11px; color: var(--ink-2); }
 /* The master sits apart so it does not read as a ninth fader. */
-.master { margin-left: 12px; padding-left: 12px; border-left: 1px solid #2c2c36; }
+.master { margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--line-pad); }
 
 /* Solo. Deliberately loud when engaged: a solo left on by accident is
    the kind of mistake that survives a whole song, and a control that
@@ -266,10 +297,10 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
   border-radius: 4px;
   cursor: pointer;
   color: rgba(255, 255, 255, 0.66);
-  background: #232330;
-  border: 1px solid #33333f;
+  background: var(--pad-hover);
+  border: 1px solid var(--line-strong);
 }
-.groups .solo:hover { background: #2b2b3a; }
+.groups .solo:hover { background: var(--sel-deep-2); }
 
 /* Flash keys. Wide and short — a flash is hit with the side of a hand
    under pressure, not clicked precisely, so the target is generous even
@@ -287,7 +318,7 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
   border: 1px solid #3a3546;
 }
 .flashes .flash:hover { background: #363042; border-color: #4a4358; }
-.flashes .flash:active { background: #d8d0e8; color: #14121a; }
+.flashes .flash:active { background: #d8d0e8; color: var(--ink-inverse); }
 
 /* Role masters, beside the effect controls. Same fader shape as the
    rest — a master and an effect fader feel identical under a hand, and
@@ -303,8 +334,8 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
   align-items: center;
   gap: 10px;
   padding: 7px 12px;
-  background: #16161d;
-  border-bottom: 1px solid #26262f;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--pad-hover);
   flex: 0 0 auto;
 }
 .transport-bar .t-btn {
@@ -314,10 +345,10 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
   border-radius: 4px;
   cursor: pointer;
   color: rgba(255, 255, 255, 0.78);
-  background: #23232e;
-  border: 1px solid #33333f;
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
 }
-.transport-bar .t-btn:hover { background: #2c2c3a; }
+.transport-bar .t-btn:hover { background: var(--sel-deep-2); }
 
 /* Held keys. Distinct from the fired ones because they behave
    differently under a hand — down is on, up is off — and a key that
@@ -327,9 +358,9 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
    from everything else on the surface. */
 .flashes .flash.hold { border-style: dashed; }
 .flashes .flash.punt {
-  color: #14121a;
+  color: var(--ink-inverse);
   background: #e8c860;
-  border: 1px solid #f0d880;
+  border: 1px solid var(--hit-pale);
   font-weight: 600;
 }
 .flashes .flash.punt:hover { background: #f0d878; }
@@ -343,17 +374,17 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .pages { display: flex; align-items: center; gap: 4px; }
 .page-btn {
   width: 24px; height: 20px; font-size: 10px; border-radius: 4px; cursor: pointer;
-  color: rgba(255, 255, 255, 0.78); background: #23232e; border: 1px solid #33333f;
+  color: rgba(255, 255, 255, 0.78); background: var(--raised); border: 1px solid var(--line-strong);
 }
-.page-btn:hover { background: #2c2c3a; }
+.page-btn:hover { background: var(--sel-deep-2); }
 .page-num { font-size: 10px; letter-spacing: 0.06em; color: #b8b8c8; text-transform: none; }
 .key-modes { display: flex; gap: 3px; }
 .key-mode {
   font-size: 9px; letter-spacing: 0.06em; padding: 3px 6px; border-radius: 4px; cursor: pointer;
-  color: rgba(255, 255, 255, 0.6); background: #1e1e26; border: 1px solid #2c2c36;
+  color: rgba(255, 255, 255, 0.6); background: var(--tile); border: 1px solid var(--line-pad);
 }
-.key-mode.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
-.blind-flag { font-size: 9px; letter-spacing: 0.06em; color: #14121a; background: #e86060;
+.key-mode.on { background: var(--sel); border-color: var(--sel-line); color: var(--ink-bright); }
+.blind-flag { font-size: 9px; letter-spacing: 0.06em; color: var(--ink-inverse); background: var(--bad-bright);
               padding: 2px 6px; border-radius: 3px; text-transform: none; }
 
 /* A fader and its playback key, stacked. */
@@ -363,8 +394,8 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
   color: rgba(255, 255, 255, 0.55); background: #2a2733; border: 1px solid #3a3546;
 }
 .pkey:hover { background: #363042; }
-.pkey:active { background: #d8d0e8; color: #14121a; }
-.pkey.on { background: #d8c060; border-color: #f0d880; color: #14121a; }
+.pkey:active { background: #d8d0e8; color: var(--ink-inverse); }
+.pkey.on { background: #d8c060; border-color: var(--hit-pale); color: var(--ink-inverse); }
 
 /* Latched: the page turned under a fader that was up. The old
    assignment is still playing and the fill is hollow until the hand
@@ -377,11 +408,11 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
    blind desk goes nowhere, and it has to look wrong. */
 .modes { margin-top: 6px; }
 .tile.mode { font-size: 9px; letter-spacing: 0.06em; padding: 5px 7px; }
-.tile.mode.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
-.tile.mode.blind.on { background: #7a2a2a; border-color: #e86060; color: #fff; }
+.tile.mode.on { background: var(--sel); border-color: var(--sel-line); color: var(--ink-bright); }
+.tile.mode.blind.on { background: #7a2a2a; border-color: var(--bad-bright); color: var(--ink-bright); }
 
 /* GO on the look list, beside the song's GO. */
-.go.look { background: #2c3f5a; color: #cfe0f0; border-color: #3d5a80; margin-left: 4px; }
+.go.look { background: var(--play); color: var(--meter-ink); border-color: var(--play-line); margin-left: 4px; }
 
 /* ── Masters, parks, speed keys and the sound-in ─────────────────── */
 /* Transport keys for the song *playback*, beside the song's own
@@ -392,17 +423,17 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .transport-bar .t-key {
   height: 26px; padding: 0 8px; font-size: 10px; letter-spacing: 0.06em;
   border-radius: 4px; cursor: pointer; color: rgba(255, 255, 255, 0.78);
-  background: #23232e; border: 1px solid #33333f;
+  background: var(--raised); border: 1px solid var(--line-strong);
 }
-.transport-bar .t-key:hover { background: #2c2c3a; }
-.transport-bar .t-key.on { background: #e8a040; border-color: #f0c070; color: #14121a; }
+.transport-bar .t-key:hover { background: var(--sel-deep-2); }
+.transport-bar .t-key.on { background: var(--hit-bright); border-color: #f0c070; color: var(--ink-inverse); }
 
 /* The transmitter. Green when bytes are leaving the socket, red when
    they cannot — an errored socket outranks the switch, because a lit
    key over a dead socket is a desk silently not sending. */
 .transport-bar .t-output { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
 .transport-bar .t-key.output.on { background: #3fae5a; border-color: #6fd08a; color: #0d140f; }
-.transport-bar .t-key.output.err { background: #c8383a; border-color: #ef6b6d; color: #fff; }
+.transport-bar .t-key.output.err { background: #c8383a; border-color: #ef6b6d; color: var(--ink-bright); }
 .transport-bar .out-status { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* The sound fade and the three band meters. A trim and a meter, so
@@ -411,14 +442,14 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .transport-bar .t-label { font-size: 9px; letter-spacing: 0.08em; color: #8a8a9a; }
 .hslider {
   position: relative; width: 90px; height: 14px; border-radius: 7px;
-  background: #23232e; border: 1px solid #33333f; overflow: hidden; cursor: pointer;
+  background: var(--raised); border: 1px solid var(--line-strong); overflow: hidden; cursor: pointer;
 }
-.hfill { position: absolute; left: 0; top: 0; height: 100%; background: #6ea8c0; opacity: 0.7; }
+.hfill { position: absolute; left: 0; top: 0; height: 100%; background: var(--meter); opacity: 0.7; }
 .meters { display: flex; gap: 4px; }
 .meter { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .meter-track {
   position: relative; width: 10px; height: 22px; border-radius: 2px;
-  background: #23232e; border: 1px solid #33333f; overflow: hidden;
+  background: var(--raised); border: 1px solid var(--line-strong); overflow: hidden;
 }
 .meter-fill { position: absolute; left: 0; bottom: 0; width: 100%; background: #8fd0a0; }
 .meter-label { font-size: 7px; color: #8a8a9a; letter-spacing: 0.04em; }
@@ -428,7 +459,7 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .tile.park { background: #1a2a2a; border-color: #2a4a4a; color: #b0e0e0; }
 .tile.park:hover { background: #223a3a; }
 .parked-flag {
-  font-size: 9px; letter-spacing: 0.06em; color: #14121a; background: #60d0d0;
+  font-size: 9px; letter-spacing: 0.06em; color: var(--ink-inverse); background: #60d0d0;
   padding: 2px 6px; border-radius: 3px; align-self: center;
 }
 
@@ -438,10 +469,10 @@ body { background: #0b0b0d; color: #e6e6e6; font-family: sans-serif; font-size: 
 .speed-keys { display: flex; flex-direction: column; gap: 3px; align-items: center; }
 .speed-key {
   width: 44px; height: 18px; font-size: 9px; letter-spacing: 0.04em; border-radius: 4px;
-  cursor: pointer; color: rgba(255, 255, 255, 0.7); background: #1e1e26; border: 1px solid #2c2c36;
+  cursor: pointer; color: rgba(255, 255, 255, 0.7); background: var(--tile); border: 1px solid var(--line-pad);
 }
 .speed-key:hover { background: #272733; }
-.speed-key.on { background: #3a3a6b; border-color: #6a6ad0; color: #fff; }
+.speed-key.on { background: var(--sel); border-color: var(--sel-line); color: var(--ink-bright); }
 .speed-key.tap { height: 24px; background: #3a2e1a; border-color: #6a5030; color: #f0d0a0; font-weight: 600; }
-.speed-key.tap:active { background: #f0d0a0; color: #14121a; }
-.tap-readout { font-size: 9px; color: #9a9aa6; }
+.speed-key.tap:active { background: #f0d0a0; color: var(--ink-inverse); }
+.tap-readout { font-size: 9px; color: var(--ink-dim); }

@@ -6521,10 +6521,130 @@ dependencies = [
 ]
 
 [[package]]
-name = "ignition-core"
+name = "ignition-colour"
 version = "0.1.0"
 dependencies = [
  "ignition-proto",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ignition-core"
+version = "0.1.0"
+dependencies = [
+ "ignition-colour",
+ "ignition-daw-proto",
+ "ignition-effects",
+ "ignition-playback",
+ "ignition-proto",
+ "ignition-rig",
+ "ignition-show",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ignition-daw"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "daw",
+ "fts-sample",
+ "hit-detect-dsp",
+ "ignition-colour",
+ "ignition-daw-proto",
+ "ignition-daw-reaper",
+ "ignition-daw-transport",
+ "ignition-effects",
+ "ignition-playback",
+ "ignition-proto",
+ "ignition-rig",
+ "ignition-show",
+ "keyflow-proto",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "ignition-daw-proto"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ignition-daw-reaper"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "daw",
+ "ignition-daw-proto",
+ "serde_json",
+]
+
+[[package]]
+name = "ignition-daw-transport"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cpal",
+ "daw",
+ "daw-audio-io",
+ "daw-proto",
+ "ignition-daw-proto",
+ "ignition-daw-reaper",
+ "midir",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "ignition-dmx"
+version = "0.1.0"
+dependencies = [
+ "ignition-dmx-artnet",
+ "ignition-dmx-proto",
+ "ignition-dmx-sacn",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ignition-dmx-artnet"
+version = "0.1.0"
+dependencies = [
+ "ignition-dmx-proto",
+]
+
+[[package]]
+name = "ignition-dmx-proto"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ignition-dmx-sacn"
+version = "0.1.0"
+dependencies = [
+ "ignition-dmx-proto",
+]
+
+[[package]]
+name = "ignition-effects"
+version = "0.1.0"
+dependencies = [
+ "ignition-colour",
+ "ignition-daw-proto",
+ "ignition-proto",
+ "ignition-rig",
+ "ignition-show",
  "serde",
  "serde_json",
 ]
@@ -6534,14 +6654,6 @@ name = "ignition-engine"
 version = "0.1.0"
 dependencies = [
  "ignition-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "ignition-io"
-version = "0.1.0"
-dependencies = [
  "serde",
  "serde_json",
 ]
@@ -6589,6 +6701,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignition-playback"
+version = "0.1.0"
+dependencies = [
+ "ignition-colour",
+ "ignition-daw-proto",
+ "ignition-effects",
+ "ignition-proto",
+ "ignition-rig",
+ "ignition-show",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ignition-profile"
 version = "0.1.0"
 dependencies = [
@@ -6605,24 +6731,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "ignition-song"
+name = "ignition-rig"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "cpal",
- "daw",
- "daw-audio-io",
- "daw-proto",
- "fts-sample",
- "hit-detect-dsp",
- "ignition-core",
- "keyflow-proto",
- "midir",
+ "ignition-proto",
  "serde",
  "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
+]
+
+[[package]]
+name = "ignition-show"
+version = "0.1.0"
+dependencies = [
+ "ignition-colour",
+ "ignition-daw-proto",
+ "ignition-proto",
+ "ignition-rig",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -6641,9 +6767,9 @@ dependencies = [
  "dioxus-native-dom",
  "futures-util",
  "ignition-core",
+ "ignition-daw",
  "ignition-live-ui",
  "ignition-profile",
- "ignition-song",
  "ignition-viz",
  "midir",
  "peniko",
@@ -6669,7 +6795,7 @@ dependencies = [
  "gltf",
  "hap-qt",
  "ignition-core",
- "ignition-io",
+ "ignition-dmx",
  "ignition-proto",
  "image",
  "sacn",

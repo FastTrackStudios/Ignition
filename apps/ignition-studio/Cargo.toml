@@ -53,7 +53,7 @@ midir = { version = "0.11", optional = true }
 rosc = { version = "0.11", optional = true }
 cpal = { version = "0.18", optional = true }
 ignition-viz = { workspace = true, features = ["ffmpeg"] }
-ignition-song = { workspace = true, features = ["play"] }
+ignition-daw = { workspace = true, features = ["play"] }
 bevy.workspace = true
 wgpu.workspace = true
 anyhow = "1"

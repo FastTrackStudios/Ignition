@@ -196,6 +196,12 @@ impl Slice {
     /// so a wide canvas can show the band with the face in it. The band
     /// is kept inside the source, so a focus near an edge pins to it.
     pub fn cover_at(self, canvas_aspect: f32, source_aspect: f32, focus: f32) -> Slice {
+        // `!(x > 0.0)`, not `x <= 0.0`: the negated form is the one that
+        // also catches NaN, which is exactly what this guard is for —
+        // an aspect comes from a division by a dimension that may be
+        // zero, and NaN must bail out rather than fall through into the
+        // maths below.
+        #[allow(clippy::neg_cmp_op_on_partial_ord)]
         if !(canvas_aspect > 0.0) || !(source_aspect > 0.0) {
             return self;
         }
@@ -238,19 +244,19 @@ pub fn canvas_aspects(screens: &[GeometryRecord]) -> HashMap<String, f32> {
         .map(|(canvas, members)| {
             let x0 = members
                 .iter()
-                .map(|m| m.position.x as f32 - m.size.x * 0.5)
+                .map(|m| m.position.x - m.size.x * 0.5)
                 .fold(f32::INFINITY, f32::min);
             let x1 = members
                 .iter()
-                .map(|m| m.position.x as f32 + m.size.x * 0.5)
+                .map(|m| m.position.x + m.size.x * 0.5)
                 .fold(f32::NEG_INFINITY, f32::max);
             let z0 = members
                 .iter()
-                .map(|m| m.position.z as f32)
+                .map(|m| m.position.z)
                 .fold(f32::INFINITY, f32::min);
             let z1 = members
                 .iter()
-                .map(|m| m.position.z as f32 + m.size.y)
+                .map(|m| m.position.z + m.size.y)
                 .fold(f32::NEG_INFINITY, f32::max);
             let aspect = (x1 - x0).max(f32::EPSILON) / (z1 - z0).max(f32::EPSILON);
             (canvas.to_string(), aspect)
@@ -351,6 +357,7 @@ mod tests {
                 speed: Speed::Hz(1.0),
                 ..Timing::default()
             },
+            plane: Default::default(),
         };
         let mut src = ProceduralSource::new(recipe, 8.33 / 0.8);
         let (w, h) = src.size();
@@ -358,7 +365,7 @@ mod tests {
         assert!(h > 0 && h < w);
         let first = src.frame_at(0.0).expect("a first frame").to_vec();
         assert_eq!(first.len(), (w * h * 4) as usize);
-        assert!(first.iter().any(|&p| p == 255));
+        assert!(first.contains(&255));
         // Same time, same picture — nothing to upload.
         assert!(src.frame_at(0.0).is_none());
         // Time moved: a different picture.

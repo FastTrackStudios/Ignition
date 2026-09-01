@@ -32,6 +32,34 @@ pub struct SoundLevels {
     pub high: f32,
 }
 
+/// Everything [`Playback::load`] takes beyond the venue itself.
+///
+/// One struct rather than eight positional parameters: every one of them
+/// is an `Option`, so the call sites read `None, None, None, None` and
+/// said nothing about which knob was which. `Default` is "the show as
+/// written, from the top", and a caller names only the fields it means to
+/// change.
+#[derive(Debug, Clone, Default)]
+pub struct LoadOptions<'a> {
+    /// A cue list file — the top layer of the cascade. Mutually exclusive
+    /// with `recipes`.
+    pub cuelist: Option<&'a Path>,
+    /// A recipe file — the lower layer. Mutually exclusive with `cuelist`.
+    pub recipes: Option<&'a Path>,
+    /// Put the player at the *end* of this cue's fade rather than
+    /// starting it — how a programmed look is captured headlessly, with
+    /// no keyboard to press GO with.
+    pub jump_to_cue: Option<usize>,
+    /// Freeze a running effect at this moment, for the same reason.
+    pub effect_time: Option<f32>,
+    /// Seek the player to a musical position.
+    pub bar: Option<u32>,
+    /// Seed the Song speed master when no transport is present.
+    pub song_bpm: Option<f32>,
+    /// The arrangement the show's relative positions resolve against.
+    pub song: Option<&'a SongMap>,
+}
+
 /// A loaded show, if the CLI was given one.
 #[derive(Resource, Default)]
 pub struct Playback {
@@ -416,16 +444,16 @@ impl Playback {
     // r[impl cues.seek] - `--bar` seeks the player to a musical position
     // r[impl effects.masters.song] - `--bpm` seeds the Song master when no transport is present
     // r[impl song.relative-position.resolved-on-load] - positions resolve against the song map here
-    pub fn load(
-        venue: &Venue,
-        cuelist: Option<&Path>,
-        recipes: Option<&Path>,
-        jump_to_cue: Option<usize>,
-        effect_time: Option<f32>,
-        bar: Option<u32>,
-        song_bpm: Option<f32>,
-        song: Option<&SongMap>,
-    ) -> anyhow::Result<Self> {
+    pub fn load(venue: &Venue, options: LoadOptions<'_>) -> anyhow::Result<Self> {
+        let LoadOptions {
+            cuelist,
+            recipes,
+            jump_to_cue,
+            effect_time,
+            bar,
+            song_bpm,
+            song,
+        } = options;
         anyhow::ensure!(
             cuelist.is_none() || recipes.is_none(),
             "pass either --cuelist or --recipes, not both"

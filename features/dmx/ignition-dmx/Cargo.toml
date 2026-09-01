@@ -1,0 +1,26 @@
+[package]
+name = "ignition-dmx"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "DMX transmit: one socket set, sACN and Art-Net per universe, at a bounded rate"
+
+# The facade. Owns the sockets and the rate limiting; owns no packet
+# layout. Both backends are unconditional today because a venue may put
+# either protocol on any universe at run time -- the choice is data in
+# `venue.ig-venue`, not a build-time one -- and together they are under
+# 700 lines with no dependencies. If a third backend arrives with a real
+# cost (a USB widget wants a serial crate), THAT is the one to put
+# behind a cargo feature, and this is where the gate goes.
+[dependencies]
+ignition-dmx-proto.workspace = true
+ignition-dmx-sacn.workspace = true
+ignition-dmx-artnet.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lib]
+name = "ignition_dmx"
+path = "src/lib.rs"

@@ -1739,7 +1739,7 @@
               },
               "by": {
                 "Axis": [
-                  "X",
+                  "Z",
                   "Asc"
                 ]
               }
@@ -3178,7 +3178,7 @@
               },
               "by": {
                 "Axis": [
-                  "X",
+                  "Z",
                   "Asc"
                 ]
               }
@@ -5071,6 +5071,19 @@
         },
         {
           "effect": "blinder chase",
+          "target": {
+            "Order": {
+              "of": {
+                "Role": "Audience"
+              },
+              "by": {
+                "Axis": [
+                  "Z",
+                  "Asc"
+                ]
+              }
+            }
+          },
           "params": {
             "bars": 0.5
           }

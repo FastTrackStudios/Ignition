@@ -112,7 +112,7 @@ pub fn run_previews(
         .subjects
         .iter()
         .any(|s| matches!(s, Subject::Macro(_)))
-        .then(|| ignition_core::Profile::load_with_authored(&profile_path()).ok())
+        .then(|| ignition_core::Profile::load_with_authored(profile_path()).ok())
         .flatten();
     let mut runner: Option<ignition_core::macros::MacroRunner> = None;
     let settle = config.settle_frames.max(1);
@@ -257,7 +257,7 @@ pub fn run_previews(
 /// Empty when there is no profile to read, which is the same answer as
 /// "no macros" and needs no special case.
 pub fn macro_names() -> Vec<String> {
-    ignition_core::Profile::load_with_authored(&profile_path())
+    ignition_core::Profile::load_with_authored(profile_path())
         .map(|p| p.macros.keys().cloned().collect())
         .unwrap_or_default()
 }

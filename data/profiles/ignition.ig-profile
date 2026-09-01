@@ -801,9 +801,41 @@
       "about": "the whole wash crossfading between the palette's two colours every two bars — verses and bridges",
       "family": "colour"
     },
+    "wall bands": {
+      "about": "three horizontal bands scrolling up the wash — a slow riser under a pre-chorus",
+      "family": "matrix"
+    },
+    "wall rain": {
+      "about": "drops falling down each column on its own offset — weather rather than a chase, and the one effect that reads as *down* on a tower wall",
+      "family": "matrix"
+    },
+    "wall rain heavy": {
+      "about": "the same rain twice as fast with more columns and a shorter tail — a downpour, for a drop or a breakdown's last bar",
+      "family": "matrix"
+    },
+    "wall snake": {
+      "about": "a head crawling a serpentine path across the wash with a fading tail — the matrix move, for a bridge or a breakdown that needs one thing happening",
+      "family": "matrix"
+    },
+    "wall snake climb": {
+      "about": "the same snake weaving up the columns instead of across the rows — reads as a climb on a rig with height, as a slow chase on one without",
+      "family": "matrix"
+    },
+    "wall snake fast": {
+      "about": "a short-tailed snake at a bar a lap — a last-chorus move, too busy for a verse",
+      "family": "matrix"
+    },
+    "wall sparkle": {
+      "about": "cells lighting at random across the wall and fading — a texture, not a move; safe under a verse",
+      "family": "matrix"
+    },
     "wall sweep": {
       "about": "every beam sweeping a three metre line across its aim and back every two bars — choruses, a wall of beams that stays a wall",
       "family": "movement"
+    },
+    "wall wipe": {
+      "about": "one soft bar crossing the wash bottom to top — the simplest thing a wall can do that a row cannot",
+      "family": "matrix"
     },
     "warm chase": {
       "about": "gold, amber, red and pink walking along the wash like a sunset over four bars — outros and warm bridges",
@@ -15968,6 +16000,369 @@
         }
       }
     },
+    "wall bands": {
+      "apply": {
+        "Canvas": {
+          "channel": {
+            "attr": "Dimmer",
+            "canvas": "wash",
+            "high": 0.0,
+            "low": -0.699999988079071,
+            "quantity": "Brightness",
+            "relative": true
+          },
+          "recipe": {
+            "plane": "Wall",
+            "source": {
+              "Band": {
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "count": 3,
+                "direction": "Vertical",
+                "width": 0.4000000059604645
+              }
+            },
+            "timing": {
+              "direction": "Forward",
+              "measure": 16.0,
+              "once": false,
+              "phase_offset_deg": 0.0,
+              "phase_spread_deg": 0.0,
+              "speed": {
+                "Master": "Song"
+              }
+            }
+          }
+        }
+      },
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "wall rain": {
+      "apply": {
+        "Canvas": {
+          "channel": {
+            "attr": "Dimmer",
+            "canvas": "wash",
+            "high": 0.0,
+            "low": -0.800000011920929,
+            "quantity": "Brightness",
+            "relative": true
+          },
+          "recipe": {
+            "plane": "Wall",
+            "source": {
+              "Rain": {
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "columns": 4,
+                "seed": 5081,
+                "tail": 0.44999998807907104
+              }
+            },
+            "timing": {
+              "direction": "Forward",
+              "measure": 16.0,
+              "once": false,
+              "phase_offset_deg": 0.0,
+              "phase_spread_deg": 0.0,
+              "speed": {
+                "Master": "Song"
+              }
+            }
+          }
+        }
+      },
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "wall rain heavy": {
+      "apply": {
+        "Canvas": {
+          "channel": {
+            "attr": "Dimmer",
+            "canvas": "wash",
+            "high": 0.0,
+            "low": -0.8999999761581421,
+            "quantity": "Brightness",
+            "relative": true
+          },
+          "recipe": {
+            "plane": "Wall",
+            "source": {
+              "Rain": {
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "columns": 8,
+                "seed": 991,
+                "tail": 0.2199999988079071
+              }
+            },
+            "timing": {
+              "direction": "Forward",
+              "measure": 8.0,
+              "once": false,
+              "phase_offset_deg": 0.0,
+              "phase_spread_deg": 0.0,
+              "speed": {
+                "Master": "Song"
+              }
+            }
+          }
+        }
+      },
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "wall snake": {
+      "apply": {
+        "Canvas": {
+          "channel": {
+            "attr": "Dimmer",
+            "canvas": "wash",
+            "high": 0.0,
+            "low": -0.8500000238418579,
+            "quantity": "Brightness",
+            "relative": true
+          },
+          "recipe": {
+            "plane": "Wall",
+            "source": {
+              "Snake": {
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "direction": "Horizontal",
+                "rows": 4,
+                "tail": 0.3499999940395355
+              }
+            },
+            "timing": {
+              "direction": "Forward",
+              "measure": 16.0,
+              "once": false,
+              "phase_offset_deg": 0.0,
+              "phase_spread_deg": 0.0,
+              "speed": {
+                "Master": "Song"
+              }
+            }
+          }
+        }
+      },
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "wall snake climb": {
+      "apply": {
+        "Canvas": {
+          "channel": {
+            "attr": "Dimmer",
+            "canvas": "wash",
+            "high": 0.0,
+            "low": -0.8500000238418579,
+            "quantity": "Brightness",
+            "relative": true
+          },
+          "recipe": {
+            "plane": "Wall",
+            "source": {
+              "Snake": {
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "direction": "Vertical",
+                "rows": 4,
+                "tail": 0.3499999940395355
+              }
+            },
+            "timing": {
+              "direction": "Forward",
+              "measure": 16.0,
+              "once": false,
+              "phase_offset_deg": 0.0,
+              "phase_spread_deg": 0.0,
+              "speed": {
+                "Master": "Song"
+              }
+            }
+          }
+        }
+      },
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "wall snake fast": {
+      "apply": {
+        "Canvas": {
+          "channel": {
+            "attr": "Dimmer",
+            "canvas": "wash",
+            "high": 0.0,
+            "low": -0.8999999761581421,
+            "quantity": "Brightness",
+            "relative": true
+          },
+          "recipe": {
+            "plane": "Wall",
+            "source": {
+              "Snake": {
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "direction": "Horizontal",
+                "rows": 6,
+                "tail": 0.18000000715255737
+              }
+            },
+            "timing": {
+              "direction": "Forward",
+              "measure": 4.0,
+              "once": false,
+              "phase_offset_deg": 0.0,
+              "phase_spread_deg": 0.0,
+              "speed": {
+                "Master": "Song"
+              }
+            }
+          }
+        }
+      },
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 4.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "wall sparkle": {
+      "apply": {
+        "Canvas": {
+          "channel": {
+            "attr": "Dimmer",
+            "canvas": "wash",
+            "high": 0.0,
+            "low": -0.6000000238418579,
+            "quantity": "Brightness",
+            "relative": true
+          },
+          "recipe": {
+            "plane": "Wall",
+            "source": {
+              "Sparkle": {
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "density": 0.2800000011920929,
+                "seed": 3313
+              }
+            },
+            "timing": {
+              "direction": "Forward",
+              "measure": 8.0,
+              "once": false,
+              "phase_offset_deg": 0.0,
+              "phase_spread_deg": 0.0,
+              "speed": {
+                "Master": "Song"
+              }
+            }
+          }
+        }
+      },
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
     "wall sweep": {
       "steps": [
         {
@@ -16201,6 +16596,57 @@
       "timing": {
         "direction": "Forward",
         "measure": 8.0,
+        "once": false,
+        "phase_offset_deg": 0.0,
+        "phase_spread_deg": 0.0,
+        "speed": {
+          "Master": "Song"
+        }
+      }
+    },
+    "wall wipe": {
+      "apply": {
+        "Canvas": {
+          "channel": {
+            "attr": "Dimmer",
+            "canvas": "wash",
+            "high": 0.0,
+            "low": -0.800000011920929,
+            "quantity": "Brightness",
+            "relative": true
+          },
+          "recipe": {
+            "plane": "Wall",
+            "source": {
+              "Wipe": {
+                "color": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "direction": "Vertical",
+                "width": 0.44999998807907104
+              }
+            },
+            "timing": {
+              "direction": "Forward",
+              "measure": 16.0,
+              "once": false,
+              "phase_offset_deg": 0.0,
+              "phase_spread_deg": 0.0,
+              "speed": {
+                "Master": "Song"
+              }
+            }
+          }
+        }
+      },
+      "target": {
+        "Role": "Wash"
+      },
+      "timing": {
+        "direction": "Forward",
+        "measure": 16.0,
         "once": false,
         "phase_offset_deg": 0.0,
         "phase_spread_deg": 0.0,
@@ -18063,6 +18509,9 @@
       "Master": "Song"
     },
     "intensity": {
+      "Master": "Song"
+    },
+    "matrix": {
       "Master": "Song"
     },
     "movement": {

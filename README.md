@@ -35,30 +35,60 @@ Resolume box.
 - **Integrates with FastTrackStudio**: control surfaces, the session/setlist
   engine, and eventually the auto-generated-cues pipeline.
 
-## Repo layout (proposed — see `docs/domain/`)
+## Repo layout
+
+Follows [architect](https://github.com/FastTrackStudios/architect)'s
+monorepo shape: `features/` for capability slices, `crates/` for the
+libraries that compose them, `apps/` for things you run.
 
 ```
+features/                one capability per directory, backends beside the facade
+  colour/                what a value is — presets, splits, emitter resolve
+  rig/                   what it lands on — selections, groups, tricks, focus
+  show/                  recipes, cues, tracking, the programmer, the show file
+  effects/               the shipped effect library
+  playback/              the priority stack and the desk macros
+  dmx/                   ignition-dmx-proto · -sacn · -artnet · the facade
+  daw/                   ignition-daw-proto · -reaper · -transport · the facade
 crates/
-  ignition-proto     wire contract — architect-style RPC service traits
-  ignition-core       no_std+alloc: attribute model, patch resolve, cue/
-                       tracking engine, phaser maths, merge stack — no I/O
-  ignition-io          sACN / Art-Net / USB widget adapters (native only)
-  ignition-fixtures    GDTF / MVR / OFL / QLC .qxf importers → one model
-  ignition-viz         wgpu 3D visualizer + projection-mapping render path
-  ignition-video       media decode/playback for mapped surfaces
-  ignition-ui          Dioxus panels: patch, programmer, cue list, timeline,
-                       mapping editor
+  ignition-proto         the types every crate shares
+  ignition-core          composes the five domain slices into one namespace
+  ignition-profile       the frame profiler — a tracing Layer that splits a
+                          frame into Blitz's half and Bevy's. Nothing to do
+                          with a lighting "profile", which is a domain term
+                          this crate name unfortunately collides with
+  ignition-viz           Bevy/wgpu visualizer, GDTF meshes, haze, gobos, canvases
+  ignition-live-ui       Dioxus panes shared by the desk and the iPad Live page
+  *-vendored             one-hunk forks of upstream crates, each with a NOTICE.md
 apps/
-  ignition-engine      the headless engine binary (console + I/O + viz host)
-docs/
-  domain/              domain model (ASLS-style, grounded in a real venue)
-  research/            landscape studies — OSS/industry comparison, grandMA3
-                       recipes/phasers, Resolume mapping, venue reference
-data/
-  venues/norco/        real fixture patch + room geometry, extracted from an
-                       actual Eos show file, used as the first visualizer
-                       test case (see docs/domain/norco-venue-reference.md)
+  ignition-studio        the operator desk — multi-window Dioxus, viz embedded
+  ignition-live-web      the Live panes, built for a browser/iPad
+  ignition-engine        the headless engine binary
+  ignition-mobile        the Ignition iPhone app
+docs/spec/               normative `r[topic.id]` requirements, traced by tracey
+docs/domain/             the domain model, grounded in a real venue
+docs/research/           landscape studies — grandMA3, Resolume, OSS comparison
+data/                    venues, profiles, songs, the GDTF library
+tools/                   GDTF generation and the spec-coverage reporter
+nix/                     flake-parts modules: toolchain, dx, dev + CI shells
 ```
+
+The domain's layering is one-way and was derived, not decided —
+`colour` and `rig` are leaves, `show` is the mutually-recursive core
+that cannot be split further without redesigning what a cue means, and
+`effects` then `playback` sit above it. `ignition-core` re-exports the
+lot so an application sees one flat namespace.
+
+Package names carry an `ignition-` prefix rather than architect's bare
+`<feature>-<role>`: `daw`, `daw-proto`, `daw-audio-io`, `daw-control`,
+`daw-module` and `daw-standalone` are already in this workspace's
+dependency graph from the `FastTrackStudios/daw` repo, so the bare
+namespace is taken and the tree is consistent about it.
+
+Not yet built: `ignition-video` (media decode for mapped surfaces) and
+the Graphics/Video studio modes — the only five requirements in
+`docs/spec/` with no implementation. Lights first, deliberately
+(`r[studio.modes.lights-first]`).
 
 ## Licence
 

@@ -1,0 +1,25 @@
+[package]
+name = "ignition-effects"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "The shipped effect library — a recipe with two or more steps"
+
+[dependencies]
+ignition-proto.workspace = true
+ignition-colour.workspace = true
+ignition-rig.workspace = true
+ignition-show.workspace = true
+ignition-daw-proto.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lib]
+name = "ignition_effects"
+path = "src/lib.rs"
+
+[dev-dependencies]
+ignition-rig.workspace = true
+serde_json.workspace = true

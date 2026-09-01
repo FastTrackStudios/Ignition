@@ -35,8 +35,8 @@ fn every_venue_fixture_resolves_to_a_profile_with_a_real_mesh() {
         if !entry.path().join("fixtures.json").is_file() {
             continue;
         }
-        let venue = Venue::load(&entry.path())
-            .unwrap_or_else(|e| panic!("{}: {e}", entry.path().display()));
+        let venue =
+            Venue::load(entry.path()).unwrap_or_else(|e| panic!("{}: {e}", entry.path().display()));
         for f in &venue.fixtures {
             let Some(model) = f.model.clone() else {
                 continue;

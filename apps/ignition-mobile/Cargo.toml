@@ -1,0 +1,45 @@
+[package]
+name = "ignition-mobile"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Ignition for iOS — patch, groups, and cue playback on the phone"
+
+[dependencies]
+# The real domain, not a mirror of it. The app renders `PatchEntry`,
+# `Group`, `Cue` and drives `CuePlayer` directly, so a change to the
+# console's vocabulary breaks this build rather than silently drifting.
+ignition-core.workspace = true
+ignition-proto.workspace = true
+
+dioxus = { workspace = true, features = ["router"] }
+serde.workspace = true
+serde_json.workspace = true
+
+# Traces/logs/metrics to the FTS collector. Inert unless the build bakes
+# TASK_OTLP_ENDPOINT (see .github/workflows/ignition-ios.yml).
+architect-telemetry = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[features]
+default = ["mobile"]
+mobile = ["dioxus/mobile", "dioxus/launch"]
+# The same app in a desktop webview, at phone dimensions, so the screens
+# can be looked at without a Mac and a device in the loop. It is the same
+# `App` and the same stylesheet — wry renders both — so what this shows
+# is what the phone shows, modulo the safe-area insets.
+preview = ["dioxus/desktop", "dioxus/launch"]
+
+[lib]
+name = "ignition_mobile"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ignition-mobile"
+path = "src/main.rs"
+
+[[bin]]
+name = "ignition-preview"
+path = "src/preview.rs"
+required-features = ["preview"]

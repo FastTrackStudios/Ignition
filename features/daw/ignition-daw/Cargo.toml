@@ -1,0 +1,90 @@
+[package]
+name = "ignition-daw"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+# The facade of the `daw` feature: reading a song's shape -- tempo, time
+# signature, sections, the hit chart -- out of a DAW project, and turning
+# it into cues.
+#
+# The contract it produces is `ignition-daw-proto`, which sits below
+# `ignition-core` too. The backends below are the ways a playhead
+# reaches this crate, each behind a cargo feature because each pulls a
+# device stack the others do not need.
+[features]
+default = []
+# Actually playing the project — the standalone DAW backend, its RPP
+# loader and a cpal output stream. Off by default because reading a
+# song's shape is cheap and this is not: it pulls audio decoding, a
+# device backend and a render graph, none of which a tool that only
+# wants the section list should pay for.
+play = ["ignition-daw-transport/play", "dep:tracing-subscriber", "dep:tokio"]
+# MIDI Time Code from a MIDI input port. The decoder itself is always
+# built and tested; this only adds the port.
+mtc = ["ignition-daw-transport/mtc"]
+# LTC from an audio input. Likewise: the decoder is always built, the
+# cpal input stream is what this pays for.
+ltc = ["ignition-daw-transport/ltc"]
+
+# Declared so `playsong` can carry `required-features`. Cargo builds
+# every `src/bin/*.rs` regardless of features otherwise, and a plain
+# `cargo check` would then fail on the one that needs the backend.
+[[bin]]
+name = "songmap"
+
+[[bin]]
+name = "gencues"
+
+[[bin]]
+name = "authorshow"
+
+[[bin]]
+name = "lyrics"
+
+[[bin]]
+name = "hits"
+
+[[bin]]
+name = "chart"
+
+[[bin]]
+name = "playsong"
+required-features = ["play"]
+
+[dependencies]
+# The domain, by layer rather than through `ignition-core`. A feature
+# depends on features -- and naming the layers is also documentation:
+# this crate reaches for cues and recipes (`show`), the effect library
+# (`effects`), the desk macros (`playback`), selections and tricks
+# (`rig`), colour presets, and the musical vocabulary below all of them.
+ignition-proto.workspace = true
+ignition-colour.workspace = true
+ignition-rig.workspace = true
+ignition-show.workspace = true
+ignition-effects.workspace = true
+ignition-playback.workspace = true
+# The feature's own siblings: the vocabulary, the reader, the playhead.
+ignition-daw-proto.workspace = true
+ignition-daw-reaper.workspace = true
+ignition-daw-transport.workspace = true
+# `chart` reads MIDI items straight out of the project to find the hits,
+# so the facade parses a project too -- through the same shared parser
+# the reader uses, never a second hand-rolled one.
+daw.workspace = true
+# The `.lrc` parser. keyflow-proto rather than keyflow-sync: sync is the
+# alignment crate and pulls audio decoding with it, which reading a text
+# file has no business costing. Syllable timing will come from sync
+# later and can pay for itself then.
+keyflow-proto = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3" }
+# Offline hit detection, and the decoder to feed it.
+hit-detect-dsp = { git = "https://github.com/FastTrackStudios/signal", tag = "v0.0.3" }
+fts-sample = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", default-features = false, features = ["decode-compressed"] }
+anyhow = "1"
+serde.workspace = true
+serde_json.workspace = true
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true }

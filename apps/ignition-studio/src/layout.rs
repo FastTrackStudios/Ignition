@@ -552,7 +552,7 @@ mod tests {
                 _ => panic!("every top leaf is tabs"),
             })
             .collect();
-        assert_eq!(got, crate::dock::CONSOLE_TOP.to_vec());
+        assert_eq!(got, crate::dock::preset::CONSOLE_TOP.to_vec());
         assert_eq!(children[1], DockNode::tab(PaneKind::Faders));
     }
 

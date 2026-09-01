@@ -1,0 +1,20 @@
+[package]
+name = "ignition-dmx-sacn"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "sACN (ANSI E1.31) packet codec — one backend of the dmx feature"
+
+# A codec, not a transport: every function here turns arguments into
+# bytes or bytes into a struct, and nothing in this crate owns a socket.
+# That is what lets `ignition-dmx` own the one socket set and choose
+# protocols per universe, and what lets these packets be unit-tested
+# without a network.
+[dependencies]
+ignition-dmx-proto.workspace = true
+
+[lib]
+name = "ignition_dmx_sacn"
+path = "src/lib.rs"

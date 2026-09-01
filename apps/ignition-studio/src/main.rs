@@ -43,10 +43,10 @@ use viz_widget::VizWidget;
 const TAILWIND: Asset = asset!("/assets/tailwind.css");
 
 /// The room the studio opens, unless `IGNITION_VENUE` names another —
-/// e.g. `IGNITION_VENUE=data/venues/riverside`. A venue is data, and
-/// there is more than one of them now, so which room the surface is
-/// driving should not be a recompile.
-const DEFAULT_VENUE: &str = "data/venues/norco";
+/// e.g. `IGNITION_VENUE=data/venues/norco`. A venue is data, and there
+/// is more than one of them now, so which room the surface is driving
+/// should not be a recompile.
+const DEFAULT_VENUE: &str = "data/venues/room138-cbu";
 
 /// Where the studio's log file goes.
 fn log_file_path() -> std::path::PathBuf {
@@ -60,6 +60,23 @@ fn log_file_path() -> std::path::PathBuf {
         })
         .unwrap_or_else(|_| std::path::PathBuf::from("."));
     state.join("ignition").join("studio.log")
+}
+
+/// How much particulate is in the air. 1.0 is a normally hazed room.
+///
+/// Was 1.6, which is a room you can see the air in: every cone read from
+/// the house, and so did every cone's neighbour, until a wide look was
+/// one wall of light with the band somewhere inside it. 1.0 keeps the
+/// beams and gives the room back.
+///
+/// A dial rather than a constant because it is a taste judgement that
+/// changes with the room, the fixture count and how much a real hazer is
+/// actually putting out — `IGNITION_HAZE=1.4 just desktop`.
+fn haze() -> f32 {
+    std::env::var("IGNITION_HAZE")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0.6)
 }
 
 pub fn venue_dir() -> String {
@@ -146,7 +163,7 @@ fn main() -> anyhow::Result<()> {
             // panics with "cannot disable a plugin that does not exist",
             // because PbrPlugin adds it rather than it being a member of
             // the group, and a crash is a poor trade for a tidy log.
-            "warn,ignition_studio=info,ignition_song=info,\
+            "warn,ignition_studio=info,ignition_daw=info,\
              ignition_viz=info,bevy_pbr::ssao=error",
         )
     });
@@ -813,16 +830,31 @@ fn Busking(surface: Surface) -> Element {
                     for name in surface.groups.iter().cloned() {
                         button {
                             key: "{name}",
-                            // Tailwind, as the migration probe. Same
-                            // shape as `.pad` in studio.css so the two
-                            // pools can be compared side by side.
+                            // Tailwind, as the migration probe: the same
+                            // shape as `.pad` in studio.css, so the two
+                            // pools can be compared side by side. The
+                            // Focus pool below is the `.pad` half.
+                            //
+                            // Every colour is a token utility from
+                            // `theme.css` — the palette `.pad` reads
+                            // through `var()`. It has to be spelled out
+                            // twice, once per branch, and it is the
+                            // duplication rather than the length that is
+                            // the finding: this probe had drifted from
+                            // `.pad` in three separate ways (`text-ink`
+                            // where the rule says `--ink-soft`, a raw
+                            // `#3d3d4a` for `--line-bright`, `text-white`
+                            // for `--ink-bright`) and nothing could
+                            // notice, because there is nothing for the
+                            // two to disagree *with*. One `.pad` rule
+                            // cannot drift from itself.
                             class: if selected() == Some(name.clone()) {
                                 "w-21 h-16 p-1 text-[11px] rounded-md cursor-pointer \
-                                 bg-sel border border-sel-line text-white"
+                                 bg-sel border border-sel-line text-ink-bright"
                             } else {
                                 "w-21 h-16 p-1 text-[11px] rounded-md cursor-pointer \
-                                 bg-pad border border-pad-line text-ink \
-                                 hover:bg-pad-hover hover:border-[#3d3d4a]"
+                                 bg-pad border border-line-pad text-ink-soft \
+                                 hover:bg-pad-hover hover:border-line-bright"
                             },
                             onclick: {
                                 let name = name.clone();
@@ -1109,7 +1141,10 @@ fn Busking(surface: Surface) -> Element {
                                         key: "{key.label}",
                                         class: if key.label == "PUNT" { "flash hold punt" } else { "flash hold" },
                                         onpointerdown: move |_| {
-                                            send(Command::Hold(Some(Box::new(recipe.clone()))))
+                                            // `KeyAction::Hold` is boxed and so is
+                                            // `Command::Hold` — the clone moves straight
+                                            // across with no second allocation.
+                                            send(Command::Hold(Some(recipe.clone())))
                                         },
                                         onpointerup: move |_| send(Command::Hold(None)),
                                         onpointerleave: move |_| send(Command::Hold(None)),
@@ -1370,9 +1405,7 @@ fn Viewport() -> Element {
             view: ViewPreset::House,
             width: 1280,
             height: 800,
-            // 1.6, the same as `viz` — see `viz.rs`: enough particulate
-            // that a par's cone reads in the house, not only its pool.
-            haze: 1.6,
+            haze: haze(),
             // A little fill so the room reads even in a dark look — the
             // operator is looking at a panel, not sitting in the venue.
             ambient: 0.05,

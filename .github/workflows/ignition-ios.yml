@@ -14,7 +14,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "apps/mobile/**"
+      - "apps/ignition-mobile/**"
       - "crates/ignition-core/**"
       - "crates/ignition-proto/**"
       - "flake.nix"
@@ -76,7 +76,7 @@ jobs:
           TASK_SENTRY_DSN: ${{ secrets.TASK_SENTRY_DSN }}
           # ── Ignition product identity ────────────────────────────────
           DX_PACKAGE: ignition-mobile
-          DX_APP_DIR: apps/mobile
+          DX_APP_DIR: apps/ignition-mobile
           # Explicitly empty = the package's default features (honored: the
           # script uses ${DX_FEATURES-<default>}, not :-).
           DX_FEATURES: ""
@@ -87,12 +87,12 @@ jobs:
           # Own profile per product, or each build revokes the previous
           # app's profile (mint-dev-profile.rb deletes same-named profiles).
           PROFILE_NAME: FTS Ignition App Store
-          ICONS_DIR: ${{ github.workspace }}/apps/mobile/ios/Assets.xcassets
+          ICONS_DIR: ${{ github.workspace }}/apps/ignition-mobile/ios/Assets.xcassets
         run: |
           set -euo pipefail
           export PATH="/nix/var/nix/profiles/default/bin:$PATH"
           export NIX=/nix/var/nix/profiles/default/bin/nix
-          bash apps/mobile/ios/deploy-testflight.sh
+          bash apps/ignition-mobile/ios/deploy-testflight.sh
 
       - name: Summary
         if: always()

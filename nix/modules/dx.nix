@@ -1,8 +1,10 @@
 # The dx toolchain trio (fills fts.dx.* and fts.pkgsDx).
 #
 # Dedicated, current-unstable nixpkgs used ONLY to source `dx`
-# (dioxus-cli) at the version the workspace Cargo.lock pins (0.7.9)
-# plus binaryen 129 (the wasm-opt dx 0.7.9 expects). The main
+# (dioxus-cli) and binaryen 129. nixpkgs carries dioxus-cli 0.7.9, which
+# is the base this overrides onto 0.8.0-alpha.0 — the version the
+# workspace's pinned dioxus rev needs (see `fts.dx.cli` below, and the
+# `dioxus` line in the root Cargo.toml, which moves with it). The main
 # `nixpkgs` (dioxus-flake's pin) carries dioxus-cli 0.7.4 / binaryen
 # 126, which dx rejects / SIGABRTs with.
 #

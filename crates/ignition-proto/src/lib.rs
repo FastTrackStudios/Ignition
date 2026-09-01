@@ -237,7 +237,7 @@ impl ChannelMap {
 /// Lives here rather than in the visualizer so the studio's `Playhead`
 /// — which carries it back to every surface, including a browser on an
 /// iPad — is a plain serialisable record with no Bevy behind it. The
-/// visualizer fills it from `ignition_io::Status`; the overlay and the
+/// visualizer fills it from `ignition_dmx::Status`; the overlay and the
 /// studio's OUTPUT key read it without a socket.
 // r[impl dmx.output-toggle] - the transmit state as a wire record
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

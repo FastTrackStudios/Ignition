@@ -786,7 +786,14 @@ pub(crate) fn active_from_config(config: &crate::app::VizConfig) -> ActiveCamera
     if config.camera_preset.is_none() {
         active.dirty = false;
     }
-    active.wide = active.wide_name();
+    // `--camera <preset>` names what the MAIN view starts on, which since
+    // the cuts moved to the programme camera means it has to seed `wide`
+    // and not only the cut. Without this the flag silently did nothing
+    // for a still: the snapshot has no Programme pane, so the main view
+    // is the whole picture, and it would have held the first favourite
+    // whatever was asked for — taking `just look-previews` and
+    // `just effect-previews`, which both pass `--camera`, with it.
+    active.wide = config.camera_preset.clone().or_else(|| active.wide_name());
     active
 }
 
@@ -896,7 +903,6 @@ type NotACamera = (Without<MainCamera>, Without<ProgrammeCamera>);
 pub fn drive_camera(
     time: Res<Time>,
     playback: Option<Res<Playback>>,
-    programme: Option<Res<ProgrammeView>>,
     mut active: ResMut<ActiveCamera>,
     mut mains: Query<CameraParts, (With<MainCamera>, Without<ProgrammeCamera>)>,
     mut programmes: Query<CameraParts, (With<ProgrammeCamera>, Without<MainCamera>)>,
@@ -910,19 +916,21 @@ pub fn drive_camera(
     }
     let state = active.state_at(now);
     let far = active.far;
-    let separate = programme_is_separate(programme.as_deref());
-    // The cut lands on the programme camera when there is one, else on
-    // the main; the main then sits on the wide preset.
+    // The cut lands on the programme camera; the main view sits on the
+    // wide preset and holds it, whether or not anything is showing the
+    // programme. It used to take the cuts itself when nothing was —
+    // which meant a show that cuts to a drum cam fourteen times took
+    // the whole rig away from the operator without being asked, in the
+    // one pane whose job is showing the whole rig.
     // r[impl viz.programme-view] - the keys and cues move the programme camera; the wide view stays put
-    let wide = separate
-        .then(|| {
-            active
-                .wide
-                .as_deref()
-                .and_then(|n| active.cameras.preset(n))
-                .map(|p| p.state())
-        })
-        .flatten();
+    // `wide_name()`, not the `wide` field: the field's `None` *means*
+    // the first favourite, and reading it raw made the main view fall
+    // through to the cut whenever nobody had picked a wide preset by
+    // hand — which is every fresh venue.
+    let wide = active
+        .wide_name()
+        .and_then(|n| active.cameras.preset(&n))
+        .map(|p| p.state());
     let write = |state: &CameraState,
                  transform: &mut Transform,
                  projection: &mut Projection,
@@ -1304,6 +1312,68 @@ mod tests {
         assert!(matches!(wide.projection(50.0), Projection::Perspective(_)));
     }
 
+    /// The main view holds the wide shot through a cut, with nothing
+    /// showing the programme.
+    ///
+    /// The rule this pins used to be the other way round: with no
+    /// programme camera spawned, the main view took the cuts itself.
+    /// That made the one pane whose job is showing the whole rig into
+    /// whatever the show last cut to — and `bye-bye-bye.json` cuts to a
+    /// drum cam fourteen times, so an operator watching the rig lost it
+    /// for most of the chorus without having asked for anything.
+    ///
+    /// r[verify viz.programme-view]
+    #[test]
+    fn the_main_view_stays_wide_through_a_cut_even_with_no_programme() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        let wide_state = cameras().preset("Wide").unwrap().state();
+        app.insert_resource(ActiveCamera::new(
+            cameras(),
+            Some("Wide"),
+            wide_state,
+            100.0,
+        ));
+        app.add_systems(Update, drive_camera);
+        let camera = app
+            .world_mut()
+            .spawn((
+                MainCamera,
+                Transform::default(),
+                Projection::Perspective(PerspectiveProjection::default()),
+            ))
+            .id();
+        app.update();
+        // Nothing shows the programme: no `ProgrammeView` resource at all.
+        assert!(app.world().get_resource::<ProgrammeView>().is_none());
+
+        let now = app.world().resource::<Time>().elapsed_secs();
+        app.world_mut().resource_mut::<ActiveCamera>().cut_to(
+            &CameraTarget::Preset("Drums".into()),
+            0.0,
+            now,
+            120.0,
+        );
+        app.update();
+
+        // The cut is live — that is what the programme camera would show...
+        assert_eq!(
+            app.world().resource::<ActiveCamera>().preset.as_deref(),
+            Some("Drums")
+        );
+        // ...but the main view is still the wide shot, not the drum cam.
+        let at = app.world().get::<Transform>(camera).unwrap().translation;
+        let drums = cameras().preset("Drums").unwrap().state();
+        assert!(
+            at.distance(wide_state.eye) < 1e-3,
+            "the main view moved off the wide shot: {at:?}"
+        );
+        assert!(
+            at.distance(drums.eye) > 1.0,
+            "the main view took the cut it was supposed to leave alone"
+        );
+    }
+
     /// r[verify viz.camera-birdseye] - ceiling entities are hidden while the plan is up, and back after
     #[test]
     fn the_plan_hides_the_ceiling_and_brings_it_back() {
@@ -1345,9 +1415,13 @@ mod tests {
             *app.world().get::<Visibility>(wall).unwrap(),
             Visibility::Inherited
         );
+        // The main view is NOT dragged onto the plan by a cut — it holds
+        // the wide shot, which is the whole point of the pair. The
+        // ceiling still goes, because the roof is the world's and the
+        // plan is the one reading it.
         assert!(matches!(
             app.world().get::<Projection>(camera).unwrap(),
-            Projection::Orthographic(_)
+            Projection::Perspective(_)
         ));
         let now = app.world().resource::<Time>().elapsed_secs();
         app.world_mut().resource_mut::<ActiveCamera>().cut_to(
@@ -1368,6 +1442,22 @@ mod tests {
         assert_eq!(
             app.world().get::<Transform>(camera).unwrap().translation,
             Vec3::new(0.0, -10.0, 2.0)
+        );
+
+        // The plan is still reachable in the main view: it is *chosen*
+        // as the wide preset rather than cut to. That is the operator
+        // asking for the plan, as against the show asking for a drum cam.
+        app.world_mut()
+            .resource_mut::<ActiveCamera>()
+            .set_wide(&CameraTarget::Preset("Bird's eye".into()));
+        app.world_mut().resource_mut::<ActiveCamera>().dirty = true;
+        app.update();
+        assert!(
+            matches!(
+                app.world().get::<Projection>(camera).unwrap(),
+                Projection::Orthographic(_)
+            ),
+            "choosing the plan as the wide preset must put the main view on it"
         );
     }
 
@@ -1660,6 +1750,11 @@ pub fn manage_camera_views(
 
 /// Which camera the cuts move: the programme camera when there is one,
 /// else the main.
+/// Is a programme camera actually spawned — i.e. is something showing it?
+///
+/// No longer decides where the *cuts* land; the main view holds the wide
+/// preset either way. It answers the remaining question, which is what
+/// the desk should say the main view is looking at.
 pub fn programme_is_separate(programme: Option<&ProgrammeView>) -> bool {
     programme.is_some_and(|p| p.camera.is_some())
 }

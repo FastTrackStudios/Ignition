@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
     // land.
     // A multiplier on the hazers' output, roughly 0..2, where 1.0 is a
     // normally hazed room with the hazers up — see `VizSettings::haze`.
-    let mut haze = 1.6f32;
+    let mut haze = 0.6f32;
     // Stops on the stage camera's EV100 (`app::STAGE_EV100`). Zero is
     // the calibrated camera; the lights themselves are real photometry
     // and never scaled. `+1` doubles the picture.
@@ -313,14 +313,16 @@ fn main() -> anyhow::Result<()> {
     let draw_overlay = overlay.unwrap_or(!headless);
     let mut playback = Playback::load(
         &venue,
-        cuelist.as_deref(),
-        recipes.as_deref(),
-        cue,
-        effect_time,
-        // An export starts at its first bar.
-        export.as_ref().map(|e| e.from_bar).or(bar),
-        song_bpm,
-        None,
+        ignition_viz::playback::LoadOptions {
+            cuelist: cuelist.as_deref(),
+            recipes: recipes.as_deref(),
+            jump_to_cue: cue,
+            effect_time,
+            // An export starts at its first bar.
+            bar: export.as_ref().map(|e| e.from_bar).or(bar),
+            song_bpm,
+            song: None,
+        },
     )?;
     if let Some(name) = &look_name {
         anyhow::ensure!(

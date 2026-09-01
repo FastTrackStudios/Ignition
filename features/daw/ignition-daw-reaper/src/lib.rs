@@ -1,0 +1,270 @@
+//! Reading a song's shape out of a REAPER project.
+//!
+//! One backend of the `daw` feature: the direction "project file ->
+//! [`SongMap`]". The project file is the source of truth for tempo,
+//! time signature and section boundaries — not a second copy maintained
+//! by hand. Move a section in the DAW and the lighting moves with it,
+//! because the lighting never knew where it was in seconds.
+//!
+//! Parsing goes through `daw::file` rather than reading the text here.
+//! That is not politeness about layering: the project format carries
+//! fractional tempo, ruler lanes, tempo envelopes and region GUIDs, and
+//! a hand-rolled reader gets three of those wrong before anyone
+//! notices. (It also means fixes land once — the fractional-tempo bug
+//! this hit on day one was a `as i32` in the shared parser, not here.)
+//!
+//! Today the format is REAPER's. The `.daw` format is the target, and
+//! it goes through the same crate — at which point this crate gains a
+//! second entry point rather than the tree gaining a second backend,
+//! because it is the same parser either way.
+
+use anyhow::{Context, Result};
+use daw::file::{ReaperProject, parse_rpp_file};
+use ignition_daw_proto::{Bars, Section, SongMap, TempoMap, TempoPoint, TimeSignature};
+
+/// Reads a song map from a project file on disk.
+// r[impl song.map.imported]
+pub fn load(path: impl AsRef<std::path::Path>) -> Result<SongMap> {
+    let path = path.as_ref();
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let name = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    from_rpp(&text, &name)
+}
+
+/// Reads a song map from project text.
+// r[impl song.map.imported]
+pub fn from_rpp(text: &str, name: &str) -> Result<SongMap> {
+    let parsed = parse_rpp_file(text).map_err(|e| anyhow::anyhow!("parsing project: {e:?}"))?;
+    let project = ReaperProject::from_rpp_project(&parsed)
+        .map_err(|e| anyhow::anyhow!("reading project: {e}"))?;
+    Ok(song_map(&project, name))
+}
+
+/// The tempo map, from the project's header tempo.
+///
+/// A tempo *envelope* — a song that changes tempo — is not read yet;
+/// `TempoMap` already holds a list of points, so it is a matter of
+/// walking `project.tempo_envelope` rather than a change of shape.
+// r[impl song.tempo-map] - fractional tempo and signature read from the project header (single point today)
+fn tempo_map(project: &ReaperProject) -> TempoMap {
+    match project.properties.tempo {
+        Some((bpm, numerator, denominator, _flags)) => TempoMap::constant(
+            bpm.max(1.0),
+            TimeSignature {
+                numerator: numerator.max(1) as u32,
+                denominator: denominator.max(1) as u32,
+            },
+        ),
+        None => TempoMap::default(),
+    }
+}
+
+/// Sections, from the project's regions.
+///
+/// Regions rather than markers: a region has an end, and a section's
+/// *length* is the thing lighting cares about — "the chorus is eight
+/// bars" is a statement about a region.
+// r[impl song.map]
+// r[impl song.map.sections-from-regions]
+// r[impl song.map.bar-boundaries] - a fractional section loads unrounded; reporting it is not yet built
+fn song_map(project: &ReaperProject, name: &str) -> SongMap {
+    let tempo = tempo_map(project);
+    let mut sections: Vec<Section> = project
+        .markers_regions
+        .regions
+        .iter()
+        .filter_map(|region| {
+            let end = region.end_position?;
+            let start = tempo.position_at(region.position);
+            let bars = bars_between(&tempo, region.position, end);
+            (bars > 0.0).then(|| Section {
+                name: region.name.clone(),
+                start,
+                bars,
+            })
+        })
+        .collect();
+    sections.sort_by(|a, b| {
+        a.start
+            .partial_cmp(&b.start)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    SongMap {
+        name: name.to_string(),
+        tempo,
+        sections,
+    }
+}
+
+/// How many bars lie between two times.
+fn bars_between(tempo: &TempoMap, from_seconds: f64, to_seconds: f64) -> f64 {
+    let from = tempo.position_at(from_seconds);
+    let to = tempo.position_at(to_seconds);
+    let per_bar = tempo.at(from).time_signature.numerator.max(1) as f64;
+    let flat = |p: Bars| (p.bar as f64 - 1.0) + (p.beat - 1.0) / per_bar;
+    flat(to) - flat(from)
+}
+
+/// A tempo point, for callers building a map by hand.
+pub fn point(bar: u32, bpm: f64) -> TempoPoint {
+    TempoPoint {
+        at: Bars::bar(bar),
+        bpm,
+        time_signature: TimeSignature::default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The real project this was built against. Skipped rather than
+    /// failed when it is not on this machine — it lives in Downloads,
+    /// not in the repo, and a test that fails on a colleague's checkout
+    /// teaches people to ignore failures.
+    fn song() -> Option<SongMap> {
+        let path = concat!(env!("HOME"), "/Downloads/Bye Bye Bye/Bye Bye Bye.RPP");
+        std::path::Path::new(path)
+            .exists()
+            .then(|| load(path).expect("the project parses"))
+    }
+
+    /// A project with two regions and a tempo, as REAPER writes one.
+    ///
+    /// Small enough to read, real enough to parse: a region is a pair of
+    /// `MARKER` lines sharing an index, the second unnamed. At 120 in
+    /// 4/4 a bar is two seconds, so this is four bars of intro and eight
+    /// of verse.
+    const TWO_SECTIONS: &str = concat!(
+        "<REAPER_PROJECT 0.1 \"7.42/linux-x86_64\" 1758256717\n",
+        "  TEMPO 120 4 4 0\n",
+        "  MARKER 1 0 Intro 1 0 1 B {6119B43A-A96B-2DD3-43E2-B8BCEE058174} 0\n",
+        "  MARKER 1 8 \"\" 1\n",
+        "  MARKER 2 8 \"VS 1\" 1 0 1 B {A848D0F5-F978-0A1C-F3AD-7F804905D8EB} 0\n",
+        "  MARKER 2 24 \"\" 1\n",
+        ">\n",
+    );
+
+    /// The arrangement comes out of the project, not out of a second
+    /// copy somebody typed.
+    ///
+    /// Moving a section in the DAW moves the lighting with it precisely
+    /// because the lighting never had its own copy of where the section
+    /// was. This is the import that makes that true: names, order,
+    /// starts and lengths, all read from the regions.
+    ///
+    /// r[verify song.map.imported]
+    #[test]
+    fn the_arrangement_is_read_from_the_project() {
+        let song = from_rpp(TWO_SECTIONS, "Two Sections").expect("the project parses");
+
+        assert_eq!(song.name, "Two Sections");
+        let names: Vec<&str> = song.sections.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, ["Intro", "VS 1"], "regions became the arrangement");
+
+        // A bar is two seconds at 120, so the intro is four bars and the
+        // verse eight, and the verse starts where the intro ends.
+        assert!(
+            (song.sections[0].bars - 4.0).abs() < 1e-6,
+            "{:?}",
+            song.sections[0]
+        );
+        assert!(
+            (song.sections[1].bars - 8.0).abs() < 1e-6,
+            "{:?}",
+            song.sections[1]
+        );
+        assert_eq!(song.sections[0].start.bar, 1);
+        assert_eq!(song.sections[1].start.bar, 5);
+        assert!((song.tempo.at(Bars::START).bpm - 120.0).abs() < 1e-9);
+    }
+
+    #[test]
+    /// r[verify song.tempo-map] - fractional tempo
+    fn reads_the_songs_fractional_tempo() {
+        let Some(song) = song() else { return };
+        let point = song.tempo.at(Bars::START);
+        assert!(
+            (point.bpm - 86.28).abs() < 1e-9,
+            "got {} — a truncated tempo is the bug this exists to catch",
+            point.bpm
+        );
+        assert_eq!(point.time_signature.numerator, 4);
+    }
+
+    /// Every section of this song is a whole number of bars, which is
+    /// the evidence that arranging in bars is how the material is
+    /// actually shaped rather than a convenience.
+    #[test]
+    /// r[verify song.map.bar-boundaries]
+    fn every_section_is_a_whole_number_of_bars() {
+        let Some(song) = song() else { return };
+        assert_eq!(song.sections.len(), 14, "{:?}", names(&song));
+        for section in &song.sections {
+            let rounded = section.bars.round();
+            assert!(
+                (section.bars - rounded).abs() < 0.01,
+                "{} is {} bars",
+                section.name,
+                section.bars
+            );
+            assert!(
+                section.bars >= 1.0,
+                "{} is {} bars",
+                section.name,
+                section.bars
+            );
+        }
+        assert_eq!(total_bars(&song).round(), 74.0);
+    }
+
+    #[test]
+    /// r[verify song.map]
+    /// r[verify song.map.sections-from-regions]
+    fn sections_arrive_in_order_with_the_expected_shape() {
+        let Some(song) = song() else { return };
+        assert_eq!(
+            names(&song),
+            [
+                "Count-In",
+                "IN A",
+                "IN B",
+                "VS 1",
+                "PRE",
+                "CH 1",
+                "Break",
+                "VS 2",
+                "PRE",
+                "CH 2",
+                "BR",
+                "Breakdown",
+                "CH 3",
+                "Outro"
+            ]
+        );
+        let chorus = song.section("CH 1").expect("CH 1");
+        assert_eq!(chorus.start, Bars::bar(23));
+        assert_eq!(chorus.bars.round(), 8.0);
+    }
+
+    #[test]
+    fn a_position_resolves_to_the_section_containing_it() {
+        let Some(song) = song() else { return };
+        assert_eq!(song.section_at(Bars::bar(23)).unwrap().name, "CH 1");
+        assert_eq!(song.section_at(Bars::bar(30)).unwrap().name, "CH 1");
+        assert_eq!(song.section_at(Bars::bar(31)).unwrap().name, "Break");
+    }
+
+    fn names(song: &SongMap) -> Vec<String> {
+        song.sections.iter().map(|s| s.name.clone()).collect()
+    }
+
+    fn total_bars(song: &SongMap) -> f64 {
+        song.sections.iter().map(|s| s.bars).sum()
+    }
+}

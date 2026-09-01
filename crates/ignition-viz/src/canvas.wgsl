@@ -31,6 +31,8 @@ const KIND_WIPE: u32 = 2u;
 const KIND_NOISE: u32 = 3u;
 const KIND_BAND: u32 = 4u;
 const KIND_SPARKLE: u32 = 5u;
+const KIND_SNAKE: u32 = 6u;
+const KIND_RAIN: u32 = 7u;
 
 fn frac(t: f32) -> f32 {
     return t - floor(t);
@@ -152,6 +154,44 @@ fn sample(u_in: f32, v_in: f32, cycles: f32) -> vec3<f32> {
             let roll = hash3(gx, gy, seed + generation * 0x9E3779B9u);
             if unit(roll) < clamp(canvas.extra.y, 0.0, 1.0) {
                 return color * (1.0 - frac(cycles));
+            }
+            return vec3<f32>(0.0);
+        }
+        // A head weaving a serpentine path with a fading tail. Odd rows
+        // run backwards, which is what makes it serpentine rather than a
+        // carriage return: the head leaves one row where it enters the
+        // next. Mirrors `Procedural::Snake` exactly.
+        case KIND_SNAKE: {
+            let rows = f32(max(canvas.ints.z, 1u));
+            var across = v;
+            var along_row = u;
+            if canvas.ints.w == 1u {
+                across = u;
+                along_row = v;
+            }
+            let row = min(floor(across * rows), rows - 1.0);
+            if (row - 2.0 * floor(row * 0.5)) > 0.5 {
+                along_row = 1.0 - along_row;
+            }
+            let s_pos = (row + along_row) / rows;
+            let behind = frac(cycles - s_pos);
+            let tail = clamp(width, 0.0001, 1.0);
+            if behind <= tail {
+                return color * (1.0 - behind / tail);
+            }
+            return vec3<f32>(0.0);
+        }
+        // Drops falling down each column on its own offset. Mirrors
+        // `Procedural::Rain`.
+        case KIND_RAIN: {
+            let columns = f32(max(canvas.ints.z, 1u));
+            let col = u32(min(floor(u * columns), columns - 1.0));
+            let offset = unit(hash3(col, 0u, seed));
+            let drop = frac(cycles + offset);
+            let behind = frac(v - drop);
+            let tail = clamp(width, 0.0001, 1.0);
+            if behind <= tail {
+                return color * (1.0 - behind / tail);
             }
             return vec3<f32>(0.0);
         }
