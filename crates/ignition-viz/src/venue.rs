@@ -365,6 +365,10 @@ pub struct Patch {
     pub map: ignition_proto::ChannelMap,
     /// The output-side profile: emitters, wheel, preference, space, defaults.
     pub profile: crate::fixture_profile::FixtureProfile,
+    /// The fixture type's mode this patch resolved to — what the room's
+    /// own address spacing said this fixture is. `legacy` for a model
+    /// answered by the hand-written table rather than a document.
+    pub mode: String,
 }
 
 impl Patch {
@@ -385,20 +389,68 @@ pub struct PatchTable {
     by_chan: std::collections::HashMap<u32, usize>,
 }
 
+/// How many channels the room left before the next fixture, per fixture.
+///
+/// The venue records an address and never a mode, but it recorded the
+/// mode anyway: a rig patched at 1, 8, 15 is saying those fixtures are
+/// seven channels wide. This is that fact, read back out — for each
+/// patched fixture, the distance to the next distinct address above it
+/// in the same universe, or `None` for the last one in its universe.
+///
+/// Two fixtures on the *same* address are multipatch
+/// (`r[files.venue.multipatch]`), not a spacing claim, so an equal
+/// address is skipped rather than reported as a gap of zero.
+fn address_gaps(venue: &Venue) -> Vec<Option<u16>> {
+    // Addresses per universe, sorted and deduplicated, so "the next one
+    // above" is a scan of a short sorted list rather than of the rig.
+    let mut by_universe: std::collections::HashMap<u16, Vec<u16>> =
+        std::collections::HashMap::new();
+    for address in venue.fixtures.iter().filter_map(FixtureRecord::dmx_address) {
+        by_universe
+            .entry(address.universe)
+            .or_default()
+            .push(address.start_channel);
+    }
+    for addresses in by_universe.values_mut() {
+        addresses.sort_unstable();
+        addresses.dedup();
+    }
+    venue
+        .fixtures
+        .iter()
+        .map(|f| {
+            let address = f.dmx_address()?;
+            let addresses = by_universe.get(&address.universe)?;
+            let next = addresses
+                .iter()
+                .copied()
+                .find(|a| *a > address.start_channel)?;
+            Some(next.saturating_sub(address.start_channel))
+        })
+        .collect()
+}
+
 impl PatchTable {
+    // r[impl patch.type-is-data] - the channel map comes from a document
+    // r[impl patch.type-modes] - and the room's own spacing picks the mode
     fn build(venue: &Venue) -> Self {
+        let gaps = address_gaps(venue);
         let entries = venue
             .fixtures
             .iter()
-            .map(|f| {
+            .enumerate()
+            .map(|(index, f)| {
                 let manufacturer = f.manufacturer.as_deref().unwrap_or("");
                 let model = f.model.as_deref().unwrap_or("");
                 let address = f.dmx_address()?;
-                let profile = crate::channel_map::profile_for(manufacturer, model)?;
+                let gap = gaps.get(index).copied().flatten();
+                let (profile, mode) =
+                    crate::fixture_library::profile_for(manufacturer, model, gap)?;
                 Some(Patch {
                     address,
                     mirrors: f.mirrors.clone(),
                     map: profile.map.clone(),
+                    mode,
                     profile,
                 })
             })

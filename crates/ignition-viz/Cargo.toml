@@ -53,6 +53,7 @@ zip = { version = "8.6", features = ["deflate"], default-features = false }
 ignition-core.workspace = true
 ignition-dmx.workspace = true
 ignition-proto.workspace = true
+ignition-fixture.workspace = true
 # Held at 0.25.6 because blitz-dom (via the studio app) pins that
 # version exactly, and two copies of `image` in one tree is a silent
 # duplicate rather than an error. Bevy only needs 0.25.2.

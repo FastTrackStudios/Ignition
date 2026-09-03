@@ -22,10 +22,12 @@ pub mod live;
 mod numeric;
 pub mod operators;
 pub mod panes;
+pub mod patch;
 pub mod pointer;
 pub mod program;
 
 pub use cuelist::CueList;
+pub use patch::{Conflict, Occupancy, PatchRow, PatchSheet};
 
 pub use command::{Command, PageMove, Playhead, SpeedKey};
 use dioxus::prelude::*;

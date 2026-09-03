@@ -26,6 +26,7 @@ members = [
     "features/daw/ignition-daw-transport",
     "features/daw/ignition-daw",
     "crates/ignition-profile",
+    "crates/ignition-fixture",
     "crates/ignition-viz",
     "crates/ignition-live-ui",
     "apps/ignition-engine",
@@ -46,6 +47,7 @@ repository = "https://github.com/FastTrackStudios/Ignition"
 ignition-proto = { path = "crates/ignition-proto" }
 ignition-core = { path = "crates/ignition-core" }
 ignition-profile = { path = "crates/ignition-profile" }
+ignition-fixture = { path = "crates/ignition-fixture" }
 ignition-daw = { path = "features/daw/ignition-daw" }
 ignition-viz = { path = "crates/ignition-viz" }
 ignition-dmx-proto = { path = "features/dmx/ignition-dmx-proto" }

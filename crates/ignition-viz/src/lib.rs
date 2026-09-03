@@ -32,6 +32,7 @@ pub mod canvas_material;
 pub mod channel_map;
 pub mod dmx;
 pub mod embedded;
+pub mod fixture_library;
 pub mod fixture_profile;
 pub mod gdtf_assets;
 pub mod gdtf_geometry;
