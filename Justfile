@@ -84,11 +84,13 @@ phone *ARGS:
 # nothing about dx's Tailwind pipeline. Both apps, because both scan the
 # shared `ignition-live-ui` sources: a utility used in a shared pane has
 # to be emitted into each sheet that mounts it.
-tailwind:
+tailwind: _site-tw-input
     tailwindcss -i apps/ignition-studio/tailwind.css \
         -o apps/ignition-studio/assets/tailwind.css
     tailwindcss -i apps/ignition-live-web/tailwind.css \
         -o apps/ignition-live-web/assets/tailwind.css
+    tailwindcss -i apps/ignition-web/.tailwind.gen.css \
+        -o apps/ignition-web/assets/tailwind.css --minify
 
 # The Live view for an iPad: the same components as the desk, built
 # for the browser and copied to where the studio serves them from
@@ -106,55 +108,90 @@ live-web:
 # `apps/ignition-web` is hand-written CSS except for one thing: the
 # guide's knowledge graph is `view-knowledge-graph`'s component, and it is
 # styled entirely in Tailwind utilities. Its sheet is compiled from
-# `apps/ignition-web/tailwind.css`, which @sources that crate plus
-# `architect-ui` — both GIT DEPS, so the globs cannot be written
-# literally: a git dep has no stable path on disk.
+# `apps/ignition-web/tailwind.css`, which needs `@source` globs into that
+# crate and into `architect-ui` — both GIT DEPS, so the globs cannot be
+# written literally: a git dep has no stable path on disk.
 #
-# `cargo metadata` knows where cargo actually resolved them. This asks,
-# and symlinks the answers into `.tailwind-src/` so the @source globs have
-# something real to match. Without it the classes those crates use are
-# simply absent from the sheet, and the failure is SILENT: a @source
-# matching nothing is not an error, the graph just renders unstyled.
-_site-tw-link:
+# `cargo metadata` knows where cargo actually resolved them. This asks and
+# substitutes the answers into `.tailwind.gen.css`, which is what
+# tailwindcss is actually pointed at.
+#
+# ABSOLUTE PATHS, not the symlink tree keyflow's site uses. The studio's
+# and the Live view's sheets use v4 automatic content detection rooted at
+# this repo; Tailwind follows a symlink to its target, and a target in the
+# nix store is outside anything `.gitignore` or `@source not` can exclude
+# — so symlinking the checkouts in here silently added classes to two
+# unrelated sheets. See the long comment in apps/ignition-web/tailwind.css.
+#
+# The failure this guards is silent in the other direction too: a
+# `@source` matching nothing is not an error, it just yields fewer classes
+# and an unstyled component. Hence the explicit check below.
+_site-tw-input:
     #!/usr/bin/env bash
     set -euo pipefail
-    mkdir -p apps/ignition-web/.tailwind-src
-    for crate in architect-ui view-knowledge-graph; do
-        dir=$(cargo metadata --format-version 1 2>/dev/null \
-            | python3 -c "import json,sys,os;p=json.load(sys.stdin)['packages'];print(next(os.path.dirname(x['manifest_path']) for x in p if x['name']=='$crate'))")
+    resolve() {
+        cargo metadata --format-version 1 2>/dev/null \
+            | python3 -c "import json,sys,os;p=json.load(sys.stdin)['packages'];print(next(os.path.dirname(x['manifest_path']) for x in p if x['name']=='$1'))"
+    }
+    ui=$(resolve architect-ui)
+    graph=$(resolve view-knowledge-graph)
+    for dir in "$ui" "$graph"; do
         if [ -z "$dir" ] || [ ! -d "$dir" ]; then
-            echo "cannot resolve $crate — is it in the dependency graph?" >&2
+            echo "cannot resolve a tailwind @source crate — is it in the dependency graph?" >&2
             exit 1
         fi
-        ln -sfn "$dir" "apps/ignition-web/.tailwind-src/$crate"
     done
+    sed -e "s|@@ARCHITECT_UI@@|$ui|g" -e "s|@@VIEW_KNOWLEDGE_GRAPH@@|$graph|g" \
+        apps/ignition-web/tailwind.css > apps/ignition-web/.tailwind.gen.css
 
-# Compile the site's Tailwind sheet. Gitignored output; `asset!()` needs
-# it at compile time, so this runs before any build of the site.
-site-tailwind: _site-tw-link
-    cd apps/ignition-web && tailwindcss -i ./tailwind.css -o ./assets/tailwind.css --minify
+# Compile the site's Tailwind sheet on its own. `just tailwind` does this
+# alongside the other two; this is the fast loop when only the site moved.
+site-tailwind: _site-tw-input
+    tailwindcss -i apps/ignition-web/.tailwind.gen.css \
+        -o apps/ignition-web/assets/tailwind.css --minify
 
-# Fail if the sheet is missing classes the graph needs. Cheap insurance
+# Fail if the sheet is missing what the graph needs. Cheap insurance
 # against the silent-@source failure described above.
+#
+# It greps for the emitted DECLARATIONS, not for the class names that
+# produce them, and that is not fussiness: the studio's and the Live
+# view's sheets use automatic content detection rooted at this repo, so a
+# class name written literally in this file is a class name Tailwind finds
+# and emits into both of them. A check that listed the classes it was
+# checking for put `cursor: grab` into two sheets that have no graph in
+# them. Asserting on the output is also the stronger test.
 site-tailwind-check: site-tailwind
     #!/usr/bin/env bash
     set -euo pipefail
+    sheet=apps/ignition-web/assets/tailwind.css
     missing=()
-    for class in cursor-grab cursor-grabbing text-muted-foreground; do
-        grep -q -- "$class" apps/ignition-web/assets/tailwind.css || missing+=("$class")
+    # The pan cursor, the legend's dimmed text, and the palette the node
+    # colours are interpolated from — spelled as `oklch(` because naming
+    # a colour stem here would be naming a class, with the effect above.
+    for rule in 'cursor:grab' 'cursor:grabbing' '--muted-foreground' 'oklch('; do
+        grep -q -- "$rule" "$sheet" || missing+=("$rule")
     done
     if [ ${#missing[@]} -ne 0 ]; then
         echo "the site's tailwind sheet is missing: ${missing[*]}" >&2
-        echo "the @source globs in apps/ignition-web/tailwind.css matched nothing — run 'just _site-tw-link'" >&2
+        echo "the @source globs resolved to nothing — check 'just _site-tw-input'" >&2
         exit 1
     fi
-    echo "the sites tailwind sheet covers the graph"
+    echo "the site tailwind sheet covers the graph"
 
 # The public site — the landing page and the guide
 # (apps/ignition-web). Static: no server, no backend, nothing to deploy
 # but the directory `dist` ends up as.
 site: site-tailwind
-    NO_DOWNLOADS=1 dx build -p ignition-web --platform web --release
+    # `--debug-symbols false`: drops DWARF, which both shrinks the bundle
+    # and sidesteps the DWARF-version mismatch that makes wasm-opt abort
+    # (dx logs the SIGABRT and ships the UNOPTIMISED wasm, so the failure
+    # costs megabytes rather than the build).
+    # dx writes content-hashed asset names into `public/` and never
+    # prunes the old ones, so a directory built over several commits
+    # accumulates every wasm it has ever produced — and `dist` is a copy
+    # of that directory. Start from empty.
+    rm -rf target/dx/ignition-web/release/web/public
+    NO_DOWNLOADS=1 dx build -p ignition-web --platform web --release --debug-symbols false
     rm -rf apps/ignition-web/dist
     mkdir -p apps/ignition-web/dist
     cp -r target/dx/ignition-web/release/web/public/. apps/ignition-web/dist/

@@ -1,0 +1,55 @@
+# Default values for the ignition chart.
+#
+# The site is static: one deployment serving a wasm bundle over HTTP on
+# :8080, one Service, one Ingress. It keeps no state, talks to no
+# database, and every replica is interchangeable — so there is no
+# persistence block here and none is coming.
+#
+# Nothing is baked in at build time; the same image serves any hostname,
+# so a new hostname is an ingress change, not a rebuild.
+
+image:
+  # Registry+namespace prefix. The deploy workflow pushes here via skopeo
+  # from the self-hosted `nix-host` runner — the in-cluster registry is
+  # not reachable from GitHub-hosted runners.
+  registry: registry.starcommand.live:30050
+  # `IfNotPresent` never re-pulls a mutable tag, which is exactly why
+  # argocd-image-updater rolls by DIGEST rather than by retagging.
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+web:
+  enabled: true
+  image:
+    repository: ignition-web
+    # Empty = chart appVersion. CI publishes `latest`, `dev` and
+    # `sha-<short>`; image-updater pins the digest it chose.
+    tag: ""
+  replicas: 1
+  podAnnotations: {}
+  # Deliberately modest: static file serving, and the bundle is served
+  # pre-compressed so the process does no work per request beyond reading
+  # a file.
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  # The cluster's Ingress objects are not what routes traffic — Caddy is,
+  # configured from nix. This exists as the record source external-dns
+  # reads, which is why it is on by default but carries no class.
+  enabled: true
+  host: ignition.fasttrackstudio.app
+  className: ""
+  annotations: {}
+  tls: []

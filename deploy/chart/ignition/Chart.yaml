@@ -1,0 +1,16 @@
+apiVersion: v2
+name: ignition
+description: >-
+  ignition.fasttrackstudio.app — the Ignition site: the landing page and
+  the guide. A static wasm bundle and nothing else; there is no server
+  and no state.
+type: application
+home: https://github.com/FastTrackStudios/Ignition
+sources:
+  - https://github.com/FastTrackStudios/Ignition
+# Chart version — bump on chart changes.
+version: 0.1.0
+# The image tag defaults to this unless values override it, which in
+# practice they always do — argocd-image-updater writes the digest it
+# rolled.
+appVersion: "0.1.0"

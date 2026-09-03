@@ -1,0 +1,38 @@
+{{- if and .Values.ingress.enabled .Values.web.enabled }}
+{{/*
+Not the routing control plane. Caddy routes this cluster, configured from
+nix (see starcommand's `starcommand.cluster.routes`), and nothing watches
+these Ingress objects for traffic. This exists so external-dns has a
+record to publish — which is why it ships with no ingressClassName by
+default.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ignition.fullname" . }}
+  labels:
+    {{- include "ignition.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ignition.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

@@ -12,3 +12,10 @@
 
 @source "./src/**/*.rs";
 @source "../../crates/ignition-live-ui/src/**/*.rs";
+
+/* The public site (`apps/ignition-web`) is a separate sheet with its own
+   sources, and this one uses v4's automatic content detection — so
+   without this line the site's own generated sheet and its markup feed
+   classes back into THIS one, and the output depends on whether the site
+   has been built yet. See apps/ignition-web/tailwind.css. */
+@source not "../ignition-web";

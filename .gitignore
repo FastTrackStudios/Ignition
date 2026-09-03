@@ -21,8 +21,10 @@ __pycache__/
 data/effects/previews/
 data/macros/previews/
 
-# The site's Tailwind sheet and the symlinks it is compiled through.
-# Build output — `just site-tailwind` remakes both, and `just site`
-# depends on it. See apps/ignition-web/tailwind.css for why they exist.
-apps/ignition-web/assets/tailwind.css
-apps/ignition-web/.tailwind-src/
+# The site's real Tailwind input, generated from `tailwind.css` with the
+# git-dep paths cargo actually resolved substituted in — machine-local by
+# construction. `just tailwind` remakes it. The compiled SHEET is
+# committed, like the studio's and the Live view's: `asset!()` demands it
+# at compile time, so a fresh clone and the nix build both have to work
+# without running the recipe first. See apps/ignition-web/tailwind.css.
+apps/ignition-web/.tailwind.gen.css

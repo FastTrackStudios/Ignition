@@ -1,0 +1,104 @@
+# Deploy — a pure-Nix OCI image pushed to the in-cluster registry, rolled
+# out by ArgoCD + argocd-image-updater (digest strategy on the channel
+# tag).
+#
+#   ignition-web -> registry.starcommand.live:30050/ignition-web
+#
+# The in-cluster registry is NOT reachable from GitHub-hosted runners, so
+# this runs on the org's SELF-HOSTED runner labelled `nix-host`. That
+# runner is registered on the FastTrackStudios org, so it reaches this
+# repo.
+#
+# GitHub Deployments: the `environment:` block registers a real
+# Deployment, so runs appear under the repo's Environments tab with a
+# link to the live site. It only goes green after "Verify live" passes —
+# so "Active" means the cluster is SERVING this sha, not merely that an
+# image was pushed.
+#
+# Path-filtered, unlike the sibling repos'. This workspace is a lighting
+# console: Bevy, wgpu, the DMX stack and the visualizer cannot change
+# what the site renders, because the site does not depend on any of them
+# (see nix/modules/packages/web-bundle.nix). The guide, the site crate,
+# the bundle's nix and the chart can, and that is the list.
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/ignition-web/**"
+      - "docs/guides/**"
+      - "nix/modules/packages/**"
+      - "deploy/chart/ignition/**"
+      - ".github/workflows/deploy.yml"
+      - "Cargo.lock"
+  workflow_dispatch:
+
+# Never cancel a deploy mid-push; queue instead. A cancelled deploy can
+# leave the registry holding a tag the cluster never rolled.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: registry.starcommand.live:30050
+  # Newer skopeo rejects the host's v1 registries.conf; every registry is
+  # named explicitly below, so an empty (valid) config is enough.
+  CONTAINERS_REGISTRIES_CONF: /dev/null
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, nix-host]
+    environment:
+      name: ignition-production
+      url: https://ignition.fasttrackstudio.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute tags
+        id: tags
+        run: echo "sha=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Push image
+        run: |
+          set -euo pipefail
+          img=ignition-web
+          echo "── $img ──"
+          # streamLayeredImage builds an EXECUTABLE that streams a
+          # docker-archive to stdout — there is no tarball on disk to
+          # copy, which is what keeps the bundle out of the store twice.
+          streamer="$(nix build .#${img}-image --no-link --print-out-paths)"
+          "$streamer" | nix run nixpkgs#skopeo -- --insecure-policy copy \
+            --dest-tls-verify=false --dest-no-creds docker-archive:/dev/stdin \
+            "docker://${REGISTRY}/${img}:latest"
+          # Retag from the just-pushed :latest rather than re-streaming:
+          # same digest by construction, and the image is built once.
+          for tag in dev "${{ steps.tags.outputs.sha }}"; do
+            nix run nixpkgs#skopeo -- --insecure-policy copy \
+              --src-tls-verify=false --src-no-creds \
+              --dest-tls-verify=false --dest-no-creds \
+              "docker://${REGISTRY}/${img}:latest" \
+              "docker://${REGISTRY}/${img}:${tag}"
+          done
+
+      # A green run must mean the cluster serves THIS commit. The bundle
+      # reports the rev it was built from in version.json (written by
+      # mkStaticSite), so this is the site answering, not the registry.
+      - name: Verify live
+        run: |
+          url="https://ignition.fasttrackstudio.app"
+          want="${GITHUB_SHA}"
+          echo "waiting for $url to serve $want"
+          for i in $(seq 1 60); do
+            got="$(curl -sf --max-time 10 "$url/version.json" \
+              | sed -n 's/.*"rev":"\([^"]*\)".*/\1/p' || true)"
+            echo "  poll $i: ${got:-?}"
+            if [ "$got" = "$want" ]; then
+              echo "LIVE: $url serves $want"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "TIMED OUT: $url never served $want — check argocd-image-updater / rollouts"
+          exit 1
