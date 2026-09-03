@@ -150,6 +150,7 @@ impl Host {
             },
             tree: DockNode::tab(pane),
             view: origin.spec.view,
+            parked: None,
         };
         Some(self.push(spec, Some(from)))
     }
@@ -613,6 +614,9 @@ pub fn PaneBody(pane: PaneKind) -> Element {
         PaneKind::Cameras => rsx! { ignition_live_ui::cameras::CamerasPane {} },
         // r[impl viz.programme-view] - the cut, dockable anywhere
         PaneKind::Programme => rsx! { div { class: "viewport", crate::viz_widget::Programme {} } },
+        // The Setup view — `docs/spec/patch.md`.
+        PaneKind::Patch => rsx! { ignition_live_ui::patch::PatchPane {} },
+        PaneKind::Universes => rsx! { ignition_live_ui::patch::UniversesPane {} },
         other => rsx! {
             div { class: "placeholder",
                 span { class: "placeholder-name", "{other.label()}" }
@@ -640,18 +644,22 @@ fn ModeStrip(host: HostId, view: View, title: String, popped: bool) -> Element {
             div { class: "strip-right",
                 button {
                     class: "panel-key view",
-                    title: "Switch this window between the Program and Live views",
+                    title: "Cycle this window through Program, Live and Setup",
                     onclick: move |_| {
+                        // Program and Live share a desk; Setup has its
+                        // own, so this may swap the whole dock tree —
+                        // see `WindowSpec::show`.
+                        let next = view.next();
                         with_host(|h| {
                             if let Some(w) = h.get_mut(host) {
-                                w.spec.view = w.spec.view.other();
+                                w.spec.show(next);
                             }
                         });
                         // The viewport draws the programmer's overlays
                         // only in Program.
                         // r[impl studio.program.pick-and-gizmos] - Live has the overlays off
                         ignition_live_ui::send(ignition_live_ui::Command::ProgramView(
-                            view.other() == View::Program,
+                            next == View::Program,
                         ));
                         refresh(host);
                     },

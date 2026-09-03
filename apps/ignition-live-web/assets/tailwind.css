@@ -280,6 +280,11 @@
   .gap-2 {
     gap: calc(var(--spacing) * 2);
   }
+  .truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .rounded {
     border-radius: 0.25rem;
   }

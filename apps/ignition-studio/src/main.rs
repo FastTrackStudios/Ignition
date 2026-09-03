@@ -31,8 +31,8 @@ use command::{Command, PageMove, SpeedKey};
 // `live_web`. The studio re-exports the names its own panels use.
 // r[impl studio.touch.ipad] - one UI crate, mounted natively here
 use ignition_live_ui::{
-    ColorChip, CueList, HSlider, PlayheadFeed, Row, Surface, desk, faders, library, operators,
-    program, send, use_desk, use_playhead,
+    ColorChip, CueList, HSlider, PatchRow, PatchSheet, PlayheadFeed, Row, Surface, desk, faders,
+    library, operators, program, send, use_desk, use_playhead,
 };
 
 use viz_widget::VizWidget;
@@ -360,6 +360,13 @@ fn main() -> anyhow::Result<()> {
 
     let venue = Venue::load(venue_dir())?;
     let surface = build_surface(&venue);
+    // The Setup view's rows, resolved from the same venue at the same
+    // moment as the Surface, so the two cannot disagree.
+    let venue_name = std::path::Path::new(&venue_dir())
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let _ = PATCH_SHEET.set(build_patch_sheet(&venue, &venue_name));
 
     // The same surface, to an iPad — opt-in, see `live_web`. Started
     // here rather than in a component because it needs the sender and
@@ -534,6 +541,66 @@ fn busking_groups(venue: &Venue) -> Vec<String> {
 /// be handed across that boundary except through the process.
 static SURFACE: std::sync::OnceLock<Surface> = std::sync::OnceLock::new();
 
+/// The patch, flattened for the Setup view.
+///
+/// The same trick as `build_surface`: resolved once by the host from the
+/// venue, because `ignition-live-ui` cannot see a `Venue` and the iPad
+/// has no Bevy world to hold one. Every fixture appears, addressed or
+/// not — an unpatched fixture is a prop or a spare, and the sheet is
+/// where you go to give it an address (`r[patch.unpatched]`).
+// r[impl patch.sheet] - the rows the pane draws
+fn build_patch_sheet(venue: &Venue, name: &str) -> PatchSheet {
+    let patch = venue.patch();
+    let mut rows: Vec<PatchRow> = venue
+        .fixtures
+        .iter()
+        .enumerate()
+        .map(|(index, fixture)| {
+            let entry = patch.get(index);
+            PatchRow {
+                chan: fixture.chan.unwrap_or(0),
+                name: fixture.name.clone(),
+                // `label` and `gel` have been in the venue files since
+                // they were written and nothing has ever shown them.
+                label: String::new(),
+                gel: String::new(),
+                manufacturer: fixture.manufacturer.clone().unwrap_or_default(),
+                model: fixture.model.clone().unwrap_or_default(),
+                mode: entry.map(|p| p.mode.clone()).unwrap_or_default(),
+                fixture_type: entry.map(|p| p.fixture_type.clone()).unwrap_or_default(),
+                confidence: entry.map(|p| p.confidence.clone()).unwrap_or_default(),
+                universe: fixture.universe.unwrap_or(0),
+                address: fixture.address.unwrap_or(0),
+                footprint: entry.map_or(0, |p| p.map.footprint),
+                patched: fixture.patched && fixture.dmx_address().is_some(),
+                mirrors: fixture
+                    .mirrors
+                    .iter()
+                    .map(|a| (a.universe, a.start_channel))
+                    .collect(),
+                tags: fixture.tags.clone(),
+                position: [fixture.position.x, fixture.position.y, fixture.position.z],
+                overridden: false,
+            }
+        })
+        .collect();
+    // Channel order: how a patch sheet is read everywhere.
+    rows.sort_by_key(|row| row.chan);
+    PatchSheet {
+        rows,
+        universes: venue.patched_universes(),
+        venue: name.to_owned(),
+        dirty: false,
+    }
+}
+
+static PATCH_SHEET: std::sync::OnceLock<PatchSheet> = std::sync::OnceLock::new();
+
+/// The patch as the panes see it.
+fn patch_sheet() -> PatchSheet {
+    PATCH_SHEET.get().cloned().unwrap_or_default()
+}
+
 /// # Panics
 ///
 /// Never in practice: `app` sets `SURFACE` before rendering the first
@@ -578,6 +645,10 @@ pub fn bootstrap() -> ignition_live_ui::Bootstrap {
 pub fn provide_playhead() {
     let mut playhead = use_signal(command::Playhead::default);
     use_context_provider(|| PlayheadFeed(playhead));
+    // The patch, for the Setup view's panes. A signal rather than a
+    // plain value because a patch edit republishes it — the pane must
+    // never go back to the venue file for a second copy.
+    use_context_provider(|| ignition_live_ui::patch::SheetFeed(Signal::new(patch_sheet())));
     use_future(move || async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(33)).await;
@@ -1699,4 +1770,110 @@ fn load_cue_names(path: &str) -> anyhow::Result<Vec<Row>> {
     let raw = std::fs::read_to_string(path)?;
     let list: ignition_core::CueList = serde_json::from_str(&raw)?;
     Ok(ignition_live_ui::cuelist::rows(&list, None))
+}
+
+#[cfg(test)]
+mod patch_sheet_tests {
+    use super::build_patch_sheet;
+    use ignition_viz::venue::Venue;
+
+    fn norco() -> Option<Venue> {
+        // Runs from the crate directory, so reach the repo root the way
+        // the rest of the tree's tests do.
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/venues/norco");
+        Venue::load(dir).ok()
+    }
+
+    /// r[verify patch.sheet] - the real rig, as the sheet draws it
+    ///
+    /// The Setup view cannot be screenshotted in CI, so this is what
+    /// stands in for looking at it: the columns an operator reads are
+    /// the ones most likely to be quietly wrong, and every one of them
+    /// is a lookup that could have come back empty.
+    #[test]
+    fn norcos_patch_sheet_says_what_the_rig_is() {
+        let Some(venue) = norco() else {
+            return; // the venue is not in this checkout
+        };
+        let sheet = build_patch_sheet(&venue, "norco");
+        assert!(!sheet.rows.is_empty(), "the rig has fixtures");
+        assert!(
+            !sheet.universes.is_empty(),
+            "and the venue configures universes"
+        );
+
+        // Channel order, because that is how a patch sheet is read.
+        let chans: Vec<u32> = sheet.rows.iter().map(|r| r.chan).collect();
+        let mut sorted = chans.clone();
+        sorted.sort_unstable();
+        assert_eq!(chans, sorted, "rows come out in channel order");
+
+        let patched: Vec<_> = sheet.rows.iter().filter(|r| r.patched).collect();
+        assert!(!patched.is_empty(), "something is patched");
+
+        // Every patched fixture resolved to a type with a width. A row
+        // with no type is a fixture that will not light, and the sheet
+        // exists to say so — but on the shipped rig there should be
+        // none, which is what `ignition-fixture`'s own coverage test
+        // asserts from the other side.
+        let untyped: Vec<&str> = patched
+            .iter()
+            .filter(|r| r.fixture_type.is_empty())
+            .map(|r| r.model.as_str())
+            .collect();
+        assert!(
+            untyped.is_empty(),
+            "models with no fixture type: {untyped:?}"
+        );
+        assert!(
+            patched.iter().all(|r| r.footprint > 0),
+            "and every one of them occupies channels"
+        );
+        assert!(
+            patched.iter().all(|r| !r.mode.is_empty()),
+            "and resolved to a named mode"
+        );
+        assert!(
+            patched.iter().all(|r| !r.confidence.is_empty()),
+            "and says how its chart was come by"
+        );
+    }
+
+    /// r[verify patch.conflict] - the shipped rig is not self-conflicting
+    ///
+    /// If this ever fails, either two fixtures really do share channels
+    /// in `data/venues/norco` — worth knowing — or the mode resolution
+    /// has started picking something too wide, which is the failure
+    /// `tests/dmx_loopback.rs` caught once already.
+    #[test]
+    fn norco_patches_without_a_clash() {
+        let Some(venue) = norco() else {
+            return;
+        };
+        let sheet = build_patch_sheet(&venue, "norco");
+        let clashes = sheet.conflicts();
+        assert!(
+            clashes.is_empty(),
+            "the shipped rig conflicts with itself: {clashes:#?}"
+        );
+    }
+
+    /// Every patched fixture is inside a universe the venue configures,
+    /// and inside its 512 channels.
+    #[test]
+    fn nothing_is_patched_off_the_end_of_a_universe() {
+        let Some(venue) = norco() else {
+            return;
+        };
+        let sheet = build_patch_sheet(&venue, "norco");
+        for row in sheet.rows.iter().filter(|r| r.patched) {
+            let end = u32::from(row.address).saturating_add(u32::from(row.footprint));
+            assert!(
+                end <= 513,
+                "chan {} runs to {end} in universe {}",
+                row.chan,
+                row.universe
+            );
+        }
+    }
 }

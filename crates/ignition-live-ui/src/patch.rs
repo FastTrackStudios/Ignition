@@ -441,3 +441,325 @@ mod tests {
         assert_eq!(spare.address_label(), "—");
     }
 }
+
+// ── The panes ────────────────────────────────────────────────────────
+
+use crate::command::Command;
+use crate::send;
+use dioxus::prelude::*;
+
+const CSS: &str = include_str!("patch.css");
+
+/// How the host hands the sheet to the panes.
+///
+/// The same shape as [`crate::Surface`] and for the same reason: this
+/// crate cannot see a `Venue`, and the browser on an iPad has no Bevy
+/// world to hold one. The host resolves it once and republishes after
+/// every edit — a pane that re-read the venue off disk would be a second
+/// copy of the truth, which is the failure `cameras.rs` names.
+#[derive(Clone, Copy)]
+pub struct SheetFeed(pub Signal<PatchSheet>);
+
+/// The patch, as the host last published it.
+#[must_use]
+pub fn use_sheet() -> Signal<PatchSheet> {
+    use_context::<SheetFeed>().0
+}
+
+/// Which rows the sheet is showing.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum Filter {
+    #[default]
+    All,
+    /// No address yet — the filter an operator lives in while bringing
+    /// a room up.
+    Unpatched,
+    /// Overlapping another fixture.
+    Conflicts,
+    /// No fixture type resolved. Every one of these is a fixture that
+    /// will not light.
+    Untyped,
+    Universe(Universe),
+    Model(String),
+}
+
+impl Filter {
+    fn label(&self) -> String {
+        match self {
+            Self::All => "All".to_owned(),
+            Self::Unpatched => "Unpatched".to_owned(),
+            Self::Conflicts => "Conflicts".to_owned(),
+            Self::Untyped => "No type".to_owned(),
+            Self::Universe(universe) => format!("Universe {universe}"),
+            Self::Model(model) => model.clone(),
+        }
+    }
+}
+
+/// The patch sheet.
+///
+/// Channel-ordered, because that is how a patch sheet is read
+/// everywhere. Condensed by default and full on request
+/// (`r[patch.sheet.columns]`): patching forty fixtures needs six
+/// columns and auditing one needs twenty, and a sheet that always shows
+/// twenty cannot be read at a rig.
+// r[impl patch.sheet] - the pane
+// r[impl patch.sheet.columns] - condensed and full
+// r[impl patch.sheet.filter] - the rail, including unpatched and conflicting
+#[component]
+pub fn PatchPane() -> Element {
+    let sheet = use_sheet();
+    let mut full = use_signal(|| false);
+    let filter = use_signal(Filter::default);
+    let mut selected = use_signal(|| None::<u32>);
+
+    let sheet = sheet();
+    let conflicts: std::collections::BTreeMap<u32, Conflict> =
+        sheet.conflicts().into_iter().collect();
+    let current = filter();
+
+    // The rail's model list, in first-seen order so it reads like the
+    // rig rather than like an alphabet.
+    let mut models: Vec<String> = Vec::new();
+    for row in &sheet.rows {
+        if !row.model.is_empty() && !models.contains(&row.model) {
+            models.push(row.model.clone());
+        }
+    }
+    let untyped = sheet.untyped().count();
+    let unpatched = sheet.unpatched().count();
+
+    let rows: Vec<&PatchRow> = sheet
+        .rows
+        .iter()
+        .filter(|row| match &current {
+            Filter::All => true,
+            Filter::Unpatched => !row.patched || row.address == 0,
+            Filter::Conflicts => conflicts.contains_key(&row.chan),
+            Filter::Untyped => row.patched && row.fixture_type.is_empty(),
+            Filter::Universe(universe) => row.universe == *universe,
+            Filter::Model(model) => row.model == *model,
+        })
+        .collect();
+
+    rsx! {
+        style { {CSS} }
+        section { class: "patch",
+            header { class: "patch-head",
+                span { class: "patch-count", "{rows.len()} of {sheet.rows.len()}" }
+                if !conflicts.is_empty() {
+                    span {
+                        class: "patch-warn",
+                        title: "two fixtures share DMX channels",
+                        "{conflicts.len() / 2} conflicts"
+                    }
+                }
+                if untyped > 0 {
+                    span {
+                        class: "patch-warn",
+                        title: "no fixture type resolved — these will not light",
+                        "{untyped} untyped"
+                    }
+                }
+                if sheet.dirty {
+                    span { class: "patch-dirty", title: "unsaved patch edits", "UNSAVED" }
+                }
+                button {
+                    class: if full() { "patch-key on" } else { "patch-key" },
+                    title: "show every column",
+                    onclick: move |_| full.toggle(),
+                    "FULL"
+                }
+            }
+            div { class: "patch-body",
+                nav { class: "patch-rail",
+                    FilterKey { filter, current: current.clone(), it: Filter::All, count: sheet.rows.len() }
+                    FilterKey { filter, current: current.clone(), it: Filter::Unpatched, count: unpatched }
+                    FilterKey {
+                        filter,
+                        current: current.clone(),
+                        it: Filter::Conflicts,
+                        count: conflicts.len() / 2,
+                    }
+                    FilterKey { filter, current: current.clone(), it: Filter::Untyped, count: untyped }
+                    div { class: "patch-rail-head", "Universes" }
+                    for universe in sheet.universes.clone() {
+                        FilterKey {
+                            filter,
+                            current: current.clone(),
+                            it: Filter::Universe(universe),
+                            count: sheet.rows.iter().filter(|r| r.universe == universe && r.patched).count(),
+                        }
+                    }
+                    div { class: "patch-rail-head", "Types" }
+                    for model in models {
+                        FilterKey {
+                            filter,
+                            current: current.clone(),
+                            it: Filter::Model(model.clone()),
+                            count: sheet.rows.iter().filter(|r| r.model == model).count(),
+                        }
+                    }
+                }
+                div { class: "patch-sheet",
+                    table {
+                        thead {
+                            tr {
+                                th { class: "num", "Chan" }
+                                th { "Name" }
+                                th { "Type" }
+                                if full() {
+                                    th { "Mode" }
+                                    th { "Made of" }
+                                }
+                                th { class: "num", "U.Addr" }
+                                th { class: "num", "Wide" }
+                                th { "Label" }
+                                if full() {
+                                    th { "Gel" }
+                                    th { "Tags" }
+                                    th { "Position" }
+                                }
+                            }
+                        }
+                        tbody {
+                            for row in rows {
+                                PatchLine {
+                                    key: "{row.chan}",
+                                    row: row.clone(),
+                                    full: full(),
+                                    conflict: conflicts.get(&row.chan).cloned(),
+                                    selected: selected() == Some(row.chan),
+                                    on_pick: move |chan| {
+                                        selected.set(Some(chan));
+                                        send(Command::Select(ignition_core::Selection::Chans(vec![chan])));
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn FilterKey(filter: Signal<Filter>, current: Filter, it: Filter, count: usize) -> Element {
+    let on = current == it;
+    let label = it.label();
+    // A filter that would show nothing is drawn dim rather than hidden:
+    // "no conflicts" is the answer an operator is looking for, and a key
+    // that vanishes when the answer is good cannot give it.
+    rsx! {
+        button {
+            class: if on { "rail-key on" } else if count == 0 { "rail-key none" } else { "rail-key" },
+            onclick: move |_| filter.set(it.clone()),
+            span { class: "rail-label", "{label}" }
+            span { class: "rail-count", "{count}" }
+        }
+    }
+}
+
+#[component]
+fn PatchLine(
+    row: PatchRow,
+    full: bool,
+    conflict: Option<Conflict>,
+    selected: bool,
+    on_pick: EventHandler<u32>,
+) -> Element {
+    let chan = row.chan;
+    let class = match (selected, conflict.is_some(), row.patched) {
+        (true, _, _) => "patch-row on",
+        (_, true, _) => "patch-row clash",
+        (_, _, false) => "patch-row dark",
+        _ => "patch-row",
+    };
+    let kind = if row.fixture_type.is_empty() {
+        row.model.clone()
+    } else {
+        row.fixture_type.clone()
+    };
+    let title = conflict.as_ref().map_or_else(
+        || row.name.clone(),
+        |c| {
+            format!(
+                "shares channel {}.{:03} with chan {}",
+                c.universe, c.at, c.with
+            )
+        },
+    );
+    rsx! {
+        tr { class, title, onclick: move |_| on_pick.call(chan),
+            td { class: "num", "{row.chan}" }
+            td { "{row.name}" }
+            td {
+                span { class: if row.fixture_type.is_empty() { "type missing" } else { "type" }, "{kind}" }
+                if !row.confidence.is_empty() {
+                    span { class: "conf {row.confidence}", title: "how the channel chart was come by", "{row.confidence}" }
+                }
+            }
+            if full {
+                td { "{row.mode}" }
+                td { "{row.manufacturer}" }
+            }
+            td { class: "num addr", "{row.address_label()}" }
+            td { class: "num", if row.footprint > 0 { "{row.footprint}" } else { "—" } }
+            td { "{row.label}" }
+            if full {
+                td { "{row.gel}" }
+                td { "{row.tags.join(\" \")}" }
+                td { class: "num",
+                    "{row.position[0]:.1} {row.position[1]:.1} {row.position[2]:.1}"
+                }
+            }
+        }
+    }
+}
+
+/// A universe as its 512 channels.
+///
+/// "Where does this fit" is a spatial question and a list of addresses
+/// answers it badly (`r[patch.occupancy]`). Each cell is one slot,
+/// coloured by the fixture holding it, so a free run reads as a gap
+/// rather than as arithmetic.
+// r[impl patch.occupancy] - the pane
+#[component]
+pub fn UniversesPane() -> Element {
+    let sheet = use_sheet();
+    let sheet = sheet();
+    let occupancy = sheet.occupancy();
+    rsx! {
+        style { {CSS} }
+        section { class: "universes",
+            if occupancy.is_empty() {
+                div { class: "patch-empty", "no universes patched" }
+            }
+            for universe in occupancy {
+                div { class: "uni",
+                    header { class: "uni-head",
+                        span { class: "uni-name", "Universe {universe.universe}" }
+                        span { class: "uni-used", "{universe.used} / 512" }
+                        if let Some((at, run)) = universe.largest_gap() {
+                            span { class: "uni-gap", title: "the longest free run", "gap {at}+{run}" }
+                        }
+                    }
+                    div { class: "uni-grid",
+                        for (index , occupant) in universe.slots.iter().enumerate() {
+                            span {
+                                key: "{index}",
+                                class: if *occupant == 0 { "slot" } else { "slot on" },
+                                title: if *occupant == 0 {
+                                    format!("{}.{:03} free", universe.universe, index + 1)
+                                } else {
+                                    format!("{}.{:03} — chan {occupant}", universe.universe, index + 1)
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

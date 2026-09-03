@@ -365,10 +365,20 @@ pub struct Patch {
     pub map: ignition_proto::ChannelMap,
     /// The output-side profile: emitters, wheel, preference, space, defaults.
     pub profile: crate::fixture_profile::FixtureProfile,
-    /// The fixture type's mode this patch resolved to — what the room's
-    /// own address spacing said this fixture is. `legacy` for a model
-    /// answered by the hand-written table rather than a document.
+    /// The fixture type this model resolved to, by console name. Empty
+    /// when the hand-written fallback table answered.
+    pub fixture_type: String,
+    /// The fixture type's mode this patch resolved to — what the room
+    /// said, in the model string or in the address spacing it left.
+    /// `legacy` for a model answered by the table rather than a
+    /// document.
     pub mode: String,
+    /// How the chart was come by: `manual`, `listing` or `guess`
+    /// (`r[patch.type-confidence]`). A patch sheet shows this, because
+    /// "the channel order on this fixture is a guess" is something an
+    /// operator wants to know before the fixture does something
+    /// unexpected.
+    pub confidence: String,
 }
 
 impl Patch {
@@ -444,14 +454,15 @@ impl PatchTable {
                 let model = f.model.as_deref().unwrap_or("");
                 let address = f.dmx_address()?;
                 let gap = gaps.get(index).copied().flatten();
-                let (profile, mode) =
-                    crate::fixture_library::profile_for(manufacturer, model, gap)?;
+                let found = crate::fixture_library::profile_for(manufacturer, model, gap)?;
                 Some(Patch {
                     address,
                     mirrors: f.mirrors.clone(),
-                    map: profile.map.clone(),
-                    mode,
-                    profile,
+                    map: found.profile.map.clone(),
+                    profile: found.profile,
+                    fixture_type: found.fixture_type,
+                    mode: found.mode,
+                    confidence: found.confidence,
                 })
             })
             .collect();
