@@ -1,16 +1,17 @@
-//! Offline export: a show rendered to a video file frame by frame
-//! against the song's clock — `r[viz.export]`. This module is the
-//! Bevy-free half: the frame schedule (which frame is which moment of
-//! the song, deterministically, whatever the GPU is doing) and the sinks
-//! frames are written to (an H.264 file through the `ffmpeg` feature, or
-//! a PNG sequence into a directory without it). `app::run_export` owns
-//! the render loop and calls in here.
+//! Offline export: a show rendered to a video file frame by frame against
+//! the song's clock — `r[viz.export]`.
+//!
+//! This module is the Bevy-free half: the frame schedule (which frame is
+//! which moment of the song, deterministically, whatever the GPU is doing)
+//! and the sinks frames are written to (an H.264 file through the `ffmpeg`
+//! feature, or a PNG sequence into a directory without it).
+//! `app::run_export` owns the render loop and calls in here.
 
 use ignition_core::Bars;
 use std::path::{Path, PathBuf};
 
 /// What `viz --export` asked for.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportRequest {
     /// The `.mp4` to write (with the `ffmpeg` feature), or the directory
     /// a PNG sequence goes into without it.
@@ -29,10 +30,11 @@ pub struct ExportFrame {
     pub position: Bars,
 }
 
-/// The frames an export renders: `from_bar` (its first beat) up to but
-/// not including `to_bar`, at `fps`, with the song at a constant `bpm`
-/// and `beats_per_bar`. Pure arithmetic, so the same request always
-/// yields the same frames.
+/// The frames an export renders: `from_bar` (its first beat) up to but not
+/// including `to_bar`, at `fps`, with the song at a constant `bpm` and
+/// `beats_per_bar`.
+///
+/// Pure arithmetic, so the same request always yields the same frames.
 // r[impl viz.export] - frame by frame against the song's clock
 #[derive(Debug, Clone, PartialEq)]
 pub struct FrameSchedule {
@@ -44,6 +46,7 @@ pub struct FrameSchedule {
 }
 
 impl FrameSchedule {
+    #[must_use]
     pub fn new(request: &ExportRequest, bpm: f64) -> Self {
         Self {
             from_bar: request.from_bar,
@@ -55,37 +58,45 @@ impl FrameSchedule {
     }
 
     /// Seconds per frame.
+    #[must_use]
     pub fn dt(&self) -> f64 {
-        1.0 / self.fps as f64
+        1.0 / f64::from(self.fps)
     }
 
     /// Seconds one bar lasts.
+    #[must_use]
     pub fn secs_per_bar(&self) -> f64 {
-        self.beats_per_bar as f64 * 60.0 / self.bpm
+        f64::from(self.beats_per_bar) * 60.0 / self.bpm
     }
 
     /// How long the export runs, in seconds — zero for an empty range.
+    #[must_use]
     pub fn duration_secs(&self) -> f64 {
-        self.to_bar.saturating_sub(self.from_bar) as f64 * self.secs_per_bar()
+        f64::from(self.to_bar.saturating_sub(self.from_bar)) * self.secs_per_bar()
     }
 
     /// How many frames there are: every frame whose time is inside the
     /// range, so the last one lands just short of `to_bar`.
+    #[must_use]
     pub fn frame_count(&self) -> u32 {
-        (self.duration_secs() * self.fps as f64).ceil().max(0.0) as u32
+        crate::num::u32_of_f64((self.duration_secs() * f64::from(self.fps)).ceil().max(0.0))
     }
 
     /// The song position `secs` into the export.
+    #[must_use]
     pub fn position_at(&self, secs: f64) -> Bars {
         let beats = secs * self.bpm / 60.0;
-        let bars = (beats / self.beats_per_bar as f64).floor();
-        let beat = beats - bars * self.beats_per_bar as f64;
-        Bars::new(self.from_bar + bars as u32, 1.0 + beat)
+        let bars = (beats / f64::from(self.beats_per_bar)).floor();
+        let beat = beats - bars * f64::from(self.beats_per_bar);
+        Bars::new(
+            self.from_bar.saturating_add(crate::num::u32_of_f64(bars)),
+            1.0 + beat,
+        )
     }
 
     pub fn frames(&self) -> impl Iterator<Item = ExportFrame> + '_ {
         (0..self.frame_count()).map(|index| {
-            let secs = index as f64 * self.dt();
+            let secs = f64::from(index) * self.dt();
             ExportFrame {
                 index,
                 secs,
@@ -98,6 +109,10 @@ impl FrameSchedule {
 /// Where rendered frames go. Frames arrive in order, as tightly packed
 /// RGBA8 at the export's size.
 pub trait FrameSink {
+    /// # Errors
+    ///
+    /// If this frame can't be written or encoded (a full disk, an
+    /// unwritable path, or an encoder failure).
     fn push(
         &mut self,
         frame: &ExportFrame,
@@ -105,6 +120,10 @@ pub trait FrameSink {
         width: u32,
         height: u32,
     ) -> anyhow::Result<()>;
+
+    /// # Errors
+    ///
+    /// If flushing or finalizing the output fails.
     fn finish(self: Box<Self>) -> anyhow::Result<()>;
 }
 
@@ -117,6 +136,9 @@ pub struct PngSequence {
 }
 
 impl PngSequence {
+    /// # Errors
+    ///
+    /// If `dir` can't be created.
     pub fn create(dir: &Path) -> anyhow::Result<Self> {
         std::fs::create_dir_all(dir)
             .map_err(|e| anyhow::anyhow!("creating {}: {e}", dir.display()))?;
@@ -125,6 +147,7 @@ impl PngSequence {
         })
     }
 
+    #[must_use]
     pub fn frame_path(&self, index: u32) -> PathBuf {
         self.dir.join(format!("frame_{index:06}.png"))
     }
@@ -156,6 +179,11 @@ impl FrameSink for PngSequence {
 /// The sink `request` wants: H.264 when the crate was built with
 /// `ffmpeg`, otherwise a PNG sequence — into `request.path` as a
 /// directory, or beside a `.mp4` path with the extension dropped.
+///
+/// # Errors
+///
+/// If the destination path or directory can't be created, or (with the
+/// `ffmpeg` feature) the encoder fails to start.
 // r[impl viz.export] - a video file with the codec, a frame sequence without
 pub fn open_sink(
     request: &ExportRequest,
@@ -186,6 +214,7 @@ pub fn open_sink(
 
 /// A `.mp4`-style path becomes a directory of the same name without
 /// the extension; a bare path is already a directory.
+#[must_use]
 pub fn png_dir_for(path: &Path) -> PathBuf {
     if path.extension().is_some() {
         path.with_extension("")
@@ -221,6 +250,11 @@ pub mod h264 {
 
     impl H264Sink {
         // r[impl viz.export] - the video file
+        /// # Errors
+        ///
+        /// If ffmpeg can't be initialised, the output can't be opened for
+        /// writing, this build has no H.264 encoder, or the encoder or
+        /// scaler can't be configured for `width`x`height` at `fps`.
         pub fn create(path: &Path, width: u32, height: u32, fps: u32) -> anyhow::Result<Self> {
             ffmpeg::init().map_err(|e| anyhow::anyhow!("ffmpeg init: {e}"))?;
             let mut output = ffmpeg::format::output(path)
@@ -245,8 +279,8 @@ pub mod h264 {
             video.set_width(width);
             video.set_height(height);
             video.set_format(Pixel::YUV420P);
-            video.set_time_base(Rational(1, fps as i32));
-            video.set_frame_rate(Some(Rational(fps as i32, 1)));
+            video.set_time_base(Rational(1, fps.cast_signed()));
+            video.set_frame_rate(Some(Rational(fps.cast_signed(), 1)));
             if global_header {
                 video.set_flags(codec::Flags::GLOBAL_HEADER);
             }
@@ -257,7 +291,7 @@ pub mod h264 {
                 .open_with(options)
                 .map_err(|e| anyhow::anyhow!("opening the H.264 encoder: {e}"))?;
             stream.set_parameters(&encoder);
-            stream.set_time_base(Rational(1, fps as i32));
+            stream.set_time_base(Rational(1, fps.cast_signed()));
             let stream_time_base = stream.time_base();
             output
                 .write_header()
@@ -305,19 +339,36 @@ pub mod h264 {
             height: u32,
         ) -> anyhow::Result<()> {
             let mut src = VideoFrame::new(Pixel::RGBA, self.width, self.height);
-            let src_stride = (width * 4) as usize;
+            let src_stride = crate::num::usize_of_u32(width).saturating_mul(4);
             let dst_stride = src.stride(0);
-            let rows = self.height.min(height) as usize;
-            let row_bytes = (self.width * 4) as usize;
+            let rows = crate::num::usize_of_u32(self.height.min(height));
+            let row_bytes = crate::num::usize_of_u32(self.width).saturating_mul(4);
             for y in 0..rows {
-                let from = &rgba[y * src_stride..y * src_stride + row_bytes];
-                src.data_mut(0)[y * dst_stride..y * dst_stride + row_bytes].copy_from_slice(from);
+                let src_start = y.saturating_mul(src_stride);
+                let src_end = src_start.saturating_add(row_bytes);
+                let Some(from) = rgba.get(src_start..src_end) else {
+                    anyhow::bail!(
+                        "frame {} is short a source row ({} bytes wanted at {src_start})",
+                        frame.index,
+                        row_bytes
+                    );
+                };
+                let dst_start = y.saturating_mul(dst_stride);
+                let dst_end = dst_start.saturating_add(row_bytes);
+                let Some(dst_row) = src.data_mut(0).get_mut(dst_start..dst_end) else {
+                    anyhow::bail!(
+                        "frame {} is short a destination row ({} bytes wanted at {dst_start})",
+                        frame.index,
+                        row_bytes
+                    );
+                };
+                dst_row.copy_from_slice(from);
             }
             let mut dst = VideoFrame::new(Pixel::YUV420P, self.width, self.height);
             self.scaler
                 .run(&src, &mut dst)
                 .map_err(|e| anyhow::anyhow!("converting frame {}: {e}", frame.index))?;
-            dst.set_pts(Some(frame.index as i64));
+            dst.set_pts(Some(i64::from(frame.index)));
             self.encoder
                 .send_frame(&dst)
                 .map_err(|e| anyhow::anyhow!("encoding frame {}: {e}", frame.index))?;

@@ -54,9 +54,9 @@ pub enum HitBand {
 impl From<Band> for HitBand {
     fn from(band: Band) -> Self {
         match band {
-            Band::Low => HitBand::Low,
-            Band::Mid => HitBand::Mid,
-            Band::High => HitBand::High,
+            Band::Low => Self::Low,
+            Band::Mid => Self::Mid,
+            Band::High => Self::High,
         }
     }
 }
@@ -84,23 +84,27 @@ impl Hits {
 
     /// The strongest hit in a bar range, if any — what an accent cue is
     /// hung on.
+    #[must_use]
     pub fn strongest(&self, from: Bars, to: Bars) -> Option<&Hit> {
         self.between(from, to)
             .max_by(|a, b| a.strength.total_cmp(&b.strength))
     }
 
     /// The dynamic indicator for a bar, 0..1.
+    #[must_use]
     pub fn dynamics_at_bar(&self, bar: u32) -> f32 {
-        self.dynamics_by_bar
-            .get(bar.saturating_sub(1) as usize)
-            .copied()
-            .unwrap_or(0.0)
+        let index = usize::try_from(bar.saturating_sub(1)).unwrap_or(usize::MAX);
+        self.dynamics_by_bar.get(index).copied().unwrap_or(0.0)
     }
 }
 
 /// Analyses an audio file and places its hits on `song`'s grid.
 ///
 /// `grid` is divisions per beat: 2 for eighths, 4 for sixteenths.
+///
+/// # Errors
+///
+/// Returns an error if the audio file cannot be decoded.
 // r[impl song.hits.detected]
 pub fn detect(audio: impl AsRef<Path>, song: &SongMap, grid: u32) -> Result<Hits> {
     let path = audio.as_ref();
@@ -115,6 +119,7 @@ pub fn detect(audio: impl AsRef<Path>, song: &SongMap, grid: u32) -> Result<Hits
 /// Places a finished analysis on the grid.
 // r[impl song.hits.detected]
 // r[impl song.hits.grid-snapped] - eighths by default, per-bar dynamics at the midpoint
+#[must_use]
 pub fn place(analysis: &Analysis, song: &SongMap, grid: u32) -> Hits {
     let grid = grid.max(1);
     let hits = analysis
@@ -122,7 +127,7 @@ pub fn place(analysis: &Analysis, song: &SongMap, grid: u32) -> Hits {
         .iter()
         .map(|hit| Hit {
             at: snap(song.tempo.position_at(hit.secs), song, grid),
-            secs: hit.secs as f32,
+            secs: narrow_secs(hit.secs),
             strength: hit.strength,
             band: hit.band.into(),
             dynamics: analysis.dynamics_at(hit.secs),
@@ -137,7 +142,7 @@ pub fn place(analysis: &Analysis, song: &SongMap, grid: u32) -> Hits {
     let dynamics_by_bar = (1..=bars)
         .map(|bar| {
             let start = song.tempo.seconds_at(Bars::bar(bar));
-            let end = song.tempo.seconds_at(Bars::bar(bar + 1));
+            let end = song.tempo.seconds_at(Bars::bar(bar.saturating_add(1)));
             analysis.dynamics_at((start + end) * 0.5)
         })
         .collect();
@@ -147,6 +152,40 @@ pub fn place(analysis: &Analysis, song: &SongMap, grid: u32) -> Hits {
         grid,
         hits,
         dynamics_by_bar,
+    }
+}
+
+/// A detected onset's second count, narrowed for storage.
+///
+/// A song is minutes long, so this is far below where an `f32`'s 24-bit
+/// mantissa would start losing whole milliseconds — the field exists so
+/// a suspicious hit can be checked by ear, not for sample-accurate
+/// resynthesis.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "a song's duration in seconds is far below f32's precision limit; see the doc comment"
+)]
+const fn narrow_secs(value: f64) -> f32 {
+    value as f32
+}
+
+/// A non-negative bar count, floored from a beat total.
+///
+/// `total_beats` only goes negative if a hit is placed before the
+/// tempo point that governs it, which `snap` never does — but the
+/// value is data-derived, so this clamps rather than trusting that.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "clamped to a non-negative range before the cast; see the doc comment"
+)]
+fn bars_of(value: f64) -> u32 {
+    if value.is_nan() || value <= 0.0 {
+        0
+    } else {
+        value.min(f64::from(u32::MAX)) as u32
     }
 }
 
@@ -169,7 +208,10 @@ fn snap(position: Bars, song: &SongMap, grid: u32) -> Bars {
     let origin = song.tempo.seconds_at(Bars::bar(point.at.bar));
     let steps = ((seconds - origin) / division).round();
     let total_beats = steps / f64::from(grid);
-    let bar = point.at.bar + (total_beats / beats_per_bar).floor() as u32;
+    let bar = point
+        .at
+        .bar
+        .saturating_add(bars_of((total_beats / beats_per_bar).floor()));
     let beat = total_beats.rem_euclid(beats_per_bar) + 1.0;
     Bars::new(bar, beat)
 }
@@ -183,23 +225,32 @@ fn snap(position: Bars, song: &SongMap, grid: u32) -> Bars {
 /// not, but nothing forbids) reaches into the bar it stops in, and that
 /// bar counts.
 fn last_bar(song: &SongMap) -> u32 {
-    song.sections
-        .last()
-        .map(|s| {
-            let end = s.end(&song.tempo);
-            if (end.beat - 1.0).abs() < 1e-6 {
-                end.bar.saturating_sub(1).max(1)
-            } else {
-                end.bar
-            }
-        })
-        .unwrap_or(1)
+    song.sections.last().map_or(1, |s| {
+        let end = s.end(&song.tempo);
+        if (end.beat - 1.0).abs() < 1e-6 {
+            end.bar.saturating_sub(1).max(1)
+        } else {
+            end.bar
+        }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use ignition_daw_proto::{TempoMap, TimeSignature};
+
+    /// A small frame count as a float, for building the synthetic
+    /// dynamics ramp fixtures below. Bounded by the fixture size, far
+    /// under where an `f32` loses integer precision.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "fixture frame counts here are small; see the doc comment"
+    )]
+    const fn small_i32_as_f32(n: i32) -> f32 {
+        n as f32
+    }
 
     fn song(bpm: f64) -> SongMap {
         SongMap {
@@ -306,7 +357,7 @@ mod tests {
                 },
             ],
             dynamics: (0..frames)
-                .map(|i| i as f32 / (frames - 1) as f32)
+                .map(|i| small_i32_as_f32(i) / small_i32_as_f32(frames.saturating_sub(1)))
                 .collect(),
             frame_rate,
         };
@@ -323,7 +374,7 @@ mod tests {
             "the raw second was lost to the snap: {}",
             first.secs
         );
-        assert_eq!(first.strength, 1.0);
+        assert!((first.strength - 1.0).abs() < f32::EPSILON);
         assert_eq!(first.band, HitBand::Low);
         assert!(
             (first.dynamics - 0.37).abs() < 0.02,

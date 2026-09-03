@@ -36,11 +36,16 @@ pub struct Edits {
 }
 
 impl Edits {
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be read or does not parse as
+    /// JSON.
     pub fn load(path: impl AsRef<std::path::Path>) -> anyhow::Result<Self> {
         let raw = std::fs::read_to_string(path)?;
         Ok(serde_json::from_str(&raw)?)
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.keep.is_empty() && self.cues.is_empty()
     }
@@ -71,7 +76,7 @@ pub fn merge(fresh: &mut CueList, existing: Option<&CueList>, edits: &Edits) -> 
     }
     for (name, cue) in &edits.cues {
         let mut cue = cue.clone();
-        cue.name = name.clone();
+        cue.name.clone_from(name);
         place(cue);
     }
     fresh.sort_by_position();
@@ -79,7 +84,7 @@ pub fn merge(fresh: &mut CueList, existing: Option<&CueList>, edits: &Edits) -> 
 }
 
 /// What [`merge`] did.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Merged {
     pub kept: Vec<String>,
     pub missing: Vec<String>,
@@ -138,7 +143,11 @@ mod tests {
             .iter()
             .map(|c| (c.name.clone(), c.position()))
             .collect();
-        let triggers_before: Vec<_> = list.triggers.iter().map(|t| t.bars()).collect();
+        let triggers_before: Vec<_> = list
+            .triggers
+            .iter()
+            .map(ignition_show::Trigger::bars)
+            .collect();
         assert!(
             list.cues
                 .iter()
@@ -153,7 +162,11 @@ mod tests {
             .map(|c| (c.name.clone(), c.position()))
             .collect();
         assert_eq!(after, before);
-        let triggers_after: Vec<_> = list.triggers.iter().map(|t| t.bars()).collect();
+        let triggers_after: Vec<_> = list
+            .triggers
+            .iter()
+            .map(ignition_show::Trigger::bars)
+            .collect();
         assert_eq!(triggers_after, triggers_before);
         // And the second PRE is addressed as the second PRE.
         let pre2 = list.cues.iter().find(|c| c.name == "PRE 2").unwrap();
@@ -212,8 +225,8 @@ mod tests {
         let names: Vec<&str> = fresh.cues.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, ["VS 1", "CH 1", "· blackout"]);
         // The regenerated verse won; the edited chorus was kept verbatim.
-        assert_eq!(fresh.cues[0].fade_secs, 3.0);
-        assert_eq!(fresh.cues[1].fade_secs, 0.05);
+        assert!((fresh.cues[0].fade_secs - 3.0).abs() < f32::EPSILON);
+        assert!((fresh.cues[1].fade_secs - 0.05).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -227,7 +240,7 @@ mod tests {
         edits.cues.insert("CH 1".into(), cue("CH 1", 23, 1.5));
         merge(&mut fresh, Some(&existing), &edits);
         assert_eq!(fresh.cues.len(), 1);
-        assert_eq!(fresh.cues[0].fade_secs, 1.5);
+        assert!((fresh.cues[0].fade_secs - 1.5).abs() < f32::EPSILON);
     }
 
     /// r[verify song.relative-position.resolved-on-load]

@@ -151,7 +151,7 @@ pub enum Trick {
     // r[impl tricks.grid]
     // r[impl tricks.grid.degenerate-axes]
     // r[impl tricks.shuffle.axes]
-    OnAxis(Axis, Box<Trick>),
+    OnAxis(Axis, Box<Self>),
 }
 
 /// Which relative values [`Trick::Invert`] flips.
@@ -169,23 +169,26 @@ pub enum InvertStyle {
 
 impl InvertStyle {
     /// True when this style covers `attr`.
+    #[must_use]
     pub fn covers(self, attr: &crate::Attribute) -> bool {
         use crate::Attribute;
         match self {
-            InvertStyle::Pan => *attr == Attribute::Pan,
-            InvertStyle::Tilt => *attr == Attribute::Tilt,
-            InvertStyle::PanTilt => matches!(attr, Attribute::Pan | Attribute::Tilt),
-            InvertStyle::All => true,
+            Self::Pan => *attr == Attribute::Pan,
+            Self::Tilt => *attr == Attribute::Tilt,
+            Self::PanTilt => matches!(attr, Attribute::Pan | Attribute::Tilt),
+            Self::All => true,
         }
     }
 }
 
 /// Which units of `count` a chain of Tricks inverts, and in what style:
-/// `None` for a unit left alone. The second half of the units, per
-/// [`Trick::Invert`]; several Inverts widen the style rather than
-/// cancel.
+/// `None` for a unit left alone.
+///
+/// The second half of the units, per [`Trick::Invert`]; several Inverts
+/// widen the style rather than cancel.
 // r[impl tricks.invert]
 // r[impl effects.invert]
+#[must_use]
 pub fn inverted(tricks: &[Trick], count: usize) -> Vec<Option<InvertStyle>> {
     let style = tricks
         .iter()
@@ -203,7 +206,7 @@ pub fn inverted(tricks: &[Trick], count: usize) -> Vec<Option<InvertStyle>> {
 }
 
 /// Two Invert styles on the same unit widen rather than cancel: Pan
-/// then Tilt is PanTilt, and All swallows everything.
+/// then Tilt is `PanTilt`, and All swallows everything.
 // r[impl tricks.invert]
 fn widen(acc: Option<InvertStyle>, s: InvertStyle) -> InvertStyle {
     match (acc, s) {
@@ -226,26 +229,31 @@ pub struct Units(pub Vec<Vec<ChanId>>);
 
 impl Units {
     /// Every channel, flattened back into selection order.
+    #[must_use]
     pub fn flat(&self) -> Vec<ChanId> {
         self.0.iter().flatten().copied().collect()
     }
 
-    pub fn len(&self) -> usize {
+    #[must_use]
+    pub const fn len(&self) -> usize {
         self.0.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// One channel per unit, in order — for a Trick applied to something
     /// that wants fixtures rather than groups of them.
+    #[must_use]
     pub fn leaders(&self) -> Vec<ChanId> {
         self.0.iter().filter_map(|u| u.first().copied()).collect()
     }
 }
 
 /// Every channel as its own unit — a selection nobody has cut yet.
+#[must_use]
 pub fn units_of(chans: &[ChanId]) -> Units {
     Units(chans.iter().map(|c| vec![*c]).collect())
 }
@@ -254,11 +262,12 @@ impl Trick {
     /// Which axis this Trick runs along, and the 1-D Trick that runs
     /// there. A bare Trick is on X; nested `OnAxis` resolves to the
     /// innermost axis.
-    pub fn on_axis(&self) -> (Axis, &Trick) {
+    #[must_use]
+    pub fn on_axis(&self) -> (Axis, &Self) {
         match self {
-            Trick::OnAxis(axis, inner) => {
+            Self::OnAxis(axis, inner) => {
                 let (deeper, t) = inner.on_axis();
-                if matches!(**inner, Trick::OnAxis(..)) {
+                if matches!(**inner, Self::OnAxis(..)) {
                     (deeper, t)
                 } else {
                     (*axis, t)
@@ -280,22 +289,23 @@ impl Trick {
     /// and Z mean something.
     // r[impl tricks.composable]
     // r[impl tricks.grid.degenerate-axes] - Y/Z on a list is a no-op
+    #[must_use]
     pub fn apply(&self, units: Units) -> Units {
         match self {
-            Trick::Block(n) => block(units, *n),
-            Trick::Group(n) => group(units, *n),
-            Trick::Wings(n) => wings(units, *n),
-            Trick::Shuffle(seed) => shuffle(units, *seed),
-            Trick::Shift(n) => shift(units, *n),
-            Trick::Reverse => {
+            Self::Block(n) => block(units, *n),
+            Self::Group(n) => group(units, *n),
+            Self::Wings(n) => wings(units, *n),
+            Self::Shuffle(seed) => shuffle(units, *seed),
+            Self::Shift(n) => shift(units, *n),
+            Self::Reverse => {
                 let mut units = units;
                 units.0.reverse();
                 units
             }
-            Trick::Mirror => mirror(units),
+            Self::Mirror => mirror(units),
             // Changes values, not order — see `inverted`.
-            Trick::Invert(_) => units,
-            Trick::OnAxis(..) => match self.on_axis() {
+            Self::Invert(_) => units,
+            Self::OnAxis(..) => match self.on_axis() {
                 (Axis::X, inner) => inner.apply(units),
                 _ => units,
             },
@@ -305,6 +315,7 @@ impl Trick {
 
 /// Applies a chain of Tricks, left to right.
 // r[impl tricks.composable]
+#[must_use]
 pub fn apply_all(chans: &[ChanId], tricks: &[Trick]) -> Units {
     tricks
         .iter()
@@ -386,18 +397,16 @@ impl Grid {
     /// never invent a row.
     // r[impl tricks.grid.from-space]
     // r[impl tricks.grid.degenerate-axes]
+    #[must_use]
     pub fn from_rig(chans: &[ChanId], rig: &Rig, axes: GridAxes) -> Self {
         let coord = |axis: Axis| -> Vec<usize> { bin(chans, rig, axis, axes.tolerance) };
         let (xs, ys, zs) = (coord(axes.x), coord(axes.y), coord(axes.z));
         let cells = chans
             .iter()
-            .enumerate()
-            .map(|(i, &chan)| Cell {
-                chan,
-                x: xs[i],
-                y: ys[i],
-                z: zs[i],
-            })
+            .copied()
+            .zip(xs.iter().copied().zip(ys.iter().copied()))
+            .zip(zs.iter().copied())
+            .map(|((chan, (x, y)), z)| Cell { chan, x, y, z })
             .collect();
         Self {
             cells,
@@ -421,24 +430,29 @@ impl Grid {
     // r[impl tricks.grid.from-space]
     // r[impl tricks.grid.degenerate-axes]
     // r[impl tricks.grid] - the third axis
+    #[must_use]
     pub fn from_rig_in_order(chans: &[ChanId], rig: &Rig, axes: GridAxes) -> Self {
         let ys = bin(chans, rig, axes.y, axes.tolerance);
         let zs = bin(chans, rig, axes.z, axes.tolerance);
         let mut rank: std::collections::HashMap<(usize, usize), usize> =
             std::collections::HashMap::new();
         let mut cells = Vec::with_capacity(chans.len());
-        for (i, &chan) in chans.iter().enumerate() {
+        for (chan, (y, z)) in chans
+            .iter()
+            .copied()
+            .zip(ys.iter().copied().zip(zs.iter().copied()))
+        {
             if cells.iter().any(|c: &Cell| c.chan == chan) {
                 continue;
             }
-            let slot = rank.entry((ys[i], zs[i])).or_insert(0);
+            let slot = rank.entry((y, z)).or_insert(0);
             cells.push(Cell {
                 chan,
                 x: *slot,
-                y: ys[i],
-                z: zs[i],
+                y,
+                z,
             });
-            *slot += 1;
+            *slot = slot.saturating_add(1);
         }
         let width = rank.values().copied().max().unwrap_or(0);
         Self {
@@ -454,7 +468,8 @@ impl Grid {
     /// Overrides whatever the room would have said, and says so through
     /// [`Grid::is_override`].
     // r[impl tricks.grid.explicit-override]
-    pub fn explicit(rows: Vec<Vec<ChanId>>) -> Self {
+    #[must_use]
+    pub fn explicit(rows: &[Vec<ChanId>]) -> Self {
         let mut cells = Vec::new();
         for (y, row) in rows.iter().enumerate() {
             for (x, &chan) in row.iter().enumerate() {
@@ -482,15 +497,16 @@ impl Grid {
     /// This is the call recipe.rs makes — see [`apply_all_grid`].
     // r[impl tricks.grid.explicit-override] - the explicit layout wins
     // r[impl tricks.grid.from-space] - the room is the default
+    #[must_use]
     pub fn for_selection(
         chans: &[ChanId],
         layout: Option<&Vec<Vec<ChanId>>>,
         rig: &Rig,
         axes: GridAxes,
     ) -> Self {
-        match layout {
-            None => Self::from_rig(chans, rig, axes),
-            Some(rows) => {
+        layout.map_or_else(
+            || Self::from_rig(chans, rig, axes),
+            |rows| {
                 let mut rows: Vec<Vec<ChanId>> = rows
                     .iter()
                     .map(|r| r.iter().copied().filter(|c| chans.contains(c)).collect())
@@ -503,23 +519,26 @@ impl Grid {
                 if !missing.is_empty() {
                     rows.push(missing);
                 }
-                Self::explicit(rows)
-            }
-        }
+                Self::explicit(&rows)
+            },
+        )
     }
 
     /// True when this grid came from a declared layout rather than the
     /// room — the inspectable half of `tricks.grid.explicit-override`.
     // r[impl tricks.grid.explicit-override] - the override is inspectable
-    pub fn is_override(&self) -> bool {
+    #[must_use]
+    pub const fn is_override(&self) -> bool {
         self.explicit
     }
 
-    pub fn len(&self) -> usize {
+    #[must_use]
+    pub const fn len(&self) -> usize {
         self.cells.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.cells.is_empty()
     }
 }
@@ -537,22 +556,32 @@ fn bin(chans: &[ChanId], rig: &Rig, axis: Axis, tolerance: f64) -> Vec<usize> {
         .collect();
     placed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
     let mut out = vec![0; chans.len()];
-    let mut row = 0;
+    let mut row: usize = 0;
     let mut start = f64::NAN;
     for (i, v) in placed {
         if start.is_nan() {
             start = v;
         } else if (v - start).abs() > tolerance {
-            row += 1;
+            row = row.saturating_add(1);
             start = v;
         }
-        out[i] = row;
+        // `i` came from `chans.iter().enumerate()` above, so it is always
+        // in bounds — but a grid row is data derived from a venue file,
+        // and data does not get to panic just because this invariant
+        // holds today.
+        if let Some(slot) = out.get_mut(i) {
+            *slot = row;
+        }
     }
     out
 }
 
 fn rows(coords: &[usize]) -> usize {
-    coords.iter().max().map_or(0, |m| m + 1).max(1)
+    coords
+        .iter()
+        .max()
+        .map_or(0, |m| m.saturating_add(1))
+        .max(1)
 }
 
 /// Where a unit sits in the grid of units, after the Tricks.
@@ -575,14 +604,29 @@ pub struct UnitPos {
 impl UnitPos {
     /// This unit's fraction along `axis`, 0 at the leading end and
     /// `i / count` after — the 3-D twin of `Timing::spread_fraction`.
+    #[must_use]
     pub fn fraction(&self, axis: Axis) -> f32 {
         let (i, n) = match axis {
             Axis::X => (self.x, self.count[0]),
             Axis::Y => (self.y, self.count[1]),
             Axis::Z => (self.z, self.count[2]),
         };
-        if n > 1 { i as f32 / n as f32 } else { 0.0 }
+        if n > 1 { f32_of(i) / f32_of(n) } else { 0.0 }
     }
+}
+
+/// A grid coordinate or unit count as a float, for spread fractions.
+///
+/// These are counts of fixtures or units in a rig, orders of magnitude
+/// below the 2^24 where an `f32` stops counting integers exactly, so the
+/// conversion never has anything to lose.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "grid coordinates are small; see the doc comment"
+)]
+const fn f32_of(n: usize) -> f32 {
+    n as f32
 }
 
 /// The result of [`apply_all_grid`]: the units, and where each sits.
@@ -602,11 +646,13 @@ pub struct GridUnits {
 }
 
 impl GridUnits {
-    pub fn len(&self) -> usize {
+    #[must_use]
+    pub const fn len(&self) -> usize {
         self.units.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.units.is_empty()
     }
 }
@@ -618,11 +664,33 @@ struct Placed {
     pos: [usize; 3],
 }
 
-fn axis_index(axis: Axis) -> usize {
+/// Reads one axis's coordinate out of a `[x, y, z]` triple. A literal
+/// index into a fixed 3-element array, not a place that can panic.
+const fn axis_get(p: [usize; 3], axis: Axis) -> usize {
     match axis {
-        Axis::X => 0,
-        Axis::Y => 1,
-        Axis::Z => 2,
+        Axis::X => p[0],
+        Axis::Y => p[1],
+        Axis::Z => p[2],
+    }
+}
+
+/// Writes one axis's coordinate into a `[x, y, z]` triple.
+const fn axis_set(p: &mut [usize; 3], axis: Axis, v: usize) {
+    match axis {
+        Axis::X => p[0] = v,
+        Axis::Y => p[1] = v,
+        Axis::Z => p[2] = v,
+    }
+}
+
+/// The other two axes, in the fixed order everything downstream of
+/// [`along`] expects: the one "after" `axis`, then the one after that,
+/// cycling X → Y → Z → X.
+const fn other_axes(axis: Axis) -> (Axis, Axis) {
+    match axis {
+        Axis::X => (Axis::Y, Axis::Z),
+        Axis::Y => (Axis::Z, Axis::X),
+        Axis::Z => (Axis::X, Axis::Y),
     }
 }
 
@@ -678,6 +746,7 @@ fn sort_row_major(units: &mut [Placed]) {
 // r[impl tricks.shuffle.axes]
 // r[impl tricks.composable]
 // r[impl tricks.spread.blocks-are-units]
+#[must_use]
 pub fn apply_all_grid(tricks: &[Trick], grid: &Grid) -> GridUnits {
     let mut units: Vec<Placed> = grid
         .cells
@@ -738,29 +807,31 @@ fn along(
     axis: Axis,
     trick: &Trick,
 ) -> (Vec<Placed>, [usize; 3]) {
-    let a = axis_index(axis);
-    let (o1, o2) = ((a + 1) % 3, (a + 2) % 3);
+    let (o1, o2) = other_axes(axis);
     // BTreeMap so lines come back in a fixed order; the row-major sort
     // at the end makes the final order independent of it anyway.
     let mut lines: BTreeMap<(usize, usize), Vec<Placed>> = BTreeMap::new();
     for u in units {
-        lines.entry((u.pos[o1], u.pos[o2])).or_default().push(u);
+        lines
+            .entry((axis_get(u.pos, o1), axis_get(u.pos, o2)))
+            .or_default()
+            .push(u);
     }
     let mut out = Vec::new();
     let mut longest = 1;
     for ((c1, c2), mut line) in lines {
-        line.sort_by_key(|u| u.pos[a]);
+        line.sort_by_key(|u| axis_get(u.pos, axis));
         let cut = trick.apply(Units(line.into_iter().map(|u| u.chans).collect()));
         longest = longest.max(cut.len());
         for (i, chans) in cut.0.into_iter().enumerate() {
             let mut pos = [0; 3];
-            pos[a] = i;
-            pos[o1] = c1;
-            pos[o2] = c2;
+            axis_set(&mut pos, axis, i);
+            axis_set(&mut pos, o1, c1);
+            axis_set(&mut pos, o2, c2);
             out.push(Placed { chans, pos });
         }
     }
-    count[a] = longest;
+    axis_set(&mut count, axis, longest);
     (out, count)
 }
 
@@ -775,6 +846,7 @@ fn along(
 // r[impl tricks.invert]
 // r[impl effects.invert]
 // r[impl tricks.grid.degenerate-axes]
+#[must_use]
 pub fn inverted_grid(tricks: &[Trick], gu: &GridUnits) -> Vec<Option<InvertStyle>> {
     let n = gu.len();
     let mut out: Vec<Option<InvertStyle>> = vec![None; n];
@@ -788,7 +860,14 @@ pub fn inverted_grid(tricks: &[Trick], gu: &GridUnits) -> Vec<Option<InvertStyle
             let far = if bare {
                 i >= n.div_ceil(2)
             } else {
-                let p = gu.pos[i];
+                // `out` is built from `gu.len()`, and `gu.pos` is the
+                // same length by construction (`apply_all_grid` builds
+                // both from the same unit list) — but that invariant
+                // lives two functions away, so this still asks rather
+                // than assumes.
+                let Some(p) = gu.pos.get(i) else {
+                    continue;
+                };
                 let (c, total) = match axis {
                     Axis::X => (p.x, p.count[0]),
                     Axis::Y => (p.y, p.count[1]),
@@ -830,7 +909,13 @@ fn group(units: Units, n: usize) -> Units {
     }
     let mut out: Vec<Vec<ChanId>> = vec![Vec::new(); n];
     for (i, unit) in units.0.into_iter().enumerate() {
-        out[i % n].extend(unit);
+        // `n > 1` is checked above, so the remainder can never divide by
+        // zero and `slot` is always `< out.len()` — but `checked_rem`
+        // and `get_mut` say so rather than assume it.
+        let slot = i.checked_rem(n).unwrap_or(0);
+        if let Some(bucket) = out.get_mut(slot) {
+            bucket.extend(unit);
+        }
     }
     // A group that caught nothing is dropped rather than kept as an
     // empty unit: `Group(4)` over three fixtures is three groups, and a
@@ -871,12 +956,25 @@ fn shift(units: Units, n: isize) -> Units {
     if len == 0 || n == 0 {
         return units;
     }
-    // `rem_euclid` so a negative shift rotates the other way rather than
-    // panicking on a negative index.
-    let by = n.rem_euclid(len as isize) as usize;
+    let by = rotate_amount(n, len);
     let mut out = units.0;
     out.rotate_left(by);
     Units(out)
+}
+
+/// A rotation amount from a possibly-negative shift and a selection
+/// length. `rem_euclid` needs matching signs on the way in, and its
+/// result is bounded to `[0, len)` on the way out — the two casts around
+/// it cannot wrap or lose a sign beyond what that guarantees, and a
+/// selection is never within reach of `isize`'s range in either
+/// direction.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_wrap,
+    reason = "rem_euclid bounds the result to [0, len); see the doc comment"
+)]
+const fn rotate_amount(n: isize, len: usize) -> usize {
+    n.rem_euclid(len as isize) as usize
 }
 
 // r[impl tricks.mirror]
@@ -890,7 +988,9 @@ fn mirror(units: Units) -> Units {
     let mut out = Vec::with_capacity(n.div_ceil(2));
     // Fold outside in: (first, last), (second, second-last)...
     while src.len() >= 2 {
-        let last = src.pop().expect("len >= 2");
+        let Some(last) = src.pop() else {
+            break;
+        };
         let mut first = src.remove(0);
         first.extend(last);
         out.push(first);
@@ -928,10 +1028,30 @@ fn shuffle(units: Units, seed: u32) -> Units {
     };
     // Fisher-Yates, back to front.
     for i in (1..out.len()).rev() {
-        let j = (next() % (i as u64 + 1)) as usize;
+        let j = fisher_yates_index(next(), i);
         out.swap(i, j);
     }
     Units(out)
+}
+
+/// Fisher-Yates' `next() % (i + 1)`, as an index into the same `Vec` `i`
+/// is a position in.
+///
+/// The xorshift state is carried in `u64` to give the generator room to
+/// mix bits in; `i` is a loop counter over an in-memory `Vec`, which
+/// cannot hold anywhere near `u64::MAX` entries, so widening it loses
+/// nothing, and the remainder this returns is always `<= i`, so
+/// narrowing the result back loses nothing either. The modulus is
+/// always `>= 1` (`i` plus one, both non-negative), so `checked_rem`
+/// never actually falls back — it simply says so instead of assuming it.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "a Vec index and a Vec length round-trip through u64 losslessly; see the doc comment"
+)]
+fn fisher_yates_index(random: u64, i: usize) -> usize {
+    let modulus = i.saturating_add(1) as u64;
+    random.checked_rem(modulus).unwrap_or(0) as usize
 }
 
 /// Distributes a value across units — MAtricks' from/to layers.
@@ -943,12 +1063,13 @@ fn shuffle(units: Units, seed: u32) -> Units {
 // r[impl tricks.spread]
 // r[impl tricks.spread.not-an-effect]
 // r[impl tricks.spread.blocks-are-units] - indexed by unit
+#[must_use]
 pub fn spread(from: f32, to: f32, index: usize, count: usize) -> f32 {
     if count <= 1 {
         return from;
     }
-    let t = index as f32 / (count - 1) as f32;
-    from + (to - from) * t
+    let t = f32_of(index) / f32_of(count.saturating_sub(1));
+    (to - from).mul_add(t, from)
 }
 
 /// A from/to pair — a value to spread across a selection.
@@ -999,25 +1120,32 @@ pub enum FanShape {
 }
 
 impl FanShape {
+    // Signature fixed by `#[serde(skip_serializing_if = "FanShape::is_default")]`
+    // above, which calls this with `&FanShape`.
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "signature is pinned by serde's skip_serializing_if; see the doc comment"
+    )]
     fn is_default(&self) -> bool {
-        *self == FanShape::Linear
+        *self == Self::Linear
     }
 
     /// Maps a unit's position `t` (0 first … 1 last) to where it sits
     /// between `from` (0) and `to` (1) under this shape.
+    #[must_use]
     pub fn place(self, index: usize, count: usize) -> f32 {
-        let n = count.max(1) as f32;
+        let n = f32_of(count.max(1));
         let t = if count > 1 {
-            index as f32 / (count - 1) as f32
+            f32_of(index) / f32_of(count.saturating_sub(1))
         } else {
             0.0
         };
         match self {
-            FanShape::Linear => t,
-            FanShape::FromFirst => index as f32 / n,
-            FanShape::FromLast => (index as f32 + 1.0) / n,
-            FanShape::CentreOut => 1.0 - (2.0 * t - 1.0).abs(),
-            FanShape::EndsIn => (2.0 * t - 1.0).abs(),
+            Self::Linear => t,
+            Self::FromFirst => f32_of(index) / n,
+            Self::FromLast => (f32_of(index) + 1.0) / n,
+            Self::CentreOut => 1.0 - 2.0f32.mul_add(t, -1.0).abs(),
+            Self::EndsIn => 2.0f32.mul_add(t, -1.0).abs(),
         }
     }
 }
@@ -1038,23 +1166,31 @@ pub enum Curve {
 }
 
 impl Curve {
+    // Signature fixed by `#[serde(skip_serializing_if = "Curve::is_default")]`
+    // above, which calls this with `&Curve`.
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "signature is pinned by serde's skip_serializing_if; see the doc comment"
+    )]
     fn is_default(&self) -> bool {
-        *self == Curve::Linear
+        *self == Self::Linear
     }
 
     /// Reshapes a 0…1 position.
+    #[must_use]
     pub fn apply(self, t: f32) -> f32 {
         let t = t.clamp(0.0, 1.0);
         match self {
-            Curve::Linear => t,
-            Curve::Sine => (1.0 - (std::f32::consts::PI * t).cos()) / 2.0,
-            Curve::Slow => t * t,
-            Curve::Fast => 1.0 - (1.0 - t) * (1.0 - t),
+            Self::Linear => t,
+            Self::Sine => (1.0 - (std::f32::consts::PI * t).cos()) / 2.0,
+            Self::Slow => t * t,
+            Self::Fast => (1.0 - t).mul_add(-(1.0 - t), 1.0),
         }
     }
 }
 
 impl Fan {
+    #[must_use]
     pub const fn new(from: f32, to: f32) -> Self {
         Self {
             from,
@@ -1065,6 +1201,7 @@ impl Fan {
     }
 
     /// The same numbers with a shape and a curve.
+    #[must_use]
     pub const fn shaped(from: f32, to: f32, shape: FanShape, curve: Curve) -> Self {
         Self {
             from,
@@ -1077,21 +1214,34 @@ impl Fan {
     /// The value for unit `index` of `count`.
     // r[impl tricks.spread]
     // r[impl tricks.fan.shapes]
+    #[must_use]
     pub fn at(self, index: usize, count: usize) -> f32 {
         if count <= 1 {
             return self.from;
         }
         let t = self.curve.apply(self.shape.place(index, count));
-        self.from + (self.to - self.from) * t
+        (self.to - self.from).mul_add(t, self.from)
     }
 
     /// One value per unit, in selection order.
     // r[impl tricks.spread.blocks-are-units]
+    #[must_use]
     pub fn over(self, units: &Units) -> Vec<f32> {
         (0..units.len()).map(|i| self.at(i, units.len())).collect()
     }
 
     /// True when nothing is spread and every unit takes `from`.
+    ///
+    /// An exact `==` is right here, unlike a solved or accumulated
+    /// value: `from` and `to` are two numbers an author typed (or a
+    /// serializer round-tripped losslessly), never the result of
+    /// arithmetic that could have landed a rounding error away from
+    /// itself.
+    #[must_use]
+    #[expect(
+        clippy::float_cmp,
+        reason = "from/to are authored values, not computed ones; see the doc comment"
+    )]
     pub fn is_flat(self) -> bool {
         self.from == self.to
     }
@@ -1100,7 +1250,8 @@ impl Fan {
     /// shape and curve. `from` and `to` are ignored — the points are the
     /// values.
     // r[impl tricks.keyframes]
-    pub fn keyframes(self, points: Vec<f32>) -> Keyframes {
+    #[must_use]
+    pub const fn keyframes(self, points: Vec<f32>) -> Keyframes {
         Keyframes {
             points,
             shape: self.shape,
@@ -1110,9 +1261,11 @@ impl Fan {
 }
 
 /// Several values placed evenly along the selection, each unit
-/// interpolated between the two nearest — MA3's MAgic presets, on any
-/// scalar. Two points is a `Fan`; five is the whole truss shaped by hand
-/// once and landing on any count.
+/// interpolated between the two nearest — grandMA3's MAgic presets, on
+/// any scalar.
+///
+/// Two points is a `Fan`; five is the whole truss shaped by hand once
+/// and landing on any count.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 // r[impl tricks.keyframes]
 // r[impl focus.magic]
@@ -1131,6 +1284,7 @@ impl Keyframes {
     /// `(lower, upper, fraction)` into a list of `n` points; `None` when
     /// there are no points.
     // r[impl tricks.keyframes]
+    #[must_use]
     pub fn segment(
         shape: FanShape,
         curve: Curve,
@@ -1144,24 +1298,54 @@ impl Keyframes {
         if n == 1 || count <= 1 {
             return Some((0, 0, 0.0));
         }
-        let t = shape.place(index, count) * (n - 1) as f32;
-        let lo = (t.floor() as usize).min(n - 1);
-        let hi = (lo + 1).min(n - 1);
-        Some((lo, hi, curve.apply(t - lo as f32)))
+        let t = shape.place(index, count) * f32_of(n.saturating_sub(1));
+        let lo = floor_index(t).min(n.saturating_sub(1));
+        let hi = lo.saturating_add(1).min(n.saturating_sub(1));
+        Some((lo, hi, curve.apply(t - f32_of(lo))))
     }
 
     /// The value for unit `index` of `count`.
+    #[must_use]
     pub fn at(&self, index: usize, count: usize) -> f32 {
         match Self::segment(self.shape, self.curve, self.points.len(), index, count) {
-            Some((lo, hi, f)) => self.points[lo] + (self.points[hi] - self.points[lo]) * f,
+            // `segment` bounds `lo`/`hi` to `< self.points.len()` by
+            // construction, but a keyframe list is authored data, so the
+            // read still goes through `get` rather than trusting that —
+            // falling back to 0.0, the same "nothing to show" value
+            // `None` above already means.
+            Some((lo, hi, f)) => {
+                let (Some(&a), Some(&b)) = (self.points.get(lo), self.points.get(hi)) else {
+                    return 0.0;
+                };
+                (b - a).mul_add(f, a)
+            }
             None => 0.0,
         }
     }
 
     /// One value per unit, in selection order.
+    #[must_use]
     pub fn over(&self, units: &Units) -> Vec<f32> {
         (0..units.len()).map(|i| self.at(i, units.len())).collect()
     }
+}
+
+/// A fractional keyframe position, floored to an index.
+///
+/// Never negative in practice — `FanShape::place` returns `[0, 1]` and
+/// `t` is that scaled by a small point count — but the cast still goes
+/// through a clamp rather than trusting the caller's arithmetic.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "clamped to non-negative before the cast; see the doc comment"
+)]
+fn floor_index(t: f32) -> usize {
+    if t.is_nan() || t <= 0.0 {
+        return 0;
+    }
+    t.floor() as usize
 }
 
 #[cfg(test)]
@@ -1198,23 +1382,33 @@ mod tests {
     /// so a naive equality test would split every truss into eight rows.
     fn two_trusses() -> Rig {
         let mut f = Vec::new();
-        for i in 0..8 {
-            let x = i as f64 - 3.5;
-            f.push(fixture(i + 1, x, 0.0 + 0.01 * i as f64, 4.0));
-            f.push(fixture(i + 9, x, 3.0 - 0.02 * i as f64, 4.0));
+        for i in 0..8u32 {
+            let x = f64::from(i) - 3.5;
+            f.push(fixture(i.saturating_add(1), x, 0.01 * f64::from(i), 4.0));
+            f.push(fixture(
+                i.saturating_add(9),
+                x,
+                0.02f64.mul_add(-f64::from(i), 3.0),
+                4.0,
+            ));
         }
         Rig::new(f)
     }
 
     fn lone_truss() -> Rig {
-        Rig::new((0..8).map(|i| fixture(i + 1, i as f64, 0.0, 4.0)).collect())
+        Rig::new(
+            (0..8u32)
+                .map(|i| fixture(i.saturating_add(1), f64::from(i), 0.0, 4.0))
+                .collect(),
+        )
     }
 
     fn matrix4() -> Rig {
         let mut f = Vec::new();
-        for y in 0..4 {
-            for x in 0..4 {
-                f.push(fixture(y * 4 + x + 1, x as f64, y as f64, 0.0));
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                let chan = y.saturating_mul(4).saturating_add(x).saturating_add(1);
+                f.push(fixture(chan, f64::from(x), f64::from(y), 0.0));
             }
         }
         Rig::new(f)
@@ -1370,7 +1564,11 @@ mod tests {
         assert_eq!(gu.count, [4, 4, 1]);
         // Each unit's X is still the X it hung at.
         for (u, p) in gu.units.0.iter().zip(&gu.pos) {
-            assert_eq!(p.x, ((u[0] - 1) % 4) as usize, "{u:?} at {p:?}");
+            assert_eq!(
+                p.x,
+                usize::try_from((u[0] - 1) % 4).unwrap_or(0),
+                "{u:?} at {p:?}"
+            );
         }
         // Rows moved as rows: the four units at any Y share an original row.
         for y in 0..4 {
@@ -1551,7 +1749,7 @@ mod tests {
             vec![Trick::Group(2), Trick::Invert(InvertStyle::Pan)],
         ] {
             let mut got = apply_all(&ten(), &tricks).flat();
-            got.sort();
+            got.sort_unstable();
             assert_eq!(got, ten(), "{tricks:?} changed the fixture set");
         }
     }
@@ -1678,6 +1876,10 @@ mod tests {
     /// the same whichever attribute they land on.
     // r[verify tricks.spread.attributes]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "comparing a linear spread's exact result against a hand-picked literal, not an accumulated float"
+    )]
     fn fan_is_attribute_agnostic() {
         let units = apply_all(&(1..=5).collect::<Vec<_>>(), &[]);
         let phase = Fan::new(0.0, 360.0).over(&units);
@@ -1755,6 +1957,10 @@ mod tests {
     /// r[verify tricks.fan.shapes]
     /// r[verify effects.align]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "comparing an align shape's exact result against hand-picked literals, not accumulated floats"
+    )]
     fn fan_shapes_place_the_ends_where_align_says() {
         let five = apply_all(&(1..=5).collect::<Vec<_>>(), &[]);
         let at = |shape| Fan::shaped(0.0, 1.0, shape, Curve::Linear).over(&five);
@@ -1774,6 +1980,10 @@ mod tests {
     /// r[verify tricks.fan.shapes]
     /// r[verify effects.align]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "comparing a curve's exact endpoint against a hand-picked literal, not an accumulated float"
+    )]
     fn fan_curves_bend_the_middle_and_keep_the_ends() {
         for curve in [Curve::Linear, Curve::Sine, Curve::Slow, Curve::Fast] {
             let fan = Fan::shaped(0.0, 1.0, FanShape::Linear, curve);
@@ -1814,6 +2024,10 @@ mod tests {
     /// r[verify tricks.keyframes]
     /// r[verify focus.magic]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "comparing exact hand-set keyframe values, not accumulated floats"
+    )]
     fn keyframes_interpolate_along_the_selection() {
         let five = apply_all(&(1..=5).collect::<Vec<_>>(), &[]);
         let k = Fan::new(0.0, 0.0).keyframes(vec![0.0, 10.0, 0.0]);
@@ -1883,7 +2097,7 @@ mod tests {
         }
         for (name, tricks) in &named {
             let mut flat = apply_all(&twelve, tricks).flat();
-            flat.sort();
+            flat.sort_unstable();
             assert_eq!(flat, twelve, "{name} lost or invented a fixture");
         }
         // The odds really are the odds.
@@ -1921,8 +2135,8 @@ mod tests {
         };
         let mut fixtures = Vec::new();
         for i in 0..4u32 {
-            fixtures.push(head(i + 1, i as f64, 3.0));
-            fixtures.push(head(i + 11, i as f64, 6.0));
+            fixtures.push(head(i.saturating_add(1), f64::from(i), 3.0));
+            fixtures.push(head(i.saturating_add(11), f64::from(i), 6.0));
         }
         let rig = Rig::new(fixtures);
         // Selected right-to-left on purpose: the order must survive.

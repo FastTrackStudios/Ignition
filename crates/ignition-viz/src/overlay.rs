@@ -39,10 +39,9 @@ const FONT: Option<&[u8]> = None;
 const WINDOW: usize = 4;
 
 pub fn spawn_overlay(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
-    let font = match FONT {
-        Some(bytes) => bevy::text::FontSource::Handle(fonts.add(Font::from_bytes(bytes.to_vec()))),
-        None => bevy::text::FontSource::default(),
-    };
+    let font = FONT.map_or_else(bevy::text::FontSource::default, |bytes| {
+        bevy::text::FontSource::Handle(fonts.add(Font::from_bytes(bytes.to_vec())))
+    });
     commands.spawn((
         Text::new(String::new()),
         TextFont {
@@ -96,10 +95,9 @@ pub struct FpsText;
 /// without the cue list — the studio being the case, since it draws its
 /// own cue list in the Dioxus sidebar.
 pub fn spawn_fps(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
-    let font = match FONT {
-        Some(bytes) => bevy::text::FontSource::Handle(fonts.add(Font::from_bytes(bytes.to_vec()))),
-        None => bevy::text::FontSource::default(),
-    };
+    let font = FONT.map_or_else(bevy::text::FontSource::default, |bytes| {
+        bevy::text::FontSource::Handle(fonts.add(Font::from_bytes(bytes.to_vec())))
+    });
     commands.spawn((
         Text::new(String::new()),
         TextFont {
@@ -121,6 +119,11 @@ pub fn spawn_fps(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     ));
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows what it wraps"
+)]
 pub fn update_fps(
     diagnostics: Res<bevy::diagnostic::DiagnosticsStore>,
     mut text: Query<&mut Text, With<FpsText>>,
@@ -128,7 +131,7 @@ pub fn update_fps(
 ) {
     let readout = fps_readout(&diagnostics);
     if let Ok(mut text) = text.single_mut() {
-        text.0 = readout.clone();
+        text.0.clone_from(&readout);
     }
     // Once a second to the log as well, so the number can be read off
     // stdout from a session nobody is watching — a headless-ish run, or
@@ -157,10 +160,10 @@ fn fps_readout(diagnostics: &bevy::diagnostic::DiagnosticsStore) -> String {
     use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
     let fps = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|d| d.smoothed());
+        .and_then(bevy::diagnostic::Diagnostic::smoothed);
     let frame_ms = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
-        .and_then(|d| d.smoothed());
+        .and_then(bevy::diagnostic::Diagnostic::smoothed);
     match (fps, frame_ms) {
         // The history is empty for the first frames after launch, which
         // would otherwise read as a hard 0 fps right when someone is
@@ -186,10 +189,10 @@ fn inspect_line(chan: ignition_core::ChanId, report: &[(Class, Option<f32>)]) ->
         .iter()
         .map(|(class, value)| {
             let mark = if Some(*class) == winner { '*' } else { ' ' };
-            match value {
-                Some(v) => format!("{mark}{class:?} {v:.2}"),
-                None => format!("{mark}{class:?} --"),
-            }
+            value.as_ref().map_or_else(
+                || format!("{mark}{class:?} --"),
+                |v| format!("{mark}{class:?} {v:.2}"),
+            )
         })
         .collect();
     format!("ch {chan} dimmer:  {}", cells.join("   "))
@@ -199,16 +202,31 @@ fn inspect_line(chan: ignition_core::ChanId, report: &[(Class, Option<f32>)]) ->
 /// stack order, then how much is parked — or nothing about parks when
 /// nothing is, so the line stays short on an ordinary night.
 fn masters_line(grand: f32, masters: impl Iterator<Item = (Class, f32)>, parked: usize) -> String {
+    use std::fmt::Write as _;
     let mut line = format!("GM {:>3.0}%", grand * 100.0);
     for (class, master) in masters {
-        line.push_str(&format!("   {class:?} {:>3.0}%", master * 100.0));
+        // `write!` into a `String` never fails, so the `Result` here has
+        // nothing to report — this is `format!` + `push_str` without the
+        // redundant intermediate allocation.
+        let _: Result<(), std::fmt::Error> = write!(line, "   {class:?} {:>3.0}%", master * 100.0);
     }
     if parked > 0 {
-        line.push_str(&format!("   PARKED {parked}"));
+        let _: Result<(), std::fmt::Error> = write!(line, "   PARKED {parked}");
     }
     line
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T>/Option<Res<T>> are Bevy SystemParams and must be taken by value \
+              for this to run as a system; the fn only borrows what they wrap"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one straight-line readout builder for the whole operator overlay; \
+              splitting it would scatter the fields of one screen across helpers \
+              that each need most of the same state"
+)]
 pub fn update_overlay(
     venue: Res<VenueRes>,
     mut playback: ResMut<Playback>,
@@ -259,7 +277,11 @@ pub fn update_overlay(
     // Only cook the cues actually on screen — the whole list every frame
     // would be resolving hundreds of recipes to draw a dozen lines.
     let first = current.unwrap_or(0).saturating_sub(WINDOW);
-    let last = (current.unwrap_or(0) + WINDOW + 1).min(all.len());
+    let last = current
+        .unwrap_or(0)
+        .saturating_add(WINDOW)
+        .saturating_add(1)
+        .min(all.len());
 
     let mut lines = vec![format!(
         "GO space   BACK backspace   RESTART r   TAP t        clock {:>6.1}s   {}",
@@ -297,7 +319,7 @@ pub fn update_overlay(
     }
     lines.push(format!(
         "page {}/{}   prog time {:.2} beats{}{}{}",
-        programmer.page + 1,
+        programmer.page.saturating_add(1),
         programmer.pages.len().max(1),
         programmer.program_time_beats,
         if programmer.blind {

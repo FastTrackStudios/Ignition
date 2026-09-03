@@ -14,15 +14,17 @@
 //! haze camera's size the whole rig fits the frame — see
 //! `r[viz.haze-is-volumetric]`.
 
-/// How many spill lights may carry a shadow map. Bevy renders one shadow
-/// view per shadowed spot per frame, and the fog pass samples that map
-/// at every raymarch step: both costs scale with this number and
-/// nothing else in the rig. Twelve covers every moving head at Norco
-/// (nine) and Riverside with room for a couple of profile spots.
+/// How many spill lights may carry a shadow map.
+///
+/// Bevy renders one shadow view per shadowed spot per frame, and the fog
+/// pass samples that map at every raymarch step: both costs scale with this
+/// number and nothing else in the rig. Twelve covers every moving head at
+/// Norco (nine) and Riverside with room for a couple of profile spots.
 pub const SHADOW_BUDGET: usize = 12;
 
 /// `SHADOW_BUDGET`, or `IGNITION_SHADOW_BUDGET`'s say — the same dial
 /// for comparing on a given GPU.
+#[must_use]
 pub fn shadow_budget_setting() -> usize {
     std::env::var("IGNITION_SHADOW_BUDGET")
         .ok()
@@ -43,6 +45,7 @@ pub fn shadow_budget_setting() -> usize {
 /// nothing. So a fixture that cannot pan never has a shadow map,
 /// whatever its budget.
 // r[impl viz.performance-budget] - shadows go to the brightest moving shaft-cutters
+#[must_use]
 pub fn shadow_budget(candidates: &[ShadowCandidate], budget: usize) -> Vec<bool> {
     ranked_budget(candidates, budget, |c| c.cuts_a_shaft && c.moves)
 }
@@ -65,13 +68,29 @@ fn ranked_budget(
     // pars with three of them cutting a shaft and forty-five not would
     // read as three broken pars, not as a budget — so if the cut would
     // fall inside a run of equal brightness, the whole run stays out.
+    // A "tie" within a thousandth of a candela — negligible next to any
+    // real fixture's spec, so this only ever catches values that really
+    // are the same brightness (typically the same fixture type computed
+    // through the same formula), never two genuinely different ones.
+    let error_margin = 1e-3;
     let mut take = budget.min(ranked.len());
-    while take > 0 && take < ranked.len() && ranked[take - 1].1 == ranked[take].1 {
-        take -= 1;
+    while take > 0
+        && take < ranked.len()
+        && ranked
+            .get(take.saturating_sub(1))
+            .zip(ranked.get(take))
+            .is_some_and(|(a, b)| (a.1 - b.1).abs() < error_margin)
+    {
+        // `take > 0` holds in the loop condition, so this never actually
+        // saturates — `saturating_sub` over a bare `-= 1` just says so to
+        // the lint without a redundant assert.
+        take = take.saturating_sub(1);
     }
     let mut out = vec![false; candidates.len()];
     for (i, _) in ranked.into_iter().take(take) {
-        out[i] = true;
+        if let Some(slot) = out.get_mut(i) {
+            *slot = true;
+        }
     }
     out
 }

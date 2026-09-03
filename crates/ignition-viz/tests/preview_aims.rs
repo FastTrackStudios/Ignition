@@ -64,7 +64,8 @@ fn a_movement_preview_aims_and_then_moves() {
         // check rather than something to fail.
         return;
     };
-    let mut playback = Playback::load(&venue, Default::default()).expect("a playback with no show");
+    let mut playback = Playback::load(&venue, ignition_viz::playback::LoadOptions::default())
+        .expect("a playback with no show");
     assert!(
         playback.preview_effect("circle"),
         "the library has no `circle`, so this test is measuring nothing"

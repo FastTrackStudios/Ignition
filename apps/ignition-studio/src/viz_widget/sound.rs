@@ -65,8 +65,7 @@ impl SoundFade {
         let now = std::time::Instant::now();
         let dt = self
             .last_step
-            .map(|t| now.duration_since(t).as_secs_f32())
-            .unwrap_or(0.0);
+            .map_or(0.0, |t| now.duration_since(t).as_secs_f32());
         self.last_step = Some(now);
         self.step(dt)
     }
@@ -86,12 +85,17 @@ pub(super) fn smooth_sound(fade: &mut SoundFade, viz: &mut EmbeddedViz) {
 }
 
 #[cfg(test)]
-#[cfg(test)]
 mod tests {
     use super::SoundFade;
 
     /// r[verify playback.sound-as-value]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "secs: 0.0 is a zero-length fade; step() returns the raw levels \
+                  unmodified rather than an interpolated value, so exact equality \
+                  is the behaviour under test, not a coincidence to relax"
+    )]
     fn a_zero_fade_snaps_and_a_long_one_lags() {
         let mut snap = SoundFade {
             secs: 0.0,

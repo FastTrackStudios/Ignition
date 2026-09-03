@@ -59,7 +59,7 @@ impl Playback {
     ) -> HashMap<(ChanId, Attribute), f32> {
         let master = self.master.clamp(0.0, 1.0);
         if master < 1.0 {
-            for ((_, attr), value) in out.iter_mut() {
+            for ((_, attr), value) in &mut out {
                 if *attr == Attribute::Dimmer {
                     *value *= master;
                 }
@@ -77,19 +77,21 @@ pub struct Playbacks {
 }
 
 impl Playbacks {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Adds a player and returns its index.
     pub fn push(&mut self, class: Class, player: CuePlayer) -> usize {
+        let index = self.entries.len();
         self.entries.push(Playback {
             class,
             player,
             enabled: true,
             master: 1.0,
         });
-        self.entries.len() - 1
+        index
     }
 
     /// Sets an entry's intensity master, 0..=1.
@@ -129,6 +131,7 @@ impl Playbacks {
         }
     }
 
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<&Playback> {
         self.entries.get(index)
     }
@@ -176,6 +179,7 @@ impl Playbacks {
     // r[impl playback.release-falls-through] - an absent key falls to the next entry
     // r[impl playback.output-is-pure]
     // r[impl playback.no-merge-at-dmx] - merged in attribute space
+    #[must_use]
     pub fn output(
         &self,
         show: &Show<'_>,
@@ -203,6 +207,7 @@ impl Playbacks {
     /// builds them from each fixture's profile, since only it knows
     /// what a spot's rest zoom is.
     // r[impl playback.defaults] - the floor, and cue zero
+    #[must_use]
     pub fn output_with_defaults(
         &self,
         show: &Show<'_>,
@@ -249,6 +254,7 @@ impl Playbacks {
     /// entry would have produced for it, lowest class first — for
     /// answering "why was that fixture at 0.3".
     // r[impl playback.inspectable] - per key, across players
+    #[must_use]
     pub fn inspect(
         &self,
         show: &Show<'_>,
@@ -327,8 +333,11 @@ mod tests {
             player(vec![cue(&[dimmer(1, 0.9), pan(1, 50.0)])], &show),
         );
         let out = pb.output(&show, &HashSet::new());
-        assert_eq!(out[&(1, Attribute::Dimmer)], 0.2, "not HTP across classes");
-        assert_eq!(out[&(1, Attribute::Pan)], 10.0);
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.2).abs() < 1e-6,
+            "not HTP across classes"
+        );
+        assert!((out[&(1, Attribute::Pan)] - 10.0).abs() < 1e-6);
     }
 
     /// r[verify playback.dimmer-htp-between-equals]
@@ -346,8 +355,14 @@ mod tests {
             player(vec![cue(&[dimmer(1, 0.4), pan(1, 50.0)])], &show),
         );
         let out = pb.output(&show, &HashSet::new());
-        assert_eq!(out[&(1, Attribute::Dimmer)], 0.9, "highest dimmer");
-        assert_eq!(out[&(1, Attribute::Pan)], 50.0, "latest pan");
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 0.9).abs() < 1e-6,
+            "highest dimmer"
+        );
+        assert!(
+            (out[&(1, Attribute::Pan)] - 50.0).abs() < 1e-6,
+            "latest pan"
+        );
     }
 
     /// r[verify playback.release-falls-through]
@@ -362,8 +377,11 @@ mod tests {
         );
         pb.push(Class::Song, player(vec![cue(&[dimmer(1, 1.0)])], &show));
         let out = pb.output(&show, &HashSet::new());
-        assert_eq!(out[&(1, Attribute::Dimmer)], 1.0);
-        assert_eq!(out[&(2, Attribute::Dimmer)], 0.7, "fell through to Show");
+        assert!((out[&(1, Attribute::Dimmer)] - 1.0).abs() < 1e-6);
+        assert!(
+            (out[&(2, Attribute::Dimmer)] - 0.7).abs() < 1e-6,
+            "fell through to Show"
+        );
     }
 
     /// When the top player releases a key entirely, nothing is left
@@ -382,7 +400,7 @@ mod tests {
         );
         pb.get_mut(song).unwrap().enabled = false;
         let out = pb.output(&show, &HashSet::new());
-        assert_eq!(out[&(1, Attribute::Dimmer)], 0.5);
+        assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 1e-6);
         assert!(
             !out.contains_key(&(3, Attribute::Dimmer)),
             "nothing holds it"
@@ -403,10 +421,12 @@ mod tests {
         pb.set_master(look, 0.5);
         let out = pb.output(&show, &HashSet::new());
         assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 1e-6);
-        assert_eq!(out[&(1, Attribute::Pan)], 10.0, "dimmer only");
-        assert_eq!(
-            out[&(2, Attribute::Dimmer)],
-            1.0,
+        assert!(
+            (out[&(1, Attribute::Pan)] - 10.0).abs() < 1e-6,
+            "dimmer only"
+        );
+        assert!(
+            (out[&(2, Attribute::Dimmer)] - 1.0).abs() < 1e-6,
             "the other list untouched"
         );
     }
@@ -535,7 +555,7 @@ mod tests {
         pb.push(Class::Song, CuePlayer::new(vec![cue(&[dimmer(1, 0.7)])]));
         let defaults = HashMap::from([((1, Attribute::Dimmer), 0.0), ((1, Attribute::Zoom), 0.4)]);
         let out = pb.output_with_defaults(&show, &HashSet::new(), &defaults);
-        assert_eq!(out[&(1, Attribute::Dimmer)], 0.0);
+        assert!(out[&(1, Attribute::Dimmer)].abs() < 1e-6);
         assert!((out[&(1, Attribute::Zoom)] - 0.4).abs() < 1e-6);
     }
 

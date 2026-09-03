@@ -19,8 +19,8 @@ pub const OP_POLL_REPLY: u16 = 0x2100;
 pub const PROTOCOL_VERSION: u16 = 14;
 /// `StController` — a desk, not a node.
 pub const STYLE_CONTROLLER: u8 = 0x01;
-/// Art-Net's fixed length: ID (8) + OpCode (2) + ProtVer (2) + Seq +
-/// Phys + SubUni + Net + Length (2), then 512 slots.
+/// Art-Net's fixed length: ID (8) + `OpCode` (2) + `ProtVer` (2) + Seq +
+/// Phys + `SubUni` + Net + Length (2), then 512 slots.
 pub const ART_DMX_LEN: usize = 18 + 512;
 /// The reply is a fixed-size record.
 pub const ART_POLL_REPLY_LEN: usize = 239;
@@ -35,7 +35,8 @@ pub struct PortAddress {
 }
 
 impl PortAddress {
-    pub fn new(net: u8, subnet: u8, universe: u8) -> Self {
+    #[must_use]
+    pub const fn new(net: u8, subnet: u8, universe: u8) -> Self {
         Self {
             net: net & 0x7f,
             subnet: subnet & 0x0f,
@@ -44,13 +45,32 @@ impl PortAddress {
     }
 
     /// The folded 15-bit value the wire carries and receivers key on.
+    #[must_use]
     pub fn as_u16(self) -> u16 {
-        ((self.net as u16) << 8) | ((self.subnet as u16) << 4) | self.universe as u16
+        (u16::from(self.net) << 8) | (u16::from(self.subnet) << 4) | u16::from(self.universe)
     }
 
-    pub fn from_u16(v: u16) -> Self {
-        Self::new((v >> 8) as u8, ((v >> 4) & 0x0f) as u8, (v & 0x0f) as u8)
+    #[must_use]
+    pub const fn from_u16(v: u16) -> Self {
+        Self::new(
+            masked_byte(v >> 8),
+            masked_byte((v >> 4) & 0x0f),
+            masked_byte(v & 0x0f),
+        )
     }
+}
+
+/// The one place a masked 16-bit field becomes a `u8`. Every call site
+/// has already masked `v` down to 8 bits or fewer, so the truncation
+/// this cast performs never discards anything the mask has not already
+/// accounted for.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "the caller has already masked the value to fit in a u8; see the doc comment"
+)]
+const fn masked_byte(v: u16) -> u8 {
+    v as u8
 }
 
 /// A configured universe's port address.
@@ -68,6 +88,7 @@ impl From<&ignition_dmx_proto::ArtnetOutput> for PortAddress {
 /// One universe of levels.
 // r[impl dmx.artnet.addressing]
 // r[impl dmx.sequence]
+#[must_use]
 pub fn art_dmx(sequence: u8, port_address: PortAddress, data: &[u8; 512]) -> Vec<u8> {
     let mut p = Vec::with_capacity(ART_DMX_LEN);
     p.extend_from_slice(&ID);
@@ -101,58 +122,91 @@ pub struct PollReply {
 }
 
 fn fixed(dst: &mut [u8], s: &str) {
-    let max = dst.len() - 1;
+    let max = dst.len().saturating_sub(1);
     let mut n = s.len().min(max);
     while n > 0 && !s.is_char_boundary(n) {
-        n -= 1;
+        n = n.saturating_sub(1);
     }
-    dst[..n].copy_from_slice(&s.as_bytes()[..n]);
+    // `n` is bounded by `dst.len() - 1` and by `s.len()` above, so both
+    // slices always exist; the `if let` is the audited-`get` idiom
+    // rather than a real fallback path.
+    if let (Some(d), Some(src)) = (dst.get_mut(..n), s.as_bytes().get(..n)) {
+        d.copy_from_slice(src);
+    }
 }
 
 /// The discovery answer: short name "Ignition", long name naming the
 /// source, style `StController`, one port per universe.
+///
+/// Built by appending each field in wire order (as `sacn::build` does)
+/// rather than writing into a pre-sized buffer by index, so nothing here
+/// needs `[]` — a slot this crate never explicitly sets (`GoodOutput`,
+/// the spare bytes, the trailing filler) is simply an `extend_from_slice`
+/// of zeroes at the point in the layout where it belongs.
 // r[impl dmx.artnet.addressing]
+#[must_use]
 pub fn art_poll_reply(reply: &PollReply) -> Vec<u8> {
-    let mut p = vec![0u8; ART_POLL_REPLY_LEN];
-    p[0..8].copy_from_slice(&ID);
-    p[8..10].copy_from_slice(&OP_POLL_REPLY.to_le_bytes());
-    p[10..14].copy_from_slice(&reply.ip.octets());
-    p[14..16].copy_from_slice(&ARTNET_PORT.to_le_bytes());
-    p[16] = 0; // VersInfoH
-    p[17] = 1; // VersInfoL
-    p[18] = reply.net & 0x7f;
-    p[19] = reply.subnet & 0x0f;
+    let mut p = Vec::with_capacity(ART_POLL_REPLY_LEN);
+    p.extend_from_slice(&ID);
+    p.extend_from_slice(&OP_POLL_REPLY.to_le_bytes());
+    p.extend_from_slice(&reply.ip.octets());
+    p.extend_from_slice(&ARTNET_PORT.to_le_bytes());
+    p.push(0); // VersInfoH
+    p.push(1); // VersInfoL
+    p.push(reply.net & 0x7f);
+    p.push(reply.subnet & 0x0f);
     // OemHi/OemLo: 0xffff is the "unknown / development" OEM code.
-    p[20] = 0xff;
-    p[21] = 0xff;
-    p[22] = 0; // UbeaVersion
-    p[23] = 0b1110_0000; // Status1: indicators normal, port-address by network
+    p.push(0xff);
+    p.push(0xff);
+    p.push(0); // UbeaVersion
+    p.push(0b1110_0000); // Status1: indicators normal, port-address by network
     // EstaManLo/Hi: 0x0000 is reserved for unregistered manufacturers.
-    p[24] = 0;
-    p[25] = 0;
-    fixed(&mut p[26..44], &reply.short_name); // 18
-    fixed(&mut p[44..108], &reply.long_name); // 64
-    fixed(&mut p[108..172], &reply.node_report); // 64
+    p.push(0);
+    p.push(0);
+    let mut short_name = [0u8; 18];
+    fixed(&mut short_name, &reply.short_name);
+    p.extend_from_slice(&short_name);
+    let mut long_name = [0u8; 64];
+    fixed(&mut long_name, &reply.long_name);
+    p.extend_from_slice(&long_name);
+    let mut node_report = [0u8; 64];
+    fixed(&mut node_report, &reply.node_report);
+    p.extend_from_slice(&node_report);
     let ports = reply.universes.len().min(4);
-    p[172] = 0; // NumPortsHi
-    p[173] = ports as u8;
-    for (i, u) in reply.universes.iter().take(4).enumerate() {
-        p[174 + i] = 0x40; // PortTypes: this port inputs to the Art-Net network (DMX -> Art-Net)
-        p[178 + i] = 0x80; // GoodInput: data received on this port
-        p[182 + i] = 0x00; // GoodOutput
-        p[186 + i] = u & 0x0f; // SwIn
-        p[190 + i] = 0x00; // SwOut
+    p.push(0); // NumPortsHi
+    // `ports` is bounded to at most 4 just above, so this always succeeds;
+    // the fallback is unreachable.
+    p.push(u8::try_from(ports).unwrap_or(4)); // NumPortsLo
+    let mut port_types = [0u8; 4];
+    for slot in port_types.iter_mut().take(ports) {
+        *slot = 0x40; // this port inputs to the Art-Net network (DMX -> Art-Net)
     }
-    p[194] = 0; // AcnPriority / SwVideo
-    p[195] = 0; // SwMacro
-    p[196] = 0; // SwRemote
-    // 197..200 spare
-    p[200] = STYLE_CONTROLLER;
-    // 201..207 MAC: all zero means "not known", which is what the spec says to send.
-    p[207..211].copy_from_slice(&reply.ip.octets()); // BindIp
-    p[211] = reply.bind_index;
-    p[212] = 0b0000_1110; // Status2: DHCP capable, 15-bit port-address, sACN capable
-    // 213..217 GoodOutputB, 217 Status3, 218..224 DefaultRespUID, rest filler.
+    p.extend_from_slice(&port_types);
+    let mut good_input = [0u8; 4];
+    for slot in good_input.iter_mut().take(ports) {
+        *slot = 0x80; // data received on this port
+    }
+    p.extend_from_slice(&good_input);
+    p.extend_from_slice(&[0u8; 4]); // GoodOutput
+    let mut sw_in = [0u8; 4];
+    for (slot, u) in sw_in.iter_mut().zip(reply.universes.iter().take(4)) {
+        *slot = u & 0x0f;
+    }
+    p.extend_from_slice(&sw_in);
+    p.extend_from_slice(&[0u8; 4]); // SwOut
+    p.push(0); // AcnPriority / SwVideo
+    p.push(0); // SwMacro
+    p.push(0); // SwRemote
+    p.extend_from_slice(&[0u8; 3]); // spare
+    p.push(STYLE_CONTROLLER);
+    // MAC: all zero means "not known", which is what the spec says to send.
+    p.extend_from_slice(&[0u8; 6]);
+    p.extend_from_slice(&reply.ip.octets()); // BindIp
+    p.push(reply.bind_index);
+    p.push(0b0000_1110); // Status2: DHCP capable, 15-bit port-address, sACN capable
+    // GoodOutputB, Status3, DefaultRespUID, rest filler.
+    p.extend_from_slice(&[0u8; 26]);
+    debug_assert_eq!(p.len(), ART_POLL_REPLY_LEN);
     p
 }
 
@@ -184,21 +238,24 @@ pub enum Packet {
 
 /// Decode a packet, or `None` for anything that is not Art-Net or is an
 /// op we do not handle.
+#[must_use]
 pub fn parse(buf: &[u8]) -> Option<Packet> {
-    if buf.len() < 12 || buf[0..8] != ID {
+    if buf.len() < 12 || buf.get(0..8)? != ID {
         return None;
     }
-    let op = u16::from_le_bytes([buf[8], buf[9]]);
+    let op = u16::from_le_bytes([*buf.get(8)?, *buf.get(9)?]);
     match op {
         OP_DMX => {
             if buf.len() < 18 {
                 return None;
             }
-            let len = u16::from_be_bytes([buf[16], buf[17]]) as usize;
-            let data = buf.get(18..18 + len)?.to_vec();
+            let len = usize::from(u16::from_be_bytes([*buf.get(16)?, *buf.get(17)?]));
+            let end = 18usize.checked_add(len)?;
+            let data = buf.get(18..end)?.to_vec();
+            let b14 = *buf.get(14)?;
             Some(Packet::Dmx {
-                sequence: buf[12],
-                port_address: PortAddress::new(buf[15], buf[14] >> 4, buf[14] & 0x0f),
+                sequence: *buf.get(12)?,
+                port_address: PortAddress::new(*buf.get(15)?, b14 >> 4, b14 & 0x0f),
                 data,
             })
         }
@@ -210,19 +267,20 @@ pub fn parse(buf: &[u8]) -> Option<Packet> {
             if buf.len() < 213 {
                 return None;
             }
-            let text = |r: std::ops::Range<usize>| {
-                let s = &buf[r];
+            let text = |r: std::ops::Range<usize>| -> Option<String> {
+                let s = buf.get(r)?;
                 let n = s.iter().position(|b| *b == 0).unwrap_or(s.len());
-                String::from_utf8_lossy(&s[..n]).into_owned()
+                Some(String::from_utf8_lossy(s.get(..n)?).into_owned())
             };
-            let ports = buf[173].min(4) as usize;
+            let ports = usize::from(*buf.get(173)?).min(4);
+            let universes_end = 186usize.checked_add(ports)?;
             Some(Packet::PollReply {
-                short_name: text(26..44),
-                long_name: text(44..108),
-                style: buf[200],
-                net: buf[18],
-                subnet: buf[19],
-                universes: buf[186..186 + ports].to_vec(),
+                short_name: text(26..44)?,
+                long_name: text(44..108)?,
+                style: *buf.get(200)?,
+                net: *buf.get(18)?,
+                subnet: *buf.get(19)?,
+                universes: buf.get(186..universes_end)?.to_vec(),
             })
         }
         _ => None,
@@ -231,7 +289,8 @@ pub fn parse(buf: &[u8]) -> Option<Packet> {
 
 /// Where a poll reply goes: back to whoever asked (Art-Net 4), with the
 /// standard port in case the poller sent from an ephemeral one.
-pub fn reply_target(poller: SocketAddr) -> SocketAddr {
+#[must_use]
+pub const fn reply_target(poller: SocketAddr) -> SocketAddr {
     SocketAddr::new(poller.ip(), poller.port())
 }
 

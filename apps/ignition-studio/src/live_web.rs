@@ -110,11 +110,12 @@ pub fn start(tx: Sender, state: StateRx, surface: Surface) -> Vec<String> {
         .map(|ip| format!("http://{ip}:{port}"))
         .collect();
     let dist = dist_dir();
-    match &dist {
-        Some(d) => tracing::info!(dir = %d.display(), "live-web: serving the built web app"),
-        None => tracing::warn!(
+    if let Some(d) = &dist {
+        tracing::info!(dir = %d.display(), "live-web: serving the built web app");
+    } else {
+        tracing::warn!(
             "live-web: no built web app; `just live-web` builds it. Serving a note instead."
-        ),
+        );
     }
     for url in &urls {
         tracing::info!(%url, "live-web: Live view for an iPad");
@@ -151,7 +152,7 @@ pub fn router(server: Arc<Server>) -> Router {
         .with_state(server)
 }
 
-/// The machine's routable IPv4s, best effort and without a dependency:
+/// The machine's routable `IPv4s`, best effort and without a dependency:
 /// the address the kernel would source a packet to the LAN from, then
 /// every other local host address `/proc/net/fib_trie` lists (Linux;
 /// elsewhere only the first). Loopback is left out — the iPad cannot
@@ -203,13 +204,15 @@ fn local_ipv4s_in_fib_trie(fib: &str) -> Vec<String> {
 
 /// `/`: the bundle's page, or a note saying how to build it.
 async fn index(State(server): State<Arc<Server>>) -> Response {
-    match &server.dist {
-        Some(dist) => match std::fs::read(dist.join("index.html")) {
-            Ok(bytes) => Html(bytes).into_response(),
-            Err(_) => Html(FALLBACK.to_string()).into_response(),
+    server.dist.as_ref().map_or_else(
+        || Html(FALLBACK.to_string()).into_response(),
+        |dist| {
+            std::fs::read(dist.join("index.html")).map_or_else(
+                |_| Html(FALLBACK.to_string()).into_response(),
+                |bytes| Html(bytes).into_response(),
+            )
         },
-        None => Html(FALLBACK.to_string()).into_response(),
-    }
+    )
 }
 
 /// Anything else: a file from the bundle, by path.
@@ -231,7 +234,7 @@ async fn asset(State(server): State<Arc<Server>>, uri: axum::http::Uri) -> Respo
         Some("js") => "text/javascript",
         Some("wasm") => "application/wasm",
         Some("css") => "text/css",
-        Some("json") | Some("webmanifest") => "application/json",
+        Some("json" | "webmanifest") => "application/json",
         Some("svg") => "image/svg+xml",
         Some("png") => "image/png",
         Some("ico") => "image/x-icon",
@@ -248,16 +251,21 @@ async fn ws_upgrade(ws: WebSocketUpgrade, State(server): State<Arc<Server>>) -> 
 /// while every command it sends goes down the channel.
 async fn connection(mut socket: WebSocket, server: Arc<Server>) {
     let hello = ServerMessage::Hello(Box::new(server.boot.clone()));
-    if socket
-        .send(Message::Text(
-            serde_json::to_string(&hello).expect("json").into(),
-        ))
-        .await
-        .is_err()
-    {
+    let Ok(hello_json) = serde_json::to_string(&hello) else {
+        // Every field of `Bootstrap` is a plain, serializable value, so
+        // this cannot fail in practice — but one iPad's malformed hello
+        // is not a reason to take the whole desk down.
+        tracing::warn!("live-web: could not serialize the hello message");
+        return;
+    };
+    if socket.send(Message::Text(hello_json.into())).await.is_err() {
         return;
     }
-    let tx = server.tx.lock().expect("sender mutex").clone();
+    let tx = server
+        .tx
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
     let mut state = server.state.clone();
     // The first playhead unconditionally, so a client that connects
     // mid-song draws the right thing before anything moves.
@@ -269,7 +277,10 @@ async fn connection(mut socket: WebSocket, server: Arc<Server>) {
                     break;
                 }
                 let playhead = state.borrow_and_update().clone();
-                let text = serde_json::to_string(&ServerMessage::Playhead(playhead)).expect("json");
+                let Ok(text) = serde_json::to_string(&ServerMessage::Playhead(playhead)) else {
+                    tracing::warn!("live-web: could not serialize the playhead");
+                    continue;
+                };
                 if socket.send(Message::Text(text.into())).await.is_err() {
                     break;
                 }
@@ -283,7 +294,7 @@ async fn connection(mut socket: WebSocket, server: Arc<Server>) {
                         }
                         Err(e) => tracing::warn!(error = %e, "live-web: bad command"),
                     },
-                    Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
+                    Some(Ok(Message::Close(_)) | Err(_)) | None => break,
                     Some(Ok(_)) => {}
                 }
             }
@@ -332,6 +343,11 @@ mod tests {
     ///
     /// r[verify studio.touch.ipad]
     #[tokio::test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "grand round-trips through send_modify and JSON unmodified; exact equality \
+                  is the property under test"
+    )]
     async fn a_client_sends_commands_and_receives_the_playhead() {
         let (tx, rx) = crate::command::channel();
         let (state_tx, state_rx) = crate::command::state_channel();
@@ -395,6 +411,11 @@ mod tests {
     ///
     /// r[verify studio.touch.presence]
     #[tokio::test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "grand round-trips through send_modify and JSON unmodified; exact equality \
+                  is the property under test"
+    )]
     async fn two_clients_see_the_same_state_within_a_tick() {
         let (tx, rx) = crate::command::channel();
         let (state_tx, state_rx) = crate::command::state_channel();
@@ -463,6 +484,7 @@ mod tests {
     /// Without a built bundle, `/` explains itself rather than 404ing.
     #[tokio::test]
     async fn the_index_says_how_to_build_when_there_is_no_bundle() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let (tx, _rx) = crate::command::channel();
         let (_state_tx, state_rx) = crate::command::state_channel();
         let server = Server::new(tx, state_rx, boot(), None);
@@ -472,7 +494,6 @@ mod tests {
         let mut stream = tokio::net::TcpStream::connect(("127.0.0.1", port))
             .await
             .unwrap();
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
         stream
             .write_all(b"GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
             .await

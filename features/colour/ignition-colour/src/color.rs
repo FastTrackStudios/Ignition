@@ -79,7 +79,7 @@ pub enum Intent {
     },
 }
 
-fn one() -> f32 {
+const fn one() -> f32 {
     1.0
 }
 
@@ -98,6 +98,7 @@ pub struct Emitter {
 
 impl Emitter {
     /// Full-output tristimulus of this emitter.
+    #[must_use]
     pub fn xyz(&self) -> Xyz {
         Xyy {
             x: self.x,
@@ -109,6 +110,7 @@ impl Emitter {
 }
 
 /// A named emitter — the constructor the tables in `ignition_viz` use.
+#[must_use]
 pub fn emitter(name: &str, x: f32, y: f32, max_lumens: f32) -> Emitter {
     Emitter {
         name: name.to_string(),
@@ -121,22 +123,34 @@ pub fn emitter(name: &str, x: f32, y: f32, max_lumens: f32) -> Emitter {
 // --- RGB <-> HSB ---------------------------------------------------------
 
 impl Rgb {
-    pub const fn new(red: f32, green: f32, blue: f32) -> Rgb {
-        Rgb { red, green, blue }
+    #[must_use]
+    pub const fn new(red: f32, green: f32, blue: f32) -> Self {
+        Self { red, green, blue }
     }
 
-    pub const WHITE: Rgb = Rgb::new(1.0, 1.0, 1.0);
+    pub const WHITE: Self = Self::new(1.0, 1.0, 1.0);
+
+    /// Whether `a` and `b` are the same channel value. `to_hsb` compares
+    /// `max` (itself built from `self.red`/`green`/`blue` via `.max()`)
+    /// back against those same fields, so the two sides are always
+    /// bit-identical in the branch that matches — this is clippy's own
+    /// margin-of-error form of that identity check, not an attempt to
+    /// treat two independently computed floats as equal.
+    fn same_channel(a: f32, b: f32) -> bool {
+        (a - b).abs() <= f32::EPSILON
+    }
 
     // r[impl color.model] - RGB <-> HSB without loss beyond float precision
+    #[must_use]
     pub fn to_hsb(self) -> Hsb {
         let max = self.red.max(self.green).max(self.blue);
         let min = self.red.min(self.green).min(self.blue);
         let delta = max - min;
         let hue = if delta <= f32::EPSILON {
             0.0
-        } else if max == self.red {
+        } else if Self::same_channel(max, self.red) {
             60.0 * (((self.green - self.blue) / delta).rem_euclid(6.0))
-        } else if max == self.green {
+        } else if Self::same_channel(max, self.green) {
             60.0 * ((self.blue - self.red) / delta + 2.0)
         } else {
             60.0 * ((self.red - self.green) / delta + 4.0)
@@ -148,38 +162,59 @@ impl Rgb {
         }
     }
 
-    pub fn from_hsb(hsb: Hsb) -> Rgb {
-        let c = hsb.brightness * hsb.saturation;
-        let h = (hsb.hue.rem_euclid(360.0)) / 60.0;
-        let x = c * (1.0 - (h.rem_euclid(2.0) - 1.0).abs());
-        let (r, g, b) = match h as u32 {
-            0 => (c, x, 0.0),
-            1 => (x, c, 0.0),
-            2 => (0.0, c, x),
-            3 => (0.0, x, c),
-            4 => (x, 0.0, c),
-            _ => (c, 0.0, x),
+    #[must_use]
+    pub fn from_hsb(hsb: Hsb) -> Self {
+        let chroma = hsb.brightness * hsb.saturation;
+        let sector = hsb.hue.rem_euclid(360.0) / 60.0;
+        let mid = chroma * (1.0 - (sector.rem_euclid(2.0) - 1.0).abs());
+        // The sector picks which two channels carry `chroma` and `mid`;
+        // written as ranges rather than a cast-to-int-and-match so no
+        // float becomes an integer index anywhere in the tree.
+        let (red, green, blue) = if sector < 1.0 {
+            (chroma, mid, 0.0)
+        } else if sector < 2.0 {
+            (mid, chroma, 0.0)
+        } else if sector < 3.0 {
+            (0.0, chroma, mid)
+        } else if sector < 4.0 {
+            (0.0, mid, chroma)
+        } else if sector < 5.0 {
+            (mid, 0.0, chroma)
+        } else {
+            (chroma, 0.0, mid)
         };
-        let m = hsb.brightness - c;
-        Rgb::new(r + m, g + m, b + m)
+        let lift = hsb.brightness - chroma;
+        Self::new(red + lift, green + lift, blue + lift)
     }
 
     /// Linear sRGB -> XYZ (IEC 61966-2-1, D65).
+    #[must_use]
     pub fn to_xyz(self) -> Xyz {
         Xyz {
-            x: 0.4124564 * self.red + 0.3575761 * self.green + 0.1804375 * self.blue,
-            y: 0.2126729 * self.red + 0.7151522 * self.green + 0.0721750 * self.blue,
-            z: 0.0193339 * self.red + 0.119_192 * self.green + 0.9503041 * self.blue,
+            x: 0.180_437_5f32.mul_add(
+                self.blue,
+                0.412_456_4f32.mul_add(self.red, 0.357_576_1 * self.green),
+            ),
+            y: 0.072_175_0f32.mul_add(
+                self.blue,
+                0.212_672_9f32.mul_add(self.red, 0.715_152_2 * self.green),
+            ),
+            z: 0.950_304_1f32.mul_add(
+                self.blue,
+                0.019_333_9f32.mul_add(self.red, 0.119_192 * self.green),
+            ),
         }
     }
 
+    #[must_use]
     pub fn to_xyy(self) -> Xyy {
         self.to_xyz().to_xyy()
     }
 
     /// Every channel clamped to `0..=1`.
-    pub fn clamped(self) -> Rgb {
-        Rgb::new(
+    #[must_use]
+    pub const fn clamped(self) -> Self {
+        Self::new(
             self.red.clamp(0.0, 1.0),
             self.green.clamp(0.0, 1.0),
             self.blue.clamp(0.0, 1.0),
@@ -191,14 +226,25 @@ impl Xyz {
     /// XYZ -> linear sRGB (inverse of `Rgb::to_xyz`). Not clamped: an
     /// out-of-gamut colour comes back with a negative channel, and the
     /// caller decides what to do about it.
+    #[must_use]
     pub fn to_rgb(self) -> Rgb {
         Rgb {
-            red: 3.2404542 * self.x - 1.5371385 * self.y - 0.4985314 * self.z,
-            green: -0.969_266 * self.x + 1.8760108 * self.y + 0.0415560 * self.z,
-            blue: 0.0556434 * self.x - 0.2040259 * self.y + 1.0572252 * self.z,
+            red: (-0.498_531_4f32).mul_add(
+                self.z,
+                3.240_454_2f32.mul_add(self.x, -(1.537_138_5 * self.y)),
+            ),
+            green: 0.041_556_0f32.mul_add(
+                self.z,
+                (-0.969_266f32).mul_add(self.x, 1.876_010_8 * self.y),
+            ),
+            blue: 1.057_225_2f32.mul_add(
+                self.z,
+                0.055_643_4f32.mul_add(self.x, -(0.204_025_9 * self.y)),
+            ),
         }
     }
 
+    #[must_use]
     pub fn to_xyy(self) -> Xyy {
         let sum = self.x + self.y + self.z;
         if sum <= 1e-9 {
@@ -219,6 +265,7 @@ impl Xyz {
 }
 
 impl Xyy {
+    #[must_use]
     pub fn to_xyz(self) -> Xyz {
         if self.y <= 1e-9 {
             return Xyz::default();
@@ -233,6 +280,7 @@ impl Xyy {
     /// The RGB triple that renders this colour, scaled into gamut: an
     /// out-of-gamut chromaticity is desaturated toward its own luminance
     /// rather than clipped per channel, so the hue survives.
+    #[must_use]
     pub fn to_rgb(self) -> Rgb {
         let rgb = self.to_xyz().to_rgb();
         let min = rgb.red.min(rgb.green).min(rgb.blue);
@@ -242,9 +290,9 @@ impl Xyy {
             let white = Rgb::new(self.luminance, self.luminance, self.luminance);
             let t = (-min / (self.luminance - min).max(1e-6)).clamp(0.0, 1.0);
             Rgb::new(
-                rgb.red + (white.red - rgb.red) * t,
-                rgb.green + (white.green - rgb.green) * t,
-                rgb.blue + (white.blue - rgb.blue) * t,
+                (white.red - rgb.red).mul_add(t, rgb.red),
+                (white.green - rgb.green).mul_add(t, rgb.green),
+                (white.blue - rgb.blue).mul_add(t, rgb.blue),
             )
         } else {
             rgb
@@ -260,51 +308,75 @@ impl Xyy {
 
 // --- CCT -----------------------------------------------------------------
 
-/// Planckian-locus chromaticity for a colour temperature, Kim et al.
-/// (2002) cubic spline, valid 1667 K – 25000 K; clamped outside.
-/// `tint` shifts perpendicular to the locus in CIE 1960 (u, v), in
-/// hundredths of Duv, positive toward green.
+/// The f64 CIE math below narrowed back to the crate's f32 wire type.
+/// Every value that reaches this is a chromaticity coordinate or a
+/// small derived ratio, orders of magnitude inside where an `f32` loses
+/// meaningful precision — the narrowing is a formality, not a risk.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "chromaticity values stay well within f32's precision; see the doc comment"
+)]
+const fn narrow_f64(v: f64) -> f32 {
+    v as f32
+}
+
+/// Planckian-locus chromaticity for a colour temperature.
+///
+/// Kim et al. (2002) cubic spline, valid 1667 K – 25000 K; clamped
+/// outside. `tint` shifts perpendicular to the locus in CIE 1960 (u, v),
+/// in hundredths of Duv, positive toward green.
 // r[impl color.cct] - a temperature is a point on the Planckian locus
+#[must_use]
 pub fn cct_to_xy(kelvin: f32, tint: f32) -> (f32, f32) {
-    let t = (kelvin as f64).clamp(1667.0, 25000.0);
-    let locus = |t: f64| -> (f64, f64) {
-        let t2 = t * t;
-        let t3 = t2 * t;
-        let x = if t <= 4000.0 {
-            -0.2661239e9 / t3 - 0.2343589e6 / t2 + 0.8776956e3 / t + 0.179910
+    let kelvin = f64::from(kelvin).clamp(1667.0, 25000.0);
+    let locus = |kelvin: f64| -> (f64, f64) {
+        let t2 = kelvin * kelvin;
+        let t3 = t2 * kelvin;
+        let x = if kelvin <= 4000.0 {
+            0.877_695_6e3f64.mul_add(
+                1.0 / kelvin,
+                (-0.266_123_9e9 / t3 - 0.234_358_9e6 / t2) + 0.179_910,
+            )
         } else {
-            -3.0258469e9 / t3 + 2.1070379e6 / t2 + 0.2226347e3 / t + 0.240390
+            0.222_634_7e3f64.mul_add(
+                1.0 / kelvin,
+                (-3.025_846_9e9 / t3 + 2.107_037_9e6 / t2) + 0.240_390,
+            )
         };
         let x2 = x * x;
         let x3 = x2 * x;
-        let y = if t <= 2222.0 {
-            -1.1063814 * x3 - 1.34811020 * x2 + 2.18555832 * x - 0.20219683
-        } else if t <= 4000.0 {
-            -0.9549476 * x3 - 1.37418593 * x2 + 2.09137015 * x - 0.16748867
+        let y = if kelvin <= 2222.0 {
+            2.185_558_32f64.mul_add(x, (-1.106_381_4f64).mul_add(x3, -(1.348_110_20 * x2)))
+                - 0.202_196_83
+        } else if kelvin <= 4000.0 {
+            2.091_370_15f64.mul_add(x, (-0.954_947_6f64).mul_add(x3, -(1.374_185_93 * x2)))
+                - 0.167_486_67
         } else {
-            3.0817580 * x3 - 5.87338670 * x2 + 3.75112997 * x - 0.37001483
+            3.751_129_97f64.mul_add(x, 3.081_758_0f64.mul_add(x3, -(5.873_386_70 * x2)))
+                - 0.370_014_83
         };
         (x, y)
     };
-    let (x, y) = locus(t);
+    let (x, y) = locus(kelvin);
     if tint.abs() < 1e-6 {
-        return (x as f32, y as f32);
+        return (narrow_f64(x), narrow_f64(y));
     }
     // Perpendicular to the locus in uv, found from a numerical tangent.
     let to_uv = |(x, y): (f64, f64)| {
-        let d = -2.0 * x + 12.0 * y + 3.0;
-        (4.0 * x / d, 6.0 * y / d)
+        let denom = (-2.0f64).mul_add(x, 12.0 * y) + 3.0;
+        (4.0 * x / denom, 6.0 * y / denom)
     };
     let (u0, v0) = to_uv((x, y));
-    let (u1, v1) = to_uv(locus(t * 1.01));
+    let (u1, v1) = to_uv(locus(kelvin * 1.01));
     let (du, dv) = (u1 - u0, v1 - v0);
-    let len = (du * du + dv * dv).sqrt().max(1e-9);
+    let len = du.hypot(dv).max(1e-9);
     // Rotate the tangent 90° so +tint moves above the locus (greener).
     let (nu, nv) = (dv / len, -du / len);
-    let duv = tint as f64 * 0.01;
-    let (u, v) = (u0 + nu * duv, v0 + nv * duv);
-    let d = 2.0 * u - 8.0 * v + 4.0;
-    ((3.0 * u / d) as f32, (2.0 * v / d) as f32)
+    let duv = f64::from(tint) * 0.01;
+    let (u, v) = (nu.mul_add(duv, u0), nv.mul_add(duv, v0));
+    let denom = 2.0f64.mul_add(u, -(8.0 * v)) + 4.0;
+    (narrow_f64(3.0 * u / denom), narrow_f64(2.0 * v / denom))
 }
 
 // --- Gels ----------------------------------------------------------------
@@ -457,6 +529,7 @@ pub const GELS: &[GelSwatch] = &[
 
 /// Looks a gel up, case-insensitive on the manufacturer, tolerant of a
 /// leading `R`/`L` on the number (`"R80"`, `"L201"`).
+#[must_use]
 pub fn gel(manufacturer: &str, number: &str) -> Option<&'static GelSwatch> {
     let number = number
         .trim()
@@ -475,15 +548,16 @@ impl Intent {
     /// The intent as chromaticity plus luminance. A gel that is not in
     /// the table yields `None` — `r[color.unresolved-is-visible]` wants
     /// that reported, not guessed.
+    #[must_use]
     pub fn xyy(&self) -> Option<Xyy> {
         Some(match self {
-            Intent::Rgb(rgb) => rgb.to_xyy(),
-            Intent::Xy { x, y, luminance } => Xyy {
+            Self::Rgb(rgb) => rgb.to_xyy(),
+            Self::Xy { x, y, luminance } => Xyy {
                 x: *x,
                 y: *y,
                 luminance: *luminance,
             },
-            Intent::Cct { kelvin, tint } => {
+            Self::Cct { kelvin, tint } => {
                 let (x, y) = cct_to_xy(*kelvin, *tint);
                 Xyy {
                     x,
@@ -491,7 +565,7 @@ impl Intent {
                     luminance: 1.0,
                 }
             }
-            Intent::Gel {
+            Self::Gel {
                 manufacturer,
                 number,
             } => {
@@ -510,11 +584,12 @@ impl Intent {
     /// How bright, fixture-relative, `0..=1`: an RGB triple's peak
     /// channel (so `(1,0,0)` is red at full), an xy's luminance, and
     /// full for a colour temperature or a gel.
-    pub fn brightness(&self) -> f32 {
+    #[must_use]
+    pub const fn brightness(&self) -> f32 {
         match self {
-            Intent::Rgb(rgb) => rgb.red.max(rgb.green).max(rgb.blue),
-            Intent::Xy { luminance, .. } => *luminance,
-            Intent::Cct { .. } | Intent::Gel { .. } => 1.0,
+            Self::Rgb(rgb) => rgb.red.max(rgb.green).max(rgb.blue),
+            Self::Xy { luminance, .. } => *luminance,
+            Self::Cct { .. } | Self::Gel { .. } => 1.0,
         }
     }
 
@@ -522,10 +597,11 @@ impl Intent {
     /// no emitter data. A white intent (CCT) renders at full brightness
     /// rather than at the locus point's raw luminance.
     // r[impl color.emitter-solve] - fixtures without emitter data fall back to RGB
+    #[must_use]
     pub fn rgb(&self) -> Option<Rgb> {
         Some(match self {
-            Intent::Rgb(rgb) => *rgb,
-            Intent::Cct { .. } => {
+            Self::Rgb(rgb) => *rgb,
+            Self::Cct { .. } => {
                 let xyy = self.xyy()?;
                 let rgb = xyy.to_rgb();
                 let max = rgb.red.max(rgb.green).max(rgb.blue).max(1e-6);
@@ -538,10 +614,11 @@ impl Intent {
 
 // --- Colour spaces --------------------------------------------------------
 
-/// A colour space an RGB-shaped triple can be read in. The intent a
-/// preset stores is space-independent; this is how a triple that came
-/// from a fixture type's GDTF space, a Rec.2020 media file or a raw xy
-/// is given its real meaning before it is solved.
+/// A colour space an RGB-shaped triple can be read in.
+///
+/// The intent a preset stores is space-independent; this is how a
+/// triple that came from a fixture type's GDTF space, a Rec.2020 media
+/// file or a raw xy is given its real meaning before it is solved.
 // r[impl color.spaces]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -558,16 +635,17 @@ pub enum ColorSpace {
 impl ColorSpace {
     /// Linear XYZ tristimulus of a triple read in this space.
     // r[impl color.spaces]
+    #[must_use]
     pub fn to_xyz(self, triple: [f32; 3]) -> Xyz {
         let [a, b, c] = triple;
         match self {
-            ColorSpace::Srgb => Rgb::new(a, b, c).to_xyz(),
-            ColorSpace::Rec2020 => Xyz {
-                x: 0.636_958 * a + 0.1446169 * b + 0.168_881 * c,
-                y: 0.2627002 * a + 0.6779981 * b + 0.0593017 * c,
-                z: 0.0000000 * a + 0.0280727 * b + 1.0609851 * c,
+            Self::Srgb => Rgb::new(a, b, c).to_xyz(),
+            Self::Rec2020 => Xyz {
+                x: 0.168_881f32.mul_add(c, 0.636_958f32.mul_add(a, 0.144_616_9 * b)),
+                y: 0.059_301_7f32.mul_add(c, 0.262_700_2f32.mul_add(a, 0.677_998_1 * b)),
+                z: 1.060_985_1f32.mul_add(c, 0.000_000_0f32.mul_add(a, 0.028_072_7 * b)),
             },
-            ColorSpace::Xy => Xyy {
+            Self::Xy => Xyy {
                 x: a,
                 y: b,
                 luminance: c,
@@ -580,18 +658,24 @@ impl ColorSpace {
     /// outside this space's gamut comes back with a channel below zero
     /// or above one, and the caller can see that it did.
     // r[impl color.spaces]
+    #[must_use]
     pub fn from_xyz(self, xyz: Xyz) -> [f32; 3] {
         match self {
-            ColorSpace::Srgb => {
+            Self::Srgb => {
                 let rgb = xyz.to_rgb();
                 [rgb.red, rgb.green, rgb.blue]
             }
-            ColorSpace::Rec2020 => [
-                1.7166512 * xyz.x - 0.3556708 * xyz.y - 0.2533663 * xyz.z,
-                -0.6666844 * xyz.x + 1.6164812 * xyz.y + 0.0157685 * xyz.z,
-                0.0176399 * xyz.x - 0.0427706 * xyz.y + 0.9421031 * xyz.z,
+            Self::Rec2020 => [
+                0.253_366_3f32.mul_add(
+                    -xyz.z,
+                    1.716_651_2f32.mul_add(xyz.x, -(0.355_670_8 * xyz.y)),
+                ),
+                0.015_768_5f32
+                    .mul_add(xyz.z, (-0.666_684_4f32).mul_add(xyz.x, 1.616_481_2 * xyz.y)),
+                0.942_103_1f32
+                    .mul_add(xyz.z, 0.017_639_9f32.mul_add(xyz.x, -(0.042_770_6 * xyz.y))),
             ],
-            ColorSpace::Xy => {
+            Self::Xy => {
                 let xyy = xyz.to_xyy();
                 [xyy.x, xyy.y, xyy.luminance]
             }
@@ -601,14 +685,15 @@ impl ColorSpace {
     /// Whether a triple in this space is inside its gamut: every
     /// channel in `0..=1` (for `Xy`, a chromaticity inside the unit
     /// triangle with a luminance in `0..=1`).
+    #[must_use]
     pub fn contains(self, triple: [f32; 3]) -> bool {
         const EPS: f32 = 1e-4;
         let [a, b, c] = triple;
         match self {
-            ColorSpace::Xy => {
+            Self::Xy => {
                 a >= -EPS && b >= -EPS && a + b <= 1.0 + EPS && (-EPS..=1.0 + EPS).contains(&c)
             }
-            _ => [a, b, c].iter().all(|v| (-EPS..=1.0 + EPS).contains(v)),
+            Self::Srgb | Self::Rec2020 => [a, b, c].iter().all(|v| (-EPS..=1.0 + EPS).contains(v)),
         }
     }
 }
@@ -619,6 +704,7 @@ impl Intent {
     /// intent in, a space's numbers out — the meeting point with a
     /// fixture type's declared colour space. Not clamped.
     // r[impl color.spaces]
+    #[must_use]
     pub fn in_space(&self, space: ColorSpace) -> Option<[f32; 3]> {
         Some(space.from_xyz(self.xyy()?.to_xyz()))
     }
@@ -627,16 +713,16 @@ impl Intent {
     /// (the form every older file has), the rest become `Xy` so the
     /// meaning survives outside sRGB's gamut.
     // r[impl color.spaces]
-    pub fn from_space(space: ColorSpace, triple: [f32; 3]) -> Intent {
-        match space {
-            ColorSpace::Srgb => Intent::Rgb(Rgb::new(triple[0], triple[1], triple[2])),
-            _ => {
-                let xyy = space.to_xyz(triple).to_xyy();
-                Intent::Xy {
-                    x: xyy.x,
-                    y: xyy.y,
-                    luminance: xyy.luminance,
-                }
+    #[must_use]
+    pub fn from_space(space: ColorSpace, triple: [f32; 3]) -> Self {
+        if space == ColorSpace::Srgb {
+            Self::Rgb(Rgb::new(triple[0], triple[1], triple[2]))
+        } else {
+            let xyy = space.to_xyz(triple).to_xyy();
+            Self::Xy {
+                x: xyy.x,
+                y: xyy.y,
+                luminance: xyy.luminance,
             }
         }
     }
@@ -644,12 +730,13 @@ impl Intent {
     /// This intent at luminance `luminance` (CIE `Y`): the same
     /// chromaticity, brighter or darker. Yields `Xy` unless nothing had
     /// to change.
-    pub fn at_luminance(&self, luminance: f32) -> Option<Intent> {
+    #[must_use]
+    pub fn at_luminance(&self, luminance: f32) -> Option<Self> {
         let xyy = self.xyy()?;
         if (xyy.luminance - luminance).abs() < 1e-6 {
             return Some(self.clone());
         }
-        Some(Intent::Xy {
+        Some(Self::Xy {
             x: xyy.x,
             y: xyy.y,
             luminance,
@@ -658,17 +745,20 @@ impl Intent {
 }
 
 /// The same list of colours at one luminance — the *lowest* CIE `Y`
-/// among them — so a chase that walks them does not pump: red at full
-/// is a fifth the luminance of green at full, and a chase written as
-/// three saturated RGB triples reads as a throb of brightness unless
-/// every step is held to the dimmest one. A colour that cannot convert
-/// (an unknown gel) is passed through unchanged; a list at zero
-/// luminance is unchanged.
+/// among them.
+///
+/// So a chase that walks them does not pump: red at full is a fifth
+/// the luminance of green at full, and a chase written as three
+/// saturated RGB triples reads as a throb of brightness unless every
+/// step is held to the dimmest one. A colour that cannot convert (an
+/// unknown gel) is passed through unchanged; a list at zero luminance
+/// is unchanged.
 // r[impl color.spaces] - constant brightness across a hue change
+#[must_use]
 pub fn constant_brightness(intents: &[Intent]) -> Vec<Intent> {
     let floor = intents
         .iter()
-        .filter_map(|i| i.xyy())
+        .filter_map(Intent::xyy)
         .map(|c| c.luminance)
         .filter(|y| *y > 0.0)
         .fold(f32::INFINITY, f32::min);
@@ -698,17 +788,20 @@ pub enum ColorPreference {
 }
 
 /// The wheel slot whose colour is nearest `intent`, by CIE 1931 xy
-/// distance — how a gel-only spot joins in "Congo Blue" by taking its
+/// distance.
+///
+/// This is how a gel-only spot joins in "Congo Blue" by taking its
 /// nearest gel. `None` for an empty wheel, or an intent that cannot
 /// convert. Ties go to the earlier slot; a slot whose own intent
 /// cannot convert is skipped.
 // r[impl color.mix-or-wheel] - the nearest slot for a wheel-only fixture
+#[must_use]
 pub fn nearest_wheel_slot(intent: &Intent, slots: &[(u8, Intent)]) -> Option<u8> {
     let want = intent.xyy()?;
     let mut best: Option<(u8, f32)> = None;
     for (slot, colour) in slots {
         let Some(c) = colour.xyy() else { continue };
-        let d = (c.x - want.x).powi(2) + (c.y - want.y).powi(2);
+        let d = (c.x - want.x).mul_add(c.x - want.x, (c.y - want.y).powi(2));
         if best.is_none_or(|(_, bd)| d < bd) {
             best = Some((*slot, d));
         }
@@ -723,9 +816,9 @@ pub fn nearest_wheel_slot(intent: &Intent, slots: &[(u8, Intent)]) -> Option<u8>
 pub const DEFAULT_QUALITY: f32 = 0.5;
 
 /// Emitter levels (`0..=1`, one per emitter, in the order given) that
-/// reach `intent` on a fixture with these emitters.
+/// reach `intent` on a fixture with these emitters. Two steps.
 ///
-/// Two steps. First the *chromaticity*: box-constrained least squares in
+/// First the *chromaticity*: box-constrained least squares in
 /// XYZ by projected gradient descent — minimise `|M w - target|²` with
 /// `M`'s columns the emitters' full-output XYZ and `w ∈ [0,1]^n` — run at
 /// a luminance low enough that nothing clips, so the hue is exact.
@@ -771,70 +864,92 @@ pub fn solve(intent: &Intent, emitters: &[Emitter], quality: f32) -> Vec<f32> {
 /// output, so no level reaches its bound and the chromaticity is exact.
 const PROBE_FRACTION: f32 = 0.05;
 
+/// A small count as a float — the emitter count and the gradient-descent
+/// bookkeeping below, both orders of magnitude under the 2^24 where an
+/// `f32` stops counting integers exactly.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "an emitter count is small (a rig's fixture types, not its fixtures); see the doc comment"
+)]
+const fn float_of(n: usize) -> f32 {
+    n as f32
+}
+
 /// The mix (unscaled, every level well inside `0..1`) that has `target`'s
 /// chromaticity. See `solve` for the objective.
-fn solve_chromaticity(target: Xyy, emitters: &[Emitter], q: f32) -> Vec<f32> {
-    let n = emitters.len();
+fn solve_chromaticity(target: Xyy, emitters: &[Emitter], quality: f32) -> Vec<f32> {
+    let count = emitters.len();
     let peak = emitters
         .iter()
-        .map(|e| e.max_lumens)
+        .map(|emitter| emitter.max_lumens)
         .fold(0.0f32, f32::max)
         .max(1e-6);
     let dimmest = emitters
         .iter()
-        .map(|e| e.max_lumens / peak)
+        .map(|emitter| emitter.max_lumens / peak)
         .fold(f32::INFINITY, f32::min)
         .max(1e-3);
     let cols: Vec<[f32; 3]> = emitters
         .iter()
-        .map(|e| {
+        .map(|emitter| {
             let xyz = Xyy {
-                x: e.x,
-                y: e.y,
-                luminance: e.max_lumens / peak,
+                x: emitter.x,
+                y: emitter.y,
+                luminance: emitter.max_lumens / peak,
             }
             .to_xyz();
             [xyz.x, xyz.y, xyz.z]
         })
         .collect();
     let probe = PROBE_FRACTION * dimmest;
-    let t = Xyy {
+    let target_xyz = Xyy {
         luminance: probe,
         ..target
     }
     .to_xyz();
-    let t = [t.x, t.y, t.z];
+    let target_arr = [target_xyz.x, target_xyz.y, target_xyz.z];
 
     // Lipschitz-ish step from the largest column norm.
     let col_norm = cols
         .iter()
-        .map(|c| c[0] * c[0] + c[1] * c[1] + c[2] * c[2])
+        .map(|col| col[2].mul_add(col[2], col[0].mul_add(col[0], col[1] * col[1])))
         .fold(0.0f32, f32::max)
         .max(1e-6);
-    let step = 0.5 / (col_norm * n as f32);
+    let step = 0.5 / (col_norm * float_of(count));
     // Tie-breakers, scaled with the probe so they stay a tie-breaker.
-    let narrow = 0.02 * q * probe;
-    let broad = 0.02 * (1.0 - q);
+    let narrow = 0.02 * quality * probe;
+    let broad = 0.02 * (1.0 - quality);
 
-    let mut w = vec![probe; n];
+    let mut levels = vec![probe; count];
     for _ in 0..4000 {
-        let mut r = [0.0f32; 3];
-        for (i, c) in cols.iter().enumerate() {
-            r[0] += c[0] * w[i];
-            r[1] += c[1] * w[i];
-            r[2] += c[2] * w[i];
+        // `residual` accumulates the fit's error against `target_arr`;
+        // both are fixed three-element arrays indexed by literal 0/1/2,
+        // never by a loop counter — it is `levels` and `cols`, walked in
+        // lockstep by `zip` instead of by index, that would otherwise
+        // need a bounds check per step of a loop that runs four thousand
+        // times per solve.
+        let mut residual = [0.0f32; 3];
+        for (col, level) in cols.iter().zip(levels.iter().copied()) {
+            residual[0] += col[0] * level;
+            residual[1] += col[1] * level;
+            residual[2] += col[2] * level;
         }
-        r[0] -= t[0];
-        r[1] -= t[1];
-        r[2] -= t[2];
-        let mean = w.iter().sum::<f32>() / n as f32;
+        residual[0] -= target_arr[0];
+        residual[1] -= target_arr[1];
+        residual[2] -= target_arr[2];
+        let mean = levels.iter().sum::<f32>() / float_of(count);
         let mut max_delta = 0.0f32;
-        for (i, c) in cols.iter().enumerate() {
-            let grad_fit = 2.0 * (c[0] * r[0] + c[1] * r[1] + c[2] * r[2]);
-            let grad = grad_fit + narrow + 2.0 * broad * (w[i] - mean);
-            let next = (w[i] - step * grad).clamp(0.0, 1.0);
-            max_delta = max_delta.max((next - w[i]).abs());
-            w[i] = next;
+        for (col, level) in cols.iter().zip(levels.iter_mut()) {
+            let grad_fit = 2.0
+                * col[2].mul_add(
+                    residual[2],
+                    col[0].mul_add(residual[0], col[1] * residual[1]),
+                );
+            let grad = (2.0 * broad).mul_add(*level - mean, grad_fit + narrow);
+            let next = (*level - step * grad).clamp(0.0, 1.0);
+            max_delta = max_delta.max((next - *level).abs());
+            *level = next;
         }
         if max_delta < 1e-7 * probe {
             break;
@@ -842,12 +957,12 @@ fn solve_chromaticity(target: Xyy, emitters: &[Emitter], q: f32) -> Vec<f32> {
     }
     // Snap the dust the L1 term leaves behind.
     let floor = 1e-3 * probe;
-    for v in &mut w {
-        if *v < floor {
-            *v = 0.0;
+    for level in &mut levels {
+        if *level < floor {
+            *level = 0.0;
         }
     }
-    w
+    levels
 }
 
 #[cfg(test)]
@@ -1000,7 +1115,7 @@ mod tests {
         let lit = |w: &[f32]| w.iter().filter(|v| **v > 0.05).count();
         assert!(lit(&narrow) <= lit(&broad), "{narrow:?} vs {broad:?}");
         let spread = |w: &[f32]| {
-            let mean = w.iter().sum::<f32>() / w.len() as f32;
+            let mean = w.iter().sum::<f32>() / float_of(w.len());
             w.iter().map(|v| (v - mean).powi(2)).sum::<f32>()
         };
         assert!(spread(&broad) <= spread(&narrow) + 1e-6);

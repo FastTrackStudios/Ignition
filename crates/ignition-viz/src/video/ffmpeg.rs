@@ -72,8 +72,16 @@ pub(super) fn open(path: &Path) -> Result<(Meta, Box<dyn Decoder>), VideoError> 
         .filter(|n| *n > 0)
         .unwrap_or(MAX_DECODE_WIDTH);
     let (width, height) = if src_w > cap && src_w > 0 {
-        // Even dimensions keep every YUV subsampling scheme happy.
-        let h = (u64::from(src_h) * u64::from(cap) / u64::from(src_w)) as u32;
+        // Even dimensions keep every YUV subsampling scheme happy. The
+        // scale is done in u64 so the multiply can't wrap before the
+        // divide brings it back down to a pixel count; `src_w > 0` above
+        // is what makes the division total.
+        let h = crate::num::u32_of_u64(
+            u64::from(src_h)
+                .saturating_mul(u64::from(cap))
+                .checked_div(u64::from(src_w))
+                .unwrap_or(0),
+        );
         (cap & !1, h.max(2) & !1)
     } else {
         (src_w, src_h)
@@ -91,7 +99,7 @@ pub(super) fn open(path: &Path) -> Result<(Meta, Box<dyn Decoder>), VideoError> 
 
     // The container's duration, in ffmpeg's own microsecond time base
     // rather than the stream's.
-    let duration = input.duration() as f64 / f64::from(ffmpeg::ffi::AV_TIME_BASE);
+    let duration = crate::num::f64_of_i64(input.duration()) / f64::from(ffmpeg::ffi::AV_TIME_BASE);
     tracing::info!(
         path = %path.display(),
         width,
@@ -139,6 +147,13 @@ fn backend(error: ffmpeg::Error) -> VideoError {
 /// contexts genuinely cannot be scaled through from two threads.)
 struct Scaler(ffmpeg::software::scaling::Context);
 
+// The lint is right that the field is not `Send` on its own — that is
+// exactly the fact the doc comment above justifies unsafely asserting
+// past, not an oversight to fix by making the field something it is not.
+#[expect(
+    clippy::non_send_fields_in_send_ty,
+    reason = "the raw-pointer field is moved to the worker thread once and never touched by anything else; see the doc comment above"
+)]
 unsafe impl Send for Scaler {}
 
 struct FfmpegDecoder {
@@ -211,7 +226,7 @@ impl Decoder for FfmpegDecoder {
     /// `next_frame` decodes forward from there and drops what it passes,
     /// so the frame that comes out is the one asked for.
     fn seek(&mut self, secs: f64) -> Result<(), VideoError> {
-        let ts = (secs.max(0.0) * f64::from(ffmpeg::ffi::AV_TIME_BASE)) as i64;
+        let ts = crate::num::i64_of_f64(secs.max(0.0) * f64::from(ffmpeg::ffi::AV_TIME_BASE));
         self.input.seek(ts, ..ts).map_err(backend)?;
         // Without this the decoder keeps emitting what it had buffered
         // from before the jump, which looks like the scrub being ignored
@@ -247,17 +262,24 @@ impl FfmpegDecoder {
         // is stride-by-height and not width-by-height. Handing that
         // straight to the GPU produces the classic diagonal shear.
         let stride = rgba_frame.stride(0);
-        let row = self.width as usize * 4;
+        let row = crate::num::usize_of_u32(self.width).saturating_mul(4);
+        let height = crate::num::usize_of_u32(self.height);
         let data = rgba_frame.data(0);
-        let mut rgba = Vec::with_capacity(row * self.height as usize);
-        for y in 0..self.height as usize {
-            let start = y * stride;
-            rgba.extend_from_slice(&data[start..start + row]);
+        let mut rgba = Vec::with_capacity(row.saturating_mul(height));
+        for y in 0..height {
+            let start = y.saturating_mul(stride);
+            let end = start.saturating_add(row);
+            let Some(slice) = data.get(start..end) else {
+                return Err(VideoError::Backend(format!(
+                    "decoded frame row {y} is short of the {row}-byte stride"
+                )));
+            };
+            rgba.extend_from_slice(slice);
         }
 
         // `timestamp` is the best-effort one: a stream whose frames
         // carry no pts still has to land somewhere on the song's clock.
-        let pts = decoded.timestamp().unwrap_or(0) as f64 * self.time_base;
+        let pts = crate::num::f64_of_i64(decoded.timestamp().unwrap_or(0)) * self.time_base;
         Ok(Some(Frame {
             pts,
             rgba,
@@ -295,7 +317,9 @@ mod tests {
         let first = decoder.next_frame().expect("decode").expect("a frame");
         assert_eq!(
             first.rgba.len(),
-            meta.width as usize * meta.height as usize * 4,
+            crate::num::usize_of_u32(meta.width)
+                .saturating_mul(crate::num::usize_of_u32(meta.height))
+                .saturating_mul(4),
             "a row of padding survived the stride copy"
         );
 

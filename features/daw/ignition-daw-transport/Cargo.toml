@@ -43,3 +43,6 @@ cpal = { version = "0.18", optional = true }
 [lib]
 name = "ignition_daw_transport"
 path = "src/lib.rs"
+
+[lints]
+workspace = true

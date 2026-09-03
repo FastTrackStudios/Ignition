@@ -27,7 +27,7 @@ y = downstage(−)/upstage(+), z = up, playing area centred on the origin):
 the band wall. Six lights stacked on each ~5 ft stand, touching, as
 photographed. Each light is a warm-amber blinder strip across the middle of
 a honeycomb lens with LED behind the rest of the face — `CBU Tower Blinder
-Ring`, generated from `data/gdtf/specs/cbu-tower-blinder-ring.json`, four
+Ring`, generated from `data/fixtures/cbu-tower-blinder-ring.json`, four
 channels: WW (the blinder), then R/G/B (the surround).
 
 **2 trees, 8 parcans.** T-bar stands about 8 ft tall at x = ±16 ft, 14 ft

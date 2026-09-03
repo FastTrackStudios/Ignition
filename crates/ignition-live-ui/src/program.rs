@@ -37,7 +37,7 @@ pub fn Programmer(surface: Surface) -> Element {
     let mut overlays = use_signal(Overlays::default);
     let profile = crate::library::profile();
     let p = playhead();
-    let favs = operator().favourites.clone();
+    let favs = operator().favourites;
     let colours: Vec<(String, String)> = {
         let mut all: Vec<(String, String)> = profile
             .colors
@@ -64,10 +64,7 @@ pub fn Programmer(surface: Surface) -> Element {
             header { class: "prog-head",
                 span { class: "prog-title", "Programmer" }
                 span { class: "prog-sel",
-                    match &p.selection {
-                        Some(s) => rsx! { "{s}" },
-                        None => rsx! { "nothing selected" },
-                    }
+                    {p.selection.as_ref().map_or_else(|| rsx! { "nothing selected" }, |s| rsx! { "{s}" })}
                 }
                 span { class: "prog-captured", "{p.captured} values" }
                 if p.blind { span { class: "blind-flag", "BLIND" } }
@@ -88,7 +85,7 @@ pub fn Programmer(surface: Surface) -> Element {
                         button {
                             key: "g-{group}",
                             class: if p.selection.as_deref() == Some(group.as_str()) { "ptile on" } else { "ptile" },
-                            onpointerdown: { let n = group.clone(); move |_| send(Command::Select(Selection::Group(n.clone()))) },
+                            onpointerdown: { let n = group; move |_| send(Command::Select(Selection::Group(n.clone()))) },
                             span { class: "pname", "{group}" }
                         }
                     }
@@ -101,7 +98,7 @@ pub fn Programmer(surface: Surface) -> Element {
                     HSlider { initial: 0.0, on_change: move |v: f32| send(Command::Dimmer(v)) }
                 }
                 for pct in [100u32, 75, 50, 25, 0] {
-                    button { key: "{pct}", class: "ptile small", onpointerdown: move |_| send(Command::Dimmer(pct as f32 / 100.0)), span { class: "pname", "{pct}" } }
+                    button { key: "{pct}", class: "ptile small", onpointerdown: move |_| send(Command::Dimmer(crate::numeric::small_f32(pct) / 100.0)), span { class: "pname", "{pct}" } }
                 }
             }
             div { class: "prog-row",
@@ -111,7 +108,7 @@ pub fn Programmer(surface: Surface) -> Element {
                         button {
                             key: "{name}",
                             class: if favs.colours.contains(&name) { "ptile fav" } else { "ptile" },
-                            onpointerdown: { let n = name.clone(); move |_| send(Command::Color(n.clone())) },
+                            onpointerdown: { let n = name; move |_| send(Command::Color(n.clone())) },
                             span { class: "pdisc", style: "background: {css}" }
                             span { class: "pname", "{name}" }
                         }
@@ -137,7 +134,7 @@ pub fn Programmer(surface: Surface) -> Element {
                         button {
                             key: "{name}",
                             class: if favs.focus.contains(&name) { "ptile fav" } else { "ptile" },
-                            onpointerdown: { let n = name.clone(); move |_| send(Command::Focus(n.clone())) },
+                            onpointerdown: { let n = name; move |_| send(Command::Focus(n.clone())) },
                             span { class: "pname", "{name}" }
                         }
                     }
@@ -201,10 +198,7 @@ pub fn Programmer(surface: Surface) -> Element {
                         }
                     },
                     span { class: "pname",
-                        match current {
-                            Some(i) => rsx! { "STORE → CUE {i}" },
-                            None => rsx! { "STORE → CUE" },
-                        }
+                        {current.map_or_else(|| rsx! { "STORE → CUE" }, |i| rsx! { "STORE → CUE {i}" })}
                     }
                 }
                 button {
@@ -277,7 +271,7 @@ pub fn Program(surface: Surface) -> Element {
             // r[impl studio.cuelist.one-panel]
             CueList { cues: surface.cues.clone(), preset: crate::Preset::Program }
             Programmer { surface: surface.clone() }
-            Library { surface: surface.clone(), open: Tab::Kind(Kind::Effect) }
+            Library { surface, open: Tab::Kind(Kind::Effect) }
         }
     }
 }
@@ -285,6 +279,15 @@ pub fn Program(surface: Surface) -> Element {
 /// The overlay keys' own state — what the widget starts with, mirrored
 /// here so the keys light without a round trip.
 // r[impl studio.program.pick-and-gizmos] - FOCUS / BEAMS / GROUPS / LABELS
+///
+/// Four independent switches rather than a bitset: each is a distinct
+/// on-screen key an operator toggles on its own, and `is_on`/`set` read
+/// and write them one at a time by `OverlayKind` — a shape a bitset
+/// would only complicate.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one bool per independent overlay switch; see the doc comment"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Overlays {
     pub focus: bool,
@@ -305,7 +308,8 @@ impl Default for Overlays {
 }
 
 impl Overlays {
-    pub fn is_on(&self, kind: OverlayKind) -> bool {
+    #[must_use]
+    pub const fn is_on(&self, kind: OverlayKind) -> bool {
         match kind {
             OverlayKind::Focus => self.focus,
             OverlayKind::Beams => self.beams,
@@ -313,7 +317,7 @@ impl Overlays {
         }
     }
 
-    pub fn set(&mut self, kind: OverlayKind, on: bool) {
+    pub const fn set(&mut self, kind: OverlayKind, on: bool) {
         match kind {
             OverlayKind::Focus => self.focus = on,
             OverlayKind::Beams => self.beams = on,

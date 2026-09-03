@@ -116,13 +116,37 @@ fn parse_run(s: &str) -> Vec<ChanId> {
 /// A parse failure here is a broken build, not a runtime condition: the
 /// file is compiled in, so if it does not parse it did not parse on the
 /// developer's machine either.
+///
+/// # Panics
+///
+/// Panics if the JSON is malformed, which is impossible: the file is
+/// validated at compile time.
+#[must_use]
 pub fn cues() -> CueList {
+    #[expect(
+        clippy::expect_used,
+        reason = "the show JSON is included at compile time; parse failure would have been caught"
+    )]
     serde_json::from_str(SHOW_JSON).expect("the shipped show parses")
 }
 
 /// The venue's patch, as the console's own `PatchEntry`.
+///
+/// # Panics
+///
+/// Panics if either the patch or fixtures JSON is malformed, which is
+/// impossible: the files are included at compile time.
+#[must_use]
 pub fn patch() -> Vec<PatchEntry> {
+    #[expect(
+        clippy::expect_used,
+        reason = "the patch and fixtures JSON are included at compile time; parse failure would have been caught"
+    )]
     let rows: Vec<PatchRow> = serde_json::from_str(PATCH_JSON).expect("the shipped patch parses");
+    #[expect(
+        clippy::expect_used,
+        reason = "the fixtures JSON is included at compile time; parse failure would have been caught"
+    )]
     let fixtures: Vec<FixtureRow> =
         serde_json::from_str(FIXTURES_JSON).expect("the shipped fixtures parse");
     rows.into_iter()
@@ -133,22 +157,23 @@ pub fn patch() -> Vec<PatchEntry> {
                 // The fixture's own name where it has one — `Tower 2
                 // Light 4` says more than the model does — and the model
                 // otherwise.
-                fixture_type: named.map(|f| f.name.clone()).unwrap_or_else(|| {
-                    if r.manufacturer.is_empty() {
-                        r.model.clone()
-                    } else {
-                        format!("{} {}", r.manufacturer, r.model)
-                    }
-                }),
+                fixture_type: named.map_or_else(
+                    || {
+                        if r.manufacturer.is_empty() {
+                            r.model.clone()
+                        } else {
+                            format!("{} {}", r.manufacturer, r.model)
+                        }
+                    },
+                    |f| f.name.clone(),
+                ),
                 // The real hang, not a placeholder: the file has it, and
                 // a patch list that knows where a fixture is can later
                 // draw one.
-                placement: named
-                    .map(|f| Placement {
-                        position: f.position,
-                        orientation: f.quat,
-                    })
-                    .unwrap_or(UNPLACED),
+                placement: named.map_or(UNPLACED, |f| Placement {
+                    position: f.position,
+                    orientation: f.quat,
+                }),
                 dmx: match (r.universe, r.address) {
                     (Some(universe), Some(start_channel)) => Some(ignition_proto::DmxAddress {
                         universe,
@@ -162,7 +187,17 @@ pub fn patch() -> Vec<PatchEntry> {
 }
 
 /// The venue's groups, in file order.
+///
+/// # Panics
+///
+/// Panics if the groups JSON is malformed, which is impossible: the file
+/// is included at compile time.
+#[must_use]
 pub fn groups() -> Vec<Group> {
+    #[expect(
+        clippy::expect_used,
+        reason = "the groups JSON is included at compile time; parse failure would have been caught"
+    )]
     let rows: Vec<GroupRow> = serde_json::from_str(GROUPS_JSON).expect("the shipped groups parse");
     rows.into_iter()
         .map(|g| Group {
@@ -250,7 +285,18 @@ struct ProfileFile {
     groups: BTreeMap<String, BTreeMap<String, String>>,
 }
 
+/// The venue's role bindings from the shipped profile.
+///
+/// # Panics
+///
+/// Panics if the profile JSON is malformed, which is impossible: the file
+/// is included at compile time.
+#[must_use]
 pub fn roles() -> VenueRoles {
+    #[expect(
+        clippy::expect_used,
+        reason = "the profile JSON is included at compile time; parse failure would have been caught"
+    )]
     let p: ProfileFile = serde_json::from_str(PROFILE_JSON).expect("the shipped profile parses");
     VenueRoles(
         p.groups
@@ -277,9 +323,23 @@ struct ProfileColors {
 /// and anything it does not name falls back to the profile's. A room
 /// that has never been given a palette still speaks the whole
 /// vocabulary the show is written in.
+///
+/// # Panics
+///
+/// Panics if either the palettes or profile JSON is malformed, which is
+/// impossible: the files are included at compile time.
 // r[impl color.scope.fallback-order]
+#[must_use]
 pub fn palettes() -> Palettes {
+    #[expect(
+        clippy::expect_used,
+        reason = "the palettes JSON is included at compile time; parse failure would have been caught"
+    )]
     let mut p: Palettes = serde_json::from_str(PALETTES_JSON).expect("the shipped palettes parse");
+    #[expect(
+        clippy::expect_used,
+        reason = "the profile JSON is included at compile time; parse failure would have been caught"
+    )]
     let profile: ProfileColors =
         serde_json::from_str(PROFILE_COLORS_JSON).expect("the shipped profile parses");
     for c in profile.colors {
@@ -295,7 +355,17 @@ pub fn palettes() -> Palettes {
 /// A `Rig` is what a selection asks "which of these is furthest stage
 /// left", so a show that orders its wash by height needs this and not
 /// just a channel list.
+///
+/// # Panics
+///
+/// Panics if the patch JSON is malformed, which is impossible: the file
+/// is included at compile time.
+#[must_use]
 pub fn rig() -> Rig {
+    #[expect(
+        clippy::expect_used,
+        reason = "the patch JSON is included at compile time; parse failure would have been caught"
+    )]
     let rows: Vec<PatchRow> = serde_json::from_str(PATCH_JSON).expect("the shipped patch parses");
     let placed = patch();
     Rig::new(
@@ -337,6 +407,8 @@ pub struct Cooked {
 }
 
 impl Cooked {
+    /// Load all data for the show: patch, groups, palettes, rig and role bindings.
+    #[must_use]
     pub fn load() -> Self {
         Self {
             channels: patch().iter().map(|p| p.chan).collect(),
@@ -354,6 +426,8 @@ impl Cooked {
         }
     }
 
+    /// Build a `Show` from this cooked data for resolving cues and effects.
+    #[must_use]
     pub fn show(&self) -> Show<'_> {
         Show {
             palettes: &self.palettes,
@@ -397,14 +471,14 @@ mod cook_tests {
         }
 
         let out = player.output(&cooked.show());
-        let lit: Vec<_> = out
+        let lit_fixtures: Vec<_> = out
             .iter()
             .filter(|((_, attr), v)| *attr == ignition_core::Attribute::Dimmer && **v > 0.05)
             .collect();
         assert!(
-            lit.len() >= 8,
+            lit_fixtures.len() >= 8,
             "the chorus lit {} fixtures of forty; the roles are not resolving",
-            lit.len()
+            lit_fixtures.len()
         );
 
         // And the colour resolved too — a role that binds but a palette

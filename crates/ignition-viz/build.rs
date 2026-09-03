@@ -17,6 +17,14 @@ fn main() {
     println!("cargo::rerun-if-env-changed=IGNITION_OVERLAY_FONT");
     println!("cargo::rustc-check-cfg=cfg(has_overlay_font)");
 
+    // Cargo guarantees `OUT_DIR` for every build script invocation — this
+    // is not data from a venue file or a show, it is the build harness's
+    // own contract, and a build script that cannot trust it has nothing
+    // sensible left to do.
+    #[expect(
+        clippy::expect_used,
+        reason = "OUT_DIR is a cargo build-script invariant, not user data"
+    )]
     let out = PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR"));
     let dest = out.join("overlay-font.ttf");
 

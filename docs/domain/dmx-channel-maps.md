@@ -1,5 +1,27 @@
 # DMX channel maps
 
+> **Superseded, 2026-09-02.** Channel maps are no longer written in Rust.
+> A fixture type is a document under `data/fixtures/`, read by
+> `crates/ignition-fixture` (`docs/spec/patch.md`), and the patch
+> resolves a venue's model string to one of those. `channel_map.rs`
+> survives only as a fallback for a model with no document yet, and
+> `crates/ignition-fixture/tests/library_covers_the_venues.rs` is the
+> gate that has to stay green before it can be deleted: every patched
+> fixture in every shipped venue must resolve to a type with a mode
+> narrow enough to fit the address spacing the room itself left.
+>
+> The move fixes the six conflicts this file's own "Notable conflicts"
+> section recorded, because the documents were always right and the
+> table was the copy that drifted: the Betopper's colour wheel (12 slots
+> in 5s, not 9 in 10s), the U'King ZQ02341's wheel, the TY-30's slot
+> order and 16-value steps, the Uking Par's white channel, the SlimPAR
+> Tri 7's dimmer position, and the Rockstrip's mode list.
+>
+> What is below is kept as the record of where each map came from and
+> how confident it was — which is the part that mattered and which the
+> documents now carry themselves, per type, in their `confidence` and
+> `sources` fields.
+
 Where each fixture-type channel layout in `crates/ignition-viz/src/
 channel_map.rs` came from, and how confident it is. See
 `docs/research/lighting-console-landscape.md` for the architecture this is

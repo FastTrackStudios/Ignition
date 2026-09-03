@@ -28,10 +28,7 @@ fn main() -> Result<()> {
     println!("{} lines against {}\n", lyrics.lines.len(), song.name);
 
     for line in &lyrics.lines {
-        let section = song
-            .section_at(line.at)
-            .map(|s| s.name.as_str())
-            .unwrap_or("—");
+        let section = song.section_at(line.at).map_or("—", |s| s.name.as_str());
         let text = if line.text.is_empty() {
             "·".to_string()
         } else {

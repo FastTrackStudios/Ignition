@@ -19,3 +19,6 @@ serde_json.workspace = true
 [lib]
 name = "ignition_daw_proto"
 path = "src/lib.rs"
+
+[lints]
+workspace = true

@@ -1,9 +1,11 @@
 //! Reusable, named attribute bundles — grandMA3/Eos "Presets" (Color
-//! Preset, Focus/Position Preset, ...). A preset stores *what*, a `Group`
-//! (`group.rs`) stores *who*; `recipe.rs::Recipe` is what pairs the two
-//! together into concrete cue values. Only the two preset types the
-//! operator asked to start with are modelled here — more (Gobo, Beam,
-//! Shapers) are additive, not a redesign, when they're wanted.
+//! Preset, Focus/Position Preset, ...).
+//!
+//! A preset stores *what*, a `Group` (`group.rs`) stores *who*;
+//! `recipe.rs::Recipe` is what pairs the two together into concrete cue
+//! values. Only the two preset types the operator asked to start with
+//! are modelled here — more (Gobo, Beam, Shapers) are additive, not a
+//! redesign, when they're wanted.
 
 use crate::color::{Intent, Rgb};
 use ignition_proto::{ChanId, Vec3};
@@ -48,10 +50,11 @@ pub struct ColorPreset {
 }
 
 /// Which fixtures a colour preset's value is written for — MA3's three
-/// preset modes. The universal value is always the preset's own
-/// `red`/`green`/`blue`; `Global` and `Selective` add per-type and
-/// per-fixture values on top, and `resolve_for` walks them in the
-/// spec's fallback order.
+/// preset modes.
+///
+/// The universal value is always the preset's own `red`/`green`/`blue`;
+/// `Global` and `Selective` add per-type and per-fixture values on top,
+/// and `resolve_for` walks them in the spec's fallback order.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 // r[impl color.scope] - universal, global or selective
@@ -71,15 +74,17 @@ pub enum Scope {
 }
 
 impl Scope {
-    pub fn is_universal(&self) -> bool {
-        matches!(self, Scope::Universal)
+    #[must_use]
+    pub const fn is_universal(&self) -> bool {
+        matches!(self, Self::Universal)
     }
 }
 
 impl ColorPreset {
     /// A universal preset from a triple — what every pre-intent file is.
-    pub fn rgb(name: &str, red: f32, green: f32, blue: f32) -> ColorPreset {
-        ColorPreset {
+    #[must_use]
+    pub fn rgb(name: &str, red: f32, green: f32, blue: f32) -> Self {
+        Self {
             name: name.to_string(),
             red,
             green,
@@ -93,9 +98,10 @@ impl ColorPreset {
     /// not in the table yields `None` — the reference cannot be resolved,
     /// which `r[color.unresolved-is-visible]` wants reported, not hidden.
     // r[impl color.intent] - the triple is derived from the intent, never guessed separately
-    pub fn from_intent(name: &str, intent: Intent) -> Option<ColorPreset> {
+    #[must_use]
+    pub fn from_intent(name: &str, intent: Intent) -> Option<Self> {
         let rgb = intent.rgb()?;
-        Some(ColorPreset {
+        Some(Self {
             name: name.to_string(),
             red: rgb.red,
             green: rgb.green,
@@ -106,12 +112,14 @@ impl ColorPreset {
     }
 
     /// The universal value, as a triple.
-    pub fn universal(&self) -> Rgb {
+    #[must_use]
+    pub const fn universal(&self) -> Rgb {
         Rgb::new(self.red, self.green, self.blue)
     }
 
     /// The intent to solve against a fixture's emitters: the stored
     /// intent, else the triple.
+    #[must_use]
     pub fn intent(&self) -> Intent {
         self.intent
             .clone()
@@ -126,6 +134,7 @@ impl ColorPreset {
     /// one type, and `None` for a fixture whose type is unknown.
     // r[impl color.scope.fallback-order] - own selective, type global, universal, first selective
     // r[impl color.scope.selective] - a fixture with no entry still gets a value
+    #[must_use]
     pub fn resolve_for(&self, chan: ChanId, model: Option<&str>) -> Rgb {
         match &self.scope {
             Scope::Universal => self.universal(),
@@ -161,11 +170,13 @@ impl ColorPreset {
     }
 }
 
-/// A real XYZ location in the room — `recipe.rs::expand_recipe` resolves
-/// this into real Pan/Tilt values per fixture via `focus.rs`'s aim-at-point
-/// math, using each fixture's own real hung position/orientation. This is
-/// the preset type real 3D venue geometry (unique to this project among
-/// budget-console-class tools) makes possible.
+/// A real XYZ location in the room.
+///
+/// `recipe.rs::expand_recipe` resolves this into real Pan/Tilt values
+/// per fixture via `focus.rs`'s aim-at-point math, using each fixture's
+/// own real hung position/orientation. This is the preset type real 3D
+/// venue geometry (unique to this project among budget-console-class
+/// tools) makes possible.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 // r[impl focus.point] - stored as a room coordinate, resolved per fixture in focus.rs
 // r[impl focus.units] - metres
@@ -183,7 +194,7 @@ pub struct FocusPointPreset {
 /// distinguished structurally (`#[serde(untagged)]`: a JSON string is a
 /// name, an object is a value), every show file written before the pool
 /// existed still parses unchanged.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 // r[impl color.recall-by-reference] - a cue stores the pool name; the value is looked up at use
 pub enum Ref<T> {
@@ -218,8 +229,9 @@ pub enum Distribute {
     Block,
 }
 
-/// A named multi-colour palette entry — grandMA3's multi-colour preset,
-/// shown as a split swatch in the picker and recalled by name in a
+/// A named multi-colour palette entry — grandMA3's multi-colour preset.
+///
+/// Shown as a split swatch in the picker and recalled by name in a
 /// recipe (`RecipeApply::Split("Fire")`) so a split look is *one*
 /// object rather than a list every cue has to restate.
 ///
@@ -261,12 +273,12 @@ pub enum SplitProblem {
 impl std::fmt::Display for SplitProblem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SplitProblem::MissingSplit(name) => write!(f, "no colour split {name:?}"),
-            SplitProblem::MissingColor { split, member } => {
+            Self::MissingSplit(name) => write!(f, "no colour split {name:?}"),
+            Self::MissingColor { split, member } => {
                 write!(f, "no colour palette {member:?} (in split {split:?})")
             }
-            SplitProblem::Cycle(name) => write!(f, "colour split {name:?} refers to itself"),
-            SplitProblem::TooDeep(name) => write!(
+            Self::Cycle(name) => write!(f, "colour split {name:?} refers to itself"),
+            Self::TooDeep(name) => write!(
                 f,
                 "colour split {name:?} nests deeper than {MAX_SPLIT_DEPTH} levels"
             ),
@@ -291,16 +303,18 @@ pub struct Palettes {
 impl Palettes {
     /// A shared empty pool, so `Show::new` can hand out a reference
     /// without every caller having to own one.
-    pub const EMPTY: &'static Palettes = &Palettes {
+    pub const EMPTY: &'static Self = &Self {
         colors: Vec::new(),
         splits: Vec::new(),
         focus: Vec::new(),
     };
 
+    #[must_use]
     pub fn color(&self, name: &str) -> Option<&ColorPreset> {
         self.colors.iter().find(|c| c.name == name)
     }
 
+    #[must_use]
     pub fn focus(&self, name: &str) -> Option<&FocusPointPreset> {
         self.focus.iter().find(|f| f.name == name)
     }
@@ -321,6 +335,7 @@ impl Palettes {
     }
 
     // r[impl color.recall-by-reference] - a split is looked up by name
+    #[must_use]
     pub fn split(&self, name: &str) -> Option<&ColorSplit> {
         self.splits.iter().find(|s| s.name == name)
     }
@@ -331,6 +346,7 @@ impl Palettes {
     // r[impl color.multi]
     // r[impl color.recall-by-reference]
     // r[impl color.embedding]
+    #[must_use]
     pub fn resolve_split(&self, r: &Ref<ColorSplit>) -> Option<(Vec<ColorPreset>, Distribute)> {
         let mut problems = Vec::new();
         let colors = self.walk_split(r, &mut Vec::new(), &mut problems);
@@ -340,6 +356,7 @@ impl Palettes {
     /// Everything that stops `r` resolving, each naming the split and
     /// the reference. Empty means `resolve_split` succeeds.
     // r[impl color.unresolved-is-visible] - a missing split, a missing member, a cycle, too deep
+    #[must_use]
     pub fn split_problems(&self, r: &Ref<ColorSplit>) -> Vec<SplitProblem> {
         let mut problems = Vec::new();
         self.walk_split(r, &mut Vec::new(), &mut problems);
@@ -365,13 +382,13 @@ impl Palettes {
     ) -> Vec<ColorPreset> {
         let split: &ColorSplit = match r {
             Ref::Inline(s) => s,
-            Ref::Named(name) => match self.split(name) {
-                Some(s) => s,
-                None => {
+            Ref::Named(name) => {
+                let Some(s) = self.split(name) else {
                     problems.push(SplitProblem::MissingSplit(name.clone()));
                     return Vec::new();
-                }
-            },
+                };
+                s
+            }
         };
         let mut out = Vec::new();
         for member in &split.colors {
@@ -383,7 +400,7 @@ impl Palettes {
                     } else if self.split(name).is_some() {
                         if stack.iter().any(|s| s == name) || split.name == *name {
                             problems.push(SplitProblem::Cycle(name.clone()));
-                        } else if stack.len() + 1 >= MAX_SPLIT_DEPTH {
+                        } else if stack.len().saturating_add(1) >= MAX_SPLIT_DEPTH {
                             problems.push(SplitProblem::TooDeep(split.name.clone()));
                         } else {
                             stack.push(split.name.clone());
@@ -404,6 +421,7 @@ impl Palettes {
 
     /// Resolves a colour reference against the pool.
     // r[impl color.recall-by-reference]
+    #[must_use]
     pub fn resolve_color(&self, r: &Ref<ColorPreset>) -> Option<ColorPreset> {
         match r {
             Ref::Named(name) => self.color(name).cloned(),
@@ -414,6 +432,7 @@ impl Palettes {
     /// Resolves a focus reference against the pool. The inline form is a
     /// bare point rather than a named `FocusPointPreset`, because at the
     /// point of use what a recipe wants is the location, not the label.
+    #[must_use]
     pub fn resolve_focus(&self, r: &Ref<Vec3>) -> Option<Vec3> {
         match r {
             Ref::Named(name) => self.focus(name).map(|f| f.target),

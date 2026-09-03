@@ -6659,6 +6659,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignition-fixture"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ignition-proto",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ignition-live-ui"
 version = "0.1.0"
 dependencies = [
@@ -6796,6 +6806,7 @@ dependencies = [
  "hap-qt",
  "ignition-core",
  "ignition-dmx",
+ "ignition-fixture",
  "ignition-proto",
  "image",
  "sacn",

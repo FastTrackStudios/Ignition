@@ -15,6 +15,7 @@
 //! "a tall box with no readable silhouette, easy to mistake for a
 //! fixture". Those are worth real models; see `assets/*/LICENSE-NOTICE`.
 
+use crate::num::f32_of_i32;
 use crate::venue::GeometryRecord;
 use bevy::prelude::*;
 use bevy::world_serialization::WorldAssetRoot;
@@ -91,10 +92,10 @@ pub enum Stand {
 }
 
 impl Stand {
-    fn height(&self) -> f32 {
+    const fn height(&self) -> f32 {
         match self {
-            Stand::Floor => 0.0,
-            Stand::X { height } | Stand::Tripod { height } => *height,
+            Self::Floor => 0.0,
+            Self::X { height } | Self::Tripod { height } => *height,
         }
     }
 }
@@ -158,6 +159,7 @@ const GLB_PROPS: &[(&str, GlbProp)] = &[
 ];
 
 /// The model for a prop name, if one is installed.
+#[must_use]
 pub fn glb_prop_for(name: &str) -> Option<&'static GlbProp> {
     GLB_PROPS
         .iter()
@@ -170,6 +172,15 @@ pub fn glb_prop_for(name: &str) -> Option<&'static GlbProp> {
 /// The venue states the object's real size in metres and knows nothing
 /// about the units the artist happened to model in — same contract the
 /// kit and the people already have.
+// `Vec3`/`Quat`'s operators are float, component-wise ops with no
+// integer overflow to guard against (see docs/ops/clippy.md and
+// `view.rs`'s identical suppression); `prop.span` is a fixed positive
+// constant on every `GLB_PROPS` entry, so the division below cannot
+// divide by zero either.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float and component-wise, and prop.span is a fixed positive constant; see the comment above"
+)]
 pub fn spawn_glb_prop(
     commands: &mut Commands,
     asset_server: &AssetServer,
@@ -202,6 +213,13 @@ pub fn spawn_glb_prop(
 }
 
 /// A speaker tripod: a vertical pole and three splayed legs.
+// `Vec3`/`Quat` arithmetic is float, component-wise, and cannot panic or
+// overflow — see docs/ops/clippy.md and `view.rs`'s identical
+// suppression.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float and component-wise; see the comment above"
+)]
 fn spawn_tripod(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
@@ -242,8 +260,8 @@ fn spawn_tripod(
     let hub = (height * 0.5).min(0.95);
     let reach = 0.42;
     let leg = meshes.add(Cylinder::new(0.016, 1.0));
-    for i in 0..3 {
-        let angle = std::f32::consts::TAU * (i as f32) / 3.0;
+    for i in 0..3_i32 {
+        let angle = std::f32::consts::TAU * f32_of_i32(i) / 3.0;
         let foot = Vec3::new(angle.cos() * reach, angle.sin() * reach, 0.0);
         let span = foot - Vec3::Z * hub;
         commands.spawn((
@@ -264,6 +282,13 @@ fn spawn_tripod(
 /// Four primitives rather than a fifth downloaded model. A stand is a
 /// couple of straight tubes — exactly the case where a mesh buys nothing
 /// and a parametric shape tracks whatever height the record asks for.
+// `Vec3`/`Quat` arithmetic is float, component-wise, and cannot panic or
+// overflow — see docs/ops/clippy.md and `view.rs`'s identical
+// suppression.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float and component-wise; see the comment above"
+)]
 fn spawn_x_stand(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
@@ -384,10 +409,10 @@ const SITTING_AT_DRUMS: PoseTable = &[
 ];
 
 impl Pose {
-    fn table(self) -> PoseTable {
+    const fn table(self) -> PoseTable {
         match self {
-            Pose::Standing => STANDING,
-            Pose::SittingAtDrums => SITTING_AT_DRUMS,
+            Self::Standing => STANDING,
+            Self::SittingAtDrums => SITTING_AT_DRUMS,
         }
     }
 
@@ -398,10 +423,10 @@ impl Pose {
     /// the way up; folded onto a throne the feet end up roughly a shin
     /// below the hips instead of a whole leg, so the body has to come
     /// down by the difference or the drummer floats above their stool.
-    fn sink(self) -> f32 {
+    const fn sink(self) -> f32 {
         match self {
-            Pose::Standing => 0.0,
-            Pose::SittingAtDrums => 0.27,
+            Self::Standing => 0.0,
+            Self::SittingAtDrums => 0.27,
         }
     }
 }
@@ -412,6 +437,15 @@ impl Pose {
 /// scaled to match it rather than trusted to be the right size — the
 /// venue has people from 1.82 to 1.83 m and a model that ignored that
 /// would look uniform in a way a real stage never does.
+// `Vec3`/`Quat`'s operators are float, component-wise ops with no
+// integer overflow to guard against — `arithmetic_side_effects` fires
+// on any operator-overloaded type, not just the primitive integers the
+// lint is really about (see docs/ops/clippy.md and `view.rs`'s
+// identical suppression).
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float, component-wise, and cannot panic or overflow"
+)]
 pub fn spawn_person(
     commands: &mut Commands,
     asset_server: &AssetServer,
@@ -420,7 +454,14 @@ pub fn spawn_person(
     pose: Pose,
 ) {
     let height = record.size.z;
-    let scene = asset_server.load(GltfAssetLabel::Scene(0).from_asset(MEN[index % MEN.len()]));
+    // `MEN` is a fixed, non-empty array, so the modulo can never divide
+    // by zero — `checked_rem` and `.get()` still spell that out instead
+    // of an `%`/`[]` a reader has to trust is safe on faith.
+    let name = MEN
+        .get(index.checked_rem(MEN.len()).unwrap_or(0))
+        .copied()
+        .unwrap_or("people/man-casual.glb");
+    let scene = asset_server.load(GltfAssetLabel::Scene(0).from_asset(name));
     commands.spawn((
         WorldAssetRoot(scene),
         Transform {
@@ -442,6 +483,14 @@ pub struct NeedsPose;
 ///
 /// glTF scenes load asynchronously, so this runs every frame and clears
 /// the marker only once the skeleton is actually there to pose.
+// `Quat` multiplication is a float, component-wise op with no integer
+// overflow to guard against — see docs/ops/clippy.md and `view.rs`'s
+// identical suppression. `posed` below is a real counter, so it uses
+// `saturating_add` rather than being folded into this suppression.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Quat multiplication is float and component-wise; see the comment above"
+)]
 pub fn pose_new_characters(
     mut commands: Commands,
     pending: Query<(Entity, &Pose), With<NeedsPose>>,
@@ -468,7 +517,7 @@ pub fn pose_new_characters(
                 continue;
             };
             if aim_bone(entity, root, facing * *target, &parents, &mut transforms) {
-                posed += 1;
+                posed = posed.saturating_add(1);
             }
         }
         if posed == pose.table().len() {
@@ -484,6 +533,13 @@ pub fn pose_new_characters(
 /// than read from `GlobalTransform`, so this does not depend on where in
 /// the schedule transform propagation last ran — the pose is correct on
 /// the very first frame the skeleton exists.
+// `Quat` multiplication is float, component-wise, and cannot panic or
+// overflow — see docs/ops/clippy.md and `view.rs`'s identical
+// suppression.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Quat multiplication is float and component-wise; see the comment above"
+)]
 fn aim_bone(
     bone: Entity,
     root: Entity,
@@ -491,7 +547,7 @@ fn aim_bone(
     parents: &Query<&ChildOf>,
     transforms: &mut Query<&mut Transform>,
 ) -> bool {
-    let Some(parent) = parents.get(bone).ok().map(|p| p.parent()) else {
+    let Some(parent) = parents.get(bone).ok().map(bevy::prelude::ChildOf::parent) else {
         return false;
     };
     let Some(parent_world) = world_rotation(parent, root, parents, transforms) else {
@@ -508,6 +564,13 @@ fn aim_bone(
 }
 
 /// Accumulated rotation from `root` down to `entity`, inclusive of both.
+// `Quat` multiplication (via `*=`) is float, component-wise, and cannot
+// panic or overflow — see docs/ops/clippy.md and `view.rs`'s identical
+// suppression.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Quat multiplication is float and component-wise; see the comment above"
+)]
 fn world_rotation(
     entity: Entity,
     root: Entity,
@@ -543,6 +606,14 @@ const KIT_MODEL_CENTRE: Vec3 = Vec3::new(0.766, 0.0, 0.147);
 /// The model is authored facing its own `-Z`, which the Y-up→Z-up fix
 /// turns into *upstage*; the extra half-turn is what points the kick at
 /// the room rather than at the back wall.
+// `Vec3`/`Quat` arithmetic is float, component-wise, and cannot panic or
+// overflow (see docs/ops/clippy.md and `view.rs`'s identical
+// suppression); `KIT_MODEL_HEIGHT` is a fixed positive constant, so the
+// division below cannot divide by zero either.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float and component-wise, and KIT_MODEL_HEIGHT is a fixed positive constant; see the comment above"
+)]
 pub fn spawn_drum_kit(
     commands: &mut Commands,
     asset_server: &AssetServer,
@@ -571,6 +642,13 @@ pub fn spawn_drum_kit(
 /// depth — a straight stand takes up almost none, a boom stand takes up
 /// the reach of its arm, which is what distinguishes the two in the
 /// venue data without anyone having to label them.
+// `Vec3`/`Quat` arithmetic is float, component-wise, and cannot panic or
+// overflow — see docs/ops/clippy.md and `view.rs`'s identical
+// suppression.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float and component-wise; see the comment above"
+)]
 pub fn spawn_mic_stand(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
@@ -636,7 +714,7 @@ pub fn spawn_mic_stand(
         let along = (tip - Vec3::Z * height).normalize();
         commands.spawn((
             Mesh3d(meshes.add(Cylinder::new(0.013, tip.distance(Vec3::Z * height)))),
-            MeshMaterial3d(metal.clone()),
+            MeshMaterial3d(metal),
             Transform {
                 translation: (Vec3::Z * height + tip) * 0.5,
                 rotation: Quat::from_rotation_arc(Vec3::Y, along),

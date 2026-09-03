@@ -35,7 +35,8 @@ pub enum FrameRate {
 impl FrameRate {
     /// The nominal frame count per second — what the frame *number*
     /// counts up to, which for drop-frame is 30, not 29.97.
-    pub fn frames_per_second(self) -> u32 {
+    #[must_use]
+    pub const fn frames_per_second(self) -> u32 {
         match self {
             Self::Film24 => 24,
             Self::Ebu25 => 25,
@@ -44,16 +45,18 @@ impl FrameRate {
     }
 
     /// Real frames per second of wall time.
+    #[must_use]
     pub fn fps(self) -> f64 {
         match self {
             Self::DropFrame2997 => 30.0 / 1.001,
-            other => other.frames_per_second() as f64,
+            other => f64::from(other.frames_per_second()),
         }
     }
 
     /// The two-bit rate code MTC and Art-Net share: 0 = 24, 1 = 25,
     /// 2 = 29.97 drop, 3 = 30.
-    pub fn from_code(code: u8) -> Self {
+    #[must_use]
+    pub const fn from_code(code: u8) -> Self {
         match code & 0b11 {
             0 => Self::Film24,
             1 => Self::Ebu25,
@@ -62,7 +65,8 @@ impl FrameRate {
         }
     }
 
-    pub fn code(self) -> u8 {
+    #[must_use]
+    pub const fn code(self) -> u8 {
         match self {
             Self::Film24 => 0,
             Self::Ebu25 => 1,
@@ -82,8 +86,34 @@ pub struct Timecode {
     pub rate: FrameRate,
 }
 
+/// A frame count as seconds. Even a full day at 30 fps is under three
+/// million frames, nowhere near the 2^52 an `f64` mantissa holds
+/// exactly, so this cast cannot lose a bit of what a real timecode ever
+/// carries.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "frame counts here stay far below 2^52; see the doc comment"
+)]
+fn frames_as_seconds(frames: u64, fps: f64) -> f64 {
+    frames as f64 / fps
+}
+
+/// The one place a sub-day clock value truncates to a byte. Every field
+/// that reaches this has already been reduced mod 24/60/60/`per_second`
+/// by the arithmetic above, so it fits `u8` with room to spare.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "the caller has already reduced the value mod its field's range; see the doc comment"
+)]
+const fn clock_field_as_u8(value: u32) -> u8 {
+    value as u8
+}
+
 impl Timecode {
-    pub fn new(hours: u8, minutes: u8, seconds: u8, frames: u8, rate: FrameRate) -> Self {
+    #[must_use]
+    pub const fn new(hours: u8, minutes: u8, seconds: u8, frames: u8, rate: FrameRate) -> Self {
         Self {
             hours,
             minutes,
@@ -99,32 +129,51 @@ impl Timecode {
     /// numbers are skipped at the top of every minute except each
     /// tenth, so the frame *number* runs ahead of the clock and the
     /// skipped numbers have to be taken back out before dividing.
+    #[must_use]
     pub fn to_seconds(self) -> f64 {
-        let per_second = self.rate.frames_per_second() as u64;
-        let minutes = self.hours as u64 * 60 + self.minutes as u64;
-        let mut frames = (minutes * 60 + self.seconds as u64) * per_second + self.frames as u64;
+        let per_second = u64::from(self.rate.frames_per_second());
+        let minutes = (u64::from(self.hours) * 60).saturating_add(u64::from(self.minutes));
+        let mut frames = minutes
+            .saturating_mul(60)
+            .saturating_add(u64::from(self.seconds))
+            .saturating_mul(per_second)
+            .saturating_add(u64::from(self.frames));
         if self.rate == FrameRate::DropFrame2997 {
-            frames -= 2 * (minutes - minutes / 10);
+            // `minutes / 10 <= minutes` always, so neither `saturating_sub`
+            // here nor the one below the multiply ever actually clamps —
+            // they just say so instead of taking clippy's word for it.
+            let dropped = minutes.saturating_sub(minutes / 10).saturating_mul(2);
+            frames = frames.saturating_sub(dropped);
         }
-        frames as f64 / self.rate.fps()
+        frames_as_seconds(frames, self.rate.fps())
     }
 
     /// The frame `n` frames after this one, within the same hour.
     /// Used by the encoders in tests and by nothing in the field.
     #[cfg(test)]
+    #[must_use]
     pub fn advance(self, n: u32) -> Self {
         let per_second = self.rate.frames_per_second();
-        let mut total = ((self.hours as u32 * 60 + self.minutes as u32) * 60 + self.seconds as u32)
-            * per_second
-            + self.frames as u32
-            + n;
-        let seconds = total / per_second;
-        total %= per_second;
+        let hours_minutes = u32::from(self.hours)
+            .saturating_mul(60)
+            .saturating_add(u32::from(self.minutes));
+        let total = hours_minutes
+            .saturating_mul(60)
+            .saturating_add(u32::from(self.seconds))
+            .saturating_mul(per_second)
+            .saturating_add(u32::from(self.frames))
+            .saturating_add(n);
+        // `per_second` is always 24, 25 or 30 — never zero — but it is a
+        // runtime value as far as the type says, so this is spelled with
+        // `checked_div`/`checked_rem` rather than a bare `/`/`%` that
+        // could in principle divide by zero.
+        let seconds = total.checked_div(per_second).unwrap_or(0);
+        let frames = total.checked_rem(per_second).unwrap_or(0);
         Self {
-            hours: ((seconds / 3600) % 24) as u8,
-            minutes: ((seconds / 60) % 60) as u8,
-            seconds: (seconds % 60) as u8,
-            frames: total as u8,
+            hours: clock_field_as_u8((seconds / 3600) % 24),
+            minutes: clock_field_as_u8((seconds / 60) % 60),
+            seconds: clock_field_as_u8(seconds % 60),
+            frames: clock_field_as_u8(frames),
             rate: self.rate,
         }
     }
@@ -154,27 +203,31 @@ impl Default for TimecodeState {
 }
 
 impl TimecodeState {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             last: None,
             locked: false,
         }
     }
 
-    pub fn observe(&mut self, timecode: Timecode, now: Instant) {
+    pub const fn observe(&mut self, timecode: Timecode, now: Instant) {
         self.last = Some((timecode, now));
         self.locked = true;
     }
 
+    #[must_use]
     pub fn last(&self) -> Option<Timecode> {
         self.last.map(|(t, _)| t)
     }
 
+    #[must_use]
     pub fn seconds(&self) -> Option<f64> {
         self.last.map(|(t, _)| t.to_seconds())
     }
 
     /// Frames arrived recently.
+    #[must_use]
     pub fn is_playing_at(&self, now: Instant) -> bool {
         self.last
             .is_some_and(|(_, at)| now.saturating_duration_since(at) < LOST_AFTER)
@@ -182,6 +235,7 @@ impl TimecodeState {
 
     /// Had a lock, and the frames stopped.
     // r[impl song.transport.sources] - a source reports when it is lost
+    #[must_use]
     pub fn lost_at(&self, now: Instant) -> bool {
         self.locked && !self.is_playing_at(now)
     }
@@ -228,6 +282,7 @@ pub struct MtcDecoder {
 }
 
 impl MtcDecoder {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -249,11 +304,13 @@ impl MtcDecoder {
                     // from before is a torn set.
                     self.nibbles = [None; 8];
                 }
-                self.nibbles[piece as usize] = Some(nibble);
+                if let Some(slot) = self.nibbles.get_mut(usize::from(piece)) {
+                    *slot = Some(nibble);
+                }
                 if piece != 7 || self.nibbles.iter().any(Option::is_none) {
                     return None;
                 }
-                let n = |i: usize| self.nibbles[i].unwrap_or(0);
+                let n = |i: usize| self.nibbles.get(i).copied().flatten().unwrap_or(0);
                 let frames = n(0) | ((n(1) & 0x1) << 4);
                 let seconds = n(2) | ((n(3) & 0x3) << 4);
                 let minutes = n(4) | ((n(5) & 0x3) << 4);
@@ -279,27 +336,29 @@ impl MtcDecoder {
 /// The frame two frames after `t` — the MTC quarter-frame latency.
 fn two_frames_on(t: Timecode) -> Timecode {
     let per_second = t.rate.frames_per_second();
-    let mut frames = t.frames as u32 + 2;
-    let mut seconds = t.seconds as u32;
-    let mut minutes = t.minutes as u32;
-    let mut hours = t.hours as u32;
+    let mut frames = u32::from(t.frames).saturating_add(2);
+    let mut seconds = u32::from(t.seconds);
+    let mut minutes = u32::from(t.minutes);
+    let mut hours = u32::from(t.hours);
     if frames >= per_second {
-        frames -= per_second;
-        seconds += 1;
+        // The branch condition already proved this cannot clamp;
+        // `saturating_sub` just says so instead of a bare `-=`.
+        frames = frames.saturating_sub(per_second);
+        seconds = seconds.saturating_add(1);
         if seconds == 60 {
             seconds = 0;
-            minutes += 1;
+            minutes = minutes.saturating_add(1);
             if minutes == 60 {
                 minutes = 0;
-                hours = (hours + 1) % 24;
+                hours = hours.saturating_add(1) % 24;
             }
         }
     }
     Timecode::new(
-        hours as u8,
-        minutes as u8,
-        seconds as u8,
-        frames as u8,
+        clock_field_as_u8(hours),
+        clock_field_as_u8(minutes),
+        clock_field_as_u8(seconds),
+        clock_field_as_u8(frames),
         t.rate,
     )
 }
@@ -315,18 +374,17 @@ pub struct MtcSource {
 impl MtcSource {
     /// Opens the first input port whose name contains `port`, or the
     /// first port at all when `port` is empty.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the MIDI backend cannot be started, if no port matches,
+    /// or if the connection to the chosen port cannot be opened.
     pub fn open(port: &str) -> anyhow::Result<Self> {
         let input = midir::MidiInput::new("ignition mtc")?;
         let ports = input.ports();
         let chosen = ports
             .iter()
-            .find(|p| {
-                port.is_empty()
-                    || input
-                        .port_name(p)
-                        .map(|n| n.contains(port))
-                        .unwrap_or(false)
-            })
+            .find(|p| port.is_empty() || input.port_name(p).is_ok_and(|n| n.contains(port)))
             .ok_or_else(|| anyhow::anyhow!("no MIDI input port matching {port:?}"))?;
         let state = SharedTimecode::default();
         let feed = state.clone();
@@ -349,7 +407,8 @@ impl MtcSource {
         })
     }
 
-    pub fn state(&self) -> &SharedTimecode {
+    #[must_use]
+    pub const fn state(&self) -> &SharedTimecode {
         &self.state
     }
 }
@@ -377,20 +436,37 @@ pub const ARTNET_OP_TIMECODE: u16 = 0x9700;
 /// Parses an `ArtTimeCode` packet: the `Art-Net\0` id, the op-code
 /// (low byte first), the protocol version (high byte first, 14), two
 /// filler bytes, then frames, seconds, minutes, hours and the type.
+#[must_use]
 pub fn parse_artnet_timecode(packet: &[u8]) -> Option<Timecode> {
     let body = packet.strip_prefix(b"Art-Net\0")?;
-    if body.len() < 11 {
+    // A slice pattern instead of indexing: it borrows out the eleven
+    // bytes the packet needs and rejects anything shorter in the same
+    // step, with no index that could be out of bounds.
+    let [
+        b0,
+        b1,
+        b2,
+        b3,
+        _,
+        _,
+        frames,
+        seconds,
+        minutes,
+        hours,
+        kind,
+        ..,
+    ] = *body
+    else {
         return None;
-    }
-    let op = u16::from_le_bytes([body[0], body[1]]);
+    };
+    let op = u16::from_le_bytes([b0, b1]);
     if op != ARTNET_OP_TIMECODE {
         return None;
     }
-    let version = u16::from_be_bytes([body[2], body[3]]);
+    let version = u16::from_be_bytes([b2, b3]);
     if version < 14 {
         return None;
     }
-    let (frames, seconds, minutes, hours, kind) = (body[6], body[7], body[8], body[9], body[10]);
     if kind > 3 || frames > 29 || seconds > 59 || minutes > 59 || hours > 23 {
         return None;
     }
@@ -405,6 +481,7 @@ pub fn parse_artnet_timecode(packet: &[u8]) -> Option<Timecode> {
 
 /// Builds an `ArtTimeCode` packet — for tests, and for anything that
 /// wants to *send* the show's own position onto the network.
+#[must_use]
 pub fn artnet_timecode_packet(t: Timecode) -> [u8; 19] {
     let mut p = [0u8; 19];
     p[..8].copy_from_slice(b"Art-Net\0");
@@ -427,10 +504,19 @@ pub struct ArtNetTimecodeSource {
 
 impl ArtNetTimecodeSource {
     /// Listens on every interface at the Art-Net port.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the socket cannot be bound or the listener thread cannot
+    /// be spawned.
     pub fn bind() -> anyhow::Result<Self> {
         Self::bind_to((std::net::Ipv4Addr::UNSPECIFIED, ARTNET_PORT))
     }
 
+    /// # Errors
+    ///
+    /// Fails if the socket cannot be bound or the listener thread cannot
+    /// be spawned.
     pub fn bind_to(addr: impl std::net::ToSocketAddrs) -> anyhow::Result<Self> {
         let socket = std::net::UdpSocket::bind(addr)?;
         let state = SharedTimecode::default();
@@ -440,7 +526,7 @@ impl ArtNetTimecodeSource {
             .spawn(move || {
                 let mut buf = [0u8; 64];
                 while let Ok((n, _)) = socket.recv_from(&mut buf) {
-                    if let Some(t) = parse_artnet_timecode(&buf[..n]) {
+                    if let Some(t) = buf.get(..n).and_then(parse_artnet_timecode) {
                         feed.observe(t);
                     }
                 }
@@ -451,7 +537,8 @@ impl ArtNetTimecodeSource {
         })
     }
 
-    pub fn state(&self) -> &SharedTimecode {
+    #[must_use]
+    pub const fn state(&self) -> &SharedTimecode {
         &self.state
     }
 }
@@ -508,6 +595,7 @@ pub struct LtcDecoder {
 }
 
 impl LtcDecoder {
+    #[must_use]
     pub fn new(sample_rate: f64) -> Self {
         Self {
             sample_rate,
@@ -539,11 +627,11 @@ impl LtcDecoder {
             if gap > 0.75 * self.period {
                 // A full period: a `0`. A half left dangling before it
                 // was noise, and is dropped.
-                self.period = 0.9 * self.period + 0.1 * gap;
+                self.period = 0.9f64.mul_add(self.period, 0.1 * gap);
                 self.half = false;
                 self.push(false, &mut out);
             } else if gap > 0.25 * self.period {
-                self.period = 0.9 * self.period + 0.2 * gap;
+                self.period = 0.9f64.mul_add(self.period, 0.2 * gap);
                 if self.half {
                     self.half = false;
                     self.push(true, &mut out);
@@ -561,7 +649,7 @@ impl LtcDecoder {
             self.bits.pop_front();
         }
         self.bits.push_back(bit);
-        self.frame_bits += 1;
+        self.frame_bits = self.frame_bits.saturating_add(1);
         if self.bits.len() < 80 || !self.bits.iter().skip(64).copied().eq(LTC_SYNC) {
             return;
         }
@@ -588,17 +676,25 @@ impl LtcDecoder {
 }
 
 /// Reads the 64 data bits of an LTC frame, given the measured rate.
+///
+/// `bits` is always the 80 collected in [`LtcDecoder::push`] or the 80
+/// from [`encode_ltc_bits`], so every field read below is in range; the
+/// `get` and the fallback are only there so a short slice decodes to a
+/// zero field instead of panicking.
 fn decode_ltc_bits(bits: &[bool], measured_fps: f64) -> Timecode {
     let field = |start: usize, len: usize| -> u8 {
         (0..len)
-            .map(|i| (bits[start + i] as u8) << i)
+            .filter_map(|i| bits.get(start.saturating_add(i)).map(|&b| u8::from(b) << i))
             .fold(0, |a, b| a | b)
     };
-    let frames = field(0, 4) + 10 * field(8, 2);
-    let drop = bits[10];
-    let seconds = field(16, 4) + 10 * field(24, 3);
-    let minutes = field(32, 4) + 10 * field(40, 3);
-    let hours = field(48, 4) + 10 * field(56, 2);
+    let bcd = |ones_start: usize, ones_len: usize, tens_start: usize, tens_len: usize| -> u8 {
+        field(ones_start, ones_len).saturating_add(10u8.saturating_mul(field(tens_start, tens_len)))
+    };
+    let frames = bcd(0, 4, 8, 2);
+    let drop = bits.get(10).copied().unwrap_or(false);
+    let seconds = bcd(16, 4, 24, 3);
+    let minutes = bcd(32, 4, 40, 3);
+    let hours = bcd(48, 4, 56, 2);
     let rate = if drop {
         FrameRate::DropFrame2997
     } else if measured_fps < 24.5 {
@@ -613,11 +709,14 @@ fn decode_ltc_bits(bits: &[bool], measured_fps: f64) -> Timecode {
 
 /// The 80 bits of one LTC frame, in transmission order. Sets the
 /// drop-frame flag from the rate and leaves the user bits clear.
+#[must_use]
 pub fn encode_ltc_bits(t: Timecode) -> [bool; 80] {
     let mut bits = [false; 80];
     let mut put = |start: usize, len: usize, value: u8| {
         for i in 0..len {
-            bits[start + i] = (value >> i) & 1 == 1;
+            if let Some(slot) = bits.get_mut(start.saturating_add(i)) {
+                *slot = (value >> i) & 1 == 1;
+            }
         }
     };
     put(0, 4, t.frames % 10);
@@ -633,6 +732,24 @@ pub fn encode_ltc_bits(t: Timecode) -> [bool; 80] {
     bits
 }
 
+/// A sample index `fraction` of the way through bit `bit_index` of an
+/// LTC frame whose bit period is `period` samples. Bit indices run 0..80
+/// and periods are on the order of tens to hundreds of samples, so even
+/// an hours-long frame never approaches the point an `f64` stops
+/// representing a sample count exactly, and `round` of a non-negative
+/// value is never negative — the two casts below cannot lose a bit
+/// anything real produces.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "bit index and sample period are both far inside f64's exact range for any real recording; see the doc comment"
+)]
+fn ltc_sample_offset(bit_index: usize, fraction: f64, period: f64) -> usize {
+    ((bit_index as f64 + fraction) * period).round() as usize
+}
+
 /// Renders frames as biphase-mark audio at `sample_rate`, continuing
 /// from `level` (so consecutive calls join without a spurious edge).
 pub fn encode_ltc_audio(frames: &[Timecode], sample_rate: f64, level: &mut f32) -> Vec<f32> {
@@ -640,15 +757,15 @@ pub fn encode_ltc_audio(frames: &[Timecode], sample_rate: f64, level: &mut f32) 
     for &t in frames {
         let period = sample_rate / (80.0 * t.rate.fps());
         for (i, bit) in encode_ltc_bits(t).into_iter().enumerate() {
-            let start = (i as f64 * period).round() as usize;
-            let mid = ((i as f64 + 0.5) * period).round() as usize;
-            let end = ((i as f64 + 1.0) * period).round() as usize;
+            let start = ltc_sample_offset(i, 0.0, period);
+            let mid = ltc_sample_offset(i, 0.5, period);
+            let end = ltc_sample_offset(i, 1.0, period);
             *level = -*level;
-            out.extend(std::iter::repeat_n(*level, mid - start));
+            out.extend(std::iter::repeat_n(*level, mid.saturating_sub(start)));
             if bit {
                 *level = -*level;
             }
-            out.extend(std::iter::repeat_n(*level, end - mid));
+            out.extend(std::iter::repeat_n(*level, end.saturating_sub(mid)));
         }
     }
     out
@@ -664,6 +781,11 @@ pub struct LtcSource {
 #[cfg(feature = "ltc")]
 impl LtcSource {
     /// Opens the default input device and decodes its first channel.
+    ///
+    /// # Errors
+    ///
+    /// Fails if there is no default input device, its configuration
+    /// cannot be read, or the input stream cannot be built or started.
     pub fn open() -> anyhow::Result<Self> {
         use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
         let host = cpal::default_host();
@@ -671,8 +793,8 @@ impl LtcSource {
             .default_input_device()
             .ok_or_else(|| anyhow::anyhow!("no audio input device"))?;
         let config = device.default_input_config()?;
-        let channels = config.channels() as usize;
-        let mut decoder = LtcDecoder::new(config.sample_rate() as f64);
+        let channels = usize::from(config.channels());
+        let mut decoder = LtcDecoder::new(f64::from(config.sample_rate()));
         let state = SharedTimecode::default();
         let feed = state.clone();
         let stream = device.build_input_stream(
@@ -693,7 +815,8 @@ impl LtcSource {
         })
     }
 
-    pub fn state(&self) -> &SharedTimecode {
+    #[must_use]
+    pub const fn state(&self) -> &SharedTimecode {
         &self.state
     }
 }
@@ -721,7 +844,7 @@ mod tests {
 
     #[test]
     fn timecode_to_seconds_handles_every_rate() {
-        assert_eq!(tc(0, 1, 0, 0, FrameRate::Ebu25).to_seconds(), 60.0);
+        assert!((tc(0, 1, 0, 0, FrameRate::Ebu25).to_seconds() - 60.0).abs() < 1e-9);
         assert!((tc(0, 0, 1, 12, FrameRate::Film24).to_seconds() - 1.5).abs() < 1e-9);
         assert!((tc(1, 0, 0, 15, FrameRate::Smpte30).to_seconds() - 3600.5).abs() < 1e-9);
         // Drop-frame: after one hour the frame count has dropped 108
@@ -730,14 +853,22 @@ mod tests {
         assert!((hour - 3600.0).abs() < 0.004, "{hour}");
     }
 
+    /// A loop index as the `u8` piece number it always is here — `bytes`
+    /// below has four entries and this doubles the index, so the real
+    /// range is 0..=7 and `try_from` never falls back.
+    fn piece_index(i: usize) -> u8 {
+        u8::try_from(i).unwrap_or(u8::MAX)
+    }
+
     /// The quarter-frame set for a frame, in the order a sender emits it.
     fn quarter_frames(t: Timecode) -> Vec<[u8; 2]> {
         let hh = t.hours | (t.rate.code() << 5);
         let bytes = [t.frames, t.seconds, t.minutes, hh];
         let mut out = Vec::new();
         for (i, b) in bytes.iter().enumerate() {
-            out.push([0xF1, ((i * 2) as u8) << 4 | (b & 0xF)]);
-            out.push([0xF1, ((i * 2 + 1) as u8) << 4 | (b >> 4)]);
+            let piece = i.saturating_mul(2);
+            out.push([0xF1, (piece_index(piece) << 4) | (b & 0xF)]);
+            out.push([0xF1, (piece_index(piece.saturating_add(1)) << 4) | (b >> 4)]);
         }
         out
     }
@@ -755,18 +886,18 @@ mod tests {
         assert_eq!(got, Some(tc(1, 23, 45, 12, FrameRate::Ebu25)));
         // Across a second boundary at 30 fps.
         let sent = tc(0, 0, 59, 29, FrameRate::Smpte30);
-        let got = quarter_frames(sent)
-            .iter()
-            .filter_map(|qf| d.feed(qf))
-            .next();
+        let got = quarter_frames(sent).iter().find_map(|qf| d.feed(qf));
         assert_eq!(got, Some(tc(0, 1, 0, 1, FrameRate::Smpte30)));
         // A torn set — joining mid-frame — yields nothing until a whole
         // one arrives.
         let mut d = MtcDecoder::new();
-        let set = quarter_frames(tc(0, 0, 1, 0, FrameRate::Film24));
-        assert!(set[4..].iter().all(|qf| d.feed(qf).is_none()));
-        assert!(set[..7].iter().all(|qf| d.feed(qf).is_none()));
-        assert_eq!(d.feed(&set[7]), Some(tc(0, 0, 1, 2, FrameRate::Film24)));
+        let quarters = quarter_frames(tc(0, 0, 1, 0, FrameRate::Film24));
+        assert!(quarters[4..].iter().all(|qf| d.feed(qf).is_none()));
+        assert!(quarters[..7].iter().all(|qf| d.feed(qf).is_none()));
+        assert_eq!(
+            d.feed(&quarters[7]),
+            Some(tc(0, 0, 1, 2, FrameRate::Film24))
+        );
     }
 
     #[test]
@@ -778,7 +909,7 @@ mod tests {
         assert_eq!(d.feed(&[0x90, 60, 100]), None);
     }
 
-    /// r[verify song.transport.sources] - Art-Net ArtTimeCode
+    /// r[verify song.transport.sources] - Art-Net `ArtTimeCode`
     #[test]
     fn artnet_timecode_round_trips_and_rejects_other_packets() {
         let t = tc(2, 3, 4, 5, FrameRate::Smpte30);

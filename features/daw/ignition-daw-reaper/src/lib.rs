@@ -23,6 +23,11 @@ use daw::file::{ReaperProject, parse_rpp_file};
 use ignition_daw_proto::{Bars, Section, SongMap, TempoMap, TempoPoint, TimeSignature};
 
 /// Reads a song map from a project file on disk.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read, or if its contents do
+/// not parse as a REAPER project.
 // r[impl song.map.imported]
 pub fn load(path: impl AsRef<std::path::Path>) -> Result<SongMap> {
     let path = path.as_ref();
@@ -36,6 +41,10 @@ pub fn load(path: impl AsRef<std::path::Path>) -> Result<SongMap> {
 }
 
 /// Reads a song map from project text.
+///
+/// # Errors
+///
+/// Returns an error if `text` does not parse as a REAPER project.
 // r[impl song.map.imported]
 pub fn from_rpp(text: &str, name: &str) -> Result<SongMap> {
     let parsed = parse_rpp_file(text).map_err(|e| anyhow::anyhow!("parsing project: {e:?}"))?;
@@ -55,12 +64,29 @@ fn tempo_map(project: &ReaperProject) -> TempoMap {
         Some((bpm, numerator, denominator, _flags)) => TempoMap::constant(
             bpm.max(1.0),
             TimeSignature {
-                numerator: numerator.max(1) as u32,
-                denominator: denominator.max(1) as u32,
+                numerator: positive_u32(numerator),
+                denominator: positive_u32(denominator),
             },
         ),
         None => TempoMap::default(),
     }
+}
+
+/// A time-signature component (numerator or denominator), clamped to at
+/// least one and carried as `u32`.
+///
+/// The project format stores these as signed integers with no
+/// documented reason a real one is ever negative; `max(1)` both rules
+/// out zero (a division-by-zero waiting to happen in [`bars_between`])
+/// and makes the following cast total, since the value is now known
+/// non-negative.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_sign_loss,
+    reason = "max(1) above makes the value non-negative, so the cast is total"
+)]
+fn positive_u32(value: i32) -> u32 {
+    value.max(1) as u32
 }
 
 /// Sections, from the project's regions.
@@ -105,12 +131,13 @@ fn song_map(project: &ReaperProject, name: &str) -> SongMap {
 fn bars_between(tempo: &TempoMap, from_seconds: f64, to_seconds: f64) -> f64 {
     let from = tempo.position_at(from_seconds);
     let to = tempo.position_at(to_seconds);
-    let per_bar = tempo.at(from).time_signature.numerator.max(1) as f64;
-    let flat = |p: Bars| (p.bar as f64 - 1.0) + (p.beat - 1.0) / per_bar;
+    let per_bar = f64::from(tempo.at(from).time_signature.numerator.max(1));
+    let flat = |p: Bars| (f64::from(p.bar) - 1.0) + (p.beat - 1.0) / per_bar;
     flat(to) - flat(from)
 }
 
 /// A tempo point, for callers building a map by hand.
+#[must_use]
 pub fn point(bar: u32, bpm: f64) -> TempoPoint {
     TempoPoint {
         at: Bars::bar(bar),
@@ -220,7 +247,7 @@ mod tests {
                 section.bars
             );
         }
-        assert_eq!(total_bars(&song).round(), 74.0);
+        assert!((total_bars(&song).round() - 74.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -249,7 +276,7 @@ mod tests {
         );
         let chorus = song.section("CH 1").expect("CH 1");
         assert_eq!(chorus.start, Bars::bar(23));
-        assert_eq!(chorus.bars.round(), 8.0);
+        assert!((chorus.bars.round() - 8.0).abs() < f64::EPSILON);
     }
 
     #[test]

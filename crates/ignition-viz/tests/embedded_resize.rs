@@ -25,7 +25,7 @@ fn a_resize_keeps_rendering() {
     let device = gpu.device.clone();
     let mut viz = ignition_viz::embedded::EmbeddedViz::new_with(
         config,
-        Default::default(),
+        ignition_viz::DmxUniverses::default(),
         playback,
         Some(ignition_viz::gdtf_geometry::GdtfLibrary::load_default()),
         gpu,

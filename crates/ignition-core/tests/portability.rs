@@ -1,3 +1,19 @@
+// Integration test: `clippy.toml`'s test allowances only reach
+// `#[cfg(test)]` modules, so the panic set is lifted here instead.
+// See docs/ops/clippy.md.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "integration test — see docs/ops/clippy.md"
+)]
+
 //! The claim the whole design exists to make, tested.
 //!
 //! One recipe. Two rooms with different fixtures, different counts,
@@ -195,7 +211,7 @@ fn a_blocked_chase_moves_in_pairs() {
     // across units, which is what blocking is for.
     let distinct = |v: &[(u32, f32)]| {
         let mut xs: Vec<i32> = v.iter().map(|(_, x)| (x * 1000.0) as i32).collect();
-        xs.sort();
+        xs.sort_unstable();
         xs.dedup();
         xs.len()
     };
@@ -227,8 +243,8 @@ fn a_role_may_bind_to_an_expression() {
 
 /// Distinct channels an effect touches, whatever attribute it sets.
 ///
-/// Separate from `lit`, which filters to Dimmer because it is asking
-/// about *levels*. A colour effect sets ColorAdd and no dimmer at all,
+/// Separate from `lit`, which filters to `Dimmer` because it is asking
+/// about *levels*. A colour effect sets `ColorAdd` and no dimmer at all,
 /// so asking the level question of one gives the answer "nothing" about
 /// an effect that is working perfectly well.
 fn touched(recipe: &Recipe, venue: &Venue, secs: f32) -> Vec<u32> {
@@ -245,7 +261,7 @@ fn touched(recipe: &Recipe, venue: &Venue, secs: f32) -> Vec<u32> {
         .into_iter()
         .map(|Emit { value, .. }| value.chan)
         .collect();
-    chans.sort();
+    chans.sort_unstable();
     chans.dedup();
     chans
 }

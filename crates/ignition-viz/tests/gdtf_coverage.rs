@@ -16,7 +16,7 @@ fn meshes(node: &GdtfNode) -> usize {
         node.shape,
         GdtfShape::Mesh(_) | GdtfShape::Gltf { .. }
     ));
-    own + node.children.iter().map(meshes).sum::<usize>()
+    own.saturating_add(node.children.iter().map(meshes).sum::<usize>())
 }
 
 /// r[verify viz.gdtf-meshes] - every venue fixture has a real mesh to draw

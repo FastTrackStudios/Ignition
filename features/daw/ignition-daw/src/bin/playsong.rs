@@ -60,24 +60,21 @@ fn main() -> anyhow::Result<()> {
     }
     transport.play();
 
-    let mut last = String::new();
+    let mut last_line = String::new();
     loop {
         let seconds = transport.seconds();
         let position = transport.position();
         player.seek(position, &show);
 
-        let section = song
-            .section_at(position)
-            .map(|s| s.name.as_str())
-            .unwrap_or("—");
+        let section = song.section_at(position).map_or("—", |s| s.name.as_str());
         let cue = player.current_name().unwrap_or("—");
         let line = format!("{section} / {cue}");
-        if line != last {
+        if line != last_line {
             println!(
                 "{:>7.2}s  bar {:>3}.{:<4.2}  {section:<12} cue: {cue}",
                 seconds, position.bar, position.beat
             );
-            last = line;
+            last_line = line;
         }
 
         if !transport.is_playing() {

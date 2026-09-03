@@ -12,6 +12,22 @@
 //! these belong here. The layering did not change; where the test is
 //! allowed to sit did.
 
+// Integration test: `clippy.toml`'s test allowances only reach
+// `#[cfg(test)]` modules, so the panic set is lifted here instead.
+// See docs/ops/clippy.md.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "integration test — see docs/ops/clippy.md"
+)]
+
 use ignition_show::Speed;
 use ignition_show::profile::Profile;
 

@@ -1,7 +1,7 @@
 //! The Vidvox HAP backend — pure Rust, no system library.
 //!
 //! HAP is what this corner of the industry actually plays: Resolume,
-//! VDMX, TouchDesigner and every media server that has to hold frame
+//! VDMX, `TouchDesigner` and every media server that has to hold frame
 //! rate on a wall of screens ship it, because a HAP frame is not an
 //! encoded picture at all — it is a block-compressed GPU texture with a
 //! Snappy wrapper. There is no motion compensation, no B-frames and no
@@ -16,10 +16,10 @@
 //!   codec is not there to do.
 //!
 //! The one thing this backend does not yet do is take the free half of
-//! that bargain: it decompresses BCn to RGBA on the CPU so the frame
-//! goes up the same texture path a still does. Uploading the BCn blocks
+//! that bargain: it decompresses `BCn` to RGBA on the CPU so the frame
+//! goes up the same texture path a still does. Uploading the `BCn` blocks
 //! straight to the GPU is what HAP is *for*, and it is a bigger change
-//! than this — Hap Q stores scaled YCoCg, so it needs a shader pass and
+//! than this — Hap Q stores scaled `YCoCg`, so it needs a shader pass and
 //! therefore a material of its own rather than `StandardMaterial`. Worth
 //! doing; not needed to get moving pictures on the wall.
 
@@ -82,13 +82,13 @@ impl Decoder for HapDecoder {
             return Ok(None);
         }
         let index = self.next;
-        self.next += 1;
+        self.next = self.next.saturating_add(1);
         let frame = self
             .reader
             .read_frame(index)
             .map_err(|e| VideoError::Backend(format!("reading frame {index}: {e}")))?;
         Ok(Some(Frame {
-            pts: index as f64 / self.fps,
+            pts: f64::from(index) / self.fps,
             rgba: to_rgba(&frame, self.width, self.height)?,
             generation: 0,
         }))
@@ -98,13 +98,13 @@ impl Decoder for HapDecoder {
     /// keyframe to decode forward from, so the frame asked for is the
     /// frame read.
     fn seek(&mut self, secs: f64) -> Result<(), VideoError> {
-        let index = (secs * self.fps).round().max(0.0) as u32;
+        let index = crate::num::u32_of_f64((secs * self.fps).round());
         self.next = index.min(self.frames.saturating_sub(1));
         Ok(())
     }
 }
 
-/// BCn blocks to RGBA8.
+/// `BCn` blocks to RGBA8.
 fn to_rgba(frame: &hap_qt::HapFrame, width: u32, height: u32) -> Result<Vec<u8>, VideoError> {
     let format = match frame.format {
         TextureFormat::RgbDxt1 => texpresso::Format::Bc1,
@@ -119,8 +119,11 @@ fn to_rgba(frame: &hap_qt::HapFrame, width: u32, height: u32) -> Result<Vec<u8>,
         }
     };
 
-    let (w, h) = (width as usize, height as usize);
-    let mut rgba = vec![0u8; w * h * 4];
+    let (w, h) = (
+        crate::num::usize_of_u32(width),
+        crate::num::usize_of_u32(height),
+    );
+    let mut rgba = vec![0u8; w.saturating_mul(h).saturating_mul(4)];
     format.decompress(&frame.data, w, h, &mut rgba);
     if frame.format.needs_ycocg_convert() {
         ycocg_to_rgb(&mut rgba);
@@ -128,7 +131,7 @@ fn to_rgba(frame: &hap_qt::HapFrame, width: u32, height: u32) -> Result<Vec<u8>,
     Ok(rgba)
 }
 
-/// Hap Q's scaled YCoCg, in place.
+/// Hap Q's scaled `YCoCg`, in place.
 ///
 /// DXT5 gives four channels of very different quality: the three colour
 /// channels are interpolated together and the alpha channel on its own,
@@ -146,10 +149,10 @@ fn ycocg_to_rgb(rgba: &mut [u8]) {
         let cg = f32::from(texel[1]) / 255.0 - 0.5;
         // Blue carries the scale the encoder divided the chroma by,
         // 1..=32 packed into 0..=255.
-        let scale = f32::from(texel[2]) / 255.0 * 31.875 + 1.0;
+        let scale = (f32::from(texel[2]) / 255.0).mul_add(31.875, 1.0);
         let (co, cg) = (co / scale, cg / scale);
         let y = f32::from(texel[3]) / 255.0;
-        let to_u8 = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+        let to_u8 = |v: f32| crate::num::byte_of_f32(v.clamp(0.0, 1.0) * 255.0);
         texel[0] = to_u8(y + co - cg);
         texel[1] = to_u8(y + cg);
         texel[2] = to_u8(y - co - cg);
@@ -216,7 +219,7 @@ mod tests {
         for i in 0..10u32 {
             // A flat colour per frame, so a decoded frame says which
             // frame it is.
-            let level = (i * 20) as u8;
+            let level = crate::num::u8_of_u32(i.saturating_mul(20));
             let rgba: Vec<u8> = (0..w * h).flat_map(|_| [level, 0, 0, 255]).collect();
             let frame = encoder.encode(&rgba).expect("encode");
             writer.write_frame(&frame).expect("write");
@@ -226,7 +229,10 @@ mod tests {
         let (meta, mut decoder) = open(&path).expect("open");
         assert_eq!((meta.width, meta.height), (w, h));
         let first = decoder.next_frame().expect("decode").expect("a frame");
-        assert_eq!(first.rgba.len() as u32, w * h * 4);
+        assert_eq!(
+            crate::num::u32_of_usize(first.rgba.len()),
+            w.saturating_mul(h).saturating_mul(4)
+        );
         decoder.seek(0.5).expect("seek");
         let mid = decoder.next_frame().expect("decode").expect("a frame");
         assert!(mid.pts >= 0.45, "seek landed at {}", mid.pts);

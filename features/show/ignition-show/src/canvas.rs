@@ -14,6 +14,21 @@
 //! `measure: 4` crosses the wall once every bar, exactly as a chase
 //! would, and scrubs backwards with the transport.
 
+use crate::num::{float_of, float_of_u32, u32_of, usize_of};
+
+/// A wrapping `f32` → `u32`, preserving the original `as i64 as u32`
+/// double-cast's behaviour on a negative input: two's-complement wrap,
+/// not a clamp to 0. Only ever feeds a hash seed, where any
+/// deterministic value is correct.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "a deliberate wrap for a hash seed; see the doc comment"
+)]
+const fn wrapping_u32_of(value: f32) -> u32 {
+    value as i64 as u32
+}
 use crate::step::{Play, SpeedMasters, Timing};
 use ignition_proto::{Attribute, ChanId};
 use serde::{Deserialize, Serialize};
@@ -132,18 +147,19 @@ impl CanvasPlane {
     /// `tolerance` is left at the default — how far apart two fixtures
     /// have to be to count as different cells is a property of the rig,
     /// not of which way the picture faces.
+    #[must_use]
     pub fn axes(self) -> crate::tricks::GridAxes {
         use ignition_rig::selection::Axis;
         let d = crate::tricks::GridAxes::default();
         match self {
-            CanvasPlane::Plan => d,
-            CanvasPlane::Wall => crate::tricks::GridAxes {
+            Self::Plan => d,
+            Self::Wall => crate::tricks::GridAxes {
                 x: Axis::X,
                 y: Axis::Z,
                 z: Axis::Y,
                 ..d
             },
-            CanvasPlane::Side => crate::tricks::GridAxes {
+            Self::Side => crate::tricks::GridAxes {
                 x: Axis::Y,
                 y: Axis::Z,
                 z: Axis::X,
@@ -175,6 +191,7 @@ pub struct CanvasRecipe {
 
 impl CanvasRecipe {
     /// The effect clock at `secs`, honouring `Reverse` and `Bounce`.
+    #[must_use]
     pub fn cycles_at(&self, secs: f32, masters: &SpeedMasters) -> f32 {
         let raw = self.timing.cycles_at(secs, 0, 1, masters);
         match self.timing.direction {
@@ -187,132 +204,48 @@ impl CanvasRecipe {
     /// canvas — after `cycles` of motion.
     // r[impl canvas.procedural] - resolved per member from its grid position
     // r[impl canvas.grid] - the canvas is addressed as a two-axis unit square
+    #[must_use]
     pub fn sample(&self, u: f32, v: f32, cycles: f32) -> Rgb {
         let u = u.clamp(0.0, 1.0);
         let v = v.clamp(0.0, 1.0);
         match &self.source {
             Procedural::Solid(c) => *c,
             Procedural::Gradient { colors, angle_deg } => {
-                let (s, c) = angle_deg.to_radians().sin_cos();
-                // Project onto the angle, with V up so 90° reads
-                // bottom-to-top, then scroll.
-                let t = ((u - 0.5) * c + (0.5 - v) * s) + 0.5 + cycles;
-                ramp(colors, frac(t))
+                sample_gradient(colors, *angle_deg, u, v, cycles)
             }
             Procedural::Wipe {
                 color,
                 width,
                 direction,
-            } => {
-                let pos = along(u, v, *direction);
-                let head = frac(cycles);
-                let w = width.max(1e-3);
-                // Distance from the bar's centre, wrapped so the bar
-                // re-enters the far edge as it leaves the near one.
-                let d = wrapped_distance(pos, head);
-                let a = (1.0 - d / (w * 0.5)).clamp(0.0, 1.0);
-                scale(*color, a)
-            }
+            } => sample_wipe(*color, *width, *direction, u, v, cycles),
             Procedural::Noise {
                 scale: cells,
                 seed,
                 colors,
-            } => {
-                let cells = cells.max(1e-3);
-                let n = value_noise(u * cells + cycles, v * cells, *seed);
-                ramp(colors, n)
-            }
+            } => sample_noise(colors, *cells, *seed, u, v, cycles),
             Procedural::Band {
                 color,
                 width,
                 count,
                 direction,
-            } => {
-                let count = (*count).max(1) as f32;
-                let pos = along(u, v, *direction);
-                let phase = frac(pos * count - cycles);
-                let a = if phase < width.clamp(0.0, 1.0) {
-                    1.0
-                } else {
-                    0.0
-                };
-                scale(*color, a)
-            }
+            } => sample_band(*color, *width, *count, *direction, u, v, cycles),
             Procedural::Sparkle {
                 density,
                 seed,
                 color,
-            } => {
-                // A fixed 32×18 field of cells, so a sparkle has a size
-                // on a big wall rather than being one pixel.
-                let gx = (u * 32.0).floor() as u32;
-                let gy = (v * 18.0).floor() as u32;
-                let pass = cycles.floor() as i64 as u32;
-                let roll = hash3(gx, gy, seed.wrapping_add(pass.wrapping_mul(0x9E37_79B9)));
-                let lit = unit(roll) < density.clamp(0.0, 1.0);
-                if lit {
-                    scale(*color, 1.0 - frac(cycles))
-                } else {
-                    [0.0; 3]
-                }
-            }
-            // Where this cell sits along the weave, 0..1, then how long
-            // ago the head passed it.
+            } => sample_sparkle(*color, *density, *seed, u, v, cycles),
             Procedural::Snake {
                 color,
                 rows,
                 tail,
                 direction,
-            } => {
-                let rows = (*rows).max(1);
-                // Along the weave and across it — swapping the two is
-                // what `direction` means, so one picture does both a
-                // snake that crawls in rows and one that climbs columns.
-                let (across, along_row) = match direction {
-                    Travel::Horizontal => (v, u),
-                    Travel::Vertical => (u, v),
-                };
-                let row = ((across * rows as f32).floor() as u32).min(rows - 1);
-                // Odd rows run backwards, which is what makes it a
-                // serpentine rather than a carriage return: the head
-                // leaves one row where it enters the next.
-                let along_row = if row.is_multiple_of(2) {
-                    along_row
-                } else {
-                    1.0 - along_row
-                };
-                let s = (row as f32 + along_row) / rows as f32;
-                let behind = frac(cycles - s);
-                let tail = tail.clamp(1e-4, 1.0);
-                let a = if behind <= tail {
-                    1.0 - behind / tail
-                } else {
-                    0.0
-                };
-                scale(*color, a)
-            }
+            } => sample_snake(*color, *rows, *tail, *direction, u, v, cycles),
             Procedural::Rain {
                 color,
                 columns,
                 tail,
                 seed,
-            } => {
-                let columns = (*columns).max(1);
-                let col = ((u * columns as f32).floor() as u32).min(columns - 1);
-                // Each column on its own offset, so the wall reads as
-                // weather rather than as one bar falling.
-                let offset = unit(hash3(col, 0, *seed));
-                // Falling: the drop is at the top when its phase is 0.
-                let drop = frac(cycles + offset);
-                let behind = frac(v - drop);
-                let tail = tail.clamp(1e-4, 1.0);
-                let a = if behind <= tail {
-                    1.0 - behind / tail
-                } else {
-                    0.0
-                };
-                scale(*color, a)
-            }
+            } => sample_rain(*color, *columns, *tail, *seed, u, v, cycles),
         }
     }
 
@@ -320,13 +253,27 @@ impl CanvasRecipe {
     /// `width * height * 4` bytes, row 0 at the top — what a texture
     /// upload wants.
     // r[impl canvas.clip-is-a-source] - a procedural source yields frames the same shape as a clip
+    // `w`/`h` are `width`/`height` clamped to at least one pixel, and
+    // `x`/`y`/`u`/`v` are pixel and texture coordinates in the same
+    // convention as `sample` above.
+    #[expect(
+        clippy::many_single_char_names,
+        reason = "pixel/texture coordinates in the canvas's own convention; see the comment above"
+    )]
+    #[must_use]
     pub fn render(&self, width: u32, height: u32, cycles: f32) -> Vec<u8> {
         let (w, h) = (width.max(1), height.max(1));
-        let mut out = Vec::with_capacity((w * h * 4) as usize);
+        // A capacity hint only — a wrong-but-safe estimate under
+        // pathological input just costs a reallocation, not a panic.
+        let capacity = usize::try_from(w)
+            .unwrap_or(usize::MAX)
+            .saturating_mul(usize::try_from(h).unwrap_or(usize::MAX))
+            .saturating_mul(4);
+        let mut out = Vec::with_capacity(capacity);
         for y in 0..h {
-            let v = (y as f32 + 0.5) / h as f32;
+            let v = (float_of_u32(y) + 0.5) / float_of_u32(h);
             for x in 0..w {
-                let u = (x as f32 + 0.5) / w as f32;
+                let u = (float_of_u32(x) + 0.5) / float_of_u32(w);
                 let c = self.sample(u, v, cycles);
                 out.extend_from_slice(&[to_u8(c[0]), to_u8(c[1]), to_u8(c[2]), 255]);
             }
@@ -349,13 +296,14 @@ pub enum Quantity {
 
 impl Quantity {
     /// The quantity of `c`, 0..=1.
+    #[must_use]
     pub fn of(self, c: Rgb) -> f32 {
         match self {
-            Quantity::Brightness => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2],
-            Quantity::Hue => hue(c),
-            Quantity::Red => c[0],
-            Quantity::Green => c[1],
-            Quantity::Blue => c[2],
+            Self::Brightness => 0.0722f32.mul_add(c[2], 0.2126f32.mul_add(c[0], 0.7152 * c[1])),
+            Self::Hue => hue(c),
+            Self::Red => c[0],
+            Self::Green => c[1],
+            Self::Blue => c[2],
         }
     }
 }
@@ -386,8 +334,9 @@ pub struct BitmapChannel {
 
 impl BitmapChannel {
     /// The attribute value for a content colour.
+    #[must_use]
     pub fn map(&self, c: Rgb) -> f32 {
-        self.low + (self.high - self.low) * self.quantity.of(c).clamp(0.0, 1.0)
+        (self.high - self.low).mul_add(self.quantity.of(c).clamp(0.0, 1.0), self.low)
     }
 }
 
@@ -401,6 +350,7 @@ impl BitmapChannel {
 /// the stack like any other emitted value.
 // r[impl canvas.bitmap-channels] - any attribute, from the grid position
 // r[impl canvas.grid] - members addressed by grid position, not by index
+#[must_use]
 pub fn sample_for_grid(
     recipe: &CanvasRecipe,
     channel: &BitmapChannel,
@@ -422,7 +372,7 @@ fn frac(t: f32) -> f32 {
     t - t.floor()
 }
 
-fn along(u: f32, v: f32, d: Travel) -> f32 {
+const fn along(u: f32, v: f32, d: Travel) -> f32 {
     match d {
         Travel::Horizontal => u,
         Travel::Vertical => v,
@@ -435,12 +385,152 @@ fn wrapped_distance(a: f32, b: f32) -> f32 {
     d.min(1.0 - d)
 }
 
+// `u`/`v` below are the canvas's own texture-coordinate convention (see
+// `Content`'s doc comment); the one-letter locals derived from them per
+// source (`s`/`c` for a sine/cosine pair, `t` for a scalar position) are
+// the standard names for that maths, and spelling them out would make
+// the trig harder to read, not easier.
+#[expect(
+    clippy::many_single_char_names,
+    reason = "u/v texture coordinates and their derived sin/cos/position locals; see the comment above"
+)]
+fn sample_gradient(colors: &[Rgb], angle_deg: f32, u: f32, v: f32, cycles: f32) -> Rgb {
+    let (s, c) = angle_deg.to_radians().sin_cos();
+    // Project onto the angle, with V up so 90° reads bottom-to-top, then
+    // scroll.
+    let t = (u - 0.5).mul_add(c, (0.5 - v) * s) + 0.5 + cycles;
+    ramp(colors, frac(t))
+}
+
+fn sample_wipe(color: Rgb, width: f32, direction: Travel, u: f32, v: f32, cycles: f32) -> Rgb {
+    let pos = along(u, v, direction);
+    let head = frac(cycles);
+    let width = width.max(1e-3);
+    // Distance from the bar's centre, wrapped so the bar re-enters the
+    // far edge as it leaves the near one.
+    let dist = wrapped_distance(pos, head);
+    let alpha = (1.0 - dist / (width * 0.5)).clamp(0.0, 1.0);
+    scale(color, alpha)
+}
+
+fn sample_noise(colors: &[Rgb], cells: f32, seed: u32, u: f32, v: f32, cycles: f32) -> Rgb {
+    let cells = cells.max(1e-3);
+    let n = value_noise(u.mul_add(cells, cycles), v * cells, seed);
+    ramp(colors, n)
+}
+
+fn sample_band(
+    color: Rgb,
+    width: f32,
+    count: u32,
+    direction: Travel,
+    u: f32,
+    v: f32,
+    cycles: f32,
+) -> Rgb {
+    let count = float_of_u32(count.max(1));
+    let pos = along(u, v, direction);
+    let phase = frac(pos.mul_add(count, -cycles));
+    let a = if phase < width.clamp(0.0, 1.0) {
+        1.0
+    } else {
+        0.0
+    };
+    scale(color, a)
+}
+
+fn sample_sparkle(color: Rgb, density: f32, seed: u32, u: f32, v: f32, cycles: f32) -> Rgb {
+    // A fixed 32×18 field of cells, so a sparkle has a size on a big
+    // wall rather than being one pixel.
+    let gx = u32_of((u * 32.0).floor());
+    let gy = u32_of((v * 18.0).floor());
+    // Unlike `gx`/`gy`, a negative `cycles` (a clock seeked before its
+    // start) is meant to wrap rather than clamp to 0 — it is only a
+    // seed for the sparkle hash below, so any deterministic value
+    // works, and wrapping keeps the seed still varying pass to pass on
+    // the negative side instead of collapsing every negative cycle to
+    // the same field.
+    let pass = wrapping_u32_of(cycles.floor());
+    let roll = hash3(gx, gy, seed.wrapping_add(pass.wrapping_mul(0x9E37_79B9)));
+    let lit = unit(roll) < density.clamp(0.0, 1.0);
+    if lit {
+        scale(color, 1.0 - frac(cycles))
+    } else {
+        [0.0; 3]
+    }
+}
+
+// Where this cell sits along the weave, 0..1, then how long ago the
+// head passed it.
+fn sample_snake(
+    color: Rgb,
+    rows: u32,
+    tail: f32,
+    direction: Travel,
+    u: f32,
+    v: f32,
+    cycles: f32,
+) -> Rgb {
+    let rows = rows.max(1);
+    // Along the weave and across it — swapping the two is what
+    // `direction` means, so one picture does both a snake that crawls
+    // in rows and one that climbs columns.
+    let (across, along_row) = match direction {
+        Travel::Horizontal => (v, u),
+        Travel::Vertical => (u, v),
+    };
+    let row = u32_of((across * float_of_u32(rows)).floor()).min(rows.saturating_sub(1));
+    // Odd rows run backwards, which is what makes it a serpentine
+    // rather than a carriage return: the head leaves one row where it
+    // enters the next.
+    let along_row = if row.is_multiple_of(2) {
+        along_row
+    } else {
+        1.0 - along_row
+    };
+    let s = (float_of_u32(row) + along_row) / float_of_u32(rows);
+    let behind = frac(cycles - s);
+    let tail = tail.clamp(1e-4, 1.0);
+    let a = if behind <= tail {
+        1.0 - behind / tail
+    } else {
+        0.0
+    };
+    scale(color, a)
+}
+
+fn sample_rain(color: Rgb, columns: u32, tail: f32, seed: u32, u: f32, v: f32, cycles: f32) -> Rgb {
+    let columns = columns.max(1);
+    let col = u32_of((u * float_of_u32(columns)).floor()).min(columns.saturating_sub(1));
+    // Each column on its own offset, so the wall reads as weather
+    // rather than as one bar falling.
+    let offset = unit(hash3(col, 0, seed));
+    // Falling: the drop is at the top when its phase is 0.
+    let drop = frac(cycles + offset);
+    let behind = frac(v - drop);
+    let tail = tail.clamp(1e-4, 1.0);
+    let a = if behind <= tail {
+        1.0 - behind / tail
+    } else {
+        0.0
+    };
+    scale(color, a)
+}
+
 fn scale(c: Rgb, a: f32) -> Rgb {
     [c[0] * a, c[1] * a, c[2] * a]
 }
 
-fn to_u8(x: f32) -> u8 {
-    (x.clamp(0.0, 1.0) * 255.0 + 0.5) as u8
+/// The one place a canvas sample becomes an RGBA8 byte. The clamp makes
+/// the cast total the same way `ignition_proto`'s DMX `byte` does.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the clamp above makes this cast total; see the doc comment"
+)]
+const fn to_u8(x: f32) -> u8 {
+    x.clamp(0.0, 1.0).mul_add(255.0, 0.5) as u8
 }
 
 /// Linear interpolation through a colour list at `t` in 0..=1, wrapping
@@ -448,22 +538,34 @@ fn to_u8(x: f32) -> u8 {
 fn ramp(colors: &[Rgb], t: f32) -> Rgb {
     match colors.len() {
         0 => [0.0; 3],
-        1 => colors[0],
+        1 => colors.first().copied().unwrap_or([0.0; 3]),
         n => {
-            let x = frac(t) * n as f32;
-            let i = x.floor() as usize % n;
-            let j = (i + 1) % n;
-            let f = x - x.floor();
-            let (a, b) = (colors[i], colors[j]);
+            let pos = frac(t) * float_of(n);
+            let lo = usize_of(pos.floor()).checked_rem(n).unwrap_or(0);
+            let hi = lo.saturating_add(1).checked_rem(n).unwrap_or(0);
+            let blend = pos - pos.floor();
+            // `lo` and `hi` are both reduced modulo `colors.len()`
+            // above, so they are in range whenever `colors` is
+            // non-empty (this arm only runs when it is) — the fallback
+            // to black can never actually trigger, it only satisfies
+            // the lint.
+            let (from, to) = (
+                colors.get(lo).copied().unwrap_or([0.0; 3]),
+                colors.get(hi).copied().unwrap_or([0.0; 3]),
+            );
             [
-                a[0] + (b[0] - a[0]) * f,
-                a[1] + (b[1] - a[1]) * f,
-                a[2] + (b[2] - a[2]) * f,
+                (to[0] - from[0]).mul_add(blend, from[0]),
+                (to[1] - from[1]).mul_add(blend, from[1]),
+                (to[2] - from[2]).mul_add(blend, from[2]),
             ]
         }
     }
 }
 
+#[expect(
+    clippy::float_cmp,
+    reason = "max is exactly one of c[0..3] by construction — f32::max never rounds — so this is an identity check, not a comparison of two independently computed values"
+)]
 fn hue(c: Rgb) -> f32 {
     let max = c[0].max(c[1]).max(c[2]);
     let min = c[0].min(c[1]).min(c[2]);
@@ -495,6 +597,14 @@ fn hash3(x: u32, y: u32, seed: u32) -> u32 {
     h ^ (h >> 16)
 }
 
+/// A hash's top 24 bits as a fraction in `[0, 1)`. `h >> 8` fits in 24
+/// bits by construction, and `1u32 << 24` is exactly representable, so
+/// both casts are exact rather than lossy.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "both operands fit an f32 exactly; see the doc comment"
+)]
 fn unit(h: u32) -> f32 {
     (h >> 8) as f32 / (1u32 << 24) as f32
 }
@@ -503,16 +613,20 @@ fn unit(h: u32) -> f32 {
 fn value_noise(x: f32, y: f32, seed: u32) -> f32 {
     let (x0, y0) = (x.floor(), y.floor());
     let (fx, fy) = (x - x0, y - y0);
-    let (sx, sy) = (fx * fx * (3.0 - 2.0 * fx), fy * fy * (3.0 - 2.0 * fy));
-    let (ix, iy) = (x0 as i64 as u32, y0 as i64 as u32);
+    let (sx, sy) = (
+        fx * fx * 2.0f32.mul_add(-fx, 3.0),
+        fy * fy * 2.0f32.mul_add(-fy, 3.0),
+    );
+    let (ix, iy) = (wrapping_u32_of(x0), wrapping_u32_of(y0));
     let at = |dx: u32, dy: u32| unit(hash3(ix.wrapping_add(dx), iy.wrapping_add(dy), seed));
-    let top = at(0, 0) + (at(1, 0) - at(0, 0)) * sx;
-    let bottom = at(0, 1) + (at(1, 1) - at(0, 1)) * sx;
-    top + (bottom - top) * sy
+    let top = (at(1, 0) - at(0, 0)).mul_add(sx, at(0, 0));
+    let bottom = (at(1, 1) - at(0, 1)).mul_add(sx, at(0, 1));
+    (bottom - top).mul_add(sy, top)
 }
 
 /// Named recipes an operator can ask for without writing JSON.
 // r[impl canvas.procedural] - a colour sweep needs no file and no JSON
+#[must_use]
 pub fn named(name: &str) -> Option<CanvasRecipe> {
     let song = || Timing {
         speed: crate::step::Speed::Master("Song".into()),
@@ -564,13 +678,14 @@ pub fn named(name: &str) -> Option<CanvasRecipe> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::num::chan_of;
     use crate::step::Speed;
 
     fn still(source: Procedural) -> CanvasRecipe {
         CanvasRecipe {
             source,
             timing: Timing::default(),
-            plane: Default::default(),
+            plane: CanvasPlane::default(),
         }
     }
 
@@ -664,7 +779,7 @@ mod tests {
             colors: vec![[0.0; 3], [1.0; 3]],
         });
         for i in 0..50 {
-            let c = n.sample(i as f32 / 50.0, 0.3, 1.7);
+            let c = n.sample(float_of(i) / 50.0, 0.3, 1.7);
             assert!((0.0..=1.0).contains(&c[0]));
         }
         assert_eq!(n.render(16, 16, 0.5), n.render(16, 16, 0.5));
@@ -691,7 +806,7 @@ mod tests {
             relative: false,
         };
         let cells: Vec<(ChanId, f32, f32)> = (0..4)
-            .map(|i| (i as ChanId + 1, (i as f32 + 0.5) / 4.0, 0.5))
+            .map(|i| (chan_of(i) + 1, (float_of(i) + 0.5) / 4.0, 0.5))
             .collect();
         let brightest = |cycles: f32| {
             sample_for_grid(&recipe, &chan, &cells, cycles)

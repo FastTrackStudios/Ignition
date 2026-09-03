@@ -95,7 +95,7 @@ impl Host {
 
     fn push(&mut self, spec: WindowSpec, popped_from: Option<HostId>) -> HostId {
         let id = self.next;
-        self.next += 1;
+        self.next = self.next.saturating_add(1);
         self.windows.push(Hosted {
             id,
             spec,
@@ -159,22 +159,30 @@ impl Host {
         if from == to || !self.can_pop_out(from, pane) || self.get(to).is_none() {
             return false;
         }
-        self.get_mut(from).expect("checked").edit(|t| {
+        // Both lookups are already guaranteed by the checks above
+        // (`can_pop_out` proved `from`, `self.get(to)` proved `to`); the
+        // `else` arms are unreachable in practice, but `get over []`
+        // applies here too — this is state, not a fixture, but the same
+        // "never panic on a lookup" idiom holds.
+        let Some(origin) = self.get_mut(from) else {
+            return false;
+        };
+        origin.edit(|t| {
             t.remove(pane);
         });
-        self.get_mut(to).expect("checked").edit(|t| t.adopt(pane));
+        let Some(dest) = self.get_mut(to) else {
+            return false;
+        };
+        dest.edit(|t| t.adopt(pane));
         true
     }
 
     /// Edit a window's tree in place.
     pub fn edit(&mut self, id: HostId, f: impl FnOnce(&mut DockNode)) -> bool {
-        match self.get_mut(id) {
-            Some(w) => {
-                w.edit(f);
-                true
-            }
-            None => false,
-        }
+        self.get_mut(id).is_some_and(|w| {
+            w.edit(f);
+            true
+        })
     }
 
     pub fn solo(&mut self, id: HostId, pane: PaneKind) -> bool {
@@ -261,7 +269,7 @@ impl Host {
     /// The layout as it stands, for "save layout".
     pub fn layout(&self) -> Layout {
         Layout {
-            windows: self.windows.iter().map(|w| w.persisted()).collect(),
+            windows: self.windows.iter().map(Hosted::persisted).collect(),
         }
     }
 }
@@ -271,8 +279,19 @@ impl Host {
 pub static HOST: Mutex<Option<Host>> = Mutex::new(None);
 static VERSION: AtomicU64 = AtomicU64::new(0);
 
+/// Recovers a poisoned host mutex rather than propagating the panic
+/// that poisoned it. The lock only guards in-memory window layout, not
+/// the show itself; a stale or half-updated layout after some other
+/// panic is a UI glitch, and taking every window down with it — the
+/// crash that follows from `.expect()`ing this lock — is a strictly
+/// worse outcome for an operator mid-show.
+fn lock_host() -> std::sync::MutexGuard<'static, Option<Host>> {
+    HOST.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 pub fn install(host: Host) {
-    *HOST.lock().expect("host mutex") = Some(host);
+    *lock_host() = Some(host);
     bump();
 }
 
@@ -282,7 +301,7 @@ fn bump() {
 
 /// Runs `f` on the host, if one is installed, and marks a change.
 pub fn with_host<R>(f: impl FnOnce(&mut Host) -> R) -> Option<R> {
-    let mut guard = HOST.lock().expect("host mutex");
+    let mut guard = lock_host();
     let out = guard.as_mut().map(f);
     drop(guard);
     bump();
@@ -290,7 +309,7 @@ pub fn with_host<R>(f: impl FnOnce(&mut Host) -> R) -> Option<R> {
 }
 
 pub fn read_host<R>(f: impl FnOnce(&Host) -> R) -> Option<R> {
-    HOST.lock().expect("host mutex").as_ref().map(f)
+    lock_host().as_ref().map(f)
 }
 
 /// Edit one window's tree and show the result in this window at once,
@@ -378,7 +397,7 @@ fn attributes_for(spec: &WindowSpec) -> dioxus_native::WindowAttributes {
 }
 
 /// Stamps the studio's app id on a window's attributes — the Wayland
-/// `app_id` (KWin's "window class"), which is what a window rule keys
+/// `app_id` (`KWin`'s "window class"), which is what a window rule keys
 /// on. Every studio window carries it, the launch window included.
 pub fn with_app_id(attrs: dioxus_native::WindowAttributes) -> dioxus_native::WindowAttributes {
     #[cfg(target_os = "linux")]
@@ -422,7 +441,7 @@ fn monitors_of(window: &dyn dioxus_native::winit::window::Window) -> Vec<Monitor
 
 /// Puts a window where its spec says. Fullscreen is honoured directly;
 /// a docked window gets the region's size and its title, and the
-/// compositor (a KWin rule on app id + title — see
+/// compositor (a `KWin` rule on app id + title — see
 /// `docs/ops/kwin-window-rules.md`) does the placing. The position is
 /// still asked for, which X11 honours and Wayland ignores.
 // r[impl studio.windows.wayland] - fullscreen-on-monitor directly; docked = size + title, compositor places
@@ -645,7 +664,7 @@ fn ModeStrip(host: HostId, view: View, title: String, popped: bool) -> Element {
                         onclick: move |_| {
                             let name = layout::selected_operator()
                                 .unwrap_or_else(crate::operators::current_name);
-                            let layout = read_host(|h| h.layout()).flatten_layout();
+                            let layout = read_host(Host::layout).flatten_layout();
                             match layout::save(&name, &layout) {
                                 Ok(path) => {
                                     tracing::info!(path = %path.display(), "studio: layout saved");

@@ -50,6 +50,7 @@ pub enum Kind {
 /// `Bridge`/`BR` before anything starting with `B`. Getting that wrong
 /// is silent — the section still generates a cue, just the wrong one.
 // r[impl song.map.kind]
+#[must_use]
 pub fn kind_of(name: &str) -> Kind {
     // The first run of letters, not every letter: section names carry a
     // number or a letter to tell repeats apart — `VS 1`, `CH 3`, `IN A`
@@ -58,7 +59,7 @@ pub fn kind_of(name: &str) -> Kind {
     let key: String = name
         .trim_start_matches(|c: char| !c.is_ascii_alphabetic())
         .chars()
-        .take_while(|c| c.is_ascii_alphabetic())
+        .take_while(char::is_ascii_alphabetic)
         .collect::<String>()
         .to_ascii_uppercase();
     match key.as_str() {
@@ -126,9 +127,14 @@ fn ceiling_left_to_right() -> Selection {
 /// A look: level and colour on one selection.
 fn look(target: Selection, level: f32, colour: &str) -> Recipe {
     let mut recipe = Recipe::new(target, RecipeApply::Dimmer(level));
-    recipe.steps[0]
-        .apply
-        .push(RecipeApply::Color(Ref::Named(colour.to_string())));
+    // `Recipe::new` always writes exactly one step, but the field is
+    // still a `Vec` a caller could in principle have emptied, so this
+    // reaches for `get_mut` rather than asserting the invariant with an
+    // index.
+    if let Some(step) = recipe.steps.first_mut() {
+        step.apply
+            .push(RecipeApply::Color(Ref::Named(colour.to_string())));
+    }
     recipe
 }
 
@@ -145,15 +151,29 @@ fn aim(target: Selection, focus: &str) -> Recipe {
 
 /// A chase over the ceiling, one cycle per `measure` beats, slaved to
 /// the song's tempo rather than a free-running rate.
+/// A musical duration — beats, measures, a fade in seconds — as an
+/// `f32`. These are hand-authored numbers (a chase length, a fade
+/// count) or a tempo-derived quantity for a single song, never a
+/// running total, so they stay orders of magnitude below where an
+/// `f32`'s 24-bit mantissa would start dropping precision that matters.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "musical durations for one song are far below f32's precision limit; see the doc comment"
+)]
+const fn narrow_beats(value: f64) -> f32 {
+    value as f32
+}
+
 fn chase(measure: f64) -> Recipe {
     Recipe {
         target: ceiling_left_to_right(),
         // Relative, so it modulates whatever wash the cue also set
         // instead of replacing it.
-        steps: Waveform::Sine.steps(Attribute::Dimmer, -0.35, 0.35, true),
+        steps: Waveform::Sine.steps(&Attribute::Dimmer, -0.35, 0.35, true),
         timing: Timing {
             speed: Speed::Master("Song".into()),
-            measure: measure as f32,
+            measure: narrow_beats(measure),
             phase_spread_deg: 360.0,
             ..Default::default()
         },
@@ -249,7 +269,7 @@ fn look_for(kind: Kind, roles: &Roles) -> Vec<Recipe> {
 /// engine understands.
 // r[impl song.generate.fades-in-beats]
 // r[impl cues.fade-in-beats]
-fn fade_beats(kind: Kind) -> f64 {
+const fn fade_beats(kind: Kind) -> f64 {
     match kind {
         // Arrivals land. A chorus that fades in has already missed.
         Kind::Chorus | Kind::Break => 0.25,
@@ -267,6 +287,7 @@ fn fade_beats(kind: Kind) -> f64 {
 /// repeated and skipped and a tracked leftover from a bridge showing up
 /// in a chorus is exactly the bug that makes people distrust the desk.
 // r[impl song.generate]
+#[must_use]
 pub fn generate(song: &SongMap, roles: &Roles) -> CueList {
     let cues = song
         .sections
@@ -293,7 +314,7 @@ pub fn generate(song: &SongMap, roles: &Roles) -> CueList {
 fn cue_for(song: &SongMap, section: &Section, roles: &Roles) -> Cue {
     let kind = kind_of(&section.name);
     let point = song.tempo.at(section.start);
-    let fade_secs = (fade_beats(kind) * 60.0 / point.bpm) as f32;
+    let fade_secs = narrow_beats(fade_beats(kind) * 60.0 / point.bpm);
     Cue {
         name: section.name.clone(),
         fade_secs,
@@ -390,9 +411,9 @@ mod tests {
         let list = generate(&song(), &Roles::default());
         let beat = 60.0 / 86.28;
         let chorus = list.cues.iter().find(|c| c.name == "CH 1").unwrap();
-        assert!((chorus.fade_secs as f64 - beat * 0.25).abs() < 1e-4);
+        assert!((f64::from(chorus.fade_secs) - beat * 0.25).abs() < 1e-4);
         let verse = list.cues.iter().find(|c| c.name == "VS 1").unwrap();
-        assert!((verse.fade_secs as f64 - beat * 4.0).abs() < 1e-4);
+        assert!((f64::from(verse.fade_secs) - beat * 4.0).abs() < 1e-4);
     }
 
     /// The generated show is built from recipes, which is what makes it

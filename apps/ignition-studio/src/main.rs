@@ -20,6 +20,7 @@ mod dock;
 mod layout;
 mod live_commands;
 mod live_web;
+mod num;
 mod remote;
 mod sound;
 mod viz_widget;
@@ -40,6 +41,10 @@ use viz_widget::VizWidget;
 /// watches that file and writes here. Built by hand with `just tailwind`
 /// when not serving, because a plain `cargo run` does not know about any
 /// of this.
+#[expect(
+    clippy::volatile_composites,
+    reason = "dioxus's asset! macro expands to a &[u8]-holding const; the lint fires inside macro-generated code with nothing here to change"
+)]
 const TAILWIND: Asset = asset!("/assets/tailwind.css");
 
 /// The room the studio opens, unless `IGNITION_VENUE` names another —
@@ -79,6 +84,7 @@ fn haze() -> f32 {
         .unwrap_or(0.6)
 }
 
+#[must_use]
 pub fn venue_dir() -> String {
     std::env::var("IGNITION_VENUE").unwrap_or_else(|_| DEFAULT_VENUE.to_string())
 }
@@ -110,7 +116,7 @@ const BENCH_SHOW: &str = "data/songs/benchmark.json";
 /// `IGNITION_BENCH=1` — open on the benchmark cue, and *take* it.
 ///
 /// Loading the list is not enough and the difference is easy to miss: a
-/// cue list that is loaded but never GOed outputs nothing, so the
+/// cue list that is loaded but never `GOed` outputs nothing, so the
 /// studio comes up on a dark rig and the profiler measures an empty
 /// room at a very flattering frame rate. `crates/ignition-viz/tests/
 /// benchmark_cue.rs` exists because that mistake is worth a test; this
@@ -142,17 +148,22 @@ static RX: std::sync::Mutex<Option<command::Receiver>> = std::sync::Mutex::new(N
 static STATE_TX: std::sync::Mutex<Option<command::StateTx>> = std::sync::Mutex::new(None);
 static STATE_RX: std::sync::OnceLock<command::StateRx> = std::sync::OnceLock::new();
 
-fn main() -> anyhow::Result<()> {
+/// Sets up the tracing subscriber (stderr and the log file, filtered and
+/// profiled) and the panic hook. Split out of `main` — a startup
+/// sequence with this much *why* in its comments was most of what pushed
+/// `main` over `too_many_lines`, and every line here runs exactly once,
+/// in this order, regardless.
+// r[impl studio.one-truth] - the log is the record: stderr for the
+// terminal and a file for whoever debugs later, so nothing has to be
+// copied out of a scrollback. `$XDG_STATE_HOME/ignition/studio.log`
+// (`~/.local/state/ignition/studio.log`), or `IGNITION_LOG_FILE`.
+fn init_logging() {
     // `from_default_env()` alone defaults to ERROR when RUST_LOG is
     // unset, which silently discards every line this app logs about
     // whether the song loaded — including the warning that says it
     // didn't. The failure then looks like a dead audio device. Default
     // to info for our own crates and let RUST_LOG override; Bevy and wgpu
     // stay quiet because at info they are not.
-    // r[impl studio.one-truth] - the log is the record: stderr for the
-    // terminal and a file for whoever debugs later, so nothing has to be
-    // copied out of a scrollback. `$XDG_STATE_HOME/ignition/studio.log`
-    // (`~/.local/state/ignition/studio.log`), or `IGNITION_LOG_FILE`.
     let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         tracing_subscriber::EnvFilter::new(
             // `bevy_pbr::ssao` is silenced rather than the plugin
@@ -180,9 +191,13 @@ fn main() -> anyhow::Result<()> {
                 Err(_) => filter,
             });
     let log_path = log_file_path();
-    let log_file = std::fs::create_dir_all(log_path.parent().unwrap_or(std::path::Path::new(".")))
-        .and_then(|_| std::fs::File::create(&log_path))
-        .ok();
+    let log_file = std::fs::create_dir_all(
+        log_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new(".")),
+    )
+    .and_then(|()| std::fs::File::create(&log_path))
+    .ok();
     {
         use tracing_subscriber::layer::SubscriberExt as _;
         use tracing_subscriber::util::SubscriberInitExt as _;
@@ -209,42 +224,17 @@ fn main() -> anyhow::Result<()> {
         tracing::error!(%info, thread = ?std::thread::current().name(), "studio: panic");
         default_hook(info);
     }));
+}
 
-    // The DAW backend's service layer spawns tasks through architect,
-    // which panics rather than erroring if no runtime is current — see
-    // `SongTransport::open`. The guard has to outlive the transport, not
-    // just the call that opens it, and the transport is built during the
-    // first render of the viewport, so it is held here across `launch`
-    // for the lifetime of the app. `playsong` does the same thing, and
-    // that it plays audio while the studio did not was the difference.
-    let runtime = tokio::runtime::Runtime::new()?;
-    let _guard = runtime.enter();
-
-    let (tx, rx) = command::channel();
-    // Hardware and the room, on their own threads, speaking the same
-    // messages the UI does. Each is optional at build time and at run
-    // time: a missing port or device logs and the surface carries on.
-    remote::start(tx.clone());
-    sound::start(tx.clone());
-    // Every component's `send`, in every window, is this sender.
-    {
-        let tx = tx.clone();
-        ignition_live_ui::install(move |command| {
-            let _ = tx.send(command);
-        });
-    }
-    *RX.lock().expect("fresh mutex") = Some(rx);
-
-    let (state_tx, state_rx) = command::state_channel();
-    *STATE_TX.lock().expect("fresh mutex") = Some(state_tx);
-    // The return path to the hardware: fader positions, key states and
-    // the page, back to whatever surface asked for them.
-    remote::start_feedback(state_rx.clone());
-    let _ = STATE_RX.set(state_rx.clone());
-
-    let venue = Venue::load(venue_dir())?;
-    let surface = Surface {
-        groups: busking_groups(&venue),
+/// The busking surface a venue resolves to: its groups, palette swatches
+/// and focus pool, plus the cue names off the show file. Split out of
+/// `main` — building it is most of what pushed `main` over
+/// `too_many_lines`, and it does not touch anything `main` sets up
+/// around it (no channel, no window), so it reads and returns cleanly on
+/// its own.
+fn build_surface(venue: &Venue) -> Surface {
+    Surface {
+        groups: busking_groups(venue),
         colors: venue
             .palettes
             .colors
@@ -271,29 +261,39 @@ fn main() -> anyhow::Result<()> {
                 let stops: Vec<String> = colors.iter().map(rgb).collect();
                 // Spread is a gradient; cycle and block are hard bands,
                 // which is also how they land on the rig.
-                let css = match distribute {
-                    ignition_core::Distribute::Spread => {
-                        format!("linear-gradient(90deg, {})", stops.join(", "))
-                    }
-                    _ => {
-                        let n = stops.len().max(1);
-                        let bands: Vec<String> = stops
-                            .iter()
-                            .enumerate()
-                            .map(|(i, c)| format!("{c} {}% {}%", i * 100 / n, (i + 1) * 100 / n))
-                            .collect();
-                        format!("linear-gradient(90deg, {})", bands.join(", "))
-                    }
+                let css = if distribute == ignition_core::Distribute::Spread {
+                    format!("linear-gradient(90deg, {})", stops.join(", "))
+                } else {
+                    let n = stops.len().max(1);
+                    let bands: Vec<String> = stops
+                        .iter()
+                        .enumerate()
+                        .map(|(i, c)| {
+                            // `n` is `stops.len().max(1)`, never zero, so
+                            // the fallback below never actually fires —
+                            // `checked_div` only exists to give the
+                            // division something other than a bare `/`
+                            // for `arithmetic_side_effects` to examine.
+                            format!(
+                                "{c} {}% {}%",
+                                i.saturating_mul(100).checked_div(n).unwrap_or(0),
+                                i.saturating_add(1)
+                                    .saturating_mul(100)
+                                    .checked_div(n)
+                                    .unwrap_or(0)
+                            )
+                        })
+                        .collect();
+                    format!("linear-gradient(90deg, {})", bands.join(", "))
                 };
                 // A palette is light when its colours average light —
                 // Ice reads as light, Hot/Deep does not, and the name
                 // written across it has to follow.
-                let light = colors
+                let light_count = colors
                     .iter()
-                    .map(|c| ColorChip::is_light(c.red, c.green, c.blue) as u32)
-                    .sum::<u32>() as usize
-                    * 2
-                    > colors.len();
+                    .map(|c| u32::from(ColorChip::is_light(c.red, c.green, c.blue)))
+                    .sum::<u32>();
+                let light = num::usize_of_u32(light_count).saturating_mul(2) > colors.len();
                 Some(ColorChip {
                     name: split.name.clone(),
                     css,
@@ -313,13 +313,59 @@ fn main() -> anyhow::Result<()> {
             .map(|f| f.name.clone())
             .collect(),
         cues: load_cue_names(&show_path()).unwrap_or_default(),
-    };
+    }
+}
+
+fn main() -> anyhow::Result<()> {
+    init_logging();
+
+    // The DAW backend's service layer spawns tasks through architect,
+    // which panics rather than erroring if no runtime is current — see
+    // `SongTransport::open`. The guard has to outlive the transport, not
+    // just the call that opens it, and the transport is built during the
+    // first render of the viewport, so it is held here across `launch`
+    // for the lifetime of the app. `playsong` does the same thing, and
+    // that it plays audio while the studio did not was the difference.
+    let runtime = tokio::runtime::Runtime::new()?;
+    let _guard = runtime.enter();
+
+    let (tx, rx) = command::channel();
+    // Hardware and the room, on their own threads, speaking the same
+    // messages the UI does. Each is optional at build time and at run
+    // time: a missing port or device logs and the surface carries on.
+    remote::start(tx.clone());
+    sound::start(tx.clone());
+    // Every component's `send`, in every window, is this sender.
+    {
+        let tx = tx.clone();
+        ignition_live_ui::install(move |command| {
+            let _ = tx.send(command);
+        });
+    }
+    // Only `main` (here) and the `Viewport` hook that takes them back out
+    // ever touch this lock, and the hook runs once, after this line —
+    // there is no second writer to contend with, so a poisoned lock here
+    // could only mean a prior panic on this same uncontended mutex, not
+    // a runtime condition to recover from.
+    *RX.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(rx);
+
+    let (state_tx, state_rx) = command::state_channel();
+    *STATE_TX
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(state_tx);
+    // The return path to the hardware: fader positions, key states and
+    // the page, back to whatever surface asked for them.
+    remote::start_feedback(state_rx.clone());
+    let _ = STATE_RX.set(state_rx.clone());
+
+    let venue = Venue::load(venue_dir())?;
+    let surface = build_surface(&venue);
 
     // The same surface, to an iPad — opt-in, see `live_web`. Started
     // here rather than in a component because it needs the sender and
     // the watch, not a window.
     // r[impl studio.touch.ipad] - the studio serves the Live view
-    let lan = live_web::start(tx.clone(), state_rx.clone(), surface.clone());
+    let lan = live_web::start(tx, state_rx, surface.clone());
     let _ = LAN.set(lan);
 
     // Blitz creates the wgpu device, so anything Bevy needs has to be
@@ -438,7 +484,7 @@ fn pick_monitor(
     }
     // A monitor with no reported position sorts as if it were at the
     // far left, so "right" never accidentally picks an unknown one.
-    let x_of = |m: &MonitorHandle| m.position().map(|p| p.x).unwrap_or(i32::MIN);
+    let x_of = |m: &MonitorHandle| m.position().map_or(i32::MIN, |p| p.x);
     match want {
         "right" => monitors.iter().max_by_key(|m| x_of(m)).cloned(),
         "left" => monitors.iter().min_by_key(|m| x_of(m)).cloned(),
@@ -450,9 +496,9 @@ fn pick_monitor(
 fn rgb(c: &ignition_core::preset::ColorPreset) -> String {
     format!(
         "rgb({} {} {})",
-        (c.red * 255.0) as u8,
-        (c.green * 255.0) as u8,
-        (c.blue * 255.0) as u8
+        num::byte_of_f32(c.red * 255.0),
+        num::byte_of_f32(c.green * 255.0),
+        num::byte_of_f32(c.blue * 255.0)
     )
 }
 
@@ -478,7 +524,7 @@ fn busking_groups(venue: &Venue) -> Vec<String> {
     WANTED
         .iter()
         .filter(|w| have.iter().any(|h| h == *w))
-        .map(|w| w.to_string())
+        .map(std::string::ToString::to_string)
         .collect()
 }
 
@@ -488,6 +534,14 @@ fn busking_groups(venue: &Venue) -> Vec<String> {
 /// be handed across that boundary except through the process.
 static SURFACE: std::sync::OnceLock<Surface> = std::sync::OnceLock::new();
 
+/// # Panics
+///
+/// Never in practice: `app` sets `SURFACE` before rendering the first
+/// panel, and every caller of this function runs from inside a panel.
+#[expect(
+    clippy::expect_used,
+    reason = "SURFACE is set by app() before any panel renders; see the doc comment"
+)]
 fn surface() -> &'static Surface {
     SURFACE
         .get()
@@ -574,8 +628,12 @@ fn app(surface: Surface) -> Element {
     // remaining windows are asked for now — they open on the next turn
     // of the event loop, each with its own root.
     use_hook(|| {
-        let layout = match layout::selected_operator() {
-            Some(name) => match layout::load(&name) {
+        let layout = layout::selected_operator().map_or_else(
+            || {
+                windows::LEGACY_PLACEMENT.store(1, std::sync::atomic::Ordering::SeqCst);
+                layout::Layout::default_single_window()
+            },
+            |name| match layout::load(&name) {
                 Ok(layout) => {
                     tracing::info!(
                         operator = name,
@@ -590,11 +648,7 @@ fn app(surface: Surface) -> Element {
                     layout::Layout::default_single_window()
                 }
             },
-            None => {
-                windows::LEGACY_PLACEMENT.store(1, std::sync::atomic::Ordering::SeqCst);
-                layout::Layout::default_single_window()
-            }
-        };
+        );
         let host = windows::Host::from_layout(&layout);
         let others: Vec<windows::HostId> = host.ids().into_iter().skip(1).collect();
         windows::install(host);
@@ -610,7 +664,7 @@ fn app(surface: Surface) -> Element {
 
 /// mm:ss, for the transport readout.
 fn clock(secs: f32) -> String {
-    let secs = secs.max(0.0) as u32;
+    let secs = num::u32_of_f32(secs);
     format!("{}:{:02}", secs / 60, secs % 60)
 }
 
@@ -634,7 +688,7 @@ fn Transport() -> Element {
     let mut body_glow = use_signal(body_glow_default);
     let seek = move |event: Event<MouseData>| {
         let x = event.data().element_coordinates().x;
-        send(Command::Scrub((x / TRACK_WIDTH) as f32));
+        send(Command::Scrub(num::f32_of_f64(x / TRACK_WIDTH)));
     };
     // A transport key is a `Key` with no fader under it: the engine
     // hands the request on to the song playback.
@@ -643,7 +697,7 @@ fn Transport() -> Element {
             index,
             action,
             down: true,
-        })
+        });
     };
 
     rsx! {
@@ -685,7 +739,7 @@ fn Transport() -> Element {
                     class: "t-key",
                     onclick: move |_| {
                         let next = playhead().cue.map_or(0, |c| c + 1);
-                        key(ignition_core::KeyAction::Load, next)
+                        key(ignition_core::KeyAction::Load, next);
                     },
                     "LOAD ▸"
                 }
@@ -750,7 +804,7 @@ fn Transport() -> Element {
 /// or the bind failed — whatever the switch says, since a lit key over a
 /// dead socket is the lie the spec forbids.
 // r[impl dmx.output-toggle] - errored beats enabled on the key
-fn output_class(output: &ignition_viz::OutputSummary) -> &'static str {
+const fn output_class(output: &ignition_viz::OutputSummary) -> &'static str {
     if output.error.is_some() {
         "t-key output err"
     } else if output.enabled {
@@ -856,12 +910,9 @@ fn Busking(surface: Surface) -> Element {
                                  bg-pad border border-line-pad text-ink-soft \
                                  hover:bg-pad-hover hover:border-line-bright"
                             },
-                            onclick: {
-                                let name = name.clone();
-                                move |_| {
-                                    selected.set(Some(name.clone()));
-                                    send(Command::Select(Selection::Group(name.clone())));
-                                }
+                            onclick: move |_| {
+                                selected.set(Some(name.clone()));
+                                send(Command::Select(Selection::Group(name.clone())));
                             },
                             "{name}"
                         }
@@ -909,10 +960,7 @@ fn Busking(surface: Surface) -> Element {
                         button {
                             key: "{name}",
                             class: "pad",
-                            onclick: {
-                                let name = name.clone();
-                                move |_| send(Command::Focus(name.clone()))
-                            },
+                            onclick: move |_| send(Command::Focus(name.clone())),
                             "{name}"
                         }
                     }
@@ -929,7 +977,7 @@ fn Busking(surface: Surface) -> Element {
                             button {
                                 key: "{pct}",
                                 class: "preset",
-                                onclick: move |_| send(Command::Dimmer(pct as f32 / 100.0)),
+                                onclick: move |_| send(Command::Dimmer(num::f32_of_u32(pct) / 100.0)),
                                 "{pct}"
                             }
                         }
@@ -1058,16 +1106,24 @@ fn Busking(surface: Surface) -> Element {
                         {
                             // Labelled from the page the desk says it is
                             // on, not the one last clicked: a MIDI page
-                            // key turns the strip too.
-                            let page = pages.get(desk().page).unwrap_or(&pages[0]);
-                            let spec = &page[i];
-                            let latched = desk().latched[i];
-                            let toggled = desk().toggled[i];
+                            // key turns the strip too. `pages` and the
+                            // desk's per-fader arrays are all sized to
+                            // `FADERS` in practice, but this is a page
+                            // read off a MIDI message and an index off a
+                            // loop counter, not proven equal at compile
+                            // time — an empty slot renders nothing rather
+                            // than taking the desk down.
+                            let desk = desk();
+                            if let Some(page) = pages.get(desk.page).or_else(|| pages.first())
+                                && let Some(spec) = page.get(i)
+                                && let Some(latched) = desk.latched.get(i).copied()
+                                && let Some(toggled) = desk.toggled.get(i).copied()
+                            {
                             let params = spec.params.clone();
                             rsx! {
                                 div { class: "fader-slot", key: "{i}",
                                     Fader {
-                                        label: spec.name.to_string(),
+                                        label: spec.name.clone(),
                                         css: spec.css.to_string(),
                                         initial: 0.0,
                                         latched,
@@ -1094,7 +1150,7 @@ fn Busking(surface: Surface) -> Element {
                                                         on_change: move |v: f32| send(Command::Param {
                                                             index: i,
                                                             name: name.clone(),
-                                                            value: min + v * span,
+                                                            value: v.mul_add(span, min),
                                                         }),
                                                     }
                                                 }
@@ -1112,6 +1168,9 @@ fn Busking(surface: Surface) -> Element {
                                         "●"
                                     }
                                 }
+                            }
+                            } else {
+                                rsx! {}
                             }
                         }
                     }
@@ -1131,7 +1190,7 @@ fn Busking(surface: Surface) -> Element {
                                         key: "{key.label}",
                                         class: "flash",
                                         onpointerdown: move |_| {
-                                            send(Command::Flash(target.clone(), kind))
+                                            send(Command::Flash(target.clone(), kind));
                                         },
                                         "{key.label}"
                                     }
@@ -1144,7 +1203,7 @@ fn Busking(surface: Surface) -> Element {
                                             // `KeyAction::Hold` is boxed and so is
                                             // `Command::Hold` — the clone moves straight
                                             // across with no second allocation.
-                                            send(Command::Hold(Some(recipe.clone())))
+                                            send(Command::Hold(Some(recipe.clone())));
                                         },
                                         onpointerup: move |_| send(Command::Hold(None)),
                                         onpointerleave: move |_| send(Command::Hold(None)),
@@ -1213,7 +1272,7 @@ fn Busking(surface: Surface) -> Element {
                             css: "#c8a050".to_string(),
                             initial: 1.0,
                             on_change: move |v: f32| {
-                                send(Command::PlaybackMaster(ignition_core::Class::Song, v))
+                                send(Command::PlaybackMaster(ignition_core::Class::Song, v));
                             },
                         }
                         Fader {
@@ -1221,7 +1280,7 @@ fn Busking(surface: Surface) -> Element {
                             css: "#a0c850".to_string(),
                             initial: 1.0,
                             on_change: move |v: f32| {
-                                send(Command::PlaybackMaster(ignition_core::Class::Look, v))
+                                send(Command::PlaybackMaster(ignition_core::Class::Look, v));
                             },
                         }
                         for role in ["Key", "Wash", "Movers", "Bars"] {
@@ -1231,7 +1290,7 @@ fn Busking(surface: Surface) -> Element {
                                 css: "#7a6f96".to_string(),
                                 initial: 1.0,
                                 on_change: move |v: f32| {
-                                    send(Command::Master(role.to_string(), v))
+                                    send(Command::Master(role.to_string(), v));
                                 },
                             }
                         }
@@ -1246,7 +1305,7 @@ fn Busking(surface: Surface) -> Element {
                                 css: "#c08a3e".to_string(),
                                 initial: 0.4,
                                 // 40–220 BPM over the fader's travel.
-                                on_change: move |v: f32| send(Command::Rate(40.0 + v * 180.0)),
+                                on_change: move |v: f32| send(Command::Rate(v.mul_add(180.0, 40.0))),
                             }
                             // The speed keys on the `Tap` master. TAP
                             // learns — averaged, so one early tap does
@@ -1296,7 +1355,7 @@ fn Busking(surface: Surface) -> Element {
                             label: "SPEED".to_string(),
                             css: "#8fb06e".to_string(),
                             initial: 0.5,
-                            on_change: move |v: f32| send(Command::EffectRate(0.5 + v * 1.5)),
+                            on_change: move |v: f32| send(Command::EffectRate(v.mul_add(1.5, 0.5))),
                         }
                         // Program time: how long every punch takes to
                         // arrive, 0–4 beats. At the bottom a palette
@@ -1358,7 +1417,7 @@ fn Fader(
     // on, which is why the track owns the events rather than the whole
     // fader — no measuring, no layout query.
     let mut set_from = move |y: f64| {
-        let v = (1.0 - (y as f32 / TRACK)).clamp(0.0, 1.0);
+        let v = (1.0 - (num::f32_of_f64(y) / TRACK)).clamp(0.0, 1.0);
         level.set(v);
         on_change.call(v);
     };
@@ -1392,7 +1451,7 @@ fn Fader(
                 }
             }
             span { class: "fader-label", "{label}" }
-            span { class: "fader-value", "{(level() * 100.0) as u32}" }
+            span { class: "fader-value", "{num::u32_of_f32(level() * 100.0)}" }
         }
     }
 }
@@ -1400,8 +1459,19 @@ fn Fader(
 #[component]
 fn Viewport() -> Element {
     let widget_attr = use_hook(|| {
+        // `main` already loaded this same venue directory once, to build
+        // the `Surface`, so this normally cannot fail. It is still not
+        // an `expect`: the Setup view writes venue files, and a read
+        // that lands mid-write is a file that will be readable again a
+        // millisecond later, not a reason to take the desk down. An
+        // empty venue draws an empty room and says so in the log, which
+        // is recoverable; a panic here is not.
+        let venue = Venue::load(venue_dir()).unwrap_or_else(|error| {
+            tracing::error!(%error, "the venue would not load for the viewport; the room will be empty");
+            Venue::default()
+        });
         let config = VizConfig {
-            venue: Venue::load(venue_dir()).expect("venue already loaded once in main"),
+            venue,
             view: ViewPreset::House,
             width: 1280,
             height: 800,
@@ -1467,14 +1537,13 @@ fn Viewport() -> Element {
             // The back wall shows a band of its clip; sit it a little
             // below centre so the runner's face is in it.
             // `IGNITION_CANVAS_MAIN_FOCUS=0.7` slides it further.
-            canvas_focus: [(
+            canvas_focus: std::iter::once((
                 "main".to_string(),
                 std::env::var("IGNITION_CANVAS_MAIN_FOCUS")
                     .ok()
                     .and_then(|v| v.trim().parse().ok())
                     .unwrap_or(0.56),
-            )]
-            .into_iter()
+            ))
             .collect(),
             assets_dir: concat!(
                 env!("CARGO_MANIFEST_DIR"),
@@ -1493,7 +1562,7 @@ fn Viewport() -> Element {
             camera: None,
             // Loaded with the venue when the widget activates — see
             // `viz_widget::VizCore::activate`.
-            cameras: Default::default(),
+            cameras: ignition_viz::camera::Cameras::default(),
             camera_preset: None,
             overlay: false,
             // On, because the visualizer is the thing that has to hold
@@ -1520,14 +1589,26 @@ fn Viewport() -> Element {
         // the one that exists, so the receiver is taken only the first
         // time.
         CustomWidgetAttr::new(VizWidget::attach(|| {
+            // Same uncontended, single-writer-then-single-reader mutex as
+            // `RX`'s and `STATE_TX`'s locks in `main`; `attach` runs this
+            // closure at most once (see the comment above), so there is
+            // exactly one reader here to line up with `main`'s one write.
+            #[expect(
+                clippy::expect_used,
+                reason = "there is exactly one visualizer core, and it is built here; see the comment above"
+            )]
             let rx = RX
                 .lock()
-                .expect("fresh mutex")
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .take()
                 .expect("one visualizer core");
+            #[expect(
+                clippy::expect_used,
+                reason = "there is exactly one visualizer core, and it is built here; see the comment above `rx`"
+            )]
             let report = STATE_TX
                 .lock()
-                .expect("fresh mutex")
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .take()
                 .expect("one visualizer core");
             viz_widget::VizCore::new(config, Some((show_path(), 0)), Some(PROJECT), rx, report)

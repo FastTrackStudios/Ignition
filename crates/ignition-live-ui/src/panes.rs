@@ -1,7 +1,9 @@
 //! Pane contents for the studio's dock: one pane per kind of thing the
-//! profile offers, each a search field over what it lists, favourites
-//! first — plus the fader row sized to the console's bottom band, and
-//! the venue's desk banks.
+//! profile offers.
+//!
+//! Each a search field over what it lists, favourites first — plus the
+//! fader row sized to the console's bottom band, and the venue's desk
+//! banks.
 //!
 //! Groups, colours, splits and focus points are square grids of tiles
 //! (a colour tile is the colour); looks are a list with a rendered
@@ -56,8 +58,9 @@ const CARDS_VIEWPORT: f64 = 1200.0;
 const FRAME_MS: u64 = 80;
 const IDLE_MS: u64 = 400;
 
-/// The fader track height inside the Faders pane, in CSS pixels — the
-/// console's bottom band is a quarter of a 1440-high window, and the
+/// The fader track height inside the Faders pane, in CSS pixels.
+///
+/// The console's bottom band is a quarter of a 1440-high window, and the
 /// Live view's 220px track does not fit it with the key and the page
 /// tabs. Kept in step with `console_fits_a_1440p_monitor`.
 pub const PANE_TRACK: f32 = 120.0;
@@ -67,6 +70,7 @@ pub const PREVIEW_DIR: &str = "data/looks/previews";
 
 /// The names the playhead's selection description is made of. The
 /// engine describes a union as `a + b`, a role as `role X`.
+#[must_use]
 pub fn selected_names(description: &str) -> Vec<String> {
     description
         .split(" + ")
@@ -77,6 +81,7 @@ pub fn selected_names(description: &str) -> Vec<String> {
 }
 
 /// Whether `name` is in the selection the playhead describes.
+#[must_use]
 pub fn is_selected(description: &str, name: &str) -> bool {
     selected_names(description)
         .iter()
@@ -87,6 +92,12 @@ pub fn is_selected(description: &str, name: &str) -> bool {
 /// — the current selection plus it (or minus it, when it is already
 /// there). A described entry that reads `role X` goes back as a role.
 // r[impl studio.program.pick-and-gizmos] - shift adds; the one Select command
+///
+/// # Panics
+///
+/// Never: the one-element branch below only runs when `parts.len() ==
+/// 1`, so the `pop` it does always finds something.
+#[must_use]
 pub fn pick(description: &str, name: &str, shift: bool) -> Selection {
     if !shift {
         return Selection::Group(name.to_string());
@@ -99,14 +110,16 @@ pub fn pick(description: &str, name: &str, shift: bool) -> Selection {
     }
     let mut parts: Vec<Selection> = names
         .into_iter()
-        .map(|n| match n.strip_prefix("role ") {
-            Some(role) => Selection::Role(role.to_string()),
-            None => Selection::Group(n),
+        .map(|n| {
+            let role = n.strip_prefix("role ").map(str::to_string);
+            role.map_or_else(|| Selection::Group(n), Selection::Role)
         })
         .collect();
     match parts.len() {
         0 => Selection::Group(name.to_string()),
-        1 => parts.pop().expect("one"),
+        1 => parts
+            .pop()
+            .unwrap_or_else(|| Selection::Group(name.to_string())),
         _ => Selection::Union(parts),
     }
 }
@@ -129,7 +142,7 @@ fn tiles_of(tab: Tab, surface: &Surface, query: &str) -> Vec<Entry> {
 #[component]
 pub fn KindPane(tab: Tab, surface: Surface) -> Element {
     match tab {
-        Tab::Kind(Kind::Group) | Tab::Kind(Kind::Colour) | Tab::Kind(Kind::Focus) | Tab::Splits => {
+        Tab::Kind(Kind::Group | Kind::Colour | Kind::Focus) | Tab::Splits => {
             rsx! { SquaresPane { tab, surface } }
         }
         Tab::Kind(Kind::Look) => rsx! { LooksPane { surface } },
@@ -184,7 +197,7 @@ pub fn SquaresPane(tab: Tab, surface: Surface) -> Element {
     let playhead = use_playhead();
     let tiles = tiles_of(tab, &surface, &query());
     let is_groups = tab == Tab::Kind(Kind::Group);
-    let selection = playhead().selection.clone().unwrap_or_default();
+    let selection = playhead().selection.unwrap_or_default();
     let note = if is_groups {
         if selection.is_empty() {
             "nothing selected".to_string()
@@ -404,11 +417,12 @@ impl EffectKinds {
     /// "one-shot". An effect with no note at all lands in `Rig` rather
     /// than nowhere.
     /// The pane's class, which is what pins its column count.
-    pub fn css(self) -> &'static str {
+    #[must_use]
+    pub const fn css(self) -> &'static str {
         match self {
-            EffectKinds::Rig => "pane-effects",
-            EffectKinds::Movement => "pane-movers",
-            EffectKinds::Macros => "pane-macros",
+            Self::Rig => "pane-effects",
+            Self::Movement => "pane-movers",
+            Self::Macros => "pane-macros",
         }
     }
 
@@ -416,38 +430,39 @@ impl EffectKinds {
     /// class above, and it has to agree with `live.css`'s `flex-basis`
     /// for the same selector or a row lands at the wrong depth.
     // r[impl studio.views.whole-profile] - the band follows the pane's own width
-    pub fn columns(self) -> usize {
+    #[must_use]
+    pub const fn columns(self) -> usize {
         match self {
             // `.pane-effects .card { flex: 0 1 calc(50% - 6px) }`
-            EffectKinds::Rig => 2,
+            Self::Rig => 2,
             // `.pane-movers` and `.pane-macros` are `calc(100% - 6px)`.
-            EffectKinds::Movement | EffectKinds::Macros => 1,
+            Self::Movement | Self::Macros => 1,
         }
     }
 
     /// Which catalogue the pane lists.
-    fn tab(self) -> Tab {
+    const fn tab(self) -> Tab {
         match self {
-            EffectKinds::Macros => Tab::Kind(Kind::Macro),
-            _ => Tab::Kind(Kind::Effect),
+            Self::Macros => Tab::Kind(Kind::Macro),
+            Self::Rig | Self::Movement => Tab::Kind(Kind::Effect),
         }
     }
 
     /// Where its loops were rendered.
-    fn preview_dir(self) -> &'static str {
+    const fn preview_dir(self) -> &'static str {
         match self {
-            EffectKinds::Macros => crate::library::MACRO_PREVIEW_DIR,
-            _ => crate::library::EFFECT_PREVIEW_DIR,
+            Self::Macros => crate::library::MACRO_PREVIEW_DIR,
+            Self::Rig | Self::Movement => crate::library::EFFECT_PREVIEW_DIR,
         }
     }
 
     fn wants(self, family: &str) -> bool {
         let moves = family == "movement";
         match self {
-            EffectKinds::Rig => !moves,
-            EffectKinds::Movement => moves,
+            Self::Rig => !moves,
+            Self::Movement => moves,
             // A macro pane lists macros; there is nothing to filter.
-            EffectKinds::Macros => true,
+            Self::Macros => true,
         }
     }
 }
@@ -481,7 +496,8 @@ fn EffectRow(
     // it change.
     let visible = use_memo(move || {
         let top = scrolled();
-        let row = (index / columns.max(1)) as f64 * CARD_ROW;
+        let row =
+            crate::numeric::small_f64(index.checked_div(columns.max(1)).unwrap_or(0)) * CARD_ROW;
         row + CARD_ROW > top - CARD_ROW && row < top + CARDS_VIEWPORT
     });
     // The frames are loaded when the row comes into view and dropped
@@ -512,19 +528,16 @@ fn EffectRow(
     // and thirty-one rows of sixteen frames was a hundred and seventy
     // megabytes built before a single card had animated. Held to what
     // is on screen it is a screenful at a time.
-    {
-        let name = name.clone();
-        use_effect(move || {
-            let here = visible();
-            let loaded = !frames.read().is_empty();
-            if here && !loaded {
-                frames.set(crate::library::frames_in(dir, &name));
-            } else if !here && loaded {
-                frames.set(Vec::new());
-                frame.set(0);
-            }
-        });
-    }
+    use_effect(move || {
+        let here = visible();
+        let loaded = !frames.read().is_empty();
+        if here && !loaded {
+            frames.set(crate::library::frames_in(dir, &name));
+        } else if !here && loaded {
+            frames.set(Vec::new());
+            frame.set(0);
+        }
+    });
 
     // While hovered — or while the pane is playing them all — step the
     // loop. Nothing ticks over a cold row: a row that is not turning
@@ -540,7 +553,7 @@ fn EffectRow(
                 // is on screen by definition, and the arithmetic above
                 // is an estimate rather than a fact.
                 if turning && count > 1 {
-                    frame.set((frame() + 1) % count);
+                    frame.set(frame().wrapping_add(1).checked_rem(count).unwrap_or(0));
                 } else if frame() != 0 {
                     frame.set(0);
                 }
@@ -569,10 +582,10 @@ fn EffectRow(
             onmouseenter: move |_| hovered.set(true),
             onmouseleave: move |_| hovered.set(false),
             onpointerdown: move |_| crate::library::tap(&tap_entry, &playhead()),
-            match shown {
-                Some(uri) => rsx! { img { class: "card-thumb", src: "{uri}" } },
-                None => rsx! { span { class: "card-thumb empty", "no preview" } },
-            }
+            {shown.map_or_else(
+                || rsx! { span { class: "card-thumb empty", "no preview" } },
+                |uri| rsx! { img { class: "card-thumb", src: "{uri}" } },
+            )}
             div { class: "card-marks",
                 if !family.is_empty() {
                     span { class: "card-badge fx", "{family}" }
@@ -628,10 +641,10 @@ fn LookRow(entry: Entry) -> Element {
             class: "{class}",
             title: "{entry.about}",
             onpointerdown: move |_| crate::library::tap(&tap_entry, &playhead()),
-            match &preview {
-                Some(uri) => rsx! { img { class: "card-thumb", src: "{uri}" } },
-                None => rsx! { span { class: "card-thumb empty", "no preview" } },
-            }
+            {preview.as_ref().map_or_else(
+                || rsx! { span { class: "card-thumb empty", "no preview" } },
+                |uri| rsx! { img { class: "card-thumb", src: "{uri}" } },
+            )}
             div { class: "card-marks",
                 span { class: "card-badge", style: "border-color: {kind_css}; color: {kind_css}", "{kind}" }
                 for (glyph, means) in entry.marks.iter() {
@@ -661,6 +674,7 @@ fn look_kind_css(kind: &str) -> &'static str {
 /// with `ignition_viz::preview::slug`, the same file-name contract the
 /// effect previews use.
 // r[impl studio.views.whole-profile] - a preview's name is a slug
+#[must_use]
 pub fn preview_path(name: &str) -> std::path::PathBuf {
     std::path::Path::new(PREVIEW_DIR).join(format!("{}.png", crate::library::slug(name)))
 }
@@ -668,6 +682,7 @@ pub fn preview_path(name: &str) -> std::path::PathBuf {
 /// The look's preview as a `file:` URL, if it has been rendered.
 /// Checked at run time so a re-render shows without a rebuild; a
 /// browser has no disk and gets `None`.
+#[must_use]
 pub fn preview_data_uri(name: &str) -> Option<String> {
     file_uri(&preview_path(name))
 }
@@ -690,6 +705,7 @@ pub fn preview_data_uri(name: &str) -> Option<String> {
 /// `None` when the file is not there, which is the same answer as "no
 /// preview" and needs no special case — including on wasm, where there
 /// is no disk to look at.
+#[must_use]
 pub fn file_uri(path: &std::path::Path) -> Option<String> {
     let absolute = std::fs::canonicalize(path).ok()?;
     let mut out = String::from("file://");
@@ -708,35 +724,54 @@ pub fn file_uri(path: &std::path::Path) -> Option<String> {
     for byte in absolute.to_str()?.bytes() {
         match byte {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
-                out.push(byte as char)
+                out.push(char::from(byte));
             }
-            _ => out.push_str(&format!("%{byte:02X}")),
+            _ => {
+                use std::fmt::Write as _;
+                let _ = write!(out, "%{byte:02X}");
+            }
         }
     }
     Some(out)
 }
 
+/// One base64 digit: the low six bits of `n >> shift`, looked up in the
+/// standard alphabet.
+///
+/// The mask makes the index always `0..64`, well within `TABLE`'s
+/// length, but the compiler cannot see that through a shift and a mask
+/// — `'A'` is as good a fallback as any for a path that never runs.
+#[expect(
+    clippy::as_conversions,
+    reason = "u32 -> usize is widening on every target this builds for; see the doc comment"
+)]
+fn base64_digit(table: &[u8; 64], n: u32, shift: u32) -> char {
+    let index = ((n >> shift) & 0x3f) as usize;
+    char::from(*table.get(index).unwrap_or(&b'A'))
+}
+
 /// Standard base64, unpadded input, padded output. Tiny, so the UI
 /// crate does not take a dependency for one thumbnail.
+#[must_use]
 pub fn base64(bytes: &[u8]) -> String {
     const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    let mut out = String::with_capacity(bytes.len().div_ceil(3).saturating_mul(4));
     for chunk in bytes.chunks(3) {
         let b = [
-            chunk[0],
+            *chunk.first().unwrap_or(&0),
             *chunk.get(1).unwrap_or(&0),
             *chunk.get(2).unwrap_or(&0),
         ];
         let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
-        out.push(TABLE[(n >> 18) as usize & 63] as char);
-        out.push(TABLE[(n >> 12) as usize & 63] as char);
+        out.push(base64_digit(TABLE, n, 18));
+        out.push(base64_digit(TABLE, n, 12));
         out.push(if chunk.len() > 1 {
-            TABLE[(n >> 6) as usize & 63] as char
+            base64_digit(TABLE, n, 6)
         } else {
             '='
         });
         out.push(if chunk.len() > 2 {
-            TABLE[n as usize & 63] as char
+            base64_digit(TABLE, n, 0)
         } else {
             '='
         });
@@ -785,8 +820,9 @@ mod tests {
         // this band was written for.
         let columns = EffectKinds::Rig.columns();
         let band = |top: f64| {
-            let first_row = ((top / CARD_ROW) as usize).saturating_sub(1);
-            let last_row = ((top + CARDS_VIEWPORT) / CARD_ROW) as usize + 1;
+            let first_row = crate::numeric::floor_usize(top / CARD_ROW).saturating_sub(1);
+            let last_row =
+                crate::numeric::floor_usize((top + CARDS_VIEWPORT) / CARD_ROW).saturating_add(1);
             (first_row * columns, (last_row + 1) * columns)
         };
         // At the top: from the first card, and far short of 131.
@@ -883,7 +919,12 @@ mod tests {
 
             let uri = file_uri(&path).expect("the file is right there");
             assert!(uri.starts_with("file:///"), "{name}: {uri}");
-            assert!(uri.ends_with(".png"), "{name}: {uri}");
+            assert!(
+                std::path::Path::new(&uri)
+                    .extension()
+                    .is_some_and(|e| e.eq_ignore_ascii_case("png")),
+                "{name}: {uri}"
+            );
             assert!(
                 uri.len() < 1024,
                 "{name}: a {} byte src is an inlined image, not a reference",

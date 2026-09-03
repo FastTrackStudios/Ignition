@@ -49,6 +49,12 @@ use std::time::Duration;
 /// Everything the CLI can set. A plain struct, so `bin/viz.rs` stays
 /// argument parsing and nothing else.
 #[derive(Clone)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each bool is its own independent CLI flag (`--overlay`, `--fps`, `--labels`, …); \
+              they are read individually, not as a state machine, so collapsing them into \
+              two-variant enums would just rename the same flags without changing anything they do"
+)]
 pub struct VizConfig {
     pub venue: Venue,
     pub view: ViewPreset,
@@ -152,7 +158,7 @@ impl VizConfig {
             settle_frames: 20,
             show_props: true,
             camera: None,
-            cameras: Default::default(),
+            cameras: crate::camera::Cameras::default(),
             camera_preset: None,
             overlay: false,
             fps: false,
@@ -161,8 +167,8 @@ impl VizConfig {
             auto_exposure: true,
             grade: Grade::Neutral,
             screen_content: None,
-            canvas_content: Default::default(),
-            canvas_focus: Default::default(),
+            canvas_content: std::collections::HashMap::default(),
+            canvas_focus: std::collections::HashMap::default(),
             assets_dir: concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string(),
             output: false,
             loopback: false,
@@ -224,45 +230,54 @@ impl Preset {
     /// An unknown name is a warning and the default rather than an
     /// error: a typo in an environment variable should not stop a show
     /// from opening.
+    #[must_use]
     pub fn from_env() -> Self {
         let Ok(name) = std::env::var("IGNITION_QUALITY") else {
-            return Preset::default();
+            return Self::default();
         };
-        match Self::parse(&name) {
-            Some(preset) => preset,
-            None => {
+        Self::parse(&name).map_or_else(
+            || {
                 tracing::warn!(
                     name,
                     "viz: no such quality preset; using medium (potato, low, medium, high, ultra)"
                 );
-                Preset::default()
-            }
-        }
+                Self::default()
+            },
+            std::convert::identity,
+        )
     }
 
+    #[must_use]
     pub fn parse(name: &str) -> Option<Self> {
         match name.trim().to_ascii_lowercase().as_str() {
-            "potato" => Some(Preset::Potato),
-            "low" => Some(Preset::Low),
-            "medium" | "med" => Some(Preset::Medium),
-            "high" => Some(Preset::High),
-            "ultra" => Some(Preset::Ultra),
+            "potato" => Some(Self::Potato),
+            "low" => Some(Self::Low),
+            "medium" | "med" => Some(Self::Medium),
+            "high" => Some(Self::High),
+            "ultra" => Some(Self::Ultra),
             _ => None,
         }
     }
 
-    pub fn name(self) -> &'static str {
+    #[must_use]
+    pub const fn name(self) -> &'static str {
         match self {
-            Preset::Potato => "potato",
-            Preset::Low => "low",
-            Preset::Medium => "medium",
-            Preset::High => "high",
-            Preset::Ultra => "ultra",
+            Self::Potato => "potato",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+            Self::Ultra => "ultra",
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each bool gates one independent GPU feature (TAA, SSR, SSAO, deferred, DOF, …), \
+              set individually by a quality preset or its matching IGNITION_* override; they are \
+              not a state machine and pairing them into enums would not change what any of them do"
+)]
 pub struct RenderQuality {
     /// `VolumetricFog::step_count`.
     pub fog_steps: u32,
@@ -409,6 +424,7 @@ impl RenderQuality {
     /// stays too: the haze budget is already shared across cameras, so
     /// a preview's share shrinks without its quality being singled out.
     // r[impl viz.performance-budget] - a preview is not the viewport
+    #[must_use]
     pub const fn preview(self) -> Self {
         Self {
             ssr: false,
@@ -430,6 +446,7 @@ impl RenderQuality {
     /// therefore steps-only for the moment, and each one costs more
     /// than it did.
     // r[impl viz.quality-presets]
+    #[must_use]
     pub const fn preset(preset: Preset) -> Self {
         // Every tier below shares these: MSAA off (the deferred deck and
         // SSAO do not multisample), no depth of field (a blurred house
@@ -586,8 +603,7 @@ impl RenderQuality {
         let switch = |name: &str, fallback: bool| {
             std::env::var(name)
                 .ok()
-                .map(|v| v.trim() != "0")
-                .unwrap_or(fallback)
+                .map_or(fallback, |v| v.trim() != "0")
         };
         // r[impl viz.post-processing] - the live picture keeps what fits the budget
         let live = Self {
@@ -629,6 +645,7 @@ impl RenderQuality {
     /// and rings instead of a solid cone. Only a rig that actually cuts
     /// such a shaft pays for the finer march; a room of pars keeps the
     /// live count.
+    #[must_use]
     pub fn for_rig(self, venue: &Venue, gdtf: Option<&GdtfLibrary>) -> Self {
         // An explicit `IGNITION_FOG_STEPS` is the operator comparing
         // counts on their own GPU; the rig does not get to overrule it.
@@ -668,6 +685,7 @@ pub const STAGE_EV100: f32 = 6.1;
 /// The camera's exposure: `STAGE_EV100` less `ev_offset` stops, so a
 /// positive offset opens the camera up.
 // r[impl viz.exposure] - --exposure is stops on the stage EV
+#[must_use]
 pub fn stage_exposure(ev_offset: f32) -> bevy::camera::Exposure {
     bevy::camera::Exposure {
         ev100: STAGE_EV100 - ev_offset,
@@ -730,11 +748,28 @@ pub fn auto_exposure(
     }
 }
 
-/// The compensation curve behind `auto_exposure`: Bevy's target
-/// exposure is `compensation(average) - average`, so a line of slope
-/// one through the chorus level is "no change", and this bends it by
-/// `AUTO_EXPOSURE_GAIN` around that point, flat again once the
+/// The compensation curve behind `auto_exposure`.
+///
+/// Bevy's target exposure is `compensation(average) - average`, so a line
+/// of slope one through the chorus level is "no change", and this bends
+/// it by `AUTO_EXPOSURE_GAIN` around that point, flat again once the
 /// correction reaches `AUTO_EXPOSURE_RANGE_STOPS` either way.
+///
+/// # Panics
+///
+/// Never in practice: the five points built below are monotonic by
+/// construction (see the comment on the function itself).
+#[must_use]
+// The five x-values above are a fixed, strictly increasing constant
+// list, and `adaptation_stops` only ever bends the curve within
+// `AUTO_EXPOSURE_RANGE_STOPS` of that line — the five points this builds
+// are monotonic by construction, so `from_curve` cannot see a
+// non-monotonic line here. There is no venue/show data anywhere in this
+// path to hand a fallback a wrong answer instead.
+#[expect(
+    clippy::expect_used,
+    reason = "the five points above are monotonic by construction; see the comment above"
+)]
 pub fn adaptation_curve() -> AutoExposureCompensationCurve {
     let reach = AUTO_EXPOSURE_RANGE_STOPS / AUTO_EXPOSURE_GAIN;
     let points: Vec<Vec2> = [
@@ -755,6 +790,7 @@ pub fn adaptation_curve() -> AutoExposureCompensationCurve {
 /// metered average is `log_luminance`, in log2 scene luminance at the
 /// stage exposure.
 // r[impl viz.post-processing] - the adaptation, as a number
+#[must_use]
 pub fn adaptation_stops(log_luminance: f32) -> f32 {
     (-AUTO_EXPOSURE_GAIN * (log_luminance - CHORUS_LOG_LUMINANCE))
         .clamp(-AUTO_EXPOSURE_RANGE_STOPS, AUTO_EXPOSURE_RANGE_STOPS)
@@ -773,18 +809,22 @@ const AUTO_EXPOSURE_INSTANT_TRANSITION: f32 = 20.0;
 /// exponentially rather than moving at full speed.
 const AUTO_EXPOSURE_LIVE_TRANSITION: f32 = 0.5;
 
-/// How long an export runs the clock before its first frame so the
-/// exposure has adapted: the full range at the slower (brightening)
-/// speed is a second and a third to the transition distance, and the
-/// exponential tail inside it decays at `speed / transition` = 1.5/s,
-/// another 2.6 seconds to a hundredth of a stop; four seconds covers
-/// the worst case at any frame rate (the test walks them).
+/// How long an export runs the clock before its first frame so the exposure
+/// has adapted:
+///
+/// the full range at the slower (brightening) speed is a second and a third
+/// to the transition distance, and the exponential tail inside it decays at
+/// `speed / transition` = 1.5/s, another 2.6 seconds to a hundredth of a
+/// stop; four seconds covers the worst case at any frame rate (the test
+/// walks them).
 pub const AUTO_EXPOSURE_PREROLL_SECS: f32 = 4.0;
 
-/// One frame of Bevy's adaptation (`auto_exposure.wgsl`): the exposure
-/// moves toward `target` by `delta * speed * dt / transition`, capped at
-/// `speed * dt` — the same arithmetic, so the speeds can be checked for
-/// ringing without a GPU.
+/// One frame of Bevy's adaptation (`auto_exposure.wgsl`):
+///
+/// the exposure moves toward `target` by `delta * speed * dt / transition`,
+/// capped at `speed * dt` — the same arithmetic, so the speeds can be
+/// checked for ringing without a GPU.
+#[must_use]
 pub fn auto_exposure_step(
     exposure: f32,
     target: f32,
@@ -827,6 +867,7 @@ pub enum Grade {
 }
 
 impl Grade {
+    #[must_use]
     pub fn parse(name: &str) -> Option<Self> {
         Some(match name {
             "neutral" => Self::Neutral,
@@ -837,6 +878,7 @@ impl Grade {
         })
     }
 
+    #[must_use]
     pub fn color_grading(self) -> bevy::render::view::ColorGrading {
         use bevy::render::view::ColorGrading;
         let mut grading = ColorGrading::default();
@@ -890,10 +932,10 @@ impl CameraSpec {
     /// operator's own target for a free camera. What depth of field
     /// focuses on.
     pub fn focus_distance(&self) -> f32 {
-        let (eye, target) = match self.free {
-            Some(pair) => pair,
-            None => self.view.eye_target(self.min, self.max),
-        };
+        let (eye, target) = self.free.map_or_else(
+            || self.view.eye_target(self.min, self.max),
+            std::convert::identity,
+        );
         eye.distance(target).max(0.5)
     }
 }
@@ -909,6 +951,7 @@ pub const NARROW_BEAM_FOG_STEPS: u32 = 256;
 /// `base`, raised to `NARROW_BEAM_FOG_STEPS` when the rig's narrowest
 /// shaft-cutting beam is under `NARROW_BEAM_FULL_ANGLE_DEG`. Never
 /// lowered: a still's count is already above it.
+#[must_use]
 pub fn fog_steps_for(base: u32, narrowest_shaft_full_angle_deg: Option<f32>) -> u32 {
     match narrowest_shaft_full_angle_deg {
         Some(angle) if angle < NARROW_BEAM_FULL_ANGLE_DEG => base.max(NARROW_BEAM_FOG_STEPS),
@@ -938,13 +981,15 @@ pub fn narrowest_shaft_full_angle_deg(venue: &Venue, gdtf: Option<&GdtfLibrary>)
             let lumens = power_watts(manufacturer, model) * LUMENS_PER_WATT;
             (peak_candela(lumens, half) >= SHAFT_CANDELA_THRESHOLD).then_some(half * 2.0)
         })
-        .min_by(|a, b| a.total_cmp(b))
+        .min_by(f32::total_cmp)
 }
 
-/// The visualizer itself: resources, the venue spawn, and the per-frame
-/// live update. Deliberately free of any window or camera setup, so the
-/// windowed and headless paths can each supply their own render target
-/// and otherwise share everything.
+/// The visualizer itself: resources, the venue spawn, and the per-frame live
+/// update.
+///
+/// Deliberately free of any window or camera setup, so the windowed and
+/// headless paths can each supply their own render target and otherwise
+/// share everything.
 pub struct VizPlugin {
     pub config: VizConfig,
     pub dmx: DmxUniverses,
@@ -974,6 +1019,13 @@ pub fn bind_output(config: &VizConfig, dmx: &DmxUniverses) -> DmxOutput {
 }
 
 impl Plugin for VizPlugin {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one long `App` builder chain wiring resources, plugins and systems in the \
+                  order Bevy needs them registered; splitting it into helper functions would \
+                  either hide that ordering behind indirection or just move the line count \
+                  around without shortening any single decision — see docs/ops/clippy.md"
+    )]
     fn build(&self, app: &mut App) {
         // The spot shadow map's size, and it is a *beam* setting as much
         // as a shadow one.
@@ -1002,7 +1054,10 @@ impl Plugin for VizPlugin {
         // argument lives to the end of the whole chain — a second lock
         // in the chain deadlocked the studio at startup.
         let spec = {
-            let gdtf = self.gdtf.lock().expect("gdtf lock");
+            let gdtf = self
+                .gdtf
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             CameraSpec::new(
                 &self.config,
                 self.config
@@ -1032,7 +1087,10 @@ impl Plugin for VizPlugin {
             // transport overwrites it every frame. See `CanvasClock`.
             .init_resource::<CanvasClock>()
             .insert_resource(GdtfLibraryRes(
-                self.gdtf.lock().expect("gdtf library lock").take(),
+                self.gdtf
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take(),
             ))
             // r[impl studio.program.pick-and-gizmos] - picking and the programmer's overlays
             // Off unless asked: a still is a picture of the rig, and the
@@ -1066,7 +1124,7 @@ impl Plugin for VizPlugin {
             .insert_resource(
                 self.output
                     .lock()
-                    .expect("dmx output lock")
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .take()
                     .unwrap_or_default(),
             )
@@ -1198,7 +1256,7 @@ fn run_windowed(
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
-                    file_path: assets_dir.clone(),
+                    file_path: assets_dir,
                     ..default()
                 })
                 .set(WindowPlugin {
@@ -1321,6 +1379,15 @@ impl Headless {
 
     /// One frame, waited for on the GPU so a capture requested this
     /// frame is complete before the next one starts.
+    // A `PollError` here means the GPU device itself is gone (lost or
+    // timed out) — not data from a venue, a show or the network, but the
+    // same class of failure as the process being killed underneath us.
+    // Every frame after this one would fail the same poll, so there is
+    // no fallback that keeps the render session meaningfully alive.
+    #[expect(
+        clippy::expect_used,
+        reason = "a lost GPU device has no fallback; see the comment above"
+    )]
     pub(crate) fn step(&mut self) {
         self.subapps.update();
         self.subapps
@@ -1335,6 +1402,14 @@ impl Headless {
             .expect("polling the render device");
     }
 
+    // `self.target` is always built by `add_target`, which allocates it
+    // as an `Image` handle — never any other asset type — so this is a
+    // constructor invariant, not something a caller-supplied value could
+    // violate.
+    #[expect(
+        clippy::expect_used,
+        reason = "self.target is always an Image handle; see the comment above"
+    )]
     pub(crate) fn target_image(&self) -> Handle<Image> {
         self.target
             .as_image()
@@ -1372,7 +1447,14 @@ fn run_snapshot(
     for _ in 0..8 {
         headless.step();
     }
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    // `checked_add` rather than `+`: a 10-second horizon can never
+    // overflow `Instant`, but the fallback still has to name what
+    // happens if it somehow did — treat "now" itself as the deadline,
+    // which just skips the wait loop below instead of panicking.
+    let now = std::time::Instant::now();
+    let deadline = now
+        .checked_add(std::time::Duration::from_secs(10))
+        .unwrap_or(now);
     while !path.exists() && std::time::Instant::now() < deadline {
         headless.step();
         std::thread::sleep(std::time::Duration::from_millis(20));
@@ -1383,14 +1465,22 @@ fn run_snapshot(
 }
 
 /// Renders the show to a video file, frame by frame against the song's
-/// clock: Bevy's time is stepped by exactly one frame per update
-/// (`TimeUpdateStrategy::ManualDuration`), so the playback advances the
-/// same amount every frame however long the GPU took, and each frame is
-/// captured and handed to the sink before the next is started. The
-/// playback should already be located at the export's first bar
+/// clock.
+///
+/// Bevy's time is stepped by exactly one frame per update
+/// (`TimeUpdateStrategy::ManualDuration`), so the playback advances the same
+/// amount every frame however long the GPU took, and each frame is captured
+/// and handed to the sink before the next is started.
+///
+/// The playback should already be located at the export's first bar
 /// (`Playback::load` with `bar`) and carry the song's BPM.
 ///
 /// Like `run`, this owns the thread until the export is finished.
+///
+/// # Errors
+///
+/// If the sink can't be created (e.g. an unwritable output path) or a
+/// frame fails to encode.
 // r[impl viz.export] - offline, frame by frame, at a chosen size
 pub fn run_export(
     config: VizConfig,
@@ -1398,7 +1488,7 @@ pub fn run_export(
     gdtf: Option<GdtfLibrary>,
     request: &ExportRequest,
 ) -> anyhow::Result<()> {
-    let bpm = playback.speeds.get("Song").copied().unwrap_or(120.0) as f64;
+    let bpm = f64::from(playback.speeds.get("Song").copied().unwrap_or(120.0));
     let schedule = FrameSchedule::new(request, bpm);
     let (width, height) = (config.width, config.height);
     let settle_frames = config.settle_frames.max(1);
@@ -1426,8 +1516,9 @@ pub fn run_export(
     // with the clock stopped it would never move at all — and the
     // temporal passes have settled, before frame 0 is written.
     let first = schedule.frames().next();
-    let preroll =
-        settle_frames.max((AUTO_EXPOSURE_PREROLL_SECS * schedule.fps as f32).ceil() as u32);
+    let preroll = settle_frames.max(crate::num::u32_of_f32(
+        (AUTO_EXPOSURE_PREROLL_SECS * crate::num::f32_of_u32(schedule.fps)).ceil(),
+    ));
     for _ in 0..preroll {
         let world = headless.subapps.main.world_mut();
         if let Some(frame) = &first {
@@ -1481,7 +1572,16 @@ pub fn run_export(
             .map_err(|e| anyhow::anyhow!("frame {}: {e:?}", frame.index))?
             .to_rgba8();
         sink.push(&frame, rgba.as_raw(), rgba.width(), rgba.height())?;
-        if frame.index % schedule.fps == 0 {
+        // `checked_rem` rather than `%`: a print cadence, not a
+        // computation the frame depends on, so an `fps` of 0 (which
+        // cannot happen in practice — `FrameSchedule` is built from a
+        // positive frame rate) just silences the progress line instead
+        // of panicking the whole export.
+        if frame
+            .index
+            .checked_rem(schedule.fps)
+            .is_some_and(|r| r == 0)
+        {
             println!(
                 "  frame {}/{} — bar {} beat {:.2}",
                 frame.index, frame_count, frame.position.bar, frame.position.beat
@@ -1495,8 +1595,13 @@ pub fn run_export(
 
 /// Seconds into the song at a musical position, on the export's tempo.
 fn song_secs(schedule: &FrameSchedule, position: ignition_core::Bars) -> f32 {
-    ((position.bar.max(1) - 1) as f64 * schedule.secs_per_bar()
-        + (position.beat - 1.0).max(0.0) * 60.0 / schedule.bpm) as f32
+    // `.max(1)` above already rules out underflow; `saturating_sub` says
+    // so without asking the reader to re-derive it from the `.max` call.
+    let bars_elapsed = position.bar.max(1).saturating_sub(1);
+    crate::num::f32_of_f64(
+        f64::from(bars_elapsed) * schedule.secs_per_bar()
+            + (position.beat - 1.0).max(0.0) * 60.0 / schedule.bpm,
+    )
 }
 
 /// Points the song list and the hits at a musical position — what the
@@ -1584,6 +1689,7 @@ impl Plugin for SolariIfEnabled {
 }
 
 /// `IGNITION_FROXEL_GRID=WxHxD`, for finding the right grid by eye.
+#[must_use]
 pub fn froxel_grid_override() -> Option<(u32, u32, u32)> {
     let raw = std::env::var("IGNITION_FROXEL_GRID").ok()?;
     let mut parts = raw.split(['x', 'X']).map(|n| n.trim().parse::<u32>());
@@ -1607,6 +1713,7 @@ pub fn froxel_grid_override() -> Option<(u32, u32, u32)> {
 /// `IGNITION_FROXEL=1` selects it, which is how the regression is
 /// being chased. See docs/domain/froxel-volumetrics.md.
 // r[impl viz.haze-is-volumetric] - the march by default, IGNITION_FROXEL=1 for froxels
+#[must_use]
 pub fn froxels_wanted() -> bool {
     std::env::var("IGNITION_FROXEL").is_ok_and(|v| v.trim() == "1")
 }
@@ -1700,7 +1807,7 @@ pub(crate) fn spawn_camera(
             history_weight: std::env::var("IGNITION_FROXEL_HISTORY")
                 .ok()
                 .and_then(|v| v.trim().parse::<f32>().ok())
-                .unwrap_or(quality.froxel_history_pct as f32 / 100.0),
+                .unwrap_or_else(|| crate::num::f32_of_u32(quality.froxel_history_pct) / 100.0),
             dilution: crate::haze_texture::HazeLook::default().dilution,
             ..bevy::pbr::froxel::FroxelVolumetrics::default()
         });
@@ -1777,16 +1884,16 @@ mod quality_tests {
     // r[verify viz.post-processing] - the eye, as a number
     #[test]
     fn the_adaptation_opens_up_to_a_dark_frame_and_no_further() {
-        assert_eq!(adaptation_stops(CHORUS_LOG_LUMINANCE), 0.0);
+        assert!((adaptation_stops(CHORUS_LOG_LUMINANCE) - (0.0)).abs() < 1e-6);
         let verse = adaptation_stops(CHORUS_LOG_LUMINANCE - 1.0);
         assert!((verse - AUTO_EXPOSURE_GAIN).abs() < 1e-6, "{verse}");
-        assert_eq!(
-            adaptation_stops(CHORUS_LOG_LUMINANCE - 20.0),
-            AUTO_EXPOSURE_RANGE_STOPS
+        assert!(
+            (adaptation_stops(CHORUS_LOG_LUMINANCE - 20.0) - AUTO_EXPOSURE_RANGE_STOPS).abs()
+                < 1e-6
         );
-        assert_eq!(
-            adaptation_stops(CHORUS_LOG_LUMINANCE + 20.0),
-            -AUTO_EXPOSURE_RANGE_STOPS
+        assert!(
+            (adaptation_stops(CHORUS_LOG_LUMINANCE + 20.0) - (-AUTO_EXPOSURE_RANGE_STOPS)).abs()
+                < 1e-6
         );
         // And the curve behind it builds.
         let _ = adaptation_curve();
@@ -1819,11 +1926,11 @@ mod quality_tests {
         let range = AUTO_EXPOSURE_RANGE_STOPS;
         let live = (range / 2.0, range / 0.5, AUTO_EXPOSURE_LIVE_TRANSITION);
         for fps in [24u32, 25, 30, 48, 50, 60, 120] {
-            let dt = 1.0 / fps as f32;
+            let dt = 1.0 / crate::num::f32_of_u32(fps);
             for (start, target) in [(0.0, range), (0.0, -range), (range, 0.0), (-0.3, 0.2)] {
                 let frames = adapt_without_ringing(start, target, live, dt);
                 assert!(
-                    frames as f32 * dt <= AUTO_EXPOSURE_PREROLL_SECS,
+                    crate::num::f32_of_u32(frames) * dt <= AUTO_EXPOSURE_PREROLL_SECS,
                     "{start} -> {target} took {frames} frames at {fps} fps, past the pre-roll"
                 );
             }

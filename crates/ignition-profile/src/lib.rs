@@ -38,6 +38,29 @@
 //! IGNITION_PROFILE_TRACE=/tmp/ig.json …     # and a Perfetto trace
 //! ```
 
+// A crate-wide suppression, which `docs/ops/clippy.md` calls a last
+// resort. The argument for it here:
+//
+// This crate is *instrumentation*. Its entire job is to turn durations
+// into numbers a person reads — `u64` nanoseconds into `f64`
+// milliseconds, `u64` sample counts into `f32` — and to accumulate
+// counters while doing it. Every one of those conversions is lossy in
+// the way `as_conversions` means and none of them is lossy in a way
+// that matters: a stage that took 3.7 ms is reported as 3.7 ms whether
+// the arithmetic saturates or wraps, and a call counter that overflowed
+// `u64` describes a studio that has been running for longer than the
+// heat death of anything. Wrapping the tree's audited-helper idiom
+// around a hundred sites here would add a layer of indirection to code
+// whose only purpose is to be read while something else is being
+// debugged.
+//
+// It is also off by default: nothing in this crate runs unless
+// `IGNITION_PROFILE` is set, so none of it is in the path of a show.
+#![expect(
+    clippy::arithmetic_side_effects,
+    reason = "see the paragraph above: this crate accumulates statistics, and it is off in a show build"
+)]
+
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -109,6 +132,7 @@ pub const TARGET: &str = "ignition::profile";
 /// with nothing to say looks exactly like a fast frame. This is the
 /// difference, and it belongs next to the layer rather than in whoever
 /// installs it.
+#[must_use]
 pub fn filter_directives() -> Vec<&'static str> {
     match std::env::var("IGNITION_PROFILE").as_deref() {
         Ok("all") => vec![
@@ -120,7 +144,7 @@ pub fn filter_directives() -> Vec<&'static str> {
             "bevy_app=info",
             "bevy_render=info",
         ],
-        Ok("1") | Ok("stages") | Ok("true") | Ok("on") => vec!["ignition::profile=info"],
+        Ok("1" | "stages" | "true" | "on") => vec!["ignition::profile=info"],
         _ => Vec::new(),
     }
 }
@@ -138,8 +162,8 @@ enum Focus {
 impl Focus {
     fn wants(&self, name: &str) -> bool {
         match self {
-            Focus::Stages(set) => set.contains(name),
-            Focus::All => true,
+            Self::Stages(set) => set.contains(name),
+            Self::All => true,
         }
     }
 }
@@ -194,20 +218,19 @@ impl Label {
         }
         let name = attrs.metadata().name();
         if attrs.metadata().fields().field("name").is_none() {
-            return Label::Name(name);
+            return Self::Name(name);
         }
         let mut take = Take(None);
         attrs.record(&mut take);
-        match take.0 {
-            Some(value) => Label::Field(format!("{name} {value}").into_boxed_str()),
-            None => Label::Name(name),
-        }
+        take.0.map_or(Self::Name(name), |value| {
+            Self::Field(format!("{name} {value}").into_boxed_str())
+        })
     }
 
     fn as_str(&self) -> &str {
         match self {
-            Label::Name(name) => name,
-            Label::Field(text) => text,
+            Self::Name(name) => name,
+            Self::Field(text) => text,
         }
     }
 }
@@ -262,6 +285,7 @@ pub struct ProfileLayer {
 ///   default `blitz.render`.
 /// * `IGNITION_PROFILE_TRACE` — a path to write a Chrome trace-event
 ///   file to. Absent, none is written.
+#[must_use]
 pub fn from_env() -> Option<ProfileLayer> {
     let mode = std::env::var("IGNITION_PROFILE").ok()?;
     let focus = match mode.as_str() {
@@ -311,11 +335,25 @@ pub fn from_env() -> Option<ProfileLayer> {
 impl Shared {
     /// Folds a closed span into the window.
     fn record(&self, name: &str, busy: Duration, own: Duration) {
-        let mut window = self.window.lock().expect("profile window");
+        // See `trace.rs`: a poisoned window is a panic elsewhere, and
+        // the profiler is not the place to turn one failure into two.
+        let mut window = self
+            .window
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         window.started.get_or_insert_with(Instant::now);
         // Looked up before it is inserted, so the steady state — every
         // row already present — allocates nothing. In `all` mode this
         // runs tens of thousands of times a frame.
+        // `map_or_else`, which is what clippy asks for here, borrows
+        // `window.rows` mutably in both arms at once and does not
+        // compile. The match does, and the lookup-before-insert is the
+        // point: in `all` mode this runs tens of thousands of times a
+        // frame and must not allocate once every row exists.
+        #[expect(
+            clippy::option_if_let_else,
+            reason = "the suggested map_or_else double-borrows `window.rows`"
+        )]
         let row = match window.rows.get_mut(name) {
             Some(row) => row,
             None => window.rows.entry(name.into()).or_default(),
@@ -336,7 +374,10 @@ impl Shared {
     /// in it is a paused studio, not a slow one, and printing zeroes at
     /// it would bury the last real table.
     fn drain(&self) -> Option<Report> {
-        let mut window = self.window.lock().expect("profile window");
+        let mut window = self
+            .window
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if window.frames == 0 {
             return None;
         }
@@ -355,7 +396,7 @@ impl Shared {
 /// span's registry entry half torn down. A thread costs nothing here
 /// and the question does not arise.
 fn spawn_reporter(shared: Arc<Shared>) {
-    std::thread::Builder::new()
+    let spawned = std::thread::Builder::new()
         .name("ignition-profile".into())
         .spawn(move || {
             loop {
@@ -370,8 +411,17 @@ fn spawn_reporter(shared: Arc<Shared>) {
                     tracing::info!(target: TARGET, "{}", report.render());
                 }
             }
-        })
-        .expect("profile reporter thread");
+        });
+    if let Err(error) = spawned {
+        // The OS refused a thread. The profiler then measures nothing
+        // and says so once; taking the studio down over a *debugging*
+        // feature failing to start would be the wrong trade in exactly
+        // the situation where someone is already debugging something.
+        tracing::warn!(
+            target: TARGET,
+            "the profiler could not start its reporter thread ({error}); no tables will be printed"
+        );
+    }
 }
 
 impl<S> Layer<S> for ProfileLayer
@@ -394,13 +444,18 @@ where
 
     fn on_enter(&self, id: &Id, ctx: Context<'_, S>) {
         let Some(span) = ctx.span(id) else { return };
+        // `Instant::now()` before the lock, and the lock dropped as soon
+        // as the write is done: `extensions_mut` is contended by every
+        // thread closing a span, and this runs tens of thousands of
+        // times a frame.
+        let now = Instant::now();
         let mut ext = span.extensions_mut();
         let Some(timing) = ext.get_mut::<Timing>() else {
             return;
         };
-        let now = Instant::now();
         timing.began.get_or_insert(now);
         timing.entered = Some(now);
+        drop(ext);
     }
 
     fn on_exit(&self, id: &Id, ctx: Context<'_, S>) {
@@ -412,6 +467,7 @@ where
         if let Some(entered) = timing.entered.take() {
             timing.busy += entered.elapsed();
         }
+        drop(ext);
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
@@ -427,12 +483,16 @@ where
             if let Some(entered) = timing.entered.take() {
                 timing.busy += entered.elapsed();
             }
-            (
+            let taken = (
                 timing.busy,
                 timing.child,
                 timing.began,
                 timing.label.clone(),
-            )
+            );
+            // `extensions_mut` is contended by every thread closing a
+            // span; the rest of this function does not need it.
+            drop(ext);
+            taken
         };
         let own = busy.saturating_sub(child);
         let name = label.as_str();

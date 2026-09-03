@@ -1,8 +1,10 @@
 //! Per-fixture-type DMX channel layouts — which byte offset resolves to
 //! which `Attribute`, for each manufacturer/model this venue actually
-//! patches. Mirrors `fixture_profile.rs`'s manufacturer/model matching
-//! (substring, case-insensitive) deliberately: shape and channel layout are
-//! two independent facts about a fixture type, looked up the same way.
+//! patches.
+//!
+//! Mirrors `fixture_profile.rs`'s manufacturer/model matching (substring,
+//! case-insensitive) deliberately: shape and channel layout are two
+//! independent facts about a fixture type, looked up the same way.
 //!
 //! Confidence varies per entry — see `docs/domain/dmx-channel-maps.md`.
 //! `footprint` (the real channel count) is confirmed for every fixture here
@@ -28,6 +30,7 @@ use ignition_proto::{Attribute, ChannelMap, ColorChannel};
 /// type with no channel map at all.
 // r[impl color.mix-or-wheel] - wheel tables for the wheel movers
 // r[impl playback.defaults] - per-model rest values for the hand-authored maps
+#[must_use]
 pub fn profile_for(manufacturer: &str, model: &str) -> Option<FixtureProfile> {
     let map = channel_map_for(manufacturer, model)?;
     Some(FixtureProfile::from_channel_map(map).with_wheel(wheel_slots_for(manufacturer, model)))
@@ -56,16 +59,18 @@ fn wheel(slots: &[(&str, u8, (f32, f32))]) -> Vec<ColorWheelSlot> {
         .collect()
 }
 
-/// The colour-wheel slot table of a model that has a wheel; empty for
-/// every mixing fixture. Bytes are the centre of each slot's range on
-/// the wheel channel, per the fixture class's usual manual: the Riukoe
-/// / Lixada mini gobo heads step eight colours in ranges of 8, the
-/// Betopper beam nine colours in ranges of 10 (above those ranges both
-/// wheels carry split colours and then continuous rotation, which are
-/// not slots and are left out).
+/// The colour-wheel slot table of a model that has a wheel; empty for every
+/// mixing fixture.
+///
+/// Bytes are the centre of each slot's range on the wheel channel, per the
+/// fixture class's usual manual: the Riukoe / Lixada mini gobo heads step
+/// eight colours in ranges of 8, the Betopper beam nine colours in ranges of
+/// 10 (above those ranges both wheels carry split colours and then
+/// continuous rotation, which are not slots and are left out).
 // r[impl color.mix-or-wheel] - the Riukoe and Betopper wheel colours
+#[must_use]
 pub fn wheel_slots_for(manufacturer: &str, model: &str) -> Vec<ColorWheelSlot> {
-    use wheel_xy::*;
+    use wheel_xy::{BLUE, CYAN, GREEN, MAGENTA, ORANGE, PINK, RED, WHITE, YELLOW};
     let m = manufacturer.to_ascii_lowercase();
     let mo = model.to_ascii_lowercase();
     if ((m == "riukoe" || m == "lixada") && mo.contains("gobo"))
@@ -114,12 +119,14 @@ pub fn wheel_slots_for(manufacturer: &str, model: &str) -> Vec<ColorWheelSlot> {
     Vec::new()
 }
 
-/// The colour emitters of a fixture type, derived from its channel map
-/// with `fixture_profile::typical_emitter`'s class-of-LED chromaticities:
+/// The colour emitters of a fixture type, derived from its channel map with
+/// `fixture_profile::typical_emitter`'s class-of-LED chromaticities:
+///
 /// the RGBW pars and the Endyshow bar mix with a white, the RGB pars and
 /// strips with their three primaries, and a colour-wheel mover (Riukoe,
 /// Betopper) has none — its wheel mapping is untouched.
 // r[impl color.emitter-solve] - per-model emitter data for the hand-authored maps
+#[must_use]
 pub fn emitters_for(manufacturer: &str, model: &str) -> Option<FixtureEmitters> {
     FixtureEmitters::from_channel_map(&channel_map_for(manufacturer, model)?)
 }
@@ -136,19 +143,19 @@ fn rgb_par(footprint: u16, dimmer_channel: Option<u16>, rgb_start: u16) -> Chann
         },
     ));
     channels.push((
-        rgb_start + 1,
+        rgb_start.saturating_add(1),
         Attribute::ColorAdd {
             channel: ColorChannel::Green,
         },
     ));
     channels.push((
-        rgb_start + 2,
+        rgb_start.saturating_add(2),
         Attribute::ColorAdd {
             channel: ColorChannel::Blue,
         },
     ));
     ChannelMap {
-        curves: Default::default(),
+        curves: std::collections::HashMap::default(),
         footprint,
         channels,
     }
@@ -157,6 +164,7 @@ fn rgb_par(footprint: u16, dimmer_channel: Option<u16>, rgb_start: u16) -> Chann
 /// `manufacturer`/`model` match the same way `fixture_profile::shape_for`
 /// does — verbatim strings from the live Eos patch, matched case-insensitive
 /// substring.
+#[must_use]
 pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
     let m = manufacturer.to_ascii_lowercase();
     let mo = model.to_ascii_lowercase();
@@ -202,7 +210,7 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         // Dimmer, Speed, Special, Reset. The fine bytes are mapped so
         // pan and tilt travel at 16 bits — see `Attribute::PanFine`.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 11,
             channels: vec![
                 (0, Attribute::Pan),
@@ -222,7 +230,7 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         // Gobo, Prism, Macro, Reset. Same layout as the Betopper below
         // (same OEM chassis); ch11 is an auto/sound macro, not focus.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 12,
             channels: vec![
                 (0, Attribute::Pan),
@@ -243,7 +251,7 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         // Tilt fine, Speed, Dimmer, Strobe, Colour wheel, Gobo wheel,
         // Prism, Focus, Reset.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 12,
             channels: vec![
                 (0, Attribute::Pan),
@@ -286,7 +294,7 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         }
     }
     // CBU Room 138's tower fixture — the one authored from a photograph
-    // rather than a chart (`data/gdtf/specs/cbu-tower-blinder-ring.json`).
+    // rather than a chart (`data/fixtures/cbu-tower-blinder-ring.json`).
     // Four channels: the warm-amber blinder strip across the middle of
     // the lens, then R/G/B for the LED behind the rest of the face.
     //
@@ -318,7 +326,7 @@ pub fn channel_map_for(manufacturer: &str, model: &str) -> Option<ChannelMap> {
         // exist for this fixture. `Dimmer` stands in for the haze-output
         // channel — there's no dedicated haze `Attribute` yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 1,
             channels: vec![(0, Attribute::Dimmer)],
         });
@@ -391,7 +399,7 @@ mod tests {
         let par = profile_for("Uking", "Par").unwrap();
         assert!(par.wheel.is_empty());
         assert_eq!(par.color_preference, ColorPreference::Mix);
-        assert_eq!(par.defaults[&Attribute::Dimmer], 0.0);
+        assert!((par.defaults[&Attribute::Dimmer] - (0.0)).abs() < 1e-6);
     }
 
     /// Locks in the correction from the real chauvet-dj/hurricane-haze-1dx.json
@@ -427,13 +435,24 @@ mod tests {
 /// Matched on model alone: the showfile records a library path
 /// (`_varied/Solena Professional Max Par 54 RGB.ssl2`), not a separate
 /// manufacturer field, so that is what the venue's patch carries.
+// Split in four purely to stay under `clippy::too_many_lines` — each
+// quarter is still just a flat if-chain of model matches, checked in
+// sequence by `riverside_channel_map` below. No behaviour changes: same
+// matches, same order, same fallback to `None`.
 fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
     let mo = model.to_ascii_lowercase();
+    riverside_channel_map_a(&mo)
+        .or_else(|| riverside_channel_map_b(&mo))
+        .or_else(|| riverside_channel_map_c(&mo))
+        .or_else(|| riverside_channel_map_d(&mo))
+}
+
+fn riverside_channel_map_a(mo: &str) -> Option<ChannelMap> {
     if mo.contains("36 led par can") {
         // 7ch: Dimmer, Red, Green, Blue, Shutter, Color Macros, Color Macors Speed
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 7,
             channels: vec![
                 (0, Attribute::Dimmer),
@@ -463,7 +482,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 2ch: Pump, Fan
         // 1 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 2,
             channels: vec![(0, Attribute::Dimmer)],
         });
@@ -472,7 +491,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 8ch: Total Dimmer, Red, Green, Blue, White, Total Strobe, Function Choice, Function Speed
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 8,
             channels: vec![
                 (0, Attribute::Dimmer),
@@ -504,11 +523,15 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
             ],
         });
     }
+    None
+}
+
+fn riverside_channel_map_b(mo: &str) -> Option<ChannelMap> {
     if mo.contains("led mini beam wh") {
         // 8ch: X, ÂµX, Y, ÂµY, Speed, Shutter, Dimmer, Special
         // 4 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 8,
             channels: vec![
                 (0, Attribute::Pan),
@@ -522,7 +545,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 2ch: Lamp, Rotation
         // 1 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 2,
             channels: vec![(0, Attribute::Dimmer)],
         });
@@ -530,7 +553,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
     if mo.contains("mini derby") {
         // 9ch: MODE, RED, GREEN, BLUE, LED COLOR CONTROL, LED STROBE, LED FADE, MOTOR SPEED, MOTOR SPIN SPEED
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 9,
             channels: vec![
                 (0, Attribute::Dimmer),
@@ -564,7 +587,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 11ch: X, ÂµX, Y, ÂµY, Color Wheel, Gobo, Shutter, Dimmer, Speed, Function, Dimmer Modes
         // 5 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 11,
             channels: vec![
                 (0, Attribute::Pan),
@@ -576,11 +599,15 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
             ],
         });
     }
+    None
+}
+
+fn riverside_channel_map_c(mo: &str) -> Option<ChannelMap> {
     if mo.contains("rgbw spot light 6ch") {
         // 6ch: Dimmer/Strobe/Effect, Red, Green, Blue, White, Macro
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 6,
             channels: vec![
                 (
@@ -620,7 +647,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 7ch: Red, Green, Blue, Dimmer, Shutter, Chase Mode, Control
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 7,
             channels: vec![
                 (
@@ -646,11 +673,15 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
             ],
         });
     }
+    None
+}
+
+fn riverside_channel_map_d(mo: &str) -> Option<ChannelMap> {
     if mo.contains("solena max bar 28 rgb") {
         // 6ch: Red, Green, Blue, Macros, Shutter, Selection Control
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 6,
             channels: vec![
                 (
@@ -679,7 +710,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 7ch: Dimmer, Red, Green, Blue, Shutter, Color Macros, Color Selection/Shade
         // 2 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 7,
             channels: vec![
                 (0, Attribute::Dimmer),
@@ -709,7 +740,7 @@ fn riverside_channel_map(model: &str) -> Option<ChannelMap> {
         // 15ch: Dimmer, Strobe, 1. Warm White, 2. Warm White, 3. Warm White, 4. Warm White, 5. Warm White, 6. Warm White, Red, Green, Blue, Warm White Macro, Warm White Macro Speed, Auxiliary Light Effect, Auxiliary Light Effect Speed
         // 10 channel(s) have no modelled Attribute yet.
         return Some(ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 15,
             channels: vec![
                 (0, Attribute::Dimmer),

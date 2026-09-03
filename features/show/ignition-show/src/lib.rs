@@ -22,6 +22,7 @@
 pub mod bump;
 pub mod canvas;
 pub mod cue;
+mod num;
 pub mod profile;
 pub mod programmer;
 pub mod recipe;

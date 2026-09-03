@@ -1,12 +1,15 @@
 //! GDTF 3D Geometry-tree import — real fixture geometry (yoke/head/beam as
 //! separate transformable nodes, each with a real primitive shape and
-//! dimensions from the manufacturer's own published profile) instead of
-//! `fixture_profile.rs`'s single QLC+ placeholder mesh plus a heuristic
-//! Z-split (`fixture_profile.rs::MOVING_HEAD_SPLIT_Z` — a vertex-histogram
-//! guess, since the placeholder mesh has no real yoke/head boundary to
-//! read). This is the piece every prior GDTF/OFL slice in
-//! `docs/research/lighting-console-landscape.md` flagged as "biggest
-//! value, not started."
+//! dimensions from the manufacturer's own published profile).
+//!
+//! Instead of `fixture_profile.rs`'s single QLC+ placeholder mesh plus a
+//! heuristic Z-split (`fixture_profile.rs::MOVING_HEAD_SPLIT_Z` — a
+//! vertex-histogram guess, since the placeholder mesh has no real
+//! yoke/head boundary to read).
+//!
+//! This is the piece every prior GDTF/OFL slice in
+//! `docs/research/lighting-console-landscape.md` flagged as "biggest value,
+//! not started."
 //!
 //! Required patching the vendored `gdtf` crate (`crates/gdtf-vendored`,
 //! see its `PATCH-NOTES.md`) — the upstream `Matrix` type (every
@@ -55,13 +58,15 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use crate::gdtf_mesh::{RawMesh, glb_bounds, parse_3ds};
+use crate::num::f32_of_f64;
 
 /// A real fixture-shape node, one per `<Geometry>`/`<Axis>`/`<Beam>` XML
 /// element, in the mesh's own local frame (matches `ObjMesh`'s convention:
+///
 /// local -Z is the beam/aim direction — GDTF's own coordinate convention
-/// turned out to already agree, translations run consistently along -Z
-/// from base to beam in every real example checked, so no axis remap is
-/// applied here the way the QLC+ COLLADA import needed one).
+/// turned out to already agree, translations run consistently along -Z from
+/// base to beam in every real example checked, so no axis remap is applied
+/// here the way the QLC+ COLLADA import needed one).
 pub struct GdtfNode {
     pub name: String,
     pub shape: GdtfShape,
@@ -81,19 +86,29 @@ pub struct GdtfNode {
     /// model (a DMX socket, a power inlet) also draws nothing, and used
     /// to be mistaken for one.
     pub is_beam: bool,
-    pub children: Vec<GdtfNode>,
+    pub children: Vec<Self>,
 }
 
 impl GdtfNode {
     /// Every `<Beam>` node's pose in the fixture root's frame, in
     /// document order: where each emitter sits and which way it fires
     /// with every joint at rest.
+    #[must_use]
     pub fn beam_poses(&self) -> Vec<(Vec3, Quat)> {
         let mut out = Vec::new();
         self.collect_beams(Vec3::ZERO, Quat::IDENTITY, &mut out);
         out
     }
 
+    // `Vec3`/`Quat` composition below is float, component-wise math with
+    // no integer overflow to guard against — `arithmetic_side_effects`
+    // fires on any operator-overloaded type, not just the primitive
+    // integers the lint is really about (see docs/ops/clippy.md, and the
+    // same precedent in `view.rs::eye_target_up`).
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3/Quat composition is float and cannot panic or overflow"
+    )]
     fn collect_beams(&self, parent_pos: Vec3, parent_rot: Quat, out: &mut Vec<(Vec3, Quat)>) {
         let pos = parent_pos + parent_rot * self.local_pos;
         let rot = parent_rot * self.local_rot;
@@ -122,18 +137,29 @@ impl GdtfNode {
         let mut paths: Vec<Vec<usize>> = Vec::new();
         self.collect_beam_paths(&mut Vec::new(), &mut paths);
         let mut prefix = paths.first()?.clone();
-        for path in &paths[1..] {
+        for path in paths.iter().skip(1) {
             let common = prefix.iter().zip(path).take_while(|(a, b)| a == b).count();
             prefix.truncate(common);
         }
         let mut node = self;
         let mut index = 0usize;
         for &child in &prefix {
-            index += 1 + node.children[..child]
-                .iter()
-                .map(GdtfNode::len)
-                .sum::<usize>();
-            node = &node.children[child];
+            // `child` is always a valid index into `node.children` — it
+            // came from `collect_beam_paths` enumerating this same
+            // `children` list — so the `get`/`break` below never actually
+            // takes the empty branch; it is the `get`-over-`[]` idiom
+            // (docs/ops/clippy.md) rather than a real fallback path.
+            index = index.saturating_add(1).saturating_add(
+                node.children
+                    .iter()
+                    .take(child)
+                    .map(Self::len)
+                    .sum::<usize>(),
+            );
+            let Some(next) = node.children.get(child) else {
+                break;
+            };
+            node = next;
         }
         let mut cells = Vec::new();
         for c in &node.children {
@@ -158,7 +184,11 @@ impl GdtfNode {
 
     /// Nodes in this subtree, itself included.
     fn len(&self) -> usize {
-        1 + self.children.iter().map(GdtfNode::len).sum::<usize>()
+        self.children
+            .iter()
+            .map(Self::len)
+            .sum::<usize>()
+            .saturating_add(1)
     }
 
     /// Scales the whole tree about the root — every placement and every
@@ -166,6 +196,10 @@ impl GdtfNode {
     /// life. Emitters move with their parts, so a beam still leaves the
     /// lens.
     // r[impl viz.gdtf-aliases] - a display scale is applied to the tree, not the spec
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3 *= is float, component-wise, and cannot panic or overflow"
+    )]
     pub fn scale_by(&mut self, factor: f32) {
         self.local_pos *= factor;
         match &mut self.shape {
@@ -200,12 +234,17 @@ impl GdtfNode {
     /// The axis-aligned bounds of everything this tree draws, in the
     /// fixture root's frame with every joint at rest — the assembled
     /// fixture's physical box. `None` when nothing is drawn.
+    #[must_use]
     pub fn assembled_bounds(&self) -> Option<(Vec3, Vec3)> {
         let mut acc: Option<(Vec3, Vec3)> = None;
         self.collect_bounds(Vec3::ZERO, Quat::IDENTITY, &mut acc);
         acc
     }
 
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3/Quat composition is float and cannot panic or overflow"
+    )]
     fn collect_bounds(&self, parent_pos: Vec3, parent_rot: Quat, acc: &mut Option<(Vec3, Vec3)>) {
         let pos = parent_pos + parent_rot * self.local_pos;
         let rot = parent_rot * self.local_rot;
@@ -244,7 +283,7 @@ impl GdtfNode {
     }
 }
 
-fn box_corners(lo: Vec3, hi: Vec3) -> [Vec3; 8] {
+const fn box_corners(lo: Vec3, hi: Vec3) -> [Vec3; 8] {
     [
         Vec3::new(lo.x, lo.y, lo.z),
         Vec3::new(hi.x, lo.y, lo.z),
@@ -312,6 +351,7 @@ impl GdtfFixture {
     /// assumed at twice the beam when the file has no wider one. `None`
     /// when the file states no beam angle.
     // r[impl viz.profile-optics] - field is 2x beam when the file has none
+    #[must_use]
     pub fn optics(&self) -> Option<(f32, f32)> {
         let beam = self.beam_angle_deg?;
         Some((beam, self.field_angle_deg.unwrap_or(beam * 2.0)))
@@ -324,8 +364,8 @@ fn first_beam_angles(g: &Geometry) -> Option<(f32, Option<f32>)> {
     if let Geometry::Beam(b) = g
         && b.beam_angle > 0.1
     {
-        let field = (b.field_angle > b.beam_angle + 0.1).then_some(b.field_angle as f32);
-        return Some((b.beam_angle as f32, field));
+        let field = (b.field_angle > b.beam_angle + 0.1).then_some(f32_of_f64(b.field_angle));
+        return Some((f32_of_f64(b.beam_angle), field));
     }
     g.children().iter().find_map(first_beam_angles)
 }
@@ -333,6 +373,11 @@ fn first_beam_angles(g: &Geometry) -> Option<(f32, Option<f32>)> {
 /// Reads a `.gdtf` file and builds the real geometry tree for one DMX
 /// mode. `mode_name`, when `None`, picks the file's first mode — same
 /// convention as `gdtf_import::import_channel_map`.
+///
+/// # Errors
+///
+/// If the file can't be opened, isn't a valid GDTF zip, or names a mode
+/// that doesn't exist in it.
 pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<GdtfFixture> {
     let file = File::open(path)?;
     let mut gdtf =
@@ -351,7 +396,13 @@ pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<G
         Some(name) => fixture_type
             .dmx_modes
             .iter()
-            .find(|m| m.name.as_deref().map(|n| n.to_string()).as_deref() == Some(name))
+            .find(|m| {
+                m.name
+                    .as_deref()
+                    .map(std::string::ToString::to_string)
+                    .as_deref()
+                    == Some(name)
+            })
             .ok_or_else(|| anyhow::anyhow!("GDTF file has no DMX mode named {name:?}"))?,
         None => fixture_type
             .dmx_modes
@@ -386,7 +437,10 @@ pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<G
         Some(name) => fixture_type
             .geometries
             .iter()
-            .find(|g| g.name().map(|n| n.to_string()).as_deref() == Some(name.to_string().as_str()))
+            .find(|g| {
+                g.name().map(std::string::ToString::to_string).as_deref()
+                    == Some(name.to_string().as_str())
+            })
             .ok_or_else(|| anyhow::anyhow!("DMX mode's start geometry {name:?} not found"))?,
         None => fixture_type
             .geometries
@@ -459,7 +513,7 @@ fn build_node(
 /// carries it as its own field, not a shared one), so this has to match
 /// every variant. All of them share the same `position: Matrix` field
 /// shape in practice.
-fn geometry_position(g: &Geometry) -> Matrix {
+const fn geometry_position(g: &Geometry) -> Matrix {
     match g {
         Geometry::Generic(x) => x.position,
         Geometry::Axis(x) => x.position,
@@ -524,6 +578,10 @@ impl ModelCache<'_> {
 /// `bevy_gltf` loads it later. A missing or undecodable file is reported
 /// and yields `None`, so the node falls back to a box of the declared
 /// size rather than taking the fixture down with it.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3 subtraction is float, component-wise, and cannot panic or overflow"
+)]
 fn read_model_file(resources: &mut ResourceMap, file: &str) -> Option<ModelSource> {
     fn read(resources: &mut ResourceMap, file: &str, format: Model3Format) -> Option<Vec<u8>> {
         let mut bytes = Vec::new();
@@ -614,7 +672,11 @@ fn geometry_shape(
     };
     // Spec, "3D Models": Length is the X extent, Width the Y extent,
     // Height the Z extent — GDTF is Z-up, the same as this project.
-    let size = Vec3::new(model.length as f32, model.width as f32, model.height as f32);
+    let size = Vec3::new(
+        f32_of_f64(model.length),
+        f32_of_f64(model.width),
+        f32_of_f64(model.height),
+    );
 
     // A referenced model file wins over the primitive type: the spec lets
     // a profile set both, with the primitive as the fallback for readers
@@ -656,13 +718,12 @@ fn geometry_shape(
         )),
         PrimitiveType::Cube => GdtfShape::Box { size },
         PrimitiveType::Undefined if file.is_none() => GdtfShape::None,
-        pt => match standard_primitive(pt) {
-            Some(raw) => GdtfShape::Mesh(raw_to_mesh(raw, size)),
-            // Undefined-with-a-file that failed to decode, or a primitive
-            // whose mesh didn't embed: a box of the declared size rather
-            // than an invisible gap where the part should be.
-            None => GdtfShape::Box { size },
-        },
+        // Undefined-with-a-file that failed to decode, or a primitive
+        // whose mesh didn't embed: a box of the declared size rather
+        // than an invisible gap where the part should be.
+        pt => standard_primitive(pt).map_or(GdtfShape::Box { size }, |raw| {
+            GdtfShape::Mesh(raw_to_mesh(raw, size))
+        }),
     }
 }
 
@@ -683,12 +744,16 @@ fn fit_scale(raw: &RawMesh, size: Vec3) -> Vec3 {
 }
 
 /// `fit_scale` on bounds already known — a GLB's, read from its header.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3 subtraction is float, component-wise, and cannot panic or overflow"
+)]
 fn fit_scale_bounds(lo: Vec3, hi: Vec3, size: Vec3) -> Vec3 {
     let extent = hi - lo;
     let ratio = |i: usize| -> Option<f32> {
         (extent[i] > 1e-6 && size[i] > 1e-6).then(|| size[i] / extent[i])
     };
-    let fallback = (0..3).filter_map(ratio).next().unwrap_or(1.0);
+    let fallback = (0..3).find_map(ratio).unwrap_or(1.0);
     Vec3::new(
         ratio(0).unwrap_or(fallback),
         ratio(1).unwrap_or(fallback),
@@ -697,10 +762,17 @@ fn fit_scale_bounds(lo: Vec3, hi: Vec3, size: Vec3) -> Vec3 {
 }
 
 /// Builds the Bevy mesh for a decoded model, scaled to the `<Model>`
-/// dimensions about the origin (the origin is the part's pivot — spec:
-/// "drawn around its own suspension point" — so it is not recentred).
-/// A model without normals is flat-shaded.
+/// dimensions about the origin.
+///
+/// The origin is the part's pivot — spec: "drawn around its own
+/// suspension point" — so it is not recentred. A model without normals
+/// is flat-shaded.
 // r[impl viz.gdtf-meshes] - scaled to the Model's declared dimensions
+#[must_use]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3 arithmetic here (scale, inverse-scale) is float, component-wise, and cannot panic or overflow"
+)]
 pub fn raw_to_mesh(raw: &RawMesh, size: Vec3) -> Mesh {
     use bevy::asset::RenderAssetUsages;
     use bevy::mesh::{Indices, PrimitiveTopology};
@@ -740,10 +812,26 @@ pub fn raw_to_mesh(raw: &RawMesh, size: Vec3) -> Mesh {
 /// pure Z-translation, translation value as the last element of row 2).
 fn decompose_matrix(m: Matrix) -> (Vec3, Quat) {
     let r = m.rows();
-    let translation = Vec3::new(r[0][3] as f32, r[1][3] as f32, r[2][3] as f32);
-    let col0 = Vec3::new(r[0][0] as f32, r[1][0] as f32, r[2][0] as f32);
-    let col1 = Vec3::new(r[0][1] as f32, r[1][1] as f32, r[2][1] as f32);
-    let col2 = Vec3::new(r[0][2] as f32, r[1][2] as f32, r[2][2] as f32);
+    let translation = Vec3::new(
+        f32_of_f64(r[0][3]),
+        f32_of_f64(r[1][3]),
+        f32_of_f64(r[2][3]),
+    );
+    let col0 = Vec3::new(
+        f32_of_f64(r[0][0]),
+        f32_of_f64(r[1][0]),
+        f32_of_f64(r[2][0]),
+    );
+    let col1 = Vec3::new(
+        f32_of_f64(r[0][1]),
+        f32_of_f64(r[1][1]),
+        f32_of_f64(r[2][1]),
+    );
+    let col2 = Vec3::new(
+        f32_of_f64(r[0][2]),
+        f32_of_f64(r[1][2]),
+        f32_of_f64(r[2][2]),
+    );
     let rotation = Quat::from_mat3(&Mat3::from_cols(col0, col1, col2));
     (translation, rotation)
 }
@@ -776,6 +864,10 @@ impl GdtfLibrary {
     /// first, then each subdirectory, and a later file replaces an
     /// earlier one — so a generated profile in a subdirectory always wins
     /// over a downloaded one of the same name at the top level.
+    ///
+    /// # Errors
+    ///
+    /// If `dir` can't be read as a directory.
     pub fn load_dir(dir: &Path) -> anyhow::Result<Self> {
         let mut by_type = HashMap::new();
         let entries = std::fs::read_dir(dir)
@@ -834,6 +926,7 @@ impl GdtfLibrary {
     /// tests do. Returns an empty library, never an error, when neither
     /// exists — a checkout without profiles still gets placeholder
     /// meshes.
+    #[must_use]
     pub fn load_default() -> Self {
         let candidates = [
             PathBuf::from("data/gdtf"),
@@ -851,10 +944,12 @@ impl GdtfLibrary {
         Self::default()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.by_type.is_empty()
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.by_type.len()
     }
@@ -870,6 +965,7 @@ impl GdtfLibrary {
     ///    punctuation between channels of the same physical fixture, the
     ///    same leniency `fixture_profile::shape_for` uses.
     // r[impl viz.gdtf-aliases] - exact name, then aliases.json, then fuzzy
+    #[must_use]
     pub fn find(&self, manufacturer: &str, model: &str) -> Option<&GdtfFixture> {
         let model_key = normalize(model);
         if let Some(fixture) = self.by_type.get(&model_key) {
@@ -891,7 +987,7 @@ impl GdtfLibrary {
             let hit = needle.contains(key.as_str())
                 || key.contains(&model_key)
                 || (!model_key.is_empty() && model_key.contains(key.as_str()));
-            hit.then(|| &self.by_type[key])
+            hit.then(|| self.by_type.get(key)).flatten()
         })
     }
 }
@@ -934,10 +1030,11 @@ fn parse_aliases(text: &str) -> anyhow::Result<(HashMap<String, String>, HashMap
                 if factor <= 0.0 {
                     anyhow::bail!("_display_scale {name:?} must be positive");
                 }
-                scales.insert(normalize(name), factor as f32);
+                scales.insert(normalize(name), f32_of_f64(factor));
             }
         } else if k.starts_with('_') {
-            continue;
+            // Reserved for future metadata alongside `_display_scale`;
+            // not itself an alias entry.
         } else if let Some(target) = v.as_str() {
             aliases.insert(normalize(k), normalize(target));
         } else {
@@ -948,7 +1045,7 @@ fn parse_aliases(text: &str) -> anyhow::Result<(HashMap<String, String>, HashMap
 }
 
 /// Lowercased, with everything that is not alphanumeric removed — so
-/// "Mac Aura XB", "mac-aura-xb" and "MAC_AuraXB" all compare equal.
+/// "Mac Aura XB", "mac-aura-xb" and "`MAC_AuraXB`" all compare equal.
 fn normalize(s: &str) -> String {
     s.chars()
         .filter(|c| c.is_alphanumeric())
@@ -1010,13 +1107,27 @@ impl<'a> SharedMeshes<'a> {
     }
 
     /// How many distinct meshes have been shared so far.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.cache.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.cache.is_empty()
     }
+}
+
+/// Size of the placeholder box for a GLB part that hasn't loaded yet: the
+/// file's measured extent, fit to the `<Model>` dimensions — the same
+/// `lo * scale..hi * scale` span `GdtfShape::Gltf`'s own doc comment
+/// promises.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3 subtraction/multiplication is float, component-wise, and cannot panic or overflow"
+)]
+fn gltf_placeholder_size(lo: Vec3, hi: Vec3, scale: Vec3) -> Vec3 {
+    (hi - lo) * scale
 }
 
 ///
@@ -1055,7 +1166,7 @@ pub fn spawn_gdtf_tree(
 
     match node.shape {
         GdtfShape::Box { size } => {
-            let key = (node as *const GdtfNode as usize, 0);
+            let key = (std::ptr::from_ref::<GdtfNode>(node).addr(), 0);
             commands.spawn((
                 Mesh3d(meshes.get_or_add(key, || {
                     Cuboid::from_size(size.max(Vec3::splat(0.005))).into()
@@ -1068,7 +1179,7 @@ pub fn spawn_gdtf_tree(
         GdtfShape::Cylinder { height, radius } => {
             // Bevy's cylinder stands on +Y; this project's world and
             // GDTF's own geometry are Z-up, so it is laid over.
-            let key = (node as *const GdtfNode as usize, 0);
+            let key = (std::ptr::from_ref::<GdtfNode>(node).addr(), 0);
             commands.spawn((
                 Mesh3d(meshes.get_or_add(key, || {
                     Cylinder::new(radius.max(0.005), height.max(0.005)).into()
@@ -1081,7 +1192,7 @@ pub fn spawn_gdtf_tree(
         // Already in the node's Z-up frame and at the model's size: the
         // body material is the venue's, never the file's.
         GdtfShape::Mesh(ref mesh) => {
-            let key = (node as *const GdtfNode as usize, 0);
+            let key = (std::ptr::from_ref::<GdtfNode>(node).addr(), 0);
             commands.spawn((
                 Mesh3d(meshes.get_or_add(key, || mesh.clone())),
                 MeshMaterial3d(material.clone()),
@@ -1097,9 +1208,10 @@ pub fn spawn_gdtf_tree(
             hi,
             scale,
         } => {
-            let key = (node as *const GdtfNode as usize, 0);
+            let key = (std::ptr::from_ref::<GdtfNode>(node).addr(), 0);
             let placeholder = meshes.get_or_add(key, || {
-                Cuboid::from_size(((hi - lo) * scale).max(Vec3::splat(0.005))).into()
+                Cuboid::from_size(gltf_placeholder_size(lo, hi, scale).max(Vec3::splat(0.005)))
+                    .into()
             });
             crate::gdtf_assets::spawn_model(
                 commands,
@@ -1154,7 +1266,7 @@ mod tests {
     /// manufacturer download (GDTF Share requires a registered account —
     /// see `docs/research/lighting-console-landscape.md`) but conforming
     /// to the same schema the real `gdtf` parser validates against, with
-    /// added DMXChannel Pan/Tilt entries pointing at Yoke/Head so the
+    /// added `DMXChannel` Pan/Tilt entries pointing at Yoke/Head so the
     /// pan/tilt-association logic has something real to resolve.
     const MOVING_HEAD: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -1206,17 +1318,28 @@ mod tests {
         files
     }
 
+    /// Every node's name, whether it is a `<Beam>`, and whether it draws
+    /// nothing (`GdtfShape::None`) — in pre-order.
+    fn collect_node_flags(n: &GdtfNode, out: &mut Vec<(String, bool, bool)>) {
+        out.push((
+            n.name.clone(),
+            n.is_beam,
+            matches!(n.shape, GdtfShape::None),
+        ));
+        n.children.iter().for_each(|c| collect_node_flags(c, out));
+    }
+
     fn count_shapes(node: &GdtfNode, meshes: &mut usize, boxes: &mut usize, drawn: &mut usize) {
         match node.shape {
             GdtfShape::Mesh(_) | GdtfShape::Gltf { .. } => {
-                *meshes += 1;
-                *drawn += 1;
+                *meshes = meshes.saturating_add(1);
+                *drawn = drawn.saturating_add(1);
             }
             GdtfShape::Box { .. } => {
-                *boxes += 1;
-                *drawn += 1;
+                *boxes = boxes.saturating_add(1);
+                *drawn = drawn.saturating_add(1);
             }
-            GdtfShape::Cylinder { .. } => *drawn += 1,
+            GdtfShape::Cylinder { .. } => *drawn = drawn.saturating_add(1),
             GdtfShape::None => {}
         }
         for c in &node.children {
@@ -1260,8 +1383,8 @@ mod tests {
             let fixture = import_geometry(&path, None).expect("parses");
             let beams = fixture.root.beam_poses();
             assert_eq!(beams.len(), 1, "{file}: exactly one <Beam> node emits");
-            let (pos, rot) = beams[0];
-            let fwd = rot * Vec3::NEG_Z;
+            let (pos, rotation) = beams[0];
+            let fwd = rotation * Vec3::NEG_Z;
             assert!(
                 fwd.abs_diff_eq(Vec3::NEG_Z, 1e-4),
                 "{file}: the beam fires straight out of the lens, got {fwd:?}"
@@ -1293,16 +1416,8 @@ mod tests {
             return;
         }
         let fixture = import_geometry(&path, None).expect("parses");
-        fn walk(n: &GdtfNode, out: &mut Vec<(String, bool, bool)>) {
-            out.push((
-                n.name.clone(),
-                n.is_beam,
-                matches!(n.shape, GdtfShape::None),
-            ));
-            n.children.iter().for_each(|c| walk(c, out));
-        }
         let mut nodes = Vec::new();
-        walk(&fixture.root, &mut nodes);
+        collect_node_flags(&fixture.root, &mut nodes);
         let undrawn: Vec<_> = nodes.iter().filter(|(_, _, none)| *none).collect();
         assert!(
             undrawn.len() >= 5,
@@ -1356,7 +1471,7 @@ mod tests {
             .expect("resolves");
         let (lo, hi) = fixture.root.assembled_bounds().unwrap();
         assert!(
-            ((hi.z - lo.z) - 0.247 * 1.5).abs() < 0.005,
+            0.247f32.mul_add(-1.5, hi.z - lo.z).abs() < 0.005,
             "height {}",
             hi.z - lo.z
         );
@@ -1441,15 +1556,19 @@ mod tests {
             .iter()
             .find(|m| m.file.as_deref() == Some("Body"))
             .expect("a Body model");
-        let size = Vec3::new(body.length as f32, body.width as f32, body.height as f32);
+        let size = Vec3::new(
+            f32_of_f64(body.length),
+            f32_of_f64(body.width),
+            f32_of_f64(body.height),
+        );
         assert!(
             (drawn - size).abs().max_element() < 1e-3,
             "drawn {drawn:?} vs model {size:?}"
         );
 
         let mut app = crate::gdtf_assets::test_support::asset_app();
-        let gltf = crate::gdtf_assets::test_support::load_gltf(&mut app, &asset);
-        assert!(gltf.meshes >= 1);
+        let scene = crate::gdtf_assets::test_support::load_gltf(&mut app, &asset);
+        assert!(scene.meshes >= 1);
     }
 
     fn collect_gltf(node: &GdtfNode, out: &mut Vec<(String, Vec3, Vec3, Vec3)>) {
@@ -1502,8 +1621,8 @@ mod tests {
             let mut scenes = Vec::new();
             collect_gltf(&fixture.root, &mut scenes);
             for (asset, ..) in scenes {
-                let gltf = crate::gdtf_assets::test_support::load_gltf(&mut app, &asset);
-                assert!(gltf.meshes >= 1, "{asset}: no mesh in the scene");
+                let scene = crate::gdtf_assets::test_support::load_gltf(&mut app, &asset);
+                assert!(scene.meshes >= 1, "{asset}: no mesh in the scene");
             }
         }
     }
@@ -1555,25 +1674,24 @@ mod tests {
         }
     }
 
-    /// The point of spawning the tree as entities rather than baking it:
-    /// rotating the joint the *file* names as the tilt axis moves the
-    /// beam and everything else downstream of it, and leaves the base
-    /// alone — with no code here composing a single world matrix. Bevy's
-    /// transform propagation is the kinematic chain.
-    #[test]
-    fn tilting_the_files_own_joint_moves_the_beam_and_not_the_base() {
+    /// Spawns `fixture`'s tree under a fresh root with no `AssetPlugin` —
+    /// this family of tests is about the transform hierarchy, so the mesh
+    /// store and the material handle are throwaway locals rather than
+    /// real assets registered in the world. Returns the app, the root,
+    /// the emitters, and Base — the root's own first child in the spawned
+    /// tree — split out of
+    /// `tilting_the_files_own_joint_moves_the_beam_and_not_the_base` so
+    /// that test stays under clippy's line-count ceiling.
+    fn spawn_moving_head_transform_only(
+        fixture: &GdtfFixture,
+    ) -> (bevy::app::App, Entity, Vec<Entity>, Entity) {
         use bevy::MinimalPlugins;
         use bevy::app::App;
-
-        let fixture = import_geometry(Path::new(MOVING_HEAD), None).unwrap();
 
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .add_plugins(bevy::transform::TransformPlugin);
 
-        // No `AssetPlugin`: this test is about the transform hierarchy,
-        // so the mesh store and the material handle are throwaway locals
-        // rather than real assets registered in the world.
         let material = Handle::<StandardMaterial>::default();
         let (root, emitters, base) = {
             let world = app.world_mut();
@@ -1606,6 +1724,18 @@ mod tests {
                 .unwrap();
             (root, emitters, base)
         };
+        (app, root, emitters, base)
+    }
+
+    /// The point of spawning the tree as entities rather than baking it:
+    /// rotating the joint the *file* names as the tilt axis moves the
+    /// beam and everything else downstream of it, and leaves the base
+    /// alone — with no code here composing a single world matrix. Bevy's
+    /// transform propagation is the kinematic chain.
+    #[test]
+    fn tilting_the_files_own_joint_moves_the_beam_and_not_the_base() {
+        let fixture = import_geometry(Path::new(MOVING_HEAD), None).unwrap();
+        let (mut app, root, emitters, base) = spawn_moving_head_transform_only(&fixture);
         assert_eq!(
             emitters.len(),
             1,
@@ -1725,6 +1855,10 @@ mod tests {
     /// tree: mount, then each node's local pose, with the pan and tilt
     /// joints turned by `pan` and `tilt`. This is the arithmetic the
     /// entity hierarchy is supposed to do for us.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Transform composition is float and cannot panic or overflow"
+    )]
     fn expected_beam_pose(
         node: &GdtfNode,
         parent: Transform,
@@ -1769,6 +1903,10 @@ mod tests {
         }
     }
 
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Quat * Vec3 is float, component-wise, and cannot panic or overflow"
+    )]
     fn assert_same_pose(actual: &GlobalTransform, expected: Transform, what: &str) {
         let (_, rot, pos) = actual.to_scale_rotation_translation();
         assert!(

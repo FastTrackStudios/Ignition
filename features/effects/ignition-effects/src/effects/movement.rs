@@ -28,7 +28,10 @@
 //! two-metre circle on the floor is two metres everywhere. Those
 //! patterns are in [`add_room`]; the degree catalogue stays as it was.
 
-use super::*;
+use super::{
+    Add, Attribute, Play, Put, Recipe, RecipeApply, Step, Timing, Trick, Waveform, beat, float_of,
+    float_of_i32, mover, orbit, role, tapped,
+};
 use crate::step::Ease;
 use crate::tricks::InvertStyle;
 use ignition_proto::Vec3;
@@ -85,10 +88,10 @@ fn ballyhoo() -> Recipe {
 /// One axis swept while the beam is lit in one direction and dark on the
 /// way back — MagicQ's pandim and tiltdim. The dimmer delta is in phase
 /// with the axis's velocity, which is why it lives in the same table.
-fn lit_one_way(axis: Attribute, amp: f32) -> Vec<Step> {
+fn lit_one_way(axis: &Attribute, amp: f32) -> Vec<Step> {
     (0..16)
         .map(|i| {
-            let a = std::f32::consts::TAU * i as f32 / 16.0;
+            let a = std::f32::consts::TAU * float_of_i32(i) / 16.0;
             // Velocity is cos(a): positive for the quarter either side
             // of the start. Counted by index rather than by sign so the
             // two zero crossings do not land on floating-point noise.
@@ -118,8 +121,8 @@ fn lit_one_way(axis: Attribute, amp: f32) -> Vec<Step> {
 // r[impl focus.orbit-in-metres]
 // r[impl focus.delta]
 pub(super) fn orbit_m(
-    radius_x_m: f32,
-    radius_y_m: f32,
+    radius_across_m: f32,
+    radius_up_m: f32,
     cycles_x: f32,
     cycles_y: f32,
     phase_deg: f32,
@@ -128,13 +131,13 @@ pub(super) fn orbit_m(
     let tau = std::f32::consts::TAU;
     (0..RESOLUTION)
         .map(|i| {
-            let t = i as f32 / RESOLUTION as f32;
-            let x = radius_x_m * (tau * cycles_x * t).sin();
-            let y = radius_y_m * (tau * cycles_y * t + phase_deg.to_radians()).sin();
+            let t = float_of(i) / float_of(RESOLUTION);
+            let x = radius_across_m * (tau * cycles_x * t).sin();
+            let y = radius_up_m * (tau * cycles_y).mul_add(t, phase_deg.to_radians()).sin();
             Step {
                 apply: vec![RecipeApply::FocusDelta(Vec3 {
-                    x: x as f64,
-                    y: y as f64,
+                    x: f64::from(x),
+                    y: f64::from(y),
                     z: 0.0,
                 })],
                 width: 1.0,
@@ -221,7 +224,17 @@ pub(super) fn add_room(add: Add) {
 // r[impl effects.library.categories]
 pub(super) fn add(add: Add) {
     let mut put = |name: &str, about: &str, recipe: Recipe| add(name, FAMILY, about, recipe);
+    add_orbits(&mut put);
+    add_pan(&mut put);
+    add_tilt(&mut put);
+    add_figures(&mut put);
+    add_inverted(&mut put);
+    add_busked(&mut put);
+}
 
+/// The orbit-drawn patterns: circle, figure eight, ballyhoo, sweep and
+/// spiral.
+fn add_orbits(put: Put) {
     // ── orbits ───────────────────────────────────────────────────────
 
     // The workhorse. Slow, wide, and it reads as motion without reading
@@ -276,7 +289,7 @@ pub(super) fn add(add: Add) {
                 .into_iter()
                 .enumerate()
                 .map(|(i, mut step)| {
-                    let scale = (i as f32 + 1.0) / 16.0;
+                    let scale = (float_of(i) + 1.0) / 16.0;
                     for apply in &mut step.apply {
                         if let RecipeApply::Delta(pairs) = apply {
                             for (_, v) in pairs.iter_mut() {
@@ -301,12 +314,12 @@ pub(super) fn add(add: Add) {
         movers(
             (0..16)
                 .map(|i| {
-                    let a = std::f32::consts::TAU * i as f32 / 16.0;
+                    let a = std::f32::consts::TAU * float_of_i32(i) / 16.0;
                     Step {
                         apply: vec![RecipeApply::Delta(vec![
                             (Attribute::Pan, 18.0 * a.sin()),
                             (Attribute::Tilt, 18.0 * a.cos()),
-                            (Attribute::Dimmer, -0.25 + 0.25 * a.cos()),
+                            (Attribute::Dimmer, 0.25f32.mul_add(a.cos(), -0.25)),
                         ])],
                         width: 1.0,
                         transition: 1.0,
@@ -335,7 +348,10 @@ pub(super) fn add(add: Add) {
             0.0,
         ),
     );
+}
 
+/// The pan-only sines, saws and sweeps.
+fn add_pan(put: Put) {
     // ── pan ──────────────────────────────────────────────────────────
 
     // Pan only. Flat, slow, and the least demanding thing a mover can
@@ -360,7 +376,7 @@ pub(super) fn add(add: Add) {
         "pan sweep",
         "all the beams sweeping one way together and snapping back every two bars — choruses, one wall of light moving",
         movers(
-            Waveform::RampUp.steps(Attribute::Pan, 0.0, 24.0, true),
+            Waveform::RampUp.steps(&Attribute::Pan, 0.0, 24.0, true),
             beat(2.0, 0.0, Play::Forward),
             Vec::new(),
         ),
@@ -388,7 +404,7 @@ pub(super) fn add(add: Add) {
         "pan fan",
         "the beams fanning apart from the centre and closing again every two bars — choruses, symmetric rigs",
         movers(
-            Waveform::Sine.steps(Attribute::Pan, 0.0, 26.0, true),
+            Waveform::Sine.steps(&Attribute::Pan, 0.0, 26.0, true),
             beat(2.0, 180.0, Play::Forward),
             vec![Trick::Wings(2)],
         ),
@@ -401,12 +417,15 @@ pub(super) fn add(add: Add) {
         "pan dim",
         "beams lit as they sweep one way and dark on the way back, so light only ever travels one direction — choruses",
         movers(
-            lit_one_way(Attribute::Pan, 24.0),
+            lit_one_way(&Attribute::Pan, 24.0),
             beat(2.0, 0.0, Play::Forward),
             Vec::new(),
         ),
     );
+}
 
+/// The tilt-only sines, saws and dips.
+fn add_tilt(put: Put) {
     // ── tilt ─────────────────────────────────────────────────────────
 
     // Tilt only, spread: beams rolling up and over, which reads
@@ -430,7 +449,7 @@ pub(super) fn add(add: Add) {
         "head bang",
         "beams snapping up and falling back, odds against evens, once a bar — heavy choruses and drops",
         movers(
-            Waveform::RampDown.steps(Attribute::Tilt, 0.0, 12.0, true),
+            Waveform::RampDown.steps(&Attribute::Tilt, 0.0, 12.0, true),
             beat(1.0, 180.0, Play::Forward),
             vec![Trick::Group(2)],
         ),
@@ -442,7 +461,7 @@ pub(super) fn add(add: Add) {
         "tilt fan",
         "beams lifting from the centre outward and settling back over four bars — bridges and pre-choruses",
         movers(
-            Waveform::Sine.steps(Attribute::Tilt, 0.0, 16.0, true),
+            Waveform::Sine.steps(&Attribute::Tilt, 0.0, 16.0, true),
             beat(4.0, 180.0, Play::Forward),
             vec![Trick::Wings(2)],
         ),
@@ -454,7 +473,7 @@ pub(super) fn add(add: Add) {
         "tilt dim",
         "beams lit as they rise and dark as they fall, so light only ever climbs — builds and pre-choruses",
         movers(
-            lit_one_way(Attribute::Tilt, 18.0),
+            lit_one_way(&Attribute::Tilt, 18.0),
             beat(2.0, 0.0, Play::Forward),
             Vec::new(),
         ),
@@ -507,7 +526,7 @@ pub(super) fn add(add: Add) {
         movers(
             (0..12)
                 .map(|i| {
-                    let up = (std::f32::consts::TAU * i as f32 / 12.0).sin();
+                    let up = (std::f32::consts::TAU * float_of_i32(i) / 12.0).sin();
                     Step {
                         apply: vec![RecipeApply::Delta(vec![
                             (Attribute::Tilt, 22.0 * up),
@@ -523,7 +542,10 @@ pub(super) fn add(add: Add) {
             Vec::new(),
         ),
     );
+}
 
+/// The box, kick and other hand-drawn figures an orbit cannot make.
+fn add_figures(put: Put) {
     // ── figures ──────────────────────────────────────────────────────
 
     // Pan flicks hard left and right on the beat while tilt swings
@@ -536,7 +558,7 @@ pub(super) fn add(add: Add) {
         movers(
             (0..8)
                 .map(|i| {
-                    let t = i as f32 / 8.0;
+                    let t = float_of_i32(i) / 8.0;
                     let pan = if i % 2 == 0 { 14.0 } else { -14.0 };
                     let tilt = 12.0 * (std::f32::consts::TAU * t).sin();
                     Step {
@@ -585,14 +607,17 @@ pub(super) fn add(add: Add) {
         "the beams grazing slowly across the crowd and back over four bars — last choruses and outros",
         Recipe {
             target: role("Beams"),
-            steps: Waveform::Sine.steps(Attribute::Pan, 0.0, 15.0, true),
+            steps: Waveform::Sine.steps(&Attribute::Pan, 0.0, 15.0, true),
             timing: beat(4.0, 90.0, Play::Bounce),
             tricks: Vec::new(),
             stack: false,
             ..Default::default()
         },
     );
+}
 
+/// The mirrored/inverted spellings.
+fn add_inverted(put: Put) {
     // ── inverted ─────────────────────────────────────────────────────
 
     // The circle, halves going opposite ways. `Invert(Pan)` flips the
@@ -620,7 +645,10 @@ pub(super) fn add(add: Add) {
             vec![Trick::Group(2), Trick::Invert(InvertStyle::Tilt)],
         ),
     );
+}
 
+/// The tap-mastered spellings, for busking with no track running.
+fn add_busked(put: Put) {
     // ── busked ───────────────────────────────────────────────────────
 
     put(
@@ -646,6 +674,9 @@ pub(super) fn add(add: Add) {
 mod tests {
     use super::super::library;
     use super::*;
+    use crate::selection::Selection;
+    use crate::step::Speed;
+    use std::collections::BTreeMap;
 
     /// A path in metres obeys size like any other swing: at half size
     /// the circle is half the radius, at zero it is the aim itself.
@@ -672,7 +703,7 @@ mod tests {
         let show = crate::recipe::Show::new(&[], &rig);
         let radius = |show: &crate::recipe::Show<'_>| {
             let d = crate::recipe::expand_recipe_full(&recipe, show, 0.25).focus_deltas[0].delta;
-            (d.x * d.x + d.y * d.y).sqrt()
+            d.x.hypot(d.y)
         };
         let full = radius(&show);
         assert!((full - 2.0).abs() < 0.05, "{full}");
@@ -683,13 +714,12 @@ mod tests {
     fn axis(step: &Step, want: &Attribute) -> f32 {
         step.apply
             .iter()
-            .filter_map(|a| match a {
+            .find_map(|a| match a {
                 RecipeApply::Delta(pairs) => {
                     pairs.iter().find(|(at, _)| at == want).map(|(_, v)| *v)
                 }
                 _ => None,
             })
-            .next()
             .unwrap_or_default()
     }
 
@@ -762,6 +792,12 @@ mod tests {
     /// A metre orbit is metres: sixteen `FocusDelta` points, a circle of
     /// the stated radius, blending between steps.
     // r[verify focus.orbit-in-metres]
+    // `transition` and `d.z` are literals `orbit_m` always sets, not
+    // computed values, so an exact comparison is the right assertion.
+    #[expect(
+        clippy::float_cmp,
+        reason = "transition and z are literals orbit_m always sets, not computed"
+    )]
     #[test]
     fn a_metre_orbit_is_a_circle_of_that_radius() {
         let steps = orbit_m(1.0, 1.0, 1.0, 1.0, 90.0);
@@ -789,8 +825,8 @@ mod tests {
                 _ => None,
             })
             .collect();
-        let width = xs.iter().cloned().fold(f64::MIN, f64::max)
-            - xs.iter().cloned().fold(f64::MAX, f64::min);
+        let width = xs.iter().copied().fold(f64::MIN, f64::max)
+            - xs.iter().copied().fold(f64::MAX, f64::min);
         assert!((width - 2.0).abs() < 1e-5, "{width}");
     }
 
@@ -805,8 +841,8 @@ mod tests {
         use crate::recipe::{Show, expand_recipe_full};
         use crate::selection::{FixtureInfo, Rig};
         use ignition_proto::{Placement, Quat};
-        let ring = &room()["drum ring"];
-        for step in &ring.steps {
+        let drum_ring = &room()["drum ring"];
+        for step in &drum_ring.steps {
             assert!(
                 matches!(&step.apply[0], RecipeApply::FocusPoint(crate::preset::Ref::Named(n)) if n == "Drums")
             );
@@ -847,7 +883,7 @@ mod tests {
                 speed: Speed::Hz(1.0),
                 ..Default::default()
             },
-            ..ring.clone()
+            ..drum_ring.clone()
         };
         let mut speeds = crate::step::SpeedMasters::new();
         speeds.insert("Song".into(), 120.0);
@@ -871,7 +907,15 @@ mod tests {
             assert!(!tilt.relative);
             // Aimed roughly at the kit: three metres out from under a head
             // z high is atan(3/z) off straight down, give or take the ring.
-            let straight = (3.0f32 / z as f32).atan().to_degrees();
+            // z is one of a few small hard-coded test fixture heights
+            // (4.0, 7.0), so the narrowing below cannot lose precision.
+            #[expect(
+                clippy::as_conversions,
+                clippy::cast_possible_truncation,
+                reason = "z is a small hard-coded test fixture height; see the comment above"
+            )]
+            let z = z as f32;
+            let straight = (3.0f32 / z).atan().to_degrees();
             assert!(
                 (tilt.value.value - straight).abs() < 20.0,
                 "z={z}: tilt {} vs {straight}",
@@ -884,8 +928,18 @@ mod tests {
     /// and the invert lands where the note says.
     // r[verify tricks.invert]
     // r[verify effects.invert]
+    // The far-half comparisons below are the expander's output on the
+    // same input pan angle mirrored through `Invert`, not two separate
+    // computations that merely ought to agree — so an exact comparison
+    // is the right assertion.
+    #[expect(
+        clippy::float_cmp,
+        reason = "same computation mirrored through Invert, not independently derived values"
+    )]
     #[test]
     fn counter_circle_and_scissor_invert_the_right_axis() {
+        // Through the expander: the far half's pan runs the other way.
+        use crate::recipe::{Show, expand_recipe};
         let lib = library();
         assert_eq!(lib["counter circle"].steps, lib["circle"].steps);
         assert_eq!(
@@ -896,8 +950,6 @@ mod tests {
             lib["scissor"].tricks,
             vec![Trick::Group(2), Trick::Invert(InvertStyle::Tilt)]
         );
-        // Through the expander: the far half's pan runs the other way.
-        use crate::recipe::{Show, expand_recipe};
         let recipe = Recipe {
             target: Selection::Chans(vec![1, 2, 3, 4]),
             timing: Timing {

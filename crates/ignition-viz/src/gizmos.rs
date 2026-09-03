@@ -27,6 +27,13 @@ use bevy::prelude::*;
 /// Which overlays draw. `program` is the master: the Program view sets
 /// it, the Live view clears it, and the others only count while it is on.
 #[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent overlay toggle, set from a different UI \
+              control (the Program/Live switch, the Library's group hover, a \
+              per-overlay checkbox) — folding them into an enum would force those \
+              independent controls to agree on a shared shape they don't share"
+)]
 pub struct ProgramOverlays {
     pub program: bool,
     pub focus: bool,
@@ -49,7 +56,8 @@ impl Default for ProgramOverlays {
 
 impl ProgramOverlays {
     /// Whether each gizmo group draws: `[focus, beams, groups]`.
-    pub fn enabled(&self) -> [bool; 3] {
+    #[must_use]
+    pub const fn enabled(&self) -> [bool; 3] {
         [
             self.program && self.focus,
             self.program && self.beams,
@@ -57,7 +65,8 @@ impl ProgramOverlays {
         ]
     }
 
-    pub fn labels_on(&self) -> bool {
+    #[must_use]
+    pub const fn labels_on(&self) -> bool {
         self.program && self.labels
     }
 }
@@ -93,6 +102,9 @@ const BEAM_REACH: f32 = 25.0;
 const FOCUS_RADIUS: f32 = 0.15;
 /// Air around a group's fixtures before the box is drawn.
 const GROUP_PAD: f32 = 0.3;
+/// Each pair is one edge of a box face, wound around it; `(3, 0)` closes
+/// the loop back to the start without a modulo on the loop counter.
+const BOX_EDGES: [(usize, usize); 4] = [(0, 1), (1, 2), (2, 3), (3, 0)];
 
 pub struct ProgramGizmosPlugin;
 
@@ -129,15 +141,35 @@ pub fn apply_overlays(overlays: &ProgramOverlays, store: &mut GizmoConfigStore) 
     store.config_mut::<GroupGizmos>().0.enabled = groups;
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resource it wraps"
+)]
 fn apply_overlay_config(overlays: Res<ProgramOverlays>, mut store: ResMut<GizmoConfigStore>) {
     apply_overlays(&overlays, &mut store);
 }
 
-fn point(v: &ignition_proto::Vec3) -> Vec3 {
-    Vec3::new(v.x as f32, v.y as f32, v.z as f32)
+const fn point(v: &ignition_proto::Vec3) -> Vec3 {
+    Vec3::new(
+        crate::num::f32_of_f64(v.x),
+        crate::num::f32_of_f64(v.y),
+        crate::num::f32_of_f64(v.z),
+    )
 }
 
 /// A small sphere on every focus point of the venue's palette.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resource it wraps"
+)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3 arithmetic over f32 components — floating-point ops cannot \
+              overflow or panic; clippy just doesn't special-case bevy_math's \
+              operator overloads the way it does bare f32/f64"
+)]
 fn draw_focus_points(mut gizmos: Gizmos<FocusGizmos>, venue: Res<VenueRes>) {
     for preset in &venue.0.palettes.focus {
         let at = point(&preset.target);
@@ -160,6 +192,13 @@ fn draw_focus_points(mut gizmos: Gizmos<FocusGizmos>, venue: Res<VenueRes>) {
 
 /// Where a beam from `origin` along `dir` lands: the floor if it is
 /// heading down, else `BEAM_REACH` out.
+#[must_use]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/f32 arithmetic — floating-point ops cannot overflow or panic; \
+              clippy just doesn't special-case bevy_math's operator overloads the \
+              way it does bare f32/f64"
+)]
 pub fn beam_end(origin: Vec3, dir: Vec3) -> Vec3 {
     if dir.y < -1e-4 {
         let t = -origin.y / dir.y;
@@ -172,6 +211,11 @@ pub fn beam_end(origin: Vec3, dir: Vec3) -> Vec3 {
 
 /// The optical axis of every selected fixture, from the lens to where
 /// it lands, with a ring where it lands.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resource it wraps"
+)]
 fn draw_beam_axes(
     mut gizmos: Gizmos<BeamGizmos>,
     selected: Res<SelectedFixtures>,
@@ -195,6 +239,12 @@ fn draw_beam_axes(
 }
 
 /// The axis-aligned box around a set of points, padded.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/f32 arithmetic — floating-point ops cannot overflow or panic; \
+              clippy just doesn't special-case bevy_math's operator overloads the \
+              way it does bare f32/f64"
+)]
 pub fn bounds_of(points: impl IntoIterator<Item = Vec3>) -> Option<(Vec3, Vec3)> {
     let mut min = Vec3::splat(f32::INFINITY);
     let mut max = Vec3::splat(f32::NEG_INFINITY);
@@ -221,15 +271,27 @@ fn draw_box(gizmos: &mut Gizmos<GroupGizmos>, min: Vec3, max: Vec3, color: Color
         c(max.x, max.y, max.z),
         c(min.x, max.y, max.z),
     ];
-    for i in 0..4 {
-        let j = (i + 1) % 4;
-        gizmos.line(bottom[i], bottom[j], color);
-        gizmos.line(top[i], top[j], color);
-        gizmos.line(bottom[i], top[i], color);
+    for (i, j) in BOX_EDGES {
+        // `bottom`/`top` are always length 4 and `EDGES` only ever names
+        // indices 0..=3, so every `get` here succeeds; `get` over `[]` is
+        // still the house idiom for reading out of an array by index.
+        let (Some(&b_i), Some(&b_j), Some(&t_i), Some(&t_j)) =
+            (bottom.get(i), bottom.get(j), top.get(i), top.get(j))
+        else {
+            continue;
+        };
+        gizmos.line(b_i, b_j, color);
+        gizmos.line(t_i, t_j, color);
+        gizmos.line(b_i, t_i, color);
     }
 }
 
 /// A box around the highlighted group's fixtures.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resources it wraps"
+)]
 fn draw_group_outline(
     mut gizmos: Gizmos<GroupGizmos>,
     highlight: Res<HighlightGroup>,
@@ -272,6 +334,11 @@ fn label_bundle(text: String, color: Color) -> impl Bundle {
     )
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resource it wraps"
+)]
 fn spawn_focus_labels(mut commands: Commands, venue: Res<VenueRes>) {
     for (i, preset) in venue.0.palettes.focus.iter().enumerate() {
         commands.spawn((
@@ -282,6 +349,11 @@ fn spawn_focus_labels(mut commands: Commands, venue: Res<VenueRes>) {
 }
 
 /// One label per fixture, spawned the first frame the fixture exists.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resource it wraps"
+)]
 fn spawn_fixture_labels(
     mut commands: Commands,
     venue: Res<VenueRes>,
@@ -316,6 +388,17 @@ type SceneCamera = (
 );
 
 /// Moves every label to its point's place on screen, or hides it.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resources it wraps"
+)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/f32 arithmetic — floating-point ops cannot overflow or panic; \
+              clippy just doesn't special-case bevy_math's operator overloads the \
+              way it does bare f32/f64"
+)]
 fn place_labels(
     mut commands: Commands,
     overlays: Res<ProgramOverlays>,

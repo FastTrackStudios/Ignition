@@ -18,6 +18,9 @@ anyhow = "1"
 [dev-dependencies]
 serde_json.workspace = true
 
+[lints]
+workspace = true
+
 [lib]
 name = "ignition_daw_reaper"
 path = "src/lib.rs"

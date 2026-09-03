@@ -7,7 +7,7 @@
 use super::pane::PaneKind;
 use super::tree::{Axis, DockNode, Path};
 
-/// MaxPane's five layouts, and the console: faders along the bottom,
+/// `MaxPane`'s five layouts, and the console: faders along the bottom,
 /// the busking panes across the top.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Preset {
@@ -46,23 +46,23 @@ pub const CONSOLE_TOP: [PaneKind; 7] = [
 ];
 
 impl Preset {
-    pub const ALL: [Preset; 6] = [
-        Preset::TwoColumns,
-        Preset::LeftRightSplit,
-        Preset::ThreeColumns,
-        Preset::Grid2x2,
-        Preset::TopBottom,
-        Preset::Console,
+    pub const ALL: [Self; 6] = [
+        Self::TwoColumns,
+        Self::LeftRightSplit,
+        Self::ThreeColumns,
+        Self::Grid2x2,
+        Self::TopBottom,
+        Self::Console,
     ];
 
-    pub fn label(self) -> &'static str {
+    pub const fn label(self) -> &'static str {
         match self {
-            Preset::TwoColumns => "Two columns",
-            Preset::LeftRightSplit => "Left + right split",
-            Preset::ThreeColumns => "Three columns",
-            Preset::Grid2x2 => "2×2 grid",
-            Preset::TopBottom => "Top + bottom",
-            Preset::Console => "Console",
+            Self::TwoColumns => "Two columns",
+            Self::LeftRightSplit => "Left + right split",
+            Self::ThreeColumns => "Three columns",
+            Self::Grid2x2 => "2×2 grid",
+            Self::TopBottom => "Top + bottom",
+            Self::Console => "Console",
         }
     }
 
@@ -70,21 +70,21 @@ impl Preset {
     fn shape(self) -> DockNode {
         let e = DockNode::empty;
         match self {
-            Preset::TwoColumns => DockNode::split(Axis::Row, vec![e(), e()]),
-            Preset::LeftRightSplit => DockNode::split(
+            Self::TwoColumns => DockNode::split(Axis::Row, vec![e(), e()]),
+            Self::LeftRightSplit => DockNode::split(
                 Axis::Row,
                 vec![e(), DockNode::split(Axis::Col, vec![e(), e()])],
             ),
-            Preset::ThreeColumns => DockNode::split(Axis::Row, vec![e(), e(), e()]),
-            Preset::Grid2x2 => DockNode::split(
+            Self::ThreeColumns => DockNode::split(Axis::Row, vec![e(), e(), e()]),
+            Self::Grid2x2 => DockNode::split(
                 Axis::Col,
                 vec![
                     DockNode::split(Axis::Row, vec![e(), e()]),
                     DockNode::split(Axis::Row, vec![e(), e()]),
                 ],
             ),
-            Preset::TopBottom => DockNode::split(Axis::Col, vec![e(), e()]),
-            Preset::Console => DockNode::split_with(
+            Self::TopBottom => DockNode::split(Axis::Col, vec![e(), e()]),
+            Self::Console => DockNode::split_with(
                 Axis::Col,
                 vec![1.0 - CONSOLE_FADERS_BAND, CONSOLE_FADERS_BAND],
                 vec![
@@ -106,40 +106,43 @@ impl Preset {
     pub fn build(self, panes: &[PaneKind]) -> DockNode {
         let mut tree = self.shape();
         let leaves: Vec<Path> = tree.leaves().into_iter().map(|(p, _, _)| p).collect();
-        match self {
-            Preset::Console => {
-                let first = leaves.first().cloned().unwrap_or_default();
-                for pane in panes {
-                    if !tree.contains(*pane) {
-                        let len = match tree.at(&first) {
-                            Some(DockNode::Tabs { panes, .. }) => panes.len(),
-                            _ => 0,
-                        };
-                        tree.insert_tab(&first, len, *pane);
-                    }
-                }
-                if let Some(DockNode::Tabs { active, .. }) = tree.at_mut(&first) {
-                    *active = 0;
-                }
-            }
-            _ => {
-                let mut seen = Vec::new();
-                for (i, pane) in panes.iter().enumerate() {
-                    if seen.contains(pane) {
-                        continue;
-                    }
-                    seen.push(*pane);
-                    let leaf = &leaves[i.min(leaves.len() - 1)];
-                    let len = match tree.at(leaf) {
+        if self == Self::Console {
+            let first = leaves.first().cloned().unwrap_or_default();
+            for pane in panes {
+                if !tree.contains(*pane) {
+                    let len = match tree.at(&first) {
                         Some(DockNode::Tabs { panes, .. }) => panes.len(),
                         _ => 0,
                     };
-                    tree.insert_tab(leaf, len, *pane);
+                    tree.insert_tab(&first, len, *pane);
                 }
-                for leaf in &leaves {
-                    if let Some(DockNode::Tabs { active, .. }) = tree.at_mut(leaf) {
-                        *active = 0;
-                    }
+            }
+            if let Some(DockNode::Tabs { active, .. }) = tree.at_mut(&first) {
+                *active = 0;
+            }
+        } else {
+            let mut seen = Vec::new();
+            for (i, pane) in panes.iter().enumerate() {
+                if seen.contains(pane) {
+                    continue;
+                }
+                seen.push(*pane);
+                // `leaves` is a preset's own shape (`Self::shape`), never
+                // empty for any real variant, but `.get` with a
+                // saturating clamp keeps that a fact this reads rather
+                // than one it assumes.
+                let Some(leaf) = leaves.get(i.min(leaves.len().saturating_sub(1))) else {
+                    continue;
+                };
+                let len = match tree.at(leaf) {
+                    Some(DockNode::Tabs { panes, .. }) => panes.len(),
+                    _ => 0,
+                };
+                tree.insert_tab(leaf, len, *pane);
+            }
+            for leaf in &leaves {
+                if let Some(DockNode::Tabs { active, .. }) = tree.at_mut(leaf) {
+                    *active = 0;
                 }
             }
         }

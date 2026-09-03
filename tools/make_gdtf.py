@@ -3,9 +3,9 @@
 """Generate GDTF 1.2 profiles for cheap fixtures from a spec JSON plus a
 base .gdtf whose 3D geometry we borrow.
 
-    python3 tools/make_gdtf.py --spec data/gdtf/specs/x.json \
+    python3 tools/make_gdtf.py --spec data/fixtures/x.json \
         --base data/gdtf/UKing@ZQ02341...gdtf [--out data/gdtf/generated]
-    python3 tools/make_gdtf.py --all [--specs data/gdtf/specs] [--out dir]
+    python3 tools/make_gdtf.py --all [--specs data/fixtures] [--out dir]
 
 `--all` walks every spec and picks its base from `tools/gdtf_bases.json`
 (console_name -> base filename in data/gdtf).
@@ -30,7 +30,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_OUT = REPO / "data" / "gdtf" / "generated"
-DEFAULT_SPECS = REPO / "data" / "gdtf" / "specs"
+DEFAULT_SPECS = REPO / "data" / "fixtures"
 DEFAULT_BASES = REPO / "data" / "gdtf"
 BASES_TABLE = REPO / "tools" / "gdtf_bases.json"
 

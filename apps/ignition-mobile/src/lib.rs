@@ -24,7 +24,7 @@ pub mod show;
 /// a way for the UI to silently arrive with no CSS at all.
 const CSS: &str = include_str!("../assets/mobile.css");
 
-#[derive(Routable, Clone, PartialEq)]
+#[derive(Routable, Clone, PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum Route {
     #[layout(Shell)]
@@ -36,9 +36,15 @@ pub enum Route {
     Groups {},
 }
 
-// PascalCase is the Dioxus component convention; the launch entrypoint is
-// a plain fn rather than a `#[component]`, so the lint needs silencing here.
+/// The root component, rendering the router and stylesheet.
+///
+/// `PascalCase` is the Dioxus component convention; the launch entrypoint is
+/// a plain fn rather than a `#[component]`, so the lint needs silencing here.
 #[allow(non_snake_case)]
+#[expect(
+    clippy::missing_errors_doc,
+    reason = "Element is a component type, not a Result; Dioxus may have Result-like traits"
+)]
 pub fn App() -> Element {
     rsx! {
         document::Style { {CSS} }
@@ -100,11 +106,26 @@ fn lit(chans: &[ChanId], out: &HashMap<(ChanId, Attribute), f32>) -> Vec<Lit> {
         .collect()
 }
 
+/// The one place in the UI where a float becomes a DMX byte: clamp to 0–255,
+/// multiply by the fixture's level, and round. Any value outside the clamp
+/// lands on the edge; the cast that follows cannot lose a sign or truncate
+/// anything the clamp has not decided.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the clamp above makes this cast total; see the doc comment"
+)]
+const fn byte_from_f32(value: f32) -> u8 {
+    value.round().clamp(0.0, 255.0) as u8
+}
+
 impl Lit {
     /// `background` for the cell: the hue at the fixture's own level, so
     /// a dark fixture is dark rather than a dark *colour*.
+    #[must_use]
     fn css(&self) -> String {
-        let s = |v: f32| (v * self.level * 255.0).clamp(0.0, 255.0) as u8;
+        let s = |v: f32| byte_from_f32(v * self.level * 255.0);
         format!(
             "background: rgb({}, {}, {})",
             s(self.rgb.0),
@@ -118,11 +139,20 @@ impl Lit {
 /// with a leading `·`. Worth drawing differently — an operator scanning
 /// forty-three rows is looking for the next *section*, and the accents
 /// between them are texture.
+#[must_use]
 fn is_accent(name: &str) -> bool {
     name.trim_start().starts_with('\u{b7}')
 }
 
+/// The cue list, with play state, fades and the live rig strip.
+///
+/// # Panics
+///
+/// Panics if the cue list is empty or if the current cue index exceeds the
+/// list bounds — both are impossible because `list` is never empty and
+/// `current_index()` is always valid or `None`.
 #[component]
+#[must_use]
 fn Cues() -> Element {
     let list = use_signal(show::cues);
     // The player is real state: GO advances it and the strip below is its
@@ -147,7 +177,7 @@ fn Cues() -> Element {
         let fade = player
             .read()
             .current_index()
-            .map(|i| list.read().cues[i].fade_secs);
+            .and_then(|i| list.read().cues.get(i).map(|c| c.fade_secs));
         if let Some(f) = fade {
             player.write().tick(f);
         }
@@ -177,11 +207,15 @@ fn Cues() -> Element {
     // What GO will take. A desk shows the *next* cue on the button, not
     // the one already on stage — that is the question the operator's
     // thumb is asking.
-    let next = match current {
-        Some(i) if i + 1 < total => Some(list.read().cues[i + 1].name.clone()),
-        Some(_) => None,
-        None => list.read().cues.first().map(|c| c.name.clone()),
-    };
+    let next = current.map_or_else(
+        || list.read().cues.first().map(|c| c.name.clone()),
+        |i| {
+            list.read()
+                .cues
+                .get(i.saturating_add(1))
+                .map(|c| c.name.clone())
+        },
+    );
 
     rsx! {
         div { class: "screen",
@@ -232,7 +266,7 @@ fn Cues() -> Element {
                 button { class: "go", onclick: move |_| go(),
                     span { class: "go-label", "GO" }
                     span { class: "go-next",
-                        {next.clone().unwrap_or_else(|| "end of list".to_string())}
+                        {next.unwrap_or_else(|| "end of list".to_string())}
                     }
                 }
             }
@@ -240,7 +274,9 @@ fn Cues() -> Element {
     }
 }
 
+/// The venue's fixture patch, with names and DMX addresses.
 #[component]
+#[must_use]
 fn Patch() -> Element {
     let patch = use_signal(show::patch);
     rsx! {
@@ -252,7 +288,7 @@ fn Patch() -> Element {
                     span { class: "chan", "{f.chan}" }
                     span { class: "name", "{f.fixture_type}" }
                     span { class: "addr",
-                        {f.dmx.map_or("—".to_string(), |d| format!("{}/{}", d.universe, d.start_channel))}
+                        {f.dmx.map_or_else(|| "—".to_string(), |d| format!("{}/{}", d.universe, d.start_channel))}
                     }
                 }
             }
@@ -261,7 +297,9 @@ fn Patch() -> Element {
     }
 }
 
+/// The venue's fixture groups by role and coverage.
 #[component]
+#[must_use]
 fn Groups() -> Element {
     let groups = use_signal(show::groups);
     rsx! {

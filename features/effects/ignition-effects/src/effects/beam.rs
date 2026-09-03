@@ -19,7 +19,7 @@
 //! The vocabulary is MagicQ's 2iris and 2focus and the zoom, iris and
 //! focus shapes every desk with beam attributes offers.
 
-use super::*;
+use super::{Add, Attribute, Play, Put, Recipe, Step, Timing, Trick, Waveform, beat, delta, role};
 
 const FAMILY: &str = "beam";
 
@@ -47,7 +47,15 @@ fn snap(attr: Attribute, v: f32) -> Step {
 // r[impl effects.library.categories]
 pub(super) fn add(add: Add) {
     let mut put = |name: &str, about: &str, recipe: Recipe| add(name, FAMILY, about, recipe);
+    add_zoom(&mut put);
+    add_iris(&mut put);
+    add_focus(&mut put);
+    add_gobo(&mut put);
+    add_shutter(&mut put);
+}
 
+/// The zoom pumps, waves and snaps.
+fn add_zoom(put: Put) {
     // ── zoom ─────────────────────────────────────────────────────────
 
     // Zoom pumping with the music, on the movers because those are the
@@ -58,7 +66,7 @@ pub(super) fn add(add: Add) {
         "every beam opening and closing together once a bar — choruses, the beams breathing with the beat",
         Recipe {
             target: role("Movers"),
-            steps: Waveform::Sine.steps(Attribute::Zoom, 0.0, 0.25, true),
+            steps: Waveform::Sine.steps(&Attribute::Zoom, 0.0, 0.25, true),
             timing: beat(1.0, 0.0, Play::Forward),
             tricks: Vec::new(),
             stack: false,
@@ -73,7 +81,7 @@ pub(super) fn add(add: Add) {
         "zoom wave",
         "beams opening and closing in sequence so a wave of width rolls along the rig every two bars — pre-choruses",
         beams(
-            Waveform::Sine.steps(Attribute::Zoom, 0.0, 0.25, true),
+            Waveform::Sine.steps(&Attribute::Zoom, 0.0, 0.25, true),
             beat(2.0, 360.0, Play::Forward),
             Vec::new(),
         ),
@@ -86,12 +94,15 @@ pub(super) fn add(add: Add) {
         "zoom snap",
         "beams snapping wide and closing slowly, odds against evens, once a bar — drops and heavy choruses",
         beams(
-            Waveform::RampDown.steps(Attribute::Zoom, 0.15, 0.15, true),
+            Waveform::RampDown.steps(&Attribute::Zoom, 0.15, 0.15, true),
             beat(1.0, 180.0, Play::Forward),
             vec![Trick::Group(2)],
         ),
     );
+}
 
+/// The iris pulses and chases.
+fn add_iris(put: Put) {
     // ── iris ─────────────────────────────────────────────────────────
 
     // The iris pumping with the beat, together. Closing the iris on a
@@ -101,7 +112,7 @@ pub(super) fn add(add: Add) {
         "iris pulse",
         "every beam's iris pinching in and out together once a bar — choruses, a hit without touching the dimmer",
         beams(
-            Waveform::Sine.steps(Attribute::Iris, 0.0, 0.3, true),
+            Waveform::Sine.steps(&Attribute::Iris, 0.0, 0.3, true),
             beat(1.0, 0.0, Play::Forward),
             Vec::new(),
         ),
@@ -114,12 +125,15 @@ pub(super) fn add(add: Add) {
         "iris chase",
         "a pinched iris travelling along the rig, each beam snapping open as the next closes, once a bar — choruses",
         beams(
-            Waveform::RampDown.steps(Attribute::Iris, -0.25, 0.25, true),
+            Waveform::RampDown.steps(&Attribute::Iris, -0.25, 0.25, true),
             beat(1.0, 360.0, Play::Forward),
             Vec::new(),
         ),
     );
+}
 
+/// The focus/gobo-sharpness drifts.
+fn add_focus(put: Put) {
     // ── focus ────────────────────────────────────────────────────────
 
     // A gobo drifting in and out of sharpness. Nothing else in the
@@ -129,7 +143,7 @@ pub(super) fn add(add: Add) {
         "focus breathe",
         "gobos drifting in and out of sharpness together over four bars — intros and bridges, texture rather than motion",
         beams(
-            Waveform::Sine.steps(Attribute::Focus, 0.0, 0.2, true),
+            Waveform::Sine.steps(&Attribute::Focus, 0.0, 0.2, true),
             beat(4.0, 0.0, Play::Forward),
             Vec::new(),
         ),
@@ -141,12 +155,15 @@ pub(super) fn add(add: Add) {
         "defocus wave",
         "a soft patch travelling through a line of sharp gobos over four bars — bridges and outros",
         beams(
-            Waveform::Sine.steps(Attribute::Focus, 0.0, 0.25, true),
+            Waveform::Sine.steps(&Attribute::Focus, 0.0, 0.25, true),
             beat(4.0, 360.0, Play::Forward),
             Vec::new(),
         ),
     );
+}
 
+/// The gobo wheel shake and step.
+fn add_gobo(put: Put) {
     // ── gobo ─────────────────────────────────────────────────────────
 
     // A fast, small jitter of the wheel channel around whatever slot the
@@ -183,7 +200,10 @@ pub(super) fn add(add: Add) {
             vec![Trick::Group(2)],
         ),
     );
+}
 
+/// The shutter strobe chases, pops and beds.
+fn add_shutter(put: Put) {
     // ── shutter ──────────────────────────────────────────────────────
 
     // The shutter strobe passing along the rig: one beam strobing at a
@@ -231,7 +251,7 @@ pub(super) fn add(add: Add) {
         "strobe bed",
         "a slow shutter strobe swelling in and fading out of the look every two bars — bridges that want tension without a flash",
         beams(
-            Waveform::Sine.steps(Attribute::Strobe, 0.2, 0.2, true),
+            Waveform::Sine.steps(&Attribute::Strobe, 0.2, 0.2, true),
             beat(2.0, 0.0, Play::Forward),
             Vec::new(),
         ),
@@ -241,6 +261,8 @@ pub(super) fn add(add: Add) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::recipe::RecipeApply;
+    use std::collections::BTreeMap;
 
     fn family() -> BTreeMap<String, Recipe> {
         let mut out = BTreeMap::new();

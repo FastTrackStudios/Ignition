@@ -24,22 +24,30 @@ use dioxus::prelude::*;
 use ignition_core::Selection;
 use ignition_core::profile::LookKind;
 
-/// The profile the panels browse: the shipped file — every role, colour,
-/// split, trick, effect note — under `IGNITION_PROFILE` or
-/// `data/profiles/ignition.ig-profile`, the same lookup `Playback::load`
-/// makes. `faders::profile()` is only the busking programming baked from
-/// code (pages, looks, macros); the file is that plus the vocabulary,
-/// and the faders tests hold the two equal where they overlap. With no
-/// file, the baked one, so the surface still opens.
+/// The profile the panels browse: the shipped file, the same lookup
+/// `Playback::load` makes.
+///
+/// Every role, colour, split, trick, effect note — under
+/// `IGNITION_PROFILE` or `data/profiles/ignition.ig-profile`.
+/// `faders::profile()` is only the busking programming baked from code
+/// (pages, looks, macros); the file is that plus the vocabulary, and the
+/// faders tests hold the two equal where they overlap. With no file, the
+/// baked one, so the surface still opens.
 // r[impl studio.views.whole-profile] - the file profile, whole
+#[must_use]
 pub fn profile() -> &'static ignition_core::Profile {
     if let Some(sent) = SENT.get() {
         return sent;
     }
-    if let Some(current) = *CURRENT.read().unwrap_or_else(|e| e.into_inner()) {
+    if let Some(current) = *CURRENT
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+    {
         return current;
     }
-    let mut slot = CURRENT.write().unwrap_or_else(|e| e.into_inner());
+    let mut slot = CURRENT
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some(current) = *slot {
         return current;
     }
@@ -58,6 +66,7 @@ static CURRENT: std::sync::RwLock<Option<&'static ignition_core::Profile>> =
 /// The profile file the panels read: `IGNITION_PROFILE` or
 /// `data/profiles/ignition.ig-profile`, from the working directory or,
 /// failing that, the workspace root (tests run from the crate).
+#[must_use]
 pub fn profile_path() -> std::path::PathBuf {
     let path = std::env::var("IGNITION_PROFILE")
         .unwrap_or_else(|_| "data/profiles/ignition.ig-profile".to_string());
@@ -76,6 +85,7 @@ pub fn profile_path() -> std::path::PathBuf {
 
 /// Where looks authored at the desk are kept — beside the profile file.
 // r[impl profile.looks.authored]
+#[must_use]
 pub fn looks_path() -> std::path::PathBuf {
     ignition_core::profile::AuthoredLooks::path_for(profile_path())
 }
@@ -108,7 +118,9 @@ pub fn reload_authored_looks() {
         return;
     }
     let fresh: &'static ignition_core::Profile = Box::leak(Box::new(load_file_profile()));
-    *CURRENT.write().unwrap_or_else(|e| e.into_inner()) = Some(fresh);
+    *CURRENT
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(fresh);
 }
 
 /// The profile a host handed over instead of a file — what the browser
@@ -123,7 +135,7 @@ pub fn install_profile(profile: ignition_core::Profile) {
 }
 
 /// One tile of the library.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
     pub tab: Tab,
     pub name: String,
@@ -155,42 +167,65 @@ pub enum Tab {
 }
 
 impl Tab {
-    pub const ALL: [Tab; 10] = [
-        Tab::Kind(Kind::Effect),
-        Tab::Kind(Kind::Trick),
-        Tab::Kind(Kind::Bundle),
-        Tab::Kind(Kind::Look),
-        Tab::Kind(Kind::Macro),
-        Tab::Kind(Kind::Colour),
-        Tab::Splits,
-        Tab::Kind(Kind::Focus),
-        Tab::Kind(Kind::Group),
-        Tab::Roles,
+    pub const ALL: [Self; 10] = [
+        Self::Kind(Kind::Effect),
+        Self::Kind(Kind::Trick),
+        Self::Kind(Kind::Bundle),
+        Self::Kind(Kind::Look),
+        Self::Kind(Kind::Macro),
+        Self::Kind(Kind::Colour),
+        Self::Splits,
+        Self::Kind(Kind::Focus),
+        Self::Kind(Kind::Group),
+        Self::Roles,
     ];
 
-    pub fn label(self) -> &'static str {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
         match self {
-            Tab::Kind(k) => k.label(),
-            Tab::Splits => "Splits",
-            Tab::Roles => "Roles",
+            Self::Kind(k) => k.label(),
+            Self::Splits => "Splits",
+            Self::Roles => "Roles",
         }
     }
 
-    pub fn kind(self) -> Option<Kind> {
+    #[must_use]
+    pub const fn kind(self) -> Option<Kind> {
         match self {
-            Tab::Kind(k) => Some(k),
-            _ => None,
+            Self::Kind(k) => Some(k),
+            Self::Splits | Self::Roles => None,
         }
     }
 }
 
+/// The one place a colour preset's floats become the DMX-like byte scale
+/// the swatches draw with.
+///
+/// Mirrors `ignition_proto`'s clamp exactly: NaN and anything at or
+/// below 0 land on 0, anything at or above 255 lands on 255, so the
+/// cast that follows cannot lose a sign or truncate anything the clamp
+/// has not already decided.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the clamp above makes this cast total; see the doc comment"
+)]
+const fn byte(value: f32) -> u8 {
+    if value.is_nan() {
+        return 0;
+    }
+    value.round().clamp(0.0, 255.0) as u8
+}
+
 /// A colour preset as CSS — the same plain byte scale the swatches use.
+#[must_use]
 pub fn css_of(c: &ignition_core::preset::ColorPreset) -> String {
     format!(
         "rgb({} {} {})",
-        (c.red * 255.0) as u8,
-        (c.green * 255.0) as u8,
-        (c.blue * 255.0) as u8
+        byte(c.red * 255.0),
+        byte(c.green * 255.0),
+        byte(c.blue * 255.0)
     )
 }
 
@@ -208,11 +243,13 @@ pub const LOOK_PREVIEW_DIR: &str = "data/looks/previews";
 ///
 /// URLs, not the bytes: see [`crate::panes::file_uri`] for why that is
 /// worth a quarter of the studio's CPU.
+#[must_use]
 pub fn effect_frames(name: &str) -> Vec<String> {
     frames_in(EFFECT_PREVIEW_DIR, name)
 }
 
 /// The same, for any of the preview directories.
+#[must_use]
 pub fn frames_in(root: &str, name: &str) -> Vec<String> {
     let dir = std::path::Path::new(root).join(slug(name));
     let Ok(entries) = std::fs::read_dir(&dir) else {
@@ -233,6 +270,7 @@ pub fn frames_in(root: &str, name: &str) -> Vec<String> {
 /// A name as the directory `viz --previews` wrote it to. Kept in step
 /// with `ignition_viz::preview::slug` — the two are a file-name
 /// contract between the renderer and the pane.
+#[must_use]
 pub fn slug(name: &str) -> String {
     name.chars()
         .map(|c| match c {
@@ -274,7 +312,8 @@ fn look_marks(look: &ignition_core::profile::Look) -> Vec<(String, String)> {
 }
 
 /// The colour a look's kind is drawn in — bed, full, punt, safe.
-pub fn look_css(kind: LookKind) -> &'static str {
+#[must_use]
+pub const fn look_css(kind: LookKind) -> &'static str {
     match kind {
         LookKind::Bed => "#3a5a8a",
         LookKind::Full => "#a04a3a",
@@ -285,6 +324,7 @@ pub fn look_css(kind: LookKind) -> &'static str {
 
 /// The beats a macro runs for — the sum of its waits — and whether it
 /// lets go at the end.
+#[must_use]
 pub fn macro_shape(m: &ignition_core::profile::Macro) -> (f32, bool) {
     use ignition_core::profile::MacroStep;
     let beats = m
@@ -299,10 +339,10 @@ pub fn macro_shape(m: &ignition_core::profile::Macro) -> (f32, bool) {
     (beats, releases)
 }
 
-/// Every entry of one tab, in the profile's order, unstarred.
-pub fn catalogue(tab: Tab, surface: &Surface) -> Vec<Entry> {
-    let profile = profile();
-    let entry = |name: &str, family: String, about: String, css: Option<String>| Entry {
+/// An unstarred tile with no marks — the shape every tab but Look starts
+/// from.
+fn plain_entry(tab: Tab, name: &str, family: String, about: String, css: Option<String>) -> Entry {
+    Entry {
         tab,
         name: name.to_string(),
         family,
@@ -312,142 +352,193 @@ pub fn catalogue(tab: Tab, surface: &Surface) -> Vec<Entry> {
         marks: Vec::new(),
         missing: false,
         favourite: false,
-    };
+    }
+}
+
+fn effects_entries(tab: Tab) -> Vec<Entry> {
+    let profile = profile();
+    profile
+        .effects
+        .keys()
+        .map(|name| {
+            let note = profile.effect_notes.get(name);
+            plain_entry(
+                tab,
+                name,
+                note.map(|n| n.family.clone()).unwrap_or_default(),
+                note.map(|n| n.about.clone()).unwrap_or_default(),
+                None,
+            )
+        })
+        .collect()
+}
+
+fn tricks_entries(tab: Tab) -> Vec<Entry> {
+    profile()
+        .tricks
+        .iter()
+        .map(|(name, steps)| {
+            let shape: Vec<String> = steps.iter().map(|t| format!("{t:?}")).collect();
+            plain_entry(tab, name, shape.join(" · "), String::new(), None)
+        })
+        .collect()
+}
+
+fn bundles_entries(tab: Tab) -> Vec<Entry> {
+    profile()
+        .bundles
+        .values()
+        .map(|b| plain_entry(tab, &b.name, b.family.clone(), b.about.clone(), None))
+        .collect()
+}
+
+fn looks_entries(tab: Tab) -> Vec<Entry> {
+    profile()
+        .looks
+        .iter()
+        .map(|(name, look)| Entry {
+            marks: look_marks(look),
+            ..plain_entry(
+                tab,
+                name,
+                format!("{:?}", look.kind).to_lowercase(),
+                look.about.clone(),
+                Some(look_css(look.kind).to_string()),
+            )
+        })
+        .collect()
+}
+
+fn macros_entries(tab: Tab) -> Vec<Entry> {
+    profile()
+        .macros
+        .iter()
+        .map(|(name, m)| {
+            let (beats, releases) = macro_shape(m);
+            let shape = format!("{beats} beats{}", if releases { " · releases" } else { "" });
+            plain_entry(tab, name, shape, m.about.clone(), None)
+        })
+        .collect()
+}
+
+// Colours are the whole colour palette: the single gels, then the
+// multi-colour ones. They are one question — "what colour" — and
+// splitting them across two panes only ever hid the half an operator
+// reaches for when a flat wash is not enough.
+//
+// A split keeps `Tab::Splits` as its *own* tab while it sits in this
+// list, so `tap` still sends `Split` rather than `Color`. The tab a tile
+// is listed under and the thing a tile does are not the same fact.
+fn colours_entries(tab: Tab, surface: &Surface) -> Vec<Entry> {
+    profile()
+        .colors
+        .iter()
+        .map(|c| Entry {
+            light: crate::ColorChip::is_light(c.red, c.green, c.blue),
+            ..plain_entry(tab, &c.name, String::new(), String::new(), Some(css_of(c)))
+        })
+        .chain(surface.splits.iter().map(|s| Entry {
+            tab: Tab::Splits,
+            name: s.name.clone(),
+            family: String::new(),
+            about: String::new(),
+            // The tile is a disc, so it wants the wedges.
+            css: Some(s.disc()),
+            light: s.light,
+            marks: Vec::new(),
+            missing: false,
+            favourite: false,
+        }))
+        .collect()
+}
+
+fn splits_entries(tab: Tab, surface: &Surface) -> Vec<Entry> {
+    surface
+        .splits
+        .iter()
+        .map(|s| Entry {
+            light: s.light,
+            ..plain_entry(tab, &s.name, String::new(), String::new(), Some(s.disc()))
+        })
+        .collect()
+}
+
+fn focus_entries(tab: Tab, surface: &Surface) -> Vec<Entry> {
+    surface
+        .focus
+        .iter()
+        .map(|f| plain_entry(tab, f, String::new(), String::new(), None))
+        .collect()
+}
+
+fn group_entries(tab: Tab, surface: &Surface) -> Vec<Entry> {
+    surface
+        .groups
+        .iter()
+        .map(|g| plain_entry(tab, g, String::new(), String::new(), None))
+        .collect()
+}
+
+fn roles_entries(tab: Tab) -> Vec<Entry> {
+    let profile = profile();
+    profile
+        .roles
+        .iter()
+        .map(|r| {
+            let mut family = format!("{:?}", r.kind).to_lowercase();
+            if r.required {
+                family.push_str(" · required");
+            }
+            if profile.is_protected(&r.name) {
+                family.push_str(" · protected");
+            }
+            plain_entry(tab, &r.name, family, r.about.clone(), None)
+        })
+        .collect()
+}
+
+/// Every entry of one tab, in the profile's order, unstarred.
+#[must_use]
+pub fn catalogue(tab: Tab, surface: &Surface) -> Vec<Entry> {
     match tab {
-        Tab::Kind(Kind::Effect) => profile
-            .effects
-            .keys()
-            .map(|name| {
-                let note = profile.effect_notes.get(name);
-                entry(
-                    name,
-                    note.map(|n| n.family.clone()).unwrap_or_default(),
-                    note.map(|n| n.about.clone()).unwrap_or_default(),
-                    None,
-                )
-            })
-            .collect(),
-        Tab::Kind(Kind::Trick) => profile
-            .tricks
-            .iter()
-            .map(|(name, steps)| {
-                let shape: Vec<String> = steps.iter().map(|t| format!("{t:?}")).collect();
-                entry(name, shape.join(" · "), String::new(), None)
-            })
-            .collect(),
-        Tab::Kind(Kind::Bundle) => profile
-            .bundles
-            .values()
-            .map(|b| entry(&b.name, b.family.clone(), b.about.clone(), None))
-            .collect(),
-        Tab::Kind(Kind::Look) => profile
-            .looks
-            .iter()
-            .map(|(name, look)| Entry {
-                marks: look_marks(look),
-                ..entry(
-                    name,
-                    format!("{:?}", look.kind).to_lowercase(),
-                    look.about.clone(),
-                    Some(look_css(look.kind).to_string()),
-                )
-            })
-            .collect(),
-        Tab::Kind(Kind::Macro) => profile
-            .macros
-            .iter()
-            .map(|(name, m)| {
-                let (beats, releases) = macro_shape(m);
-                let shape = format!("{beats} beats{}", if releases { " · releases" } else { "" });
-                entry(name, shape, m.about.clone(), None)
-            })
-            .collect(),
-        // Colours are the whole colour palette: the single gels, then
-        // the multi-colour ones. They are one question — "what colour" —
-        // and splitting them across two panes only ever hid the half an
-        // operator reaches for when a flat wash is not enough.
-        //
-        // A split keeps `Tab::Splits` as its *own* tab while it sits in
-        // this list, so `tap` still sends `Split` rather than `Color`.
-        // The tab a tile is listed under and the thing a tile does are
-        // not the same fact.
-        Tab::Kind(Kind::Colour) => profile
-            .colors
-            .iter()
-            .map(|c| Entry {
-                light: crate::ColorChip::is_light(c.red, c.green, c.blue),
-                ..entry(&c.name, String::new(), String::new(), Some(css_of(c)))
-            })
-            .chain(surface.splits.iter().map(|s| Entry {
-                tab: Tab::Splits,
-                name: s.name.clone(),
-                family: String::new(),
-                about: String::new(),
-                // The tile is a disc, so it wants the wedges.
-                css: Some(s.disc()),
-                light: s.light,
-                marks: Vec::new(),
-                missing: false,
-                favourite: false,
-            }))
-            .collect(),
-        Tab::Splits => surface
-            .splits
-            .iter()
-            .map(|s| Entry {
-                light: s.light,
-                ..entry(&s.name, String::new(), String::new(), Some(s.disc()))
-            })
-            .collect(),
-        Tab::Kind(Kind::Focus) => surface
-            .focus
-            .iter()
-            .map(|f| entry(f, String::new(), String::new(), None))
-            .collect(),
-        Tab::Kind(Kind::Group) => surface
-            .groups
-            .iter()
-            .map(|g| entry(g, String::new(), String::new(), None))
-            .collect(),
-        Tab::Roles => profile
-            .roles
-            .iter()
-            .map(|r| {
-                let mut family = format!("{:?}", r.kind).to_lowercase();
-                if r.required {
-                    family.push_str(" · required");
-                }
-                if profile.is_protected(&r.name) {
-                    family.push_str(" · protected");
-                }
-                entry(&r.name, family, r.about.clone(), None)
-            })
-            .collect(),
+        Tab::Kind(Kind::Effect) => effects_entries(tab),
+        Tab::Kind(Kind::Trick) => tricks_entries(tab),
+        Tab::Kind(Kind::Bundle) => bundles_entries(tab),
+        Tab::Kind(Kind::Look) => looks_entries(tab),
+        Tab::Kind(Kind::Macro) => macros_entries(tab),
+        Tab::Kind(Kind::Colour) => colours_entries(tab, surface),
+        Tab::Splits => splits_entries(tab, surface),
+        Tab::Kind(Kind::Focus) => focus_entries(tab, surface),
+        Tab::Kind(Kind::Group) => group_entries(tab, surface),
+        Tab::Roles => roles_entries(tab),
     }
 }
 
 /// Favourites first, in the operator's order — a stale name as a
 /// missing tile — then everything else in the profile's order.
 // r[impl studio.operators.favourites] - shown first; missing rather than failing
+#[must_use]
 pub fn ordered(all: &[Entry], favourites: &[String]) -> Vec<Entry> {
     let mut out: Vec<Entry> = favourites
         .iter()
-        .map(|name| match all.iter().find(|e| &e.name == name) {
-            Some(e) => Entry {
-                favourite: true,
-                ..e.clone()
-            },
-            None => Entry {
-                tab: all.first().map(|e| e.tab).unwrap_or(Tab::Roles),
-                name: name.clone(),
-                family: "missing".into(),
-                about: "not in this profile".into(),
-                css: None,
-                light: false,
-                marks: Vec::new(),
-                missing: true,
-                favourite: true,
-            },
+        .map(|name| {
+            all.iter().find(|e| &e.name == name).map_or_else(
+                || Entry {
+                    tab: all.first().map_or(Tab::Roles, |e| e.tab),
+                    name: name.clone(),
+                    family: "missing".into(),
+                    about: "not in this profile".into(),
+                    css: None,
+                    light: false,
+                    marks: Vec::new(),
+                    missing: true,
+                    favourite: true,
+                },
+                |e| Entry {
+                    favourite: true,
+                    ..e.clone()
+                },
+            )
         })
         .collect();
     out.extend(
@@ -460,6 +551,7 @@ pub fn ordered(all: &[Entry], favourites: &[String]) -> Vec<Entry> {
 
 /// Whether a tile matches the search box: name, family or note,
 /// case-insensitively; an empty query matches everything.
+#[must_use]
 pub fn matches(entry: &Entry, query: &str) -> bool {
     let q = query.trim().to_lowercase();
     if q.is_empty() {
@@ -490,15 +582,17 @@ pub fn toggle_favourite(mut operator: Signal<Operator>, kind: Kind, name: &str) 
 }
 
 /// What tapping a tile does — the natural thing for its kind, through
-/// the commands the engine already has. Tricks have no command: a trick
-/// is applied by a recipe, not fired, so the tile only shows its shape.
+/// the commands the engine already has.
+///
+/// Tricks have no command: a trick is applied by a recipe, not fired, so
+/// the tile only shows its shape.
 pub fn tap(entry: &Entry, playhead: &crate::command::Playhead) {
     if entry.missing {
         return;
     }
     let name = entry.name.clone();
     match entry.tab {
-        Tab::Kind(Kind::Effect) | Tab::Kind(Kind::Bundle) => {
+        Tab::Kind(Kind::Effect | Kind::Bundle) => {
             if playhead.effects_playing.contains(&name) {
                 send(Command::Untake(name));
             } else {
@@ -523,11 +617,10 @@ pub fn tap(entry: &Entry, playhead: &crate::command::Playhead) {
 }
 
 /// Whether the engine says this tile is active — for the lit state.
+#[must_use]
 pub fn is_on(entry: &Entry, playhead: &crate::command::Playhead) -> bool {
     match entry.tab {
-        Tab::Kind(Kind::Effect) | Tab::Kind(Kind::Bundle) => {
-            playhead.effects_playing.contains(&entry.name)
-        }
+        Tab::Kind(Kind::Effect | Kind::Bundle) => playhead.effects_playing.contains(&entry.name),
         Tab::Kind(Kind::Look) => playhead.held_look.as_deref() == Some(&entry.name),
         _ => false,
     }
@@ -781,6 +874,12 @@ mod tests {
         assert!(house.family.contains("protected"));
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "a macro's beat sum is a total of literal step values \
+                  the profile bakes in, exact in f32; not an accumulated \
+                  computation that could drift"
+    )]
     #[test]
     fn a_macro_shows_its_beats_and_release() {
         let profile = profile();

@@ -22,6 +22,7 @@ Read in this order — each file assumes the ones above it.
 | [playback.md](playback.md) | **The priority stack.** Hand › masters › flashes › faders › triggers › cue player. Transient over sustained. HTP/LTP. Nothing merges at DMX. |
 | [triggers.md](triggers.md) | Hits the song fires. Crossing fires; stopped fires nothing; seek locates. Sum, retire, bound. |
 | [canvas.md](canvas.md) | Canvases as fixture grids: procedural content, bitmap channels driving any attribute, clips as one source among many. |
+| [patch.md](patch.md) | Bringing a room up: fixture types as data (modes, channel charts in the manual's own words, confidence, GDTF/QLC+/OFL interchange), the patch sheet, addressing and conflicts, multipatch, editing a venue and the venue-local layer. |
 | [dmx.md](dmx.md) | The wire: sACN and Art-Net transmit, rate and keep-alive, priority, sequence, venue-owned network config, loopback into the visualizer. |
 | [visualizer.md](visualizer.md) | Rendering from DMX bytes, video export, gobo raster; GDTF: real meshes (`viz.gdtf-meshes`), generated profiles (`viz.gdtf-generated`), library loading and name/alias matching (`viz.gdtf-aliases`). |
 | [studio.md](studio.md) | The operator surface: Lights / Graphics / Video modes, Program and Live views over the whole profile, panels in any of several OS windows, operator files with favourites and per-monitor layouts, the iPad Live page, desk-scene banks. |

@@ -6,7 +6,11 @@
 //! reasons about comes from [`super::geometry`] rather than from the
 //! document.
 
-use super::*;
+use super::{
+    Axis, DockNode, DropZone, PaneKind, Path, Preset, Rect, TAB_BAR, fraction_for, hit_test,
+    layout, zone_rect,
+};
+use crate::num::{f32_of_f64, f32_of_u32, f32_of_usize};
 use crate::windows::{self, HostId};
 use dioxus::prelude::*;
 
@@ -56,12 +60,12 @@ pub fn Dock(host: HostId, tree: DockNode, solo: bool) -> Element {
     let mut menu = use_signal(|| Option::<Menu>::None);
 
     let size = window.surface_size();
-    let scale = window.scale_factor() as f32;
+    let scale = f32_of_f64(window.scale_factor());
     let dock_rect = Rect::new(
         0.0,
         0.0,
-        size.width as f32 / scale,
-        (size.height as f32 / scale - STRIP).max(0.0),
+        f32_of_u32(size.width) / scale,
+        (f32_of_u32(size.height) / scale - STRIP).max(0.0),
     );
     let placed = layout(&tree, dock_rect);
     let placed_for_move = placed.clone();
@@ -87,7 +91,7 @@ pub fn Dock(host: HostId, tree: DockNode, solo: bool) -> Element {
         if !d.active {
             let dx = x - d.start.0;
             let dy = y - d.start.1;
-            if dx * dx + dy * dy < 16.0 {
+            if dx.mul_add(dx, dy * dy) < 16.0 {
                 drag.set(Some(d));
                 return;
             }
@@ -154,7 +158,7 @@ pub fn Dock(host: HostId, tree: DockNode, solo: bool) -> Element {
             class: "{root_class}",
             onmousemove: move |e| {
                 let p = e.data.client_coordinates();
-                on_move(p.x as f32, p.y as f32, None);
+                on_move(f32_of_f64(p.x), f32_of_f64(p.y), None);
             },
             onmouseup: move |_| on_up(),
             onmouseleave: move |_| {
@@ -170,7 +174,7 @@ pub fn Dock(host: HostId, tree: DockNode, solo: bool) -> Element {
                     return;
                 }
                 let p = e.data.client_coordinates();
-                if let Some(sp) = placed_for_down.splitter_at(p.x as f32, p.y as f32 - STRIP) {
+                if let Some(sp) = placed_for_down.splitter_at(f32_of_f64(p.x), f32_of_f64(p.y) - STRIP) {
                     splitting.set(Some(SplitDrag { path: sp.path.clone(), index: sp.index }));
                 }
             },
@@ -202,7 +206,7 @@ pub fn Dock(host: HostId, tree: DockNode, solo: bool) -> Element {
                 }
             }
             if let Some(m) = menu() {
-                ContextMenu { host, menu_at: m.at, kind: m.kind, tree: tree.clone(), solo, close: move |_| menu.set(None) }
+                ContextMenu { host, menu_at: m.at, kind: m.kind, tree: tree, solo, close: move |()| menu.set(None) }
             }
         }
     }
@@ -240,7 +244,7 @@ fn Node(
                 div { class: if axis == Axis::Row { "dock-split row" } else { "dock-split col" },
                     for (i, child) in children.into_iter().enumerate() {
                         {
-                            let grow = ratios.get(i).copied().unwrap_or(1.0 / n as f32) / sum;
+                            let grow = ratios.get(i).copied().unwrap_or_else(|| 1.0 / f32_of_usize(n)) / sum;
                             let mut child_path = path.clone();
                             child_path.push(i);
                             let reset_path = path.clone();
@@ -278,14 +282,19 @@ fn Node(
                             if drag().is_some() {
                                 e.stop_propagation();
                                 let p = e.data.client_coordinates();
-                                on_move.call((p.x as f32, p.y as f32, Some((bar_path.clone(), bar_hover_len))));
+                                on_move
+                                    .call((
+                                        f32_of_f64(p.x),
+                                        f32_of_f64(p.y),
+                                        Some((bar_path.clone(), bar_hover_len)),
+                                    ));
                             }
                         },
                         oncontextmenu: move |e| {
                             e.stop_propagation();
                             let p = e.data.client_coordinates();
                             menu.set(Some(Menu {
-                                at: (p.x as f32, p.y as f32 - STRIP),
+                                at: (f32_of_f64(p.x), f32_of_f64(p.y) - STRIP),
                                 kind: MenuKind::Bar { path: bar_menu_path.clone() },
                             }));
                         },
@@ -317,10 +326,11 @@ fn Node(
                                                     *active = i;
                                                 }
                                             });
+                                            let at = (f32_of_f64(p.x), f32_of_f64(p.y) - STRIP);
                                             drag.set(Some(Drag {
                                                 pane,
-                                                start: (p.x as f32, p.y as f32 - STRIP),
-                                                at: (p.x as f32, p.y as f32 - STRIP),
+                                                start: at,
+                                                at,
                                                 active: false,
                                                 hover_tab: None,
                                                 target: None,
@@ -330,14 +340,19 @@ fn Node(
                                             if drag().is_some() {
                                                 e.stop_propagation();
                                                 let p = e.data.client_coordinates();
-                                                on_move.call((p.x as f32, p.y as f32, Some((move_path.clone(), i))));
+                                                on_move
+                                                    .call((
+                                                        f32_of_f64(p.x),
+                                                        f32_of_f64(p.y),
+                                                        Some((move_path.clone(), i)),
+                                                    ));
                                             }
                                         },
                                         oncontextmenu: move |e| {
                                             e.stop_propagation();
                                             let p = e.data.client_coordinates();
                                             menu.set(Some(Menu {
-                                                at: (p.x as f32, p.y as f32 - STRIP),
+                                                at: (f32_of_f64(p.x), f32_of_f64(p.y) - STRIP),
                                                 kind: MenuKind::Tab { pane, path: menu_path.clone() },
                                             }));
                                         },
@@ -392,7 +407,7 @@ fn ContextMenu(
             match kind {
                 MenuKind::Tab { pane, path } => {
                     let p1 = path.clone();
-                    let p2 = path.clone();
+                    let p2 = path;
                     rsx! {
                         div { class: "menu-title", "{pane.label()}" }
                         button { class: "menu-item",

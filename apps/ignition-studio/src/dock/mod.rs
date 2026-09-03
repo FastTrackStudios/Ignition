@@ -1,5 +1,5 @@
 //! The docking system: every window is a tree of splits whose leaves
-//! are tabbed panes, the way MaxPane tiles REAPER — the same logic,
+//! are tabbed panes, the way `MaxPane` tiles REAPER — the same logic,
 //! drawn by Dioxus instead of reparented HWNDs.
 //!
 //! Split along the line the file always described in its own opening
@@ -58,7 +58,7 @@ pub use view::Dock;
 /// dropping — and it is wanted by `tree`, `preset` and `geometry`
 /// alike, which is why it sits here rather than in any one of them.
 #[cfg(test)]
-pub(crate) mod fixtures {
+pub mod fixtures {
     use super::*;
 
     pub fn console() -> DockNode {

@@ -103,7 +103,7 @@ fn main() -> Result<()> {
         );
         if write {
             record.apply(fixture, wanted);
-            changed += 1;
+            changed = changed.saturating_add(1);
         }
     }
 
@@ -171,12 +171,32 @@ impl Aim {
         let (sz, cz) = (z * 0.5).sin_cos();
         let (sx, cx) = (x * 0.5).sin_cos();
         // ZYX with a zero Y term: q = Rz * Rx.
-        let quat = [cz * cx, cz * sx, sz * sx, sz * cx]; // w, x, y, z
-        fixture["eulers"]["x"] = round6(tilt_deg);
-        fixture["quat"]["w"] = round6(quat[0]);
-        fixture["quat"]["x"] = round6(quat[1]);
-        fixture["quat"]["y"] = round6(quat[2]);
-        fixture["quat"]["z"] = round6(quat[3]);
+        let [w, qx, qy, qz] = [cz * cx, cz * sx, sz * sx, sz * cx]; // w, x, y, z
+
+        // `fixture[...][...] = ...` is `serde_json`'s panicking `IndexMut`;
+        // this is a fixture record read off disk, so a malformed "eulers"
+        // or "quat" (present but not an object) is data to route around,
+        // not a crash. `entry(...).or_insert_with(...)` preserves the one
+        // behaviour the old indexing gave us for free — an absent field is
+        // created as an object rather than left missing.
+        let Some(root) = fixture.as_object_mut() else {
+            return;
+        };
+        let eulers = root
+            .entry("eulers")
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+        if let Some(eulers) = eulers.as_object_mut() {
+            eulers.insert("x".to_string(), round6(tilt_deg));
+        }
+        let quat = root
+            .entry("quat")
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+        if let Some(quat) = quat.as_object_mut() {
+            quat.insert("w".to_string(), round6(w));
+            quat.insert("x".to_string(), round6(qx));
+            quat.insert("y".to_string(), round6(qy));
+            quat.insert("z".to_string(), round6(qz));
+        }
     }
 }
 

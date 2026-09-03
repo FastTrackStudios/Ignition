@@ -19,7 +19,8 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-    pub fn to_vec3(self) -> Point {
+    #[must_use]
+    pub const fn to_vec3(self) -> Point {
         Point::new(self.x, self.y, self.z)
     }
 }
@@ -33,6 +34,7 @@ pub struct Quat {
 }
 
 impl Quat {
+    #[must_use]
     pub fn to_quat(self) -> Rotation {
         Rotation::from_xyzw(self.x, self.y, self.z, self.w).normalize()
     }
@@ -88,19 +90,21 @@ pub struct FixtureRecord {
     pub mirrors: Vec<ignition_proto::DmxAddress>,
 }
 
-fn default_patched() -> bool {
+const fn default_patched() -> bool {
     true
 }
 
 impl FixtureRecord {
     /// The mounting orientation — the *hang*, never the aim. See
     /// `docs/domain/norco-venue-reference.md`.
+    #[must_use]
     pub fn orientation(&self) -> Rotation {
         self.quat.to_quat()
     }
 
     /// This fixture's live DMX address, if the venue data has both pieces —
     /// `None` for anything not DMX-controlled (or missing patch data).
+    #[must_use]
     pub fn dmx_address(&self) -> Option<ignition_proto::DmxAddress> {
         Some(ignition_proto::DmxAddress {
             universe: self.universe?,
@@ -132,23 +136,25 @@ impl FixtureRecord {
     /// `f64`, matching the rest of the wire-contract types) — no
     /// coordinate remap, same convention both sides already agree on
     /// (`to_vec3()`/`to_quat()`'s own doc comments).
+    #[must_use]
     pub fn placement(&self) -> ignition_proto::Placement {
         let effective_rot = self.orientation();
         ignition_proto::Placement {
             position: ignition_proto::Vec3 {
-                x: self.position.x as f64,
-                y: self.position.y as f64,
-                z: self.position.z as f64,
+                x: f64::from(self.position.x),
+                y: f64::from(self.position.y),
+                z: f64::from(self.position.z),
             },
             orientation: ignition_proto::Quat {
-                w: effective_rot.w as f64,
-                x: effective_rot.x as f64,
-                y: effective_rot.y as f64,
-                z: effective_rot.z as f64,
+                w: f64::from(effective_rot.w),
+                x: f64::from(effective_rot.x),
+                y: f64::from(effective_rot.y),
+                z: f64::from(effective_rot.z),
             },
         }
     }
 
+    #[must_use]
     pub fn kind(&self) -> FixtureKind {
         if self
             .tags
@@ -172,11 +178,12 @@ pub enum FixtureKind {
 }
 
 impl FixtureKind {
-    pub fn color(self) -> [f32; 3] {
+    #[must_use]
+    pub const fn color(self) -> [f32; 3] {
         match self {
-            FixtureKind::Wash => [0.25, 0.75, 0.95],
-            FixtureKind::Mover => [0.95, 0.55, 0.15],
-            FixtureKind::Other => [0.65, 0.65, 0.70],
+            Self::Wash => [0.25, 0.75, 0.95],
+            Self::Mover => [0.95, 0.55, 0.15],
+            Self::Other => [0.65, 0.65, 0.70],
         }
     }
 }
@@ -201,6 +208,7 @@ pub struct GeometryRecord {
 }
 
 impl GeometryRecord {
+    #[must_use]
     pub fn orientation(&self) -> Rotation {
         euler_to_quat(self.eulers)
     }
@@ -208,17 +216,21 @@ impl GeometryRecord {
     /// The canvas this screen belongs to — its own name when it is not
     /// part of a group.
     // r[impl files.venue.canvases]
+    #[must_use]
     pub fn canvas_name(&self) -> &str {
         self.canvas.as_deref().unwrap_or(&self.name)
     }
 }
 
-/// One `channels` array entry from Eos's export — most groups use its
-/// range-string shorthand (`"1-48"`, or a bare `"50"` for one channel),
-/// but some (e.g. Norco's "Pars Odd") are exported as a plain JSON array
-/// of individual channel numbers instead — Eos apparently picks whichever
-/// is more compact for a given selection. `untagged` accepts either shape
-/// per-element rather than requiring the whole array to agree.
+/// One `channels` array entry from Eos's export.
+///
+/// Most groups use its range-string shorthand (`"1-48"`, or a bare `"50"`
+/// for one channel), but some (e.g. Norco's "Pars Odd") are exported as a
+/// plain JSON array of individual channel numbers instead — Eos
+/// apparently picks whichever is more compact for a given selection.
+///
+/// `untagged` accepts either shape per-element rather than requiring the
+/// whole array to agree.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum ChannelListEntry {
@@ -228,6 +240,7 @@ pub enum ChannelListEntry {
 
 /// One entry from Eos's own exported `groups.json` — the live rig's real
 /// group list (112 of them for Norco: "Pars", "Movers", "OH Movers", ...
+///
 /// see `docs/domain/norco-patch-and-groups.md`). `Venue::groups()` expands
 /// `channels` into the plain `ChanId` lists `ignition_core::recipe`'s
 /// `RecipeTarget::Group` actually needs.
@@ -258,7 +271,11 @@ fn parse_channel_ranges(entries: &[ChannelListEntry]) -> Vec<u32> {
     out
 }
 
-#[derive(Clone)]
+// `Default` is an empty room: no fixtures, no geometry, no patch.
+// It is what the studio falls back to when a venue will not load —
+// see `Viewport` in `apps/ignition-studio/src/main.rs`. An empty room
+// draws as an empty room, which is recoverable; a panic is not.
+#[derive(Clone, Default)]
 // r[impl files.venue] - fixtures, room, screens, props, groups, palettes and profile binding
 // r[impl files.vocabulary] - groups, palettes and canvases are the venue's vocabulary
 // r[impl profile.venue-declares-what-it-implements] - `profile` names the profile, and may be empty
@@ -314,7 +331,7 @@ impl Venue {
             .flat_map(|f| {
                 f.dmx_address()
                     .into_iter()
-                    .chain(f.mirrors.iter().cloned())
+                    .chain(f.mirrors.iter().copied())
                     .map(|a| a.universe)
             })
             .collect();
@@ -329,10 +346,10 @@ impl Venue {
     /// configuration expects to hear.
     // r[impl dmx.venue-config] - absent config falls back to sACN multicast per patched universe
     pub fn output_config(&self) -> ignition_dmx::OutputConfig {
-        match &self.dmx {
-            Some(config) => config.clone(),
-            None => default_output_config(&self.patched_universes()),
-        }
+        self.dmx.as_ref().map_or_else(
+            || default_output_config(&self.patched_universes()),
+            Clone::clone,
+        )
     }
 }
 
@@ -348,6 +365,10 @@ pub struct Patch {
     pub map: ignition_proto::ChannelMap,
     /// The output-side profile: emitters, wheel, preference, space, defaults.
     pub profile: crate::fixture_profile::FixtureProfile,
+    /// The fixture type's mode this patch resolved to — what the room's
+    /// own address spacing said this fixture is. `legacy` for a model
+    /// answered by the hand-written table rather than a document.
+    pub mode: String,
 }
 
 impl Patch {
@@ -368,20 +389,68 @@ pub struct PatchTable {
     by_chan: std::collections::HashMap<u32, usize>,
 }
 
+/// How many channels the room left before the next fixture, per fixture.
+///
+/// The venue records an address and never a mode, but it recorded the
+/// mode anyway: a rig patched at 1, 8, 15 is saying those fixtures are
+/// seven channels wide. This is that fact, read back out — for each
+/// patched fixture, the distance to the next distinct address above it
+/// in the same universe, or `None` for the last one in its universe.
+///
+/// Two fixtures on the *same* address are multipatch
+/// (`r[files.venue.multipatch]`), not a spacing claim, so an equal
+/// address is skipped rather than reported as a gap of zero.
+fn address_gaps(venue: &Venue) -> Vec<Option<u16>> {
+    // Addresses per universe, sorted and deduplicated, so "the next one
+    // above" is a scan of a short sorted list rather than of the rig.
+    let mut by_universe: std::collections::HashMap<u16, Vec<u16>> =
+        std::collections::HashMap::new();
+    for address in venue.fixtures.iter().filter_map(FixtureRecord::dmx_address) {
+        by_universe
+            .entry(address.universe)
+            .or_default()
+            .push(address.start_channel);
+    }
+    for addresses in by_universe.values_mut() {
+        addresses.sort_unstable();
+        addresses.dedup();
+    }
+    venue
+        .fixtures
+        .iter()
+        .map(|f| {
+            let address = f.dmx_address()?;
+            let addresses = by_universe.get(&address.universe)?;
+            let next = addresses
+                .iter()
+                .copied()
+                .find(|a| *a > address.start_channel)?;
+            Some(next.saturating_sub(address.start_channel))
+        })
+        .collect()
+}
+
 impl PatchTable {
+    // r[impl patch.type-is-data] - the channel map comes from a document
+    // r[impl patch.type-modes] - and the room's own spacing picks the mode
     fn build(venue: &Venue) -> Self {
+        let gaps = address_gaps(venue);
         let entries = venue
             .fixtures
             .iter()
-            .map(|f| {
+            .enumerate()
+            .map(|(index, f)| {
                 let manufacturer = f.manufacturer.as_deref().unwrap_or("");
                 let model = f.model.as_deref().unwrap_or("");
                 let address = f.dmx_address()?;
-                let profile = crate::channel_map::profile_for(manufacturer, model)?;
+                let gap = gaps.get(index).copied().flatten();
+                let (profile, mode) =
+                    crate::fixture_library::profile_for(manufacturer, model, gap)?;
                 Some(Patch {
                     address,
                     mirrors: f.mirrors.clone(),
                     map: profile.map.clone(),
+                    mode,
                     profile,
                 })
             })
@@ -397,11 +466,13 @@ impl PatchTable {
 
     /// The patch for the fixture at `index` in `Venue::fixtures`, if it
     /// has an address and a known layout.
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<&Patch> {
         self.entries.get(index).and_then(|p| p.as_ref())
     }
 
     /// The patch for console channel `chan`.
+    #[must_use]
     pub fn by_chan(&self, chan: u32) -> Option<&Patch> {
         self.by_chan.get(&chan).and_then(|i| self.get(*i))
     }
@@ -416,6 +487,7 @@ impl PatchTable {
     /// The rest value of every attribute of every patched fixture — the
     /// floor a released attribute falls to and what cue zero establishes.
     // r[impl playback.defaults] - the defaults map for the patched rig
+    #[must_use]
     pub fn defaults(&self) -> std::collections::HashMap<(u32, ignition_proto::Attribute), f32> {
         self.iter()
             .flat_map(|(chan, patch)| {
@@ -440,6 +512,17 @@ fn inherit_colors(
     venue_dir: &Path,
     binding: &ignition_core::profile::VenueProfile,
 ) -> ignition_core::Palettes {
+    // Splits inherit by the same rule as colours below. They are read
+    // from the profile file's own `splits` key rather than through
+    // `Profile`, which does not carry them yet: a split is palette
+    // vocabulary, and this is the one place the profile is opened as a
+    // palette.
+    // r[impl color.multi] - profile split defaults inherited unless the venue overrides
+    #[derive(serde::Deserialize, Default)]
+    struct ProfileSplits {
+        #[serde(default)]
+        splits: Vec<ignition_core::preset::ColorSplit>,
+    }
     if binding.profile.is_empty() {
         return palettes;
     }
@@ -466,27 +549,17 @@ fn inherit_colors(
     for color in profile.colors.iter().chain(binding.colors.iter()) {
         if !palettes.colors.iter().any(|c| c.name == color.name) {
             palettes.colors.push(color.clone());
-            inherited += 1;
+            inherited = inherited.saturating_add(1);
         }
     }
     tracing::debug!(inherited, "venue: colours inherited from profile");
 
-    // Splits inherit by the same rule. They are read from the profile
-    // file's own `splits` key rather than through `Profile`, which does
-    // not carry them yet: a split is palette vocabulary, and this is the
-    // one place the profile is opened as a palette.
-    // r[impl color.multi] - profile split defaults inherited unless the venue overrides
-    #[derive(serde::Deserialize, Default)]
-    struct ProfileSplits {
-        #[serde(default)]
-        splits: Vec<ignition_core::preset::ColorSplit>,
-    }
     let profile_splits = serde_json::from_str::<ProfileSplits>(&raw).unwrap_or_default();
     let mut inherited = 0usize;
     for split in profile_splits.splits {
         if !palettes.splits.iter().any(|s| s.name == split.name) {
             palettes.splits.push(split);
-            inherited += 1;
+            inherited = inherited.saturating_add(1);
         }
     }
     tracing::debug!(inherited, "venue: colour splits inherited from profile");
@@ -535,7 +608,7 @@ fn alias_focus(
             name: role.clone(),
             target,
         });
-        added += 1;
+        added = added.saturating_add(1);
     }
     tracing::debug!(added, "venue: focus roles aliased onto the palette");
     palettes
@@ -543,6 +616,20 @@ fn alias_focus(
 
 /// sACN multicast, priority 100, for each of `universes` — built as
 /// JSON and parsed, so the shape is the one the manifest would carry.
+///
+/// # Panics
+///
+/// Never in practice: the JSON is built to `OutputConfig`'s own shape a
+/// couple of lines below.
+#[must_use]
+// The JSON built above always matches `OutputConfig`'s own shape — this
+// isn't a file read off disk, it's a literal this function just wrote —
+// so `from_value` failing here would mean the two shapes drifted apart
+// at compile time, not a bad runtime input.
+#[expect(
+    clippy::expect_used,
+    reason = "the JSON is built two lines above to OutputConfig's own shape; see the comment above"
+)]
 pub fn default_output_config(universes: &[u16]) -> ignition_dmx::OutputConfig {
     let entries: serde_json::Map<String, serde_json::Value> = universes
         .iter()
@@ -561,6 +648,9 @@ impl Venue {
     // r[impl files.venue] - the seven JSON files under data/venues/<name>/
     // r[impl profile.venue-declares-what-it-implements] - profile.json is optional
     // r[impl profile.venue-binds] - the binding loads with the venue, not with any show
+    /// # Errors
+    ///
+    /// If any of the venue's JSON files is missing or fails to parse.
     pub fn load(dir: impl AsRef<Path>) -> anyhow::Result<Self> {
         let dir = dir.as_ref();
         // A directory with a `venue.ig-venue` manifest, or a bare
@@ -618,7 +708,7 @@ impl Venue {
         Ok(Self {
             palettes,
             profile,
-            patch: Default::default(),
+            patch: std::sync::OnceLock::default(),
             dmx,
             fixtures: serde_json::from_str(&read("fixtures")?)?,
             room: serde_json::from_str(&read("room")?)?,
@@ -685,7 +775,7 @@ impl Venue {
         self.fixtures
             .iter()
             .find(|f| f.chan == Some(chan))
-            .map(|f| f.placement())
+            .map(FixtureRecord::placement)
     }
 
     /// Axis-aligned bounds over every object's centre — used to auto-frame
@@ -726,6 +816,10 @@ impl Venue {
     /// to the middle of one, so this is what sizes a throw. Falls back
     /// to `bounds()` for a venue with no room geometry.
     // r[impl viz.beam-reach] - throws are sized by the room's surfaces
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3 arithmetic is float, component-wise, and cannot panic or overflow"
+    )]
     pub fn room_extent(&self) -> (Point, Point) {
         if self.room.is_empty() {
             return self.bounds();
@@ -767,9 +861,9 @@ mod tests {
             screens: vec![],
             props: vec![],
             group_records: vec![],
-            palettes: Default::default(),
-            profile: Default::default(),
-            patch: Default::default(),
+            palettes: ignition_core::Palettes::default(),
+            profile: ignition_core::profile::VenueProfile::default(),
+            patch: std::sync::OnceLock::default(),
             dmx: None,
         };
         let (min, max) = venue.room_extent();
@@ -802,7 +896,7 @@ mod tests {
     fn channel_list_entry_deserializes_both_real_json_shapes() {
         let ranges: Vec<ChannelListEntry> = serde_json::from_str(r#"["1-48", "50-53"]"#).unwrap();
         assert!(matches!(ranges[0], ChannelListEntry::Range(_)));
-        let nums: Vec<ChannelListEntry> = serde_json::from_str(r#"[1, 3, 5, 7]"#).unwrap();
+        let nums: Vec<ChannelListEntry> = serde_json::from_str(r"[1, 3, 5, 7]").unwrap();
         assert!(matches!(nums[0], ChannelListEntry::Chan(1)));
     }
 
@@ -813,9 +907,9 @@ mod tests {
             room: vec![],
             screens: vec![],
             props: vec![],
-            palettes: Default::default(),
-            profile: Default::default(),
-            patch: Default::default(),
+            palettes: ignition_core::Palettes::default(),
+            profile: ignition_core::profile::VenueProfile::default(),
+            patch: std::sync::OnceLock::default(),
             dmx: None,
             group_records: vec![GroupRecord {
                 target: "1".to_string(),
@@ -846,9 +940,9 @@ mod tests {
             room: vec![],
             screens: vec![],
             props: vec![],
-            palettes: Default::default(),
-            profile: Default::default(),
-            patch: Default::default(),
+            palettes: ignition_core::Palettes::default(),
+            profile: ignition_core::profile::VenueProfile::default(),
+            patch: std::sync::OnceLock::default(),
             dmx: None,
             group_records: vec![],
         };
@@ -887,9 +981,9 @@ mod tests {
             room: vec![],
             screens: vec![],
             props: vec![],
-            palettes: Default::default(),
-            profile: Default::default(),
-            patch: Default::default(),
+            palettes: ignition_core::Palettes::default(),
+            profile: ignition_core::profile::VenueProfile::default(),
+            patch: std::sync::OnceLock::default(),
             dmx: None,
             group_records: vec![],
         };
@@ -900,8 +994,8 @@ mod tests {
             .collect();
         assert_eq!(addresses, vec![(1, 1), (1, 200), (2, 8)]);
         let defaults = venue.patch().defaults();
-        assert_eq!(defaults[&(9, ignition_proto::Attribute::Dimmer)], 0.0);
-        assert_eq!(defaults[&(9, ignition_proto::Attribute::Strobe)], 0.0);
+        assert!((defaults[&(9, ignition_proto::Attribute::Dimmer)] - (0.0)).abs() < 1e-6);
+        assert!((defaults[&(9, ignition_proto::Attribute::Strobe)] - (0.0)).abs() < 1e-6);
     }
 
     fn data(rel: &str) -> std::path::PathBuf {
@@ -1001,7 +1095,7 @@ mod tests {
             assert_eq!(u.sacn.as_ref().map(|s| s.priority), Some(100), "U{n} sACN");
             assert_eq!(
                 u.artnet.as_ref().map(|a| a.universe),
-                Some((*n - 1) as u8),
+                Some(crate::num::u8_of_u16(*n - 1)),
                 "U{n} Art-Net"
             );
         }
@@ -1028,9 +1122,9 @@ mod tests {
             screens: vec![],
             props: vec![],
             group_records: vec![],
-            palettes: Default::default(),
-            profile: Default::default(),
-            patch: Default::default(),
+            palettes: ignition_core::Palettes::default(),
+            profile: ignition_core::profile::VenueProfile::default(),
+            patch: std::sync::OnceLock::default(),
             dmx: None,
         };
         let config = venue.output_config();

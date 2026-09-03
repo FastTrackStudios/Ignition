@@ -66,7 +66,7 @@ impl Default for UniverseOutput {
 /// sACN for one universe.
 // r[impl dmx.sacn.priority]
 // r[impl dmx.sacn.addressing]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SacnOutput {
     /// 0..=200; 100 is the E1.31 default and what a house desk usually sends.
     #[serde(default = "default_priority")]
@@ -91,7 +91,7 @@ impl Default for SacnOutput {
 
 /// Art-Net for one universe.
 // r[impl dmx.artnet.addressing]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtnetOutput {
     #[serde(default)]
     pub net: u8,
@@ -125,19 +125,24 @@ impl Default for ArtnetOutput {
     }
 }
 
-pub fn default_true() -> bool {
+#[must_use]
+pub const fn default_true() -> bool {
     true
 }
-pub fn default_max_hz() -> f32 {
+#[must_use]
+pub const fn default_max_hz() -> f32 {
     44.0
 }
-pub fn default_keepalive_hz() -> f32 {
+#[must_use]
+pub const fn default_keepalive_hz() -> f32 {
     1.0
 }
-pub fn default_priority() -> u8 {
+#[must_use]
+pub const fn default_priority() -> u8 {
     100
 }
-pub fn default_broadcast_addr() -> Ipv4Addr {
+#[must_use]
+pub const fn default_broadcast_addr() -> Ipv4Addr {
     Ipv4Addr::BROADCAST
 }
 
@@ -147,17 +152,22 @@ impl OutputConfig {
 
     /// Read the `"dmx"` entry out of a venue manifest's flattened extras
     /// (`VenueManifest::extra`). A venue without one has no output.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the `"dmx"` entry is present but does not deserialize as an `OutputConfig`.
     // r[impl dmx.venue-config]
     pub fn from_venue_extra(
         extra: &serde_json::Map<String, serde_json::Value>,
     ) -> Result<Self, serde_json::Error> {
-        match extra.get(Self::VENUE_KEY) {
-            Some(v) => serde_json::from_value(v.clone()),
-            None => Ok(Self::default()),
-        }
+        extra.get(Self::VENUE_KEY).map_or_else(
+            || Ok(Self::default()),
+            |v| serde_json::from_value(v.clone()),
+        )
     }
 
     /// True if at least one enabled universe has a protocol.
+    #[must_use]
     pub fn has_output(&self) -> bool {
         self.universes
             .values()
@@ -179,7 +189,7 @@ pub trait Sink: Send {
 
 impl<F: FnMut(u16, &[u8; 512]) + Send> Sink for F {
     fn frame(&mut self, universe: u16, data: &[u8; 512]) {
-        self(universe, data)
+        self(universe, data);
     }
 }
 

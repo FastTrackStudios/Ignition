@@ -61,6 +61,7 @@ impl Lyrics {
     /// A line shows until the next one starts — including the blank ones,
     /// which is how the screen clears.
     // r[impl song.lyrics] - a line holds until the next one
+    #[must_use]
     pub fn line_at(&self, position: Bars) -> Option<&LyricLine> {
         let index = match self.lines.binary_search_by(|l| {
             l.at.partial_cmp(&position)
@@ -68,14 +69,21 @@ impl Lyrics {
         }) {
             Ok(i) => i,
             Err(0) => return None,
-            Err(i) => i - 1,
+            // `Err(0)` above has already returned, so `i` is at least
+            // 1 here and this cannot underflow — `saturating_sub`
+            // rather than asserting that with a bare `-`.
+            Err(i) => i.saturating_sub(1),
         };
-        let line = &self.lines[index];
+        let line = self.lines.get(index)?;
         (!line.text.is_empty()).then_some(line)
     }
 }
 
 /// Reads an `.lrc` and places it on `song`'s timeline.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read.
 // r[impl song.lyrics]
 pub fn load(path: impl AsRef<Path>, song: &SongMap) -> Result<Lyrics> {
     let path = path.as_ref();
@@ -90,8 +98,9 @@ pub fn load(path: impl AsRef<Path>, song: &SongMap) -> Result<Lyrics> {
 /// the parser, so nothing is applied here — applying it twice is the
 /// classic way to end up a beat early on every line.
 // r[impl song.lyrics] - lines and words through the tempo map; `[offset:]` applied once, by the parser
+#[must_use]
 pub fn place(parsed: &lrc::Lrc, song: &SongMap) -> Lyrics {
-    let bars_at = |secs: f32| song.tempo.position_at(secs as f64);
+    let bars_at = |secs: f32| song.tempo.position_at(f64::from(secs));
     Lyrics {
         title: parsed.title.clone(),
         artist: parsed.artist.clone(),

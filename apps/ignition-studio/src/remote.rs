@@ -50,7 +50,7 @@ pub const DEFAULT_MAPPING: &str = "data/profiles/remote.json";
 
 /// The whole mapping document.
 // r[impl playback.remote-inputs] - MIDI CC/notes and OSC, mapped by data/profiles/remote.json rather than code
-#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RemoteConfig {
     /// Room for a note at the top of the file. JSON has no comments.
@@ -69,7 +69,7 @@ pub struct RemoteConfig {
 }
 
 /// The OSC feedback destination.
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct FeedbackConfig {
     pub host: String,
@@ -77,7 +77,7 @@ pub struct FeedbackConfig {
 }
 
 /// One MIDI controller.
-#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct MidiConfig {
     /// A substring of the port's name as the OS reports it —
@@ -104,7 +104,7 @@ pub struct MidiConfig {
 }
 
 /// The OSC listener.
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct OscConfig {
     pub port: u16,
@@ -120,7 +120,7 @@ pub struct OscConfig {
 /// an object names one. The value the control carries — a CC's 0–127,
 /// a note's on/off, an OSC float — is normalised to 0..=1 and a
 /// boolean before it reaches `translate`.
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Binding {
     /// A bank fader's level, by slot 0–7.
@@ -196,7 +196,7 @@ impl Input {
         }
     }
 
-    pub fn note(on: bool) -> Self {
+    pub const fn note(on: bool) -> Self {
         Self {
             value: if on { 1.0 } else { 0.0 },
             on,
@@ -227,9 +227,9 @@ pub fn translate(binding: &Binding, input: Input, toggles: &mut Toggles) -> Vec<
             down: press,
         }],
         Binding::Master(role) => vec![Command::Master(role.clone(), input.value)],
-        Binding::Rate => vec![Command::Rate(40.0 + input.value * 180.0)],
+        Binding::Rate => vec![Command::Rate(input.value.mul_add(180.0, 40.0))],
         Binding::Size => vec![Command::Size(input.value)],
-        Binding::Speed => vec![Command::EffectRate(0.5 + input.value * 1.5)],
+        Binding::Speed => vec![Command::EffectRate(input.value.mul_add(1.5, 0.5))],
         Binding::ProgramTime => vec![Command::ProgramTime(input.value * 4.0)],
         Binding::Dimmer => vec![Command::Dimmer(input.value)],
         Binding::Blind => {
@@ -336,18 +336,24 @@ pub const FEEDBACK_HZ: f32 = 30.0;
 /// The OSC addresses a surface hears the engine's state on.
 ///
 /// `/fader/N` and `/key/N` are 1-based like the input addresses the
-/// shipped mapping uses, so a TouchOSC page can bind one control to
+/// shipped mapping uses, so a `TouchOSC` page can bind one control to
 /// both directions.
 // r[impl playback.remote-feedback] - fader positions, key states and the page over OSC
 pub fn osc_messages(state: &Playhead) -> Vec<(String, f32)> {
     let mut out = Vec::new();
     for (i, level) in state.levels.iter().enumerate() {
-        out.push((format!("/fader/{}", i + 1), *level));
+        out.push((format!("/fader/{}", i.saturating_add(1)), *level));
     }
     for (i, on) in state.toggled.iter().enumerate() {
-        out.push((format!("/key/{}", i + 1), if *on { 1.0 } else { 0.0 }));
+        out.push((
+            format!("/key/{}", i.saturating_add(1)),
+            if *on { 1.0 } else { 0.0 },
+        ));
     }
-    out.push(("/page".to_string(), (state.page + 1) as f32));
+    out.push((
+        "/page".to_string(),
+        crate::num::f32_of_usize(state.page.saturating_add(1)),
+    ));
     out.push(("/master/song".to_string(), state.song_master()));
     out.push(("/master/look".to_string(), state.look_master()));
     out.push(("/grand".to_string(), state.grand));
@@ -363,7 +369,7 @@ pub fn midi_messages(device: &MidiConfig, state: &Playhead) -> Vec<[u8; 3]> {
     if !device.feedback {
         return Vec::new();
     }
-    let channel = device.channel.unwrap_or(1).clamp(1, 16) - 1;
+    let channel = device.channel.unwrap_or(1).clamp(1, 16).saturating_sub(1);
     let level_of = |binding: &Binding| -> Option<f32> {
         match binding {
             Binding::Fader(i) => state.levels.get(*i).copied(),
@@ -381,7 +387,11 @@ pub fn midi_messages(device: &MidiConfig, state: &Playhead) -> Vec<[u8; 3]> {
         out.push([
             0xb0 | channel,
             cc,
-            (level.clamp(0.0, 1.0) * 127.0).round() as u8,
+            // A MIDI CC's range is 0..=127, not 0..=255, but
+            // `byte_of_f32` clamping to 255 is a no-op here: the value
+            // fed in is already clamped to 0..=1 and scaled by 127.0, so
+            // it never approaches the wider clamp.
+            crate::num::byte_of_f32(level.clamp(0.0, 1.0) * 127.0),
         ]);
     }
     for (note, binding) in &device.notes {
@@ -470,6 +480,15 @@ impl FeedbackEncoder {
 
 /// Whether any of the state feedback reports has moved. The song clock
 /// moves every frame and is not reported, so it must not count.
+///
+/// The comparisons below are deliberately exact, not within a margin:
+/// this gates whether a feedback message goes out at all, and a fader
+/// nudged by less than an epsilon is still a fader that moved, so it
+/// still has to be reported back to the surface that moved it.
+#[expect(
+    clippy::float_cmp,
+    reason = "change detection wants exact equality, not closeness; see the doc comment"
+)]
 fn feedback_differs(a: &Playhead, b: &Playhead) -> bool {
     a.levels != b.levels
         || a.toggled != b.toggled
@@ -505,7 +524,7 @@ pub enum MidiMsg {
 /// which is how most controllers spell release.
 pub fn decode_midi(bytes: &[u8]) -> Option<MidiMsg> {
     let (&status, data) = bytes.split_first()?;
-    let channel = (status & 0x0f) + 1;
+    let channel = (status & 0x0f).saturating_add(1);
     match status & 0xf0 {
         0xb0 => Some(MidiMsg::Cc {
             channel,
@@ -554,10 +573,7 @@ impl MidiConfig {
         if self.channel.is_some_and(|want| want != channel) {
             return Vec::new();
         }
-        match binding {
-            Some(binding) => translate(binding, input, toggles),
-            None => Vec::new(),
-        }
+        binding.map_or_else(Vec::new, |binding| translate(binding, input, toggles))
     }
 }
 
@@ -575,13 +591,13 @@ impl OscConfig {
         let Some(binding) = self.addresses.get(address) else {
             return Vec::new();
         };
-        let input = match value {
-            Some(v) => Input {
+        let input = value.map_or_else(
+            || Input::note(true),
+            |v| Input {
                 value: v.clamp(0.0, 1.0),
                 on: v > 0.5,
             },
-            None => Input::note(true),
-        };
+        );
         translate(binding, input, toggles)
     }
 }
@@ -715,6 +731,18 @@ mod feedback {
     }
 
     impl Sinks {
+        // `osc` is only consumed by the `#[cfg(feature = "osc")]` arm
+        // below, which builds the socket from it; without that feature
+        // it is only read by reference for the log line above, so a
+        // build with `osc` off would otherwise ask for a borrow that
+        // the feature-on build has to immediately consume by value.
+        #[cfg_attr(
+            not(feature = "osc"),
+            expect(
+                clippy::needless_pass_by_value,
+                reason = "see the comment above — the osc feature's arm consumes this by value"
+            )
+        )]
         fn open(osc: Option<FeedbackConfig>, devices: &[MidiConfig]) -> Self {
             #[cfg(not(feature = "osc"))]
             if let Some(osc) = &osc {
@@ -759,6 +787,26 @@ mod feedback {
             }
         }
 
+        // With neither feature on, `message` falls straight through to
+        // the `_` arm below and `self` is never touched at all. Only the
+        // `midi` arm ever mutates `self` (`self.midi.iter_mut()`), so
+        // `&mut self` goes unused whenever `midi` alone is off, whether
+        // or not `osc` is on.
+        #[cfg_attr(
+            not(any(feature = "osc", feature = "midi")),
+            expect(
+                clippy::unused_self,
+                clippy::needless_pass_by_value,
+                reason = "see the comment above — the feature-gated arms are what use self and message"
+            )
+        )]
+        #[cfg_attr(
+            not(feature = "midi"),
+            expect(
+                clippy::needless_pass_by_ref_mut,
+                reason = "only the midi arm mutates self; see the comment above"
+            )
+        )]
         fn send(&mut self, message: Feedback) {
             match message {
                 #[cfg(feature = "osc")]
@@ -855,7 +903,7 @@ mod midi {
                 let connection = input.connect(
                     port,
                     "ignition-studio",
-                    move |_stamp, bytes, _| {
+                    move |_stamp, bytes, ()| {
                         if let Some(msg) = decode_midi(bytes) {
                             for command in device.commands_for(msg, &mut toggles) {
                                 let _ = tx.send(command);
@@ -883,6 +931,13 @@ mod midi {
     use super::MidiConfig;
     use crate::command::Sender;
 
+    // This stub only exists in a build with no `midi` feature, where
+    // the device is reported and dropped rather than connected — the
+    // feature-on `midi` module (above) is what actually consumes it.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "matches the feature-on start()'s signature so callers do not branch on the feature; see the comment above"
+    )]
     pub fn start(device: MidiConfig, _tx: Sender) {
         tracing::info!(
             port = device.port,
@@ -901,9 +956,9 @@ mod osc_listener {
     fn value_of(args: &[OscType]) -> Option<f32> {
         args.iter().find_map(|arg| match arg {
             OscType::Float(v) => Some(*v),
-            OscType::Double(v) => Some(*v as f32),
-            OscType::Int(v) => Some(*v as f32),
-            OscType::Long(v) => Some(*v as f32),
+            OscType::Double(v) => Some(crate::num::f32_of_f64(*v)),
+            OscType::Int(v) => Some(crate::num::f32_of_i32(*v)),
+            OscType::Long(v) => Some(crate::num::f32_of_i64(*v)),
             OscType::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
             _ => None,
         })
@@ -943,7 +998,15 @@ mod osc_listener {
                     let Ok((n, _from)) = socket.recv_from(&mut buf) else {
                         continue;
                     };
-                    match rosc::decoder::decode_udp(&buf[..n]) {
+                    let Some(datagram) = buf.get(..n) else {
+                        // `n` is `recv_from`'s own report of how many
+                        // bytes it wrote into `buf`, so this is
+                        // unreachable in practice; the fallback is a
+                        // dropped packet rather than a panic if it ever
+                        // is not.
+                        continue;
+                    };
+                    match rosc::decoder::decode_udp(datagram) {
                         Ok((_, packet)) => handle(packet, &config, &mut toggles, &tx),
                         Err(e) => tracing::debug!(error = %e, "osc: bad packet"),
                     }
@@ -958,6 +1021,12 @@ mod osc_listener {
     use super::OscConfig;
     use crate::command::Sender;
 
+    // Same reasoning as `midi::start`'s no-feature stub: this build
+    // reports the mapped port and drops it rather than connecting it.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "matches the feature-on start()'s signature so callers do not branch on the feature; see the comment above"
+    )]
     pub fn start(config: OscConfig, _tx: Sender) {
         tracing::info!(
             port = config.port,

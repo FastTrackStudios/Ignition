@@ -19,6 +19,23 @@
 
 use dioxus::prelude::*;
 
+/// A pointer-event coordinate, from `f64` CSS pixels to the `f32` this
+/// crate tracks everything else in.
+///
+/// `client_coordinates()` reports window pixels, which never approach
+/// `f32`'s precision limit on any screen anyone builds a lighting rig
+/// with; the sub-pixel remainder the truncation drops is smaller than a
+/// pointer can aim.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "CSS pixel coordinates are small; see the doc comment"
+)]
+#[must_use]
+pub const fn coord(v: f64) -> f32 {
+    v as f32
+}
+
 /// Where the pointer is, in window (client) pixels, and whether a
 /// button is down. `ups` counts releases, so a control that latched
 /// can tell a release that came after its press from one before it.
@@ -36,9 +53,10 @@ pub struct PointerFeed(pub Signal<Pointer>);
 /// The window's pointer. Outside a [`PointerRoot`] a control gets a
 /// private, never-moving one — it still works from its own events, it
 /// just stops at its edge.
+#[must_use]
 pub fn use_pointer_feed() -> Signal<Pointer> {
     let own = use_signal(Pointer::default);
-    try_use_context::<PointerFeed>().map(|f| f.0).unwrap_or(own)
+    try_use_context::<PointerFeed>().map_or(own, |f| f.0)
 }
 
 /// Mount once around everything a window shows.
@@ -52,8 +70,8 @@ pub fn PointerRoot(children: Element) -> Element {
             onpointermove: move |e| {
                 let p = e.data.client_coordinates();
                 let mut cur = *feed.peek();
-                cur.x = p.x as f32;
-                cur.y = p.y as f32;
+                cur.x = coord(p.x);
+                cur.y = coord(p.y);
                 if cur != *feed.peek() {
                     feed.set(cur);
                 }
@@ -61,16 +79,16 @@ pub fn PointerRoot(children: Element) -> Element {
             onpointerdown: move |e| {
                 let p = e.data.client_coordinates();
                 let mut cur = *feed.peek();
-                cur.x = p.x as f32;
-                cur.y = p.y as f32;
+                cur.x = coord(p.x);
+                cur.y = coord(p.y);
                 cur.down = true;
                 feed.set(cur);
             },
             onpointerup: move |e| {
                 let p = e.data.client_coordinates();
                 let mut cur = *feed.peek();
-                cur.x = p.x as f32;
-                cur.y = p.y as f32;
+                cur.x = coord(p.x);
+                cur.y = coord(p.y);
                 cur.down = false;
                 cur.ups += 1;
                 feed.set(cur);
@@ -98,6 +116,7 @@ pub struct Latch {
 
 /// A vertical fader's level after the hand moved from `latch.at.1` to
 /// `y` on a track `track` pixels tall: up is more.
+#[must_use]
 pub fn drag_up(latch: &Latch, y: f32, track: f32) -> f32 {
     let track = track.max(1.0);
     (latch.level + (latch.at.1 - y) / track).clamp(0.0, 1.0)
@@ -105,13 +124,15 @@ pub fn drag_up(latch: &Latch, y: f32, track: f32) -> f32 {
 
 /// A horizontal slider's level after the hand moved from `latch.at.0`
 /// to `x` on a track `width` pixels wide: right is more.
+#[must_use]
 pub fn drag_right(latch: &Latch, x: f32, width: f32) -> f32 {
     let width = width.max(1.0);
     (latch.level + (x - latch.at.0) / width).clamp(0.0, 1.0)
 }
 
 /// Whether the release the feed reports came after the press.
-pub fn released(latch: &Latch, pointer: &Pointer) -> bool {
+#[must_use]
+pub const fn released(latch: &Latch, pointer: &Pointer) -> bool {
     pointer.ups > latch.ups
 }
 
@@ -121,6 +142,12 @@ mod tests {
 
     /// The drag is relative to the press, so the value never jumps when
     /// the pointer crosses the handle or leaves the track.
+    #[expect(
+        clippy::float_cmp,
+        reason = "the four exact assertions below check the clamp's own \
+                  boundary, 0.0 or 1.0 exactly by construction, not an \
+                  accumulated rounding result"
+    )]
     #[test]
     fn a_drag_moves_the_level_by_how_far_the_hand_went() {
         let latch = Latch {

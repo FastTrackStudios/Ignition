@@ -77,6 +77,11 @@ pub const FAMILIES: [&str; 7] = [
 /// The sink every family adds through: name, family, note, recipe.
 pub(super) type Add<'a> = &'a mut dyn FnMut(&str, &str, &str, Recipe);
 
+/// The same sink with the family already closed over — what a family's
+/// `add` narrows [`Add`] to before splitting its own list into sections,
+/// so `too_many_lines` has somewhere to put the split.
+pub(super) type Put<'a> = &'a mut dyn FnMut(&str, &str, Recipe);
+
 /// The role an effect is written against, as a selection.
 // r[impl effects.library.roles-only]
 pub(super) fn role(name: &str) -> Selection {
@@ -134,6 +139,32 @@ pub(super) fn delta(attr: Attribute, v: f32) -> Step {
     Step::new(vec![RecipeApply::Delta(vec![(attr, v)])])
 }
 
+/// A loop index (or a small resolution constant) as an `f32`, for the
+/// parametric tables that draw a phaser's steps. Every table in this
+/// library is a handful up to a few dozen entries, orders of magnitude
+/// below the 2^24 where an `f32` stops counting integers exactly, so the
+/// truncation `as_conversions` warns about cannot happen here.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "step-table indices and resolutions are small; see the doc comment"
+)]
+pub(super) const fn float_of(n: usize) -> f32 {
+    n as f32
+}
+
+/// The same, for a loop counter typed `i32` because its range literal
+/// carries no other constraint. Same bound, same reasoning as
+/// [`float_of`].
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "step-table indices are small; see the doc comment on `float_of`"
+)]
+pub(super) const fn float_of_i32(n: i32) -> f32 {
+    n as f32
+}
+
 /// A parametric position table — the generator most mover effects are.
 ///
 /// Both axes in **one** recipe. The first version of this library shipped
@@ -167,9 +198,12 @@ pub(super) fn orbit(
     let tau = std::f32::consts::TAU;
     (0..RESOLUTION)
         .map(|i| {
-            let t = i as f32 / RESOLUTION as f32;
+            let t = float_of(i) / float_of(RESOLUTION);
             let pan = pan_amp * (tau * pan_cycles * t).sin();
-            let tilt = tilt_amp * (tau * tilt_cycles * t + tilt_phase_deg.to_radians()).sin();
+            let tilt = tilt_amp
+                * (tau * tilt_cycles)
+                    .mul_add(t, tilt_phase_deg.to_radians())
+                    .sin();
             Step {
                 apply: vec![RecipeApply::Delta(vec![
                     (Attribute::Pan, pan),
@@ -206,7 +240,7 @@ pub(super) fn hue(name: &str) -> Step {
 }
 
 /// A relative push on one colour emitter.
-pub(super) fn add_chan(channel: ignition_proto::ColorChannel) -> Attribute {
+pub(super) const fn add_chan(channel: ignition_proto::ColorChannel) -> Attribute {
     Attribute::ColorAdd { channel }
 }
 
@@ -233,6 +267,7 @@ pub(super) fn every_emitter(v: f32) -> Vec<(Attribute, f32)> {
 // r[impl effects.library.categories]
 // r[impl effects.library.roles-only]
 // r[impl effects.library.by-name] - keyed by the name a programmer types
+#[must_use]
 pub fn catalogue() -> Vec<(String, EffectNote, Recipe)> {
     let mut out = Vec::new();
     let mut add = |name: &str, family: &str, about: &str, recipe: Recipe| {
@@ -283,6 +318,7 @@ pub const BUNDLE_FAMILIES: [&str; 8] = [
 /// each member keeps its own clock (`r[effects.timing.uniform]`).
 // r[impl effects.bundle]
 // r[impl effects.library.by-name] - bundles reference effects by name
+#[must_use]
 pub fn bundles() -> BTreeMap<String, Bundle> {
     let mut out = BTreeMap::new();
     let mut put = |name: &str, family: &str, about: &str, recipes: &[&str]| {
@@ -292,7 +328,10 @@ pub fn bundles() -> BTreeMap<String, Bundle> {
                 name: name.to_string(),
                 family: family.to_string(),
                 about: about.to_string(),
-                recipes: recipes.iter().map(|r| r.to_string()).collect(),
+                recipes: recipes
+                    .iter()
+                    .map(std::string::ToString::to_string)
+                    .collect(),
             },
         );
     };
@@ -375,6 +414,7 @@ pub fn bundles() -> BTreeMap<String, Bundle> {
 ///
 /// Names are lower case and plain English: this is a list somebody
 /// scrolls at a desk, and `chase` beats `IntensityChaseForward`.
+#[must_use]
 pub fn library() -> BTreeMap<String, Recipe> {
     catalogue()
         .into_iter()
@@ -383,6 +423,7 @@ pub fn library() -> BTreeMap<String, Recipe> {
 }
 
 /// The family and note for every effect, keyed by name.
+#[must_use]
 pub fn notes() -> BTreeMap<String, EffectNote> {
     catalogue()
         .into_iter()
@@ -545,7 +586,9 @@ mod tests {
                 Selection::Tag(t) => out.push(format!("tag {t:?}")),
                 Selection::Model(m) => out.push(format!("model {m:?}")),
                 Selection::Union(parts) | Selection::Intersect(parts) => {
-                    parts.iter().for_each(|p| venue_names(p, out))
+                    for p in parts {
+                        venue_names(p, out);
+                    }
                 }
                 Selection::Except { of, minus } => {
                     venue_names(of, out);
@@ -574,6 +617,17 @@ mod tests {
     // r[verify effects.library.roles-only]
     #[test]
     fn every_targeted_role_is_declared() {
+        fn roles(sel: &Selection, out: &mut Vec<String>) {
+            match sel {
+                Selection::Role(r) => out.push(r.clone()),
+                Selection::Union(parts) | Selection::Intersect(parts) => {
+                    for p in parts {
+                        roles(p, out);
+                    }
+                }
+                _ => {}
+            }
+        }
         let profile: crate::profile::Profile = serde_json::from_str(
             &std::fs::read_to_string("../../data/profiles/ignition.ig-profile").unwrap_or_default(),
         )
@@ -582,15 +636,6 @@ mod tests {
             return;
         }
         let declared = profile.vocabulary(RoleKind::Group);
-        fn roles(sel: &Selection, out: &mut Vec<String>) {
-            match sel {
-                Selection::Role(r) => out.push(r.clone()),
-                Selection::Union(parts) | Selection::Intersect(parts) => {
-                    parts.iter().for_each(|p| roles(p, out))
-                }
-                _ => {}
-            }
-        }
         for (name, recipe) in library() {
             let mut used = Vec::new();
             roles(&recipe.target, &mut used);
@@ -744,13 +789,12 @@ mod tests {
         let axis = |step: &Step, want: &Attribute| -> f32 {
             step.apply
                 .iter()
-                .filter_map(|a| match a {
+                .find_map(|a| match a {
                     RecipeApply::Delta(pairs) => {
                         pairs.iter().find(|(at, _)| at == want).map(|(_, v)| *v)
                     }
                     _ => None,
                 })
-                .next()
                 .unwrap_or_default()
         };
         let quarter = circle.steps.len() / 4;
