@@ -62,6 +62,32 @@ const SITE_CSS: Asset = asset!("/assets/site.css");
 )]
 const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 
+/// The Ignition mark — a fixture and its beam. A COPY of
+/// `apps/ignition-mobile/ios/icon.svg`, which is where the mark is
+/// authored; `asset!` takes a path inside the crate, and reaching across
+/// a crate boundary with `include_str!` is what this repo forbids and a
+/// build script is the sanctioned answer to. A build script cannot help
+/// here, because `asset!` needs a literal path at compile time and not an
+/// `OUT_DIR` one. `just site-icons` re-copies it and re-renders the raster
+/// fallbacks, so the sync is a command rather than a memory.
+#[expect(
+    clippy::volatile_composites,
+    reason = "the asset! macro generates a const with volatile inner types; this is a limitation of the dioxus macro system"
+)]
+const ICON_SVG: Asset = asset!("/assets/icon.svg");
+/// The same mark rasterised. Safari has never taken an SVG favicon, and
+/// `apple-touch-icon` must be a PNG by specification.
+#[expect(
+    clippy::volatile_composites,
+    reason = "the asset! macro generates a const with volatile inner types; this is a limitation of the dioxus macro system"
+)]
+const ICON_PNG: Asset = asset!("/assets/icon-32.png");
+#[expect(
+    clippy::volatile_composites,
+    reason = "the asset! macro generates a const with volatile inner types; this is a limitation of the dioxus macro system"
+)]
+const ICON_APPLE: Asset = asset!("/assets/icon-180.png");
+
 fn main() {
     dioxus::launch(App);
 }
@@ -69,6 +95,13 @@ fn main() {
 #[component]
 fn App() -> Element {
     rsx! {
+        // The tab icon. SVG first — it is the mark as authored, and it
+        // stays sharp at whatever size a browser asks for; the PNG is
+        // the fallback for the ones that will not take an SVG.
+        document::Link { rel: "icon", r#type: "image/svg+xml", href: ICON_SVG }
+        document::Link { rel: "icon", r#type: "image/png", sizes: "32x32", href: ICON_PNG }
+        document::Link { rel: "apple-touch-icon", sizes: "180x180", href: ICON_APPLE }
+
         document::Link { rel: "preconnect", href: "https://fonts.googleapis.com" }
         document::Link {
             rel: "preconnect",

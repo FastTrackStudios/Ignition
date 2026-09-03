@@ -1,10 +1,14 @@
 //! The landing page.
 //!
-//! One screen, no scrolling: copy on the left, the room on the right.
-//! The right-hand pane is a **render of the actual visualizer** playing an
-//! actual show file — the claim this page makes is that cues come out of
-//! the song, and a still photograph of a stage cannot make it. A video
-//! can, because the thing being claimed is motion.
+//! One screen, no scrolling: what Ignition is on the left, the room on
+//! the right. Three words carry the whole claim — lighting, projection
+//! mapping, graphics — because the thing being argued is that they are
+//! one toolkit and not three, and a page that needed a paragraph to say
+//! so would be arguing the opposite.
+//!
+//! The right-hand pane is a **real render of the visualizer** playing a
+//! real show file. A still photograph of a stage cannot make the claim
+//! this page makes; the thing being claimed is motion.
 
 use dioxus::prelude::*;
 
@@ -30,23 +34,22 @@ pub fn Home() -> Element {
                 div { class: "ig-hero-copy",
                     p { class: "ig-eyebrow", "Pre-alpha · GPL-3.0 · Rust" }
                     h1 { class: "ig-display",
-                        "Lighting that "
-                        // The gradient sweeps across this phrase alone,
-                        // so it stays one span — a break inside it would
-                        // restart the gradient on the second line box.
-                        span { class: "ig-accel", "knows the song" }
+                        span { class: "ig-pillar", "Lighting." }
+                        span { class: "ig-pillar", "Projection mapping." }
+                        span { class: "ig-pillar", "Graphics." }
+                    }
+                    // The unifying claim, and the one thing on the page
+                    // that moves. It gets the gradient because it is what
+                    // the three lines above are FOR: they are a list until
+                    // something says they are one product.
+                    p { class: "ig-kicker",
+                        span { class: "ig-accel", "One visual production toolkit." }
                     }
                     p { class: "ig-lede",
-                        "A DMX console, a GPU visualizer and projection mapping in one \
-                         application. Patch a room, program in roles and looks rather than \
-                         channel numbers, and let the cues fall on the bar line — because the \
-                         desk is reading the same session the band is playing to."
-                    }
-                    ul { class: "ig-points",
-                        li { "sACN and Art-Net out, GDTF fixture profiles in" }
-                        li { "Real-time 3D visualizer — beams in haze, gobos, video screens" }
-                        li { "Tracking cues, referenced palettes, recipes and phasers" }
-                        li { "Desktop and web from one Dioxus codebase" }
+                        "A DMX console, a real-time 3D visualizer, and video mapped onto the \
+                         actual surfaces in the room — one application, one show file. The cues \
+                         fall on the bar line, because the desk is reading the same session the \
+                         band is playing to."
                     }
                     div { class: "ig-cta",
                         Link { to: Route::GuideIndex {}, class: "ig-button ig-button-primary",
@@ -59,32 +62,69 @@ pub fn Home() -> Element {
                     }
                 }
 
-                figure { class: "ig-window",
-                    div { class: "ig-window-bar",
-                        span { class: "ig-window-name", "norco · bye-bye-bye · CH 3" }
-                        span { class: "ig-window-tag", "rendered live" }
-                    }
-                    // Autoplay needs `muted` — every browser blocks a clip
-                    // with a soundtrack from starting itself, and this one
-                    // has none to block. `playsinline` keeps iOS from
-                    // taking it fullscreen on play.
+                div { class: "ig-window",
                     video {
                         class: "ig-window-video",
                         src: HERO_VIDEO,
                         poster: HERO_POSTER,
-                        autoplay: true,
                         r#loop: true,
-                        muted: true,
                         playsinline: true,
                         preload: "auto",
-                    }
-                    figcaption { class: "ig-window-caption",
-                        "The visualizer, rendered offline from "
-                        code { "data/songs/bye-bye-bye.json" }
-                        " against the Norco rig — the same show file the desk plays."
+                        // NOT `autoplay: true` / `muted: true`, and this
+                        // is the whole reason there is a handler here.
+                        //
+                        // A browser blocks an unmuted clip from starting
+                        // itself, and `muted` is only initialised from the
+                        // attribute when the PARSER builds the element.
+                        // Dioxus creates the element and then applies
+                        // attributes, so `muted="true"` lands on a node
+                        // whose `muted` PROPERTY stays false — the live
+                        // site showed the poster frame forever, with the
+                        // attribute plainly there in the DOM.
+                        //
+                        // Setting the property is the fix, and once it is
+                        // set the play has to be asked for explicitly,
+                        // because the autoplay attempt already happened
+                        // and already failed.
+                        onmounted: move |evt| autoplay_muted(&evt),
                     }
                 }
             }
         }
     }
 }
+
+/// Mute the element and start it — see the comment at the call site.
+///
+/// A rejected `play()` is ignored on purpose: a browser that refuses
+/// leaves the poster frame up, which is a still of the same render and
+/// a perfectly good picture.
+#[cfg(target_arch = "wasm32")]
+fn autoplay_muted(evt: &Event<MountedData>) {
+    use wasm_bindgen::JsCast as _;
+
+    let data = evt.data();
+    let Some(element) = data.downcast::<web_sys::Element>() else {
+        return;
+    };
+    let Some(video) = element.dyn_ref::<web_sys::HtmlMediaElement>() else {
+        return;
+    };
+    video.set_muted(true);
+    // The PROPERTY, not the attribute, and both of them: `muted` is what
+    // makes autoplay permissible, `autoplay` is what makes the browser
+    // start it on its own once enough data has arrived. The explicit
+    // `play()` below covers the case where that data is already there.
+    //
+    // Both are needed. With only the `play()` the clip started and then
+    // stopped again at t=0.05 whenever the element's `src` was applied
+    // after the call — a rejected-then-interrupted promise, and the
+    // failure was intermittent, which is the worst way to find it.
+    video.set_autoplay(true);
+    let _ = video.play();
+}
+
+/// Off the web there is no element to mount, and this crate still builds
+/// for the host so `cargo check --workspace` and the tests mean something.
+#[cfg(not(target_arch = "wasm32"))]
+const fn autoplay_muted(_evt: &Event<MountedData>) {}

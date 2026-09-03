@@ -1,14 +1,25 @@
 /* The Ignition site.
  *
  * Small and hand-written: three screens do not pay for a utility
- * framework's build machinery. Dark by default and dark on purpose — the
- * page is a frame around a video of a dark room, and a white page around
- * it reads as a screenshot pasted into a document rather than as a window
- * onto the thing. There is a light mode for anyone whose system asks for
- * one, but the tokens are authored dark-first, so the light block below
- * is the override rather than the other way round. */
+ * framework's build machinery.
+ *
+ * DARK, unconditionally — not "dark by default". The page is a frame
+ * around video of a dark room and a screenful of stage light, and a white
+ * page around that reads as a screenshot pasted into a document rather
+ * than as a window onto the thing. The product itself is a console that
+ * lives in a dark room. There was a `prefers-color-scheme: light` block
+ * here; it is gone, and `color-scheme: dark` below is what stops the
+ * browser painting form controls and scrollbars for the other one.
+ *
+ * The imported Tailwind sheet (architect-ui's tokens, which the guide's
+ * graph resolves against) follows the SYSTEM preference, so forcing this
+ * half alone would leave a light legend and light graph chrome on a dark
+ * page for anyone whose machine is set to light. Its dark values are
+ * restated below for that reason. */
 
 :root {
+  color-scheme: dark;
+
   --bg: #08080b;
   --bg-far: #101018;
   --surface: #101016;
@@ -16,31 +27,52 @@
   --ink-soft: #9a97a8;
   --line: #23222c;
   /* Ignition: the colour of a lamp striking, not a brand blue. The
-   * gradient sweep runs from here to --accent-far, which is one hop round
-   * the wheel — far enough to read as travel, near enough that it is one
-   * colour moving rather than two arguing. */
-  --accent: #ff8a3d;
-  --accent-far: #ffd166;
-  --accent-ink: #1a0d02;
+   * gradient sweep runs from here to --ig-accent-far, which is one hop
+   * round the wheel — far enough to read as travel, near enough that it
+   * is one colour moving rather than two arguing.
+   *
+   * `--ig-` prefixed, and that is not decoration: architect-ui's sheet
+   * defines a token called `--accent` too (a neutral grey), and this file
+   * loads after it — so an unprefixed name here silently repainted a
+   * design-system token inside the guide's graph. */
+  --ig-accent: #ff8a3d;
+  --ig-accent-far: #ffd166;
+  --ig-accent-ink: #1a0d02;
   --code-bg: #16161d;
   --shell-max: 96rem;
   --font-sans: "Geist", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #fbfaf8;
-    --bg-far: #f2f0ec;
-    --surface: #ffffff;
-    --ink: #17161a;
-    --ink-soft: #5c5a63;
-    --line: #e4e2e8;
-    --accent: #c2410c;
-    --accent-far: #b45309;
-    --accent-ink: #ffffff;
-    --code-bg: #f3f2f6;
-  }
+/* architect-ui's tokens, pinned dark.
+ *
+ * `fts-theme.css` (imported by the Tailwind sheet) defines these light at
+ * `:root` and dark only inside `@media (prefers-color-scheme: dark)`. On
+ * a machine set to light that media query never matches, so the guide's
+ * graph — its legend, its labels, its zoom controls — came out light on
+ * this page's dark ground. These are that file's dark values, restated
+ * unconditionally. site.css loads after the Tailwind sheet, so they win.
+ *
+ * Only the tokens the graph actually resolves against are here. If it
+ * starts using another one, the symptom is a light-mode colour appearing
+ * in the graph on a light-mode machine, and the fix is another line. */
+:root {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
 }
 
 * { box-sizing: border-box; }
@@ -93,8 +125,8 @@ body {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0.4rem var(--accent), 0 0 1.2rem color-mix(in srgb, var(--accent) 60%, transparent);
+  background: var(--ig-accent);
+  box-shadow: 0 0 0.4rem var(--ig-accent), 0 0 1.2rem color-mix(in srgb, var(--ig-accent) 60%, transparent);
 }
 
 .ig-nav { display: flex; gap: 1.75rem; }
@@ -109,7 +141,7 @@ body {
 }
 
 .ig-nav a:hover { color: var(--ink); }
-.ig-nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ig-nav a:focus-visible { outline: 2px solid var(--ig-accent); outline-offset: 3px; }
 
 .ig-main { flex: 1; padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 4vw, 3rem); }
 
@@ -138,13 +170,41 @@ body {
   margin: 0 0 1.1rem;
 }
 
+/* Three lines, one claim. They are set as blocks rather than as a list
+ * because they are a headline: a reader should take them in at a glance,
+ * in one breath, and bullets would invite reading them as features.
+ *
+ * `line-height` is tight and the tracking negative, so the three stack
+ * into a single block of text rather than three sentences that happen to
+ * be near each other. */
 .ig-display {
   font-weight: 620;
-  font-size: clamp(2.2rem, 4.4vw, 3.5rem);
+  font-size: clamp(2.1rem, 4.2vw, 3.4rem);
   letter-spacing: -0.035em;
-  line-height: 1.05;
-  text-wrap: balance;
+  line-height: 1.06;
   margin: 0;
+}
+
+.ig-pillar { display: block; }
+
+/* The middle line is the longest by some way; without this it can wrap on
+ * a narrow column and break the three-line read. */
+.ig-pillar { text-wrap: nowrap; }
+
+@media (max-width: 30rem) {
+  /* Below this the line simply does not fit, and a clipped headline is
+   * worse than a wrapped one. */
+  .ig-pillar { text-wrap: balance; }
+}
+
+/* The unifying line. Deliberately a step down from the pillars and a step
+ * up from the lede: it is the sentence that turns a list into a product,
+ * so it has to read as neither a fourth item nor body copy. */
+.ig-kicker {
+  margin: 0.9rem 0 0;
+  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+  font-weight: 560;
+  letter-spacing: -0.015em;
 }
 
 /* The one thing on the page that moves. A three-stop gradient whose first
@@ -152,7 +212,7 @@ body {
  * whole tile per cycle — because the tile's edges match, the loop is
  * seamless and needs no alternate direction. */
 .ig-accel {
-  background: linear-gradient(100deg, var(--accent), var(--accent-far), var(--accent));
+  background: linear-gradient(100deg, var(--ig-accent), var(--ig-accent-far), var(--ig-accent));
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -199,7 +259,7 @@ body {
   width: 0.35rem;
   height: 0.35rem;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--ig-accent);
 }
 
 .ig-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 2.25rem 0 0; }
@@ -220,22 +280,22 @@ body {
 .ig-button:hover { border-color: var(--ink-soft); }
 
 .ig-button-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ig-accent);
+  border-color: var(--ig-accent);
+  color: var(--ig-accent-ink);
 }
 
 .ig-button-primary:hover { filter: brightness(1.08); }
-.ig-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ig-button:focus-visible { outline: 2px solid var(--ig-accent); outline-offset: 2px; }
 
 .ig-note { font-size: 0.85rem; color: var(--ink-soft); margin: 1.4rem 0 0; }
 
 /* ── The window ───────────────────────────────────────────────────
  *
- * A framed pane with a title bar, so the video reads as the application
- * running rather than as stock footage of a concert. The bar names the
- * venue, the show file and the cue that is playing — all three are real,
- * and naming them is what makes the frame honest. */
+ * A frame and nothing else. It carried a title bar naming the venue, the
+ * show file and the cue, and a caption saying where the render came from;
+ * both were captions on a picture that speaks for itself, and both made
+ * the page longer to read for no gain. */
 .ig-window {
   margin: 0;
   border: 1px solid var(--line);
@@ -247,30 +307,6 @@ body {
   box-shadow: 0 1.5rem 4rem color-mix(in srgb, #000 45%, transparent);
 }
 
-.ig-window-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.6rem 0.9rem;
-  border-bottom: 1px solid var(--line);
-  background: var(--code-bg);
-}
-
-.ig-window-name {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-}
-
-.ig-window-tag {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
 /* `block` so the video does not sit on a text baseline and leave a strip
  * of surface below itself. The aspect ratio is the render's. */
 .ig-window-video {
@@ -280,18 +316,6 @@ body {
   background: #000;
 }
 
-.ig-window-caption {
-  padding: 0.7rem 0.9rem;
-  border-top: 1px solid var(--line);
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-}
-
-.ig-window-caption code {
-  font-family: var(--font-mono);
-  font-size: 0.95em;
-  color: var(--ink);
-}
 
 @media (max-width: 68rem) {
   .ig-hero {
@@ -419,7 +443,7 @@ body {
 .ig-backlinks { margin-top: 3rem; }
 .ig-backlinks h2 { font-size: 0.8rem; font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 0.6rem; }
 .ig-backlinks ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
-.ig-backlinks a { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+.ig-backlinks a { color: var(--ig-accent); text-decoration: none; font-size: 0.9rem; }
 .ig-backlinks a:hover { text-decoration: underline; }
 
 .ig-local-graph h2 {
@@ -449,7 +473,7 @@ body {
  * not expose. */
 .ig-local-graph-canvas svg { transform: scale(0.82); transform-origin: center; }
 
-.ig-local-graph .ig-note { margin-top: 0.6rem; display: inline-block; color: var(--accent); text-decoration: none; }
+.ig-local-graph .ig-note { margin-top: 0.6rem; display: inline-block; color: var(--ig-accent); text-decoration: none; }
 
 /* Below three columns the rails fold away rather than stack: a table of
  * contents above every page turns each one into a menu you scroll past,
@@ -499,7 +523,7 @@ body {
   font-size: 0.9rem;
 }
 
-.ig-graph-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ig-graph-search:focus-visible { outline: 2px solid var(--ig-accent); outline-offset: 1px; }
 
 .ig-graph-canvas {
   min-height: 0;
@@ -568,7 +592,7 @@ body {
 .ig-md ul, .ig-md ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
 .ig-md li { margin: 0.3rem 0; }
 .ig-md strong { font-weight: 600; }
-.ig-md a { color: var(--accent); text-underline-offset: 0.2em; }
+.ig-md a { color: var(--ig-accent); text-underline-offset: 0.2em; }
 
 .ig-md code {
   font-family: var(--font-mono);
@@ -596,7 +620,7 @@ body {
 .ig-md blockquote {
   margin: 0 0 1.2rem;
   padding-left: 1rem;
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--ig-accent);
   color: var(--ink-soft);
 }
 

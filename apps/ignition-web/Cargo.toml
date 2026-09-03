@@ -36,6 +36,9 @@ web-sys = { version = "0.3", features = [
     "Element",
     "EventTarget",
     "MouseEvent",
+    # The hero clip mutes and starts ITSELF — see `routes::home`, where
+    # the attribute alone is not enough.
+    "HtmlMediaElement",
 ] }
 
 [build-dependencies]

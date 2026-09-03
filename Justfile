@@ -178,6 +178,24 @@ site-tailwind-check: site-tailwind
     fi
     echo "the site tailwind sheet covers the graph"
 
+# The site's tab icon, re-copied from where the mark is AUTHORED
+# (`apps/ignition-mobile/ios/icon.svg`) and re-rasterised for the
+# browsers that will not take an SVG favicon.
+#
+# A copy rather than a reference because `asset!` takes a literal path
+# inside the crate — the usual build-script answer to a cross-crate read
+# does not apply, since a build script can only write to OUT_DIR and
+# `asset!` cannot name one. This recipe is what keeps the copy honest:
+# run it after changing the mark.
+site-icons:
+    cp apps/ignition-mobile/ios/icon.svg apps/ignition-web/assets/icon.svg
+    ffmpeg -y -loglevel error \
+      -i apps/ignition-mobile/ios/Assets.xcassets/AppIcon.appiconset/icon-1024.png \
+      -vf scale=32:32 apps/ignition-web/assets/icon-32.png
+    ffmpeg -y -loglevel error \
+      -i apps/ignition-mobile/ios/Assets.xcassets/AppIcon.appiconset/icon-1024.png \
+      -vf scale=180:180 apps/ignition-web/assets/icon-180.png
+
 # The public site — the landing page and the guide
 # (apps/ignition-web). Static: no server, no backend, nothing to deploy
 # but the directory `dist` ends up as.
