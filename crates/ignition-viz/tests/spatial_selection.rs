@@ -29,6 +29,7 @@ fn venue() -> Venue {
 /// because the room says so, not because someone hand-listed channels in
 /// the right order.
 /// r[verify profile.spatial-grid-is-derived] - the order comes from surveyed positions, not a hand-built list
+/// r[verify patch.derived-groups] - so the patch is what orders a group
 /// r[verify groups.derived]
 #[test]
 fn ordering_the_ceiling_washers_by_x_is_monotonic_in_real_space() {

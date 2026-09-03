@@ -173,6 +173,7 @@ impl PatchSheet {
     /// reported, because from the sheet's point of view neither is the
     /// guilty one — the operator decides which moves
     /// (`r[patch.conflict]`).
+    // r[impl patch.conflict] - both rows, because neither is the guilty one
     #[must_use]
     pub fn conflicts(&self) -> Vec<(u32, Conflict)> {
         let mut out = Vec::new();
@@ -296,6 +297,7 @@ impl PatchSheet {
 
     /// Rows with no address — the filter an operator lives in while
     /// bringing a room up (`r[patch.sheet.filter]`).
+    // r[impl patch.unpatched] - present in the room, off the wire
     pub fn unpatched(&self) -> impl Iterator<Item = &PatchRow> {
         self.rows.iter().filter(|r| !r.patched || r.address == 0)
     }
@@ -506,6 +508,7 @@ impl Filter {
 // r[impl patch.sheet] - the pane
 // r[impl patch.sheet.columns] - condensed and full
 // r[impl patch.sheet.filter] - the rail, including unpatched and conflicting
+// r[impl patch.explicit-save] - the SAVE key, lit only when there is something to save
 #[component]
 pub fn PatchPane() -> Element {
     let sheet = use_sheet();
@@ -591,8 +594,8 @@ pub fn PatchPane() -> Element {
                     onclick: move |_| full.toggle(),
                     "FULL"
                 }
-                // Nothing reaches the venue file until this is pressed
-                // (`r[patch.explicit-save]`): patching is exploratory,
+                // Nothing reaches the venue file until this is pressed:
+                // patching is exploratory,
                 // and a file that changed under every keystroke could
                 // not be diffed or reverted.
                 button {
@@ -1037,6 +1040,7 @@ mod address_tests {
     use super::parse_address;
 
     /// r[verify patch.address] - the console idiom
+    /// r[verify patch.pick] - and a bare number keeps its universe
     #[test]
     fn an_address_reads_the_way_it_is_typed() {
         // Universe and address, in the three separators consoles use.

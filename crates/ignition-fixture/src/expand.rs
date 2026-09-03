@@ -36,6 +36,8 @@ pub struct Resolved {
     pub name: String,
     pub ranges: Vec<Range>,
     pub default: Option<u8>,
+    /// The output curve, when the chart gives one.
+    pub curve: Option<ignition_proto::Curve>,
 }
 
 /// Something a chart said that could not be flattened.
@@ -117,6 +119,7 @@ fn expand_line(
             name: line.attribute.clone(),
             ranges: line.ranges.clone(),
             default: line.default,
+            curve: line.curve.clone(),
         });
         return;
     };
@@ -199,6 +202,10 @@ fn expand_line(
                 Vec::new()
             },
             default: line.default,
+            // A compressed line's curve applies to each channel it
+            // repeats: twenty-four sections of one dimmer share one
+            // dimmer law.
+            curve: line.curve.clone(),
         });
     }
 }

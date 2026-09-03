@@ -177,3 +177,60 @@ fn re_hanging_a_fixture_writes_the_angles_and_the_quaternion() {
         "the hang did not survive the round trip"
     );
 }
+
+/// r[verify patch.new-venue] - a room from nothing, that opens
+///
+/// The point of `create` is that the product's first step is not
+/// "hand-write six JSON files", so the thing to check is that what it
+/// writes is a venue `Venue::load` actually accepts — and that the
+/// Setup view can then patch into it.
+#[test]
+fn a_new_venue_opens_and_can_be_patched_into() {
+    let dir = std::env::temp_dir().join("ignition-venue-new");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    Venue::create(&dir, "A New Room", "Ignition", (12.0, 8.0, 5.0)).expect("creates");
+    let mut venue = Venue::load(&dir).expect("and opens");
+    assert!(venue.fixtures.is_empty(), "a new room has no fixtures");
+    assert_eq!(venue.room.len(), 1, "but it does have a room");
+
+    // And it is somewhere a fixture can go.
+    let outcome = ignition_viz::patch_edit::apply(
+        &mut venue,
+        &ignition_viz::patch_edit::Edit::Insert(ignition_viz::patch_edit::Insert {
+            fixture_type: "Uking Par".to_owned(),
+            count: 4,
+            chan: 0,
+            universe: 1,
+            address: 0,
+            offset: 0,
+        }),
+    );
+    assert_eq!(
+        outcome,
+        ignition_viz::patch_edit::Outcome::Changed,
+        "{:?}",
+        outcome.message()
+    );
+    assert_eq!(venue.fixtures.len(), 4);
+    venue.save_fixtures(&dir).expect("and saves");
+
+    let venue = Venue::load(&dir).expect("and reopens");
+    assert_eq!(venue.fixtures.len(), 4, "the patch did not survive");
+    assert!(
+        venue.patch().by_chan(1).is_some(),
+        "and the fixtures are on the wire"
+    );
+}
+
+/// Creating over an existing room is refused, because the alternative
+/// is overwriting somebody's venue.
+#[test]
+fn creating_over_a_venue_is_refused() {
+    let Some(dir) = scratch("exists") else {
+        return;
+    };
+    let error = Venue::create(&dir, "Norco", "Ignition", (1.0, 1.0, 1.0))
+        .expect_err("an existing venue is not overwritten");
+    assert!(error.to_string().contains("already holds"), "{error}");
+}

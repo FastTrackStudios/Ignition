@@ -243,6 +243,9 @@ impl Where {
 // r[impl groups.order-is-data]
 // r[impl groups.one-ordering-authority]
 // r[impl profile.spatial-grid-is-derived]
+// r[impl patch.derived-groups] - patching a fixture into the room is what
+//   puts it in the right place in every selection; there is no second
+//   structure to maintain that can disagree with the patch
 pub enum Order {
     /// Sorted along an axis. `Axis(X, Asc)` is a left-to-right chase;
     /// `Axis(Y, Desc)` sweeps downstage to upstage.

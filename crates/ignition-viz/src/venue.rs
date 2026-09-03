@@ -415,7 +415,9 @@ pub(crate) fn write_atomically(path: &Path, contents: &str) -> anyhow::Result<()
     let Some(dir) = path.parent() else {
         anyhow::bail!("{} has no directory to write into", path.display());
     };
-    let temporary = path.with_extension("json.writing");
+    let mut temporary = path.as_os_str().to_owned();
+    temporary.push(".writing");
+    let temporary = std::path::PathBuf::from(temporary);
     std::fs::create_dir_all(dir)?;
     if let Err(error) = std::fs::write(&temporary, contents) {
         let _ = std::fs::remove_file(&temporary);
@@ -859,6 +861,69 @@ impl Venue {
             }
         }
         None
+    }
+
+    /// Make an empty room on disk.
+    ///
+    /// The manifest, a room box, and the four files a venue must have —
+    /// enough that [`Self::load`] opens it and the Setup view can start
+    /// patching into it. Nothing else: no fixtures, no screens, no
+    /// props, because those are what the operator is about to add.
+    ///
+    /// This exists because the alternative is the product's first step
+    /// being "hand-write six JSON files", which is not a first step
+    /// (`r[patch.new-venue]`). `width`, `depth` and `height` are the
+    /// room in metres.
+    ///
+    /// # Errors
+    ///
+    /// If the directory already holds a venue — refusing is the whole
+    /// point, since the alternative is overwriting somebody's room — or
+    /// if it cannot be written.
+    // r[impl patch.new-venue] - a room from nothing, in the studio
+    // r[impl files.directory-or-archive] - a directory with a manifest
+    pub fn create(
+        dir: impl AsRef<Path>,
+        name: &str,
+        profile: &str,
+        (width, depth, height): (f32, f32, f32),
+    ) -> anyhow::Result<()> {
+        let dir = dir.as_ref();
+        if dir.join("fixtures.json").exists() {
+            anyhow::bail!("{} already holds a venue", dir.display());
+        }
+        std::fs::create_dir_all(dir)?;
+
+        // The room as one box centred on the origin, sitting on the
+        // floor. A venue needs somewhere for `Where::Within` and focus
+        // resolution to mean anything (`r[files.venue.room]`), and a
+        // box is the least a room can be while still meaning something.
+        let room = serde_json::json!([{
+            "name": "Room",
+            "position": {"x": 0.0, "y": 0.0, "z": height / 2.0},
+            "eulers": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "size": {"x": width, "y": depth, "z": height},
+        }]);
+        let manifest = serde_json::json!({
+            "version": 1,
+            "name": name,
+            "profile": profile,
+            "assets": "assets",
+        });
+
+        for (file, contents) in [
+            (
+                ignition_core::show_file::VENUE_MANIFEST_FILE.to_owned(),
+                serde_json::to_string_pretty(&manifest)?,
+            ),
+            ("room.json".to_owned(), serde_json::to_string_pretty(&room)?),
+            ("fixtures.json".to_owned(), "[]".to_owned()),
+            ("screens.json".to_owned(), "[]".to_owned()),
+            ("props.json".to_owned(), "[]".to_owned()),
+        ] {
+            write_atomically(&dir.join(&file), &format!("{contents}\n"))?;
+        }
+        Ok(())
     }
 
     /// Write the fixtures back to the venue directory.
