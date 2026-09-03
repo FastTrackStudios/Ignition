@@ -31,7 +31,7 @@ pub use cuelist::CueList;
 pub use fixtures::{ChannelRow, ModeRow, TypeLibrary, TypeRow};
 pub use patch::{Conflict, Occupancy, PatchRow, PatchSheet};
 
-pub use command::{Command, PageMove, Playhead, SpeedKey};
+pub use command::{Command, PageMove, PatchEdit, Playhead, SpeedKey};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 

@@ -47,6 +47,7 @@ pub mod obj_mesh;
 pub mod ofl_import;
 pub mod output;
 pub mod overlay;
+pub mod patch_edit;
 pub mod picking;
 pub mod playback;
 pub mod preview;

@@ -444,7 +444,7 @@ mod tests {
 
 // ── The panes ────────────────────────────────────────────────────────
 
-use crate::command::Command;
+use crate::command::{Command, PatchEdit};
 use crate::send;
 use dioxus::prelude::*;
 
@@ -510,6 +510,7 @@ impl Filter {
 pub fn PatchPane() -> Element {
     let sheet = use_sheet();
     let mut full = use_signal(|| false);
+    let mut adding = use_signal(|| false);
     let filter = use_signal(Filter::default);
     let mut selected = use_signal(|| None::<u32>);
 
@@ -561,8 +562,11 @@ pub fn PatchPane() -> Element {
                         "{untyped} untyped"
                     }
                 }
-                if sheet.dirty {
-                    span { class: "patch-dirty", title: "unsaved patch edits", "UNSAVED" }
+                button {
+                    class: if adding() { "patch-key on" } else { "patch-key" },
+                    title: "add fixtures to this room",
+                    onclick: move |_| adding.toggle(),
+                    "ADD"
                 }
                 button {
                     class: if full() { "patch-key on" } else { "patch-key" },
@@ -570,6 +574,20 @@ pub fn PatchPane() -> Element {
                     onclick: move |_| full.toggle(),
                     "FULL"
                 }
+                // Nothing reaches the venue file until this is pressed
+                // (`r[patch.explicit-save]`): patching is exploratory,
+                // and a file that changed under every keystroke could
+                // not be diffed or reverted.
+                button {
+                    class: if sheet.dirty { "patch-key save on" } else { "patch-key save" },
+                    disabled: !sheet.dirty,
+                    title: "write the patch back to the venue",
+                    onclick: move |_| send(Command::Patch(PatchEdit::Save)),
+                    if sheet.dirty { "SAVE ●" } else { "SAVED" }
+                }
+            }
+            if adding() {
+                InsertBar { universes: sheet.universes.clone(), done: move |()| adding.set(false) }
             }
             div { class: "patch-body",
                 nav { class: "patch-rail",
@@ -704,11 +722,25 @@ fn PatchLine(
                 td { "{row.mode}" }
                 td { "{row.manufacturer}" }
             }
-            td { class: "num addr", "{row.address_label()}" }
+            td { class: "num addr",
+                AddressCell { chan, universe: row.universe, address: row.address, patched: row.patched }
+            }
             td { class: "num", if row.footprint > 0 { "{row.footprint}" } else { "—" } }
-            td { "{row.label}" }
+            td {
+                TextCell {
+                    value: row.label.clone(),
+                    placeholder: "label",
+                    on_commit: move |text| send(Command::Patch(PatchEdit::Label { chan, label: text })),
+                }
+            }
             if full {
-                td { "{row.gel}" }
+                td {
+                    TextCell {
+                        value: row.gel.clone(),
+                        placeholder: "gel",
+                        on_commit: move |text| send(Command::Patch(PatchEdit::Gel { chan, gel: text })),
+                    }
+                }
                 td { "{row.tags.join(\" \")}" }
                 td { class: "num",
                     "{row.position[0]:.1} {row.position[1]:.1} {row.position[2]:.1}"
@@ -760,6 +792,243 @@ pub fn UniversesPane() -> Element {
                     }
                 }
             }
+        }
+    }
+}
+
+/// A cell you can type an address into.
+///
+/// Accepts what a console accepts: `2.40` and `2/40` for universe two
+/// address forty, a bare `40` for the universe it is already in, and an
+/// empty box to unpatch (`r[patch.address]`). It commits on blur and on
+/// Enter, never per keystroke — half a typed address is a real address
+/// somewhere else, and repatching to it on the way past would be a
+/// fixture briefly stealing another's channels.
+// r[impl patch.address] - the console idiom, in a cell
+#[component]
+fn AddressCell(chan: u32, universe: Universe, address: u16, patched: bool) -> Element {
+    // A plain `fn` rather than a closure: two handlers need it, and a
+    // closure capturing signals cannot be called from both.
+    fn commit(
+        text: &str,
+        chan: u32,
+        universe: Universe,
+        shown: &str,
+        mut draft: Signal<String>,
+        mut editing: Signal<bool>,
+    ) {
+        editing.set(false);
+        let text = text.trim();
+        if text.is_empty() {
+            send(Command::Patch(PatchEdit::Unpatch { chan }));
+            return;
+        }
+        let Some((into_universe, into_address)) = parse_address(text, universe) else {
+            // Unreadable: put the cell back rather than guessing. A
+            // guessed address is a fixture somewhere nobody put it.
+            draft.set(shown.to_owned());
+            return;
+        };
+        send(Command::Patch(PatchEdit::Address {
+            chan,
+            universe: into_universe,
+            address: into_address,
+        }));
+    }
+
+    let shown = if patched && address > 0 {
+        format!("{universe}.{address}")
+    } else {
+        String::new()
+    };
+    let mut draft = use_signal(|| shown.clone());
+    let mut editing = use_signal(|| false);
+
+    // While not being typed in, the cell follows the sheet: an edit from
+    // another window, or a refused one snapping back, has to show.
+    if !editing() && draft() != shown {
+        draft.set(shown.clone());
+    }
+
+    let back = shown.clone();
+    let on_enter = shown;
+    rsx! {
+        input {
+            class: "cell addr-cell",
+            r#type: "text",
+            placeholder: "—",
+            value: "{draft}",
+            onfocusin: move |_| editing.set(true),
+            oninput: move |e| draft.set(e.value()),
+            onblur: move |_| commit(&draft(), chan, universe, &back, draft, editing),
+            onkeydown: move |e| {
+                if e.key() == Key::Enter {
+                    commit(&draft(), chan, universe, &on_enter, draft, editing);
+                }
+            },
+        }
+    }
+}
+
+/// `2.40`, `2/40` or a bare `40` in the universe the fixture is already
+/// in. Returns `None` for anything that is not an address, so the caller
+/// can put the cell back rather than guess.
+fn parse_address(text: &str, current: Universe) -> Option<(Universe, u16)> {
+    let text = text.trim();
+    let (universe, address) = match text.split_once(['.', '/', ':']) {
+        Some((left, right)) => (left.trim().parse::<u16>().ok()?, right.trim()),
+        // A bare number keeps the universe it is in. A fixture with no
+        // universe yet lands in the first one.
+        None => (if current == 0 { 1 } else { current }, text),
+    };
+    let address = address.parse::<u16>().ok()?;
+    (universe > 0 && (1..=512).contains(&address)).then_some((universe, address))
+}
+
+/// A cell you can type text into, committed on blur or Enter.
+#[component]
+fn TextCell(value: String, placeholder: String, on_commit: EventHandler<String>) -> Element {
+    let mut draft = use_signal(|| value.clone());
+    let mut editing = use_signal(|| false);
+    // While not being typed in, the cell follows the sheet: an edit from
+    // another window, or a refused one snapping back, has to show.
+    if !editing() && draft() != value {
+        draft.set(value);
+    }
+    rsx! {
+        input {
+            class: "cell",
+            r#type: "text",
+            placeholder: "{placeholder}",
+            value: "{draft}",
+            onfocusin: move |_| editing.set(true),
+            oninput: move |e| draft.set(e.value()),
+            onblur: move |_| {
+                editing.set(false);
+                on_commit.call(draft().trim().to_owned());
+            },
+            onkeydown: move |e| {
+                if e.key() == Key::Enter {
+                    editing.set(false);
+                    on_commit.call(draft().trim().to_owned());
+                }
+            },
+        }
+    }
+}
+
+/// Adding fixtures: a type, how many, and where they go.
+///
+/// The wizard every console has, because rigs come in bars of eight and
+/// patching them one at a time is the thirty minutes
+/// `r[profile.setup-cost-is-the-metric]` is measured in. Both address
+/// fields default to "next free", which is what adding to a rig usually
+/// wants, and the offset defaults to the type's own footprint, which is
+/// what packing a bar wants.
+// r[impl patch.insert] - type, quantity, and where
+#[component]
+fn InsertBar(universes: Vec<Universe>, done: EventHandler<()>) -> Element {
+    let library = crate::fixtures::use_library();
+    let mut fixture_type = use_signal(String::new);
+    let mut count = use_signal(|| "1".to_owned());
+    let mut universe = use_signal(|| {
+        universes
+            .first()
+            .map_or_else(|| "1".to_owned(), ToString::to_string)
+    });
+    let mut address = use_signal(String::new);
+    let types = library().types;
+
+    // Nothing to patch to until a type is picked: a fixture with no type
+    // never lights, and offering to make seventy of them is not a
+    // kindness.
+    let chosen = fixture_type();
+    let ready = !chosen.is_empty();
+
+    rsx! {
+        div { class: "insert",
+            select {
+                class: "insert-type",
+                value: "{fixture_type}",
+                onchange: move |e| fixture_type.set(e.value()),
+                option { value: "", "fixture type…" }
+                for row in types {
+                    option { key: "{row.console_name}", value: "{row.console_name}", "{row.console_name}" }
+                }
+            }
+            label { class: "insert-field",
+                span { "count" }
+                input {
+                    r#type: "text",
+                    value: "{count}",
+                    oninput: move |e| count.set(e.value()),
+                }
+            }
+            label { class: "insert-field",
+                span { "universe" }
+                input {
+                    r#type: "text",
+                    value: "{universe}",
+                    oninput: move |e| universe.set(e.value()),
+                }
+            }
+            label { class: "insert-field",
+                span { "address" }
+                input {
+                    r#type: "text",
+                    placeholder: "next free",
+                    value: "{address}",
+                    oninput: move |e| address.set(e.value()),
+                }
+            }
+            button {
+                class: "patch-key on",
+                disabled: !ready,
+                onclick: move |_| {
+                    send(Command::Patch(PatchEdit::Insert {
+                        fixture_type: fixture_type(),
+                        count: count().trim().parse().unwrap_or(1),
+                        // Zero throughout means "you choose": the next
+                        // free channel, the next free address, and the
+                        // type's own footprint as the offset.
+                        chan: 0,
+                        universe: universe().trim().parse().unwrap_or(1),
+                        address: address().trim().parse().unwrap_or(0),
+                        offset: 0,
+                    }));
+                    done.call(());
+                },
+                "PATCH"
+            }
+            button { class: "patch-key", onclick: move |_| done.call(()), "CANCEL" }
+        }
+    }
+}
+
+#[cfg(test)]
+mod address_tests {
+    use super::parse_address;
+
+    /// r[verify patch.address] - the console idiom
+    #[test]
+    fn an_address_reads_the_way_it_is_typed() {
+        // Universe and address, in the three separators consoles use.
+        assert_eq!(parse_address("2.40", 1), Some((2, 40)));
+        assert_eq!(parse_address("2/40", 1), Some((2, 40)));
+        assert_eq!(parse_address("2:40", 1), Some((2, 40)));
+        // A bare number keeps the universe the fixture is already in,
+        // which is what typing into a sheet of one universe wants.
+        assert_eq!(parse_address("40", 3), Some((3, 40)));
+        // A fixture with no universe yet lands in the first.
+        assert_eq!(parse_address("40", 0), Some((1, 40)));
+        assert_eq!(parse_address("  2 . 40 ", 1), Some((2, 40)));
+    }
+
+    #[test]
+    fn nonsense_is_refused_rather_than_guessed() {
+        // A guessed address is a fixture somewhere nobody put it.
+        for text in ["", "chan 4", "2.", ".40", "2.0", "2.513", "0.40", "-1"] {
+            assert_eq!(parse_address(text, 1), None, "{text:?} was accepted");
         }
     }
 }

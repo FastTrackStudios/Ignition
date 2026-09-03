@@ -272,3 +272,104 @@
   padding: 12px;
   opacity: 0.5;
 }
+
+/* ── editing ────────────────────────────────────────────────────── */
+
+/* An editable cell is an input that does not look like one until you
+ * are in it. A sheet of seventy boxed inputs is unreadable, and reading
+ * is what a patch sheet is mostly for. */
+.cell {
+  width: 100%;
+  background: none;
+  border: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  padding: 0 2px;
+}
+
+.cell::placeholder {
+  color: inherit;
+  opacity: 0.25;
+}
+
+.cell:hover {
+  border-color: #2a2833;
+}
+
+.cell:focus {
+  outline: none;
+  border-color: #6f68d8;
+  background: #16151c;
+}
+
+.addr-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #9fd8e8;
+}
+
+/* SAVE is lit only when there is something to save, so an operator can
+ * tell at a glance whether the room on screen is the room on disk. */
+.patch-key.save.on {
+  border-color: #e0a848;
+  color: #f0c888;
+}
+
+.patch-key:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── the insert bar ─────────────────────────────────────────────── */
+
+.insert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--hair, #2a2833);
+  background: #1b1922;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.insert-type {
+  background: #16151c;
+  border: 1px solid var(--hair, #2a2833);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 6px;
+  min-width: 180px;
+}
+
+.insert-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.insert-field span {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+.insert-field input {
+  width: 74px;
+  background: #16151c;
+  border: 1px solid var(--hair, #2a2833);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 5px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.insert-field input:focus {
+  outline: none;
+  border-color: #6f68d8;
+}

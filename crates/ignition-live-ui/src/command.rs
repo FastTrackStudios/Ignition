@@ -282,6 +282,55 @@ pub enum Command {
         canvas: String,
         source: String,
     },
+    /// An edit to the room's patch, from the Setup view.
+    ///
+    /// One variant rather than eight, because they all take the same
+    /// path — mutate the venue, re-resolve the patch, republish the
+    /// sheet — and a wire contract with eight near-identical variants is
+    /// eight things to keep in step.
+    // r[impl patch.writes-the-venue] - the edit, on its way to the file
+    Patch(PatchEdit),
+}
+
+/// What the Setup view can change about a room.
+///
+/// Every variant names a fixture by its **channel**, not by its index:
+/// an index is a position in a file that inserting a fixture changes,
+/// and a command that arrives one frame late would then edit the wrong
+/// light.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PatchEdit {
+    /// Move a fixture on the wire.
+    Address {
+        chan: u32,
+        universe: u16,
+        /// 1-based within the universe.
+        address: u16,
+    },
+    /// Take a fixture off the wire, leaving it in the room
+    /// (`r[patch.unpatched]`).
+    Unpatch { chan: u32 },
+    /// The operator's own word for a fixture.
+    Label { chan: u32, label: String },
+    /// The gel in front of it.
+    Gel { chan: u32, gel: String },
+    /// Add fixtures: `count` of one type, from `chan`, addressed from
+    /// `universe`.`address`, each `offset` channels after the last
+    /// (`r[patch.insert]`). An `offset` of zero means "the type's own
+    /// footprint", which is what packing a bar wants.
+    Insert {
+        fixture_type: String,
+        count: u16,
+        chan: u32,
+        universe: u16,
+        address: u16,
+        offset: u16,
+    },
+    /// Remove a fixture from the room entirely.
+    Remove { chan: u32 },
+    /// Write the venue back to disk (`r[patch.explicit-save]`).
+    Save,
 }
 
 /// What a camera cut names: a number key, or a preset by name.
@@ -407,6 +456,15 @@ const fn one_f32() -> f32 {
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct Playhead {
+    /// Bumped whenever the patch changes.
+    ///
+    /// The sheet itself is far too big to put on a per-frame message —
+    /// seventy rows sixty times a second to say nothing — so what
+    /// travels is a counter, and the host re-reads the sheet when it
+    /// moves. Zero means nothing has edited the patch this run.
+    // r[impl patch.writes-the-venue] - the surface hears about an edit
+    #[serde(default)]
+    pub patch_revision: u64,
     /// Index of the cue the player is actually standing on.
     pub cue: Option<usize>,
     /// How far into its arrival that cue is, 0 to 1. The list draws it

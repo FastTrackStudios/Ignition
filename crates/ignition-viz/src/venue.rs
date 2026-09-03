@@ -8,10 +8,10 @@
 // Deserialize impls, not a maths type.
 use bevy::math::{EulerRot, Quat as Rotation, Vec3 as Point};
 use ignition_core::show_file::VenueManifest;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -25,7 +25,7 @@ impl Vec3 {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Quat {
     pub w: f32,
     pub x: f32,
@@ -49,8 +49,9 @@ fn euler_to_quat(e: Vec3) -> Rotation {
     )
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 // r[impl files.venue.fixtures] - type, position, orientation, patch and tags per fixture
+// r[impl patch.writes-the-venue] - the same record reads and writes
 pub struct FixtureRecord {
     pub chan: Option<u32>,
     pub name: String,
@@ -86,8 +87,31 @@ pub struct FixtureRecord {
     /// pars on one address are one fixture in the show and four on the
     /// wire. Written with exactly the bytes the primary address gets.
     // r[impl files.venue.multipatch] - the extra addresses of a multipatched fixture
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mirrors: Vec<ignition_proto::DmxAddress>,
+    /// The operator's own word for this fixture — "SL truss 3", "the one
+    /// behind the drum riser". Distinct from `name`, which is the
+    /// venue's. Has been in these files since they were written; the
+    /// patch sheet is the first thing to show it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub label: String,
+    /// The gel in front of it, if it is a conventional.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub gel: String,
+    /// The address expressed net-wide rather than per-universe, as the
+    /// Eos pull writes it.
+    ///
+    /// **Derived**, and the reason it is modelled rather than left to
+    /// `extra`: it is `(universe - 1) * 512 + address`, so an edit that
+    /// moved the address and wrote this back unchanged would leave the
+    /// file disagreeing with itself. [`Self::set_address`] is the only
+    /// way to move a fixture, and it recomputes this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub global_address: Option<u32>,
+    /// Everything this build does not know about, kept so it can be
+    /// written back unchanged (`r[files.additive-evolution]`).
+    #[serde(flatten)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 const fn default_patched() -> bool {
@@ -100,6 +124,63 @@ impl FixtureRecord {
     #[must_use]
     pub fn orientation(&self) -> Rotation {
         self.quat.to_quat()
+    }
+
+    /// Move this fixture on the wire.
+    ///
+    /// The only way to change an address, because an address is three
+    /// fields and not one: `universe`, `address`, and the derived
+    /// `global_address` the Eos pull also writes. Setting the first two
+    /// by hand and leaving the third is a venue file that disagrees with
+    /// itself, and nothing would notice until something read the wrong
+    /// one.
+    // r[impl patch.writes-the-venue] - an address is one edit, not three
+    pub fn set_address(&mut self, address: Option<ignition_proto::DmxAddress>) {
+        if let Some(address) = address {
+            self.universe = Some(address.universe);
+            self.address = Some(address.start_channel);
+            // 512 slots per universe, universes 1-based.
+            self.global_address = Some(
+                u32::from(address.universe)
+                    .saturating_sub(1)
+                    .saturating_mul(512)
+                    .saturating_add(u32::from(address.start_channel)),
+            );
+            self.patched = true;
+        } else {
+            // Unpatching keeps the fixture: it is still in the room,
+            // still in groups, still selectable — it just has no bytes
+            // (`r[patch.unpatched]`).
+            self.universe = None;
+            self.address = None;
+            self.global_address = None;
+            self.patched = false;
+        }
+    }
+
+    /// Re-hang this fixture.
+    ///
+    /// The only way to change an orientation, and for the same reason as
+    /// [`Self::set_address`]: the hang is stored twice, as Euler angles
+    /// and as a quaternion, and [`Self::orientation`] reads only the
+    /// quaternion. Writing the angles alone is silently ignored — a bug
+    /// this project has already shipped once, documented at the top of
+    /// `crates/ignition-viz/src/bin/aimwash.rs`.
+    // r[impl patch.orientation-is-whole] - both spellings, or neither
+    pub fn set_orientation(&mut self, rotation: Rotation) {
+        let rotation = rotation.normalize();
+        self.quat = Quat {
+            w: rotation.w,
+            x: rotation.x,
+            y: rotation.y,
+            z: rotation.z,
+        };
+        let (z, y, x) = rotation.to_euler(EulerRot::ZYX);
+        self.eulers = Vec3 {
+            x: x.to_degrees(),
+            y: y.to_degrees(),
+            z: z.to_degrees(),
+        };
     }
 
     /// This fixture's live DMX address, if the venue data has both pieces —
@@ -308,6 +389,30 @@ pub struct Venue {
     /// is the answer either way.
     // r[impl dmx.venue-config] - the room's network lives with the room
     pub dmx: Option<ignition_dmx::OutputConfig>,
+}
+
+/// Replace a file's contents without ever leaving it half-written.
+///
+/// A venue file is read at startup and a truncated one is a room that
+/// will not open, so the write goes to a sibling temporary and is
+/// renamed over the original — a rename within a directory is atomic on
+/// every filesystem this runs on. The temporary is removed if the rename
+/// fails, so a failed save does not litter the venue.
+fn write_atomically(path: &Path, contents: &str) -> anyhow::Result<()> {
+    let Some(dir) = path.parent() else {
+        anyhow::bail!("{} has no directory to write into", path.display());
+    };
+    let temporary = path.with_extension("json.writing");
+    std::fs::create_dir_all(dir)?;
+    if let Err(error) = std::fs::write(&temporary, contents) {
+        let _ = std::fs::remove_file(&temporary);
+        anyhow::bail!("writing {}: {error}", temporary.display());
+    }
+    if let Err(error) = std::fs::rename(&temporary, path) {
+        let _ = std::fs::remove_file(&temporary);
+        anyhow::bail!("replacing {}: {error}", path.display());
+    }
+    Ok(())
 }
 
 impl Venue {
@@ -662,6 +767,127 @@ impl Venue {
     /// # Errors
     ///
     /// If any of the venue's JSON files is missing or fails to parse.
+    /// Forget the resolved patch, so the next read rebuilds it.
+    ///
+    /// The patch table is resolved once and cached, which is right for a
+    /// venue that never changes and wrong the moment one does. Every
+    /// edit that touches an address, a model or the patched flag has to
+    /// call this, or the room goes on being addressed the way it was
+    /// before the edit.
+    pub fn repatch(&mut self) {
+        self.patch = std::sync::OnceLock::default();
+    }
+
+    /// The fixture on `chan`, if the room has one.
+    ///
+    /// By channel rather than by index deliberately: an index is a
+    /// position in a file that inserting a fixture changes, and an edit
+    /// that arrived a frame late would then land on the wrong light.
+    #[must_use]
+    pub fn by_chan_mut(&mut self, chan: u32) -> Option<&mut FixtureRecord> {
+        self.fixtures.iter_mut().find(|f| f.chan == Some(chan))
+    }
+
+    /// The lowest channel number nothing is using.
+    #[must_use]
+    pub fn next_free_chan(&self) -> u32 {
+        let mut used: Vec<u32> = self.fixtures.iter().filter_map(|f| f.chan).collect();
+        used.sort_unstable();
+        let mut next = 1_u32;
+        for chan in used {
+            if chan == next {
+                next = next.saturating_add(1);
+            }
+        }
+        next
+    }
+
+    /// The lowest address in `universe` with `footprint` free channels
+    /// after it (`r[patch.address]`).
+    ///
+    /// `None` when the universe cannot hold another one — a real answer,
+    /// and better than offering an address that would collide.
+    #[must_use]
+    pub fn next_free_address(&self, universe: u16, footprint: u16) -> Option<u16> {
+        if footprint == 0 || footprint > 512 {
+            return None;
+        }
+        let patch = self.patch();
+        // What each of the 512 slots holds, by fixture index.
+        let mut taken = [false; 512];
+        for (index, fixture) in self.fixtures.iter().enumerate() {
+            let Some(address) = fixture.dmx_address() else {
+                continue;
+            };
+            if address.universe != universe {
+                continue;
+            }
+            let width = patch.get(index).map_or(1, |p| p.map.footprint).max(1);
+            for offset in 0..width {
+                let slot = address
+                    .start_channel
+                    .saturating_add(offset)
+                    .saturating_sub(1);
+                if let Some(cell) = taken.get_mut(usize::from(slot)) {
+                    *cell = true;
+                }
+            }
+        }
+        let mut run = 0_u16;
+        for (index, occupied) in taken.iter().enumerate() {
+            if *occupied {
+                run = 0;
+                continue;
+            }
+            run = run.saturating_add(1);
+            if run >= footprint {
+                let slot = u16::try_from(index).unwrap_or(u16::MAX).saturating_add(1);
+                return Some(slot.saturating_sub(footprint).saturating_add(1));
+            }
+        }
+        None
+    }
+
+    /// Write the fixtures back to the venue directory.
+    ///
+    /// Only `fixtures.json`, because that is the only file the patch
+    /// edits: the room, the screens, the props and the palettes are
+    /// untouched by patching and rewriting them would put unrelated
+    /// churn in a diff somebody has to review.
+    ///
+    /// The same text form the file was read in
+    /// (`r[files.text-and-diffable]`), with every key this build did not
+    /// understand written back unchanged
+    /// (`r[files.additive-evolution]`) — a venue edited by the studio
+    /// and one edited by hand have to be the same kind of artifact.
+    ///
+    /// Writes through a temporary file in the same directory and renames
+    /// over the original, so a crash mid-write cannot leave a venue
+    /// half-written. A half-written `fixtures.json` is a room that will
+    /// not open.
+    ///
+    /// # Errors
+    ///
+    /// If the directory cannot be written, or the records will not
+    /// serialise.
+    // r[impl patch.writes-the-venue] - back to the venue's own files
+    pub fn save_fixtures(&self, dir: impl AsRef<Path>) -> anyhow::Result<()> {
+        let dir = dir.as_ref();
+        let manifest = VenueManifest::load_dir(dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let path = manifest.file(dir, "fixtures");
+        let json = serde_json::to_string_pretty(&self.fixtures)?;
+        write_atomically(&path, &format!("{json}\n"))
+    }
+
+    /// Read a venue from its directory.
+    ///
+    /// # Errors
+    ///
+    /// If the manifest names a version this build does not know, if a
+    /// required file (`fixtures`, `room`, `screens`, `props`) is missing
+    /// or malformed, or if the manifest's `dmx` block will not parse. The
+    /// optional files — groups, palettes, profile, areas — are absent on
+    /// a room somebody is still setting up, which is not an error.
     pub fn load(dir: impl AsRef<Path>) -> anyhow::Result<Self> {
         let dir = dir.as_ref();
         // A directory with a `venue.ig-venue` manifest, or a bare

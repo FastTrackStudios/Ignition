@@ -363,11 +363,7 @@ fn main() -> anyhow::Result<()> {
     let surface = build_surface(&venue);
     // The Setup view's rows, resolved from the same venue at the same
     // moment as the Surface, so the two cannot disagree.
-    let venue_name = std::path::Path::new(&venue_dir())
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let _ = PATCH_SHEET.set(build_patch_sheet(&venue, &venue_name));
+    set_patch_sheet(&venue, false);
     let _ = TYPE_LIBRARY.set(build_type_library(&venue));
 
     // The same surface, to an iPad — opt-in, see `live_web`. Started
@@ -823,11 +819,35 @@ fn type_library() -> TypeLibrary {
     TYPE_LIBRARY.get().cloned().unwrap_or_default()
 }
 
-static PATCH_SHEET: std::sync::OnceLock<PatchSheet> = std::sync::OnceLock::new();
+/// The patch as the panes last saw it.
+///
+/// A lock rather than a `OnceLock`, unlike `SURFACE`: the surface is
+/// fixed for a run and the patch is the one thing the Setup view exists
+/// to change. Rebuilt from the live venue after every edit — see
+/// `viz_widget::commands::patch_edit` — and read by whichever window
+/// asks.
+static PATCH_SHEET: std::sync::RwLock<Option<PatchSheet>> = std::sync::RwLock::new(None);
 
 /// The patch as the panes see it.
-fn patch_sheet() -> PatchSheet {
-    PATCH_SHEET.get().cloned().unwrap_or_default()
+pub(crate) fn patch_sheet() -> PatchSheet {
+    PATCH_SHEET
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone()
+        .unwrap_or_default()
+}
+
+/// Republish the patch from a venue that has just changed.
+pub(crate) fn set_patch_sheet(venue: &Venue, dirty: bool) {
+    let name = std::path::Path::new(&venue_dir())
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let mut sheet = build_patch_sheet(venue, &name);
+    sheet.dirty = dirty;
+    *PATCH_SHEET
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(sheet);
 }
 
 /// # Panics
@@ -877,19 +897,32 @@ pub fn provide_playhead() {
     // The patch, for the Setup view's panes. A signal rather than a
     // plain value because a patch edit republishes it — the pane must
     // never go back to the venue file for a second copy.
-    use_context_provider(|| ignition_live_ui::patch::SheetFeed(Signal::new(patch_sheet())));
+    let mut sheet =
+        use_context_provider(|| ignition_live_ui::patch::SheetFeed(Signal::new(patch_sheet()))).0;
     use_context_provider(|| ignition_live_ui::fixtures::LibraryFeed(Signal::new(type_library())));
     // Which fixture type the editor is showing — picked in one pane and
     // read in the other, so it lives above both.
     use_context_provider(|| ignition_live_ui::fixtures::Opened(Signal::new(None)));
     use_future(move || async move {
+        // What the sheet was last rebuilt for. The counter starts at
+        // zero and the first edit makes it one, so a window that opens
+        // mid-session picks up whatever has already happened.
+        let mut seen_patch = 0_u64;
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(33)).await;
-            if let Some(rx) = STATE_RX.get() {
-                let latest = rx.borrow().clone();
-                if latest != playhead() {
-                    playhead.set(latest);
-                }
+            let Some(rx) = STATE_RX.get() else {
+                continue;
+            };
+            let latest = rx.borrow().clone();
+            // The patch travels as a revision, not as seventy rows a
+            // frame; when it moves, re-read the sheet the engine thread
+            // rebuilt (`viz_widget::commands::patch_edit`).
+            if latest.patch_revision != seen_patch {
+                seen_patch = latest.patch_revision;
+                sheet.set(patch_sheet());
+            }
+            if latest != playhead() {
+                playhead.set(latest);
             }
         }
     });
