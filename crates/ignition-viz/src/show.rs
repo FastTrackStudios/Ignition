@@ -1,11 +1,15 @@
 //! Bridges `ignition_core::cue`'s fixture-agnostic playback engine into
-//! real DMX bytes — the counterpart to `dmx.rs::resolve()` (bytes ->
-//! visualizer units) running in the opposite direction (cue-engine units ->
-//! bytes), written into the same `DmxUniverses` shared state real sACN/
-//! Art-Net packets land in. This is what makes a programmed cue list show
-//! up in `live`'s 3D view exactly like a real console's output would —
-//! `scene.rs`/`build_scene` never needs to know whether a given frame came
-//! from a network packet or from this module.
+//! real DMX bytes.
+//!
+//! The counterpart to `dmx.rs::resolve()` (bytes -> visualizer units)
+//! running in the opposite direction (cue-engine units -> bytes), written
+//! into the same `DmxUniverses` shared state real sACN/Art-Net packets
+//! land in.
+//!
+//! This is what makes a programmed cue list show up in `live`'s 3D view
+//! exactly like a real console's output would — `scene.rs`/`build_scene`
+//! never needs to know whether a given frame came from a network packet or
+//! from this module.
 //!
 //! Byte encoding is the literal inverse of `dmx.rs::resolve()`'s
 //! byte-to-value formulas for `Pan`/`Tilt` (the only two attributes with a
@@ -35,8 +39,8 @@ use std::collections::{BTreeMap, HashMap};
 // r[impl files.venue.dmx-curves] - the attribute's curve decides the wire byte
 fn encode_attribute_byte(map: &ChannelMap, attr: &Attribute, value: f32) -> u8 {
     match attr {
-        Attribute::Pan => (((value / 540.0) + 0.5) * 255.0).clamp(0.0, 255.0).round() as u8,
-        Attribute::Tilt => (((value / 270.0) + 0.5) * 255.0).clamp(0.0, 255.0).round() as u8,
+        Attribute::Pan => crate::num::byte_of_f32(((value / 540.0) + 0.5) * 255.0),
+        Attribute::Tilt => crate::num::byte_of_f32(((value / 270.0) + 0.5) * 255.0),
         _ => map.curve_of(attr).apply(value),
     }
 }
@@ -46,9 +50,11 @@ fn encode_attribute_byte(map: &ChannelMap, attr: &Attribute, value: f32) -> u8 {
 /// Same formula as the 8-bit case over 65535 steps, so a fixture without
 /// a fine channel and one with agree on where 0° is.
 fn encode_wide(range_deg: f32, value: f32) -> [u8; 2] {
-    let steps = (((value / range_deg) + 0.5) * 65535.0)
-        .clamp(0.0, 65535.0)
-        .round() as u16;
+    // `u16_of_f32` clamps and truncates but does not round, so the
+    // rounding this byte encoding relies on happens here first — the
+    // value is then already an exact integer and truncation changes
+    // nothing.
+    let steps = crate::num::u16_of_f32((((value / range_deg) + 0.5) * 65535.0).round());
     steps.to_be_bytes()
 }
 
@@ -105,13 +111,23 @@ impl Default for OutputFrame<'_> {
 }
 
 /// Writes one resolved cue-engine output frame into `dmx` for every
-/// `(chan, attr)` pair whose fixture is actually patched (has a `chan` in
-/// `venue.fixtures`, a live `dmx_address()`, and a known `ChannelMap` for
-/// its manufacturer/model) — a cue targeting an unpatched or
-/// unrecognized-fixture channel is silently skipped, the same "falls back
-/// to static default" tolerance `scene.rs` already has for a fixture with
-/// no channel map. Attribute values only; see `apply_output` for the
-/// full frame.
+/// `(chan, attr)` pair whose fixture is actually patched.
+///
+/// "Patched" means a `chan` in `venue.fixtures`, a live `dmx_address()`,
+/// and a known `ChannelMap` for its manufacturer/model. A cue targeting
+/// an unpatched or unrecognized-fixture channel is
+/// silently skipped, the same "falls back to static default" tolerance
+/// `scene.rs` already has for a fixture with no channel map.
+///
+/// Attribute values only; see `apply_output` for the full frame.
+// `OutputFrame::values` is fixed to the default-hasher `HashMap` (it is
+// built once per frame from the cue engine's own fold, never handed a
+// custom hasher), so generalizing this parameter would only add a type
+// this function could never actually pass through to it.
+#[expect(
+    clippy::implicit_hasher,
+    reason = "OutputFrame::values is fixed to the default hasher; see the comment above"
+)]
 pub fn apply_cue_output(
     dmx: &DmxUniverses,
     venue: &Venue,
@@ -158,7 +174,7 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
     let solved = solve_colors(patch, frame.values, frame.intents);
     let mut push = |fixture: &Patch, offset: u16, byte: u8| {
         for addr in fixture.addresses() {
-            let channel0 = addr.start_channel.saturating_sub(1) + offset;
+            let channel0 = addr.start_channel.saturating_sub(1).saturating_add(offset);
             bytes.push((addr.universe, channel0, byte));
         }
     };
@@ -261,7 +277,12 @@ fn solve_colors(
             ColorChannel::Blue => 2,
             _ => continue,
         };
-        triples.entry(*chan).or_default()[slot] = Some(value);
+        // `slot` is always 0/1/2 into a fixed 3-element array — the
+        // `get_mut` here is for the checked index, not because the slot
+        // could ever really miss.
+        if let Some(cell) = triples.entry(*chan).or_default().get_mut(slot) {
+            *cell = Some(value);
+        }
     }
     for (chan, rgb) in triples {
         let [Some(r), Some(g), Some(b)] = rgb else {
@@ -380,9 +401,9 @@ mod tests {
             screens: vec![],
             props: vec![],
             group_records: vec![],
-            palettes: Default::default(),
-            profile: Default::default(),
-            patch: Default::default(),
+            palettes: ignition_core::Palettes::default(),
+            profile: ignition_core::profile::VenueProfile::default(),
+            patch: std::sync::OnceLock::default(),
             dmx: None,
         }
     }
@@ -438,9 +459,9 @@ mod tests {
             screens: vec![],
             props: vec![],
             group_records: vec![],
-            palettes: Default::default(),
-            profile: Default::default(),
-            patch: Default::default(),
+            palettes: ignition_core::Palettes::default(),
+            profile: ignition_core::profile::VenueProfile::default(),
+            patch: std::sync::OnceLock::default(),
             dmx: None,
         };
         let dmx = DmxUniverses::new();
@@ -507,7 +528,7 @@ mod tests {
     /// frames private.
     fn byte_at(dmx: &DmxUniverses, universe: u16, channel1: u16) -> u8 {
         let probe = ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint: 1,
             channels: vec![(0, Attribute::Dimmer)],
         };
@@ -515,7 +536,7 @@ mod tests {
             universe,
             start_channel: channel1,
         };
-        (dmx.resolve(&addr, &probe).dimmer * 255.0).round() as u8
+        crate::num::byte_of_f32(dmx.resolve(&addr, &probe).dimmer * 255.0)
     }
 
     #[test]
@@ -617,7 +638,7 @@ mod tests {
             "the white emitter carries the warm white: r{r} g{g} b{b} w{w}"
         );
         let flux = |byte: u8, ch: ColorChannel| {
-            byte as f32 / 255.0 * crate::fixture_profile::typical_emitter(ch).max_lumens
+            f32::from(byte) / 255.0 * crate::fixture_profile::typical_emitter(ch).max_lumens
         };
         assert!(
             flux(w, ColorChannel::White) > flux(r, ColorChannel::Red)
@@ -754,9 +775,7 @@ mod tests {
         };
         assert!(
             white(&wide) < white(&srgb) || white(&srgb) < 0.02,
-            "a Rec.2020 blue is more saturated: {:?} vs {:?}",
-            wide,
-            srgb
+            "a Rec.2020 blue is more saturated: {wide:?} vs {srgb:?}"
         );
         assert_ne!(wide, srgb);
     }

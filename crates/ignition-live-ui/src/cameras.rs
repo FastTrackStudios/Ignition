@@ -1,8 +1,10 @@
 //! The Cameras pane: the venue's camera presets, the ten on the number
 //! keys badged `1`–`0`, the one the programme camera is on lit from the
-//! playhead. Click cuts; right-click opens a menu to put a preset on a
-//! key, save the view the viewport is on right now as a preset, or
-//! delete one (`r[studio.video.cameras-pane]`).
+//! playhead.
+//!
+//! Click cuts; right-click opens a menu to put a preset on a key, save
+//! the view the viewport is on right now as a preset, or delete one
+//! (`r[studio.video.cameras-pane]`).
 //!
 //! Everything drawn here comes back from the engine on the playhead
 //! (`Playhead::camera`): which preset is active, where the camera is,
@@ -23,6 +25,7 @@ use dioxus::prelude::*;
 pub const KEYS: [u8; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
 /// The key a preset is on, from the playhead's slot list.
+#[must_use]
 pub fn key_of(state: &CameraState, name: &str) -> Option<u8> {
     state
         .slots
@@ -35,10 +38,12 @@ pub fn key_of(state: &CameraState, name: &str) -> Option<u8> {
 ///
 /// Read as loose JSON from the operator file, the way `operators.rs`
 /// reads its own keys, so this module owns one key and nothing else.
+#[must_use]
 pub fn favourites(name: &str) -> Option<Vec<String>> {
     favourites_in(std::path::Path::new(crate::operators::DIR), name)
 }
 
+#[must_use]
 pub fn favourites_in(dir: &std::path::Path, name: &str) -> Option<Vec<String>> {
     let raw = std::fs::read_to_string(dir.join(format!("{name}.ig-user"))).ok()?;
     let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
@@ -48,37 +53,49 @@ pub fn favourites_in(dir: &std::path::Path, name: &str) -> Option<Vec<String>> {
 
 /// Write `cameras.favourites` into the operator file, keeping every
 /// other key as it was.
+///
+/// # Errors
+///
+/// Whatever `std::fs::write` or `create_dir_all` returns — the operator
+/// directory is not writable, say.
 pub fn save_favourites(name: &str, slots: &[String]) -> std::io::Result<()> {
     save_favourites_in(std::path::Path::new(crate::operators::DIR), name, slots)
 }
 
+/// # Errors
+///
+/// Whatever `std::fs::write` or `create_dir_all` returns.
 pub fn save_favourites_in(
     dir: &std::path::Path,
     name: &str,
     slots: &[String],
 ) -> std::io::Result<()> {
     let path = dir.join(format!("{name}.ig-user"));
-    let mut value = std::fs::read_to_string(&path)
+    // Read the file as a JSON object, keeping every key this module does
+    // not own; anything unreadable or not an object starts fresh rather
+    // than panicking on a corrupt or foreign file.
+    let mut root = if let Some(serde_json::Value::Object(map)) = std::fs::read_to_string(&path)
         .ok()
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-        .unwrap_or_else(|| serde_json::json!({ "name": name }));
-    if !value.is_object() {
-        value = serde_json::json!({ "name": name });
-    }
-    let cameras = value
-        .as_object_mut()
-        .expect("an object")
-        .entry("cameras")
-        .or_insert_with(|| serde_json::json!({}));
-    if !cameras.is_object() {
-        *cameras = serde_json::json!({});
-    }
-    cameras
-        .as_object_mut()
-        .expect("an object")
-        .insert("favourites".into(), serde_json::json!(slots));
+    {
+        map
+    } else {
+        let mut map = serde_json::Map::new();
+        map.insert("name".into(), serde_json::json!(name));
+        map
+    };
+    let mut cameras = if let Some(serde_json::Value::Object(map)) = root.get("cameras") {
+        map.clone()
+    } else {
+        serde_json::Map::new()
+    };
+    cameras.insert("favourites".into(), serde_json::json!(slots));
+    root.insert("cameras".into(), serde_json::Value::Object(cameras));
     std::fs::create_dir_all(dir)?;
-    std::fs::write(&path, serde_json::to_string_pretty(&value)? + "\n")
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&serde_json::Value::Object(root))? + "\n",
+    )
 }
 
 /// What the right-click opened, and on which preset.
@@ -94,7 +111,7 @@ pub fn CamerasPane() -> Element {
     let playhead = use_playhead();
     let mut menu = use_signal(|| None::<Menu>);
     let mut new_name = use_signal(String::new);
-    let state = playhead().camera.clone().unwrap_or_default();
+    let state = playhead().camera.unwrap_or_default();
     let active = state.preset.clone();
     let count = state.presets.len();
     let pose = format!(
@@ -170,15 +187,12 @@ pub fn CamerasPane() -> Element {
                                     e.prevent_default();
                                     let p = e.data.element_coordinates();
                                     menu.set(Some(Menu {
-                                        at: (p.x as f32, p.y as f32),
+                                        at: (crate::pointer::coord(p.x), crate::pointer::coord(p.y)),
                                         preset: menu_name.clone(),
                                     }));
                                 },
                                 span { class: if key.is_some() { "cam-key" } else { "cam-key empty" },
-                                    match key {
-                                        Some(k) => format!("{k}"),
-                                        None => "·".to_string(),
-                                    }
+                                    {key.map_or_else(|| "·".to_string(), |k| format!("{k}"))}
                                 }
                                 span { class: "cam-name", "{name}" }
                             }
@@ -302,7 +316,7 @@ fn ScreenToggle(row: CanvasRow) -> Element {
 
 /// The pane's own rules, inlined so the pane carries its look wherever
 /// it is mounted. Colours follow `live.css`.
-const CSS: &str = r#"
+const CSS: &str = r"
 .pane-cameras { position: relative; }
 .cam-pose { font-size: 10px; color: #8a8a96; white-space: nowrap; overflow: hidden; }
 .cam-save { display: flex; gap: 6px; margin-bottom: 6px; flex: 0 0 auto; }
@@ -330,7 +344,7 @@ const CSS: &str = r#"
 .cam-menu .menu-item:hover { background: #2c2c40; color: #fff; }
 .cam-menu .menu-grid { display: flex; flex-wrap: wrap; max-width: 160px; }
 .cam-menu .menu-grid .menu-item { width: 20%; text-align: center; }
-"#;
+";
 
 #[cfg(test)]
 mod tests {
@@ -473,7 +487,7 @@ mod tests {
         // half of it that outlives the session.
         let dir = std::env::temp_dir().join(format!("ig-campane-ui-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        save_favourites_in(&dir, "ann", &["Wide".into(), "".into(), "Drums".into()]).unwrap();
+        save_favourites_in(&dir, "ann", &["Wide".into(), String::new(), "Drums".into()]).unwrap();
         assert_eq!(
             favourites_in(&dir, "ann"),
             Some(vec!["Wide".to_string(), String::new(), "Drums".to_string()]),

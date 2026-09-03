@@ -1,3 +1,19 @@
+// Integration test: `clippy.toml`'s test allowances only reach
+// `#[cfg(test)]` modules, so the panic set is lifted here instead.
+// See docs/ops/clippy.md.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "integration test — see docs/ops/clippy.md"
+)]
+
 //! What a show file says about its hits.
 //!
 //! `bye-bye-bye.json` is a real charted song — 43 cues and 113 triggers

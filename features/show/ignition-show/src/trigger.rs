@@ -65,6 +65,7 @@ impl Trigger {
     /// The bar the bus fires this at: the resolved bar, or an absolute
     /// `at`. A relative position nobody has resolved never fires.
     // r[impl song.relative-position.resolved-on-load]
+    #[must_use]
     pub fn bars(&self) -> Option<Bars> {
         self.resolved.or(match &self.at {
             Position::Absolute(bars) => Some(*bars),
@@ -115,6 +116,7 @@ pub struct TriggerBus {
 const MAX_LIVE: usize = 32;
 
 impl TriggerBus {
+    #[must_use]
     pub fn new(triggers: Vec<Trigger>) -> Self {
         let mut triggers = triggers;
         triggers.sort_by(|a, b| {
@@ -129,11 +131,13 @@ impl TriggerBus {
         }
     }
 
+    #[must_use]
     pub fn triggers(&self) -> &[Trigger] {
         &self.triggers
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.triggers.is_empty()
     }
 
@@ -203,7 +207,11 @@ impl TriggerBus {
             // keep each other — a cutout is a cut and a lift at once.
             // r[impl triggers.hold.released-by-next]
             let mut fired = self.live.split_off(before);
-            self.live.retain(|l| !self.triggers[l.trigger].hold);
+            // A `Live` entry's `trigger` index was valid when it was
+            // pushed above; a missing lookup here has no known trigger
+            // to release, so it is kept rather than treated as held.
+            self.live
+                .retain(|l| self.triggers.get(l.trigger).is_none_or(|t| !t.hold));
             self.live.append(&mut fired);
         }
         while self.live.len() > MAX_LIVE {
@@ -215,13 +223,19 @@ impl TriggerBus {
     // r[impl triggers.hold.released-by-cue]
     pub fn release(&mut self) {
         let triggers = &self.triggers;
-        self.live.retain(|l| !triggers[l.trigger].hold);
+        // Same reasoning as `advance`: an unresolvable index has
+        // nothing to release, so the entry is kept.
+        self.live
+            .retain(|l| triggers.get(l.trigger).is_none_or(|t| !t.hold));
     }
 
     /// The time to evaluate a ringing trigger's envelope at: its age,
     /// unless it holds — then pinned inside its first step, so the
     /// snap's value is what shows for as long as it rings.
-    fn envelope_time(&self, trigger: &Trigger, age: f32, show: &Show<'_>) -> f32 {
+    ///
+    /// Free rather than a method: it is a pure function of the trigger
+    /// and the clock, not of the bus that is ringing it.
+    fn envelope_time(trigger: &Trigger, age: f32, show: &Show<'_>) -> f32 {
         if !trigger.hold {
             return age;
         }
@@ -250,6 +264,7 @@ impl TriggerBus {
     // r[impl triggers.simultaneous-sum]
     // r[impl playback.triggers-sum]
     // r[impl triggers.own-clock] - envelope age is clock minus the firing's own start
+    #[must_use]
     pub fn output(&self, show: &Show<'_>, clock: f32) -> HashMap<(ChanId, Attribute), f32> {
         let mut out: HashMap<(ChanId, Attribute), f32> = HashMap::new();
         for live in &self.live {
@@ -263,7 +278,7 @@ impl TriggerBus {
                 // to show; `retire` drops it.
                 continue;
             }
-            let at = self.envelope_time(trigger, age, show);
+            let at = Self::envelope_time(trigger, age, show);
             for Emit {
                 value, relative, ..
             } in expand_recipe(&trigger.recipe, show, at)
@@ -297,17 +312,20 @@ impl TriggerBus {
 
     /// How many triggers are ringing — for the overlay.
     // r[impl triggers.visible] - the count; the last-fired name is not yet exposed
-    pub fn live_count(&self) -> usize {
+    #[must_use]
+    pub const fn live_count(&self) -> usize {
         self.live.len()
     }
 
     /// Index of the most recently fired trigger, while it rings.
+    #[must_use]
     pub fn last_fired_index(&self) -> Option<usize> {
         self.live.last().map(|l| l.trigger)
     }
 
     /// The most recently fired trigger's name, for the overlay.
     // r[impl triggers.visible] - the last fired name
+    #[must_use]
     pub fn last_fired(&self) -> Option<&str> {
         self.live
             .last()
@@ -321,6 +339,7 @@ mod tests {
     use super::*;
     use crate::Attribute;
     use crate::group::Group;
+    use crate::num::float_of;
     use crate::recipe::RecipeApply;
     use crate::selection::{EMPTY_RIG, Selection};
     use crate::step::{Speed, Step, Timing};
@@ -453,7 +472,7 @@ mod tests {
         bus.advance(Bars::new(1, 2.5), 0.0);
         let after_first = bus.live_count();
         for frame in 1..20 {
-            bus.advance(Bars::new(1, 2.5), frame as f32 * 0.016);
+            bus.advance(Bars::new(1, 2.5), float_of(frame) * 0.016);
         }
         assert_eq!(bus.live_count(), after_first, "a still playhead re-fired");
     }
@@ -550,7 +569,10 @@ mod tests {
     /// r[verify triggers.bounded]
     #[test]
     fn the_ringing_set_is_capped_and_the_oldest_go_first() {
-        let many: Vec<Trigger> = (1..=MAX_LIVE as u32 + 8)
+        // `MAX_LIVE` is a small constant; `try_from` only guards against
+        // a `usize`/`u32` mismatch that can't happen at 32.
+        let max_live = u32::try_from(MAX_LIVE).unwrap_or(u32::MAX);
+        let many: Vec<Trigger> = (1..=max_live + 8)
             .map(|bar| trigger(bar, 1.0, 0.1))
             .collect();
         let last = many.last().expect("triggers").name.clone();
@@ -558,7 +580,7 @@ mod tests {
 
         bus.locate(Bars::bar(1));
         // One sweep over the whole song: every trigger crosses at once.
-        bus.advance(Bars::bar(MAX_LIVE as u32 + 9), 0.0);
+        bus.advance(Bars::bar(max_live + 9), 0.0);
 
         assert_eq!(bus.live_count(), MAX_LIVE, "the cap did not hold");
         assert_eq!(

@@ -18,12 +18,10 @@ struct FixtureRecord {
 }
 
 // r[impl files.venue] - smoke check only: reads fixtures.json and screens.json from the venue directory
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = "data/venues/norco/fixtures.json";
-    let raw = fs::read_to_string(path).unwrap_or_else(|e| {
-        panic!("expected to run from the repo root; couldn't read {path}: {e}")
-    });
-    let fixtures: Vec<FixtureRecord> = serde_json::from_str(&raw).expect("valid fixtures.json");
+    let raw = fs::read_to_string(path)?;
+    let fixtures: Vec<FixtureRecord> = serde_json::from_str(&raw)?;
 
     let mut by_tag: BTreeMap<String, u32> = BTreeMap::new();
     for f in &fixtures {
@@ -32,7 +30,10 @@ fn main() {
         } else {
             f.tags.join(",")
         };
-        *by_tag.entry(key).or_default() += 1;
+        by_tag
+            .entry(key)
+            .and_modify(|c| *c = c.saturating_add(1))
+            .or_insert(1);
     }
 
     let unpatched: Vec<u32> = fixtures
@@ -41,22 +42,22 @@ fn main() {
         .map(|f| f.chan)
         .collect();
 
+    let patched_count = fixtures.len().saturating_sub(unpatched.len());
     println!(
         "Norco venue extract: {} channels ({} patched, {} unpatched: {unpatched:?})",
         fixtures.len(),
-        fixtures.len() - unpatched.len(),
+        patched_count,
         unpatched.len()
     );
     for (tag, count) in &by_tag {
         println!("  {count:>3}  {tag}");
     }
 
-    let screens: Value = serde_json::from_str(
-        &fs::read_to_string("data/venues/norco/screens.json").expect("screens.json"),
-    )
-    .expect("valid screens.json");
+    let screens: Value =
+        serde_json::from_str(&fs::read_to_string("data/venues/norco/screens.json")?)?;
     println!(
         "Norco venue extract: {} mappable screens (TVs)",
-        screens.as_array().map(|a| a.len()).unwrap_or(0)
+        screens.as_array().map_or(0, Vec::len)
     );
+    Ok(())
 }

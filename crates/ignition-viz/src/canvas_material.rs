@@ -65,8 +65,9 @@ impl CanvasParams {
     /// (the emissive strength the texture path gives a screen) and with
     /// the clock at zero.
     // r[impl canvas.procedural] - the recipe becomes uniforms; the GPU does the picture
+    #[must_use]
     pub fn new(recipe: &CanvasRecipe, rect: Slice, glow: f32) -> Self {
-        let mut p = CanvasParams {
+        let mut p = Self {
             rect: Vec4::new(rect.u0, rect.v0, rect.u1, rect.v1),
             scalars: Vec4::new(0.0, glow, 0.0, 0.0),
             ..default()
@@ -75,7 +76,7 @@ impl CanvasParams {
             for (slot, c) in p.colors.iter_mut().zip(colors.iter().take(MAX_COLORS)) {
                 *slot = Vec4::new(c[0], c[1], c[2], 1.0);
             }
-            p.extra.z = colors.len().min(MAX_COLORS) as f32;
+            p.extra.z = crate::num::f32_of_usize(colors.len().min(MAX_COLORS));
         };
         let travel = |d: Travel| match d {
             Travel::Horizontal => 0,
@@ -183,6 +184,7 @@ pub struct ProceduralCanvas {
 }
 
 impl ProceduralCanvas {
+    #[must_use]
     pub fn new(recipe: CanvasRecipe) -> Self {
         Self {
             recipe,
@@ -194,7 +196,9 @@ impl ProceduralCanvas {
     /// The effect clock at `secs`, or `None` when it has not moved
     /// since the last call — a stopped transport rewrites nothing.
     pub fn advance(&mut self, secs: f64) -> Option<f32> {
-        let cycles = self.recipe.cycles_at(secs as f32, &self.masters);
+        let cycles = self
+            .recipe
+            .cycles_at(crate::num::f32_of_f64(secs), &self.masters);
         if self.last_cycles == Some(cycles) {
             return None;
         }
@@ -227,7 +231,13 @@ pub fn spawn_panel(
                 params: CanvasParams::new(recipe, rect, glow),
             })),
             Transform {
-                translation: Vec3::Z * (depth * 0.5 + 0.005),
+                // `Vec3::new` rather than `Vec3::Z * scalar`: the latter
+                // routes through `Vec3`'s `Mul` impl, which
+                // `arithmetic_side_effects` flags as an arithmetic op on
+                // a non-primitive type even though it can't overflow —
+                // writing the components out avoids the operator
+                // entirely, same result.
+                translation: Vec3::new(0.0, 0.0, depth.mul_add(0.5, 0.005)),
                 scale: Vec3::new(panel_size.x * 0.94, panel_size.y * 0.94, 1.0),
                 ..default()
             },
@@ -236,11 +246,19 @@ pub fn spawn_panel(
         .id()
 }
 
-/// Writes the effect clock into every procedural panel whose picture
-/// has moved. The speed masters come from the playback when there is
-/// one — a recipe timed `Master("Song")` follows the song's tempo — and
-/// from the defaults otherwise.
+/// Writes the effect clock into every procedural panel whose picture has
+/// moved.
+///
+/// The speed masters come from the playback when there is one — a recipe
+/// timed `Master("Song")` follows the song's tempo — and from the defaults
+/// otherwise.
 // r[impl canvas.clip-is-a-source] - the same clock a clip is presented at
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res and Option<Res> are Bevy system-param types; a system's \
+              signature takes them by value, there is no by-reference form \
+              to borrow instead — see docs/ops/clippy.md"
+)]
 pub fn drive_canvases(
     clock: Res<CanvasClock>,
     playback: Option<Res<crate::playback::Playback>>,
@@ -252,7 +270,7 @@ pub fn drive_canvases(
         if let Some(playback) = playback.as_deref()
             && panel.masters != playback.speeds
         {
-            panel.masters = playback.speeds.clone();
+            panel.masters.clone_from(&playback.speeds);
             panel.last_cycles = None;
         }
         let Some(cycles) = panel.advance(seconds) else {
@@ -290,7 +308,7 @@ mod tests {
                 speed: Speed::Hz(1.0),
                 ..Timing::default()
             },
-            plane: Default::default(),
+            plane: ignition_core::canvas::CanvasPlane::default(),
         }
     }
 
@@ -300,9 +318,12 @@ mod tests {
         let rainbow = ignition_core::canvas::named("rainbow").unwrap();
         let p = CanvasParams::new(&rainbow, Slice::FULL, 2.0);
         assert_eq!(p.ints.x, KIND_GRADIENT);
-        assert_eq!(p.extra.z, 6.0, "six colours in the rainbow");
+        assert!(
+            (p.extra.z - (6.0)).abs() < 1e-6,
+            "six colours in the rainbow"
+        );
         assert_eq!(p.colors[0], Vec4::new(1.0, 0.0, 0.0, 1.0));
-        assert_eq!(p.scalars.y, 2.0, "glow");
+        assert!((p.scalars.y - (2.0)).abs() < 1e-6, "glow");
         assert_eq!(p.rect, Vec4::new(0.0, 0.0, 1.0, 1.0));
 
         let band = recipe(Procedural::Band {
@@ -313,8 +334,8 @@ mod tests {
         });
         let p = CanvasParams::new(&band, Slice::FULL, 1.0);
         assert_eq!(p.ints, UVec4::new(KIND_BAND, 0, 4, 1));
-        assert_eq!(p.scalars.w, 0.5);
-        assert_eq!(p.extra.z, 1.0);
+        assert!((p.scalars.w - (0.5)).abs() < 1e-6);
+        assert!((p.extra.z - (1.0)).abs() < 1e-6);
     }
 
     /// The clock only reaches the material when the picture moved.
@@ -333,6 +354,14 @@ mod tests {
     /// side of a hard boundary.
     // r[verify canvas.procedural] - the GPU paints what the CPU reference paints
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one end-to-end GPU render-and-readback pipeline, compared \
+                  pixel-for-pixel against the CPU reference for every \
+                  recipe kind in one loop; splitting it would scatter that \
+                  single call site across several functions for no reader's \
+                  benefit — see docs/ops/clippy.md"
+    )]
     fn the_gpu_paints_what_the_cpu_paints() {
         use bevy::asset::RenderAssetUsages;
         use bevy::camera::{RenderTarget, ScalingMode};
@@ -345,13 +374,17 @@ mod tests {
         use bevy::winit::WinitPlugin;
         use std::sync::{Arc, Mutex};
 
+        // Declared before the early-return below: an item after a
+        // statement compiles fine (items are hoisted) but clippy reads
+        // it as confusing, since it looks scoped to what follows.
+        const W: u32 = 256;
+        const H: u32 = 144;
+
         if !gpu_available() {
             eprintln!("skipping: no GPU adapter");
             return;
         }
 
-        const W: u32 = 256;
-        const H: u32 = 144;
         let cycles = 0.37_f32;
         let recipes = [
             ("rainbow", ignition_core::canvas::named("rainbow").unwrap()),
@@ -445,36 +478,43 @@ mod tests {
             let mut frame = None;
             for _ in 0..120 {
                 app.update();
-                if let Some(data) = got.lock().unwrap().1.take() {
+                // Take the guard's result in its own statement so the
+                // `MutexGuard` (a type with a significant `Drop`) is
+                // released before the `if let` body runs, rather than
+                // held live across it and the `break`.
+                let taken = got.lock().unwrap().1.take();
+                if let Some(data) = taken {
                     frame = Some(data);
                     break;
                 }
             }
             let frame = frame.unwrap_or_else(|| panic!("{name}: no frame came back"));
-            assert_eq!(frame.len(), (W * H * 4) as usize, "{name}: frame size");
+            let pixel_len = crate::num::usize_of_u32(W) * crate::num::usize_of_u32(H) * 4;
+            assert_eq!(frame.len(), pixel_len, "{name}: frame size");
 
             let reference = recipe.render(W, H, cycles);
             let (mut off, mut total) = (0usize, 0u64);
             for (g, r) in frame.chunks(4).zip(reference.chunks(4)) {
                 let d = (0..3)
-                    .map(|i| (g[i] as i32 - r[i] as i32).unsigned_abs())
+                    .map(|i| (i32::from(g[i]) - i32::from(r[i])).unsigned_abs())
                     .max()
                     .unwrap();
-                total += d as u64;
+                total += u64::from(d);
                 if d > 3 {
                     off += 1;
                 }
             }
-            let pixels = (W * H) as usize;
-            let mean = total as f64 / pixels as f64;
+            let pixels = crate::num::usize_of_u32(W) * crate::num::usize_of_u32(H);
+            let mean = crate::num::f64_of_u64(total) / crate::num::f64_of_usize(pixels);
+            let centre = crate::num::usize_of_u32(H / 2 * W + W / 2) * 4;
             assert!(
                 off * 200 < pixels && mean < 1.0,
                 "{name}: {off} of {pixels} pixels differ by more than 3, mean {mean:.2}; \
                  first pixel gpu {:?} cpu {:?}, centre gpu {:?} cpu {:?}",
                 &frame[..4],
                 &reference[..4],
-                &frame[((H / 2 * W + W / 2) * 4) as usize..][..4],
-                &reference[((H / 2 * W + W / 2) * 4) as usize..][..4],
+                &frame[centre..][..4],
+                &reference[centre..][..4],
             );
         }
     }

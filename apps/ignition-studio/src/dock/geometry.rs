@@ -50,7 +50,7 @@ impl Rect {
     }
 }
 
-/// Where a drop lands on a leaf — MaxPane's five zones, with the tab
+/// Where a drop lands on a leaf — `MaxPane`'s five zones, with the tab
 /// bar carrying the insertion index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DropZone {
@@ -66,24 +66,24 @@ pub enum DropZone {
 
 impl DropZone {
     /// The axis a split for this edge runs on.
-    pub fn axis(self) -> Axis {
+    pub const fn axis(self) -> Axis {
         match self {
-            DropZone::Left | DropZone::Right => Axis::Row,
+            Self::Left | Self::Right => Axis::Row,
             _ => Axis::Col,
         }
     }
     /// Whether the new leaf comes after the old one on that axis.
-    pub fn after(self) -> bool {
-        matches!(self, DropZone::Right | DropZone::Bottom)
+    pub const fn after(self) -> bool {
+        matches!(self, Self::Right | Self::Bottom)
     }
-    pub fn label(self) -> &'static str {
+    pub const fn label(self) -> &'static str {
         match self {
-            DropZone::Left => "split left",
-            DropZone::Right => "split right",
-            DropZone::Top => "split above",
-            DropZone::Bottom => "split below",
-            DropZone::Centre => "add as tab",
-            DropZone::TabBar(_) => "insert tab",
+            Self::Left => "split left",
+            Self::Right => "split right",
+            Self::Top => "split above",
+            Self::Bottom => "split below",
+            Self::Centre => "add as tab",
+            Self::TabBar(_) => "insert tab",
         }
     }
 }
@@ -204,8 +204,18 @@ impl Placed {
         self.splitters.iter().find(|s| {
             let r = s.rect;
             let grown = match s.axis {
-                Axis::Row => Rect::new(r.x - SPLITTER_GRAB, r.y, r.w + 2.0 * SPLITTER_GRAB, r.h),
-                Axis::Col => Rect::new(r.x, r.y - SPLITTER_GRAB, r.w, r.h + 2.0 * SPLITTER_GRAB),
+                Axis::Row => Rect::new(
+                    r.x - SPLITTER_GRAB,
+                    r.y,
+                    2.0f32.mul_add(SPLITTER_GRAB, r.w),
+                    r.h,
+                ),
+                Axis::Col => Rect::new(
+                    r.x,
+                    r.y - SPLITTER_GRAB,
+                    r.w,
+                    2.0f32.mul_add(SPLITTER_GRAB, r.h),
+                ),
             };
             grown.contains(x, y)
         })
@@ -249,13 +259,15 @@ fn place(node: &DockNode, path: Path, rect: Rect, out: &mut Placed) {
             let ratios: Vec<f32> = if ratios.len() == n && sum > f32::EPSILON {
                 ratios.iter().map(|r| r / sum).collect()
             } else {
-                vec![1.0 / n as f32; n]
+                vec![1.0 / crate::num::f32_of_usize(n); n]
             };
             let total = match axis {
                 Axis::Row => rect.w,
                 Axis::Col => rect.h,
             };
-            let avail = (total - SPLITTER * (n as f32 - 1.0)).max(0.0);
+            let avail = SPLITTER
+                .mul_add(-(crate::num::f32_of_usize(n) - 1.0), total)
+                .max(0.0);
             let mut cursor = match axis {
                 Axis::Row => rect.x,
                 Axis::Col => rect.y,
@@ -274,8 +286,10 @@ fn place(node: &DockNode, path: Path, rect: Rect, out: &mut Placed) {
                 let mut p = path.clone();
                 p.push(i);
                 place(child, p, *r, out);
-                if i + 1 < n {
-                    let next = child_rects[i + 1];
+                let next_index = i.saturating_add(1);
+                if next_index < n
+                    && let Some(&next) = child_rects.get(next_index)
+                {
                     let (srect, pair) = match axis {
                         Axis::Row => (
                             Rect::new(r.right(), rect.y, SPLITTER, rect.h),
@@ -320,6 +334,10 @@ mod tests {
 
     /// r[verify studio.dock.drop-zones]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "zone_rect and edge_band compute exact pixel geometry from exact literal                   inputs with no accumulated rounding; exact equality is the property under                   test"
+    )]
     fn the_five_zones_are_the_tab_bar_the_edges_and_the_centre() {
         let r = Rect::new(100.0, 50.0, 400.0, 300.0 + TAB_BAR);
         let body_top = 50.0 + TAB_BAR;
@@ -390,6 +408,10 @@ mod tests {
 
     /// r[verify studio.dock.drop-zones]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "zone_rect and edge_band compute exact pixel geometry from exact literal                   inputs with no accumulated rounding; exact equality is the property under                   test"
+    )]
     fn edge_bands_never_meet() {
         assert_eq!(edge_band(400.0), 100.0);
         assert_eq!(edge_band(60.0), 15.0);
@@ -398,7 +420,27 @@ mod tests {
 
     /// r[verify studio.dock.no-scroll]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "faders.w is the window's exact literal width with no fraction taken of                   it (the fader band is full width by design); exact equality is the                   property under test"
+    )]
     fn console_fits_a_1440p_monitor() {
+        // Each pane holds a whole number of columns of its own shape,
+        // and they are not the same number: three look cards, one
+        // column of group names, three colour discs, one of focus
+        // names, four effect cards. `(columns, tile width)`, in
+        // `CONSOLE_TOP` order — kept in step with the column counts
+        // pinned in `live.css`. Declared first: clippy's `nursery`
+        // group wants items ahead of the statements in their scope.
+        const SHAPES: [(f32, f32); 7] = [
+            (3.0, 240.0), // Looks — three cards, the pane most used
+            (1.0, 150.0), // Groups — a name tile
+            (3.0, 84.0),  // Colours — discs
+            (1.0, 150.0), // Focus — a name tile
+            (2.0, 180.0), // Effects — two cards, everything but movement
+            (1.0, 200.0), // Movers — one card, wide enough for 16:9
+            (1.0, 200.0), // Macros — the same
+        ];
         // The DP-3 window: 2560 × 1440 fullscreen, the mode strip off
         // the top.
         let window = Rect::new(0.0, 0.0, 2560.0, 1440.0 - view::STRIP);
@@ -411,24 +453,9 @@ mod tests {
         assert!(faders.h >= 340.0, "fader band is {}px", faders.h);
         assert!((faders.bottom() - window.bottom()).abs() < 0.01);
         assert_eq!(faders.w, 2560.0);
-        // Each pane holds a whole number of columns of its own shape,
-        // and they are not the same number: three look cards, one
-        // column of group names, three colour discs, one of focus
-        // names, four effect cards. `(columns, tile width)`, in
-        // `CONSOLE_TOP` order — kept in step with the column counts
-        // pinned in `live.css`.
-        const SHAPES: [(f32, f32); 7] = [
-            (3.0, 240.0), // Looks — three cards, the pane most used
-            (1.0, 150.0), // Groups — a name tile
-            (3.0, 84.0),  // Colours — discs
-            (1.0, 150.0), // Focus — a name tile
-            (2.0, 180.0), // Effects — two cards, everything but movement
-            (1.0, 200.0), // Movers — one card, wide enough for 16:9
-            (1.0, 200.0), // Macros — the same
-        ];
         for (pane, (columns, tile)) in CONSOLE_TOP.into_iter().zip(SHAPES) {
             let r = placed.rect_of(pane).unwrap();
-            let want = columns * tile + (columns - 1.0) * 6.0 + 16.0;
+            let want = columns.mul_add(tile, (columns - 1.0) * 6.0) + 16.0;
             assert!(
                 r.w >= want,
                 "{pane:?} is {}px wide, too narrow for {columns} columns of {tile}px",
@@ -460,11 +487,11 @@ mod tests {
         // the one stylesheet now, so nothing else has reason to hold it.
         let css = include_str!("../dock.css");
         assert!(
-            css.contains(&format!("height: {}px", TAB_BAR as u32)),
+            css.contains(&format!("height: {}px", crate::num::u32_of_f32(TAB_BAR))),
             "tab bar height"
         );
         assert!(
-            css.contains(&format!("flex: 0 0 {}px", SPLITTER as u32)),
+            css.contains(&format!("flex: 0 0 {}px", crate::num::u32_of_f32(SPLITTER))),
             "splitter size"
         );
         assert!(

@@ -1,8 +1,9 @@
-//! Readers for the 3D model files a GDTF profile can carry. Two formats,
-//! because the spec (gdtf-spec.md, "3D Models") requires a reader to
-//! accept both: `models/gltf/<file>.glb` (preferred by the spec, and by
-//! most recent uploads) and `models/3ds/<file>.3ds` (what the older half
-//! of GDTF Share, and the spec's own standard-primitive meshes, are
+//! Readers for the 3D model files a GDTF profile can carry.
+//!
+//! Two formats, because the spec (gdtf-spec.md, "3D Models") requires a
+//! reader to accept both: `models/gltf/<file>.glb` (preferred by the spec,
+//! and by most recent uploads) and `models/3ds/<file>.3ds` (what the older
+//! half of GDTF Share, and the spec's own standard-primitive meshes, are
 //! authored in).
 //!
 //! The two are handled differently. 3DS has no Bevy loader, so
@@ -33,11 +34,13 @@ pub struct RawMesh {
 }
 
 impl RawMesh {
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.indices.len() < 3
     }
 
     /// Axis-aligned bounds, or `None` for an empty mesh.
+    #[must_use]
     pub fn bounds(&self) -> Option<(Vec3, Vec3)> {
         let mut it = self.positions.iter().map(|p| Vec3::from(*p));
         let first = it.next()?;
@@ -45,8 +48,12 @@ impl RawMesh {
     }
 
     /// Appends `other`'s triangles, offsetting its indices.
-    fn append(&mut self, other: RawMesh) {
-        let base = self.positions.len() as u32;
+    fn append(&mut self, other: Self) {
+        // Saturating rather than exact: a mesh with more than u32::MAX
+        // vertices already can't be indexed by this format, so the clamp
+        // never actually fires for a real file — it just keeps the
+        // conversion audited instead of an inline `as`.
+        let base = crate::num::u32_of_usize(self.positions.len());
         // Normals are all-or-nothing: if either side lacks them the
         // combined mesh is flat-shaded later, so don't keep a half set.
         if self.normals.len() == self.positions.len()
@@ -58,7 +65,7 @@ impl RawMesh {
         }
         self.positions.extend(other.positions);
         self.indices
-            .extend(other.indices.into_iter().map(|i| i + base));
+            .extend(other.indices.into_iter().map(|i| i.saturating_add(base)));
     }
 }
 
@@ -74,10 +81,10 @@ const CHUNK_VERTICES: u16 = 0x4110;
 const CHUNK_FACES: u16 = 0x4120;
 const CHUNK_LOCAL_AXES: u16 = 0x4160;
 
-/// Decodes a 3D Studio `.3ds` file: the classic chunk tree
-/// `4D4D > 3D3D > 4000 (name) > 4100 > 4110 vertices / 4120 faces /
-/// 4160 local axes`. Every mesh object in the file is merged into one
-/// [`RawMesh`].
+/// Decodes a 3D Studio `.3ds` file: the classic chunk tree `4D4D > 3D3D >
+/// 4000 (name) > 4100 > 4110 vertices / 4120 faces / 4160 local axes`.
+///
+/// Every mesh object in the file is merged into one [`RawMesh`].
 ///
 /// 3DS stores vertices already in world space — the `0x4160` local-axis
 /// matrix is the object's pivot frame for editors, not a transform to
@@ -86,6 +93,11 @@ const CHUNK_LOCAL_AXES: u16 = 0x4160;
 /// GDTF, so no axis remap. Units are whatever the author used; the
 /// caller scales to the `<Model>` dimensions regardless (the spec says
 /// the dimensions always govern).
+///
+/// # Errors
+///
+/// If `bytes` isn't a well-formed 3DS file (too short, wrong root
+/// chunk, or missing the geometry chunks a mesh needs).
 pub fn parse_3ds(bytes: &[u8]) -> anyhow::Result<RawMesh> {
     let (id, body) = chunk(bytes, 0).ok_or_else(|| anyhow::anyhow!("3DS: file too short"))?;
     if id != CHUNK_MAIN {
@@ -102,7 +114,8 @@ pub fn parse_3ds(bytes: &[u8]) -> anyhow::Result<RawMesh> {
             }
             // Object chunk: a NUL-terminated name, then sub-chunks.
             let name_end = object.iter().position(|b| *b == 0).unwrap_or(object.len());
-            let rest = &object[(name_end + 1).min(object.len())..];
+            let start = name_end.saturating_add(1).min(object.len());
+            let rest = object.get(start..).unwrap_or(&[]);
             for (id, trimesh) in chunks(rest) {
                 if id == CHUNK_TRIMESH {
                     out.append(parse_trimesh(trimesh)?);
@@ -118,25 +131,30 @@ fn parse_trimesh(body: &[u8]) -> anyhow::Result<RawMesh> {
     for (id, data) in chunks(body) {
         match id {
             CHUNK_VERTICES => {
-                let count = u16_at(data, 0)? as usize;
+                let count = usize::from(u16_at(data, 0)?);
                 mesh.positions.reserve(count);
                 for i in 0..count {
-                    let at = 2 + i * 12;
+                    // Saturating: `count` is a u16, so `i * 12` never
+                    // comes close to overflowing usize on any real
+                    // target — this is the audited shape rather than a
+                    // bound that ever actually clamps.
+                    let at = 2usize.saturating_add(i.saturating_mul(12));
                     mesh.positions.push([
                         f32_at(data, at)?,
-                        f32_at(data, at + 4)?,
-                        f32_at(data, at + 8)?,
+                        f32_at(data, at.saturating_add(4))?,
+                        f32_at(data, at.saturating_add(8))?,
                     ]);
                 }
             }
             CHUNK_FACES => {
-                let count = u16_at(data, 0)? as usize;
-                mesh.indices.reserve(count * 3);
+                let count = usize::from(u16_at(data, 0)?);
+                mesh.indices.reserve(count.saturating_mul(3));
                 for i in 0..count {
                     // a, b, c, flags — the flags word is edge visibility.
-                    let at = 2 + i * 8;
-                    for k in 0..3 {
-                        mesh.indices.push(u16_at(data, at + k * 2)? as u32);
+                    let at = 2usize.saturating_add(i.saturating_mul(8));
+                    for k in 0..3usize {
+                        mesh.indices
+                            .push(u32::from(u16_at(data, at.saturating_add(k.saturating_mul(2)))?));
                     }
                 }
                 // Sub-chunks (material groups, smoothing) follow the face
@@ -150,7 +168,7 @@ fn parse_trimesh(body: &[u8]) -> anyhow::Result<RawMesh> {
             _ => {}
         }
     }
-    let n = mesh.positions.len() as u32;
+    let n = crate::num::u32_of_usize(mesh.positions.len());
     if mesh.indices.iter().any(|i| *i >= n) {
         anyhow::bail!("3DS: face index out of range");
     }
@@ -161,11 +179,21 @@ fn parse_trimesh(body: &[u8]) -> anyhow::Result<RawMesh> {
 /// stripped, or `None` if it doesn't fit.
 fn chunk(bytes: &[u8], at: usize) -> Option<(u16, &[u8])> {
     let id = u16_at(bytes, at).ok()?;
-    let len = u32_at(bytes, at + 2).ok()? as usize;
-    if len < 6 || at + len > bytes.len() {
+    let len_field = u32_at(bytes, at.checked_add(2)?).ok()?;
+    // Widening a u32 length into usize: exact on every target this crate
+    // ships for. `unwrap_or(usize::MAX)` only matters on a hypothetical
+    // 16-bit usize, where it falls through the `len < 6` and bounds
+    // checks below like any other malformed length would.
+    let len = usize::try_from(len_field).unwrap_or(usize::MAX);
+    if len < 6 {
         return None;
     }
-    Some((id, &bytes[at + 6..at + len]))
+    let end = at.checked_add(len)?;
+    if end > bytes.len() {
+        return None;
+    }
+    let body_start = at.checked_add(6)?;
+    bytes.get(body_start..end).map(|body| (id, body))
 }
 
 /// Iterates the sibling chunks packed back-to-back in `bytes`.
@@ -173,23 +201,34 @@ fn chunks(bytes: &[u8]) -> impl Iterator<Item = (u16, &[u8])> {
     let mut at = 0;
     std::iter::from_fn(move || {
         let (id, body) = chunk(bytes, at)?;
-        at += body.len() + 6;
+        // Saturating: a chunk's own bounds check in `chunk()` above
+        // already keeps `at` inside `bytes.len()`, so this never actually
+        // clamps for a well-formed stream of sibling chunks.
+        at = at.saturating_add(body.len()).saturating_add(6);
         Some((id, body))
     })
 }
 
 fn u16_at(b: &[u8], at: usize) -> anyhow::Result<u16> {
-    let s = b
-        .get(at..at + 2)
+    let end = at.checked_add(2);
+    let s = end
+        .and_then(|end| b.get(at..end))
         .ok_or_else(|| anyhow::anyhow!("3DS: truncated chunk"))?;
-    Ok(u16::from_le_bytes([s[0], s[1]]))
+    let bytes: [u8; 2] = s
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("3DS: truncated chunk"))?;
+    Ok(u16::from_le_bytes(bytes))
 }
 
 fn u32_at(b: &[u8], at: usize) -> anyhow::Result<u32> {
-    let s = b
-        .get(at..at + 4)
+    let end = at.checked_add(4);
+    let s = end
+        .and_then(|end| b.get(at..end))
         .ok_or_else(|| anyhow::anyhow!("3DS: truncated chunk"))?;
-    Ok(u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
+    let bytes: [u8; 4] = s
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("3DS: truncated chunk"))?;
+    Ok(u32::from_le_bytes(bytes))
 }
 
 fn f32_at(b: &[u8], at: usize) -> anyhow::Result<f32> {
@@ -214,14 +253,18 @@ fn f32_at(b: &[u8], at: usize) -> anyhow::Result<f32> {
 /// primitive's box, transformed by its node's world matrix, unioned.
 ///
 /// `None` when the file has no positioned primitive at all.
+///
+/// # Errors
+///
+/// If `bytes` isn't a well-formed GLB/glTF document.
 // r[impl viz.gdtf-meshes] - the GLB's extent is read from its header; bevy_gltf draws it
 pub fn glb_bounds(bytes: &[u8]) -> anyhow::Result<Option<(Vec3, Vec3)>> {
     let gltf = gltf::Gltf::from_slice(bytes).map_err(|e| anyhow::anyhow!("GLB: {e}"))?;
     let doc = &gltf.document;
-    let roots: Vec<gltf::Node> = match doc.default_scene() {
-        Some(scene) => scene.nodes().collect(),
-        None => doc.scenes().flat_map(|s| s.nodes()).collect(),
-    };
+    let roots: Vec<gltf::Node> = doc.default_scene().map_or_else(
+        || doc.scenes().flat_map(|s| s.nodes()).collect(),
+        |scene| scene.nodes().collect(),
+    );
     let mut acc: Option<(Vec3, Vec3)> = None;
     for node in roots {
         walk_bounds(&node, Mat4::IDENTITY, &mut acc);
@@ -247,10 +290,20 @@ pub fn glb_bounds(bytes: &[u8]) -> anyhow::Result<Option<(Vec3, Vec3)>> {
 
 /// glTF's frame into GDTF's: `(x, y, z) -> (x, -z, y)`. The same
 /// permutation `gdtf_assets::GLTF_TO_GDTF` applies to the spawned scene.
+#[must_use]
 pub fn y_up_to_z_up(p: Vec3) -> Vec3 {
     Vec3::new(p.x, -p.z, p.y)
 }
 
+// `Mat4`'s `Mul` is float, component-wise, and cannot panic or overflow —
+// `arithmetic_side_effects` fires on any operator-overloaded type, not
+// just the primitive integers the lint is really about (see
+// docs/ops/clippy.md and `fixture_profile.rs::rotated_z_extent`'s
+// identical suppression).
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Mat4 arithmetic is float, component-wise, and cannot panic or overflow"
+)]
 fn walk_bounds(node: &gltf::Node, parent: Mat4, acc: &mut Option<(Vec3, Vec3)>) {
     let world = parent * Mat4::from_cols_array_2d(&node.transform().matrix());
     if let Some(mesh) = node.mesh() {
@@ -291,15 +344,15 @@ fn walk_bounds(node: &gltf::Node, parent: Mat4, acc: &mut Option<(Vec3, Vec3)>) 
 }
 
 /// An accessor `min`/`max` JSON array as a point.
-fn vec3_of(v: &serde_json::Value) -> Option<Vec3> {
-    let a = v.as_array()?;
-    if a.len() < 3 {
-        return None;
-    }
+fn vec3_of(value: &serde_json::Value) -> Option<Vec3> {
+    let array = value.as_array()?;
+    let first = array.first()?.as_f64()?;
+    let second = array.get(1)?.as_f64()?;
+    let third = array.get(2)?.as_f64()?;
     Some(Vec3::new(
-        a[0].as_f64()? as f32,
-        a[1].as_f64()? as f32,
-        a[2].as_f64()? as f32,
+        crate::num::f32_of_f64(first),
+        crate::num::f32_of_f64(second),
+        crate::num::f32_of_f64(third),
     ))
 }
 
@@ -311,17 +364,17 @@ pub(crate) mod test_support {
     pub fn build_3ds(name: &str, verts: &[[f32; 3]], faces: &[[u16; 3]]) -> Vec<u8> {
         fn chunk(id: u16, body: &[u8]) -> Vec<u8> {
             let mut v = id.to_le_bytes().to_vec();
-            v.extend(((body.len() + 6) as u32).to_le_bytes());
+            v.extend(crate::num::u32_of_usize(body.len().saturating_add(6)).to_le_bytes());
             v.extend_from_slice(body);
             v
         }
-        let mut vbody = (verts.len() as u16).to_le_bytes().to_vec();
+        let mut vbody = crate::num::u16_of_usize(verts.len()).to_le_bytes().to_vec();
         for v in verts {
             for c in v {
                 vbody.extend(c.to_le_bytes());
             }
         }
-        let mut fbody = (faces.len() as u16).to_le_bytes().to_vec();
+        let mut fbody = crate::num::u16_of_usize(faces.len()).to_le_bytes().to_vec();
         for f in faces {
             for i in f {
                 fbody.extend(i.to_le_bytes());

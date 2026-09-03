@@ -18,7 +18,10 @@
 //! `crate::bump::bump`, so a charted hit and a hand on a flash key fire
 //! the very same object.
 
-use super::*;
+use super::{
+    Add, Attribute, Play, Put, Recipe, RecipeApply, Selection, Step, Timing, Trick, add_chan,
+    delta, every_emitter, float_of_i32, hue, once, role,
+};
 use crate::bump::{self, Kind};
 use crate::step::Ease;
 use ignition_proto::ColorChannel;
@@ -97,7 +100,15 @@ fn on(target: Selection, steps: Vec<Step>, timing: Timing, tricks: Vec<Trick>) -
 // r[impl effects.library.categories]
 pub(super) fn add(add: Add) {
     let mut put = |name: &str, about: &str, recipe: Recipe| add(name, FAMILY, about, recipe);
+    add_hits(&mut put);
+    add_whole_rig(&mut put);
+    add_fills_and_drains(&mut put);
+    add_strip(&mut put);
+    add_movers(&mut put);
+}
 
+/// The struck bumps and blinder hits.
+fn add_hits(put: Put) {
     // ── hits ─────────────────────────────────────────────────────────
 
     // Snaps up and falls back on its own, holding at zero, which for a
@@ -183,7 +194,10 @@ pub(super) fn add(add: Add) {
             Vec::new(),
         ),
     );
+}
 
+/// The whole-rig white-outs and strobe bursts.
+fn add_whole_rig(put: Put) {
     // ── the whole rig, once ──────────────────────────────────────────
 
     // Everything to open white, full, for a bar, then released. Every
@@ -246,7 +260,7 @@ pub(super) fn add(add: Add) {
             role("Beams"),
             (1..=8)
                 .map(|i| {
-                    let t = i as f32 / 8.0;
+                    let t = float_of_i32(i) / 8.0;
                     // Soft leaving, hard arriving: each bar's climb
                     // accelerates into the next, which is what a riser is.
                     // r[impl effects.step.accel-decel]
@@ -285,7 +299,10 @@ pub(super) fn add(add: Add) {
             Vec::new(),
         ),
     );
+}
 
+/// The fills, drains and risers.
+fn add_fills_and_drains(put: Put) {
     // ── fills and drains ─────────────────────────────────────────────
 
     // The rig filling over a bar and staying full. `Build` arrives
@@ -336,7 +353,7 @@ pub(super) fn add(add: Add) {
             // looping: its last step is the top of the swing.
             (1..12)
                 .map(|i| {
-                    let t = std::f32::consts::PI * i as f32 / 12.0;
+                    let t = std::f32::consts::PI * float_of_i32(i) / 12.0;
                     ramp(vec![(Attribute::Dimmer, 0.5 * t.sin())], 1.0)
                 })
                 .chain(std::iter::once(ramp(vec![(Attribute::Dimmer, 0.0)], 1.0)))
@@ -362,7 +379,10 @@ pub(super) fn add(add: Add) {
             Vec::new(),
         ),
     );
+}
 
+/// The strip's own one-shots.
+fn add_strip(put: Put) {
     // ── strip ────────────────────────────────────────────────────────
 
     // The strip filling from one end and staying full.
@@ -471,7 +491,10 @@ pub(super) fn add(add: Add) {
             Vec::new(),
         ),
     );
+}
 
+/// The movers' arrivals and departures.
+fn add_movers(put: Put) {
     // ── movers ───────────────────────────────────────────────────────
 
     // The beams start high and dim, drop onto the focus and arrive at
@@ -537,6 +560,7 @@ pub(super) fn add(add: Add) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     fn family() -> BTreeMap<String, Recipe> {
         let mut out = BTreeMap::new();
@@ -592,6 +616,13 @@ mod tests {
     /// The blinder hit is `bump`'s object with a longer fall, and the
     /// bump is `bump`'s object exactly.
     // r[verify effects.bump.one-object]
+    // `width` and `transition` come from the same `bump::bump` call on
+    // both sides, so an exact comparison is the right assertion for
+    // "this is the same object", not two independently computed values.
+    #[expect(
+        clippy::float_cmp,
+        reason = "both sides build from the same bump::bump call"
+    )]
     #[test]
     fn the_hits_are_bumps() {
         let f = family();

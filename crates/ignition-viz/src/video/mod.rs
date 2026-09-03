@@ -28,7 +28,7 @@
 //! for Vidvox HAP (`.mov`) — the codec Resolume, VDMX and the rest of
 //! this world actually run, all-intra so a scrub is exact, and no system
 //! library to install. Feature `ffmpeg` links libav* and covers
-//! everything else (h.264 mp4, WebM). With neither on, this module still
+//! everything else (h.264 mp4, `WebM`). With neither on, this module still
 //! compiles and every canvas is a still, exactly as before.
 
 use std::collections::VecDeque;
@@ -100,6 +100,7 @@ pub enum ContentKind {
 /// Anything unrecognised is a still: the asset server will report a real
 /// error for a file it cannot load, which is a better failure than this
 /// module opening a decoder on a `.txt` and reporting something vaguer.
+#[must_use]
 pub fn content_kind(path: &str) -> ContentKind {
     if path.starts_with(crate::canvas::PROC_PREFIX) {
         return ContentKind::Procedural;
@@ -121,6 +122,7 @@ pub fn content_kind(path: &str) -> ContentKind {
 /// `rem_euclid` rather than `%` because the caller's clock can go
 /// negative — a count-in before bar 1 is a negative song position, and
 /// `%` would hand back a negative time that no frame index matches.
+#[must_use]
 pub fn wrap_time(secs: f64, duration: f64) -> f64 {
     if !duration.is_finite() || duration <= 0.0 || !secs.is_finite() {
         return 0.0;
@@ -149,15 +151,24 @@ struct SeekRequest(Mutex<Option<(f64, u64)>>);
 
 impl SeekRequest {
     fn put(&self, secs: f64, generation: u64) {
-        *self.0.lock().expect("seek request lock") = Some((secs, generation));
+        *self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some((secs, generation));
     }
 
     fn take(&self) -> Option<(f64, u64)> {
-        self.0.lock().expect("seek request lock").take()
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
     }
 
     fn pending(&self) -> bool {
-        self.0.lock().expect("seek request lock").is_some()
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_some()
     }
 }
 
@@ -208,6 +219,11 @@ impl VideoSource {
     /// canvas path is content, not a build configuration, and a show
     /// file that named its decoder would break the moment the same show
     /// ran on a build without it.
+    ///
+    /// # Errors
+    ///
+    /// If `path`'s extension names no supported backend, or the backend
+    /// fails to open or decode the file's header.
     pub fn open(path: &Path) -> Result<Self, VideoError> {
         let (meta, decoder) = Self::open_backend(path)?;
         let (tx, frames) = sync_channel(QUEUE_DEPTH);
@@ -250,7 +266,7 @@ impl VideoSource {
             // Falling through rather than failing is what makes the
             // extension the only thing an operator has to get right.
             Err(error) => {
-                tracing::debug!(path = %path.display(), %error, "video: not a HAP file")
+                tracing::debug!(path = %path.display(), %error, "video: not a HAP file");
             }
         }
 
@@ -266,12 +282,14 @@ impl VideoSource {
 
     /// Pixel dimensions of the clip — the size the canvas texture has to
     /// be allocated at.
-    pub fn size(&self) -> (u32, u32) {
+    #[must_use]
+    pub const fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
     /// Clip length in seconds.
-    pub fn duration(&self) -> f64 {
+    #[must_use]
+    pub const fn duration(&self) -> f64 {
         self.duration
     }
 
@@ -354,7 +372,7 @@ impl VideoSource {
             return;
         }
         self.requested = Some(t);
-        self.generation += 1;
+        self.generation = self.generation.saturating_add(1);
         self.cursor.discard_pending();
         self.seek.put(t, self.generation);
     }
@@ -378,7 +396,7 @@ impl Cursor {
         self.pending.push_back(frame);
     }
 
-    fn current(&self) -> Option<&Frame> {
+    const fn current(&self) -> Option<&Frame> {
         self.current.as_ref()
     }
 
@@ -444,11 +462,19 @@ impl Cursor {
 /// Looping lives here rather than in the caller because it is the
 /// decoder that knows it hit the end. The caller's clock is the song's,
 /// and the song does not end when the clip does.
+// The sender and seek handle are held for the worker's entire life —
+// this function *is* the thread, spawned with them moved in — so a
+// borrow could not outlive the call the way `needless_pass_by_value`
+// assumes; there is no caller left to borrow from.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "frames and seek are owned by this thread for its whole life, not borrowed for one call; see the comment above"
+)]
 fn pump(mut decoder: Box<dyn Decoder>, frames: SyncSender<Frame>, seek: Arc<SeekRequest>) {
     let mut generation = 0;
     // A clip that yields no frames twice running is empty or broken.
     // Without this the loop-at-EOF path is a busy spin on a bad file.
-    let mut empty_passes = 0;
+    let mut empty_passes: u32 = 0;
 
     loop {
         if let Some((secs, wanted)) = seek.take() {
@@ -468,7 +494,7 @@ fn pump(mut decoder: Box<dyn Decoder>, frames: SyncSender<Frame>, seek: Arc<Seek
                 }
             }
             Ok(None) => {
-                empty_passes += 1;
+                empty_passes = empty_passes.saturating_add(1);
                 if empty_passes > 1 {
                     tracing::warn!("video: the clip produced no frames; nothing to loop");
                     return;
@@ -517,7 +543,7 @@ mod tests {
             pts,
             // One pixel, tagged with its own time so a test can tell
             // which frame it is looking at.
-            rgba: vec![(pts * 10.0) as u8, 0, 0, 255],
+            rgba: vec![crate::num::byte_of_f64(pts * 10.0), 0, 0, 255],
             generation: 0,
         }
     }
@@ -588,8 +614,8 @@ mod tests {
     /// index.
     #[test]
     fn a_zero_length_clip_reports_zero_rather_than_nan() {
-        assert_eq!(wrap_time(5.0, 0.0), 0.0);
-        assert_eq!(wrap_time(f64::NAN, 12.0), 0.0);
+        assert!((wrap_time(5.0, 0.0) - (0.0)).abs() < 1e-6);
+        assert!((wrap_time(f64::NAN, 12.0) - (0.0)).abs() < 1e-6);
     }
 
     #[test]
@@ -620,7 +646,7 @@ mod tests {
     fn a_forward_jump_lands_on_the_frame_it_asked_for() {
         let mut cursor = Cursor::default();
         for i in 0..5 {
-            cursor.push(frame(i as f64));
+            cursor.push(frame(f64::from(i)));
         }
         assert!(cursor.advance_to(3.2));
         assert_eq!(shown(&cursor), Some(3.0));
@@ -699,13 +725,14 @@ mod tests {
             if self.next >= self.frames {
                 return Ok(None);
             }
-            let pts = self.next as f64 / 10.0;
-            self.next += 1;
+            let pts = f64::from(self.next) / 10.0;
+            self.next = self.next.saturating_add(1);
             Ok(Some(frame(pts)))
         }
 
         fn seek(&mut self, secs: f64) -> Result<(), VideoError> {
-            self.next = ((secs * 10.0).round() as u32).min(self.frames.saturating_sub(1));
+            self.next =
+                crate::num::u32_of_f64((secs * 10.0).round()).min(self.frames.saturating_sub(1));
             Ok(())
         }
     }
@@ -759,7 +786,7 @@ mod tests {
                     }),
                     tx,
                     seek,
-                )
+                );
             }
         });
 

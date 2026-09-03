@@ -28,9 +28,11 @@ use std::collections::HashMap;
 pub const PROC_PREFIX: &str = "proc:";
 
 /// The widest a procedural frame is rendered by the CPU reference
-/// ([`ProceduralSource`]). The screens themselves no longer go through
-/// it — `canvas_material.rs` evaluates the recipe on the GPU at native
-/// resolution — so this is the size a test or an offline consumer gets.
+/// ([`ProceduralSource`]).
+///
+/// The screens themselves no longer go through it — `canvas_material.rs`
+/// evaluates the recipe on the GPU at native resolution — so this is the
+/// size a test or an offline consumer gets.
 pub const PROC_MAX_WIDTH: u32 = 320;
 
 /// Reads a `proc:` content string.
@@ -38,6 +40,11 @@ pub const PROC_MAX_WIDTH: u32 = 320;
 /// Two spellings: `proc:<name>` for one of the built-in recipes
 /// (`rainbow`, `wipe`, `noise`, `bands`, `sparkle`), or `proc:{...}` —
 /// a JSON `CanvasRecipe` literal, which is what a show file carries.
+///
+/// # Errors
+///
+/// If `content` has neither the `proc:` prefix, or the named built-in
+/// recipe or the JSON literal after it doesn't parse.
 // r[impl canvas.procedural] - a gradient or a wipe needs no file, only a string
 pub fn parse_procedural(content: &str) -> Result<CanvasRecipe, String> {
     let body = content
@@ -76,6 +83,7 @@ impl ProceduralSource {
     /// A source sized to `canvas_aspect` (width over height) at
     /// `PROC_MAX_WIDTH`, so cover-fitting it to its canvas is a no-op
     /// and every pixel rendered lands on a panel.
+    #[must_use]
     pub fn new(recipe: CanvasRecipe, canvas_aspect: f32) -> Self {
         let aspect = if canvas_aspect.is_finite() && canvas_aspect > 0.0 {
             canvas_aspect
@@ -83,7 +91,8 @@ impl ProceduralSource {
             16.0 / 9.0
         };
         let width = PROC_MAX_WIDTH;
-        let height = ((width as f32 / aspect).round() as u32).clamp(1, PROC_MAX_WIDTH * 4);
+        let height = crate::num::u32_of_f32((crate::num::f32_of_u32(width) / aspect).round())
+            .clamp(1, PROC_MAX_WIDTH * 4);
         Self {
             recipe,
             width,
@@ -99,7 +108,8 @@ impl ProceduralSource {
         self.masters = masters;
     }
 
-    pub fn size(&self) -> (u32, u32) {
+    #[must_use]
+    pub const fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
@@ -119,7 +129,9 @@ impl ProceduralSource {
     /// Where the recipe is at `secs`, or `None` when it is where it was
     /// last time — the picture has not moved and nothing needs drawing.
     pub fn advance(&mut self, secs: f64) -> Option<f32> {
-        let cycles = self.recipe.cycles_at(secs as f32, &self.masters);
+        let cycles = self
+            .recipe
+            .cycles_at(crate::num::f32_of_f64(secs), &self.masters);
         if self.last_cycles == Some(cycles) {
             return None;
         }
@@ -128,12 +140,14 @@ impl ProceduralSource {
     }
 
     /// The picture at `cycles`, RGBA at `size()`.
+    #[must_use]
     pub fn render_cycles(&self, cycles: f32) -> Vec<u8> {
         self.recipe.render(self.width, self.height, cycles)
     }
 
     /// The recipe, for a worker to render with.
-    pub fn recipe(&self) -> &CanvasRecipe {
+    #[must_use]
+    pub const fn recipe(&self) -> &CanvasRecipe {
         &self.recipe
     }
 }
@@ -150,7 +164,7 @@ pub struct Slice {
 
 impl Slice {
     /// The whole canvas — what a panel that is its own canvas shows.
-    pub const FULL: Slice = Slice {
+    pub const FULL: Self = Self {
         u0: 0.0,
         v0: 0.0,
         u1: 1.0,
@@ -166,6 +180,7 @@ impl Slice {
     /// degrees on every screen in the room, a test card reading
     /// top-to-bottom. V is flipped relative to world Z because texture V
     /// grows downward.
+    #[must_use]
     pub fn uvs(&self) -> [[f32; 2]; 4] {
         [
             [self.u1, 1.0 - self.v1],
@@ -187,7 +202,8 @@ impl Slice {
     /// middle column, and nothing is ever stretched. `canvas_aspect` and
     /// `source_aspect` are width over height.
     // r[impl files.venue.canvases] - a canvas shows a centred crop of its source, never a stretch
-    pub fn cover(self, canvas_aspect: f32, source_aspect: f32) -> Slice {
+    #[must_use]
+    pub fn cover(self, canvas_aspect: f32, source_aspect: f32) -> Self {
         self.cover_at(canvas_aspect, source_aspect, 0.5)
     }
 
@@ -195,7 +211,8 @@ impl Slice {
     /// or left edge, 1 = its bottom or right) rather than its middle —
     /// so a wide canvas can show the band with the face in it. The band
     /// is kept inside the source, so a focus near an edge pins to it.
-    pub fn cover_at(self, canvas_aspect: f32, source_aspect: f32, focus: f32) -> Slice {
+    #[must_use]
+    pub fn cover_at(self, canvas_aspect: f32, source_aspect: f32, focus: f32) -> Self {
         // `!(x > 0.0)`, not `x <= 0.0`: the negated form is the one that
         // also catches NaN, which is exactly what this guard is for —
         // an aspect comes from a division by a dimension that may be
@@ -207,14 +224,14 @@ impl Slice {
         }
         let focus = focus.clamp(0.0, 1.0);
         let band = |t: f32, f: f32| {
-            let centre = focus.clamp(f * 0.5, 1.0 - f * 0.5);
-            centre + (t - 0.5) * f
+            let centre = focus.clamp(f * 0.5, f.mul_add(-0.5, 1.0));
+            (t - 0.5).mul_add(f, centre)
         };
         if source_aspect < canvas_aspect {
             // The source is taller than the canvas: full width, a
             // horizontal band of the source's height.
             let f = source_aspect / canvas_aspect;
-            Slice {
+            Self {
                 u0: self.u0,
                 u1: self.u1,
                 v0: band(self.v0, f),
@@ -222,7 +239,7 @@ impl Slice {
             }
         } else {
             let f = canvas_aspect / source_aspect;
-            Slice {
+            Self {
                 u0: band(self.u0, f),
                 u1: band(self.u1, f),
                 v0: self.v0,
@@ -234,6 +251,7 @@ impl Slice {
 
 /// Each canvas's aspect, width over height, from the panels' real
 /// geometry — a lone panel's own size, or the bounding box of a group.
+#[must_use]
 pub fn canvas_aspects(screens: &[GeometryRecord]) -> HashMap<String, f32> {
     let mut groups: HashMap<&str, Vec<&GeometryRecord>> = HashMap::new();
     for screen in screens {
@@ -244,11 +262,11 @@ pub fn canvas_aspects(screens: &[GeometryRecord]) -> HashMap<String, f32> {
         .map(|(canvas, members)| {
             let x0 = members
                 .iter()
-                .map(|m| m.position.x - m.size.x * 0.5)
+                .map(|m| m.size.x.mul_add(-0.5, m.position.x))
                 .fold(f32::INFINITY, f32::min);
             let x1 = members
                 .iter()
-                .map(|m| m.position.x + m.size.x * 0.5)
+                .map(|m| m.size.x.mul_add(0.5, m.position.x))
                 .fold(f32::NEG_INFINITY, f32::max);
             let z0 = members
                 .iter()
@@ -327,6 +345,7 @@ pub fn slices(screens: &[GeometryRecord]) -> HashMap<String, Slice> {
 }
 
 /// A quad carrying a canvas slice's UVs rather than the default 0..1.
+#[must_use]
 pub fn sliced_quad(slice: Slice) -> Mesh {
     let mut mesh = Mesh::from(Rectangle::new(1.0, 1.0));
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, slice.uvs().to_vec());
@@ -351,20 +370,23 @@ mod tests {
             source: Procedural::Wipe {
                 color: [1.0; 3],
                 width: 0.2,
-                direction: Default::default(),
+                direction: ignition_core::canvas::Travel::default(),
             },
             timing: Timing {
                 speed: Speed::Hz(1.0),
                 ..Timing::default()
             },
-            plane: Default::default(),
+            plane: ignition_core::canvas::CanvasPlane::default(),
         };
         let mut src = ProceduralSource::new(recipe, 8.33 / 0.8);
         let (w, h) = src.size();
         assert_eq!(w, PROC_MAX_WIDTH);
         assert!(h > 0 && h < w);
         let first = src.frame_at(0.0).expect("a first frame").to_vec();
-        assert_eq!(first.len(), (w * h * 4) as usize);
+        assert_eq!(
+            first.len(),
+            crate::num::usize_of_u32(w) * crate::num::usize_of_u32(h) * 4
+        );
         assert!(first.contains(&255));
         // Same time, same picture — nothing to upload.
         assert!(src.frame_at(0.0).is_none());
@@ -398,7 +420,7 @@ mod tests {
                 y: 0.8,
                 z: 0.05,
             },
-            canvas: canvas.map(|c| c.to_string()),
+            canvas: canvas.map(std::string::ToString::to_string),
         }
     }
 
@@ -553,9 +575,11 @@ mod tests {
         // Top-left of the quad samples the *upper* part of the texture,
         // which is the lower V.
         // Bevy's order: top-right, top-left, bottom-left, bottom-right.
-        assert_eq!(uvs[0], [0.75, 0.5]);
-        assert_eq!(uvs[1], [0.25, 0.5]);
-        assert_eq!(uvs[2], [0.25, 1.0]);
-        assert_eq!(uvs[3], [0.75, 1.0]);
+        let close =
+            |a: [f32; 2], b: [f32; 2]| (a[0] - b[0]).abs() < 1e-6 && (a[1] - b[1]).abs() < 1e-6;
+        assert!(close(uvs[0], [0.75, 0.5]));
+        assert!(close(uvs[1], [0.25, 0.5]));
+        assert!(close(uvs[2], [0.25, 1.0]));
+        assert!(close(uvs[3], [0.75, 1.0]));
     }
 }

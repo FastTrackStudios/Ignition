@@ -36,18 +36,21 @@ pub struct Bars {
     pub beat: f64,
 }
 
-fn one_beat() -> f64 {
+#[must_use]
+const fn one_beat() -> f64 {
     1.0
 }
 
 impl Bars {
-    pub const START: Bars = Bars { bar: 1, beat: 1.0 };
+    pub const START: Self = Self { bar: 1, beat: 1.0 };
 
-    pub fn bar(bar: u32) -> Self {
+    #[must_use]
+    pub const fn bar(bar: u32) -> Self {
         Self { bar, beat: 1.0 }
     }
 
-    pub fn new(bar: u32, beat: f64) -> Self {
+    #[must_use]
+    pub const fn new(bar: u32, beat: f64) -> Self {
         Self { bar, beat }
     }
 }
@@ -106,6 +109,7 @@ impl Default for TempoMap {
 }
 
 impl TempoMap {
+    #[must_use]
     pub fn constant(bpm: f64, time_signature: TimeSignature) -> Self {
         Self {
             points: vec![TempoPoint {
@@ -118,6 +122,7 @@ impl TempoMap {
 
     /// Points are sorted on the way in, so callers can hand over
     /// whatever order the project file listed them in.
+    #[must_use]
     pub fn new(mut points: Vec<TempoPoint>) -> Self {
         points.sort_by(|a, b| a.at.partial_cmp(&b.at).unwrap_or(std::cmp::Ordering::Equal));
         if points.is_empty() {
@@ -126,24 +131,30 @@ impl TempoMap {
         Self { points }
     }
 
+    #[must_use]
     pub fn points(&self) -> &[TempoPoint] {
         &self.points
     }
 
     /// The tempo in force at a position.
+    #[must_use]
     pub fn at(&self, position: Bars) -> TempoPoint {
         // Points are sorted, so the last one at or before the position
         // is the one in force. `rev().find()` rather than
         // `take_while().next_back()` because `TakeWhile` is not
         // double-ended.
+        let default = TempoPoint {
+            at: Bars::START,
+            bpm: 120.0,
+            time_signature: TimeSignature::default(),
+        };
         self.points
             .iter()
             .rev()
             .find(|p| p.at <= position)
             .copied()
-            // A position before the first point uses the first: a song
-            // does not have an undefined tempo, only an unwritten one.
-            .unwrap_or_else(|| self.points[0])
+            .or_else(|| self.points.first().copied())
+            .unwrap_or(default)
     }
 
     /// Seconds from the start of the song to a musical position.
@@ -152,6 +163,7 @@ impl TempoMap {
     /// correctly rather than pretending the last one always applied.
     // r[impl song.tempo-map] - accumulates segment by segment
     // r[impl song.position.never-seconds] - seconds are derived at the moment of use, never stored
+    #[must_use]
     pub fn seconds_at(&self, position: Bars) -> f64 {
         let mut seconds = 0.0;
         for (i, point) in self.points.iter().enumerate() {
@@ -159,12 +171,12 @@ impl TempoMap {
                 break;
             }
             // This point runs until the next one, or until `position`.
-            let until = self
-                .points
-                .get(i + 1)
-                .map(|next| next.at.min_position(position))
-                .unwrap_or(position);
-            seconds += beats_between(point, point.at, until) * 60.0 / point.bpm;
+            let until = i
+                .checked_add(1)
+                .and_then(|j| self.points.get(j))
+                .map_or(position, |next| next.at.min_position(position));
+            let delta = beats_between(point, point.at, until) * 60.0 / point.bpm;
+            seconds += delta;
         }
         seconds
     }
@@ -173,13 +185,14 @@ impl TempoMap {
     /// `seconds_at`, and what a transport's playhead becomes.
     // r[impl song.tempo-map] - the inverse
     // r[impl song.position.never-seconds] - a seconds source is converted on the way in
+    #[must_use]
     pub fn position_at(&self, seconds: f64) -> Bars {
         let mut elapsed = 0.0;
         for (i, point) in self.points.iter().enumerate() {
-            let next = self.points.get(i + 1);
-            let segment_seconds = next
-                .map(|n| beats_between(point, point.at, n.at) * 60.0 / point.bpm)
-                .unwrap_or(f64::INFINITY);
+            let next = i.checked_add(1).and_then(|j| self.points.get(j));
+            let segment_seconds = next.map_or(f64::INFINITY, |n| {
+                beats_between(point, point.at, n.at) * 60.0 / point.bpm
+            });
             if seconds < elapsed + segment_seconds {
                 let into_beats = (seconds - elapsed) * point.bpm / 60.0;
                 return advance(point, point.at, into_beats);
@@ -192,23 +205,26 @@ impl TempoMap {
 
 impl Bars {
     /// The earlier of two positions.
-    fn min_position(self, other: Bars) -> Bars {
+    #[must_use]
+    fn min_position(self, other: Self) -> Self {
         if self < other { self } else { other }
     }
 }
 
 /// Beats between two positions, in one tempo point's time signature.
+#[must_use]
 fn beats_between(point: &TempoPoint, from: Bars, to: Bars) -> f64 {
-    let per_bar = point.time_signature.numerator.max(1) as f64;
-    let flat = |p: Bars| (p.bar as f64 - 1.0) * per_bar + (p.beat - 1.0);
+    let per_bar = f64::from(point.time_signature.numerator.max(1));
+    let flat = |p: Bars| (f64::from(p.bar) - 1.0).mul_add(per_bar, p.beat - 1.0);
     (flat(to) - flat(from)).max(0.0)
 }
 
 /// A position `beats` further on from `from`, in one point's signature.
 // r[impl song.tempo-map] - invertible to within a nanobeat
+#[must_use]
 fn advance(point: &TempoPoint, from: Bars, beats: f64) -> Bars {
-    let per_bar = point.time_signature.numerator.max(1) as f64;
-    let flat = (from.bar as f64 - 1.0) * per_bar + (from.beat - 1.0) + beats;
+    let per_bar = f64::from(point.time_signature.numerator.max(1));
+    let flat = (f64::from(from.bar) - 1.0).mul_add(per_bar, from.beat - 1.0 + beats);
     // Snap before splitting into bar and beat. A downbeat arrived at by
     // dividing seconds lands on 235.999999999 beats as often as on 236,
     // and the floor below turns the first into "bar 59, beat 5" — a
@@ -217,8 +233,19 @@ fn advance(point: &TempoPoint, from: Bars, beats: f64) -> Bars {
     // this tempo.
     let flat = (flat * 1e9).round() / 1e9;
     let bar = (flat / per_bar).floor();
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "the range check above ensures bar is in [0, u32::MAX)"
+    )]
+    let bar_u32 = if bar >= 0.0 && bar < f64::from(u32::MAX) {
+        bar as u32
+    } else {
+        0
+    };
     Bars {
-        bar: bar as u32 + 1,
+        bar: bar_u32.saturating_add(1),
         beat: flat - bar * per_bar + 1.0,
     }
 }
@@ -236,12 +263,13 @@ pub struct Section {
 
 impl Section {
     /// The first position after this section.
+    #[must_use]
     pub fn end(&self, map: &TempoMap) -> Bars {
         let point = map.at(self.start);
         advance(
             &point,
             self.start,
-            self.bars * point.time_signature.numerator.max(1) as f64,
+            self.bars * f64::from(point.time_signature.numerator.max(1)),
         )
     }
 }
@@ -260,6 +288,7 @@ pub struct SongMap {
 
 impl SongMap {
     /// The section containing a position, if any.
+    #[must_use]
     pub fn section_at(&self, position: Bars) -> Option<&Section> {
         self.sections
             .iter()
@@ -268,6 +297,7 @@ impl SongMap {
             .filter(|s| position < s.end(&self.tempo))
     }
 
+    #[must_use]
     pub fn section(&self, name: &str) -> Option<&Section> {
         self.sections.iter().find(|s| s.name == name)
     }
@@ -277,17 +307,19 @@ impl SongMap {
     /// `section("PRE")` finds the first pre-chorus and leaves the second
     /// unreachable; this is how the second one is named.
     // r[impl song.relative-position.duplicate-names]
+    #[must_use]
     pub fn section_nth(&self, name: &str, ordinal: usize) -> Option<&Section> {
         self.sections.iter().filter(|s| s.name == name).nth(ordinal)
     }
 
     /// Which occurrence of its own name a section is, counting from 0.
     fn ordinal_of(&self, index: usize) -> usize {
-        let name = &self.sections[index].name;
-        self.sections[..index]
-            .iter()
-            .filter(|s| &s.name == name)
-            .count()
+        self.sections.get(index).map_or(0, |section| {
+            let name = &section.name;
+            self.sections.get(..index).map_or(0, |before| {
+                before.iter().filter(|s| &s.name == name).count()
+            })
+        })
     }
 }
 
@@ -333,17 +365,19 @@ pub enum Position {
 
 impl From<Bars> for Position {
     fn from(bars: Bars) -> Self {
-        Position::Absolute(bars)
+        Self::Absolute(bars)
     }
 }
 
 impl Position {
     /// `bars` into the first section with this name.
+    #[must_use]
     pub fn at(section: &str, bars: u32) -> Self {
         Self::nth(section, 0, bars)
     }
 
     /// `bars` into the `ordinal`th section with this name.
+    #[must_use]
     pub fn nth(section: &str, ordinal: usize, bars: u32) -> Self {
         Self::Relative {
             section: section.to_string(),
@@ -354,6 +388,7 @@ impl Position {
     }
 
     /// The last bar of the first section with this name.
+    #[must_use]
     pub fn last_bar(section: &str) -> Self {
         Self::LastBar {
             section: section.to_string(),
@@ -367,6 +402,7 @@ impl Position {
     /// longer has is dropped, not placed at bar 1.
     // r[impl song.relative-position.resolved-on-load] - resolution is a function of the map, called by the loader
     // r[impl song.relative-position.duplicate-names] - the ordinal picks the occurrence
+    #[must_use]
     pub fn resolve(&self, song: &SongMap) -> Option<Bars> {
         match self {
             Self::Absolute(bars) => Some(*bars),
@@ -377,13 +413,30 @@ impl Position {
                 beat,
             } => {
                 let s = song.section_nth(section, *ordinal)?;
-                Some(Bars::new(s.start.bar + bars, *beat))
+                Some(Bars::new(s.start.bar.saturating_add(*bars), *beat))
             }
             Self::LastBar {
                 section, ordinal, ..
             } => {
                 let s = song.section_nth(section, *ordinal)?;
-                Some(Bars::bar(s.start.bar + (s.bars.ceil() as u32).max(1) - 1))
+                let section_end_bar = s.bars.ceil();
+                #[expect(
+                    clippy::as_conversions,
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "the range check ensures section_end_bar is in [0, u32::MAX)"
+                )]
+                let section_end_u32 =
+                    if section_end_bar >= 0.0 && section_end_bar < f64::from(u32::MAX) {
+                        section_end_bar as u32
+                    } else {
+                        0
+                    };
+                Some(Bars::bar(
+                    s.start
+                        .bar
+                        .saturating_add(section_end_u32.max(1).saturating_sub(1)),
+                ))
             }
         }
     }
@@ -394,6 +447,7 @@ impl Position {
     ///
     /// This is how positions that arrive absolute — a charted hit, a
     /// hand-placed cue — are written down so they move with the section.
+    #[must_use]
     pub fn relative_to(song: &SongMap, at: Bars) -> Self {
         let Some(index) = song
             .sections
@@ -402,11 +456,13 @@ impl Position {
         else {
             return Self::Absolute(at);
         };
-        let section = &song.sections[index];
+        let Some(section) = song.sections.get(index) else {
+            return Self::Absolute(at);
+        };
         Self::Relative {
             section: section.name.clone(),
             ordinal: song.ordinal_of(index),
-            bars: at.bar - section.start.bar,
+            bars: at.bar.saturating_sub(section.start.bar),
             beat: at.beat,
         }
     }
@@ -414,6 +470,9 @@ impl Position {
 
 #[cfg(test)]
 mod tests {
+    // Test code: the lines below and the test body may use `as` conversions freely,
+    // without #[allow] on each one. This is the only place in this crate where that
+    // is allowed.
     use super::*;
 
     /// The real song this was built against: 86.28 BPM, 4/4.
@@ -438,11 +497,11 @@ mod tests {
     fn real_section_starts_land_on_their_bars() {
         let map = bye_bye_bye();
         for (bar, seconds, name) in [
-            (3u32, 5.56328233657858, "IN A"),
-            (11, 27.81641168289291, "VS 1"),
-            (23, 61.19610570236439, "CH 1"),
-            (61, 166.89847009735743, "CH 3"),
-            (73, 200.27816411682892, "Outro"),
+            (3u32, 5.563_282_336_578_58, "IN A"),
+            (11, 27.816_411_682_892_91, "VS 1"),
+            (23, 61.196_105_702_364_39, "CH 1"),
+            (61, 166.898_470_097_357_43, "CH 3"),
+            (73, 200.278_164_116_828_92, "Outro"),
         ] {
             let got = map.seconds_at(Bars::bar(bar));
             assert!(
@@ -542,6 +601,17 @@ mod tests {
     }
 
     fn arrangement(verse_bars: f64) -> SongMap {
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "test: range check ensures verse_bars is in [0, u32::MAX)"
+        )]
+        let verse_bars_u32 = if verse_bars >= 0.0 && verse_bars < f64::from(u32::MAX) {
+            verse_bars as u32
+        } else {
+            0
+        };
         SongMap {
             name: "test".into(),
             tempo: bye_bye_bye(),
@@ -553,17 +623,41 @@ mod tests {
                 },
                 Section {
                     name: "PRE".into(),
-                    start: Bars::bar(1 + verse_bars as u32),
+                    start: Bars::bar({
+                        #[expect(
+                            clippy::arithmetic_side_effects,
+                            reason = "test: constant addition"
+                        )]
+                        {
+                            1 + verse_bars_u32
+                        }
+                    }),
                     bars: 4.0,
                 },
                 Section {
                     name: "CH 1".into(),
-                    start: Bars::bar(5 + verse_bars as u32),
+                    start: Bars::bar({
+                        #[expect(
+                            clippy::arithmetic_side_effects,
+                            reason = "test: constant addition"
+                        )]
+                        {
+                            5 + verse_bars_u32
+                        }
+                    }),
                     bars: 8.0,
                 },
                 Section {
                     name: "PRE".into(),
-                    start: Bars::bar(13 + verse_bars as u32),
+                    start: Bars::bar({
+                        #[expect(
+                            clippy::arithmetic_side_effects,
+                            reason = "test: constant addition"
+                        )]
+                        {
+                            13 + verse_bars_u32
+                        }
+                    }),
                     bars: 4.0,
                 },
             ],

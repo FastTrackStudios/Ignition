@@ -171,6 +171,39 @@ blitz-dom = { path = "crates/blitz-dom-vendored" }
 [patch."https://github.com/DioxusLabs/dioxus"]
 dioxus-native = { path = "crates/dioxus-native-vendored" }
 
+# The lint gate. Every crate that is ours takes this table with
+# `[lints] workspace = true`; the five `crates/*-vendored` forks never
+# do, because policing upstream's style would mean editing them for
+# reasons their NOTICE cannot justify (`Justfile`'s `vendored :=` list
+# is the same exclusion, from the other side).
+#
+# `deny`, not `warn`: this tree went from 0 to 55 warnings without
+# anyone noticing, and a gate nothing has to pass is not a gate. The
+# panic set below is the load-bearing half — a desk that unwraps its
+# way into a `None` at bar 43 takes the room dark, and there is no
+# operator recovery from a process that is gone. Where a lint genuinely
+# cannot be satisfied, the escape is a scoped `#[expect(..., reason =
+# "…")]` naming why, never a line removed from here.
+#
+# Tests lift the panic lints via `clippy.toml`.
+[workspace.lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+# No path from a mistake to a dark room.
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+unreachable = "deny"
+unimplemented = "deny"
+unchecked_time_subtraction = "deny"
+todo = "deny"
+string_slice = "deny"
+panic_in_result_fn = "deny"
+panic = "deny"
+exit = "deny"
+as_conversions = "deny"
+
 [profile.dev]
 debug = "line-tables-only"
 split-debuginfo = "unpacked"

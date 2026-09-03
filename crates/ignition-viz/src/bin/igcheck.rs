@@ -38,20 +38,20 @@ fn main() -> ExitCode {
     let mut profile: Option<PathBuf> = None;
     let mut show: Option<PathBuf> = None;
     let mut i = 0;
-    while i < args.len() {
-        match args[i].as_str() {
+    while let Some(arg) = args.get(i) {
+        match arg.as_str() {
             "--venue" => {
-                i += 1;
+                i = i.saturating_add(1);
                 venue = args.get(i).map(PathBuf::from);
             }
             "--profile" => {
-                i += 1;
+                i = i.saturating_add(1);
                 profile = args.get(i).map(PathBuf::from);
             }
             "-h" | "--help" => return usage(),
             other => show = Some(PathBuf::from(other)),
         }
-        i += 1;
+        i = i.saturating_add(1);
     }
 
     match (show, venue, profile) {
@@ -69,7 +69,7 @@ fn check_show(path: &Path) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let dir = path.parent().unwrap_or(Path::new("."));
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
     let report = check_ig_show(&show, dir);
     println!("{report}");
     if report.ok() {

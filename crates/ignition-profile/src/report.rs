@@ -6,6 +6,15 @@
 //! floats to the top of a self-time sort is, without further argument,
 //! the code to go and look at.
 
+#![expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "Report formats profiling statistics; conversions between time units are inherent to the design"
+)]
+
+use std::fmt::Write as _;
 use std::time::Duration;
 
 use crate::{Row, STAGES, Window};
@@ -35,7 +44,7 @@ pub struct Line {
     pub max_ms: f64,
 }
 
-pub(crate) fn build(window: Window, elapsed: Duration) -> Report {
+pub fn build(window: Window, elapsed: Duration) -> Report {
     let frames = window.frames.max(1);
     let mut rows: Vec<Line> = window
         .rows
@@ -63,12 +72,22 @@ fn rank(name: &str) -> usize {
 
 fn line(name: Box<str>, mut row: Row, frames: u64) -> Line {
     row.samples.sort_by(f32::total_cmp);
-    let pct = |p: f64| -> f64 {
-        if row.samples.is_empty() {
-            return 0.0;
-        }
-        let i = ((row.samples.len() - 1) as f64 * p).round() as usize;
-        row.samples[i] as f64
+    let pct = |fraction: f64| -> f64 {
+        // A percentile over a sorted sample list. `samples` is a
+        // profiler's own measurements, so an empty list is a stage that
+        // never ran — zero, not a panic — and the index goes through
+        // `get` because the alternative is a desk that dies while being
+        // measured.
+        let last = row.samples.len().saturating_sub(1);
+        let position = (last as f64 * fraction).round();
+        let index = if position <= 0.0 {
+            0
+        } else {
+            position as usize
+        };
+        row.samples
+            .get(index.min(last))
+            .map_or(0.0, |ms| f64::from(*ms))
     };
     let per_frame = |d: Duration| d.as_secs_f64() * 1e3 / frames as f64;
     Line {
@@ -82,7 +101,7 @@ fn line(name: Box<str>, mut row: Row, frames: u64) -> Line {
             row.busy.as_secs_f64() * 1e3 / row.calls as f64
         },
         p99_ms: pct(0.99),
-        max_ms: row.samples.last().copied().unwrap_or(0.0) as f64,
+        max_ms: row.samples.last().copied().map_or(0.0, f64::from),
     }
 }
 
@@ -95,12 +114,14 @@ impl Report {
     /// The table, as one multi-line string for a single log line —
     /// deliberately one event rather than one per row, so a table never
     /// arrives interleaved with the studio's own logging.
+    #[must_use]
     pub fn render(&self) -> String {
         let secs = self.elapsed.as_secs_f64().max(f64::EPSILON);
         let frame_ms = secs * 1e3 / self.frames.max(1) as f64;
         let budget_ms = 1e3 / BUDGET_HZ;
         let mut out = String::new();
-        out.push_str(&format!(
+        let _ = write!(
+            out,
             "\nprofile: {:.1} s · {} frames · {:.2} ms/frame · {:.1} fps (budget {:.2} ms at {:.0} Hz)\n",
             secs,
             self.frames,
@@ -108,19 +129,21 @@ impl Report {
             self.frames as f64 / secs,
             budget_ms,
             BUDGET_HZ,
-        ));
-        out.push_str(&format!(
-            "  {:<28} {:>7} {:>10} {:>10} {:>8} {:>8} {:>8}\n",
+        );
+        let _ = writeln!(
+            out,
+            "  {:<28} {:>7} {:>10} {:>10} {:>8} {:>8} {:>8}",
             "stage", "calls", "self/frame", "all/frame", "avg", "p99", "max"
-        ));
+        );
         for line in &self.rows {
             // A row that cannot round to a hundredth of a millisecond a
             // frame is noise; in `all` mode there are hundreds of them.
             if line.self_per_frame_ms < 0.005 && line.busy_per_frame_ms < 0.005 {
                 continue;
             }
-            out.push_str(&format!(
-                "  {:<28} {:>7} {:>9.2}{} {:>9.2}  {:>7.2} {:>7.2} {:>7.2}\n",
+            let _ = writeln!(
+                out,
+                "  {:<28} {:>7} {:>9.2}{} {:>9.2}  {:>7.2} {:>7.2} {:>7.2}",
                 line.name,
                 line.calls,
                 line.self_per_frame_ms,
@@ -135,7 +158,7 @@ impl Report {
                 line.avg_ms,
                 line.p99_ms,
                 line.max_ms,
-            ));
+            );
         }
         out
     }

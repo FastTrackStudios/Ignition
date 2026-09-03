@@ -14,11 +14,12 @@ use bevy::prelude::*;
 use ignition_dmx::{OutputConfig, Protocol, Sender, Sink, Status};
 use std::time::Instant;
 
-/// The transmitter, as a resource. `sender` is `None` for a viz with no
-/// transmitter at all (a snapshot, an export). A socket that would not
-/// bind is not a failure here: the sender reports it in its status and
-/// the overlay shows it, because a desk whose sockets did not open is
-/// still a desk with a visualizer.
+/// The transmitter, as a resource.
+///
+/// `sender` is `None` for a viz with no transmitter at all (a snapshot,
+/// an export). A socket that would not bind is not a failure here: the
+/// sender reports it in its status and the overlay shows it, because a
+/// desk whose sockets did not open is still a desk with a visualizer.
 #[derive(Resource, Default)]
 pub struct DmxOutput {
     sender: Option<Sender>,
@@ -45,12 +46,14 @@ impl DmxOutput {
 
     /// A resource that sends nothing and says so — for a viz with no
     /// transmitter at all (an export, a snapshot).
+    #[must_use]
     pub fn disabled() -> Self {
         Self::default()
     }
 
     /// Adds a sink that sees every frame the sender sends — see
     /// `LoopbackSink`.
+    #[must_use]
     pub fn with_sink(mut self, sink: Box<dyn Sink>) -> Self {
         if let Some(sender) = self.sender.take() {
             self.sender = Some(sender.with_sink(sink));
@@ -66,7 +69,7 @@ impl DmxOutput {
         }
     }
 
-    pub fn enabled(&self) -> bool {
+    pub const fn enabled(&self) -> bool {
         self.enabled
     }
 
@@ -81,13 +84,13 @@ impl DmxOutput {
     /// What is happening, for the overlay and the surface.
     // r[impl dmx.output-toggle] - sending, which universes, at what rate, and any error
     pub fn summary(&self) -> OutputSummary {
-        match &self.sender {
-            None => OutputSummary {
+        self.sender.as_ref().map_or_else(
+            || OutputSummary {
                 enabled: self.enabled,
                 ..Default::default()
             },
-            Some(sender) => summarize(&sender.status(), self.enabled),
-        }
+            |sender| summarize(&sender.status(), self.enabled),
+        )
     }
 
     pub fn stop(&mut self) {
@@ -137,10 +140,11 @@ fn summarize(status: &Status, enabled: bool) -> OutputSummary {
     }
 }
 
-/// Snapshots the universes and hands them to the sender. Runs after the
-/// encoder has written the frame and before anything else could touch
-/// it — the bytes the sender gets are the bytes `resolve_live_dmx`
-/// decodes this frame.
+/// Snapshots the universes and hands them to the sender.
+///
+/// Runs after the encoder has written the frame and before anything else
+/// could touch it — the bytes the sender gets are the bytes
+/// `resolve_live_dmx` decodes this frame.
 // r[impl dmx.one-frame] - one snapshot per frame feeds every protocol
 pub fn send_output(dmx: Option<Res<crate::spawn::DmxRes>>, output: Option<Res<DmxOutput>>) {
     let (Some(dmx), Some(output)) = (dmx, output) else {
@@ -173,6 +177,7 @@ impl Sink for LoopbackSink {
 }
 
 /// Whether the loopback sink is wanted: the flag, or the environment.
+#[must_use]
 pub fn loopback_requested(flag: bool) -> bool {
     flag || std::env::var("IGNITION_LOOPBACK").is_ok_and(|v| v == "1")
 }
@@ -201,7 +206,10 @@ mod tests {
     fn summary(enabled: bool, protocols: &[&str], universes: usize, hz: f32) -> OutputSummary {
         OutputSummary {
             enabled,
-            protocols: protocols.iter().map(|s| s.to_string()).collect(),
+            protocols: protocols
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             universes,
             hz,
             error: None,

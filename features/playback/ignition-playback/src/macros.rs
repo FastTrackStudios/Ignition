@@ -56,6 +56,7 @@ pub struct MacroRunner {
 }
 
 impl MacroRunner {
+    #[must_use]
     pub fn new(name: &str, macro_: &Macro) -> Self {
         Self {
             name: name.to_string(),
@@ -66,17 +67,20 @@ impl MacroRunner {
     }
 
     /// A profile macro by name, if the profile has it.
+    #[must_use]
     pub fn from_profile(profile: &Profile, name: &str) -> Option<Self> {
         profile.macros.get(name).map(|m| Self::new(name, m))
     }
 
     /// Whether every step has run.
-    pub fn finished(&self) -> bool {
+    #[must_use]
+    pub const fn finished(&self) -> bool {
         self.next >= self.steps.len() && self.resume_at.is_none()
     }
 
     /// The step about to run, for a surface that shows progress.
-    pub fn position(&self) -> usize {
+    #[must_use]
+    pub const fn position(&self) -> usize {
         self.next
     }
 
@@ -96,8 +100,7 @@ impl MacroRunner {
     ) -> Vec<HostRequest> {
         let now = playbacks
             .of_class(Class::Song)
-            .map(|p| p.clock())
-            .unwrap_or_else(|| programmer.now());
+            .map_or_else(|| programmer.now(), |p| p.clock());
         let mut requests = Vec::new();
         loop {
             if let Some(at) = self.resume_at {
@@ -109,7 +112,11 @@ impl MacroRunner {
             let Some(step) = self.steps.get(self.next).cloned() else {
                 return requests;
             };
-            self.next += 1;
+            // The runner only ever moves forward one step at a time, and
+            // a macro's step count is bounded by what a profile can hold
+            // in memory — saturating rather than wrapping keeps `next`
+            // pinned at "past the end" instead of ever running backward.
+            self.next = self.next.saturating_add(1);
             match step {
                 MacroStep::Look(name) => {
                     let safe = profile
@@ -167,6 +174,7 @@ pub struct Busking {
 // r[impl profile.pages]
 // r[impl profile.protected-roles]
 // r[impl profile.speed-routing]
+#[must_use]
 pub fn shipped() -> Busking {
     Busking {
         looks: looks(),
@@ -180,6 +188,7 @@ pub fn shipped() -> Busking {
 /// A profile carrying the shipped library *and* the shipped busking
 /// programming — what the studio resolves its bank and its macros
 /// through, and what the bake writes out.
+#[must_use]
 pub fn shipped_profile() -> Profile {
     let busking = shipped();
     Profile {
@@ -199,6 +208,7 @@ pub fn shipped_profile() -> Profile {
 /// Movement halves the tap, beams double it, and everything that is a
 /// level or a colour follows the song.
 // r[impl profile.speed-routing]
+#[must_use]
 pub fn speed_routing() -> BTreeMap<String, Speed> {
     let tap = |scale: f32| Speed::Scaled {
         master: "Tap".into(),
@@ -241,15 +251,19 @@ fn stage() -> Selection {
 /// A static look: a level and a colour on a role.
 fn level_and_colour(target: Selection, colour: &str, level: f32) -> Recipe {
     let mut recipe = Recipe::new(target, RecipeApply::Dimmer(level));
-    recipe.steps[0]
-        .apply
-        .push(RecipeApply::Color(crate::preset::Ref::Named(
-            colour.to_string(),
-        )));
+    // `Recipe::new` always seeds exactly one step, but a `Vec` is still a
+    // `Vec` to the type system — `first_mut` says what is actually true
+    // here without indexing into it.
+    if let Some(step) = recipe.steps.first_mut() {
+        step.apply
+            .push(RecipeApply::Color(crate::preset::Ref::Named(
+                colour.to_string(),
+            )));
+    }
     recipe
 }
 
-fn inline(recipe: Recipe) -> RecipeRef {
+const fn inline(recipe: Recipe) -> RecipeRef {
     RecipeRef::Inline(recipe)
 }
 
@@ -263,6 +277,7 @@ fn look(kind: LookKind, about: &str, recipes: Vec<RecipeRef>) -> Look {
 
 // r[impl profile.looks]
 // r[impl profile.looks.static]
+#[must_use]
 pub fn looks() -> BTreeMap<String, Look> {
     BTreeMap::from([
         (
@@ -335,6 +350,7 @@ fn effect(name: &str, level: f32) -> MacroStep {
 }
 
 // r[impl profile.macros]
+#[must_use]
 pub fn macros() -> BTreeMap<String, Macro> {
     BTreeMap::from([
         (
@@ -440,22 +456,25 @@ fn sparkle_on(label: &str, band: Band) -> FaderSpec {
     FaderSpec::new(label, FaderSource::Inline(Box::new(recipe)))
 }
 
-fn page(name: &str, faders: Vec<FaderSpec>) -> Page {
-    let faders: [FaderSpec; FADERS] = faders
-        .try_into()
-        .unwrap_or_else(|v: Vec<FaderSpec>| panic!("page {name:?} has {} faders", v.len()));
+/// A page's array of faders is `FADERS` wide by construction — the
+/// parameter says so directly, so there is nothing left for this
+/// function to get wrong at runtime the way a `Vec::try_into` would be
+/// able to.
+fn page(name: &str, faders: [FaderSpec; FADERS]) -> Page {
     Page {
         name: name.into(),
         faders,
     }
 }
 
-/// The four pages: busking, movement, sound, colour. The slot families
-/// stay put across pages — fader four is the movers on every page that
-/// has movers — so a hand that has learned the shape is still right
-/// after a page turn.
+/// The four pages: busking, movement, sound, colour.
+///
+/// The slot families stay put across pages — fader four is the movers on
+/// every page that has movers — so a hand that has learned the shape is
+/// still right after a page turn.
 // r[impl profile.pages]
 // r[impl playback.pages]
+#[must_use]
 pub fn pages() -> Vec<Page> {
     let tap2 = Speed::Scaled {
         master: "Tap".into(),
@@ -464,7 +483,7 @@ pub fn pages() -> Vec<Page> {
     vec![
         page(
             "busking",
-            vec![
+            [
                 static_("KEY", role("Key"), "Warm White", 1.0),
                 fx("CHASE", "chase").with(Param::new("depth", 0.0, 1.0, 1.0)),
                 fx("SPARKLE", "sparkle").with(Param::new("depth", 0.0, 1.0, 1.0)),
@@ -479,7 +498,7 @@ pub fn pages() -> Vec<Page> {
         ),
         page(
             "movement",
-            vec![
+            [
                 fx("WINDMILL", "windmill").filtered(AttrFilter::POSITION),
                 fx("PAN WAVE", "pan wave").filtered(AttrFilter::POSITION),
                 fx("2 COLOUR", "two colour chase"),
@@ -492,7 +511,7 @@ pub fn pages() -> Vec<Page> {
         ),
         page(
             "sound",
-            vec![
+            [
                 sound("KEY MID", role("Key"), Band::Mid, 0.0, 0.3, true),
                 sound("WASH MID", role("Wash"), Band::Mid, 0.0, 0.5, true),
                 sparkle_on("SPARK HI", Band::High),
@@ -505,7 +524,7 @@ pub fn pages() -> Vec<Page> {
         ),
         page(
             "colour",
-            vec![
+            [
                 fx("2 COLOUR", "two colour chase").filtered(AttrFilter::COLOUR),
                 fx("RAINBOW", "rainbow").filtered(AttrFilter::COLOUR),
                 fx("WIPE", "colour wipe").filtered(AttrFilter::COLOUR),
@@ -665,9 +684,8 @@ mod tests {
         assert!(!programmer.is_holding());
         assert!(programmer.effects_playing().is_empty());
         let out = output(&programmer, &show, 11.0);
-        assert_eq!(
-            out[&(1, Attribute::Dimmer)],
-            1.0,
+        assert!(
+            (out[&(1, Attribute::Dimmer)] - 1.0).abs() < 1e-6,
             "what was beneath shows through"
         );
     }
@@ -754,8 +772,8 @@ mod tests {
         // Every role resolves to the pars here, so the protected role
         // covers them and the safe look leaves them alone.
         let out = output(&programmer, &show, 0.0);
-        assert_eq!(out[&(1, Attribute::Dimmer)], 1.0);
-        let mut p2 = profile.clone();
+        assert!((out[&(1, Attribute::Dimmer)] - 1.0).abs() < 1e-6);
+        let mut p2 = profile;
         p2.macros
             .insert("d".into(), macro_("", vec![MacroStep::Look("bed".into())]));
         let mut runner = MacroRunner::from_profile(&p2, "d").unwrap();
@@ -886,10 +904,10 @@ mod tests {
                 match step {
                     MacroStep::Look(l) => assert!(profile.looks.contains_key(l), "{name}: {l}"),
                     MacroStep::Effect { name: e, .. } => {
-                        assert!(profile.effects.contains_key(e), "{name}: {e}")
+                        assert!(profile.effects.contains_key(e), "{name}: {e}");
                     }
                     MacroStep::Flash { kind, .. } => {
-                        assert!(crate::profile::bump_kind(kind).is_some(), "{name}: {kind}")
+                        assert!(crate::profile::bump_kind(kind).is_some(), "{name}: {kind}");
                     }
                     _ => {}
                 }
@@ -1033,7 +1051,9 @@ mod protected_from_the_show {
         match selection {
             Selection::Role(name) => out.push(name.clone()),
             Selection::Union(items) | Selection::Intersect(items) => {
-                items.iter().for_each(|s| roles_in(s, out))
+                for s in items {
+                    roles_in(s, out);
+                }
             }
             Selection::Except { of, minus } => {
                 roles_in(of, out);
@@ -1093,7 +1113,10 @@ mod protected_from_the_show {
         player.go(&show);
         player.go(&show);
         let out = player.output(&show);
-        assert_eq!(out[&(1, Attribute::Dimmer)], 0.0, "the stage went to black");
+        assert!(
+            out[&(1, Attribute::Dimmer)].abs() < 1e-6,
+            "the stage went to black"
+        );
         assert!((out[&(9, Attribute::Dimmer)] - 0.3).abs() < 1e-6, "{out:?}");
 
         // The end macro's blackout, folded on top, leaves it too.
@@ -1106,7 +1129,7 @@ mod protected_from_the_show {
         programmer.set_now(10.0);
         runner.tick(&mut programmer, &mut playbacks, &profile, &show);
         assert!(runner.finished());
-        let mut folded: HashMap<(ChanId, Attribute), f32> = out.clone();
+        let mut folded: HashMap<(ChanId, Attribute), f32> = out;
         programmer.apply_to(&mut folded, &show, 30.0);
         assert!(
             (folded[&(9, Attribute::Dimmer)] - 0.3).abs() < 1e-6,
@@ -1117,7 +1140,7 @@ mod protected_from_the_show {
         stage.insert((1, Attribute::Dimmer), 1.0);
         stage.insert((9, Attribute::Dimmer), 0.3);
         programmer.apply_to(&mut stage, &show, 30.0);
-        assert_eq!(stage[&(1, Attribute::Dimmer)], 0.0);
+        assert!(stage[&(1, Attribute::Dimmer)].abs() < 1e-6);
         assert!((stage[&(9, Attribute::Dimmer)] - 0.3).abs() < 1e-6);
     }
 }

@@ -24,7 +24,7 @@
 //! owns the movement. A cue that left the wash dark shows nothing —
 //! these are effects, not looks.
 
-use super::*;
+use super::{Add, Attribute, Put, Recipe, RecipeApply, Speed, Step, Timing, role};
 use ignition_show::canvas::{
     BitmapChannel, CanvasPlane, CanvasRecipe, Procedural, Quantity, Travel,
 };
@@ -74,11 +74,18 @@ fn picture(source: Procedural, measure: f32, low: f32) -> Recipe {
     }
 }
 
-pub fn add(add: &mut dyn FnMut(&str, &str, &str, Recipe)) {
+pub fn add(add: Add) {
+    let mut put = |name: &str, about: &str, recipe: Recipe| add(name, FAMILY, about, recipe);
+    add_snakes(&mut put);
+    add_rain(&mut put);
+    add_flat(&mut put);
+}
+
+/// The snake picture, at its three speeds and axes.
+fn add_snakes(add: Put) {
     // ── Snakes ───────────────────────────────────────────────────────
     add(
         "wall snake",
-        FAMILY,
         "a head crawling a serpentine path across the wash with a fading tail — the matrix move, for a bridge or a breakdown that needs one thing happening",
         picture(
             Procedural::Snake {
@@ -93,7 +100,6 @@ pub fn add(add: &mut dyn FnMut(&str, &str, &str, Recipe)) {
     );
     add(
         "wall snake climb",
-        FAMILY,
         "the same snake weaving up the columns instead of across the rows — reads as a climb on a rig with height, as a slow chase on one without",
         picture(
             Procedural::Snake {
@@ -108,7 +114,6 @@ pub fn add(add: &mut dyn FnMut(&str, &str, &str, Recipe)) {
     );
     add(
         "wall snake fast",
-        FAMILY,
         "a short-tailed snake at a bar a lap — a last-chorus move, too busy for a verse",
         picture(
             Procedural::Snake {
@@ -121,11 +126,13 @@ pub fn add(add: &mut dyn FnMut(&str, &str, &str, Recipe)) {
             -0.9,
         ),
     );
+}
 
+/// The rain picture, light and heavy.
+fn add_rain(add: Put) {
     // ── Rain ─────────────────────────────────────────────────────────
     add(
         "wall rain",
-        FAMILY,
         "drops falling down each column on its own offset — weather rather than a chase, and the one effect that reads as *down* on a tower wall",
         picture(
             Procedural::Rain {
@@ -140,7 +147,6 @@ pub fn add(add: &mut dyn FnMut(&str, &str, &str, Recipe)) {
     );
     add(
         "wall rain heavy",
-        FAMILY,
         "the same rain twice as fast with more columns and a shorter tail — a downpour, for a drop or a breakdown's last bar",
         picture(
             Procedural::Rain {
@@ -153,11 +159,14 @@ pub fn add(add: &mut dyn FnMut(&str, &str, &str, Recipe)) {
             -0.9,
         ),
     );
+}
 
+/// The flat wipe, band and sparkle pictures — the ones that read on any
+/// wall, tall or flat.
+fn add_flat(add: Put) {
     // ── The flat ones, which read on any wall ────────────────────────
     add(
         "wall wipe",
-        FAMILY,
         "one soft bar crossing the wash bottom to top — the simplest thing a wall can do that a row cannot",
         picture(
             Procedural::Wipe {
@@ -171,7 +180,6 @@ pub fn add(add: &mut dyn FnMut(&str, &str, &str, Recipe)) {
     );
     add(
         "wall bands",
-        FAMILY,
         "three horizontal bands scrolling up the wash — a slow riser under a pre-chorus",
         picture(
             Procedural::Band {
@@ -186,7 +194,6 @@ pub fn add(add: &mut dyn FnMut(&str, &str, &str, Recipe)) {
     );
     add(
         "wall sparkle",
-        FAMILY,
         "cells lighting at random across the wall and fading — a texture, not a move; safe under a verse",
         picture(
             Procedural::Sparkle {
@@ -202,6 +209,7 @@ pub fn add(add: &mut dyn FnMut(&str, &str, &str, Recipe)) {
 
 #[cfg(test)]
 mod tests {
+    use super::super::float_of;
     use super::*;
     use std::collections::BTreeMap;
 
@@ -297,9 +305,9 @@ mod tests {
                     chan,
                     placement: Some(Placement {
                         position: Vec3 {
-                            x: x as f64,
+                            x: f64::from(x),
                             y: 0.0,
-                            z: z as f64,
+                            z: f64::from(z),
                         },
                         orientation: Quat {
                             w: 1.0,
@@ -342,8 +350,8 @@ mod tests {
         );
 
         let mut visited = std::collections::BTreeSet::new();
-        for i in 0..48 {
-            visited.insert(head_at(lap * i as f32 / 48.0));
+        for i in 0..48_usize {
+            visited.insert(head_at(lap * float_of(i) / 48.0));
         }
         assert!(
             visited.len() >= 8,

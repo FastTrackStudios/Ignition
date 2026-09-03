@@ -39,7 +39,10 @@ pub struct SoundLevels {
 /// said nothing about which knob was which. `Default` is "the show as
 /// written, from the top", and a caller names only the fields it means to
 /// change.
-#[derive(Debug, Clone, Default)]
+// All fields are `Option` of a reference or a `Copy` scalar, so the
+// struct itself is `Copy` — `load` takes it by value, and this is what
+// stops clippy asking for a reference instead.
+#[derive(Debug, Clone, Copy, Default)]
 pub struct LoadOptions<'a> {
     /// A cue list file — the top layer of the cascade. Mutually exclusive
     /// with `recipes`.
@@ -267,9 +270,9 @@ impl Playback {
         let lights_itself = recipes.iter().any(|(_, r)| states_intensity(r));
         let targets: Vec<ignition_core::Selection> =
             recipes.iter().map(|(_, r)| r.target.clone()).collect();
-        let all = match targets.len() {
-            0 => ignition_core::Selection::Group("All".to_string()),
-            1 => targets.into_iter().next().expect("one target"),
+        let all = match targets.as_slice() {
+            [] => ignition_core::Selection::Group("All".to_string()),
+            [one] => one.clone(),
             _ => ignition_core::Selection::Union(targets),
         };
         let all_aim = all.clone();
@@ -444,6 +447,16 @@ impl Playback {
     // r[impl cues.seek] - `--bar` seeks the player to a musical position
     // r[impl effects.masters.song] - `--bpm` seeds the Song master when no transport is present
     // r[impl song.relative-position.resolved-on-load] - positions resolve against the song map here
+    /// # Errors
+    ///
+    /// If the show's own files (library, cue list, song map) can't be
+    /// read or don't parse.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one straight-line show-load sequence (library, tricks, cue list, \
+                  seek, cook report) with tight borrow choreography between steps; \
+                  splitting it would scatter that borrow reasoning across helpers"
+    )]
     pub fn load(venue: &Venue, options: LoadOptions<'_>) -> anyhow::Result<Self> {
         let LoadOptions {
             cuelist,
@@ -523,12 +536,11 @@ impl Playback {
                 for problem in ignition_core::unresolved(&list.cues, &show) {
                     let key = problem
                         .split_once(": ")
-                        .map(|(_, rest)| rest.to_string())
-                        .unwrap_or_else(|| problem.clone());
+                        .map_or_else(|| problem.clone(), |(_, rest)| rest.to_string());
                     if seen.insert(key.clone()) {
                         tracing::warn!(
                             "{key} (first in {})",
-                            problem.split_once(": ").map(|(c, _)| c).unwrap_or("")
+                            problem.split_once(": ").map_or("", |(c, _)| c)
                         );
                     }
                 }
@@ -594,22 +606,19 @@ impl Playback {
             // `--bar` addresses the show the way it is written; `--cue`
             // addresses the list. Both end in the same place, which is
             // the point of positioned cues.
-            match bar {
-                Some(bar) => {
-                    player.seek(Bars::bar(bar), &show);
-                    println!("bar {bar} -> {:?}", player.current_name());
-                    // A still of a hit: land just before the bar and
-                    // step onto it, so a trigger exactly on the bar
-                    // fires at clock zero and `--time` names how far
-                    // into its envelope the picture is taken.
-                    triggers.locate(Bars::new(bar.saturating_sub(1).max(1), 4.99));
-                    triggers.advance(Bars::bar(bar), 0.0);
-                }
-                None => {
-                    let index = jump_to_cue.unwrap_or(0);
-                    player.jump_to_end_of(index, &show);
-                    tracing::info!(cue = index, name = ?player.current_name(), "cue ->");
-                }
+            if let Some(bar) = bar {
+                player.seek(Bars::bar(bar), &show);
+                println!("bar {bar} -> {:?}", player.current_name());
+                // A still of a hit: land just before the bar and
+                // step onto it, so a trigger exactly on the bar
+                // fires at clock zero and `--time` names how far
+                // into its envelope the picture is taken.
+                triggers.locate(Bars::new(bar.saturating_sub(1).max(1), 4.99));
+                triggers.advance(Bars::bar(bar), 0.0);
+            } else {
+                let index = jump_to_cue.unwrap_or(0);
+                player.jump_to_end_of(index, &show);
+                tracing::info!(cue = index, name = ?player.current_name(), "cue ->");
             }
         }
         // `show` borrows `groups`, which the struct below takes
@@ -689,6 +698,11 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path, what: &str) -> anyhow:
 // r[impl cues.fade-is-wall-time] - `tick(dt)` advances fades in real seconds; a frozen still uses `set_clock` so the show clock moves without the fades
 // r[impl triggers.retire] - flashes are retired after the frame that read them
 // r[impl effects.bump.is-not-held] - a flash is a one-shot that retires itself
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T>/ResMut<T> are Bevy SystemParams and must be taken by value for \
+              this to run as a system; the fn only borrows what they wrap"
+)]
 pub fn tick_playback(
     time: Res<Time>,
     venue: Res<VenueRes>,
@@ -831,9 +845,11 @@ pub fn tick_playback(
 }
 
 /// The colour intent each fixture is meant to show, across the stack:
+///
 /// every enabled player's intents in class order, so the Song's colour
 /// is what a fixture gets unless a later class (a look) names its own.
 // r[impl color.intent-to-output] - the intent survives to the output stage
+#[must_use]
 pub fn output_intents(
     playbacks: &Playbacks,
     show: &Show<'_>,
@@ -855,6 +871,11 @@ const TAP_TIMEOUT: f32 = 3.0;
 /// The operator keys. Space is GO, the way it is on every console.
 // r[impl effects.masters.tap] - four taps retune the `Tap` master
 // r[impl cues.seek] - stepping back re-runs the list from the top to the target
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T>/ResMut<T> are Bevy SystemParams and must be taken by value for \
+              this to run as a system; the fn only borrows what they wrap"
+)]
 pub fn operator_keys(
     keys: Res<ButtonInput<KeyCode>>,
     venue: Res<VenueRes>,
@@ -900,7 +921,7 @@ pub fn operator_keys(
         if let (Some(first), Some(last)) = (taps.first(), taps.last())
             && taps.len() > 1
         {
-            let interval = (last - first) / (taps.len() - 1) as f32;
+            let interval = (last - first) / crate::num::f32_of_usize(taps.len().saturating_sub(1));
             if interval > 0.05 {
                 let bpm = 60.0 / interval;
                 info!("tap tempo -> {bpm:.1} BPM");
@@ -970,11 +991,10 @@ mod accent_tests {
     // r[verify triggers.crossing-fires]
     #[test]
     fn a_figure_changes_the_look_it_lands_on() {
-        let venue = match Venue::load("../../data/venues/norco") {
-            Ok(v) => v,
-            // The venue is repo data; if a test runner has no working
-            // directory pointing at it, skip rather than fail.
-            Err(_) => return,
+        // The venue is repo data; if a test runner has no working
+        // directory pointing at it, skip rather than fail.
+        let Ok(venue) = Venue::load("../../data/venues/norco") else {
+            return;
         };
         let list: CueList = match std::fs::read_to_string("../../data/songs/bye-bye-bye.json")
             .ok()

@@ -35,6 +35,7 @@ use ignition_core::{Bars, CueList as CoreList, Selection};
 /// resolves is worse than one that admits it does not know.
 // r[impl cues.cooked-status]
 // r[impl studio.cuelist.status]
+#[must_use]
 pub fn rows(list: &CoreList, show: Option<&Show<'_>>) -> Vec<Row> {
     let cooked = show.map(|s| cook_list(&list.cues, s, 0.0));
     // `(position, is a cue, row)` — sorted by position, cues before the
@@ -234,7 +235,7 @@ fn status_of(cook: &ignition_core::recipe::CueCook) -> CookStatus {
             Status::Failed => CookState::Failed,
             Status::Mixed => CookState::Mixed,
             Status::Direct => CookState::Direct,
-            _ => CookState::Empty,
+            Status::Empty => CookState::Empty,
         },
         covers: cook
             .recipes
@@ -291,8 +292,8 @@ fn class_cells(t: &ignition_core::cue::CueTiming) -> Vec<ClassCell> {
             class: "dim".to_string(),
             value: format!(
                 "{}↑ {}↓",
-                a.map(beats).unwrap_or_else(|| "–".into()),
-                b.map(beats).unwrap_or_else(|| "–".into())
+                a.map_or_else(|| "–".into(), beats),
+                b.map_or_else(|| "–".into(), beats)
             ),
             ease: None,
         }),
@@ -325,8 +326,10 @@ fn target_of(s: &Selection) -> String {
         Selection::Role(r) => format!("role {r}"),
         Selection::Tag(t) => format!("#{t}"),
         Selection::Model(m) => format!("model {m}"),
-        Selection::Chans(c) if c.len() == 1 => format!("chan {}", c[0]),
-        Selection::Chans(c) => format!("{} chans", c.len()),
+        Selection::Chans(c) => match c.as_slice() {
+            [only] => format!("chan {only}"),
+            _ => format!("{} chans", c.len()),
+        },
         Selection::Union(parts) => parts.iter().map(target_of).collect::<Vec<_>>().join(" + "),
         Selection::Intersect(parts) => parts.iter().map(target_of).collect::<Vec<_>>().join(" ∩ "),
         other => {
@@ -360,7 +363,7 @@ fn position_of(p: &ignition_core::Position) -> String {
             match (*n, *beat) {
                 (0, b) if (b - 1.0).abs() < 1e-6 => head,
                 (n, b) if (b - 1.0).abs() < 1e-6 => format!("{head} +{n}"),
-                (n, b) => format!("{head} +{n}.{}", (b as f32 * 10.0).round() as u32 % 10),
+                (n, b) => format!("{head} +{n}.{}", crate::numeric::tenths(b * 10.0)),
             }
         }
     }
@@ -370,7 +373,7 @@ fn section_name(section: &str, ordinal: usize) -> String {
     if ordinal == 0 {
         section.to_string()
     } else {
-        format!("{section} {}", ordinal + 1)
+        format!("{section} {}", ordinal.saturating_add(1))
     }
 }
 
@@ -378,7 +381,11 @@ fn bars(b: &Bars) -> String {
     if (b.beat - 1.0).abs() < 1e-6 {
         format!("{}", b.bar)
     } else {
-        format!("{}.{}", b.bar, ((b.beat - 1.0) * 10.0).round() as u32)
+        format!(
+            "{}.{}",
+            b.bar,
+            crate::numeric::tenths((b.beat - 1.0) * 10.0)
+        )
     }
 }
 
@@ -386,7 +393,7 @@ fn bars(b: &Bars) -> String {
 /// 5.5.
 fn number(n: f32) -> String {
     if (n - n.round()).abs() < 1e-4 {
-        format!("{}", n.round() as i64)
+        format!("{}", crate::numeric::rounded_i64(n))
     } else {
         format!("{n}")
     }
@@ -402,7 +409,7 @@ fn secs(s: f32) -> String {
 
 fn beats(b: f32) -> String {
     if (b - b.round()).abs() < 1e-4 {
-        format!("{}", b.round() as i64)
+        format!("{}", crate::numeric::rounded_i64(b))
     } else {
         format!("{b:.1}")
     }
@@ -561,14 +568,14 @@ pub fn CueList(cues: Vec<Row>, #[props(default)] preset: Preset) -> Element {
                                         }
                                         // r[impl studio.cuelist.status]
                                         span {
-                                            class: match cue.status {
-                                                Some(s) => format!("dot {}", s.state.css()),
-                                                None => "dot unknown".to_string(),
-                                            },
-                                            title: match cue.status {
-                                                Some(s) => s.state.label().to_string(),
-                                                None => "not cooked against a rig".to_string(),
-                                            },
+                                            class: cue.status.map_or_else(
+                                                || "dot unknown".to_string(),
+                                                |s| format!("dot {}", s.state.css()),
+                                            ),
+                                            title: cue.status.map_or_else(
+                                                || "not cooked against a rig".to_string(),
+                                                |s| s.state.label().to_string(),
+                                            ),
                                         }
                                         if program && !cue.parts.is_empty() {
                                             button {

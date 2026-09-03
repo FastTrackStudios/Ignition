@@ -52,12 +52,13 @@ pub enum Kind {
 
 impl Kind {
     /// The name an operator sees.
-    pub fn label(self) -> &'static str {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
         match self {
-            Kind::Level => "bump",
-            Kind::White => "white",
-            Kind::ColorBoost => "boost",
-            Kind::Burst => "burst",
+            Self::Level => "bump",
+            Self::White => "white",
+            Self::ColorBoost => "boost",
+            Self::Burst => "burst",
         }
     }
 }
@@ -86,6 +87,7 @@ const _: () = assert!(FALL_BEATS < 0.5);
 // r[impl effects.bump.is-not-held]
 // r[impl effects.bump.fall-beats]
 // r[impl recipes.one-shot]
+#[must_use]
 pub fn bump(target: Selection, kind: Kind, depth: f32) -> Recipe {
     let depth = depth.clamp(0.0, 1.0);
     Recipe {
@@ -248,8 +250,7 @@ mod tests {
                     step.apply
                         .iter()
                         .all(|a| matches!(a, RecipeApply::Delta(_))),
-                    "{:?} is not relative",
-                    kind
+                    "{kind:?} is not relative"
                 );
             }
         }

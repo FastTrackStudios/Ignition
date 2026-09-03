@@ -42,14 +42,16 @@ pub const SOURCE: &str = "gdtf";
 /// The rotation that takes a glTF scene (Y-up) into GDTF's frame
 /// (Z-up): `(x, y, z) -> (x, -z, y)`, a quarter turn about X. The same
 /// map `gdtf_mesh::y_up_to_z_up` applies to the file's bounds.
+#[must_use]
 pub fn gltf_to_gdtf() -> Quat {
     Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)
 }
 
-/// The asset path of `models/gltf/<file>.glb` inside `gdtf_file`, as
-/// the scene the loader spawns. `gdtf_file` is made absolute, so the
-/// path means the same thing whatever the process's working directory
-/// is when the load finally runs.
+/// The asset path of `models/gltf/<file>.glb` inside `gdtf_file`, as the
+/// scene the loader spawns.
+///
+/// `gdtf_file` is made absolute, so the path means the same thing whatever
+/// the process's working directory is when the load finally runs.
 ///
 /// The archive's absolute path is carried **without its root** (`run/
 /// media/.../x.gdtf`, not `/run/media/...`): the asset server refuses a
@@ -57,6 +59,7 @@ pub fn gltf_to_gdtf() -> Quat {
 /// right rule for a path read out of a scene file and beside the point
 /// for a source whose every path is one of the profile library's own.
 /// [`GdtfZipReader::split`] puts the root back.
+#[must_use]
 pub fn model_scene_path(gdtf_file: &Path, file: &str) -> AssetPath<'static> {
     let abs = std::fs::canonicalize(gdtf_file).unwrap_or_else(|_| gdtf_file.to_path_buf());
     let rootless: PathBuf = abs
@@ -76,9 +79,10 @@ pub struct GdtfZipReader;
 impl GdtfZipReader {
     /// `a/b/x.gdtf/models/gltf/Body.glb` -> (`/a/b/x.gdtf`, `models/gltf/Body.glb`)
     /// — the archive path is absolute again (see [`model_scene_path`]).
+    #[must_use]
     pub fn split(path: &Path) -> Option<(PathBuf, String)> {
         let mut archive = PathBuf::from("/");
-        let mut components = path.components().peekable();
+        let mut components = path.components();
         while let Some(c) = components.next() {
             archive.push(c);
             if archive.extension().and_then(|e| e.to_str()) == Some("gdtf") {
@@ -93,6 +97,11 @@ impl GdtfZipReader {
     /// Reads one entry of one archive into memory. Synchronous: a model
     /// is a few hundred kilobytes and the asset server already runs its
     /// loaders on the IO task pool.
+    ///
+    /// # Errors
+    ///
+    /// If `path` doesn't name a `gdtf://`-shaped entry, the archive can't
+    /// be opened, or the named entry isn't in it.
     pub fn read_entry(path: &Path) -> Result<Vec<u8>, AssetReaderError> {
         let Some((archive, entry)) = Self::split(path) else {
             return Err(AssetReaderError::NotFound(path.to_path_buf()));
@@ -108,7 +117,12 @@ impl GdtfZipReader {
             }
             Err(e) => return Err(io(std::io::Error::other(format!("{entry}: {e}")))),
         };
-        let mut bytes = Vec::with_capacity(item.size() as usize);
+        // Widening a size hint: on a 32-bit target a zip entry could in
+        // principle overflow `usize`, but this is only a `with_capacity`
+        // hint, so falling back to no pre-reservation rather than an
+        // audited-but-wrong cast is the safe answer — `read_to_end` below
+        // still grows the buffer to fit whatever the entry actually is.
+        let mut bytes = Vec::with_capacity(usize::try_from(item.size()).unwrap_or(0));
         item.read_to_end(&mut bytes).map_err(io)?;
         Ok(bytes)
     }
@@ -215,21 +229,20 @@ pub fn adopt_scene_materials(
         if body.owns(handle) {
             continue;
         }
-        let clone = match body.parts.iter().find(|p| p.source == handle.id()) {
-            Some(part) => part.material.clone(),
-            None => {
-                let Some(source) = materials.get(handle).cloned() else {
-                    continue;
-                };
-                let base_emissive = source.emissive;
-                let clone = materials.add(source);
-                body.parts.push(PartMaterial {
-                    source: handle.id(),
-                    material: clone.clone(),
-                    base_emissive,
-                });
-                clone
-            }
+        let clone = if let Some(part) = body.parts.iter().find(|p| p.source == handle.id()) {
+            part.material.clone()
+        } else {
+            let Some(source) = materials.get(handle).cloned() else {
+                continue;
+            };
+            let base_emissive = source.emissive;
+            let clone = materials.add(source);
+            body.parts.push(PartMaterial {
+                source: handle.id(),
+                material: clone.clone(),
+                base_emissive,
+            });
+            clone
         };
         commands.entity(mesh).insert(MeshMaterial3d(clone));
     }
@@ -252,8 +265,9 @@ impl Plugin for GdtfAssetsPlugin {
 
 /// The three numbers the importer reads off a `<Geometry>` and hands
 /// straight back: `lo..hi` is the model's unscaled extent in GDTF's frame,
-/// `scale` the per-axis fit to the `<Model>` dimensions. They travel
-/// together because they are only ever meaningful together.
+/// `scale` the per-axis fit to the `<Model>` dimensions.
+///
+/// They travel together because they are only ever meaningful together.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ModelFit {
     pub lo: Vec3,
@@ -280,6 +294,15 @@ pub fn spawn_model(
     fit: ModelFit,
 ) {
     let ModelFit { lo, hi, scale } = fit;
+    // `Vec3`'s `Add`/`Mul` are float, component-wise, and cannot panic or
+    // overflow — `arithmetic_side_effects` fires on any operator-
+    // overloaded type, not just the primitive integers the lint is
+    // really about (see docs/ops/clippy.md and
+    // `gdtf_mesh.rs::walk_bounds`'s identical suppression).
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3 arithmetic is float, component-wise, and cannot panic or overflow"
+    )]
     let centre = (lo + hi) * 0.5 * scale;
     let placeholder = commands
         .spawn((
@@ -358,6 +381,13 @@ pub(crate) mod test_support {
     pub fn load_gltf(app: &mut App, scene_path: &str) -> LoadedGltf {
         let path: AssetPath<'static> = AssetPath::parse(scene_path).without_label().clone_owned();
         let handle: Handle<Gltf> = app.world().resource::<AssetServer>().load(path);
+        // `Instant + Duration` can in principle panic on overflow, but ten
+        // seconds past "now" is nowhere near `Instant`'s range on any
+        // clock this test will ever run on.
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "ten seconds past now never overflows Instant in practice"
+        )]
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         loop {
             app.update();
@@ -376,7 +406,10 @@ pub(crate) mod test_support {
         LoadedGltf {
             meshes: gltf.meshes.len(),
             materials: gltf.materials.len(),
-            scenes: gltf.scenes.len() + usize::from(gltf.default_scene.is_some()),
+            scenes: gltf
+                .scenes
+                .len()
+                .saturating_add(usize::from(gltf.default_scene.is_some())),
         }
     }
 }

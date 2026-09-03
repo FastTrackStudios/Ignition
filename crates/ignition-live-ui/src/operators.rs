@@ -38,34 +38,35 @@ impl Kind {
     /// Every kind, in library-tab order (the Library panel iterates its
     /// own tab list; tests use this one).
     #[cfg_attr(not(test), allow(dead_code))]
-    pub const ALL: [Kind; 8] = [
-        Kind::Effect,
-        Kind::Look,
-        Kind::Macro,
-        Kind::Trick,
-        Kind::Bundle,
-        Kind::Colour,
-        Kind::Focus,
-        Kind::Group,
+    pub const ALL: [Self; 8] = [
+        Self::Effect,
+        Self::Look,
+        Self::Macro,
+        Self::Trick,
+        Self::Bundle,
+        Self::Colour,
+        Self::Focus,
+        Self::Group,
     ];
 
     /// The tab label — short, because it is a touch tab.
-    pub fn label(self) -> &'static str {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
         match self {
-            Kind::Effect => "Effects",
-            Kind::Look => "Looks",
-            Kind::Macro => "Macros",
-            Kind::Trick => "Tricks",
-            Kind::Bundle => "Bundles",
-            Kind::Colour => "Colours",
-            Kind::Focus => "Focus",
-            Kind::Group => "Groups",
+            Self::Effect => "Effects",
+            Self::Look => "Looks",
+            Self::Macro => "Macros",
+            Self::Trick => "Tricks",
+            Self::Bundle => "Bundles",
+            Self::Colour => "Colours",
+            Self::Focus => "Focus",
+            Self::Group => "Groups",
         }
     }
 }
 
 /// Per-kind shortcut sets over the profile, in the operator's order.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Favourites {
     #[serde(default)]
     pub effects: Vec<String>,
@@ -86,7 +87,8 @@ pub struct Favourites {
 }
 
 impl Favourites {
-    pub fn of(&self, kind: Kind) -> &Vec<String> {
+    #[must_use]
+    pub const fn of(&self, kind: Kind) -> &Vec<String> {
         match kind {
             Kind::Effect => &self.effects,
             Kind::Look => &self.looks,
@@ -99,7 +101,7 @@ impl Favourites {
         }
     }
 
-    pub fn of_mut(&mut self, kind: Kind) -> &mut Vec<String> {
+    pub const fn of_mut(&mut self, kind: Kind) -> &mut Vec<String> {
         match kind {
             Kind::Effect => &mut self.effects,
             Kind::Look => &mut self.looks,
@@ -113,6 +115,7 @@ impl Favourites {
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
+    #[must_use]
     pub fn is_favourite(&self, kind: Kind, name: &str) -> bool {
         self.of(kind).iter().any(|n| n == name)
     }
@@ -138,14 +141,19 @@ impl Favourites {
         let Some(from) = list.iter().position(|n| n == name) else {
             return;
         };
-        let to = (from as isize + by).clamp(0, list.len() as isize - 1) as usize;
+        let end = list.len().saturating_sub(1);
+        let to = if by.is_negative() {
+            from.saturating_sub(by.unsigned_abs())
+        } else {
+            from.saturating_add(by.unsigned_abs()).min(end)
+        };
         let item = list.remove(from);
         list.insert(to, item);
     }
 }
 
 /// The keys this module owns in an operator file.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Operator {
     #[serde(default)]
     pub name: String,
@@ -170,6 +178,7 @@ fn default_view() -> String {
 }
 
 /// Which operator is at the desk: `IGNITION_OPERATOR`, else `cody`.
+#[must_use]
 pub fn current_name() -> String {
     std::env::var("IGNITION_OPERATOR").unwrap_or_else(|_| "cody".to_string())
 }
@@ -180,6 +189,7 @@ pub const DIR: &str = "data/operators";
 
 /// Where an operator's file lives.
 #[cfg_attr(not(test), allow(dead_code))]
+#[must_use]
 pub fn path_of(name: &str) -> PathBuf {
     path_in(std::path::Path::new(DIR), name)
 }
@@ -191,6 +201,7 @@ fn path_in(dir: &std::path::Path, name: &str) -> PathBuf {
 impl Operator {
     /// The shipped starter: a spread of effects across the families, every
     /// look and macro, the tricks and colours a busk reaches for first.
+    #[must_use]
     pub fn starter(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -218,15 +229,15 @@ impl Operator {
                     "strobe riser",
                 ]
                 .iter()
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
                 .collect(),
                 looks: ["verse bed", "chorus full", "punt", "blackout"]
                     .iter()
-                    .map(|s| s.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect(),
                 macros: ["drop", "build 8", "breakdown", "end"]
                     .iter()
-                    .map(|s| s.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect(),
                 tricks: [
                     "odds",
@@ -239,7 +250,7 @@ impl Operator {
                     "four wings",
                 ]
                 .iter()
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
                 .collect(),
                 bundles: Vec::new(),
                 colours: [
@@ -253,7 +264,7 @@ impl Operator {
                     "Congo",
                 ]
                 .iter()
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
                 .collect(),
                 focus: Vec::new(),
                 groups: Vec::new(),
@@ -267,9 +278,10 @@ impl Operator {
     /// The operator from a file's loose JSON — only this module's keys.
     /// A key that will not parse falls back to its default rather than
     /// taking the operator down with it.
+    #[must_use]
     pub fn from_value(name: &str, value: &serde_json::Value) -> Self {
-        let mut op: Operator = serde_json::from_value(value.clone()).unwrap_or_else(|_| {
-            let mut op = Operator::starter(name);
+        let mut op: Self = serde_json::from_value(value.clone()).unwrap_or_else(|_| {
+            let mut op = Self::starter(name);
             op.favourites = value
                 .get("favourites")
                 .and_then(|f| serde_json::from_value(f.clone()).ok())
@@ -283,54 +295,83 @@ impl Operator {
     }
 
     /// Load `name`'s file, or the starter when there is none.
+    #[must_use]
     pub fn load(name: &str) -> Self {
         Self::load_from(std::path::Path::new(DIR), name)
     }
 
     /// `load`, from a directory other than the shipped one.
+    #[must_use]
     pub fn load_from(dir: &std::path::Path, name: &str) -> Self {
-        match std::fs::read_to_string(path_in(dir, name)) {
-            Ok(raw) => match serde_json::from_str::<serde_json::Value>(&raw) {
+        std::fs::read_to_string(path_in(dir, name)).map_or_else(
+            |_| Self::starter(name),
+            |raw| match serde_json::from_str::<serde_json::Value>(&raw) {
                 Ok(value) => Self::from_value(name, &value),
                 Err(error) => {
                     tracing::warn!(name, %error, "operator file does not parse; using the starter");
                     Self::starter(name)
                 }
             },
-            Err(_) => Self::starter(name),
-        }
+        )
     }
 
     /// The operator at the desk.
+    #[must_use]
     pub fn current() -> Self {
         Self::load(&current_name())
     }
 
     /// Write this module's keys into the file, keeping every other key
     /// (`windows`, anything a later module adds) as it was.
+    ///
+    /// # Errors
+    ///
+    /// Whatever `save_to` returns.
     pub fn save(&self) -> std::io::Result<()> {
         self.save_to(std::path::Path::new(DIR))
     }
 
     /// `save`, into a directory other than the shipped one.
+    ///
+    /// # Panics
+    ///
+    /// Never: a serialisation failure (which an `Operator` cannot
+    /// actually produce — every field is a plain string, bool or list)
+    /// is logged and leaves the file with its previous contents rather
+    /// than panicking.
+    ///
+    /// # Errors
+    ///
+    /// The directory cannot be created, or the file cannot be written.
     pub fn save_to(&self, dir: &std::path::Path) -> std::io::Result<()> {
         let path = path_in(dir, &self.name);
         let mut value = std::fs::read_to_string(&path)
             .ok()
             .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-            .unwrap_or_else(|| serde_json::Value::Object(Default::default()));
-        let mine = serde_json::to_value(self).expect("an operator serialises");
-        if let (Some(into), Some(from)) = (value.as_object_mut(), mine.as_object()) {
-            for (k, v) in from {
-                into.insert(k.clone(), v.clone());
+            .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::default()));
+        match serde_json::to_value(self) {
+            Ok(mine) => {
+                if let (Some(into), Some(from)) = (value.as_object_mut(), mine.as_object()) {
+                    for (k, v) in from {
+                        into.insert(k.clone(), v.clone());
+                    }
+                } else {
+                    value = mine;
+                }
             }
-        } else {
-            value = mine;
+            Err(error) => {
+                tracing::error!(
+                    %error,
+                    "operator failed to serialise; the file keeps its previous contents"
+                );
+            }
         }
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        std::fs::write(&path, serde_json::to_string_pretty(&value).expect("json"))
+        let text = serde_json::to_string_pretty(&value)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+        std::fs::write(&path, text)
     }
 }
 

@@ -46,9 +46,10 @@ pub enum Subject {
 }
 
 impl Subject {
+    #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Subject::Effect(n) | Subject::Look(n) | Subject::Macro(n) => n,
+            Self::Effect(n) | Self::Look(n) | Self::Macro(n) => n,
         }
     }
 }
@@ -90,6 +91,42 @@ fn loop_secs(playback: &Playback, name: &str, bpm: f32) -> f32 {
     }
 }
 
+/// How many frames to render for `subject`, and how much show time to
+/// advance between them — a look holds still, a macro gets a flat four
+/// seconds since only its own runner knows its real length, and an
+/// effect gets exactly one loop at the rig's tempo.
+fn frame_plan(
+    headless: &mut Headless,
+    subject: &Subject,
+    requested_frames: u32,
+    bpm: f32,
+) -> (u32, Duration) {
+    match subject {
+        Subject::Look(_) => (1, Duration::ZERO),
+        // A macro's length is its own programme's, which only the
+        // runner knows as it goes. Four seconds of it is enough to
+        // read, and the loop simply restarts wherever it got to.
+        Subject::Macro(_) => {
+            let frames = requested_frames.max(1);
+            (
+                frames,
+                Duration::from_secs_f32(4.0 / crate::num::f32_of_u32(frames)),
+            )
+        }
+        Subject::Effect(n) => {
+            let world = headless.subapps.main.world_mut();
+            let secs = world
+                .get_resource::<Playback>()
+                .map_or(2.0, |p| loop_secs(p, n, bpm));
+            let frames = requested_frames.max(1);
+            (
+                frames,
+                Duration::from_secs_f32(secs / crate::num::f32_of_u32(frames)),
+            )
+        }
+    }
+}
+
 /// Renders every subject and writes its frames under `out_dir`.
 ///
 /// A look lands at `<out_dir>/<name>.png`, matching what the Looks pane
@@ -97,6 +134,11 @@ fn loop_secs(playback: &Playback, name: &str, bpm: f32) -> f32 {
 /// per frame, because the renderer decodes an image to a single buffer
 /// and has no notion of an animated one — the pane flips the frames
 /// itself.
+///
+/// # Errors
+///
+/// If the venue, GDTF library or an effect's recipe fails to load, or a
+/// rendered frame can't be written to `out_dir`.
 pub fn run_previews(
     config: VizConfig,
     playback: Playback,
@@ -131,7 +173,7 @@ pub fn run_previews(
     //
     // The channel is bounded, so a slow disk applies backpressure to the
     // render loop instead of growing an unbounded queue of 225KB frames.
-    let (tx, writers) = writer_pool(Arc::clone(&failed));
+    let (tx, writers) = writer_pool(&failed);
     for (i, subject) in request.subjects.iter().enumerate() {
         let name = subject.name();
         // Stage it. Every subject starts from a clean rig, or the last
@@ -147,13 +189,10 @@ pub fn run_previews(
             match subject {
                 Subject::Effect(n) => playback.preview_effect(n),
                 Subject::Look(n) => playback.hold_look(n),
-                Subject::Macro(n) => match shipped.as_ref() {
-                    Some(p) => {
-                        runner = ignition_core::macros::MacroRunner::from_profile(p, n);
-                        runner.is_some()
-                    }
-                    None => false,
-                },
+                Subject::Macro(n) => shipped.as_ref().is_some_and(|p| {
+                    runner = ignition_core::macros::MacroRunner::from_profile(p, n);
+                    runner.is_some()
+                }),
             }
         };
         if !staged {
@@ -161,25 +200,7 @@ pub fn run_previews(
             continue;
         }
 
-        let (frames, dt) = match subject {
-            Subject::Look(_) => (1, Duration::ZERO),
-            // A macro's length is its own programme's, which only the
-            // runner knows as it goes. Four seconds of it is enough to
-            // read, and the loop simply restarts wherever it got to.
-            Subject::Macro(_) => (
-                request.frames.max(1),
-                Duration::from_secs_f32(4.0 / request.frames.max(1) as f32),
-            ),
-            Subject::Effect(n) => {
-                let world = headless.subapps.main.world_mut();
-                let secs = world
-                    .get_resource::<Playback>()
-                    .map(|p| loop_secs(p, n, bpm))
-                    .unwrap_or(2.0);
-                let frames = request.frames.max(1);
-                (frames, Duration::from_secs_f32(secs / frames as f32))
-            }
-        };
+        let (frames, dt) = frame_plan(&mut headless, subject, request.frames, bpm);
 
         // Settle: the exposure and the temporal passes need frames to
         // converge, and a preview taken before they have is a preview of
@@ -234,7 +255,7 @@ pub fn run_previews(
         }
         println!(
             "  [{}/{}] {name}: {frames} frame{}",
-            i + 1,
+            i.saturating_add(1),
             total,
             if frames == 1 { "" } else { "s" }
         );
@@ -256,6 +277,7 @@ pub fn run_previews(
 /// Every macro the shipped profile carries, for `--preview-macros all`.
 /// Empty when there is no profile to read, which is the same answer as
 /// "no macros" and needs no special case.
+#[must_use]
 pub fn macro_names() -> Vec<String> {
     ignition_core::Profile::load_with_authored(profile_path())
         .map(|p| p.macros.keys().cloned().collect())
@@ -300,13 +322,13 @@ fn tick_macro(
 
 /// A few threads encoding PNGs, fed by a bounded queue.
 type Frame = (PathBuf, image::RgbaImage);
-fn writer_pool(failed: Arc<AtomicBool>) -> (SyncSender<Frame>, Vec<std::thread::JoinHandle<()>>) {
+fn writer_pool(failed: &Arc<AtomicBool>) -> (SyncSender<Frame>, Vec<std::thread::JoinHandle<()>>) {
     let (tx, rx) = sync_channel::<Frame>(8);
     let rx = Arc::new(std::sync::Mutex::new(rx));
     let writers = (0..4)
         .map(|_| {
             let rx = Arc::clone(&rx);
-            let failed = Arc::clone(&failed);
+            let failed = Arc::clone(failed);
             std::thread::spawn(move || {
                 loop {
                     let Ok(guard) = rx.lock() else { return };
@@ -368,6 +390,7 @@ fn capture(
 
 /// A name as a directory: effect names carry spaces, and one nested
 /// directory per effect keeps a hundred-odd loops legible on disk.
+#[must_use]
 pub fn slug(name: &str) -> String {
     name.chars()
         .map(|c| match c {

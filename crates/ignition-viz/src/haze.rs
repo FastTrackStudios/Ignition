@@ -72,6 +72,22 @@ pub const FIRST_COMPOSITE_LAYER: usize = 8;
 /// Layers are recycled by looking at what is in use rather than by
 /// keeping a free list, because a pane can close at any time and a list
 /// that leaks a layer per closed pane grows the bitmask forever.
+///
+/// # Panics
+///
+/// Never in practice: the search range is unbounded, so it only fails to
+/// find a free layer if every `usize` up to `usize::MAX` is in use.
+#[must_use]
+// `FIRST_COMPOSITE_LAYER..` is an unbounded range over `usize` — `find`
+// only returns `None` if every value up to `usize::MAX` were in use,
+// which is not a real rig's pane count. `maybe_infinite_iter` is
+// `pedantic`'s way of flagging exactly that unboundedness; it is the
+// point of the range, not an oversight.
+#[expect(
+    clippy::expect_used,
+    clippy::maybe_infinite_iter,
+    reason = "the range is unbounded; see the comment above"
+)]
 pub fn free_composite_layer(in_use: &[usize]) -> usize {
     (FIRST_COMPOSITE_LAYER..)
         .find(|layer| !in_use.contains(layer))
@@ -104,6 +120,7 @@ pub struct HazeComposite;
 
 /// How much haze is in the room right now, as a fraction of a normally
 /// hazed room: the hazers' output, settled with the lag real haze has.
+///
 /// The operator's `--haze` dial multiplies it (`spawn::haze_density`).
 // r[impl viz.haze-is-volumetric] - the haze in the room is the hazers' settled output
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
@@ -121,10 +138,11 @@ impl Default for HazeLevel {
     }
 }
 
-/// What is left in the air with every hazer off: a room that has been
-/// hazed does not clear, and a show that never touches its hazers is
-/// lit in that residual rather than in clean air. A venue with no hazer
-/// patched at all is taken as normally hazed.
+/// What is left in the air with every hazer off: a room that has been hazed
+/// does not clear, and a show that never touches its hazers is lit in that
+/// residual rather than in clean air.
+///
+/// A venue with no hazer patched at all is taken as normally hazed.
 pub const HAZE_RESIDUAL: f32 = 0.15;
 
 /// Seconds for the haze to close most of the gap toward a hazer that
@@ -138,6 +156,7 @@ pub const HAZE_FALL_SECONDS: f32 = 12.0;
 /// The level the room is heading for: the hardest-working hazer, never
 /// below the residual, and a full room where no hazer is patched.
 // r[impl viz.haze-is-volumetric] - no hazer patched reads as a hazed room
+#[must_use]
 pub fn hazer_target(hazer_outputs: &[f32]) -> f32 {
     if hazer_outputs.is_empty() {
         return 1.0;
@@ -254,6 +273,11 @@ impl Plugin for HazePlugin {
 
 /// The haze's extinction per metre, from the same dials the fog volume
 /// is spawned with — see `spawn::VOLUMETRIC_HAZE_SCALE`.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resource it wraps"
+)]
 fn occluder_material(
     mut commands: Commands,
     settings: Res<VizSettings>,
@@ -267,13 +291,14 @@ fn occluder_material(
     commands.insert_resource(OccluderMaterialHandle(handle));
 }
 
-/// Bevy's per-pixel ray-start jitter on the haze camera, in metres. At
-/// 128 steps across a thirty-metre house a step is a quarter of a metre,
-/// and a wide cone seen along its axis shows every step as a ring; a
-/// jitter of about one step turns the rings into grain the bilinear
-/// upsample and bloom smooth away, and it changes with the frame
-/// (interleaved gradient noise on `frame_count`), so what is left
-/// averages out over a few frames. `IGNITION_FOG_JITTER` overrides it.
+/// Bevy's per-pixel ray-start jitter on the haze camera, in metres.
+///
+/// At 128 steps across a thirty-metre house a step is a quarter of a metre,
+/// and a wide cone seen along its axis shows every step as a ring; a jitter
+/// of about one step turns the rings into grain the bilinear upsample and
+/// bloom smooth away, and it changes with the frame (interleaved gradient
+/// noise on `frame_count`), so what is left averages out over a few frames.
+/// `IGNITION_FOG_JITTER` overrides it.
 pub const FOG_JITTER_METRES: f32 = 0.3;
 
 /// The step count `FOG_JITTER_METRES` was measured against.
@@ -303,6 +328,7 @@ pub const FOG_JITTER_REFERENCE_STEPS: f32 = 128.0;
 ///
 /// `IGNITION_FOG_JITTER` still forces a fixed value, for measuring.
 // r[impl viz.quality-presets] - the dither follows the march and the stretch
+#[must_use]
 pub fn fog_jitter_for(steps: u32) -> f32 {
     if let Some(forced) = std::env::var("IGNITION_FOG_JITTER")
         .ok()
@@ -310,15 +336,16 @@ pub fn fog_jitter_for(steps: u32) -> f32 {
     {
         return forced;
     }
-    FOG_JITTER_METRES * FOG_JITTER_REFERENCE_STEPS / (steps.max(1) as f32)
+    FOG_JITTER_METRES * FOG_JITTER_REFERENCE_STEPS / crate::num::f32_of_u32(steps.max(1))
 }
 
 /// How many pixels the haze may march in a **frame** when the scale is
-/// chosen automatically (`HazeView::scale == 0`). The fog's cost is
-/// this times the step count, so it is the one number that sets the
-/// haze's share of the frame whatever the viewport: 1280x720 at a
-/// 2560-wide studio, 1280x360 at 5120 — both under the budget with 128
-/// steps on the reference GPU.
+/// chosen automatically (`HazeView::scale == 0`).
+///
+/// The fog's cost is this times the step count, so it is the one number that
+/// sets the haze's share of the frame whatever the viewport: 1280x720 at a
+/// 2560-wide studio, 1280x360 at 5120 — both under the budget with 128 steps
+/// on the reference GPU.
 ///
 /// Per frame, and it used to be per camera, which is not the same thing
 /// the moment there is more than one. The operator's layout puts a
@@ -346,21 +373,29 @@ const HAZE_MIN_SHARE: u32 = 160 * 240;
 /// every pane a little, which is the trade an operator can actually
 /// predict.
 // r[impl viz.performance-budget] - the haze is bounded per frame, not per camera
+#[must_use]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "the divisor is cameras.max(1), which is never zero, so this division \
+              can never panic"
+)]
 pub fn share(budget: u32, cameras: usize) -> u32 {
-    (budget / cameras.max(1) as u32).max(HAZE_MIN_SHARE.min(budget))
+    (budget / crate::num::u32_of_usize(cameras.max(1))).max(HAZE_MIN_SHARE.min(budget))
 }
 
 /// The scale for `main`: the smallest whole divisor that brings the
 /// haze camera under `budget` pixels; a given scale is used as is.
+#[must_use]
 pub fn haze_scale(main: UVec2, scale: u32, budget: u32) -> u32 {
     if scale > 0 {
         return scale;
     }
     let pixels = f64::from(main.x) * f64::from(main.y);
-    ((pixels / f64::from(budget.max(1))).sqrt().ceil() as u32).max(1)
+    crate::num::u32_of_f64((pixels / f64::from(budget.max(1))).sqrt().ceil()).max(1)
 }
 
 /// The haze camera's target: `main / scale`, never below one pixel.
+#[must_use]
 pub fn haze_size(main: UVec2, scale: u32, budget: u32) -> UVec2 {
     let scale = haze_scale(main, scale, budget);
     UVec2::new(main.x.div_ceil(scale).max(1), main.y.div_ceil(scale).max(1))
@@ -580,7 +615,10 @@ fn follow_main_camera(
         // that changes the scale changes it — see `fog_jitter_for`.
         let scale = haze_scale(main_size, view.scale, budget);
         let jitter = fog_jitter_for(view.fog_steps);
-        if fog.jitter != jitter {
+        // Only a write that actually changes the value should mark the
+        // `FogVolume` changed — an equal-looking write every frame would
+        // otherwise thrash whatever downstream reacts to `is_changed()`.
+        if (fog.jitter - jitter).abs() > f32::EPSILON {
             fog.jitter = jitter;
         }
         tracing::info!(
@@ -706,6 +744,11 @@ fn sort_occluders(
 /// the fog lights it. Runs after the fixtures decode the frame's DMX,
 /// which is where the level moves.
 // r[impl viz.haze-is-volumetric] - one density, fog and occluders alike
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resources it wraps"
+)]
 fn drive_haze(
     level: Res<HazeLevel>,
     settings: Res<VizSettings>,
@@ -718,14 +761,14 @@ fn drive_haze(
     }
     let density = crate::spawn::haze_density(settings.haze, level.level);
     for mut fog in &mut fogs {
-        if fog.density_factor != density {
+        if (fog.density_factor - density).abs() > f32::EPSILON {
             fog.density_factor = density;
         }
     }
     let extinction = crate::spawn::haze_extinction_per_metre(settings.haze, level.level);
     if let Some(handle) = material
         && let Some(mut m) = materials.get_mut(&handle.0)
-        && m.params.x != extinction
+        && (m.params.x - extinction).abs() > f32::EPSILON
     {
         m.params.x = extinction;
     }
@@ -740,10 +783,10 @@ mod tests {
     /// r[verify viz.haze-is-volumetric]
     #[test]
     fn the_hazers_set_the_level_and_a_room_never_fully_clears() {
-        assert_eq!(hazer_target(&[]), 1.0);
-        assert_eq!(hazer_target(&[0.0, 0.0]), HAZE_RESIDUAL);
-        assert_eq!(hazer_target(&[0.2, 0.9]), 0.9);
-        assert_eq!(hazer_target(&[3.0]), 1.0);
+        assert!((hazer_target(&[]) - (1.0)).abs() < 1e-6);
+        assert!((hazer_target(&[0.0, 0.0]) - (HAZE_RESIDUAL)).abs() < 1e-6);
+        assert!((hazer_target(&[0.2, 0.9]) - (0.9)).abs() < 1e-6);
+        assert!((hazer_target(&[3.0]) - (1.0)).abs() < 1e-6);
     }
 
     /// Haze builds over seconds and lingers longer than it took to
@@ -770,7 +813,7 @@ mod tests {
         // A zero or negative frame does nothing.
         let before = h.level;
         h.settle(1.0, 0.0);
-        assert_eq!(h.level, before);
+        assert!((h.level - (before)).abs() < 1e-6);
     }
 
     /// The dial multiplies the hazers: no haze on the dial, or a room
@@ -779,8 +822,8 @@ mod tests {
     #[test]
     fn density_is_dial_times_hazer_level() {
         use crate::spawn::haze_density;
-        assert_eq!(haze_density(0.0, 1.0), 0.0);
-        assert_eq!(haze_density(1.6, 0.0), 0.0);
+        assert!((haze_density(0.0, 1.0) - (0.0)).abs() < 1e-6);
+        assert!((haze_density(1.6, 0.0) - (0.0)).abs() < 1e-6);
         assert!((haze_density(1.6, 0.5) - haze_density(1.6, 1.0) * 0.5).abs() < 1e-7);
         assert!(haze_density(1.6, 1.0) > 0.0);
     }
@@ -795,7 +838,7 @@ mod tests {
         // again before anything else reads it.
         unsafe { std::env::remove_var("IGNITION_FOG_JITTER") };
         assert!((fog_jitter_for(128) - FOG_JITTER_METRES).abs() < 1e-6);
-        assert!((fog_jitter_for(64) - FOG_JITTER_METRES * 2.0).abs() < 1e-6);
+        assert!(FOG_JITTER_METRES.mul_add(-2.0, fog_jitter_for(64)).abs() < 1e-6);
         assert!((fog_jitter_for(256) - FOG_JITTER_METRES / 2.0).abs() < 1e-6);
         // A step count of zero is not a divide by zero.
         assert!(fog_jitter_for(0).is_finite());
@@ -854,7 +897,7 @@ mod tests {
         // Whatever the count, the frame never marches more than the
         // budget — which is the whole claim the constant makes.
         for cameras in 1..=4 {
-            let total = share(HAZE_PIXEL_BUDGET, cameras) * cameras as u32;
+            let total = share(HAZE_PIXEL_BUDGET, cameras) * crate::num::u32_of_usize(cameras);
             assert!(
                 total <= HAZE_PIXEL_BUDGET,
                 "{cameras} cameras march {total} of {HAZE_PIXEL_BUDGET}"

@@ -1,3 +1,19 @@
+// Integration test: `clippy.toml`'s test allowances only reach
+// `#[cfg(test)]` modules, so the panic set is lifted here instead.
+// See docs/ops/clippy.md.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "integration test — see docs/ops/clippy.md"
+)]
+
 //! The default profile, checked against every real venue's real binding.
 //!
 //! A unit test can only prove the machinery works on data written to
@@ -88,7 +104,7 @@ fn every_venue_implements_the_default_profile() {
             .gaps(venue)
             .iter()
             .filter(|g| g.required)
-            .map(|g| g.to_string())
+            .map(ToString::to_string)
             .collect();
         assert!(
             blocking.is_empty(),

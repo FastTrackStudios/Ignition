@@ -1,11 +1,15 @@
 //! Pure pan/tilt-to-aim-at-a-point math — what a grandMA3-style "Focus
-//! Point" preset actually computes: given a fixture's real hung position
-//! and mount orientation (`ignition_proto::Placement` — already exists,
-//! extracted from the live rig), solve for the Pan/Tilt values that aim its
-//! beam at an arbitrary XYZ location in the room. This is the one preset
-//! type this project can do *better* than a flat DMX-only cue engine,
-//! since real 3D venue geometry already exists here (`docs/domain/norco-
-//! venue-reference.md`) — most budget consoles don't have it at all.
+//! Point" preset actually computes.
+//!
+//! Given a fixture's real hung position and mount orientation
+//! (`ignition_proto::Placement` — already exists, extracted from the live
+//! rig), solve for the Pan/Tilt values that aim its beam at an arbitrary
+//! XYZ location in the room.
+//!
+//! This is the one preset type this project can do *better* than a flat
+//! DMX-only cue engine, since real 3D venue geometry already exists here
+//! (`docs/domain/norco-venue-reference.md`) — most budget consoles don't
+//! have it at all.
 //!
 //! No fixture/DMX/rendering knowledge — plain vector/quaternion math over
 //! `ignition_proto`'s own f64 `Vec3`/`Quat` (not `glam`, so `ignition-core`
@@ -31,7 +35,7 @@ fn v_sub(a: Vec3, b: Vec3) -> Vec3 {
 }
 
 fn v_len(a: Vec3) -> f64 {
-    (a.x * a.x + a.y * a.y + a.z * a.z).sqrt()
+    a.z.mul_add(a.z, a.x.mul_add(a.x, a.y * a.y)).sqrt()
 }
 
 fn v_normalize(a: Vec3) -> Vec3 {
@@ -65,33 +69,39 @@ fn q_rotate(q: Quat, v: Vec3) -> Vec3 {
         z: q.z,
     };
     let s = q.w;
-    let dot_uv = u.x * v.x + u.y * v.y + u.z * v.z;
-    let dot_uu = u.x * u.x + u.y * u.y + u.z * u.z;
+    let dot_uv = u.x.mul_add(v.x, u.y.mul_add(v.y, u.z * v.z));
+    let dot_self = u.x.mul_add(u.x, u.y.mul_add(u.y, u.z * u.z));
     let cross_uv = Vec3 {
-        x: u.y * v.z - u.z * v.y,
-        y: u.z * v.x - u.x * v.z,
-        z: u.x * v.y - u.y * v.x,
+        x: u.y.mul_add(v.z, -(u.z * v.y)),
+        y: u.z.mul_add(v.x, -(u.x * v.z)),
+        z: u.x.mul_add(v.y, -(u.y * v.x)),
     };
+    let coeff = s.mul_add(s, -dot_self);
     Vec3 {
-        x: 2.0 * dot_uv * u.x + (s * s - dot_uu) * v.x + 2.0 * s * cross_uv.x,
-        y: 2.0 * dot_uv * u.y + (s * s - dot_uu) * v.y + 2.0 * s * cross_uv.y,
-        z: 2.0 * dot_uv * u.z + (s * s - dot_uu) * v.z + 2.0 * s * cross_uv.z,
+        x: (2.0 * s).mul_add(cross_uv.x, (2.0 * dot_uv).mul_add(u.x, coeff * v.x)),
+        y: (2.0 * s).mul_add(cross_uv.y, (2.0 * dot_uv).mul_add(u.y, coeff * v.y)),
+        z: (2.0 * s).mul_add(cross_uv.z, (2.0 * dot_uv).mul_add(u.z, coeff * v.z)),
     }
 }
 
 /// Solves for `(pan_deg, tilt_deg)` such that
 /// `mount_rot * RotZ(pan) * RotX(tilt) * NEG_Z` points from `fixture_pos`
-/// toward `target` — the inverse of the composition every live pan/tilt
-/// reading in this project already goes through (`scene.rs`'s
-/// `live_pan_tilt` construction). `tilt_deg` comes out in `[0, 180]`
-/// (unsigned — "how far off straight-down", matching most real fixtures'
-/// own tilt-range definition); `pan_deg` in `(-180, 180]`. A fixture whose
-/// pan/tilt channel range doesn't cover the solved angles simply clips at
-/// the byte-encoding step (`ignition_viz::show`), the same as a live
-/// operator asking for an out-of-range focus.
+/// toward `target`.
+///
+/// The inverse of the composition every live pan/tilt reading in this
+/// project already goes through (`scene.rs`'s `live_pan_tilt`
+/// construction).
+///
+/// `tilt_deg` comes out in `[0, 180]` (unsigned — "how far off
+/// straight-down", matching most real fixtures' own tilt-range
+/// definition); `pan_deg` in `(-180, 180]`. A fixture whose pan/tilt
+/// channel range doesn't cover the solved angles simply clips at the
+/// byte-encoding step (`ignition_viz::show`), the same as a live operator
+/// asking for an out-of-range focus.
 // r[impl focus.point]
 // r[impl focus.resolve-at-output] - a pure function of the fixture's current position, nothing baked
 // r[impl focus.units] - metres in, degrees out
+#[must_use]
 pub fn pan_tilt_deg_to_point(fixture_pos: Vec3, mount_rot: Quat, target: Vec3) -> (f32, f32) {
     pan_tilt_deg_along(mount_rot, v_sub(target, fixture_pos))
 }
@@ -111,6 +121,7 @@ pub fn pan_tilt_deg_to_point(fixture_pos: Vec3, mount_rot: Quat, target: Vec3) -
 // r[impl focus.orientation]
 // r[impl focus.two-kinds] - the orientation half; `pan_tilt_deg_to_point` is the point half
 // r[impl focus.units] - degrees
+#[must_use]
 pub fn pan_tilt_deg_along(mount_rot: Quat, world_dir: Vec3) -> (f32, f32) {
     if v_len(world_dir) < 1e-9 {
         return (0.0, 0.0);
@@ -118,13 +129,29 @@ pub fn pan_tilt_deg_along(mount_rot: Quat, world_dir: Vec3) -> (f32, f32) {
     let local = q_rotate(q_conjugate(mount_rot), v_normalize(world_dir));
     let tilt = local.x.hypot(local.y).atan2(-local.z);
     let pan = (-local.x).atan2(local.y);
-    (pan.to_degrees() as f32, tilt.to_degrees() as f32)
+    (deg_f32(pan.to_degrees()), deg_f32(tilt.to_degrees()))
+}
+
+/// An angle in degrees, solved in `f64` for the trig above, narrowed to
+/// the `f32` every pan/tilt value in this crate is carried in from here
+/// on. The solve's own error (a few `f64` ULPs) is already far below the
+/// fraction of a degree a DMX pan/tilt channel can resolve, so the
+/// precision this drops was never going to reach the fixture.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "narrowing a solved angle to the crate's f32 convention; see the doc comment"
+)]
+const fn deg_f32(degrees: f64) -> f32 {
+    degrees as f32
 }
 
 /// A fixture's pan and tilt travel, in degrees — the whole range, so a
 /// 540° pan is ±270 about centre and a 270° tilt is 135 either side of
-/// straight down. What `pan_tilt_deg_to_point_within` clamps against.
-/// Degrees, always: there is no unit field to disagree with the venue.
+/// straight down.
+///
+/// What `pan_tilt_deg_to_point_within` clamps against. Degrees, always:
+/// there is no unit field to disagree with the venue.
 // r[impl focus.units] - degrees, no per-fixture unit flag
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PanTiltRange {
@@ -161,6 +188,7 @@ pub enum Reach {
 /// Pan is centred on zero and tilt on straight down (`[0, tilt/2]`),
 /// matching the convention `pan_tilt_deg_to_point` solves in.
 // r[impl focus.unreachable] - clamp to the nearest reachable orientation, never wrap
+#[must_use]
 pub fn reachable(pan: f32, tilt: f32, range: PanTiltRange) -> ((f32, f32), Reach) {
     let half_pan = range.pan_deg.abs() / 2.0;
     let half_tilt = range.tilt_deg.abs() / 2.0;
@@ -179,6 +207,7 @@ pub fn reachable(pan: f32, tilt: f32, range: PanTiltRange) -> ((f32, f32), Reach
 /// clip to the DMX encoder.
 // r[impl focus.unreachable]
 // r[impl focus.resolve-at-output]
+#[must_use]
 pub fn pan_tilt_deg_to_point_within(
     fixture_pos: Vec3,
     mount_rot: Quat,
@@ -190,9 +219,11 @@ pub fn pan_tilt_deg_to_point_within(
 }
 
 /// The room a show's coordinates are read in: an origin and an extent
-/// in metres, from the venue. Nothing in the solve consults it — a point
-/// outside is still solved and still aimed at — it exists so a focus
-/// that has wandered off the stage can be *reported*.
+/// in metres, from the venue.
+///
+/// Nothing in the solve consults it — a point outside is still solved and
+/// still aimed at — it exists so a focus that has wandered off the stage
+/// can be *reported*.
 ///
 /// `None` on a `Show` means unbounded, which is what a venue that has
 /// not measured its room gets.
@@ -209,6 +240,7 @@ pub struct StageSpace {
 impl StageSpace {
     /// Whether `p` sits inside the box (inclusive).
     // r[impl focus.stage-space] - the one check the reporter makes
+    #[must_use]
     pub fn contains(&self, p: Vec3) -> bool {
         let inside = |lo: f64, len: f64, v: f64| v >= lo.min(lo + len) && v <= lo.max(lo + len);
         inside(self.origin.x, self.extent.x, p.x)
@@ -219,20 +251,22 @@ impl StageSpace {
 
 /// The direction a fixture at `offset` metres from a splay's origin
 /// points: straight down, leaned outward along `axis` by
-/// `degrees_per_metre` for every metre of offset along that axis. A
-/// fixture on the axis points down; one two metres left leans left.
+/// `degrees_per_metre` for every metre of offset along that axis.
+///
+/// A fixture on the axis points down; one two metres left leans left.
 ///
 /// Derived from the fixture's real position, so a re-hung head takes
 /// the angle its new place implies rather than the one authored for
 /// its old one.
 // r[impl focus.pattern.parallel-out]
 // r[impl focus.units] - metres in, degrees per metre
+#[must_use]
 pub fn splay_direction(axis: crate::selection::Axis, offset: Vec3, degrees_per_metre: f32) -> Vec3 {
     use crate::selection::Axis;
     let along = axis.of(offset);
-    let angle = (along * degrees_per_metre as f64).to_radians();
+    let angle = (along * f64::from(degrees_per_metre)).to_radians();
     let (s, c) = (angle.sin(), angle.cos());
-    let (ax, ay, az) = match axis {
+    let (ax, ay, az): (f64, f64, f64) = match axis {
         Axis::X => (1.0, 0.0, 0.0),
         Axis::Y => (0.0, 1.0, 0.0),
         Axis::Z => (0.0, 0.0, 1.0),
@@ -250,11 +284,12 @@ pub fn splay_direction(axis: crate::selection::Axis, offset: Vec3, degrees_per_m
     Vec3 {
         x: ax * s,
         y: ay * s,
-        z: az * s - c,
+        z: az.mul_add(s, -c),
     }
 }
 
 /// `a + b`.
+#[must_use]
 pub fn v_add(a: Vec3, b: Vec3) -> Vec3 {
     Vec3 {
         x: a.x + b.x,
@@ -264,6 +299,7 @@ pub fn v_add(a: Vec3, b: Vec3) -> Vec3 {
 }
 
 /// `a * k`.
+#[must_use]
 pub fn v_scale(a: Vec3, k: f64) -> Vec3 {
     Vec3 {
         x: a.x * k,
@@ -274,8 +310,9 @@ pub fn v_scale(a: Vec3, k: f64) -> Vec3 {
 
 /// Aims a fixture at `base_point + delta`: the point the cascade already
 /// resolved for this channel, offset by a `RecipeApply::FocusDelta` in
-/// metres, then solved to `(pan_deg, tilt_deg)` through the fixture's
-/// placement.
+/// metres.
+///
+/// Then solved to `(pan_deg, tilt_deg)` through the fixture's placement.
 ///
 /// This is what the cue player calls when an emit carries a focus delta
 /// (`recipe::FocusDeltaEmit`): the delta is a *room* offset, so it is
@@ -287,6 +324,7 @@ pub fn v_scale(a: Vec3, k: f64) -> Vec3 {
 // r[impl focus.delta]
 // r[impl focus.orbit-in-metres] - the per-frame solve every fixture does for a path in metres
 // r[impl focus.resolve-at-output]
+#[must_use]
 pub fn resolve_focus_delta(
     chan: crate::ChanId,
     base_point: Vec3,
@@ -405,10 +443,10 @@ mod direction_tests {
             let dir = q_rotate(
                 mount,
                 q_rotate(
-                    rot_z(pan as f64),
+                    rot_z(f64::from(pan)),
                     q_rotate(
                         {
-                            let h = (tilt as f64).to_radians() / 2.0;
+                            let h = f64::from(tilt).to_radians() / 2.0;
                             Quat {
                                 w: h.cos(),
                                 x: h.sin(),
@@ -428,7 +466,7 @@ mod direction_tests {
         }
         let want = v_normalize(want);
         for a in &aimed {
-            let dot = a.x * want.x + a.y * want.y + a.z * want.z;
+            let dot = a.z.mul_add(want.z, a.x.mul_add(want.x, a.y * want.y));
             assert!(dot > 0.9999, "aimed {a:?}, wanted {want:?} (dot {dot})");
         }
     }
@@ -517,10 +555,14 @@ mod tests {
 
     fn q_mul(a: Quat, b: Quat) -> Quat {
         Quat {
-            w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
-            x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
-            y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
-            z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+            w: a.z
+                .mul_add(-b.z, a.y.mul_add(-b.y, a.w.mul_add(b.w, -(a.x * b.x)))),
+            x: a.z
+                .mul_add(-b.y, a.y.mul_add(b.z, a.w.mul_add(b.x, a.x * b.w))),
+            y: a.z
+                .mul_add(b.x, a.y.mul_add(b.w, a.w.mul_add(b.y, -(a.x * b.z)))),
+            z: a.z
+                .mul_add(b.w, a.y.mul_add(-b.x, a.w.mul_add(b.z, a.x * b.y))),
         }
     }
 
@@ -592,17 +634,17 @@ mod tests {
         let (pan0, tilt0) = (37.0f64, 52.0f64);
         let dir = forward_direction(mount_rot, pan0, tilt0);
         let target = Vec3 {
-            x: fixture_pos.x + dir.x * 10.0,
-            y: fixture_pos.y + dir.y * 10.0,
-            z: fixture_pos.z + dir.z * 10.0,
+            x: dir.x.mul_add(10.0, fixture_pos.x),
+            y: dir.y.mul_add(10.0, fixture_pos.y),
+            z: dir.z.mul_add(10.0, fixture_pos.z),
         };
         let (pan, tilt) = pan_tilt_deg_to_point(fixture_pos, mount_rot, target);
         assert!(
-            (pan as f64 - pan0).abs() < 0.5,
+            (f64::from(pan) - pan0).abs() < 0.5,
             "expected pan ~{pan0}, got {pan}"
         );
         assert!(
-            (tilt as f64 - tilt0).abs() < 0.5,
+            (f64::from(tilt) - tilt0).abs() < 0.5,
             "expected tilt ~{tilt0}, got {tilt}"
         );
     }

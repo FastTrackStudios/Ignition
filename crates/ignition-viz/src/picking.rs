@@ -58,10 +58,10 @@ pub struct HostPointer {
 }
 
 /// Which fixture the pointer is over, for the surface.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Hovered(pub Option<HoveredFixture>);
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HoveredFixture {
     /// Index into the venue's fixtures.
     pub index: usize,
@@ -73,10 +73,11 @@ pub struct HoveredFixture {
 /// The programmer's selection, as fixture indices — resolved from the
 /// `Playback` once per frame so the observers and the gizmos can ask
 /// "is this one selected" without resolving a `Selection` themselves.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct SelectedFixtures(pub Vec<usize>);
 
 impl SelectedFixtures {
+    #[must_use]
     pub fn contains(&self, index: usize) -> bool {
         self.0.contains(&index)
     }
@@ -85,11 +86,11 @@ impl SelectedFixtures {
 /// A selection the viewport wants made: the channels to select, or an
 /// empty list to deselect. Written by the click observer, taken by
 /// whoever the [`SelectionRoute`] says.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct SelectionRequest(pub Option<Vec<ChanId>>);
 
 impl SelectionRequest {
-    pub fn take(&mut self) -> Option<Vec<ChanId>> {
+    pub const fn take(&mut self) -> Option<Vec<ChanId>> {
         self.0.take()
     }
 }
@@ -164,6 +165,15 @@ type SceneCamera = (
 
 /// Turns the host's latest sample into `PointerInput` messages — a move
 /// when the position changed, a press or release when the button did.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only reads/copies what it wraps"
+)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec2 subtraction is float, component-wise, and cannot panic or overflow"
+)]
 fn feed_host_pointer(
     pointer: Res<HostPointer>,
     mut last: Local<HostPointer>,
@@ -188,7 +198,7 @@ fn feed_host_pointer(
     if let Some(position) = pointer.position
         && last.position != Some(position)
     {
-        let delta = last.position.map(|p| position - p).unwrap_or(Vec2::ZERO);
+        let delta = last.position.map_or(Vec2::ZERO, |p| position - p);
         out.write(PointerInput::new(
             id,
             location(position),
@@ -305,6 +315,7 @@ fn modifiers(pointer: &HostPointer, keys: Option<&ButtonInput<KeyCode>>) -> (boo
 /// What a click on `hit` makes of `current`: plain replaces, shift adds,
 /// ctrl toggles. Ctrl on the only selected fixture leaves nothing
 /// selected, which is what a request with no channels means.
+#[must_use]
 pub fn next_selection(current: &[usize], hit: usize, shift: bool, ctrl: bool) -> Vec<usize> {
     let mut next: Vec<usize> = if shift || ctrl {
         current.to_vec()
@@ -329,11 +340,11 @@ fn hovered_of(venue: &crate::venue::Venue, index: usize) -> Option<HoveredFixtur
 }
 
 /// `universe.start`, the way a patch sheet writes it.
+#[must_use]
 pub fn address_of(f: &crate::venue::FixtureRecord) -> String {
-    match f.dmx_address() {
-        Some(a) => format!("{}.{}", a.universe, a.start_channel),
-        None => String::new(),
-    }
+    f.dmx_address().map_or_else(String::new, |a| {
+        format!("{}.{}", a.universe, a.start_channel)
+    })
 }
 
 /// The patched channels of these fixtures, in the order given.
@@ -345,17 +356,23 @@ fn chans_of(venue: &crate::venue::Venue, indices: &[usize]) -> Vec<ChanId> {
 }
 
 /// The programmer's selection, back as fixture indices.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T>/Option<Res<T>>/ResMut<T> are Bevy SystemParams and must be taken \
+              by value for this to run as a system; the fn only borrows what they wrap"
+)]
 fn sync_selection(
     playback: Option<Res<Playback>>,
     venue: Res<VenueRes>,
     mut selected: ResMut<SelectedFixtures>,
 ) {
-    let next: Vec<usize> = match playback
+    // Binding `playback` and `selection` from the same `and_then` chain,
+    // rather than re-deriving `selection` from `playback` a second time,
+    // so there is no second `Option` to unwrap.
+    let next: Vec<usize> = playback
         .as_ref()
-        .and_then(|p| p.programmer.selection.as_ref())
-    {
-        Some(selection) => {
-            let playback = playback.as_ref().expect("selection came from the playback");
+        .and_then(|p| p.programmer.selection.as_ref().map(|s| (p, s)))
+        .map(|(playback, selection)| {
             let chans =
                 ignition_core::selection::resolve(selection, &playback.groups, &playback.rig);
             venue
@@ -366,15 +383,20 @@ fn sync_selection(
                 .filter(|(_, f)| f.chan.is_some_and(|c| chans.contains(&c)))
                 .map(|(i, _)| i)
                 .collect()
-        }
-        None => Vec::new(),
-    };
+        })
+        .unwrap_or_default();
     if selected.0 != next {
         selected.0 = next;
     }
 }
 
 /// The in-world route: a request becomes the programmer's selection.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T>/ResMut<T>/Option<ResMut<T>> are Bevy SystemParams and must be \
+              taken by value for this to run as a system; the fn only borrows what \
+              they wrap"
+)]
 fn apply_selection_request(
     route: Res<SelectionRoute>,
     mut request: ResMut<SelectionRequest>,
@@ -397,13 +419,24 @@ pub fn apply_chans(programmer: &mut ignition_core::Programmer, chans: Vec<ChanId
     }
 }
 
-/// What a hovered body adds to its emissive, and a selected one — on
-/// top of whatever `update_fixture_bodies` decided this frame, which is
-/// why this runs after it. Warm for the hover, cool for the selection,
-/// hot enough for bloom to notice in the studio's dark room.
+/// What a hovered body adds to its emissive, and a selected one — on top of
+/// whatever `update_fixture_bodies` decided this frame, which is why this
+/// runs after it.
+///
+/// Warm for the hover, cool for the selection, hot enough for bloom to
+/// notice in the studio's dark room.
 pub const HOVER_TINT: LinearRgba = LinearRgba::rgb(1.2, 0.9, 0.25);
 pub const SELECT_TINT: LinearRgba = LinearRgba::rgb(0.2, 0.7, 1.4);
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T>/ResMut<T> are Bevy SystemParams and must be taken by value for \
+              this to run as a system; the fn only borrows what they wrap"
+)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "LinearRgba += is float, component-wise, and cannot panic or overflow"
+)]
 fn tint_bodies(
     hovered: Res<Hovered>,
     selected: Res<SelectedFixtures>,
@@ -430,6 +463,11 @@ fn tint_bodies(
 }
 
 /// `1-8,12` → the channels it names, for `--select`.
+///
+/// # Errors
+///
+/// If `text` isn't a comma-separated list of channel numbers and/or
+/// `lo-hi` ranges.
 pub fn parse_chan_ranges(text: &str) -> anyhow::Result<Vec<ChanId>> {
     let mut out = Vec::new();
     for part in text.split(',').map(str::trim).filter(|p| !p.is_empty()) {

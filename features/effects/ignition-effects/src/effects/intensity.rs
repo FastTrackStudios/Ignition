@@ -24,7 +24,10 @@
 //! flickers that want it live in [`add_random`] until the library's
 //! own checks learn about the generator.
 
-use super::*;
+use super::{
+    Add, Attribute, Play, Put, Recipe, RecipeApply, Selection, Step, Timing, Trick, Waveform, beat,
+    delta, every_emitter, role, tapped,
+};
 use crate::recipe::Random;
 
 const FAMILY: &str = "intensity";
@@ -85,7 +88,7 @@ pub(super) fn chase() -> Recipe {
 pub(super) fn pulse() -> Recipe {
     dimmer(
         "Wash",
-        Waveform::Sine.steps(Attribute::Dimmer, -0.25, 0.25, true),
+        Waveform::Sine.steps(&Attribute::Dimmer, -0.25, 0.25, true),
         beat(1.0, 0.0, Play::Forward),
         Vec::new(),
     )
@@ -212,14 +215,14 @@ fn whole_rig() -> Selection {
 const GENERATED: [&str; 4] = ["tv flicker", "fire flicker", "candle", "lightning"];
 
 pub(super) fn add(add: Add) {
-    add_filtered(add, true)
+    add_filtered(add, true);
 }
 
 /// Every table in this family, the four generator-replaced flickers
 /// included — the reference shapes, for tests.
 #[cfg(test)]
 pub(super) fn add_tables(add: Add) {
-    add_filtered(add, false)
+    add_filtered(add, false);
 }
 
 fn add_filtered(add: Add, skip_generated: bool) {
@@ -230,9 +233,21 @@ fn add_filtered(add: Add, skip_generated: bool) {
         if skip_generated && GENERATED.contains(&name) {
             return;
         }
-        add(name, FAMILY, about, recipe)
+        add(name, FAMILY, about, recipe);
     };
+    add_chases(&mut put);
+    add_waves(&mut put);
+    add_fills(&mut put);
+    add_beat_pulses(&mut put);
+    add_sparkle(&mut put);
+    add_flickers(&mut put);
+    add_strobes(&mut put);
+    add_layers(&mut put);
+    add_busked(&mut put);
+}
 
+/// The travelling chases.
+fn add_chases(put: Put) {
     // ── chases ───────────────────────────────────────────────────────
 
     put(
@@ -329,7 +344,7 @@ fn add_filtered(add: Add, skip_generated: bool) {
         "odds rising as evens fall in a smooth see-saw once a bar — verses and bridges, gentler than alternate",
         dimmer(
             "Wash",
-            Waveform::Triangle.steps(Attribute::Dimmer, -0.3, 0.3, true),
+            Waveform::Triangle.steps(&Attribute::Dimmer, -0.3, 0.3, true),
             beat(1.0, 180.0, Play::Forward),
             vec![Trick::Group(2)],
         ),
@@ -347,7 +362,10 @@ fn add_filtered(add: Add, skip_generated: bool) {
             Vec::new(),
         ),
     );
+}
 
+/// The rolling waves and builds.
+fn add_waves(put: Put) {
     // ── waves ────────────────────────────────────────────────────────
 
     // Everything together. Zero spread is the whole point: this is the
@@ -363,7 +381,7 @@ fn add_filtered(add: Add, skip_generated: bool) {
         "the whole wash swelling slowly over four bars — verses and bridges, movement without being busy",
         dimmer(
             "Wash",
-            Waveform::Sine.steps(Attribute::Dimmer, -0.2, 0.2, true),
+            Waveform::Sine.steps(&Attribute::Dimmer, -0.2, 0.2, true),
             beat(4.0, 0.0, Play::Forward),
             Vec::new(),
         ),
@@ -377,7 +395,7 @@ fn add_filtered(add: Add, skip_generated: bool) {
         "a slow swell rolling across the wash over two bars — verses, the stage breathing in sequence",
         dimmer(
             "Wash",
-            Waveform::Sine.steps(Attribute::Dimmer, -0.2, 0.2, true),
+            Waveform::Sine.steps(&Attribute::Dimmer, -0.2, 0.2, true),
             beat(2.0, 360.0, Play::Forward),
             Vec::new(),
         ),
@@ -391,7 +409,7 @@ fn add_filtered(add: Add, skip_generated: bool) {
         "a soft wave of light passing along the wash every two bars — pre-choruses and outros",
         dimmer(
             "Wash",
-            Waveform::Sine.steps(Attribute::Dimmer, -0.3, 0.3, true),
+            Waveform::Sine.steps(&Attribute::Dimmer, -0.3, 0.3, true),
             beat(2.0, 360.0, Play::Forward),
             Vec::new(),
         ),
@@ -403,7 +421,7 @@ fn add_filtered(add: Add, skip_generated: bool) {
         "a wave of light washing to the end of the rig and back every two bars — bridges, never jumps",
         dimmer(
             "Wash",
-            Waveform::Triangle.steps(Attribute::Dimmer, -0.35, 0.35, true),
+            Waveform::Triangle.steps(&Attribute::Dimmer, -0.35, 0.35, true),
             beat(2.0, 360.0, Play::Bounce),
             Vec::new(),
         ),
@@ -416,12 +434,15 @@ fn add_filtered(add: Add, skip_generated: bool) {
         "a ramp of light sliding along the wash and snapping back every two bars — post-choruses, harder than wave",
         dimmer(
             "Wash",
-            Waveform::RampUp.steps(Attribute::Dimmer, -0.3, 0.3, true),
+            Waveform::RampUp.steps(&Attribute::Dimmer, -0.3, 0.3, true),
             beat(2.0, 360.0, Play::Forward),
             Vec::new(),
         ),
     );
+}
 
+/// The fill-and-drain builds.
+fn add_fills(put: Put) {
     // ── fills ────────────────────────────────────────────────────────
 
     // Fixtures arrive and stay until the cycle wraps, so the rig fills
@@ -465,7 +486,10 @@ fn add_filtered(add: Add, skip_generated: bool) {
             vec![Trick::Wings(2)],
         ),
     );
+}
 
+/// The unison pulses on the beat.
+fn add_beat_pulses(put: Put) {
     // ── pulses on the beat ───────────────────────────────────────────
 
     // Snap up on the beat and fade out over the rest of it — the shape
@@ -475,7 +499,7 @@ fn add_filtered(add: Add, skip_generated: bool) {
         "the wash snapping up on every beat and fading out before the next — drops and last choruses, a kick drum in light",
         dimmer(
             "Wash",
-            Waveform::RampDown.steps(Attribute::Dimmer, -0.35, 0.35, true),
+            Waveform::RampDown.steps(&Attribute::Dimmer, -0.35, 0.35, true),
             beat(0.25, 0.0, Play::Forward),
             Vec::new(),
         ),
@@ -511,7 +535,10 @@ fn add_filtered(add: Add, skip_generated: bool) {
             Vec::new(),
         ),
     );
+}
 
+/// The sparkles and accents.
+fn add_sparkle(put: Put) {
     // ── sparkle ──────────────────────────────────────────────────────
 
     // A shuffled chase reads as twinkle rather than as travel: the same
@@ -549,12 +576,16 @@ fn add_filtered(add: Add, skip_generated: bool) {
         "a tiny fast flicker across the wash like light on water — intros and ambient verses, barely there",
         dimmer(
             "Wash",
-            Waveform::Sine.steps(Attribute::Dimmer, 0.0, 0.08, true),
+            Waveform::Sine.steps(&Attribute::Dimmer, 0.0, 0.08, true),
             beat(0.125, 360.0, Play::Forward),
             vec![Trick::Shuffle(3301)],
         ),
     );
+}
 
+/// The table flickers — fire, candle, TV and lightning — replaced by
+/// their generator versions once the library's checks learn `Random`.
+fn add_flickers(put: Put) {
     // ── flickers ─────────────────────────────────────────────────────
 
     // The blue flicker of a television on a face: an irregular table
@@ -656,7 +687,10 @@ fn add_filtered(add: Add, skip_generated: bool) {
             vec![Trick::Shuffle(8009)],
         ),
     );
+}
 
+/// The two named-absolute strobes.
+fn add_strobes(put: Put) {
     // ── strobes ──────────────────────────────────────────────────────
 
     // Hard on/off at eighths. Absolute rather than relative on purpose:
@@ -731,7 +765,10 @@ fn add_filtered(add: Add, skip_generated: bool) {
             ..Default::default()
         },
     );
+}
 
+/// The whole-rig layers.
+fn add_layers(put: Put) {
     // ── layers and the whole rig ─────────────────────────────────────
 
     // The back wall breathing under everything. Slow and shallow: this
@@ -741,7 +778,7 @@ fn add_filtered(add: Add, skip_generated: bool) {
         "the back wall swelling gently over four bars under everything else — verses, felt not seen",
         dimmer(
             "Back",
-            Waveform::Sine.steps(Attribute::Dimmer, -0.12, 0.12, true),
+            Waveform::Sine.steps(&Attribute::Dimmer, -0.12, 0.12, true),
             beat(4.0, 0.0, Play::Forward),
             Vec::new(),
         ),
@@ -777,7 +814,10 @@ fn add_filtered(add: Add, skip_generated: bool) {
             ..Default::default()
         },
     );
+}
 
+/// The tap-mastered spellings, for busking with no track running.
+fn add_busked(put: Put) {
     // ── busked ───────────────────────────────────────────────────────
     //
     // The two most buskable shapes on the tap master. Not a separate
@@ -807,14 +847,17 @@ fn add_filtered(add: Add, skip_generated: bool) {
 
 #[cfg(test)]
 mod tests {
+    use super::super::float_of_i32;
     use super::*;
+    use crate::step::Speed;
+    use std::collections::BTreeMap;
 
     fn family() -> BTreeMap<String, Recipe> {
         let mut out = BTreeMap::new();
         let mut count = 0usize;
         add_tables(&mut |name: &str, fam: &str, _: &str, recipe: Recipe| {
             assert_eq!(fam, FAMILY);
-            count += 1;
+            count = count.saturating_add(1);
             out.insert(name.to_string(), recipe);
         });
         assert_eq!(count, out.len(), "a name in this family is used twice");
@@ -860,7 +903,7 @@ mod tests {
                     expand_recipe(
                         &recipe,
                         &Show::new(&[], &crate::selection::EMPTY_RIG),
-                        i as f32 * 0.31,
+                        float_of_i32(i) * 0.31,
                     )
                     .into_iter()
                     .map(|e| e.value.value)
@@ -868,7 +911,9 @@ mod tests {
                 })
                 .collect();
             assert!(
-                levels.windows(2).any(|w| w[0] != w[1]),
+                levels
+                    .windows(2)
+                    .any(|w| (w[0] - w[1]).abs() > f32::EPSILON),
                 "{name:?} never moves"
             );
         }
@@ -947,6 +992,12 @@ mod tests {
 
     /// The strobes are fast enough to be strobes: a cycle per beat, so
     /// an eighth on and an eighth off.
+    // `measure` is a literal set by `beat(...)`, not computed, so an
+    // exact comparison is the right assertion.
+    #[expect(
+        clippy::float_cmp,
+        reason = "measure is a literal set by beat(...), not computed"
+    )]
     #[test]
     fn the_strobes_run_at_eighths() {
         let f = family();

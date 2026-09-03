@@ -45,17 +45,17 @@ impl Panel {
     /// were tab strips, so they become tabs.
     pub fn panes(self) -> Vec<PaneKind> {
         match self {
-            Panel::CueList => vec![PaneKind::CueList],
-            Panel::Visualizer => vec![PaneKind::Visualizer],
-            Panel::Transport => vec![PaneKind::Transport],
-            Panel::Busking => Preset::Console.build(&[]).panes(),
-            Panel::Palettes => vec![
+            Self::CueList => vec![PaneKind::CueList],
+            Self::Visualizer => vec![PaneKind::Visualizer],
+            Self::Transport => vec![PaneKind::Transport],
+            Self::Busking => Preset::Console.build(&[]).panes(),
+            Self::Palettes => vec![
                 PaneKind::Colours,
                 PaneKind::Splits,
                 PaneKind::Focus,
                 PaneKind::Groups,
             ],
-            Panel::Library => vec![
+            Self::Library => vec![
                 PaneKind::Effects,
                 PaneKind::Tricks,
                 PaneKind::Bundles,
@@ -63,12 +63,12 @@ impl Panel {
                 PaneKind::Macros,
                 PaneKind::Library,
             ],
-            Panel::Programmer => vec![PaneKind::Programmer],
-            Panel::CommandLine => vec![PaneKind::CommandLine],
-            Panel::Output => vec![PaneKind::Output],
-            Panel::Canvases => vec![PaneKind::Canvases],
-            Panel::Cameras => vec![PaneKind::Cameras],
-            Panel::Lyrics => vec![PaneKind::Lyrics],
+            Self::Programmer => vec![PaneKind::Programmer],
+            Self::CommandLine => vec![PaneKind::CommandLine],
+            Self::Output => vec![PaneKind::Output],
+            Self::Canvases => vec![PaneKind::Canvases],
+            Self::Cameras => vec![PaneKind::Cameras],
+            Self::Lyrics => vec![PaneKind::Lyrics],
         }
     }
 }
@@ -79,23 +79,23 @@ impl Panel {
 /// tab strip of eight busking panes is not what that window was.
 // r[impl studio.dock] - old layouts open as one tabbed leaf
 pub fn migrate(panels: &[Panel]) -> DockNode {
-    let mut panes: Vec<PaneKind> = Vec::new();
+    let mut all_panes: Vec<PaneKind> = Vec::new();
     for panel in panels {
         for pane in panel.panes() {
-            if !panes.contains(&pane) {
-                panes.push(pane);
+            if !all_panes.contains(&pane) {
+                all_panes.push(pane);
             }
         }
     }
     if panels.contains(&Panel::Busking) {
-        let others: Vec<PaneKind> = panes
+        let others: Vec<PaneKind> = all_panes
             .iter()
             .copied()
             .filter(|p| !Panel::Busking.panes().contains(p))
             .collect();
         return Preset::Console.build(&others);
     }
-    DockNode::tabs(panes)
+    DockNode::tabs(all_panes)
 }
 
 /// Where on a monitor a docked window sits.
@@ -134,16 +134,16 @@ pub enum View {
 }
 
 impl View {
-    pub fn label(self) -> &'static str {
+    pub const fn label(self) -> &'static str {
         match self {
-            View::Program => "Program",
-            View::Live => "Live",
+            Self::Program => "Program",
+            Self::Live => "Live",
         }
     }
-    pub fn other(self) -> View {
+    pub const fn other(self) -> Self {
         match self {
-            View::Program => View::Live,
-            View::Live => View::Program,
+            Self::Program => Self::Live,
+            Self::Live => Self::Program,
         }
     }
 }
@@ -186,7 +186,7 @@ impl From<RawWindowSpec> for WindowSpec {
     fn from(raw: RawWindowSpec) -> Self {
         let mut tree = raw.tree.unwrap_or_else(|| migrate(&raw.panels));
         tree.normalize();
-        WindowSpec {
+        Self {
             monitor: raw.monitor,
             placement: raw.placement,
             tree,
@@ -195,7 +195,7 @@ impl From<RawWindowSpec> for WindowSpec {
     }
 }
 
-fn fullscreen() -> Placement {
+const fn fullscreen() -> Placement {
     Placement::Fullscreen
 }
 
@@ -288,11 +288,16 @@ pub fn docked_rect(monitor: &MonitorInfo, region: Region, fraction: f32) -> Pixe
     } else {
         1.0
     };
-    let width = ((monitor.width as f32) * fraction).round().max(1.0) as u32;
+    let width_px = crate::num::f32_of_u32(monitor.width) * fraction;
+    let width = crate::num::u32_of_f32(width_px.round().max(1.0));
+    // `width` is a fraction of `monitor.width`, so it never exceeds it
+    // in practice — `saturating_sub` keeps that a fact this reads
+    // rather than one it assumes.
+    let spare = monitor.width.saturating_sub(width);
     let x = match region {
         Region::Left => monitor.x,
-        Region::Right => monitor.x + (monitor.width - width) as i32,
-        Region::Centre => monitor.x + ((monitor.width - width) / 2) as i32,
+        Region::Right => monitor.x.saturating_add(spare.cast_signed()),
+        Region::Centre => monitor.x.saturating_add((spare / 2).cast_signed()),
     };
     PixelRect {
         x,
@@ -330,7 +335,10 @@ pub fn pick_monitor_index(
         return Some(i);
     }
     let mut by_x: Vec<usize> = (0..monitors.len()).collect();
-    by_x.sort_by_key(|&i| monitors[i].x);
+    // `by_x` is built directly from `0..monitors.len()`, so every index
+    // is in range; `.get` keeps that a fact this reads rather than one
+    // it assumes.
+    by_x.sort_by_key(|&i| monitors.get(i).map_or(0, |m| m.x));
     match want.to_ascii_lowercase().as_str() {
         "left" => by_x.first().copied(),
         "right" => by_x.last().copied(),
@@ -549,7 +557,7 @@ mod tests {
             .iter()
             .map(|leaf| match leaf {
                 DockNode::Tabs { panes, active } => panes[*active],
-                _ => panic!("every top leaf is tabs"),
+                DockNode::Split { .. } => panic!("every top leaf is tabs"),
             })
             .collect();
         assert_eq!(got, crate::dock::preset::CONSOLE_TOP.to_vec());

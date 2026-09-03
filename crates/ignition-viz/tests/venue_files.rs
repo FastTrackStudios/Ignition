@@ -49,7 +49,8 @@ fn every_fixture_carries_its_type_place_facing_and_patch() {
             );
             let q = fixture.quat;
             assert!(
-                (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w - 1.0).abs() < 1e-2,
+                (q.w.mul_add(q.w, q.z.mul_add(q.z, q.x.mul_add(q.x, q.y * q.y))) - 1.0).abs()
+                    < 1e-2,
                 "{what} carries no usable orientation, so it aims wherever the \
                  renderer's default points: {q:?}"
             );
@@ -114,7 +115,7 @@ fn the_room_has_geometry_and_the_rig_stands_inside_it() {
         for fixture in &venue.fixtures {
             let p = fixture.position;
             assert!(
-                p.x.abs() < half_x * 4.0 + 10.0 && p.z.abs() < half_z * 4.0 + 10.0,
+                p.x.abs() < half_x.mul_add(4.0, 10.0) && p.z.abs() < half_z.mul_add(4.0, 10.0),
                 "{name}/{} is at {p:?}, nowhere near a room {half_x} by {half_z}",
                 fixture.name
             );

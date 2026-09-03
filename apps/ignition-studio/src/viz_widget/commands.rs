@@ -20,6 +20,14 @@ use ignition_viz::playback::Playback;
 ///
 /// Drained rather than blocked on: a dropped frame's worth of messages
 /// is better than a stalled frame, and the sender will send again.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one dispatch over Command on purpose — the Playback resource is destructured \
+              once and its fields borrowed piecewise for the rest of the body; splitting a \
+              case out means handing that borrow set to a helper as eight arguments, so the \
+              match arms are the seams a reader wants and they are already there. See the \
+              module doc comment."
+)]
 pub(super) fn drain(
     commands: &Receiver,
     viz: &mut EmbeddedViz,
@@ -67,7 +75,7 @@ pub(super) fn drain(
         let shipped = crate::faders::profile();
         if programmer.protected.is_empty() && !shipped.protected.is_empty() {
             // r[impl profile.protected-roles] - the programmer learns them from the profile
-            programmer.protected = shipped.protected.clone();
+            programmer.protected.clone_from(&shipped.protected);
         }
         let queued = std::iter::from_fn(|| commands.try_recv().ok());
         for command in picked.into_iter().chain(queued) {
@@ -93,7 +101,11 @@ pub(super) fn drain(
                     }
                     if page == programmer.page {
                         programmer.set_fader(index, *fader);
-                    } else if let Some(slot) = programmer.pages[page].get_mut(index) {
+                    } else if let Some(slot) = programmer
+                        .pages
+                        .get_mut(page)
+                        .and_then(|p| p.get_mut(index))
+                    {
                         *slot = *fader;
                     }
                 }
@@ -271,14 +283,11 @@ pub(super) fn drain(
                 Command::CanvasSource { canvas, source } => {
                     let source = if source.trim().is_empty() {
                         None
+                    } else if let Some(s) = ignition_viz::camera::CameraSource::parse(&source) {
+                        Some(s)
                     } else {
-                        match ignition_viz::camera::CameraSource::parse(&source) {
-                            Some(s) => Some(s),
-                            None => {
-                                tracing::warn!(source, "studio: not a camera source");
-                                continue;
-                            }
-                        }
+                        tracing::warn!(source, "studio: not a camera source");
+                        continue;
                     };
                     if let Some(mut switches) =
                         world.get_resource_mut::<ignition_viz::camera::CanvasSwitches>()
@@ -322,7 +331,7 @@ pub(super) fn drain(
                         for attr in &attrs {
                             if let Some(value) = held.get(&(chan, attr.clone())) {
                                 programmer.park_chan(chan, attr.clone(), *value);
-                                parked += 1;
+                                parked = parked.saturating_add(1);
                             }
                         }
                     }
@@ -350,15 +359,16 @@ pub(super) fn drain(
                     None => programmer.clear_solo(),
                 },
                 Command::Hold(Some(recipe)) => programmer.hold(*recipe),
-                Command::Hold(None) => programmer.release_hold(),
+                Command::Hold(None) | Command::Look(None) => programmer.release_hold(),
                 // r[impl playback.macro-runner] - a MACRO key starts one; the tick below runs it
-                Command::Macro(name) => match MacroRunner::from_profile(shipped, &name) {
-                    Some(runner) => {
+                Command::Macro(name) => {
+                    if let Some(runner) = MacroRunner::from_profile(shipped, &name) {
                         tracing::info!(name, "studio: macro");
                         *macro_runner = Some(runner);
+                    } else {
+                        tracing::warn!(name, "studio: no such macro");
                     }
-                    None => tracing::warn!(name, "studio: no such macro"),
-                },
+                }
                 // r[impl playback.look-hold] - a LOOK key latches the look on the held layer
                 Command::Look(Some(name)) => {
                     let show = Show {
@@ -382,7 +392,6 @@ pub(super) fn drain(
                         .is_some_and(|l| l.kind == ignition_core::profile::LookKind::Safe);
                     programmer.hold_look(recipes, safe);
                 }
-                Command::Look(None) => programmer.release_hold(),
                 // r[impl profile.effect-parameters] - the control reaches the engine's fader
                 Command::Param { index, name, value } => programmer.set_param(index, &name, value),
                 Command::Flash(target, kind) => {
@@ -494,7 +503,10 @@ pub(super) fn drain(
                         // for the nineteen cues that were sections, and
                         // the accents, being called things like
                         // "· fig 0 · 1/3", simply failed.
-                        if let Some(at) = player.cues().get(index).and_then(|c| c.position())
+                        if let Some(at) = player
+                            .cues()
+                            .get(index)
+                            .and_then(ignition_core::Cue::position)
                             && let Some(transport) = transport
                         {
                             transport.locate(at);
@@ -561,15 +573,15 @@ pub(super) fn drain(
                     tracing::info!(command, "studio: camera (from cue)");
                     continue;
                 }
-                match command.strip_prefix("macro ") {
-                    Some(name) => match MacroRunner::from_profile(shipped, name.trim()) {
-                        Some(runner) => {
-                            tracing::info!(name, "studio: macro (from cue)");
-                            *macro_runner = Some(runner);
-                        }
-                        None => tracing::warn!(name, "studio: cue names no such macro"),
-                    },
-                    None => tracing::info!(command, "studio: cue command"),
+                if let Some(name) = command.strip_prefix("macro ") {
+                    if let Some(runner) = MacroRunner::from_profile(shipped, name.trim()) {
+                        tracing::info!(name, "studio: macro (from cue)");
+                        *macro_runner = Some(runner);
+                    } else {
+                        tracing::warn!(name, "studio: cue names no such macro");
+                    }
+                } else {
+                    tracing::info!(command, "studio: cue command");
                 }
             }
         }
@@ -615,7 +627,7 @@ pub(super) fn drain(
                 &mut playback,
                 desk.as_deref(),
                 show_file.map(std::path::Path::new),
-                transport.map(|t| t.song()),
+                transport.map(ignition_daw::SongTransport::song),
             );
         }
     }

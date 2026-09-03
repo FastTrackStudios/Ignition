@@ -294,8 +294,9 @@ pub enum CameraTarget {
 
 /// Where the programme camera is, as the engine reports it: the preset
 /// it is on (`None` mid-dissolve or after a free move), its pose, and
-/// the presets and slots the pane lists. The pose is what *save current
-/// view as preset* writes.
+/// the presets and slots the pane lists.
+///
+/// The pose is what *save current view as preset* writes.
 // r[impl studio.video.cameras-pane] - the current view comes back on the playhead
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -317,7 +318,7 @@ pub struct CameraState {
 }
 
 /// One canvas on the Cameras pane's TO SCREENS row.
-#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CanvasRow {
     pub name: String,
     /// `camera:programme` / `camera:<preset>` while switched; `None`
@@ -339,13 +340,14 @@ pub enum OverlayKind {
 }
 
 impl OverlayKind {
-    pub const ALL: [OverlayKind; 3] = [OverlayKind::Focus, OverlayKind::Beams, OverlayKind::Groups];
+    pub const ALL: [Self; 3] = [Self::Focus, Self::Beams, Self::Groups];
 
-    pub fn label(self) -> &'static str {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
         match self {
-            OverlayKind::Focus => "FOCUS",
-            OverlayKind::Beams => "BEAMS",
-            OverlayKind::Groups => "GROUPS",
+            Self::Focus => "FOCUS",
+            Self::Beams => "BEAMS",
+            Self::Groups => "GROUPS",
         }
     }
 }
@@ -364,12 +366,13 @@ pub enum SpeedKey {
 
 impl SpeedKey {
     /// The engine's key for this one.
-    pub fn action(self) -> KeyAction {
+    #[must_use]
+    pub const fn action(self) -> KeyAction {
         match self {
-            SpeedKey::Tap => KeyAction::Learn,
-            SpeedKey::Half => KeyAction::HalfSpeed,
-            SpeedKey::Double => KeyAction::DoubleSpeed,
-            SpeedKey::Reset => KeyAction::ResetSpeed,
+            Self::Tap => KeyAction::Learn,
+            Self::Half => KeyAction::HalfSpeed,
+            Self::Double => KeyAction::DoubleSpeed,
+            Self::Reset => KeyAction::ResetSpeed,
         }
     }
 }
@@ -387,7 +390,7 @@ pub enum PageMove {
 
 /// A playhead from a client that predates fade progress reports its cue
 /// as arrived rather than as never having landed.
-fn one_f32() -> f32 {
+const fn one_f32() -> f32 {
     1.0
 }
 
@@ -489,12 +492,14 @@ pub struct Playhead {
 
 impl Playhead {
     /// The song playback's master, for the surface.
-    pub fn song_master(&self) -> f32 {
+    #[must_use]
+    pub const fn song_master(&self) -> f32 {
         self.playback_masters[0]
     }
 
     /// The look playback's master.
-    pub fn look_master(&self) -> f32 {
+    #[must_use]
+    pub const fn look_master(&self) -> f32 {
         self.playback_masters[1]
     }
 }
@@ -503,6 +508,7 @@ impl Playhead {
     /// How far through, 0..=1. A zero-length song reports 0 rather than
     /// NaN, which would otherwise reach a CSS percentage and lay the bar
     /// out at a width no one can explain.
+    #[must_use]
     pub fn fraction(&self) -> f32 {
         if self.length > 0.0 {
             (self.secs / self.length).clamp(0.0, 1.0)

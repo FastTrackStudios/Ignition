@@ -26,6 +26,26 @@
 //! packing.
 // r[verify viz.haze-is-volumetric] - the two declarations of the grid's uniform agree
 
+// Integration test: `clippy.toml`'s test allowances only reach
+// `#[cfg(test)]` modules, so the panic set is lifted here instead. See
+// docs/ops/clippy.md. `string_slice` is part of that same panic set and
+// is lifted for the same reason: every slice below is at a byte offset
+// found by searching for an ASCII marker (`"pub struct Name {"` and
+// similar), which is always a char boundary, but clippy cannot see that.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::string_slice,
+    reason = "integration test — see docs/ops/clippy.md; string_slice is lifted for the same reason, see the comment above"
+)]
+
 use std::path::Path;
 
 /// Field names, in declaration order, from a Rust struct.
@@ -96,7 +116,10 @@ fn every_field_of_the_froxel_uniform_fills_a_whole_lane() {
         ("froxel.wgsl", "FroxelGrid"),
     ] {
         let source = std::fs::read_to_string(root.join(file)).expect(file);
-        let marker = if file.ends_with(".rs") {
+        let marker = if Path::new(file)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("rs"))
+        {
             format!("pub struct {name} {{")
         } else {
             format!("struct {name} {{")

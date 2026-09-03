@@ -56,6 +56,7 @@ pub struct RateLimiter {
 }
 
 impl RateLimiter {
+    #[must_use]
     pub fn new(max_hz: f32, keepalive_hz: f32) -> Self {
         let max_hz = if max_hz.is_finite() && max_hz > 0.0 {
             max_hz
@@ -100,7 +101,7 @@ impl RateLimiter {
     }
 
     /// Forget the last frame so the next tick sends regardless.
-    pub fn reset(&mut self) {
+    pub const fn reset(&mut self) {
         self.last_sent = None;
         self.last_frame = None;
         self.pending = false;
@@ -162,11 +163,13 @@ impl Sender {
     /// fails: a socket that would not bind is reported in [`Sender::status`],
     /// and the other protocol still runs.
     // r[impl dmx.output-toggle]
+    #[must_use]
     pub fn bind(config: &OutputConfig, source_name: &str) -> Self {
         Self::bind_at(config.clone(), source_name, BindAddrs::default())
     }
 
     /// [`Sender::bind`] with explicit bind addresses.
+    #[must_use]
     pub fn bind_at(config: OutputConfig, source_name: &str, addrs: BindAddrs) -> Self {
         let mut errors = Vec::new();
         let wants_sacn = config.universes.values().any(|u| u.sacn.is_some());
@@ -248,7 +251,7 @@ impl Sender {
                 universes,
                 sink: None,
                 errors,
-                reported: Default::default(),
+                reported: std::collections::HashSet::default(),
             }),
         }
     }
@@ -256,6 +259,7 @@ impl Sender {
     /// Attach the loopback: every universe sent also lands here, as the
     /// same 512 bytes the packets carried.
     // r[impl dmx.loopback]
+    #[must_use]
     pub fn with_sink(self, sink: Box<dyn Sink>) -> Self {
         self.set_sink(Some(sink));
         self
@@ -265,7 +269,7 @@ impl Sender {
         self.lock().sink = sink;
     }
 
-    pub fn config(&self) -> &OutputConfig {
+    pub const fn config(&self) -> &OutputConfig {
         &self.config
     }
 
@@ -274,7 +278,7 @@ impl Sender {
     }
 
     /// The component identifier every sACN packet from this process carries.
-    pub fn cid(&self) -> &[u8; 16] {
+    pub const fn cid(&self) -> &[u8; 16] {
         &self.cid
     }
 
@@ -299,6 +303,14 @@ impl Sender {
     // r[impl dmx.one-frame]
     // r[impl dmx.rate]
     // r[impl dmx.sequence]
+    // The lock genuinely needs to stay held for the whole per-universe loop
+    // below: a sequence number, `sent_at` and the loopback sink all have to
+    // move together per frame, and dropping it mid-loop to placate the lint
+    // would let a concurrent `send`/`stop` interleave universes.
+    #[expect(
+        clippy::significant_drop_tightening,
+        reason = "the lock is held for the whole per-universe update on purpose; see the comment above"
+    )]
     pub fn send(&self, frame: &HashMap<u16, [u8; 512]>, now: Instant) {
         if !self.is_enabled() {
             return;
@@ -374,6 +386,12 @@ impl Sender {
     /// times, so nodes release it at once. Output is disabled afterwards;
     /// `set_enabled(true)` starts it again.
     // r[impl dmx.sacn.addressing]
+    // Same reasoning as `send`: the lock spans the whole per-universe
+    // terminate loop so a concurrent caller cannot see a half-terminated set.
+    #[expect(
+        clippy::significant_drop_tightening,
+        reason = "the lock is held for the whole per-universe terminate loop on purpose"
+    )]
     pub fn stop(&self) {
         self.stopped.store(true, Ordering::SeqCst);
         let mut inner = self.lock();
@@ -439,7 +457,7 @@ impl Sender {
                     universe: *n,
                     protocols,
                     last_sent: state.and_then(|s| s.last_sent),
-                    hz: state.map(|s| s.sent_at.len() as f32).unwrap_or(0.0),
+                    hz: state.map_or(0.0, |s| sent_count_as_hz(s.sent_at.len())),
                 }
             })
             .collect::<Vec<_>>();
@@ -511,11 +529,17 @@ impl Sender {
             return 0;
         };
         let mut buf = [0u8; 1024];
-        let mut answered = 0;
+        let mut answered: usize = 0;
         loop {
             match sock.recv_from(&mut buf) {
                 Ok((len, from)) => {
-                    if let Some(artnet::Packet::Poll(_)) = artnet::parse(&buf[..len]) {
+                    // `recv_from` never returns a length past the buffer it
+                    // filled, but the data is still bytes off the wire, and
+                    // `get` costs nothing here for the guarantee.
+                    let Some(bytes) = buf.get(..len) else {
+                        continue;
+                    };
+                    if let Some(artnet::Packet::Poll(_)) = artnet::parse(bytes) {
                         let target = artnet::reply_target(from);
                         for reply in self.poll_replies() {
                             if let Err(e) = sock.send_to(&reply, target) {
@@ -524,7 +548,7 @@ impl Sender {
                                     .push(format!("Art-Net: poll reply to {target} failed: {e}"));
                             }
                         }
-                        answered += 1;
+                        answered = answered.saturating_add(1);
                     }
                     // Anything else on the port (another controller's
                     // ArtDmx, replies) is not ours to handle.
@@ -557,8 +581,23 @@ impl Sender {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, Inner> {
-        self.inner.lock().unwrap_or_else(|p| p.into_inner())
+        self.inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
+}
+
+/// `sent_at.len()` — how many frames went out in the trailing second — as
+/// a rate for [`Status`]. Bounded above by whatever `max_hz` a venue
+/// config can hold (nothing sane runs a universe past a few hundred Hz),
+/// nowhere near where an `f32` mantissa starts dropping counts.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "sent_at.len() is bounded by realistic frame rates; see the doc comment"
+)]
+const fn sent_count_as_hz(count: usize) -> f32 {
+    count as f32
 }
 
 fn record(
@@ -570,6 +609,17 @@ fn record(
     if reported.insert(key) {
         errors.push(msg);
     }
+}
+
+/// `i` is the enumerate index of a 16-byte CID's 8-byte halves — always 0
+/// or 1 — widened to a fixed-width type so the hash salt (and so the CID
+/// itself) does not change between a 32-bit and a 64-bit build.
+#[expect(
+    clippy::as_conversions,
+    reason = "usize -> u64 is infallible on every target this ships to; see the doc comment"
+)]
+const fn chunk_salt(i: usize) -> u64 {
+    i as u64
 }
 
 fn send_sacn(
@@ -642,10 +692,12 @@ fn send_artnet(
     ok
 }
 
-/// A CID that is the same every time this machine runs this source name,
-/// so a node sees one source across restarts (E1.31 §6.2.3 wants the CID
+/// A CID that is the same every time this machine runs this source name.
+///
+/// So a node sees one source across restarts (E1.31 §6.2.3 wants the CID
 /// to persist), and different for two Ignitions on two machines.
 // r[impl dmx.sacn.priority]
+#[must_use]
 pub fn stable_cid(source_name: &str) -> [u8; 16] {
     let host = std::env::var("HOSTNAME")
         .ok()
@@ -657,7 +709,7 @@ pub fn stable_cid(source_name: &str) -> [u8; 16] {
         let mut h = DefaultHasher::new();
         // Two independent halves from the same inputs; the salt makes
         // them differ.
-        (i as u64, "ignition-io", host, source_name).hash(&mut h);
+        (chunk_salt(i), "ignition-io", host, source_name).hash(&mut h);
         chunk.copy_from_slice(&h.finish().to_be_bytes());
     }
     // Mark it as a version-4 (random-style) UUID with the RFC variant so
@@ -682,8 +734,10 @@ mod tests {
         let cfg: OutputConfig = serde_json::from_str(cfg_json()).unwrap();
         let u = &cfg.universes[&1];
         assert!(u.enabled);
-        assert_eq!(u.max_hz, 44.0);
-        assert_eq!(u.keepalive_hz, 1.0);
+        // Exact equality is right here: these came straight from serde's
+        // `#[serde(default)]` constants, not through any float arithmetic.
+        assert!((u.max_hz - 44.0).abs() < f32::EPSILON);
+        assert!((u.keepalive_hz - 1.0).abs() < f32::EPSILON);
         let s = u.sacn.as_ref().unwrap();
         assert_eq!(s.priority, 100);
         assert!(s.multicast);
@@ -702,7 +756,7 @@ mod tests {
         extra.insert("dmx".into(), serde_json::from_str(cfg_json()).unwrap());
         assert_eq!(OutputConfig::from_venue_extra(&extra).unwrap(), cfg);
         assert!(
-            !OutputConfig::from_venue_extra(&Default::default())
+            !OutputConfig::from_venue_extra(&serde_json::Map::default())
                 .unwrap()
                 .has_output()
         );
@@ -733,7 +787,7 @@ mod tests {
         assert!(!rl.should_send(&b, t1 + Duration::from_millis(500)));
         assert!(!rl.should_send(&b, t1 + Duration::from_millis(999)));
         assert!(
-            rl.should_send(&b, t1 + Duration::from_millis(1000)),
+            rl.should_send(&b, t1 + Duration::from_secs(1)),
             "keep-alive at 1 Hz"
         );
 
@@ -742,7 +796,9 @@ mod tests {
         let mut sent = 0;
         for i in 0..1000u64 {
             let mut f = [0u8; 512];
-            f[0] = i as u8;
+            // Same wrap `as u8` gave: only distinctness across frames
+            // matters here, not the exact byte.
+            f[0] = u8::try_from(i % 256).unwrap_or(0);
             if rl.should_send(&f, t0 + Duration::from_millis(i)) {
                 sent += 1;
             }
@@ -881,7 +937,7 @@ mod tests {
         sender.send(&frame, t0 + Duration::from_millis(30));
         assert_eq!(sacn::parse(&recv(&sacn_rx)).unwrap().sequence, 1);
         let st = sender.status();
-        assert_eq!(st.per_universe[0].hz, 2.0);
+        assert!((st.per_universe[0].hz - 2.0).abs() < f32::EPSILON);
         assert!(st.per_universe[0].last_sent.is_some());
     }
 
@@ -897,10 +953,12 @@ mod tests {
         let mut last_art = 0u8;
         for i in 0..260u32 {
             let mut d = [0u8; 512];
-            d[0] = i as u8;
-            d[1] = (i >> 8) as u8;
+            // Same wrap `as u8` gave for the low byte; `i` never exceeds
+            // 260 so the high byte fits `u8` without truncating anything.
+            d[0] = u8::try_from(i % 256).unwrap_or(0);
+            d[1] = u8::try_from(i >> 8).unwrap_or(0);
             frame.insert(1u16, d);
-            sender.send(&frame, t0 + Duration::from_millis(i as u64 * 25));
+            sender.send(&frame, t0 + Duration::from_millis(u64::from(i) * 25));
             last_sacn = sacn::parse(&recv(&sacn_rx)).unwrap().sequence;
             if let Some(artnet::Packet::Dmx { sequence, .. }) = artnet::parse(&recv(&art_rx)) {
                 last_art = sequence;

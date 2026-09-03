@@ -20,7 +20,7 @@
 //! tri wipe — live with the other one-shots, because that is how an
 //! operator reaches for them.
 
-use super::*;
+use super::{Add, Attribute, Play, Recipe, Step, Timing, Trick, Waveform, beat, delta, hue, role};
 
 const FAMILY: &str = "strip";
 
@@ -129,7 +129,7 @@ pub(super) fn add(add: Add) {
         "running sines",
         "two soft bumps of light gliding along the bars every two bars — verses and outros",
         bars(
-            Waveform::Sine.steps(Attribute::Dimmer, -0.45, 0.45, true),
+            Waveform::Sine.steps(&Attribute::Dimmer, -0.45, 0.45, true),
             beat(2.0, 720.0, Play::Forward),
             Vec::new(),
         ),
@@ -189,6 +189,8 @@ pub(super) fn add(add: Add) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::recipe::RecipeApply;
+    use std::collections::BTreeMap;
 
     fn family() -> BTreeMap<String, Recipe> {
         let mut out = BTreeMap::new();
@@ -237,6 +239,12 @@ mod tests {
         }
     }
 
+    // `phase_spread_deg` is a literal set by `beat(...)`, not computed,
+    // so an exact comparison is the right assertion.
+    #[expect(
+        clippy::float_cmp,
+        reason = "phase_spread_deg is a literal set by beat(...), not computed"
+    )]
     #[test]
     fn the_scanners_bounce_and_the_sines_run_twice_round() {
         let f = family();

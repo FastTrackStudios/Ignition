@@ -67,6 +67,12 @@ const MAX_RIG_DISTANCE: f32 = 0.6;
 /// always said the fog "has to reach past every wall, the fixtures and
 /// the floor"; this is that sentence, made true.
 // r[impl viz.beam-reach] - the haze volume is the room's rotated extent
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "every operator here is Vec3/Quat float arithmetic, component-wise and \
+              unable to panic or overflow — see docs/ops/clippy.md and the identical \
+              suppression in view.rs and obj_mesh.rs"
+)]
 fn haze_bounds(venue: &crate::venue::Venue) -> (Vec3, Vec3) {
     let (mut min, mut max) = (Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY));
     for g in &venue.room {
@@ -119,24 +125,27 @@ const VOLUMETRIC_HAZE_SCALE: f32 = 0.05;
 /// hazer level (`haze::HazeLevel`): the dial is the multiplier, the
 /// hazers are what put the haze there.
 // r[impl viz.haze-is-volumetric] - density is dial x hazer output
+#[must_use]
 pub fn haze_density(haze: f32, hazer_level: f32) -> f32 {
     haze * VOLUMETRIC_HAZE_SCALE * hazer_level
 }
 
 /// `FogVolume::light_intensity`: a gain on what the fog scatters toward
 /// the camera, without touching how much it dims the room behind it.
+///
 /// Bevy's fog at a density that leaves a twenty-metre house readable
 /// scatters too little of a 1,600 cd par to show its cone; this is the
 /// camera's aperture for the air, the way `exposure` is for surfaces.
 pub const FOG_LIGHT_GAIN: f32 = 2.5;
 
-/// `FogVolume::scattering_asymmetry`: how much the haze throws light
-/// forward rather than sideways. Bevy's default of 0.8 is a clear-sky
-/// aerosol — a shaft seen head-on is twenty times the same shaft seen
-/// square across, so a mover swung toward the house whited the room
-/// out while forty-eight pars seen from the side barely showed. Glycol
-/// haze is nearer isotropic; at 0.3 a par's cone reads from the seats
-/// and a beam into the camera is bright, not a veil.
+/// `FogVolume::scattering_asymmetry`: how much the haze throws light forward
+/// rather than sideways.
+///
+/// Bevy's default of 0.8 is a clear-sky aerosol — a shaft seen head-on is
+/// twenty times the same shaft seen square across, so a mover swung toward
+/// the house whited the room out while forty-eight pars seen from the side
+/// barely showed. Glycol haze is nearer isotropic; at 0.3 a par's cone reads
+/// from the seats and a beam into the camera is bright, not a veil.
 pub const FOG_SCATTERING_ASYMMETRY: f32 = 0.3;
 
 /// How strongly the haze scatters the light that crosses it: Bevy's own
@@ -145,11 +154,13 @@ pub const FOG_SCATTERING_ASYMMETRY: f32 = 0.3;
 /// dial that matters and this one is left at the engine's default.
 const HAZE_SCATTERING: f32 = 0.3;
 
-/// How much of the light crossing a metre of haze is lost to it —
+/// How much of the light crossing a metre of haze is lost to it.
+///
 /// Bevy's fog volume computes `density * (absorption + scattering)` per
 /// metre, and the haze camera's occluders write the same term so the
 /// composite dims the room exactly as the in-camera fog would have.
 // r[impl viz.performance-budget] - one extinction, two renderers
+#[must_use]
 pub fn haze_extinction_per_metre(haze: f32, hazer_level: f32) -> f32 {
     haze_density(haze, hazer_level) * (HAZE_ABSORPTION + HAZE_SCATTERING)
 }
@@ -226,6 +237,9 @@ const STAGE_FLOOR_COLOR: Color = Color::srgb(0.055, 0.05, 0.045);
 const SCREEN_COLOR: Color = Color::srgb(0.02, 0.02, 0.03);
 const PROP_COLOR: Color = Color::srgb(0.48, 0.30, 0.62);
 
+/// Room geometry emits nothing; only the rig lights it.
+const UNLIT: f32 = 0.0;
+
 /// The loaded venue, kept around so the live-update system can re-read a
 /// fixture's mount pose and personality each frame.
 #[derive(Resource)]
@@ -238,6 +252,12 @@ pub struct DmxRes(pub DmxUniverses);
 /// Global visualizer settings the operator can dial — the equivalent of
 /// QLC+ / grandMA3's 3D-view ambient and haze sliders.
 #[derive(Resource)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "an operator dial panel, not a state machine — each flag is independent \
+              and read on its own (`settings.show_props`, `settings.overlay`, ...), \
+              never combined into a bitmask of behaviour that would be clearer as an enum"
+)]
 pub struct VizSettings {
     /// How much particulate is in the air to scatter a beam into
     /// something visible — a hazer's fluid-output dial, roughly 0..2,
@@ -344,9 +364,10 @@ pub struct BeamEmitter {
 }
 
 /// What the live resolve decided this emitter should be doing, written by
-/// `update_live_fixtures` and read after transforms propagate. Separated
-/// because the beam's world pose is not known until propagation has run,
-/// but its colour is known before.
+/// `update_live_fixtures` and read after transforms propagate.
+///
+/// Separated because the beam's world pose is not known until propagation
+/// has run, but its colour is known before.
 #[derive(Component, Default)]
 pub struct EmitterState {
     /// `None` when the fixture is dark.
@@ -362,10 +383,11 @@ pub struct EmitterState {
     pub lumens: f32,
 }
 
-/// A surface that displays content — a TV, and in time any mapped
-/// projection surface. Its own emissive texture is what it shows, so it
-/// reads as a lit display in a dark room rather than as a panel that
-/// happens to be lit by the rig.
+/// A surface that displays content — a TV, and in time any mapped projection
+/// surface.
+///
+/// Its own emissive texture is what it shows, so it reads as a lit display
+/// in a dark room rather than as a panel that happens to be lit by the rig.
 #[derive(Component)]
 pub struct ScreenSurface;
 
@@ -411,13 +433,15 @@ pub struct PartMaterial {
 impl PartMaterial {
     /// A part the file already makes emissive is a lens, and stays the
     /// file's colour on hover: the tint marks the housing, not the glass.
+    #[must_use]
     pub fn is_lens(&self) -> bool {
         self.base_emissive != LinearRgba::BLACK
     }
 }
 
 impl FixtureBody {
-    pub fn new(material: Handle<StandardMaterial>) -> Self {
+    #[must_use]
+    pub const fn new(material: Handle<StandardMaterial>) -> Self {
         Self {
             material,
             parts: Vec::new(),
@@ -437,6 +461,7 @@ impl FixtureBody {
 
     /// Whether `handle` is one of this fixture's own — the body material
     /// or a clone — rather than a file material still to be adopted.
+    #[must_use]
     pub fn owns(&self, handle: &Handle<StandardMaterial>) -> bool {
         self.material.id() == handle.id()
             || self.parts.iter().any(|p| p.material.id() == handle.id())
@@ -444,7 +469,8 @@ impl FixtureBody {
 }
 
 /// The profile's own optics, on every emitter of a fixture whose profile
-/// resolved: the `<Beam>` node's BeamAngle and FieldAngle as half-angles.
+/// resolved: the `<Beam>` node's `BeamAngle` and `FieldAngle` as half-angles.
+///
 /// The profile is the single source of truth for how wide a light is —
 /// the patch's `beam_angle_deg` is consulted only for a fixture with no
 /// profile at all (see `fixture_optics`).
@@ -455,31 +481,31 @@ pub struct ProfileOptics {
     pub field_half_deg: f32,
 }
 
-/// The one rule for how wide a fixture's light is. A resolved profile's
-/// `<Beam>` angles win outright; a fixture with no profile falls back to
-/// the patch's single angle as its beam, with the field assumed at
-/// twice that. The patch used to win whenever it carried a number — so
-/// a par patched at 30 degrees and profiled at 30/60 was drawn as a
-/// 30-degree hard cone, which is the "par cones too narrow" report.
+/// The one rule for how wide a fixture's light is.
+///
+/// A resolved profile's `<Beam>` angles win outright; a fixture with no
+/// profile falls back to the patch's single angle as its beam, with the
+/// field assumed at twice that.
+///
+/// The patch used to win whenever it carried a number — so a par patched at
+/// 30 degrees and profiled at 30/60 was drawn as a 30-degree hard cone,
+/// which is the "par cones too narrow" report.
 // r[impl viz.profile-optics] - profile first, patch only as the fallback
 pub fn fixture_optics(
     f: &crate::venue::FixtureRecord,
     profile: Option<&GdtfFixture>,
 ) -> ProfileOptics {
-    match profile.and_then(GdtfFixture::optics) {
-        Some((beam, field)) => {
-            let beam_half = (beam * 0.5).clamp(0.05, MAX_FIELD_HALF_ANGLE_DEG);
-            ProfileOptics {
-                beam_half_deg: beam_half,
-                field_half_deg: (field * 0.5).clamp(beam_half, MAX_FIELD_HALF_ANGLE_DEG),
-            }
+    if let Some((beam, field)) = profile.and_then(GdtfFixture::optics) {
+        let beam_half = (beam * 0.5).clamp(0.05, MAX_FIELD_HALF_ANGLE_DEG);
+        ProfileOptics {
+            beam_half_deg: beam_half,
+            field_half_deg: (field * 0.5).clamp(beam_half, MAX_FIELD_HALF_ANGLE_DEG),
         }
-        None => {
-            let beam_half = beam_half_angle_deg(f.beam_angle_deg);
-            ProfileOptics {
-                beam_half_deg: beam_half,
-                field_half_deg: assumed_field_half_angle_deg(beam_half),
-            }
+    } else {
+        let beam_half = beam_half_angle_deg(f.beam_angle_deg);
+        ProfileOptics {
+            beam_half_deg: beam_half,
+            field_half_deg: assumed_field_half_angle_deg(beam_half),
         }
     }
 }
@@ -510,6 +536,7 @@ pub fn fixture_optics(
 // r[impl viz.haze-is-volumetric] - a beam may start at the lens, not at a point
 pub const DEFAULT_LENS_RADIUS_M: f32 = 0.0;
 
+#[must_use]
 pub fn lens_radius() -> f32 {
     std::env::var("IGNITION_LENS_RADIUS")
         .ok()
@@ -517,10 +544,11 @@ pub fn lens_radius() -> f32 {
         .unwrap_or(DEFAULT_LENS_RADIUS_M)
 }
 
-/// A fixture's spill: the light it actually throws onto the room, as
-/// and, through the haze, the shaft it shows in the air. Also a
-/// child of the emitter, with an identity local transform — a Bevy spot
-/// light shines along its entity's -Z, which is already this project's
+/// A fixture's spill: the light it actually throws onto the room, as and,
+/// through the haze, the shaft it shows in the air.
+///
+/// Also a child of the emitter, with an identity local transform — a Bevy
+/// spot light shines along its entity's -Z, which is already this project's
 /// beam-axis convention, so it needs no aiming code at all.
 #[derive(Component)]
 pub struct FixtureSpill;
@@ -555,16 +583,28 @@ pub struct BarEmitter {
 /// two heads) fails one of the two.
 const BAR_LINE_TOLERANCE: f32 = 0.01;
 
-/// A multi-`<Beam>` profile is a bar when four or more beams fire the
-/// same way from points on one line square to that aim. Returns the
-/// strip: its centre pose (local X along the strip, -Z the aim) and the
-/// half-length and cell pitch.
+/// A multi-`<Beam>` profile is a bar when four or more beams fire the same
+/// way from points on one line square to that aim.
+///
+/// Returns the strip: its centre pose (local X along the strip, -Z the aim)
+/// and the half-length and cell pitch.
 // r[impl viz.bar-emitters] - four or more beams on a line are a bar
+#[must_use]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "every Vec3/Quat operator here is float and component-wise and cannot \
+              panic or overflow; the one integer subtraction (`beams.len() - 1`) is \
+              guarded by the `beams.len() < 4` return just above and so cannot underflow"
+)]
 pub fn bar_strip(beams: &[(Vec3, Quat)]) -> Option<(Vec3, Quat, f32, f32)> {
     if beams.len() < 4 {
         return None;
     }
-    let aim = (beams[0].1 * Vec3::NEG_Z).normalize_or_zero();
+    // `beams.len() >= 4` was just checked, so the first cell is always
+    // there — `get` rather than an index that reads as though it could
+    // panic.
+    let &(first, first_rot) = beams.first()?;
+    let aim = (first_rot * Vec3::NEG_Z).normalize_or_zero();
     if beams
         .iter()
         .any(|(_, r)| (r * Vec3::NEG_Z).dot(aim) < 0.999)
@@ -572,7 +612,6 @@ pub fn bar_strip(beams: &[(Vec3, Quat)]) -> Option<(Vec3, Quat, f32, f32)> {
         return None;
     }
     // The strip runs from the first cell to the one farthest from it.
-    let first = beams[0].0;
     let last = beams
         .iter()
         .map(|(p, _)| *p)
@@ -595,14 +634,14 @@ pub fn bar_strip(beams: &[(Vec3, Quat)]) -> Option<(Vec3, Quat, f32, f32)> {
     }) {
         return None;
     }
-    let pitch = length / (beams.len() - 1) as f32;
+    let pitch = length / crate::num::f32_of_usize(beams.len() - 1);
     let centre = (first + last) * 0.5;
     // A frame whose X is the strip and whose -Z is the aim.
     let x = along;
     let z = -aim;
     let y = z.cross(x).normalize_or_zero();
     let rot = Quat::from_mat3(&Mat3::from_cols(x, y, z));
-    Some((centre, rot, length * 0.5 + pitch * 0.5, pitch))
+    Some((centre, rot, length.mul_add(0.5, pitch * 0.5), pitch))
 }
 
 /// A cache key for one way of splitting a QLC+ mesh: the split height's
@@ -623,6 +662,11 @@ fn split_key(split: Option<(f32, bool)>) -> u64 {
 // r[impl viz.bar-emitters] - the emissive face and one spill per bar
 // r[impl viz.haze-is-volumetric] - a bar's light in the air is its spill in the fog
 #[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "every Vec3/Quat operator here is float and component-wise and cannot \
+              panic or overflow — see docs/ops/clippy.md"
+)]
 fn spawn_bar_emitter(
     commands: &mut Commands,
     parent: Entity,
@@ -640,8 +684,8 @@ fn spawn_bar_emitter(
 ) {
     // A cell face is a square of the pitch, capped so a sparse bar does
     // not read as a slab; proud of the housing by the face's own depth.
-    let half_width = (pitch * 0.5).min(0.03);
     const FACE_DEPTH: f32 = 0.004;
+    let half_width = (pitch * 0.5).min(0.03);
     let emitter = commands
         .spawn((
             BeamEmitter { fixture },
@@ -718,6 +762,12 @@ pub struct RigSurface {
 
 impl RigSurface {
     /// Distance from a point to this surface's box, zero inside it.
+    #[must_use]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "every Vec3 operator here is float and component-wise and cannot \
+                  panic or overflow — see docs/ops/clippy.md"
+    )]
     pub fn distance_to(&self, point: Vec3) -> f32 {
         let local = (self.rot.inverse() * (point - self.center)).abs() - self.half_extents;
         local.max(Vec3::ZERO).length() + local.max_element().min(0.0)
@@ -733,6 +783,7 @@ impl RigSurface {
 /// the back wall, the overhead movers hang off the beam over the drums,
 /// and the strips and floor movers sit on the deck. Rigging each to what
 /// it is actually attached to means moving that structure moves them.
+#[must_use]
 pub fn nearest_rig_surface(fixture_pos: Vec3, surfaces: &[RigSurface]) -> Option<RigSurface> {
     surfaces
         .iter()
@@ -752,6 +803,12 @@ pub fn nearest_rig_surface(fixture_pos: Vec3, surfaces: &[RigSurface]) -> Option
 /// fixture's real measured offset, because there is no equivalent
 /// contradiction to resolve and inventing one would move fixtures that
 /// are already right.
+#[must_use]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "every Vec3/Quat operator here is float and component-wise and cannot \
+              panic or overflow — see docs/ops/clippy.md"
+)]
 pub fn rig_to_surface(fixture_pos: Vec3, fixture_rot: Quat, surface: &RigSurface) -> (Vec3, Quat) {
     let inv = surface.rot.inverse();
     let mut local = inv * (fixture_pos - surface.center);
@@ -875,7 +932,8 @@ impl Default for CanvasClock {
 impl CanvasClock {
     /// A clock pinned to a supplied position — what a host driving the
     /// visualizer from a transport inserts each frame.
-    pub fn at(seconds: f64) -> Self {
+    #[must_use]
+    pub const fn at(seconds: f64) -> Self {
         Self {
             seconds,
             free_running: false,
@@ -892,15 +950,15 @@ enum CanvasSource {
 }
 
 impl CanvasSource {
-    fn size(&self) -> (u32, u32) {
+    const fn size(&self) -> (u32, u32) {
         match self {
-            CanvasSource::Clip(v) => v.size(),
+            Self::Clip(v) => v.size(),
         }
     }
 
     fn frame_at(&mut self, secs: f64) -> Option<&[u8]> {
         match self {
-            CanvasSource::Clip(v) => v.frame_at(secs),
+            Self::Clip(v) => v.frame_at(secs),
         }
     }
 }
@@ -927,6 +985,15 @@ pub struct CanvasVideos(Mutex<Vec<CanvasVideo>>);
 /// CPU-side copy is the thing being written every frame, and dropping it
 /// would leave nothing to write into after the first upload.
 fn blank_frame((width, height): (u32, u32)) -> Image {
+    // Widened rather than cast, and multiplied with `saturating_mul`: a
+    // clip's frame is at most a few million pixels, nowhere near where
+    // this could actually saturate, but the buffer size for a texture
+    // upload is exactly the kind of arithmetic that should not silently
+    // wrap if that ever stopped being true.
+    let byte_len = usize::try_from(width)
+        .unwrap_or(usize::MAX)
+        .saturating_mul(usize::try_from(height).unwrap_or(usize::MAX))
+        .saturating_mul(4);
     Image::new(
         Extent3d {
             width,
@@ -934,7 +1001,7 @@ fn blank_frame((width, height): (u32, u32)) -> Image {
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
-        vec![0; (width as usize) * (height as usize) * 4],
+        vec![0; byte_len],
         // Srgb, matching what the still path gets from a PNG. The
         // sampled value feeds an emissive channel, and a linear texture
         // there reads as a screen with its gamma wound up.
@@ -951,6 +1018,11 @@ fn blank_frame((width, height): (u32, u32)) -> Image {
 /// what is on screen is already right. `None` is the *usual* answer — the visualizer runs
 /// at 120 fps and a clip at 30 — and it is what keeps this from
 /// re-uploading eight megabytes four times per clip frame.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "a Bevy system's Res/ResMut parameters are taken by value because the \
+              SystemParam trait requires ownership of the wrapper, not a borrow of it"
+)]
 pub fn update_canvas_videos(
     time: Res<Time>,
     mut clock: ResMut<CanvasClock>,
@@ -962,7 +1034,12 @@ pub fn update_canvas_videos(
     }
     let seconds = clock.seconds;
 
-    for entry in videos.0.get_mut().expect("canvas video lock").iter_mut() {
+    for entry in videos
+        .0
+        .get_mut()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .iter_mut()
+    {
         let Some(frame) = entry.source.frame_at(seconds) else {
             continue;
         };
@@ -992,8 +1069,26 @@ pub fn update_canvas_videos(
 /// fixture (plus that fixture's beam and spill, initially hidden).
 // A Bevy system's "arguments" are its data dependencies, which the
 // scheduler reads to decide what can run in parallel — splitting this one
-// up to satisfy an argument count would hide that, not simplify it.
-#[allow(clippy::too_many_arguments)]
+// up to satisfy an argument count would hide that, not simplify it. The
+// line count is the same trade in another shape: this is one linear
+// scene-build pass over a venue — room, then props, then canvases and
+// screens, then haze, then the fixture rig — sharing locals
+// (`rig_surfaces`, `unit_cube`, `shared_meshes`) that a split into
+// arbitrary sub-functions would have to thread back through as more
+// arguments, without making any one stage easier to follow.
+#[expect(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    clippy::needless_pass_by_value,
+    clippy::arithmetic_side_effects,
+    reason = "a Bevy system's Res/ResMut parameters are taken by value because the \
+              SystemParam trait requires ownership of the wrapper, not a borrow of \
+              it; the argument and line counts are the single scene-build pass \
+              described above; and every arithmetic operator in this function is \
+              either Vec3/Quat float arithmetic (component-wise, cannot panic or \
+              overflow — see docs/ops/clippy.md) or the `person_index += 1` prop \
+              counter, which cannot realistically overflow a usize in one venue"
+)]
 pub fn spawn_venue(
     mut commands: Commands,
     venue: Res<VenueRes>,
@@ -1019,9 +1114,6 @@ pub fn spawn_venue(
     // small emissive term so they read as their own objects: enough for
     // bloom to give them a soft presence, far below anything a lit beam
     // puts out.
-
-    /// Room geometry emits nothing; only the rig lights it.
-    const UNLIT: f32 = 0.0;
 
     for g in &venue.room {
         if settings.skip(&g.name) {
@@ -1100,7 +1192,7 @@ pub fn spawn_venue(
                 Mesh3d(unit_cube.clone()),
                 MeshMaterial3d(solid(&mut standard, COLUMN_CAP_COLOR, UNLIT)),
                 Transform {
-                    translation: Vec3::Z * (size.z * 0.5 + cap_height * 0.5),
+                    translation: Vec3::Z * size.z.mul_add(0.5, cap_height * 0.5),
                     scale: Vec3::new(size.x * 1.02, size.y * 1.02, cap_height),
                     ..default()
                 },
@@ -1216,7 +1308,10 @@ pub fn spawn_venue(
         if let Some(source) = crate::camera::CameraSource::parse(path) {
             let target = camera_sources.target_for(&source, &mut programme_view, &mut images);
             let (w, h) = crate::camera::SOURCE_SIZE;
-            source_aspect.insert(canvas.clone(), w as f32 / h as f32);
+            source_aspect.insert(
+                canvas.clone(),
+                crate::num::f32_of_u32(w) / crate::num::f32_of_u32(h),
+            );
             canvas_content.insert(canvas, target);
             continue;
         }
@@ -1224,7 +1319,7 @@ pub fn spawn_venue(
             canvas_content.insert(canvas.clone(), handle.clone());
             if let Some(aspect) = playing.iter().find(|v| v.image == *handle).map(|v| {
                 let (w, h) = v.source.size();
-                w as f32 / h.max(1) as f32
+                crate::num::f32_of_u32(w) / crate::num::f32_of_u32(h.max(1))
             }) {
                 source_aspect.insert(canvas, aspect);
             }
@@ -1236,7 +1331,10 @@ pub fn spawn_venue(
                 if let Ok((w, h)) = image::image_dimensions(&file)
                     && h > 0
                 {
-                    source_aspect.insert(canvas.clone(), w as f32 / h as f32);
+                    source_aspect.insert(
+                        canvas.clone(),
+                        crate::num::f32_of_u32(w) / crate::num::f32_of_u32(h),
+                    );
                 }
                 canvas_content.insert(canvas, asset_server.load(path.clone()));
             }
@@ -1246,7 +1344,10 @@ pub fn spawn_venue(
                     Ok(source) => {
                         let (w, h) = source.size();
                         if h > 0 {
-                            source_aspect.insert(canvas.clone(), w as f32 / h as f32);
+                            source_aspect.insert(
+                                canvas.clone(),
+                                crate::num::f32_of_u32(w) / crate::num::f32_of_u32(h),
+                            );
                         }
                         let handle = images.add(blank_frame(source.size()));
                         canvas_content.insert(canvas.clone(), handle.clone());
@@ -1377,7 +1478,7 @@ pub fn spawn_venue(
                 Mesh3d(meshes.add(crate::canvas::sliced_quad(slice))),
                 MeshMaterial3d(display(&mut standard, content.clone())),
                 Transform {
-                    translation: Vec3::Z * (depth * 0.5 + 0.005),
+                    translation: Vec3::Z * depth.mul_add(0.5, 0.005),
                     scale: Vec3::new(size.x * 0.94, size.y * 0.94, 1.0),
                     ..default()
                 },
@@ -1454,7 +1555,11 @@ pub fn spawn_venue(
     };
     // One mesh asset per model, shared by every fixture of the type.
     let mut shared_meshes = gdtf_geometry::SharedMeshes::new(&mut meshes);
-    for (index, f) in venue.fixtures.iter().enumerate() {
+    // Zipped with `shadowed` rather than indexed by `index`: `shadowed` was
+    // built one-for-one with `venue.fixtures` just above, and iterating
+    // the pair keeps that correspondence in the type instead of relying on
+    // the reader to trust that the two stay the same length.
+    for ((index, f), &is_shadowed) in venue.fixtures.iter().enumerate().zip(shadowed.iter()) {
         // Unpatched channels (Norco's phantom 19/98) have no real
         // position — the patch reports (0,0,0), which would render as a
         // stray fixture at the room's origin.
@@ -1500,14 +1605,14 @@ pub fn spawn_venue(
         // of an absolute — clamped so it hangs below the surface rather
         // than through it.
         let (parent, local_pos, local_rot) =
-            match nearest_rig_surface(f.position.to_vec3(), &rig_surfaces) {
-                Some(surface) => {
+            nearest_rig_surface(f.position.to_vec3(), &rig_surfaces).map_or_else(
+                || (None, f.position.to_vec3(), f.orientation()),
+                |surface| {
                     let (local_pos, local_rot) =
                         rig_to_surface(f.position.to_vec3(), f.orientation(), &surface);
                     (Some(surface.entity), local_pos, local_rot)
-                }
-                None => (None, f.position.to_vec3(), f.orientation()),
-            };
+                },
+            );
 
         let mut root_cmd = commands.spawn((
             Fixture {
@@ -1562,13 +1667,22 @@ pub fn spawn_venue(
             // them takes over — under the cells' own parent, placed
             // from the cells' local poses.
             // r[impl viz.bar-emitters] - a bar's cells fold into one strip
+            //
+            // `nodes.get` rather than `nodes[parent_index]`: `parent_index`
+            // is the file's own claim about where its cells hang, not a
+            // loop counter over `nodes`, so a malformed GDTF file could
+            // name an index this fixture's tree never produced. The
+            // fallback is to leave the per-cell emitters `spawn_gdtf_tree`
+            // already made in place — the same picture as a fixture that
+            // was never recognised as a bar at all.
             if let Some((parent_index, cells)) = gdtf.root.bar_cells()
                 && let Some((centre, rot, half_length, pitch)) = bar_strip(&cells)
+                && let Some(&bar_parent) = nodes.get(parent_index)
             {
                 emitters.clear();
                 spawn_bar_emitter(
                     &mut commands,
-                    nodes[parent_index],
+                    bar_parent,
                     index,
                     &f.name,
                     centre,
@@ -1606,10 +1720,9 @@ pub fn spawn_venue(
                     // With a split, the yoke is drawn on the root and the
                     // head becomes a child that tilts about the split
                     // point. With none, the whole mesh is the body.
-                    let (yoke_split, head_split) = match split_z {
-                        Some(z) => (Some((*z, false)), Some((*z, true))),
-                        None => (None, None),
-                    };
+                    let (yoke_split, head_split) = split_z
+                        .as_ref()
+                        .map_or((None, None), |z| (Some((*z, false)), Some((*z, true))));
                     // The QLC+ path's anchor correction is a body offset,
                     // not a mount move, so it goes on the drawn mesh
                     // rather than the fixture root — the root stays at
@@ -1627,7 +1740,7 @@ pub fn spawn_venue(
                         f.orientation().inverse() * (visual.position - f.position.to_vec3());
                     commands.spawn((
                         Mesh3d(shared_meshes.get_or_add(
-                            (std::ptr::from_ref(asset) as usize, split_key(yoke_split)),
+                            (std::ptr::from_ref(asset).addr(), split_key(yoke_split)),
                             || asset.to_bevy_mesh(yoke_split),
                         )),
                         MeshMaterial3d(body_material.clone()),
@@ -1672,7 +1785,7 @@ pub fn spawn_venue(
                                 .id();
                             commands.spawn((
                                 Mesh3d(shared_meshes.get_or_add(
-                                    (std::ptr::from_ref(asset) as usize, split_key(head_split)),
+                                    (std::ptr::from_ref(asset).addr(), split_key(head_split)),
                                     || asset.to_bevy_mesh(head_split),
                                 )),
                                 MeshMaterial3d(body_material.clone()),
@@ -1747,7 +1860,7 @@ pub fn spawn_venue(
                     // is how you find out whether what you are looking
                     // at in a beam is the shadow map rather than the
                     // march.
-                    shadow_maps_enabled: shadowed[index]
+                    shadow_maps_enabled: is_shadowed
                         && !std::env::var("IGNITION_SHADOWS").is_ok_and(|v| v.trim() == "0"),
                     ..default()
                 },
@@ -1773,6 +1886,7 @@ pub fn spawn_venue(
 
 /// Whether a fixture pans or tilts: its GDTF names a pan or tilt
 /// geometry, or its channel map carries the attribute.
+#[must_use]
 pub fn fixture_moves(manufacturer: &str, model: &str, profile: Option<&GdtfFixture>) -> bool {
     fn any(node: &crate::gdtf_geometry::GdtfNode) -> bool {
         node.is_pan || node.is_tilt || node.children.iter().any(any)
@@ -1794,6 +1908,18 @@ pub fn fixture_moves(manufacturer: &str, model: &str, profile: Option<&GdtfFixtu
 /// transforms — `update_beams` runs after that and reads the answer
 /// rather than recomputing it.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
+#[expect(
+    clippy::needless_pass_by_value,
+    clippy::arithmetic_side_effects,
+    clippy::too_many_lines,
+    reason = "a Bevy system's Res parameters are taken by value because the \
+              SystemParam trait requires ownership of the wrapper, not a borrow of \
+              it; the arithmetic here is Quat multiplication (`base_rot * live.pan`), \
+              float and component-wise, unable to panic or overflow; and this is one \
+              system resolving one frame of DMX onto every entity family it drives \
+              (root, head, GDTF joints, emitters) in a fixed order, the same \
+              single-pass shape as `spawn_venue` above"
+)]
 pub fn update_live_fixtures(
     venue: Res<VenueRes>,
     dmx: Option<Res<DmxRes>>,
@@ -1873,7 +1999,13 @@ pub fn update_live_fixtures(
             }
         });
 
-        resolved[index] = Some(Live {
+        // `resolved` was built one slot per fixture just above, so this
+        // write is always in range — `get_mut` and a stated fallback
+        // instead of indexing that reads as though it could panic.
+        let Some(slot) = resolved.get_mut(index) else {
+            continue;
+        };
+        *slot = Some(Live {
             pan: Quat::from_axis_angle(Vec3::Z, live.pan_deg.to_radians()),
             tilt: Quat::from_axis_angle(Vec3::X, live.tilt_deg.to_radians()),
             color,
@@ -1969,14 +2101,16 @@ struct Live {
     lumens: f32,
 }
 
-/// Whether a strobing fixture is lit this frame. `None` (no strobe
-/// channel) and zero (shutter open) are always lit; above that the
-/// byte sets a rate from 1 to 25 Hz, and the shutter is open for half
-/// of each period.
+/// Whether a strobing fixture is lit this frame.
+///
+/// `None` (no strobe channel) and zero (shutter open) are always lit; above
+/// that the byte sets a rate from 1 to 25 Hz, and the shutter is open for
+/// half of each period.
+#[must_use]
 pub fn strobe_open(strobe: Option<f32>, elapsed_secs: f32) -> bool {
     match strobe {
         Some(rate) if rate > 0.001 => {
-            let hz = 1.0 + rate * 24.0;
+            let hz = rate.mul_add(24.0, 1.0);
             (elapsed_secs * hz).fract() < 0.5
         }
         _ => true,
@@ -1984,14 +2118,16 @@ pub fn strobe_open(strobe: Option<f32>, elapsed_secs: f32) -> bool {
 }
 
 /// The cone a zoom byte draws: the fixture's nominal angle when the
-/// personality has no zoom, otherwise half of it at byte 0 through
-/// one and a half times it at byte 255. A stand-in for the optic's
-/// real range until profiles carry one, but it moves with the wire.
+/// personality has no zoom, otherwise half of it at byte 0 through one and a
+/// half times it at byte 255.
+///
+/// A stand-in for the optic's real range until profiles carry one, but it
+/// moves with the wire.
+#[must_use]
 pub fn zoomed_half_angle_deg(nominal_half_deg: f32, zoom: Option<f32>) -> f32 {
-    match zoom {
-        Some(z) => nominal_half_deg * (0.5 + z.clamp(0.0, 1.0)),
-        None => nominal_half_deg,
-    }
+    zoom.map_or(nominal_half_deg, |z| {
+        nominal_half_deg * (0.5 + z.clamp(0.0, 1.0))
+    })
 }
 
 /// What to hand a Bevy `SpotLight` so it throws the fixture's real
@@ -2012,6 +2148,7 @@ pub fn zoomed_half_angle_deg(nominal_half_deg: f32, zoom: Option<f32>) -> f32 {
 /// it, and the auto exposure rides the frame from there — the same way
 /// a 150 W beam and a 36 W par share a venue and a phone camera copes.
 // r[impl viz.exposure] - real candela in, the camera decides the rest
+#[must_use]
 pub fn spot_lumens(lumens: f32, field_half_angle_rad: f32) -> f32 {
     peak_candela(lumens, field_half_angle_rad.to_degrees()) * 4.0 * core::f32::consts::PI
 }
@@ -2026,6 +2163,14 @@ pub fn spot_lumens(lumens: f32, field_half_angle_rad: f32) -> f32 {
 /// offset in the manufacturer's own geometry tree. Nothing here knows or
 /// cares which of those applied.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
+#[expect(
+    clippy::needless_pass_by_value,
+    clippy::arithmetic_side_effects,
+    reason = "a Bevy system's Res parameters are taken by value because the \
+              SystemParam trait requires ownership of the wrapper, not a borrow of \
+              it; the one arithmetic operator (`global.rotation() * Vec3::NEG_Z`) is \
+              Quat/Vec3 float arithmetic, component-wise and unable to panic or overflow"
+)]
 pub fn update_beams(
     time: Res<Time>,
     venue: Res<VenueRes>,
@@ -2052,14 +2197,13 @@ pub fn update_beams(
         // A strip's cells show its colour on the housing, lit or dark.
         // r[impl viz.bar-emitters] - every cell face carries the colour
         if let Some(bar) = bar {
-            let emissive = match state.color {
-                Some(c) => LinearRgba::rgb(
+            let emissive = state.color.map_or(LinearRgba::BLACK, |c| {
+                LinearRgba::rgb(
                     c[0] * BAR_FACE_GLOW,
                     c[1] * BAR_FACE_GLOW,
                     c[2] * BAR_FACE_GLOW,
-                ),
-                None => LinearRgba::BLACK,
-            };
+                )
+            });
             for cell in &bar.cells {
                 let unchanged = standard.get(cell).is_some_and(|m| m.emissive == emissive);
                 if unchanged {
@@ -2073,23 +2217,30 @@ pub fn update_beams(
 
         for child in children.iter() {
             if let Ok((mut visibility, mut light)) = spill_q.get_mut(child) {
-                match state.color {
-                    Some(color) => {
-                        *visibility = Visibility::Visible;
-                        // A strip's one spill has to cover the strip's
-                        // own length as well as its spread — a cone is
-                        // the only shape a spot light has, so it opens to
-                        // where the wedge's long side reaches.
-                        // The spill's cone is the datasheet's: full to
-                        // the beam angle (the 50% edge), falling off to
-                        // nothing at the field angle (the 10% edge). A
-                        // par's field is twice its beam, so it is a
-                        // soft pool; a beam fixture's field is barely
-                        // wider, so it is a hard shaft. That difference
-                        // — not a per-category penumbra guess — is what
-                        // separates the two.
-                        // r[impl viz.profile-optics] - beam is the inner cone, field the outer
-                        let (inner, outer) = match bar {
+                if let Some(color) = state.color {
+                    *visibility = Visibility::Visible;
+                    // A strip's one spill has to cover the strip's
+                    // own length as well as its spread — a cone is
+                    // the only shape a spot light has, so it opens to
+                    // where the wedge's long side reaches.
+                    // The spill's cone is the datasheet's: full to
+                    // the beam angle (the 50% edge), falling off to
+                    // nothing at the field angle (the 10% edge). A
+                    // par's field is twice its beam, so it is a
+                    // soft pool; a beam fixture's field is barely
+                    // wider, so it is a hard shaft. That difference
+                    // — not a per-category penumbra guess — is what
+                    // separates the two.
+                    // r[impl viz.profile-optics] - beam is the inner cone, field the outer
+                    let (inner, outer) = bar.map_or_else(
+                        || {
+                            let outer = state
+                                .field_half_angle_deg
+                                .to_radians()
+                                .min(core::f32::consts::FRAC_PI_2 - 0.01);
+                            (state.half_angle_deg.to_radians().min(outer), outer)
+                        },
+                        |bar| {
                             // A strip's one spill has to cover the
                             // strip's own length as well as its spread
                             // — a cone is the only shape a spot light
@@ -2100,33 +2251,23 @@ pub fn update_beams(
                             // against, and a fully soft edge left the
                             // wall dark until halfway up.
                             // r[impl viz.bar-emitters] - a bar's wash begins at the bar
-                            Some(bar) => {
-                                let outer = (state
-                                    .field_half_angle_deg
-                                    .max(BAR_MIN_HALF_ANGLE_DEG)
-                                    .to_radians()
-                                    + (bar.half_length / length.max(0.1)).atan())
-                                .min(core::f32::consts::FRAC_PI_2 - 0.01);
-                                (outer * BAR_INNER_FRACTION, outer)
-                            }
-                            None => {
-                                let outer = state
-                                    .field_half_angle_deg
-                                    .to_radians()
-                                    .min(core::f32::consts::FRAC_PI_2 - 0.01);
-                                (state.half_angle_deg.to_radians().min(outer), outer)
-                            }
-                        };
-                        light.outer_angle = outer;
-                        light.inner_angle = inner;
-                        light.range = throw.spill_range();
-                        light.color = Color::srgb(color[0], color[1], color[2]);
-                        light.intensity = spot_lumens(state.lumens, outer);
-                    }
-                    None => {
-                        *visibility = Visibility::Hidden;
-                        light.intensity = 0.0;
-                    }
+                            let outer = (state
+                                .field_half_angle_deg
+                                .max(BAR_MIN_HALF_ANGLE_DEG)
+                                .to_radians()
+                                + (bar.half_length / length.max(0.1)).atan())
+                            .min(core::f32::consts::FRAC_PI_2 - 0.01);
+                            (outer * BAR_INNER_FRACTION, outer)
+                        },
+                    );
+                    light.outer_angle = outer;
+                    light.inner_angle = inner;
+                    light.range = throw.spill_range();
+                    light.color = Color::srgb(color[0], color[1], color[2]);
+                    light.intensity = spot_lumens(state.lumens, outer);
+                } else {
+                    *visibility = Visibility::Hidden;
+                    light.intensity = 0.0;
                 }
             }
         }
@@ -2136,6 +2277,14 @@ pub fn update_beams(
 /// Lights each fixture's own housing with the colour it is emitting, so
 /// the rig reads as a rig at a glance — which fixtures are up, in what
 /// colour — rather than as a static model.
+#[expect(
+    clippy::needless_pass_by_value,
+    clippy::arithmetic_side_effects,
+    reason = "a Bevy system's Res parameters are taken by value because the \
+              SystemParam trait requires ownership of the wrapper, not a borrow of \
+              it; the arithmetic is `LinearRgba` addition, float and component-wise, \
+              unable to panic or overflow"
+)]
 pub fn update_fixture_bodies(
     dmx: Option<Res<DmxRes>>,
     settings: Res<VizSettings>,
@@ -2175,11 +2324,14 @@ pub fn update_fixture_bodies(
 }
 
 /// What a fixture's housing emits this frame. With the glow off — the
-/// default — nothing, whatever the fixture is doing: the housing is a
-/// black box lit only by the rig around it. With it on, a lit fixture
-/// glows its own colour, scaled by the dimmer so a fixture at 20% reads
-/// as at 20%, and hot enough at full for bloom to halo it.
+/// default — nothing, whatever the fixture is doing: the housing is a black
+/// box lit only by the rig around it.
+///
+/// With it on, a lit fixture glows its own colour, scaled by the dimmer so a
+/// fixture at 20% reads as at 20%, and hot enough at full for bloom to halo
+/// it.
 // r[impl viz.body-glow] - a body emits nothing unless the glow is on
+#[must_use]
 pub fn body_emissive(live: Option<crate::dmx::ResolvedAttributes>, body_glow: bool) -> LinearRgba {
     if !body_glow {
         return LinearRgba::BLACK;
@@ -2206,6 +2358,11 @@ pub struct LiveDmx(pub Vec<Option<crate::dmx::ResolvedAttributes>>);
 
 /// Decodes the rig's bytes for the frame. Runs ahead of everything that
 /// reads `LiveDmx`.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "a Bevy system's Res parameters are taken by value because the \
+              SystemParam trait requires ownership of the wrapper, not a borrow of it"
+)]
 pub fn resolve_live_dmx(venue: Res<VenueRes>, dmx: Option<Res<DmxRes>>, mut out: ResMut<LiveDmx>) {
     let Some(dmx) = dmx else { return };
     let venue = &venue.0;
@@ -2223,6 +2380,11 @@ pub fn resolve_live_dmx(venue: Res<VenueRes>, dmx: Option<Res<DmxRes>>, mut out:
 
 /// Applies the ambient dial to Bevy's global ambient light.
 // r[impl viz.exposure] - the fill is photometric too
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "a Bevy system's Res parameters are taken by value because the \
+              SystemParam trait requires ownership of the wrapper, not a borrow of it"
+)]
 pub fn apply_ambient(settings: Res<VizSettings>, mut ambient: ResMut<GlobalAmbientLight>) {
     if settings.is_changed() {
         ambient.brightness = settings.ambient * AMBIENT_LUX_PER_UNIT;
@@ -2230,6 +2392,7 @@ pub fn apply_ambient(settings: Res<VizSettings>, mut ambient: ResMut<GlobalAmbie
 }
 
 /// What one unit of the ambient dial is worth, in lux on every surface.
+///
 /// A dial of one is a dim room's worklight; the shipped 0.15 is a
 /// couple of lux, just enough to find the truss by. Calibrated against
 /// `app::STAGE_EV100` the same as the fixtures are: this was 200 under
@@ -2455,8 +2618,8 @@ mod body_and_bar_tests {
             "no profile: the patch's 30 as the beam, field assumed"
         );
         let unknown = fixture_optics(&record(Some(0.0)), None);
-        assert_eq!(
-            unknown.beam_half_deg, 12.5,
+        assert!(
+            (unknown.beam_half_deg - 12.5).abs() < 1e-6,
             "nothing anywhere: the old default"
         );
     }
@@ -2483,6 +2646,13 @@ mod body_and_bar_tests {
     /// hierarchy places it, the same as a point emitter.
     // r[verify viz.one-emitter-tree] - a bar's strip hangs where its cells hang
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one scenario: build a mounted GDTF fixture, spawn its bar, then \
+                  assert every invariant about where the strip landed — splitting the \
+                  setup from the assertions it feeds would only add indirection for a \
+                  test that runs once"
+    )]
     fn a_bars_strip_hangs_under_the_cells_parent_and_lands_on_the_cells() {
         use bevy::MinimalPlugins;
         use bevy::app::App;
@@ -2506,7 +2676,7 @@ mod body_and_bar_tests {
         };
         let material = Handle::<StandardMaterial>::default();
         let world = app.world_mut();
-        let root = world.spawn((mount, Visibility::default())).id();
+        let fixture_root = world.spawn((mount, Visibility::default())).id();
         let mut emitters = Vec::new();
         let mut nodes = Vec::new();
         let mut queue = bevy::ecs::world::CommandQueue::default();
@@ -2516,7 +2686,7 @@ mod body_and_bar_tests {
             let mut standard = Assets::<StandardMaterial>::default();
             gdtf_geometry::spawn_gdtf_tree(
                 &mut commands,
-                root,
+                fixture_root,
                 &fixture.root,
                 &mut gdtf_geometry::SharedMeshes::new(&mut meshes),
                 &material,
@@ -2577,7 +2747,7 @@ mod body_and_bar_tests {
                 .unwrap()
                 .translation();
         }
-        cell_centre /= emitters.len() as f32;
+        cell_centre /= crate::num::f32_of_usize(emitters.len());
         // The strip is centred between the end cells; the file's cells
         // are a fraction of a millimetre off an even pitch.
         assert!(
@@ -2664,8 +2834,8 @@ mod body_and_bar_tests {
         let fanned: Vec<_> = (0..4)
             .map(|i| {
                 (
-                    Vec3::new(i as f32 * 0.1, 0.0, 0.0),
-                    Quat::from_rotation_y((i as f32) * 0.3),
+                    Vec3::new(crate::num::f32_of_i32(i) * 0.1, 0.0, 0.0),
+                    Quat::from_rotation_y(crate::num::f32_of_i32(i) * 0.3),
                 )
             })
             .collect();

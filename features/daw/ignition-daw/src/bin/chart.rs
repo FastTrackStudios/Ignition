@@ -11,9 +11,8 @@
 use anyhow::{Result, bail};
 
 fn main() -> Result<()> {
-    let path = match std::env::args().nth(1) {
-        Some(p) => p,
-        None => bail!("usage: chart <project.RPP>"),
+    let Some(path) = std::env::args().nth(1) else {
+        bail!("usage: chart <project.RPP>")
     };
     let song = ignition_daw::load(&path)?;
     let chart = ignition_daw::chart::read(&path, &song)?;
@@ -25,7 +24,10 @@ fn main() -> Result<()> {
 
     let mut counts = std::collections::BTreeMap::new();
     for hit in &chart.hits {
-        *counts.entry(hit.class.label()).or_insert(0usize) += 1;
+        counts
+            .entry(hit.class.label())
+            .and_modify(|n: &mut usize| *n = n.saturating_add(1))
+            .or_insert(1usize);
     }
     println!(
         "{} hits, {} groups, {} ungrouped",
@@ -45,8 +47,7 @@ fn main() -> Result<()> {
             .collect();
         let section = song
             .section_at(group.start)
-            .map(|s| s.name.as_str())
-            .unwrap_or("—");
+            .map_or("—", |s| s.name.as_str());
         println!(
             "  {i:>2}  bar {:>3}.{:<4.2} {:<10} {} hits: {}",
             group.start.bar,

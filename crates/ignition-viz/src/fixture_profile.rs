@@ -1,8 +1,9 @@
 //! Maps a patched fixture's manufacturer/model string (straight from the
 //! live Eos patch — see `docs/domain/norco-patch-and-groups.md`) to a real
-//! shape and real dimensions, instead of the one-size box+cone every
-//! fixture used to render as regardless of whether it's a 12cm par or a
-//! 1m LED bar.
+//! shape and real dimensions.
+//!
+//! That replaces the one-size box+cone every fixture used to render as,
+//! regardless of whether it's a 12cm par or a 1m LED bar.
 //!
 //! Where a real fixture shape exists, it's one of QLC+'s generic
 //! per-category meshes (par/moving-head/hazer — see
@@ -53,8 +54,9 @@ fn moving_head_pre_rotate() -> Quat {
     Quat::from_rotation_x(std::f32::consts::PI)
 }
 
-/// How the placement position relates to the mesh's own geometry — the
-/// mesh's local origin is usually mid-body, not at any physically
+/// How the placement position relates to the mesh's own geometry.
+///
+/// The mesh's local origin is usually mid-body, not at any physically
 /// meaningful point, so without one of these the model just floats
 /// centred on the given position regardless of what that position means
 /// physically (a mount pivot, a floor contact point, ...).
@@ -112,9 +114,12 @@ pub enum Shape {
 }
 
 /// `manufacturer`/`model` come verbatim from the live Eos patch
-/// (`fixtures.json`'s `manufacturer`/`model` fields). Matched by substring
-/// since Eos model strings vary in exact punctuation between channels of
-/// the same physical fixture type (e.g. different DMX-mode suffixes).
+/// (`fixtures.json`'s `manufacturer`/`model` fields).
+///
+/// Matched by substring since Eos model strings vary in exact punctuation
+/// between channels of the same physical fixture type (e.g. different
+/// DMX-mode suffixes).
+#[must_use]
 pub fn shape_for(manufacturer: &str, model: &str) -> Shape {
     let m = manufacturer.to_ascii_lowercase();
     let mo = model.to_ascii_lowercase();
@@ -201,6 +206,7 @@ const MOVING_HEAD_SPLIT_Z: f32 = -0.02;
 /// Not matched by any patched Norco fixture today, but available for the
 /// next venue: scanner/smoke/strobe meshes at a generic ~0.3m size.
 #[allow(dead_code)]
+#[must_use]
 pub fn generic_shape(kind: &str) -> Shape {
     let mesh = match kind {
         "scanner" => scanner_mesh(),
@@ -220,6 +226,15 @@ pub fn generic_shape(kind: &str) -> Shape {
 /// The lowest/highest Z any vertex of `mesh` reaches once rotated by `rot`
 /// and scaled by `scale`, relative to the placement origin — i.e. how far
 /// below/above the origin the model's actual base/top sits.
+// `Vec3`/`Quat` arithmetic is float, component-wise, and cannot panic or
+// overflow — `arithmetic_side_effects` fires on any operator-overloaded
+// type, not just the primitive integers the lint is really about (see
+// docs/ops/clippy.md and `obj_mesh.rs::max_half_extent`'s identical
+// suppression).
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float, component-wise, and cannot panic or overflow"
+)]
 fn rotated_z_extent(mesh: &ObjMesh, rot: Quat, scale: f32) -> (f32, f32) {
     let mut min = f32::INFINITY;
     let mut max = f32::NEG_INFINITY;
@@ -242,14 +257,20 @@ fn rotated_z_extent(mesh: &ObjMesh, rot: Quat, scale: f32) -> (f32, f32) {
 /// vector's Z component the same way), which is what both the Riukoe
 /// outer-OH-pair and the Betopper floor movers' live-patch rotations
 /// turned out to use.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float, component-wise, and cannot panic or overflow"
+)]
 fn is_mounted_upright(placement_rot: Quat) -> bool {
     (placement_rot * Vec3::NEG_Z).z > 0.0
 }
 
 /// A lit fixture's live state, for `live` mode's point-light + beam-cone
-/// emission — `None` in headless `shot` mode (no live data to emit) and for
-/// any live-mode fixture whose resolved dimmer is at/near zero (blacked
-/// out, or just no channel map yet). `color` is already dimmer-scaled (see
+/// emission.
+///
+/// `None` in headless `shot` mode (no live data to emit) and for any
+/// live-mode fixture whose resolved dimmer is at/near zero (blacked out,
+/// or just no channel map yet). `color` is already dimmer-scaled (see
 /// `scene.rs`) — matches `mesh::PointLight`'s convention.
 pub struct LiveEmission {
     pub color: [f32; 3],
@@ -259,18 +280,20 @@ pub struct LiveEmission {
     pub beam_angle_deg: Option<f32>,
 }
 
-/// `rot` is always the fixed *mount* rotation — it alone decides the
-/// Bottom/Top anchor (a mechanical fact of how the fixture is rigged, not
-/// something pan/tilt changes) and is what the anchor-point maths below is
-/// computed against. `live_rot`, when present (a live pan/tilt reading
-/// composed onto `rot` — see `scene.rs`'s live-mode fixture loop) is split
-/// into pan and tilt separately: pan rotates the whole fixture (base
-/// included — a real yoke rotates on its mount when panning), tilt rotates
-/// only the head, pivoting at the shape's own `split_z` (see
-/// `mesh::add_mesh_asset_split`) — a real moving head's base stays put
-/// while only the head assembly tilts. Shapes with `split_z: None` (pars,
-/// hazers — nothing tilts) just get pan folded into the whole mesh's
-/// rotation, same as before this split existed.
+/// `rot` is always the fixed *mount* rotation.
+///
+/// It alone decides the Bottom/Top anchor (a mechanical fact of how the
+/// fixture is rigged, not something pan/tilt changes) and is what the
+/// anchor-point maths below is computed against.
+///
+/// `live_rot`, when present (a live pan/tilt reading composed onto `rot` —
+/// see `scene.rs`'s live-mode fixture loop) is split into pan and tilt
+/// separately: pan rotates the whole fixture (base included — a real yoke
+/// rotates on its mount when panning), tilt rotates only the head, pivoting
+/// at the shape's own `split_z` (see `mesh::add_mesh_asset_split`) — a real
+/// moving head's base stays put while only the head assembly tilts. Shapes
+/// with `split_z: None` (pars, hazers — nothing tilts) just get pan folded
+/// into the whole mesh's rotation, same as before this split existed.
 ///
 /// `emit`, when present, registers a point light and a beam-cone glow at
 /// the fixture's resolved anchor point, aimed along the *head's* full
@@ -346,10 +369,17 @@ pub struct BeamVisual {
 
 /// `rot` is always the fixed *mount* rotation — it alone decides the
 /// Bottom/Top anchor (a mechanical fact of how the fixture is rigged, not
-/// something pan/tilt changes). `live_pan_tilt`, when present, is a live
-/// reading split into pan and tilt separately, because they act on
-/// different parts of the fixture (see `FixtureVisual`).
+/// something pan/tilt changes).
+///
+/// `live_pan_tilt`, when present, is a live reading split into pan and tilt
+/// separately, because they act on different parts of the fixture (see
+/// `FixtureVisual`).
 #[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float, component-wise, and cannot panic or overflow"
+)]
+#[must_use]
 pub fn resolve_fixture(
     pos: Vec3,
     rot: Quat,
@@ -436,17 +466,19 @@ pub fn resolve_fixture(
     }
 }
 
-/// How far a live beam-cone's glow actually reaches — replaces what used
-/// to be a flat `2.5` metres regardless of the room's real size
-/// ("there's no throw distance concept here yet"). Reported directly:
-/// with Norco's real ~3.4m truss height, a fixed 2.5m beam visibly
-/// stopped mid-air well short of the floor — "cones that just stop
-/// within a few feet." Computed once per `build_scene` call from the
-/// venue's own real bounds (`BeamThrow::for_venue`), not per-fixture —
-/// the room's geometry doesn't change fixture to fixture. Not a real
-/// raycast against the room's actual mesh (walls, risers, screens) —
-/// just the flat floor plane, which is the case that mattered here
-/// (every downward-aimed beam in this venue) — a real occlusion raycast
+/// How far a live beam-cone's glow actually reaches — replaces what used to
+/// be a flat `2.5` metres regardless of the room's real size ("there's no
+/// throw distance concept here yet").
+///
+/// Reported directly: with Norco's real ~3.4m truss height, a fixed 2.5m
+/// beam visibly stopped mid-air well short of the floor — "cones that
+/// just stop within a few feet." Computed once per `build_scene` call
+/// from the venue's own real bounds (`BeamThrow::for_venue`), not
+/// per-fixture — the room's geometry doesn't change fixture to fixture.
+///
+/// Not a real raycast against the room's actual mesh (walls, risers,
+/// screens) — just the flat floor plane, which is the case that mattered
+/// here (every downward-aimed beam in this venue) — a real occlusion raycast
 /// is a further improvement, not attempted this pass.
 ///
 /// Since then this stops at **any** of the room's six bounding planes,
@@ -477,6 +509,10 @@ impl BeamThrow {
     /// at the centre of the audience floor, with its cap hanging in the
     /// air ("lights just stop in mid air or get cut off").
     // r[impl viz.beam-reach] - a beam reaches the room's surface, never short of it
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3 arithmetic is float, component-wise, and cannot panic or overflow"
+    )]
     pub fn for_venue(venue: &crate::venue::Venue) -> Self {
         let (min, max) = venue.room_extent();
         let pad = Vec3::splat(0.5);
@@ -513,6 +549,7 @@ impl BeamThrow {
     /// ended shafts short of the floor when the throw itself was short,
     /// and 40 was fine for one room and wrong for the next.
     // r[impl viz.beam-reach] - spill is cut by the walls, not by its range
+    #[must_use]
     pub fn spill_range(&self) -> f32 {
         self.max_reach * 1.5
     }
@@ -521,6 +558,7 @@ impl BeamThrow {
     /// face — the standard slab test, one axis at a time, keeping the
     /// nearest positive hit. An axis the beam runs parallel to simply
     /// contributes nothing.
+    #[must_use]
     pub fn reach(&self, origin: Vec3, direction: Vec3) -> f32 {
         let mut nearest = self.max_reach;
         for axis in 0..3 {
@@ -605,6 +643,10 @@ mod beam_throw_tests {
 /// comes from the real fixture's beam angle when known, so a wide-beam
 /// wash reads visibly wider than a tight-beam spot, scaled by the now
 /// much more realistic length.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat arithmetic is float, component-wise, and cannot panic or overflow"
+)]
 fn beam_visual(pos: Vec3, rot: Quat, emission: &LiveEmission, throw: &BeamThrow) -> BeamVisual {
     let direction = (rot * Vec3::NEG_Z).normalize_or_zero();
     let length = throw.reach(pos, direction);
@@ -657,27 +699,27 @@ mod beam_angle_tests {
 
     #[test]
     fn a_manufacturer_full_angle_becomes_a_half_angle() {
-        assert_eq!(beam_half_angle_deg(Some(15.0)), 7.5);
+        assert!((beam_half_angle_deg(Some(15.0)) - (7.5)).abs() < 1e-6);
     }
 
     #[test]
     fn a_missing_or_zero_angle_falls_back_rather_than_making_a_pencil_beam() {
         // Norco's patch carries both of these for real.
-        assert_eq!(beam_half_angle_deg(None), 12.5);
-        assert_eq!(beam_half_angle_deg(Some(0.0)), 12.5);
+        assert!((beam_half_angle_deg(None) - (12.5)).abs() < 1e-6);
+        assert!((beam_half_angle_deg(Some(0.0)) - (12.5)).abs() < 1e-6);
     }
 
     #[test]
     fn an_absurd_angle_is_clamped_the_way_asls_clamps_its_own() {
-        assert_eq!(beam_half_angle_deg(Some(360.0)), 45.0);
+        assert!((beam_half_angle_deg(Some(360.0)) - (45.0)).abs() < 1e-6);
     }
 }
 
-/// Assumed luminous efficacy for these fixtures' LEDs, in lumens per
-/// watt. An assumption, stated as one: manufacturers of gear at this
-/// price point publish wattage and almost never publish lumens, and the
-/// ones that do are not measuring the same way. Mid-range for RGB LED
-/// stage fixtures.
+/// Assumed luminous efficacy for these fixtures' LEDs, in lumens per watt.
+///
+/// An assumption, stated as one: manufacturers of gear at this price point
+/// publish wattage and almost never publish lumens, and the ones that do are
+/// not measuring the same way. Mid-range for RGB LED stage fixtures.
 ///
 /// Only the *ratio* between fixtures really matters here — the absolute
 /// level is set by the exposure dial — and wattage captures that ratio
@@ -696,6 +738,7 @@ pub const LUMENS_PER_WATT: f32 = 38.0;
 /// every fixture the same output — which this renderer did — makes a par
 /// carve the same beam as a 1.72-degree beam fixture, which is not what
 /// either of them does.
+#[must_use]
 pub fn power_watts(manufacturer: &str, model: &str) -> f32 {
     let m = manufacturer.to_ascii_lowercase();
     let mo = model.to_ascii_lowercase();
@@ -745,6 +788,7 @@ pub fn power_watts(manufacturer: &str, model: &str) -> f32 {
 /// Whether a model is a hazer or fogger: a fixture that puts haze in the
 /// room rather than light. Matched on the model name, case-insensitively.
 // r[impl viz.haze-is-volumetric] - a hazer is known by its name
+#[must_use]
 pub fn is_hazer(model: &str) -> bool {
     let mo = model.to_ascii_lowercase();
     mo.contains("haze") || mo.contains("hazer") || mo.contains("fog")
@@ -757,15 +801,18 @@ pub const MAX_FIELD_HALF_ANGLE_DEG: f32 = 80.0;
 /// A fixture's field half-angle when nothing states one: twice the beam,
 /// where an LED par's 10% edge typically sits relative to its 50% edge.
 // r[impl viz.profile-optics] - field is 2x beam when nothing states one
+#[must_use]
 pub fn assumed_field_half_angle_deg(beam_half_deg: f32) -> f32 {
     (beam_half_deg * 2.0).min(MAX_FIELD_HALF_ANGLE_DEG)
 }
 
-/// Peak luminous intensity in candela — lumens spread over the cone's
-/// solid angle. This, not raw output, is what decides whether a fixture
-/// cuts a visible shaft through haze: it is brightness *per direction*,
-/// so a narrow beam and a wide wash of the same wattage differ by orders
-/// of magnitude.
+/// Peak luminous intensity in candela — lumens spread over the cone's solid
+/// angle.
+///
+/// This, not raw output, is what decides whether a fixture cuts a visible
+/// shaft through haze: it is brightness *per direction*, so a narrow beam
+/// and a wide wash of the same wattage differ by orders of magnitude.
+#[must_use]
 pub fn peak_candela(lumens: f32, half_angle_deg: f32) -> f32 {
     let solid_angle = core::f32::consts::TAU * (1.0 - half_angle_deg.to_radians().cos());
     lumens / solid_angle.max(1e-6)
@@ -778,7 +825,7 @@ pub fn peak_candela(lumens: f32, half_angle_deg: f32) -> f32 {
 /// Calibrated against the operator's own observation of this rig: "the
 /// pars with a single one on I never see a cone of light, just an area
 /// gets lit up." Their 36W 30-degree pars land near 6,400 cd and the
-/// Chauvet SlimPARs near 8,400, while the mini gobo movers are around
+/// Chauvet `SlimPARs` near 8,400, while the mini gobo movers are around
 /// 39,000 and the 1.72-degree Betopper beams are past 8,000,000.
 ///
 /// It sat at 20,000 — above every par — on that observation. Lowered to
@@ -789,19 +836,21 @@ pub fn peak_candela(lumens: f32, half_angle_deg: f32) -> f32 {
 /// a hazer-less room can still be had with `--haze 0`.
 pub const SHAFT_CANDELA_THRESHOLD: f32 = 5_000.0;
 
-/// Radial segments per beam cone — Bevy's `ConicalFrustum` mesher calls
-/// them "resolution". Sixteen left a visibly faceted silhouette once
-/// beams got large enough to fill much of the frame. ASLS uses 100 on
-/// their one instanced cylinder; here every distinct (radius, length)
-/// pair is its own mesh asset, so it is not quite free.
+/// Radial segments per beam cone — Bevy's `ConicalFrustum` mesher calls them
+/// "resolution". Sixteen left a visibly faceted silhouette once beams got
+/// large enough to fill much of the frame.
+///
+/// ASLS uses 100 on their one instanced cylinder; here every distinct
+/// (radius, length) pair is its own mesh asset, so it is not quite free.
 pub const BEAM_CONE_SEGMENTS: u32 = 48;
 
 // --- Emitters -------------------------------------------------------------
 
 /// The colour emitters a fixture type mixes with, in the order its
-/// `ChannelMap` lists them — what `ignition_core::color::solve` needs to
-/// turn a colour intent into this fixture's levels
-/// (`show.rs::apply_cue_output`).
+/// `ChannelMap` lists them.
+///
+/// What `ignition_core::color::solve` needs to turn a colour intent into
+/// this fixture's levels (`show.rs::apply_cue_output`).
 ///
 /// A real GDTF profile carries measured chromaticities
 /// (`gdtf_import::import_emitters`); every hand-authored map in
@@ -814,13 +863,15 @@ pub struct FixtureEmitters {
     pub channels: Vec<(ignition_proto::ColorChannel, ignition_core::color::Emitter)>,
 }
 
-/// A typical LED of this colour: chromaticity from the common
-/// stage-LED bins (red 625 nm, green 525 nm, blue 465 nm, amber 595 nm,
-/// 400 nm UV, a lime phosphor, a ~5600 K white), output relative to the
-/// white.
+/// A typical LED of this colour:
+///
+/// chromaticity from the common stage-LED bins (red 625 nm, green 525 nm,
+/// blue 465 nm, amber 595 nm, 400 nm UV, a lime phosphor, a ~5600 K white),
+/// output relative to the white.
+#[must_use]
 pub fn typical_emitter(channel: ignition_proto::ColorChannel) -> ignition_core::color::Emitter {
     use ignition_core::color::emitter;
-    use ignition_proto::ColorChannel::*;
+    use ignition_proto::ColorChannel::{Amber, Blue, Green, Lime, Red, Uv, White};
     match channel {
         Red => emitter("Red", 0.690, 0.310, 0.25),
         Green => emitter("Green", 0.200, 0.700, 0.60),
@@ -836,7 +887,8 @@ impl FixtureEmitters {
     /// Every `ColorAdd` channel in `map`, with a typical emitter for
     /// each — `None` for a fixture with no additive colour at all (a
     /// colour-wheel mover, a hazer).
-    pub fn from_channel_map(map: &ignition_proto::ChannelMap) -> Option<FixtureEmitters> {
+    #[must_use]
+    pub fn from_channel_map(map: &ignition_proto::ChannelMap) -> Option<Self> {
         let channels: Vec<_> = map
             .channels
             .iter()
@@ -847,24 +899,27 @@ impl FixtureEmitters {
                 _ => None,
             })
             .collect();
-        (!channels.is_empty()).then_some(FixtureEmitters { channels })
+        (!channels.is_empty()).then_some(Self { channels })
     }
 
     /// Whether solving is worth it: any emitter that is not one of the
     /// three the RGB triple already addresses directly.
+    #[must_use]
     pub fn beyond_rgb(&self) -> bool {
-        use ignition_proto::ColorChannel::*;
+        use ignition_proto::ColorChannel::{Blue, Green, Red};
         self.channels
             .iter()
             .any(|(c, _)| !matches!(c, Red | Green | Blue))
     }
 
+    #[must_use]
     pub fn emitters(&self) -> Vec<ignition_core::color::Emitter> {
         self.channels.iter().map(|(_, e)| e.clone()).collect()
     }
 
     /// Levels per channel for `intent`, in `channels` order.
     // r[impl color.emitter-solve]
+    #[must_use]
     pub fn solve(
         &self,
         intent: &ignition_core::color::Intent,
@@ -918,7 +973,9 @@ mod emitter_tests {
 // --- Fixture profile: everything output needs to know about a type ------
 
 /// One slot on a colour wheel: the byte that selects it and the colour it
-/// makes. The colour is an `Intent` so the nearest-slot search
+/// makes.
+///
+/// The colour is an `Intent` so the nearest-slot search
 /// (`ignition_core::color::nearest_wheel_slot`) can compare it with the
 /// preset's intent in xy — a cheap mover's gel-like wheel is a list of
 /// approximate chromaticities, a GDTF wheel a list of measured ones.
@@ -931,6 +988,7 @@ pub struct ColorWheelSlot {
 }
 
 impl ColorWheelSlot {
+    #[must_use]
     pub fn xy(name: &str, byte: u8, x: f32, y: f32) -> Self {
         Self {
             name: name.to_string(),
@@ -944,10 +1002,11 @@ impl ColorWheelSlot {
     }
 }
 
-/// The colour space a fixture type's RGB-shaped channels are declared
-/// in: one of the spaces the core names, or GDTF's own primaries (a
-/// `Custom` space, or the ProPhoto / ANSI E1.54 presets), which the core
-/// does not carry by name and so are converted here from their xy.
+/// The colour space a fixture type's RGB-shaped channels are declared in:
+///
+/// one of the spaces the core names, or GDTF's own primaries (a `Custom`
+/// space, or the `ProPhoto` / ANSI E1.54 presets), which the core does not
+/// carry by name and so are converted here from their xy.
 // r[impl color.spaces] - the fixture type's GDTF colour space
 #[derive(Debug, Clone, PartialEq)]
 pub enum DeclaredColorSpace {
@@ -962,7 +1021,7 @@ pub enum DeclaredColorSpace {
 
 impl Default for DeclaredColorSpace {
     fn default() -> Self {
-        DeclaredColorSpace::Known(ignition_core::color::ColorSpace::Srgb)
+        Self::Known(ignition_core::color::ColorSpace::Srgb)
     }
 }
 
@@ -971,6 +1030,7 @@ impl DeclaredColorSpace {
     /// an `Rgb` is already space-independent and passes through; an sRGB
     /// space passes an `Rgb` through unchanged too.
     // r[impl color.spaces] - an RGB intent is interpreted in the fixture's space
+    #[must_use]
     pub fn interpret(&self, intent: &ignition_core::color::Intent) -> ignition_core::color::Intent {
         use ignition_core::color::{ColorSpace, Intent, Xyz};
         let Intent::Rgb(rgb) = intent else {
@@ -978,9 +1038,9 @@ impl DeclaredColorSpace {
         };
         let triple = [rgb.red, rgb.green, rgb.blue];
         match self {
-            DeclaredColorSpace::Known(ColorSpace::Srgb) => intent.clone(),
-            DeclaredColorSpace::Known(space) => Intent::from_space(*space, triple),
-            DeclaredColorSpace::Primaries {
+            Self::Known(ColorSpace::Srgb) => intent.clone(),
+            Self::Known(space) => Intent::from_space(*space, triple),
+            Self::Primaries {
                 red,
                 green,
                 blue,
@@ -990,16 +1050,29 @@ impl DeclaredColorSpace {
                 // primaries' XYZ (at Y-free scale) scaled so the white
                 // point comes out at Y = 1.
                 let col = |(x, y): (f32, f32)| [x / y, 1.0, (1.0 - x - y) / y];
-                let [r, g, b] = [col(*red), col(*green), col(*blue)];
-                let w = col(*white);
+                let [red_xyz, green_xyz, blue_xyz] = [col(*red), col(*green), col(*blue)];
+                let white_xyz = col(*white);
                 // Solve [r g b] * s = w for the per-primary scales.
-                let m = [[r[0], g[0], b[0]], [r[1], g[1], b[1]], [r[2], g[2], b[2]]];
-                let s = solve3(m, w).unwrap_or([1.0, 1.0, 1.0]);
+                let m = [
+                    [red_xyz[0], green_xyz[0], blue_xyz[0]],
+                    [red_xyz[1], green_xyz[1], blue_xyz[1]],
+                    [red_xyz[2], green_xyz[2], blue_xyz[2]],
+                ];
+                let s = solve3(m, white_xyz).unwrap_or([1.0, 1.0, 1.0]);
                 let [rr, gg, bb] = triple;
                 let xyz = Xyz {
-                    x: r[0] * s[0] * rr + g[0] * s[1] * gg + b[0] * s[2] * bb,
-                    y: r[1] * s[0] * rr + g[1] * s[1] * gg + b[1] * s[2] * bb,
-                    z: r[2] * s[0] * rr + g[2] * s[1] * gg + b[2] * s[2] * bb,
+                    x: (blue_xyz[0] * s[2]).mul_add(
+                        bb,
+                        (red_xyz[0] * s[0]).mul_add(rr, green_xyz[0] * s[1] * gg),
+                    ),
+                    y: (blue_xyz[1] * s[2]).mul_add(
+                        bb,
+                        (red_xyz[1] * s[0]).mul_add(rr, green_xyz[1] * s[1] * gg),
+                    ),
+                    z: (blue_xyz[2] * s[2]).mul_add(
+                        bb,
+                        (red_xyz[2] * s[0]).mul_add(rr, green_xyz[2] * s[1] * gg),
+                    ),
                 };
                 let xyy = xyz.to_xyy();
                 Intent::Xy {
@@ -1015,9 +1088,13 @@ impl DeclaredColorSpace {
 /// Cramer's rule for a 3x3 system; `None` when singular.
 fn solve3(m: [[f32; 3]; 3], v: [f32; 3]) -> Option<[f32; 3]> {
     let det = |m: [[f32; 3]; 3]| {
-        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
-            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
-            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+        m[0][2].mul_add(
+            m[1][0].mul_add(m[2][1], -(m[1][1] * m[2][0])),
+            m[0][0].mul_add(
+                m[1][1].mul_add(m[2][2], -(m[1][2] * m[2][1])),
+                -(m[0][1] * m[1][0].mul_add(m[2][2], -(m[1][2] * m[2][0]))),
+            ),
+        )
     };
     let d = det(m);
     if d.abs() < 1e-9 {
@@ -1026,18 +1103,25 @@ fn solve3(m: [[f32; 3]; 3], v: [f32; 3]) -> Option<[f32; 3]> {
     let mut out = [0.0; 3];
     for (i, slot) in out.iter_mut().enumerate() {
         let mut mi = m;
-        for row in 0..3 {
-            mi[row][i] = v[row];
+        // `row` and `i` are always in `0..3` — `mi` and `v` are fixed
+        // 3-element arrays — so the `get`/`get_mut` fallbacks below are
+        // never actually reached; they exist only so the index is
+        // checked rather than asserted.
+        for (row, &v_row) in v.iter().enumerate() {
+            if let Some(cell) = mi.get_mut(row).and_then(|r| r.get_mut(i)) {
+                *cell = v_row;
+            }
         }
         *slot = det(mi) / d;
     }
     Some(out)
 }
 
-/// A fixture type as the output stage sees it: its channel layout, its
-/// colour system (emitters, wheel, which of the two a preset lands on,
-/// the space its RGB channels are declared in) and the value every
-/// attribute rests at.
+/// A fixture type as the output stage sees it:
+///
+/// its channel layout, its colour system (emitters, wheel, which of the two
+/// a preset lands on, the space its RGB channels are declared in) and the
+/// value every attribute rests at.
 // r[impl color.mix-or-wheel] - preference per fixture type
 // r[impl color.spaces] - the fixture type's declared colour space
 // r[impl playback.defaults] - every attribute has a default
@@ -1055,6 +1139,7 @@ impl FixtureProfile {
     /// A profile from a channel map alone: emitters from the map's colour
     /// channels (`typical_emitter`), no wheel table, mixing preferred where
     /// mixing exists and the wheel otherwise, sRGB, and `rest_defaults`.
+    #[must_use]
     pub fn from_channel_map(map: ignition_proto::ChannelMap) -> Self {
         let emitters = FixtureEmitters::from_channel_map(&map);
         let defaults = rest_defaults(&map);
@@ -1070,6 +1155,7 @@ impl FixtureProfile {
 
     /// The same profile with a wheel table, re-deciding the preference
     /// now that there is a wheel to prefer.
+    #[must_use]
     pub fn with_wheel(mut self, wheel: Vec<ColorWheelSlot>) -> Self {
         self.color_preference = preference_for(self.emitters.is_some(), !wheel.is_empty());
         self.wheel = wheel;
@@ -1077,6 +1163,7 @@ impl FixtureProfile {
     }
 
     /// The wheel as `nearest_wheel_slot` wants it.
+    #[must_use]
     pub fn wheel_slots(&self) -> Vec<(u8, ignition_core::color::Intent)> {
         self.wheel
             .iter()
@@ -1085,7 +1172,8 @@ impl FixtureProfile {
     }
 
     /// Whether this type can take a colour at all, one way or the other.
-    pub fn has_color(&self) -> bool {
+    #[must_use]
+    pub const fn has_color(&self) -> bool {
         self.emitters.is_some() || !self.wheel.is_empty()
     }
 }
@@ -1093,7 +1181,8 @@ impl FixtureProfile {
 /// Mixing where mixing exists, the wheel otherwise; a type with neither
 /// keeps the default (`Mix`) and never gets asked.
 // r[impl color.mix-or-wheel] - the default preference
-pub fn preference_for(mixes: bool, has_wheel: bool) -> ignition_core::color::ColorPreference {
+#[must_use]
+pub const fn preference_for(mixes: bool, has_wheel: bool) -> ignition_core::color::ColorPreference {
     use ignition_core::color::ColorPreference;
     if !mixes && has_wheel {
         ColorPreference::Wheel
@@ -1102,24 +1191,35 @@ pub fn preference_for(mixes: bool, has_wheel: bool) -> ignition_core::color::Col
     }
 }
 
-/// The rest value of every attribute a channel map carries, in the cue
-/// engine's own units: dimmer, strobe and colour off, pan and tilt at 0°
-/// (centre), zoom and focus mid-travel, iris open, wheels at their first
-/// slot. Fine channels are never programmed and get no default.
+/// The rest value of every attribute a channel map carries.
+///
+/// In the cue engine's own units: dimmer, strobe and colour off, pan and
+/// tilt at 0° (centre), zoom and focus mid-travel, iris open, wheels at
+/// their first slot. Fine channels are never programmed and get no
+/// default.
 // r[impl playback.defaults] - a sensible rest where the fixture type says nothing
+#[must_use]
 pub fn rest_defaults(
     map: &ignition_proto::ChannelMap,
 ) -> std::collections::HashMap<ignition_proto::Attribute, f32> {
-    use ignition_proto::Attribute::*;
+    use ignition_proto::Attribute::{
+        ColorAdd, ColorWheel, Custom, Dimmer, Focus, GoboWheel, Iris, Pan, PanFine, Strobe, Tilt,
+        TiltFine, Zoom,
+    };
     map.channels
         .iter()
         .filter_map(|(_, attr)| {
             let value = match attr {
-                Dimmer | Strobe | ColorAdd { .. } | ColorWheel { .. } | GoboWheel { .. } => 0.0,
-                Pan | Tilt => 0.0,
+                Dimmer
+                | Strobe
+                | ColorAdd { .. }
+                | ColorWheel { .. }
+                | GoboWheel { .. }
+                | Pan
+                | Tilt
+                | Custom(_) => 0.0,
                 Zoom | Focus => 0.5,
                 Iris => 1.0,
-                Custom(_) => 0.0,
                 PanFine | TiltFine => return None,
             };
             Some((attr.clone(), value))
@@ -1150,11 +1250,11 @@ mod profile_tests {
             ],
         );
         let d = rest_defaults(&map);
-        assert_eq!(d[&Attribute::Pan], 0.0);
-        assert_eq!(d[&Attribute::Zoom], 0.5);
-        assert_eq!(d[&Attribute::Iris], 1.0);
-        assert_eq!(d[&Attribute::Strobe], 0.0);
-        assert_eq!(d[&Attribute::Dimmer], 0.0);
+        assert!((d[&Attribute::Pan] - (0.0)).abs() < 1e-6);
+        assert!((d[&Attribute::Zoom] - (0.5)).abs() < 1e-6);
+        assert!((d[&Attribute::Iris] - (1.0)).abs() < 1e-6);
+        assert!((d[&Attribute::Strobe] - (0.0)).abs() < 1e-6);
+        assert!((d[&Attribute::Dimmer] - (0.0)).abs() < 1e-6);
         assert!(
             !d.contains_key(&Attribute::PanFine),
             "fine channels are derived"

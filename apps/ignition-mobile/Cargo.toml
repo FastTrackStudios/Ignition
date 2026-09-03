@@ -43,3 +43,6 @@ path = "src/main.rs"
 name = "ignition-preview"
 path = "src/preview.rs"
 required-features = ["preview"]
+
+[lints]
+workspace = true

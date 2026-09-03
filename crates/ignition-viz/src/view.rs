@@ -30,6 +30,7 @@ pub enum ViewPreset {
 }
 
 impl ViewPreset {
+    #[must_use]
     pub fn parse(name: &str) -> Option<Self> {
         match name {
             "house" => Some(Self::House),
@@ -39,7 +40,8 @@ impl ViewPreset {
         }
     }
 
-    pub fn fov_y_deg(self) -> f32 {
+    #[must_use]
+    pub const fn fov_y_deg(self) -> f32 {
         match self {
             Self::House => 60.0,
             Self::Stage => 65.0,
@@ -48,33 +50,51 @@ impl ViewPreset {
     }
 
     /// Where to put the camera for this preset, given the venue's bounds.
+    #[must_use]
     pub fn transform(self, min: Vec3, max: Vec3) -> Transform {
         let (eye, target, up) = self.eye_target_up(min, max);
         Transform::from_translation(eye).looking_at(target, up)
     }
 
     /// The preset's eye and the point it looks at.
+    #[must_use]
     pub fn eye_target(self, min: Vec3, max: Vec3) -> (Vec3, Vec3) {
         let (eye, target, _) = self.eye_target_up(min, max);
         (eye, target)
     }
 
+    // `Vec3`'s `Add`/`Sub`/`Mul` are float component-wise ops with no
+    // integer overflow to guard against — `arithmetic_side_effects`
+    // fires on any operator-overloaded type, not just the primitive
+    // integers the lint is really about (see docs/ops/clippy.md).
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3 arithmetic is float, component-wise, and cannot panic or overflow"
+    )]
     fn eye_target_up(self, min: Vec3, max: Vec3) -> (Vec3, Vec3, Vec3) {
         let size = max - min;
         let center = (min + max) * 0.5;
         match self {
             Self::House => (
                 Vec3::new(
-                    center.x + size.x * 0.15,
-                    min.y + size.y * 0.06,
-                    min.z + size.z * 0.28,
+                    size.x.mul_add(0.15, center.x),
+                    size.y.mul_add(0.06, min.y),
+                    size.z.mul_add(0.28, min.z),
                 ),
-                Vec3::new(center.x, center.y, min.z + size.z * 0.55),
+                Vec3::new(center.x, center.y, size.z.mul_add(0.55, min.z)),
                 Vec3::Z,
             ),
             Self::Stage => (
-                Vec3::new(center.x, max.y - size.y * 0.35, min.z + size.z * 0.55),
-                Vec3::new(center.x, min.y + size.y * 0.15, min.z + size.z * 0.22),
+                Vec3::new(
+                    center.x,
+                    size.y.mul_add(-0.35, max.y),
+                    size.z.mul_add(0.55, min.z),
+                ),
+                Vec3::new(
+                    center.x,
+                    size.y.mul_add(0.15, min.y),
+                    size.z.mul_add(0.22, min.z),
+                ),
                 Vec3::Z,
             ),
             Self::Top => {
@@ -96,13 +116,19 @@ impl ViewPreset {
     /// *that* look like", which is what checking a piece of set dressing
     /// or one fixture's aim actually needs. Same up vector and the same
     /// room-sized far plane, so it composes with everything else.
+    #[must_use]
     pub fn free_transform(eye: Vec3, target: Vec3) -> Transform {
         Transform::from_translation(eye).looking_at(target, Vec3::Z)
     }
 
     /// Far plane, sized to the room so a large venue does not clip.
+    #[must_use]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3 subtraction is float, component-wise, and cannot panic or overflow"
+    )]
     pub fn far(self, min: Vec3, max: Vec3) -> f32 {
-        (max - min).length().max(4.0) * 4.0 + 10.0
+        (max - min).length().max(4.0).mul_add(4.0, 10.0)
     }
 }
 

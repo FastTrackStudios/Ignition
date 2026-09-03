@@ -42,7 +42,14 @@ impl TraceWriter {
     /// that they are not overlapping.
     pub fn push(&self, name: &str, at: Duration, busy: Duration) {
         let tid = thread_id();
-        let mut file = self.file.lock().expect("trace file");
+        // A poisoned lock is a thread that panicked while writing a
+        // trace line. The trace is a debugging aid; refusing to write
+        // any more of it would turn a panic somewhere else into a
+        // second failure here.
+        let mut file = self
+            .file
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let _ = writeln!(
             file,
             r#"{{"name":"{}","cat":"ignition","ph":"X","ts":{:.3},"dur":{:.3},"pid":1,"tid":{}}},"#,
@@ -51,10 +58,15 @@ impl TraceWriter {
             busy.as_secs_f64() * 1e6,
             tid,
         );
+        drop(file);
     }
 
     pub fn flush(&self) {
-        let _ = self.file.lock().expect("trace file").flush();
+        let mut file = self
+            .file
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _ = file.flush();
     }
 }
 

@@ -1,7 +1,9 @@
 //! Recipes — this project's foundation for building cues, the same role
-//! grandMA3's Preset system plays: a `Recipe` pairs a *target* (a `Group`
-//! or an explicit channel list) with an *apply* (a `Dimmer` level, a
-//! `Color`, a `FocusPoint`, or a `Raw` attribute list).
+//! grandMA3's Preset system plays.
+//!
+//! A `Recipe` pairs a *target* (a `Group` or an explicit channel list)
+//! with an *apply* (a `Dimmer` level, a `Color`, a `FocusPoint`, or a
+//! `Raw` attribute list).
 //!
 //! A recipe is **stored into** a `Cue` and resolved at output time, not
 //! flattened into values when the show loads. That distinction is the
@@ -23,6 +25,7 @@
 use crate::cue::{Cue, CueValue};
 use crate::focus::{pan_tilt_deg_along, pan_tilt_deg_to_point, v_add, v_scale};
 use crate::group::Group;
+use crate::num::{float_of, usize_of};
 use crate::preset::{ColorPreset, ColorSplit, Palettes, Ref};
 use crate::programmer::AttrFilter;
 use crate::selection::{Rig, Selection, resolve};
@@ -301,14 +304,23 @@ pub struct Random {
     pub high_from_band: Option<Band>,
 }
 
-fn one() -> f32 {
+const fn one() -> f32 {
     1.0
 }
 
+#[expect(
+    clippy::float_cmp,
+    clippy::trivially_copy_pass_by_ref,
+    reason = "a serde skip-if guard: it must match the exact default literal `one()` produces, never an accumulated value; serde's skip_serializing_if requires fn(&T) -> bool"
+)]
 fn is_one(v: &f32) -> bool {
     *v == 1.0
 }
 
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's skip_serializing_if requires fn(&T) -> bool"
+)]
 fn is_zero(v: &f32) -> bool {
     *v == 0.0
 }
@@ -341,6 +353,20 @@ impl Random {
     /// counter. A hand-rolled mix (splitmix64's finaliser) for the same
     /// reason `Trick::Shuffle` has one: it must give the same answer in
     /// ten years.
+    // splitmix64's finaliser, the same hand-rolled mix `Trick::Shuffle`
+    // uses and for the same reason: it must give the same answer in ten
+    // years, which rules out anything `std::hash` or `rand` might
+    // change under us. `unit` and `k` are folded in as bit patterns to
+    // mix, not as values to preserve — a wrap or a sign reinterpret here
+    // is the intended input to the hash, not a lost quantity. The
+    // result is built from the top 24 bits of a 64-bit hash, which fits
+    // an `f32` exactly, so that half of the cast is not lossy at all.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        reason = "a deliberate hash mix and an exact 24-bit-to-f32 read; see the comment above"
+    )]
     fn roll(&self, unit: usize, k: i64, salt: u64) -> f32 {
         let mut z = (u64::from(self.seed) << 32)
             ^ (unit as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)
@@ -355,24 +381,26 @@ impl Random {
 
     /// The level rolled for period `k` of `unit`.
     fn level(&self, unit: usize, k: i64) -> f32 {
-        let base = self.low + (self.high - self.low) * self.roll(unit, k, 1);
-        base + (self.roll(unit, k, 2) * 2.0 - 1.0) * self.level_var
+        let base = (self.high - self.low).mul_add(self.roll(unit, k, 1), self.low);
+        self.roll(unit, k, 2)
+            .mul_add(2.0, -1.0)
+            .mul_add(self.level_var, base)
     }
 
     /// This generator with its range breathing on the sound: `high`
     /// pulled toward `low` by the band's level. Itself when no band is
     /// named.
     // r[impl playback.sound-as-value] - a generator's range
-    pub fn heard(&self, sound: &SoundLevels) -> std::borrow::Cow<'_, Random> {
+    #[must_use]
+    pub fn heard(&self, sound: &SoundLevels) -> std::borrow::Cow<'_, Self> {
         use std::borrow::Cow;
-        match self.high_from_band {
-            None => Cow::Borrowed(self),
-            Some(band) => Cow::Owned(Random {
-                high: self.low + (self.high - self.low) * sound.level(band),
+        self.high_from_band.map_or(Cow::Borrowed(self), |band| {
+            Cow::Owned(Self {
+                high: (self.high - self.low).mul_add(sound.level(band), self.low),
                 high_from_band: None,
                 ..self.clone()
-            }),
-        }
+            })
+        })
     }
 
     /// The value for `unit` when the recipe's clock reads `cycles`.
@@ -382,8 +410,17 @@ impl Random {
     /// and the unit, never from a clock or a counter.
     // r[impl effects.random]
     // r[impl effects.sync.pure-function]
+    #[must_use]
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "the period counter is only a hash input, not a value read back out; a real show never runs long enough to approach i64's range"
+    )]
     pub fn at(&self, unit: usize, cycles: f32) -> f32 {
-        let rate = 1.0 + (self.roll(unit, 0, 3) * 2.0 - 1.0) * self.speed_var;
+        let rate = self
+            .roll(unit, 0, 3)
+            .mul_add(2.0, -1.0)
+            .mul_add(self.speed_var, 1.0);
         let phase = self.roll(unit, 0, 4) * self.phase_var.clamp(0.0, 1.0);
         // A seeded whole-period offset so this unit reads a different
         // stretch of its level sequence.
@@ -392,14 +429,17 @@ impl Random {
         } else {
             0.0
         };
-        let local = cycles * rate.max(0.01) + phase + start;
+        let local = cycles.mul_add(rate.max(0.01), phase) + start;
         let k = local.floor();
         let frac = local - k;
         let k = k as i64;
         // The on-portion of this period for this unit; outside it the
         // unit sits at `low`.
-        let ratio =
-            (self.ratio + (self.roll(unit, 0, 5) * 2.0 - 1.0) * self.ratio_var).clamp(0.0, 1.0);
+        let ratio = self
+            .roll(unit, 0, 5)
+            .mul_add(2.0, -1.0)
+            .mul_add(self.ratio_var, self.ratio)
+            .clamp(0.0, 1.0);
         if ratio <= 0.0 || frac >= ratio {
             return self.low;
         }
@@ -412,12 +452,12 @@ impl Random {
         let prev = if decay > 0.0 || ratio < 1.0 {
             self.low
         } else {
-            self.level(unit, k - 1)
+            self.level(unit, k.saturating_sub(1))
         };
         if frac < attack {
-            prev + (target - prev) * (frac / attack)
+            (target - prev).mul_add(frac / attack, prev)
         } else if frac >= 1.0 - decay {
-            target + (self.low - target) * ((frac - (1.0 - decay)) / decay)
+            (self.low - target).mul_add((frac - (1.0 - decay)) / decay, target)
         } else {
             target
         }
@@ -425,9 +465,11 @@ impl Random {
 }
 
 /// Where one unit sits in the selection after Tricks: `index` of
-/// `count`. Colour distribution and focus fans are a function of this,
-/// which is why it travels alongside the channel rather than being
-/// recomputed from the rig.
+/// `count`.
+///
+/// Colour distribution and focus fans are a function of this, which is
+/// why it travels alongside the channel rather than being recomputed
+/// from the rig.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Slot {
     pub index: usize,
@@ -436,7 +478,7 @@ pub struct Slot {
 
 impl Slot {
     /// The lone slot — for a value that does not vary across the selection.
-    pub const ONLY: Slot = Slot { index: 0, count: 1 };
+    pub const ONLY: Self = Self { index: 0, count: 1 };
 
     /// 0 on the first unit, 1 on the last, evenly spaced between; 0 for a
     /// selection of one, so a single fixture takes the *start* rather
@@ -444,7 +486,7 @@ impl Slot {
     // r[impl tricks.spread]
     fn fraction(self) -> f32 {
         if self.count > 1 {
-            self.index as f32 / (self.count - 1) as f32
+            float_of(self.index) / float_of(self.count.saturating_sub(1))
         } else {
             0.0
         }
@@ -553,6 +595,7 @@ impl Default for Recipe {
 
 impl Recipe {
     /// The common case: one thing applied to one selection, no timing.
+    #[must_use]
     pub fn new(target: Selection, apply: RecipeApply) -> Self {
         Self {
             target,
@@ -565,6 +608,7 @@ impl Recipe {
     /// chain it names (if the show has it), then its own inline ones.
     // r[impl tricks.shared-or-inline] - shared first, inline deviates after
     // r[impl recipes.tricks]
+    #[must_use]
     pub fn effective_tricks(&self, show: &Show<'_>) -> Vec<crate::tricks::Trick> {
         let mut out: Vec<crate::tricks::Trick> = self
             .tricks_ref
@@ -578,7 +622,8 @@ impl Recipe {
 
     /// True when this recipe is a phaser rather than a static look.
     // r[impl recipes.steps-are-the-switch]
-    pub fn is_phaser(&self) -> bool {
+    #[must_use]
+    pub const fn is_phaser(&self) -> bool {
         self.steps.len() > 1
     }
 }
@@ -655,22 +700,24 @@ pub enum RecipeRef {
 
 impl From<Recipe> for RecipeRef {
     fn from(recipe: Recipe) -> Self {
-        RecipeRef::Inline(recipe)
+        Self::Inline(recipe)
     }
 }
 
 impl RecipeRef {
     /// The recipe, when it is written in place.
-    pub fn inline(&self) -> Option<&Recipe> {
+    #[must_use]
+    pub const fn inline(&self) -> Option<&Recipe> {
         match self {
-            RecipeRef::Inline(r) => Some(r),
+            Self::Inline(r) => Some(r),
             _ => None,
         }
     }
 
     /// A library effect by name, as shipped.
+    #[must_use]
     pub fn named(effect: &str) -> Self {
-        RecipeRef::Named {
+        Self::Named {
             effect: effect.to_string(),
             name: None,
             note: None,
@@ -686,17 +733,19 @@ impl RecipeRef {
 
     /// A profile look by name.
     // r[impl profile.looks]
+    #[must_use]
     pub fn look(name: &str) -> Self {
-        RecipeRef::Look {
+        Self::Look {
             look: name.to_string(),
         }
     }
 
     /// This reference retargeted — a `Named` or `Bundle`; an inline
     /// recipe or a look is returned unchanged.
+    #[must_use]
     pub fn on(self, selection: Selection) -> Self {
         match self {
-            RecipeRef::Named {
+            Self::Named {
                 target: _,
                 effect,
                 name,
@@ -707,7 +756,7 @@ impl RecipeRef {
                 params,
                 filter,
                 speed,
-            } => RecipeRef::Named {
+            } => Self::Named {
                 effect,
                 name,
                 note,
@@ -719,7 +768,7 @@ impl RecipeRef {
                 filter,
                 speed,
             },
-            RecipeRef::Bundle { bundle, .. } => RecipeRef::Bundle {
+            Self::Bundle { bundle, .. } => Self::Bundle {
                 bundle,
                 target: Some(selection),
             },
@@ -730,9 +779,10 @@ impl RecipeRef {
     /// A `Named` reference with one effect parameter set — `depth`,
     /// `bars`, `duty`. Anything else is returned unchanged.
     // r[impl profile.effect-parameters]
+    #[must_use]
     pub fn with_param(self, name: &str, value: f32) -> Self {
         match self {
-            RecipeRef::Named {
+            Self::Named {
                 effect,
                 name: part,
                 note,
@@ -745,7 +795,7 @@ impl RecipeRef {
                 speed,
             } => {
                 params.insert(name.to_string(), value);
-                RecipeRef::Named {
+                Self::Named {
                     effect,
                     name: part,
                     note,
@@ -764,9 +814,10 @@ impl RecipeRef {
 
     /// A `Named` reference narrowed to attribute families.
     // r[impl profile.attribute-filter]
+    #[must_use]
     pub fn filtered(self, filter: AttrFilter) -> Self {
         match self {
-            RecipeRef::Named {
+            Self::Named {
                 effect,
                 name,
                 note,
@@ -777,7 +828,7 @@ impl RecipeRef {
                 params,
                 speed,
                 ..
-            } => RecipeRef::Named {
+            } => Self::Named {
                 effect,
                 name,
                 note,
@@ -796,9 +847,10 @@ impl RecipeRef {
     /// This reference as a named part of a cue. A `Named` reference
     /// takes the label; anything else is returned unchanged.
     // r[impl cues.recipe.name]
+    #[must_use]
     pub fn part(self, label: &str) -> Self {
         match self {
-            RecipeRef::Named {
+            Self::Named {
                 effect,
                 note,
                 cue_timing,
@@ -809,7 +861,7 @@ impl RecipeRef {
                 filter,
                 speed,
                 ..
-            } => RecipeRef::Named {
+            } => Self::Named {
                 effect,
                 name: Some(label.to_string()),
                 note,
@@ -821,9 +873,9 @@ impl RecipeRef {
                 filter,
                 speed,
             },
-            RecipeRef::Inline(mut r) => {
+            Self::Inline(mut r) => {
                 r.name = Some(label.to_string());
-                RecipeRef::Inline(r)
+                Self::Inline(r)
             }
             other => other,
         }
@@ -832,9 +884,10 @@ impl RecipeRef {
     /// This reference with its own arrival — the part's fade, delay and
     /// ease, overriding the cue's for everything it covers.
     // r[impl cues.recipe.timing]
+    #[must_use]
     pub fn arriving(self, timing: crate::cue::CueTiming) -> Self {
         match self {
-            RecipeRef::Named {
+            Self::Named {
                 effect,
                 name,
                 note,
@@ -845,7 +898,7 @@ impl RecipeRef {
                 filter,
                 speed,
                 ..
-            } => RecipeRef::Named {
+            } => Self::Named {
                 effect,
                 name,
                 note,
@@ -857,18 +910,19 @@ impl RecipeRef {
                 filter,
                 speed,
             },
-            RecipeRef::Inline(mut r) => {
+            Self::Inline(mut r) => {
                 r.cue_timing = Some(timing);
-                RecipeRef::Inline(r)
+                Self::Inline(r)
             }
             other => other,
         }
     }
 
     /// A `Named` reference at an explicit speed.
+    #[must_use]
     pub fn at(self, speed: Speed) -> Self {
         match self {
-            RecipeRef::Named {
+            Self::Named {
                 effect,
                 name,
                 note,
@@ -879,7 +933,7 @@ impl RecipeRef {
                 params,
                 filter,
                 ..
-            } => RecipeRef::Named {
+            } => Self::Named {
                 effect,
                 name,
                 note,
@@ -896,9 +950,10 @@ impl RecipeRef {
     }
 
     /// A `Named` reference with its tricks replaced.
+    #[must_use]
     pub fn tricked(self, tricks: Vec<crate::tricks::Trick>) -> Self {
         match self {
-            RecipeRef::Named {
+            Self::Named {
                 effect,
                 name,
                 note,
@@ -909,7 +964,7 @@ impl RecipeRef {
                 filter,
                 speed,
                 ..
-            } => RecipeRef::Named {
+            } => Self::Named {
                 effect,
                 name,
                 note,
@@ -930,6 +985,7 @@ impl RecipeRef {
     /// library does not carry.
     // r[impl effects.library.by-name] - resolved through the show at take
     // r[impl effects.bundle] - every member, in the bundle's order
+    #[must_use]
     pub fn resolve(&self, show: &Show<'_>) -> Vec<Recipe> {
         let retarget = |name: &str, target: &Option<Selection>| -> Option<Recipe> {
             let mut r = show.library.get(name)?.clone();
@@ -939,8 +995,8 @@ impl RecipeRef {
             Some(r)
         };
         match self {
-            RecipeRef::Inline(recipe) => vec![recipe.clone()],
-            RecipeRef::Named {
+            Self::Inline(recipe) => vec![recipe.clone()],
+            Self::Named {
                 effect,
                 name,
                 note,
@@ -957,7 +1013,7 @@ impl RecipeRef {
                         r.timing.measure = b * 4.0;
                     }
                     if let Some(t) = tricks {
-                        r.tricks = t.clone();
+                        r.tricks.clone_from(t);
                     }
                     // r[impl playback.effect-parameters] - the one place params land, shared with the fader
                     apply_params(&mut r, params);
@@ -974,10 +1030,10 @@ impl RecipeRef {
                     // r[impl cues.recipe.name]
                     // r[impl cues.recipe.timing]
                     if name.is_some() {
-                        r.name = name.clone();
+                        r.name.clone_from(name);
                     }
                     if note.is_some() {
-                        r.note = note.clone();
+                        r.note.clone_from(note);
                     }
                     if cue_timing.is_some() {
                         r.cue_timing = *cue_timing;
@@ -989,18 +1045,18 @@ impl RecipeRef {
             // A look is static by contract, so a look inside a look is
             // not followed: one level, never a cycle.
             // r[impl profile.looks] - resolved like any other reference
-            RecipeRef::Look { look } => show
+            Self::Look { look } => show
                 .looks
                 .get(look)
                 .map(|l| {
                     l.recipes
                         .iter()
-                        .filter(|r| !matches!(r, RecipeRef::Look { .. }))
+                        .filter(|r| !matches!(r, Self::Look { .. }))
                         .flat_map(|r| r.resolve(show))
                         .collect()
                 })
                 .unwrap_or_default(),
-            RecipeRef::Bundle { bundle, target } => show
+            Self::Bundle { bundle, target } => show
                 .bundles
                 .get(bundle)
                 .map(|b| {
@@ -1015,44 +1071,49 @@ impl RecipeRef {
 
     /// The names this reference needs that `show` does not have.
     // r[impl effects.library.by-name] - an unknown name is reported, never fatal
+    #[must_use]
     pub fn missing(&self, show: &Show<'_>) -> Vec<String> {
         match self {
-            RecipeRef::Inline(_) => Vec::new(),
-            RecipeRef::Named { effect, .. } => (!show.library.contains_key(effect))
+            Self::Inline(_) => Vec::new(),
+            Self::Named { effect, .. } => (!show.library.contains_key(effect))
                 .then(|| format!("no library effect {effect:?}"))
                 .into_iter()
                 .collect(),
-            RecipeRef::Bundle { bundle, .. } => match show.bundles.get(bundle) {
-                None => vec![format!("no bundle {bundle:?}")],
-                Some(b) => b
-                    .recipes
-                    .iter()
-                    .filter(|name| !show.library.contains_key(*name))
-                    .map(|name| format!("no library effect {name:?} (in bundle {bundle:?})"))
-                    .collect(),
-            },
+            Self::Bundle { bundle, .. } => show.bundles.get(bundle).map_or_else(
+                || vec![format!("no bundle {bundle:?}")],
+                |b| {
+                    b.recipes
+                        .iter()
+                        .filter(|name| !show.library.contains_key(*name))
+                        .map(|name| format!("no library effect {name:?} (in bundle {bundle:?})"))
+                        .collect()
+                },
+            ),
             // r[impl profile.looks] - an unknown look is reported, never fatal
-            RecipeRef::Look { look } => match show.looks.get(look) {
-                None => vec![format!("no look {look:?}")],
-                Some(l) => l
-                    .recipes
-                    .iter()
-                    .filter(|r| !matches!(r, RecipeRef::Look { .. }))
-                    .flat_map(|r| r.missing(show))
-                    .map(|problem| format!("{problem} (in look {look:?})"))
-                    .collect(),
-            },
+            Self::Look { look } => show.looks.get(look).map_or_else(
+                || vec![format!("no look {look:?}")],
+                |l| {
+                    l.recipes
+                        .iter()
+                        .filter(|r| !matches!(r, Self::Look { .. }))
+                        .flat_map(|r| r.missing(show))
+                        .map(|problem| format!("{problem} (in look {look:?})"))
+                        .collect()
+                },
+            ),
         }
     }
 }
 
 /// Applies effect parameters to a recipe — the one place `depth`,
 /// `bars` and `duty` are given their meaning, so a fader and a cue's
-/// reference cannot drift. `depth` is how far the relative values and
-/// swings go; `bars` the loop length in bars; `duty` the first step's
-/// share of the cycle. Call it on a copy: the library recipe is never
-/// rewritten. Unknown names are ignored — a parameter the engine does
-/// not know is one a later engine may.
+/// reference cannot drift.
+///
+/// `depth` is how far the relative values and swings go; `bars` the
+/// loop length in bars; `duty` the first step's share of the cycle.
+/// Call it on a copy: the library recipe is never rewritten. Unknown
+/// names are ignored — a parameter the engine does not know is one a
+/// later engine may.
 // r[impl profile.effect-parameters]
 // r[impl playback.effect-parameters] - depth, bars, duty; applied to a copy
 pub fn apply_params(recipe: &mut Recipe, params: &BTreeMap<String, f32>) {
@@ -1068,7 +1129,7 @@ pub fn apply_params(recipe: &mut Recipe, params: &BTreeMap<String, f32>) {
         && recipe.steps.len() > 1
     {
         let duty = duty.clamp(0.01, 0.99);
-        let rest = (1.0 - duty) / (recipe.steps.len() - 1) as f32;
+        let rest = (1.0 - duty) / float_of(recipe.steps.len().saturating_sub(1));
         for (i, step) in recipe.steps.iter_mut().enumerate() {
             step.width = if i == 0 { duty } else { rest };
         }
@@ -1125,7 +1186,7 @@ struct RecipeWire {
     filter: AttrFilter,
 }
 
-fn yes() -> bool {
+const fn yes() -> bool {
     true
 }
 
@@ -1157,7 +1218,7 @@ impl From<RecipeWire> for Recipe {
             w.steps
         } else if let Some(wave) = w.waveform {
             wave.shape
-                .steps(wave.attr, wave.base, wave.size, wave.relative)
+                .steps(&wave.attr, wave.base, wave.size, wave.relative)
         } else if let Some(apply) = w.apply {
             vec![Step::new(vec![apply])]
         } else {
@@ -1187,7 +1248,7 @@ impl From<Recipe> for RecipeWire {
         // step tables nobody asked for.
         let terse = match r.steps.as_slice() {
             [step] if step.apply.len() == 1 && step.transition == 0.0 => {
-                Some(step.apply[0].clone())
+                step.apply.first().cloned()
             }
             _ => None,
         };
@@ -1318,6 +1379,7 @@ pub static NO_SPEEDS: std::sync::LazyLock<SpeedMasters> =
 impl<'a> Show<'a> {
     /// A show with no palettes — for tests and for a venue that has not
     /// been given a palette file yet.
+    #[must_use]
     pub fn new(groups: &'a [Group], rig: &'a Rig) -> Self {
         Self {
             groups,
@@ -1340,7 +1402,8 @@ impl<'a> Show<'a> {
 
     /// This show with the host's smoothed sound levels for this frame.
     // r[impl playback.sound-as-value]
-    pub fn with_sound(&self, sound: SoundLevels) -> Show<'a> {
+    #[must_use]
+    pub const fn with_sound(&self, sound: SoundLevels) -> Self {
         Show { sound, ..*self }
     }
 
@@ -1349,7 +1412,8 @@ impl<'a> Show<'a> {
     /// player, so one control reaches every recipe the same way.
     // r[impl effects.masters.scale] - operator state, applied to the show
     // r[impl effects.masters.uniform]
-    pub fn scaled(&self, size: f32, speed_scale: f32) -> Show<'a> {
+    #[must_use]
+    pub const fn scaled(&self, size: f32, speed_scale: f32) -> Self {
         Show {
             size,
             speed_scale,
@@ -1376,6 +1440,7 @@ impl<'a> Show<'a> {
     /// then the palette. The one lookup every focus apply goes through,
     /// so everything expressed against `Vocal` moves in the same frame.
     // r[impl focus.marker-moving] - the override is read before the palette
+    #[must_use]
     pub fn focus(&self, r: &Ref<Vec3>) -> Option<Vec3> {
         if let Ref::Named(name) = r
             && let Some(moved) = self.focus_overrides.get(name)
@@ -1389,14 +1454,14 @@ impl<'a> Show<'a> {
     /// `None` when the name means nothing here.
     // r[impl focus.relative-origin]
     fn origin(&self, name: Option<&str>) -> Option<Vec3> {
-        match name {
-            None => Some(Vec3 {
+        name.map_or(
+            Some(Vec3 {
                 x: 0.0,
                 y: 0.0,
                 z: 0.0,
             }),
-            Some(n) => self.focus(&Ref::Named(n.to_string())),
-        }
+            |n| self.focus(&Ref::Named(n.to_string())),
+        )
     }
 
     /// Whether a focus name means anything here — moved or in the palette.
@@ -1455,7 +1520,8 @@ pub struct SoundLevels {
 
 impl SoundLevels {
     /// The level of one band, clamped to `0..=1`.
-    pub fn level(&self, band: Band) -> f32 {
+    #[must_use]
+    pub const fn level(&self, band: Band) -> f32 {
         match band {
             Band::Low => self.low,
             Band::Mid => self.mid,
@@ -1562,27 +1628,45 @@ fn rgb_values(c: &ColorPreset) -> Vec<(Attribute, f32)> {
 // r[impl color.multi.order]
 // r[impl tricks.spread.blocks-are-units]
 fn distribute_color(colors: &[ColorPreset], distribute: Distribute, slot: Slot) -> ColorPreset {
-    let n = colors.len();
+    // Both call sites are expected to guard against an empty `colors`
+    // before reaching here; a stray empty list falls back to the
+    // default preset rather than panicking, since a palette entry is
+    // data (see docs/ops/clippy.md), not a place to take a show down.
+    let Some(n) = std::num::NonZeroUsize::new(colors.len()) else {
+        return ColorPreset::default();
+    };
+    let n = n.get();
     match distribute {
-        Distribute::Cycle => colors[slot.index % n].clone(),
+        Distribute::Cycle => colors
+            .get(slot.index.checked_rem(n).unwrap_or(0))
+            .cloned()
+            .unwrap_or_default(),
         Distribute::Block => {
             // Integer division so the runs are contiguous and as even as
             // the counts allow; the last colour absorbs any remainder.
-            let run = (slot.index * n / slot.count.max(1)).min(n - 1);
-            colors[run].clone()
+            let run = slot
+                .index
+                .saturating_mul(n)
+                .checked_div(slot.count.max(1))
+                .unwrap_or(0)
+                .min(n.saturating_sub(1));
+            colors.get(run).cloned().unwrap_or_default()
         }
         Distribute::Spread => {
             // r[impl tricks.spread]
-            let t = slot.fraction() * (n - 1) as f32;
-            let lo = (t.floor() as usize).min(n - 1);
-            let hi = (lo + 1).min(n - 1);
-            let f = t - lo as f32;
-            let (a, b) = (&colors[lo], &colors[hi]);
+            let pos = slot.fraction() * float_of(n - 1);
+            let lo = usize_of(pos.floor()).min(n - 1);
+            let hi = lo.saturating_add(1).min(n.saturating_sub(1));
+            let blend = pos - float_of(lo);
+            let (from, to) = (
+                colors.get(lo).cloned().unwrap_or_default(),
+                colors.get(hi).cloned().unwrap_or_default(),
+            );
             ColorPreset {
                 name: String::new(),
-                red: a.red + (b.red - a.red) * f,
-                green: a.green + (b.green - a.green) * f,
-                blue: a.blue + (b.blue - a.blue) * f,
+                red: (to.red - from.red).mul_add(blend, from.red),
+                green: (to.green - from.green).mul_add(blend, from.green),
+                blue: (to.blue - from.blue).mul_add(blend, from.blue),
                 ..Default::default()
             }
         }
@@ -1591,11 +1675,11 @@ fn distribute_color(colors: &[ColorPreset], distribute: Distribute, slot: Slot) 
 
 /// The point `fraction` of the way from `from` to `to`.
 fn lerp_vec3(from: ignition_proto::Vec3, to: ignition_proto::Vec3, f: f32) -> ignition_proto::Vec3 {
-    let f = f as f64;
+    let f = f64::from(f);
     ignition_proto::Vec3 {
-        x: from.x + (to.x - from.x) * f,
-        y: from.y + (to.y - from.y) * f,
-        z: from.z + (to.z - from.z) * f,
+        x: (to.x - from.x).mul_add(f, from.x),
+        y: (to.y - from.y).mul_add(f, from.y),
+        z: (to.z - from.z).mul_add(f, from.z),
     }
 }
 
@@ -1663,13 +1747,23 @@ impl Clock {
     /// nothing varies along is one cell, so it reads the middle.
     // r[impl canvas.grid] - the unit grid is the canvas
     fn uv_of(pos: &crate::tricks::UnitPos) -> (f32, f32) {
-        let f = |i: usize, n: usize| (i as f32 + 0.5) / n.max(1) as f32;
+        let f = |i: usize, n: usize| (float_of(i) + 0.5) / float_of(n.max(1));
         (f(pos.x, pos.count[0]), f(pos.y, pos.count[1]))
     }
 }
 
 /// Resolves one apply, for one channel sitting at `slot` in the
 /// selection, into concrete attribute values.
+///
+/// One match over every `RecipeApply` variant, each arm short and
+/// independent of the others — the length is the number of things a
+/// recipe can say, not a procedure that grew. Splitting each arm into
+/// its own function would multiply this signature's five parameters
+/// across a dozen functions for no shared state gained.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one match per RecipeApply variant, each arm short and independent; see the doc comment"
+)]
 fn apply_values(
     apply: &RecipeApply,
     chan: ChanId,
@@ -1681,10 +1775,12 @@ fn apply_values(
         RecipeApply::Dimmer(value) => Resolved::values(vec![(Attribute::Dimmer, *value)], false),
         // r[impl color.recall-by-reference] - resolved from the palette at output time
         // r[impl color.scope.fallback-order] - the preset meets this fixture through its scope
-        RecipeApply::Color(reference) => match show.palettes.resolve_color(reference) {
-            Some(c) => Resolved::colour(&scoped(&c, chan, show.model_of(chan).as_deref())),
-            None => Resolved::default(),
-        },
+        RecipeApply::Color(reference) => show
+            .palettes
+            .resolve_color(reference)
+            .map_or_else(Resolved::default, |c| {
+                Resolved::colour(&scoped(&c, chan, show.model_of(chan).as_deref()))
+            }),
         // r[impl color.multi]
         // r[impl color.recall-by-reference] - every entry resolved from the palette at output time
         RecipeApply::Colors { colors, distribute } => {
@@ -1726,13 +1822,14 @@ fn apply_values(
         RecipeApply::FocusPoint(reference) => Resolved::point(show.focus(reference)),
         // r[impl focus.orientation]
         // r[impl focus.resolve-at-output]
-        RecipeApply::FocusDirection(dir) => match show.rig.placement(chan) {
-            Some(p) => {
-                let (pan, tilt) = pan_tilt_deg_along(p.orientation, *dir);
-                Resolved::values(vec![(Attribute::Pan, pan), (Attribute::Tilt, tilt)], false)
-            }
-            None => Resolved::default(),
-        },
+        RecipeApply::FocusDirection(dir) => {
+            show.rig
+                .placement(chan)
+                .map_or_else(Resolved::default, |p| {
+                    let (pan, tilt) = pan_tilt_deg_along(p.orientation, *dir);
+                    Resolved::values(vec![(Attribute::Pan, pan), (Attribute::Tilt, tilt)], false)
+                })
+        }
         // r[impl focus.pattern]
         // r[impl focus.pattern.fan]
         // r[impl focus.pattern.order-is-the-selection] - the slot is the selection's order after Tricks
@@ -1757,7 +1854,20 @@ fn apply_values(
                     slot.index,
                     slot.count,
                 )
-                .map(|(lo, hi, f)| lerp_vec3(list[lo], list[hi], f))
+                .map(|(lo, hi, f)| {
+                    // `Keyframes::segment` hands back indices into the
+                    // same `list` it was given `list.len()` for, so
+                    // these are always in range; the fallback to the
+                    // origin only satisfies the lint.
+                    let origin = Vec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    };
+                    let a = list.get(lo).copied().unwrap_or(origin);
+                    let b = list.get(hi).copied().unwrap_or(origin);
+                    lerp_vec3(a, b, f)
+                })
             }))
         }
         // r[impl focus.delta]
@@ -1936,6 +2046,7 @@ fn step_values(step: &Step, chan: ChanId, slot: Slot, clock: Clock, show: &Show<
 // r[impl effects.sync.pure-function]
 // r[impl recipes.status.selects-nothing-is-not-an-error] - an empty selection yields no emits, not an error
 // r[impl default.optional-is-not-second-class] - an unbound optional layer lights nothing and runs on
+#[must_use]
 pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Vec<Emit> {
     expand_recipe_full(recipe, show, secs).emits
 }
@@ -1948,6 +2059,17 @@ pub fn expand_recipe(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Vec<Emit> {
 // r[impl effects.masters.scale] - the show's speed scale multiplies every master here
 // r[impl effects.masters.uniform] - every recipe, cue-player or fader, passes through this one place
 // r[impl effects.size-scales-the-swing] - relative values, focus deltas and absolute swings scaled at output
+//
+// The fan, the phase-per-unit loop and the per-fixture value/point/delta
+// resolution are one pipeline over one unit grid built at its top —
+// `gu`, `inverts`, `cycles_now` and the running `moved`/`out` state a
+// later stage reads were all produced by an earlier one in this same
+// function, which is what a helper split would have to reconstruct.
+#[must_use]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one pipeline over one unit grid built at its own top; see the comment above"
+)]
 pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expansion {
     let mut out = Expansion::default();
     if recipe.steps.is_empty() || !recipe.enabled {
@@ -2013,8 +2135,10 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
     let scaled_absolute = phaser && (size - 1.0).abs() > 1e-6;
     let swing = (negative || scaled_absolute).then(|| swing_of(recipe, show));
 
-    for (index, unit) in gu.units.0.iter().enumerate() {
-        let pos = gu.pos[index];
+    // `pos` is `gu.units`'s parallel array, one entry per unit —
+    // zipping walks both without indexing either by a counter.
+    for (index, (unit, pos)) in gu.units.0.iter().zip(gu.pos.iter()).enumerate() {
+        let pos = *pos;
         let clock = Clock {
             cycles: cycles_now,
             secs,
@@ -2034,7 +2158,7 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
             let u = cycles_now - cycles_now.floor();
             // r[impl effects.phase.spread] - per axis, for Build
             let arrived = u >= recipe.timing.build_fraction_3d(&pos);
-            let last = recipe.steps.len() - 1;
+            let last = recipe.steps.len().saturating_sub(1);
             if arrived {
                 (last, last, 1.0)
             } else {
@@ -2059,13 +2183,25 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
         // r[impl color.multi.order]
         let slot = Slot { index, count };
         let invert = inverts.get(index).copied().flatten();
+        // `locate` and the `Build` branch above only ever hand back
+        // indices into a non-empty `recipe.steps` — a recipe with no
+        // steps applies nothing, so there is no fixture data to skip to
+        // here either.
+        let Some(to_step) = recipe.steps.get(cur) else {
+            continue;
+        };
         for chan in unit.iter().copied() {
-            let to = step_values(&recipe.steps[cur], chan, slot, clock, show);
+            let to = step_values(to_step, chan, slot, clock, show);
             // Resolving the outgoing step is only worth it mid-transition.
             let from = if blend < 1.0 && prev != cur {
-                step_values(&recipe.steps[prev], chan, slot, clock, show)
+                recipe
+                    .steps
+                    .get(prev)
+                    .map_or_else(StepValues::default, |prev_step| {
+                        step_values(prev_step, chan, slot, clock, show)
+                    })
             } else {
-                Default::default()
+                StepValues::default()
             };
 
             // A path in metres blends the same way the angles would, so
@@ -2074,13 +2210,12 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
             // r[impl focus.orbit-in-metres] - the delta interpolates between steps
             // r[impl effects.interpolate]
             if let Some(target) = to.focus_delta {
-                let mut delta = match from.focus_delta {
-                    Some(start) => v_add(
+                let mut delta = from.focus_delta.map_or(target, |start| {
+                    v_add(
                         start,
-                        v_scale(v_add(target, v_scale(start, -1.0)), blend as f64),
-                    ),
-                    None => target,
-                };
+                        v_scale(v_add(target, v_scale(start, -1.0)), f64::from(blend)),
+                    )
+                });
                 if let Some(style) = invert {
                     // r[impl effects.invert] - a delta in metres flips the axes its style names
                     if style.covers(&Attribute::Pan) {
@@ -2091,7 +2226,7 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
                     }
                 }
                 // r[impl effects.size-scales-the-swing] - a metre offset shrinks about zero
-                let delta = v_scale(delta, size as f64);
+                let delta = v_scale(delta, f64::from(size));
                 out.focus_deltas.push(FocusDeltaEmit { chan, delta });
             }
 
@@ -2099,13 +2234,12 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
             // solved to, blended between steps the way the angles are.
             // r[impl focus.delta] - the player learns the aim, not only the angles
             if let Some(target) = to.point {
-                let point = match from.point {
-                    Some(start) => v_add(
+                let point = from.point.map_or(target, |start| {
+                    v_add(
                         start,
-                        v_scale(v_add(target, v_scale(start, -1.0)), blend as f64),
-                    ),
-                    None => target,
-                };
+                        v_scale(v_add(target, v_scale(start, -1.0)), f64::from(blend)),
+                    )
+                });
                 out.focus_points.push((chan, point));
             }
 
@@ -2120,10 +2254,10 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
             for (key, target) in &to.values {
                 // An attribute the outgoing step did not set has nothing
                 // to move away from, so it takes this step's value.
-                let value = match from.values.get(key) {
-                    Some(start) => start + (target - start) * blend,
-                    None => *target,
-                };
+                let value = from
+                    .values
+                    .get(key)
+                    .map_or(*target, |start| start + (target - start) * blend);
                 // r[impl tricks.invert] - the sign of a relative value, per unit and style
                 // r[impl effects.invert]
                 let value = match invert {
@@ -2152,7 +2286,7 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
                     match swing.as_ref().and_then(|s| s.get(&key.0)) {
                         Some((lo, hi)) => {
                             let mid = (lo + hi) / 2.0;
-                            mid + (value - mid) * size
+                            (value - mid).mul_add(size, mid)
                         }
                         None => value,
                     }
@@ -2192,7 +2326,7 @@ pub fn expand_recipe_full(recipe: &Recipe, show: &Show<'_>, secs: f32) -> Expans
 
 /// Whether an attribute is one channel of a colour — the emits an
 /// `Intent` rides beside.
-fn is_colour(attr: &Attribute) -> bool {
+const fn is_colour(attr: &Attribute) -> bool {
     matches!(attr, Attribute::ColorAdd { .. })
 }
 
@@ -2272,6 +2406,7 @@ fn swing_of(recipe: &Recipe, show: &Show<'_>) -> HashMap<Attribute, (f32, f32)> 
 // r[impl effects.masters.unknown] - reported against every cue that asked
 // r[impl profile.unbound-is-visible]
 // r[impl recipes.status.selects-nothing-is-not-an-error] - reported, never fatal
+#[must_use]
 pub fn unresolved(cues: &[Cue], show: &Show<'_>) -> Vec<String> {
     let mut out = Vec::new();
     for cue in cues {
@@ -2316,10 +2451,8 @@ pub fn unresolved(cues: &[Cue], show: &Show<'_>) -> Vec<String> {
                         out.push(format!("cue {:?}: no focus palette {:?}", cue.name, name));
                     }
                     // r[impl focus.relative-origin] - a missing origin is reported by name
-                    RecipeApply::FocusRelative { origin, .. } if !show.has_focus(origin) => {
-                        out.push(format!("cue {:?}: no focus origin {:?}", cue.name, origin));
-                    }
-                    RecipeApply::FocusSplay {
+                    RecipeApply::FocusRelative { origin, .. }
+                    | RecipeApply::FocusSplay {
                         origin: Some(origin),
                         ..
                     }
@@ -2434,7 +2567,7 @@ pub enum Cook {
 }
 
 /// A whole cue's cooked state.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 // r[impl recipes.status]
 // r[impl cues.cooked-status]
 pub struct CueCook {
@@ -2466,6 +2599,7 @@ impl CueCook {
     // r[impl recipes.status]
     // r[impl recipes.status.selects-nothing-is-not-an-error] - Empty is a status, not a failure to load
     // r[impl recipes.enabled] - a disabled line is neither a failure nor a recipe that ran
+    #[must_use]
     pub fn status(&self) -> Status {
         let live = self
             .recipes
@@ -2496,6 +2630,7 @@ impl CueCook {
     /// line at load — and only a line, because a room legitimately
     /// missing a role is not a reason to refuse to open the show.
     // r[impl cues.dead-cue-warns] - what "resolves to nothing" means; the caller warns and carries on
+    #[must_use]
     pub fn is_dead(&self) -> bool {
         !self.recipes.is_empty() && self.recipes.iter().all(|c| *c == Cook::Empty)
     }
@@ -2505,7 +2640,8 @@ impl CueCook {
     /// MA3 shows these as coloured pots; this is the monochrome port.
     /// Drawing them needs a real font — Bevy's built-in default is a
     /// subset with none of these glyphs, which is why `flake.nix`
-    /// supplies DejaVu and `ignition-viz/build.rs` embeds it.
+    /// supplies `DejaVu` and `ignition-viz/build.rs` embeds it.
+    #[must_use]
     pub fn marker(&self) -> char {
         match self.status() {
             Status::Cooked => '\u{25cf}', // ● full
@@ -2521,6 +2657,7 @@ impl CueCook {
 /// cues that have not played yet.
 // r[impl recipes.status.visible-per-cue]
 // r[impl cues.cooked-status]
+#[must_use]
 pub fn cook_cue(cue: &Cue, show: &Show<'_>, secs: f32) -> CueCook {
     CueCook {
         name: cue.name.clone(),
@@ -2565,6 +2702,7 @@ pub fn cook_cue(cue: &Cue, show: &Show<'_>, secs: f32) -> CueCook {
 
 // r[impl recipes.status.visible-per-cue]
 // r[impl cues.cooked-status]
+#[must_use]
 pub fn cook_list(cues: &[Cue], show: &Show<'_>, secs: f32) -> Vec<CueCook> {
     cues.iter().map(|c| cook_cue(c, show, secs)).collect()
 }
@@ -2572,6 +2710,7 @@ pub fn cook_list(cues: &[Cue], show: &Show<'_>, secs: f32) -> Vec<CueCook> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::num::{chan_of, float64_of};
     use crate::selection::{FixtureInfo, Rig};
     use crate::step::{Ease, Speed};
     use ignition_proto::{Placement, Quat, Vec3};
@@ -2583,7 +2722,7 @@ mod tests {
         }]
     }
 
-    fn bare<'a>(groups: &'a [Group]) -> Show<'a> {
+    fn bare(groups: &[Group]) -> Show<'_> {
         Show::new(groups, &crate::selection::EMPTY_RIG)
     }
 
@@ -2730,6 +2869,10 @@ mod tests {
 
     // r[verify color.recall-by-reference]
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     #[test]
     fn a_named_colour_resolves_against_the_venues_palette() {
         let recipe = Recipe::new(
@@ -3236,7 +3379,7 @@ mod tests {
         let red = rgb("Red", 1.0, 0.0, 0.0);
         let blue = rgb("Blue", 0.0, 0.0, 1.0);
         let (Ref::Inline(red), Ref::Inline(blue)) = (red, blue) else {
-            unreachable!()
+            panic!("rgb() always returns Ref::Inline")
         };
         let split = |name: &str, members: &[&str], distribute| ColorSplit {
             name: name.to_string(),
@@ -3505,7 +3648,7 @@ mod tests {
 
         // Reversing the selection reverses the fan: the order is the
         // selection's, not the apply's.
-        let mut flipped = recipe.clone();
+        let mut flipped = recipe;
         flipped.target = Selection::Chans(vec![3, 2, 1]);
         let emits = expand_recipe(&flipped, &Show::new(&[], &rig), 0.0);
         assert!((pan_of(&emits, 3).unwrap() - a).abs() < 0.01);
@@ -3642,7 +3785,7 @@ mod tests {
     fn a_sine_waveform_traces_a_real_sine() {
         let recipe = Recipe {
             target: Selection::Chans(vec![1]),
-            steps: Waveform::Sine.steps(Attribute::Dimmer, 0.5, 0.5, false),
+            steps: Waveform::Sine.steps(&Attribute::Dimmer, 0.5, 0.5, false),
             timing: Timing {
                 speed: Speed::Hz(1.0),
                 ..Default::default()
@@ -3884,6 +4027,10 @@ mod tests {
             .collect()
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Reverse runs the wave the other way along the selection.
     ///
     /// Not a plain list reversal, and the reason is worth stating:
@@ -4023,9 +4170,9 @@ mod tests {
         Rig::new(
             (0..n)
                 .map(|i| FixtureInfo {
-                    chan: (i + 1) as ChanId,
+                    chan: chan_of(i.saturating_add(1)),
                     placement: Some(Placement {
-                        position: v(i as f64, 0.0, 5.0),
+                        position: v(float64_of(i), 0.0, 5.0),
                         orientation: Quat {
                             w: 1.0,
                             x: 0.0,
@@ -4139,6 +4286,10 @@ mod tests {
         );
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A path in metres is a path: between two steps the delta is the
     /// blend of the two, so a sixteen-point table is a curve. The same
     /// path at a second venue is the same metres.
@@ -4177,7 +4328,7 @@ mod tests {
         let c = at(&here, 0.5);
         assert!(a != c, "the path moves: {a} {c}");
         assert!(
-            (b - (a + c) / 2.0).abs() < 1e-4,
+            (b - f64::midpoint(a, c)).abs() < 1e-4,
             "a quarter in is the midpoint: {a} {b} {c}"
         );
         // A venue with the heads elsewhere gets the same metres.
@@ -4210,7 +4361,7 @@ mod tests {
         let key = expand_recipe(
             &one_step(
                 vec![RecipeApply::FocusKeyframes(
-                    points.iter().cloned().map(Ref::Inline).collect(),
+                    points.iter().copied().map(Ref::Inline).collect(),
                 )],
                 (1..=5).collect(),
             ),
@@ -4264,6 +4415,10 @@ mod tests {
         (get(Attribute::Pan), get(Attribute::Tilt))
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// `Group(2)` then `Invert(Pan)`: the evens' pan delta flips, their
     /// tilt does not, and the odds are untouched. An absolute value is
     /// never inverted.
@@ -4336,7 +4491,7 @@ mod tests {
         let r = flicker(7, false);
         let samples = |unit: usize, seed: u32| -> Vec<f32> {
             let r = flicker(seed, false);
-            (0..200).map(|i| r.at(unit, i as f32 * 0.137)).collect()
+            (0..200).map(|i| r.at(unit, float_of(i) * 0.137)).collect()
         };
         assert_eq!(samples(0, 7), samples(0, 7));
         assert_ne!(
@@ -4351,7 +4506,7 @@ mod tests {
         );
         for unit in 0..6 {
             for i in 0..500 {
-                let level = r.at(unit, i as f32 * 0.0731);
+                let level = r.at(unit, float_of(i) * 0.0731);
                 assert!((-0.35..=0.25).contains(&level), "unit {unit}: {level}");
             }
         }
@@ -4479,8 +4634,7 @@ mod scope_and_marker_tests {
                             channel: ColorChannel::Red,
                         }
             })
-            .map(|e| e.value.value)
-            .unwrap_or(-1.0)
+            .map_or(-1.0, |e| e.value.value)
     }
 
     fn palette(preset: ColorPreset) -> Palettes {
@@ -4495,6 +4649,10 @@ mod scope_and_marker_tests {
         Recipe::new(Selection::Chans(vec![1, 2, 3]), apply)
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify color.scope.selective]
     /// r[verify color.scope.fallback-order]
     #[test]
@@ -4536,6 +4694,10 @@ mod scope_and_marker_tests {
         assert_eq!(red_of(&emits, 2), 0.5);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify color.scope.global]
     #[test]
     fn a_global_preset_lands_by_fixture_type() {
@@ -4569,6 +4731,10 @@ mod scope_and_marker_tests {
         (get(Attribute::Pan), get(Attribute::Tilt))
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify focus.marker-moving]
     #[test]
     fn a_recipe_aimed_at_vocal_follows_the_moved_marker() {
@@ -4640,7 +4806,8 @@ mod scope_and_marker_tests {
 #[cfg(test)]
 mod grid_tests {
     use super::*;
-    use crate::canvas::{BitmapChannel, CanvasRecipe, Procedural, Quantity, Travel};
+    use crate::canvas::{BitmapChannel, CanvasPlane, CanvasRecipe, Procedural, Quantity, Travel};
+    use crate::num::{chan_of, float64_of};
     use crate::selection::{Axis, FixtureInfo, Rig};
     use crate::tricks::{GridAxes, Trick, apply_all, apply_all_grid, inverted};
     use ignition_proto::{Placement, Quat, Vec3};
@@ -4667,11 +4834,15 @@ mod grid_tests {
     fn truss(n: usize) -> Rig {
         Rig::new(
             (0..n)
-                .map(|i| fixture(i as ChanId + 1, i as f64, 0.0))
+                .map(|i| fixture(chan_of(i).saturating_add(1), float64_of(i), 0.0))
                 .collect(),
         )
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// On a one-truss rig the grid is `[n, 1, 1]` and every quantity
     /// the expansion reads off it — units, inverts, the phase clock,
     /// the Build threshold — is exactly what the one-dimensional
@@ -4739,16 +4910,20 @@ mod grid_tests {
     /// A 4 × 4 matrix, channel `y * 4 + x + 1` at `(x, y)`.
     fn matrix4() -> Rig {
         let mut f = Vec::new();
-        for y in 0..4 {
-            for x in 0..4 {
-                f.push(fixture((y * 4 + x + 1) as ChanId, x as f64, y as f64));
+        for y in 0..4usize {
+            for x in 0..4usize {
+                f.push(fixture(
+                    chan_of(y.saturating_mul(4).saturating_add(x).saturating_add(1)),
+                    float64_of(x),
+                    float64_of(y),
+                ));
             }
         }
         Rig::new(f)
     }
 
     fn chan_at(x: usize, y: usize) -> ChanId {
-        (y * 4 + x + 1) as ChanId
+        chan_of(y.saturating_mul(4).saturating_add(x).saturating_add(1))
     }
 
     fn dimmer_of(emits: &[Emit], chan: ChanId) -> Option<f32> {
@@ -4765,7 +4940,7 @@ mod grid_tests {
             RecipeApply::Dimmer(0.1),
         );
         r.steps = (1..=4)
-            .map(|i| Step::new(vec![RecipeApply::Dimmer(i as f32 / 10.0)]))
+            .map(|i| Step::new(vec![RecipeApply::Dimmer(float_of(i) / 10.0)]))
             .collect();
         r.tricks = tricks;
         r.timing = timing;
@@ -4814,6 +4989,10 @@ mod grid_tests {
         assert_eq!(row(1), vec![8, 7, 6, 5]);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Two trusses at different heights: `OnAxis(Z, Invert(Pan))` runs
     /// the upper truss the other way and leaves the lower alone.
     // r[verify tricks.grid.from-space]
@@ -4902,11 +5081,11 @@ mod grid_tests {
         for y in 0..4 {
             assert_eq!(
                 dimmer_of(&plain, chan_at(0, y)),
-                Some((y + 1) as f32 / 10.0)
+                Some(float_of(y + 1) / 10.0)
             );
             assert_eq!(
                 dimmer_of(&plain, chan_at(3, y)),
-                Some((y + 1) as f32 / 10.0)
+                Some(float_of(y + 1) / 10.0)
             );
         }
         // With it the lower wing is unchanged and the upper wing runs
@@ -4919,6 +5098,10 @@ mod grid_tests {
         }
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Equal X and Y spreads on a matrix make a diagonal: every unit on
     /// an anti-diagonal (`x + y` constant) is at the same step, and the
     /// step climbs along either axis.
@@ -4963,7 +5146,10 @@ mod grid_tests {
         );
         for y in 0..4 {
             for x in 0..4 {
-                assert_eq!(dimmer_of(&flat, chan_at(x, y)), Some((x + 1) as f32 / 10.0));
+                assert_eq!(
+                    dimmer_of(&flat, chan_at(x, y)),
+                    Some(float_of(x + 1) / 10.0)
+                );
             }
         }
     }
@@ -4984,9 +5170,9 @@ mod grid_tests {
         let mut chan = 1;
         for x in 0..4 {
             for z in 0..3 {
-                let mut f = fixture(chan, x as f64, 0.0);
+                let mut f = fixture(chan, f64::from(x), 0.0);
                 if let Some(p) = f.placement.as_mut() {
-                    p.position.z = z as f64;
+                    p.position.z = f64::from(z);
                 }
                 heads.push(f);
                 chan += 1;
@@ -5018,7 +5204,7 @@ mod grid_tests {
             plane: crate::canvas::CanvasPlane::Wall,
         };
         let recipe = Recipe::new(
-            Selection::Chans(chans.clone()),
+            Selection::Chans(chans),
             RecipeApply::Canvas {
                 recipe: canvas,
                 channel: BitmapChannel {
@@ -5063,7 +5249,7 @@ mod grid_tests {
                 speed: Speed::Hz(1.0),
                 ..Default::default()
             },
-            plane: Default::default(),
+            plane: CanvasPlane::default(),
         };
         let channel = BitmapChannel {
             canvas: "row".into(),
@@ -5106,7 +5292,7 @@ mod grid_tests {
         relative.steps[0].apply = vec![RecipeApply::Canvas {
             recipe: match &recipe.steps[0].apply[0] {
                 RecipeApply::Canvas { recipe, .. } => recipe.clone(),
-                _ => unreachable!(),
+                _ => panic!("this recipe's first step is always Canvas"),
             },
             channel: BitmapChannel {
                 relative: true,
@@ -5360,6 +5546,18 @@ mod pattern_and_control_tests {
     /// r[verify focus.units]
     #[test]
     fn no_focus_apply_carries_a_unit_flag() {
+        fn keys(value: &serde_json::Value, out: &mut Vec<String>) {
+            match value {
+                serde_json::Value::Object(map) => {
+                    for (k, v) in map {
+                        out.push(k.to_lowercase());
+                        keys(v, out);
+                    }
+                }
+                serde_json::Value::Array(list) => list.iter().for_each(|v| keys(v, out)),
+                _ => {}
+            }
+        }
         let applies = vec![
             RecipeApply::FocusPoint(Ref::Inline(v(0.0, 1.0, 2.0))),
             RecipeApply::FocusDirection(v(0.0, 1.0, -1.0)),
@@ -5390,18 +5588,6 @@ mod pattern_and_control_tests {
                 offset: v(0.0, 0.0, 0.0),
             },
         ];
-        fn keys(value: &serde_json::Value, out: &mut Vec<String>) {
-            match value {
-                serde_json::Value::Object(map) => {
-                    for (k, v) in map {
-                        out.push(k.to_lowercase());
-                        keys(v, out);
-                    }
-                }
-                serde_json::Value::Array(list) => list.iter().for_each(|v| keys(v, out)),
-                _ => {}
-            }
-        }
         for apply in applies {
             let json = serde_json::to_value(&apply).unwrap();
             let mut found = Vec::new();
@@ -5451,6 +5637,10 @@ mod pattern_and_control_tests {
         assert_eq!(cook.status(), Status::Empty, "not Failed");
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A shared Tricks chain by name lands before the inline one, and an
     /// unknown name is reported.
     /// r[verify tricks.shared-or-inline]
@@ -5543,7 +5733,7 @@ mod pattern_and_control_tests {
         );
         let wave = Recipe {
             target: Selection::Group("Pars".into()),
-            steps: Waveform::Sine.steps(Attribute::Dimmer, 0.6, 0.4, false),
+            steps: Waveform::Sine.steps(&Attribute::Dimmer, 0.6, 0.4, false),
             timing: Timing {
                 speed: Speed::Hz(1.0),
                 ..Default::default()
@@ -5580,6 +5770,10 @@ mod pattern_and_control_tests {
         assert_eq!(metres(&half), v(1.0, 0.0, 0.0));
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// One speed scale multiplies every master and touches nothing that
     /// is not slaved to one.
     /// r[verify effects.masters.scale]
@@ -5646,7 +5840,7 @@ mod pattern_and_control_tests {
                     colors: (0..8)
                         .map(|i| {
                             Ref::Inline(ColorPreset {
-                                red: i as f32 / 8.0,
+                                red: float_of(i) / 8.0,
                                 ..Default::default()
                             })
                         })
@@ -5672,10 +5866,10 @@ mod pattern_and_control_tests {
         assert_eq!(colours(7), colours(7), "recallable");
         assert_ne!(colours(7), colours(8));
         let mut ordered: Vec<f32> = colours(7).into_iter().map(|(_, r)| r).collect();
-        ordered.sort_by(|a, b| a.total_cmp(b));
+        ordered.sort_by(f32::total_cmp);
         assert_eq!(
             ordered,
-            (0..8).map(|i| i as f32 / 8.0).collect::<Vec<_>>(),
+            (0..8).map(|i| float_of(i) / 8.0).collect::<Vec<_>>(),
             "a reorder, nothing lost"
         );
         assert!(
@@ -5883,10 +6077,10 @@ mod intent_and_sound_tests {
         // Sample the whole cycle: every colour emit carries one of the
         // two intents, never nothing and never a blend.
         for i in 0..20 {
-            let emits = expand_recipe(&recipe, &show, i as f32 / 20.0);
+            let emits = expand_recipe(&recipe, &show, float_of(i) / 20.0);
             for e in colour_emits(&emits, 1) {
                 assert!(
-                    matches!(e.intent, Some(Intent::Cct { .. }) | Some(Intent::Rgb(_))),
+                    matches!(e.intent, Some(Intent::Cct { .. } | Intent::Rgb(_))),
                     "{:?}",
                     e.intent
                 );
@@ -5894,7 +6088,7 @@ mod intent_and_sound_tests {
         }
     }
 
-    fn sound_show<'a>(rig: &'a Rig, low: f32) -> Show<'a> {
+    fn sound_show(rig: &Rig, low: f32) -> Show<'_> {
         Show::new(&[], rig).with_sound(SoundLevels {
             low,
             mid: 0.0,
@@ -5908,6 +6102,10 @@ mod intent_and_sound_tests {
             .find(|e| e.value.chan == chan && e.value.attr == Attribute::Dimmer)
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.sound-as-value]
     #[test]
     fn a_sound_apply_sits_between_low_and_high_on_the_bands_level() {
@@ -5984,7 +6182,7 @@ mod intent_and_sound_tests {
         assert_eq!(loud, unheard, "full level is the range as written");
         let half = expand_recipe(&recipe, &sound_show(&rig, 0.5), 0.3);
         for (a, b) in half.iter().zip(&loud) {
-            assert!((a.value.value - b.value.value * 0.5).abs() < 1e-6);
+            assert!(b.value.value.mul_add(-0.5, a.value.value).abs() < 1e-6);
         }
     }
 
@@ -6024,6 +6222,10 @@ mod intent_and_sound_tests {
         assert_eq!(r.high_from_band, Some(Band::Mid));
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify effects.random] - phase variance, ratio, random start
     #[test]
     fn random_extras_keep_determinism_and_default_to_the_old_shape() {
@@ -6049,7 +6251,7 @@ mod intent_and_sound_tests {
         // Ratio 1.0 never drops to low: every sample sits at its rolled
         // level, which with level_var 0 is in [low, high] and, over a
         // long run, above low.
-        let samples: Vec<f32> = (0..400).map(|i| base.at(3, i as f32 * 0.137)).collect();
+        let samples: Vec<f32> = (0..400).map(|i| base.at(3, float_of(i) * 0.137)).collect();
         assert!(samples.iter().all(|v| (0.0..=1.0).contains(v)));
         assert!(samples.iter().filter(|v| **v > 0.0).count() > 380);
 
@@ -6059,7 +6261,7 @@ mod intent_and_sound_tests {
             ..base.clone()
         };
         let off = (0..4000)
-            .filter(|i| sparse.at(3, *i as f32 * 0.00731) == 0.0)
+            .filter(|i| sparse.at(3, float_of(*i) * 0.00731) == 0.0)
             .count();
         assert!((2600..3400).contains(&off), "{off}");
 
@@ -6221,6 +6423,10 @@ mod busking_refs {
         assert_eq!(back, RecipeRef::look("bed"));
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify profile.effect-parameters]
     /// r[verify playback.effect-parameters]
     #[test]

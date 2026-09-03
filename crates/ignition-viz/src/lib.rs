@@ -41,6 +41,7 @@ pub mod gizmos;
 pub mod gobo;
 pub mod haze;
 pub mod haze_texture;
+pub(crate) mod num;
 pub mod obj_mesh;
 pub mod ofl_import;
 pub mod output;

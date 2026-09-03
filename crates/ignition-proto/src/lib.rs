@@ -1,7 +1,7 @@
 //! Wire contract for Ignition. Plain data only — no RPC traits yet.
 //!
-//! Service traits will follow architect's `#[architect::rpc]` idiom once
-//! Ignition takes architect as a pinned git dependency (see
+//! Service traits will follow `architect`'s `#[architect::rpc]` idiom once
+//! Ignition takes `architect` as a pinned git dependency (see
 //! `docs/domain/DOMAIN.md`), the same pattern FastTrackStudio's `signal` and
 //! `session` facades use.
 
@@ -26,8 +26,10 @@ pub struct Quat {
     pub z: f64,
 }
 
-/// A fixture's placement in the venue. `position` and `orientation` are the
-/// *hang* (how it is rigged), never the aim — see
+/// A fixture's placement in the venue.
+///
+/// `position` and `orientation` are the *hang* (how it is rigged), never
+/// the aim — see
 /// `docs/domain/norco-venue-reference.md` for why conflating the two is a
 /// bug: it draws the fixture bolted on at a false angle and offsets every
 /// live pan/tilt reading.
@@ -37,9 +39,11 @@ pub struct Placement {
     pub orientation: Quat,
 }
 
-/// GDTF-style attribute identity, not a raw DMX channel offset. The patch
-/// resolves an attribute to bytes at output time; everything upstream
-/// (presets, effects, the visualizer) programs against this instead.
+/// GDTF-style attribute identity, not a raw DMX channel offset.
+///
+/// The patch resolves an attribute to bytes at output time; everything
+/// upstream (presets, effects, the visualizer) programs against this
+/// instead.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Attribute {
     Dimmer,
@@ -104,8 +108,9 @@ pub struct DmxAddress {
     pub start_channel: u16,
 }
 
-/// How an attribute's normalised value (`0..=1`) becomes the wire byte —
-/// a venue's fixture type may carry one per attribute, so a dimmer that
+/// How an attribute's normalised value (`0..=1`) becomes the wire byte.
+///
+/// A venue's fixture type may carry one per attribute, so a dimmer that
 /// is not linear, or a channel whose physical range is a subset of the
 /// byte range, is corrected at output and HTP between two different types
 /// compares like with like. `Linear` is the default everywhere.
@@ -124,8 +129,36 @@ pub enum Curve {
     Range { lo: u8, hi: u8 },
 }
 
+/// The one place in the tree a float becomes a DMX byte.
+///
+/// Every conversion here is lossy by definition — the wire is 256 steps
+/// and the domain is continuous — so rather than let `as` appear at each
+/// of the dozen sites that need it, the truncation is done once, after a
+/// clamp that makes it total: NaN lands on 0, anything at or below 0
+/// lands on 0, anything at or above 255 lands on 255. The cast that
+/// follows cannot lose a sign or truncate anything the clamp has not
+/// already decided.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the clamp above makes this cast total; see the doc comment"
+)]
+const fn byte(value: f32) -> u8 {
+    if value.is_nan() {
+        return 0;
+    }
+    value.round().clamp(0.0, 255.0) as u8
+}
+
+/// A byte as a float, for interpolating between two of them.
+fn float(byte: u8) -> f32 {
+    f32::from(byte)
+}
+
 impl Curve {
     /// The wire byte for a clamped normalised value.
+    #[must_use]
     pub fn apply(&self, value: f32) -> u8 {
         let v = if value.is_nan() {
             0.0
@@ -133,37 +166,78 @@ impl Curve {
             value.clamp(0.0, 1.0)
         };
         match self {
-            Curve::Linear => (v * 255.0).round() as u8,
-            Curve::Lut(table) => match table.len() {
-                0 => (v * 255.0).round() as u8,
-                1 => table[0],
-                n => {
-                    let pos = v * (n - 1) as f32;
-                    let i = (pos.floor() as usize).min(n - 2);
-                    let t = pos - i as f32;
-                    let a = table[i] as f32;
-                    let b = table[i + 1] as f32;
-                    (a + (b - a) * t).round().clamp(0.0, 255.0) as u8
-                }
+            Self::Linear => byte(v * 255.0),
+            Self::Lut(table) => match table.split_first() {
+                // An empty table is linear.
+                None => byte(v * 255.0),
+                // A one-entry table is a constant.
+                Some((only, [])) => *only,
+                Some(_) => Self::sample(table, v),
             },
-            Curve::Range { lo, hi } => {
-                let lo = *lo as f32;
-                let hi = *hi as f32;
-                (lo + (hi - lo) * v).round().clamp(0.0, 255.0) as u8
+            Self::Range { lo, hi } => {
+                let lo = float(*lo);
+                let hi = float(*hi);
+                byte((hi - lo).mul_add(v, lo))
             }
         }
     }
+
+    /// A table of two or more entries, sampled evenly over `0..=1` and
+    /// interpolated between the two entries `v` falls between.
+    fn sample(table: &[u8], value: f32) -> u8 {
+        // `table.len() >= 2` here, so `last` is at least 1 and `index` is
+        // at most `len - 2` — but the reads below still go through `get`,
+        // because a curve table is data off a venue file and data is not
+        // a place to panic.
+        let last = table.len().saturating_sub(1);
+        let position = value * float_of(last);
+        let index = usize_of(position.floor()).min(table.len().saturating_sub(2));
+        let (Some(&low), Some(&high)) = (table.get(index), table.get(index.saturating_add(1)))
+        else {
+            return table.last().copied().unwrap_or(0);
+        };
+        let between = position - float_of(index);
+        byte((float(high) - float(low)).mul_add(between, float(low)))
+    }
+}
+
+/// A small count as a float. Table lengths and indices here are bounded
+/// by a DMX curve's entry count, which is orders of magnitude below the
+/// 2^24 where an `f32` stops counting integers exactly.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "curve table indices are small; see the doc comment"
+)]
+const fn float_of(n: usize) -> f32 {
+    n as f32
+}
+
+/// A clamped, non-negative float as an index. Saturating at both ends:
+/// NaN and anything below zero become 0.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "clamped to a table-sized range before the cast"
+)]
+fn usize_of(value: f32) -> usize {
+    if value.is_nan() || value <= 0.0 {
+        return 0;
+    }
+    value.min(float_of(usize::from(u16::MAX))) as usize
 }
 
 /// One fixture *personality*'s channel layout: which byte offset (0-based,
 /// relative to `DmxAddress::start_channel`) resolves to which `Attribute`.
+///
 /// This is deliberately the same shape QLC+'s `.qxf` Channel list and GDTF's
-/// DMXChannel list both use — a fixture-type's real channel count and
+/// `DMXChannel` list both use — a fixture-type's real channel count and
 /// function order, not hardcoded per-instance. See
 /// `docs/domain/dmx-channel-maps.md` for where each map in this project came
 /// from (confirmed via DMX-address spacing in the live patch vs. estimated
 /// from typical fixtures of that class) and how confident it is.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChannelMap {
     /// Total DMX footprint (how many consecutive channels this fixture's
     /// mode occupies) — must match the real spacing between this fixture
@@ -208,6 +282,7 @@ mod curve_pairs {
 
 impl ChannelMap {
     /// A map with every curve linear.
+    #[must_use]
     pub fn new(footprint: u16, channels: Vec<(u16, Attribute)>) -> Self {
         Self {
             footprint,
@@ -217,6 +292,7 @@ impl ChannelMap {
     }
 
     /// The output curve for `attr` — linear unless the map says otherwise.
+    #[must_use]
     pub fn curve_of(&self, attr: &Attribute) -> &Curve {
         static LINEAR: Curve = Curve::Linear;
         self.curves.get(attr).unwrap_or(&LINEAR)
@@ -224,6 +300,7 @@ impl ChannelMap {
 
     /// The 0-based offset of `attr` within this fixture's footprint, if this
     /// personality has that attribute at all.
+    #[must_use]
     pub fn offset_of(&self, attr: &Attribute) -> Option<u16> {
         self.channels
             .iter()
@@ -258,6 +335,7 @@ pub struct OutputSummary {
 impl OutputSummary {
     /// The overlay's line: `OUT sACN ×4 44Hz`, `OUT off`, or the error.
     // r[impl dmx.output-toggle] - the state, on the picture
+    #[must_use]
     pub fn line(&self) -> String {
         if let Some(e) = &self.error {
             return format!("OUT ERROR {e}");

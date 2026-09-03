@@ -30,6 +30,7 @@
 //! clock. It learns it from `apply_to`, which is called every frame.
 
 use crate::cue::CueValue;
+use crate::num::float_of;
 use crate::recipe::{Recipe, RecipeApply, Show, expand_recipe};
 use crate::selection::{Selection, resolve};
 use crate::step::Speed;
@@ -87,7 +88,7 @@ pub struct Fader {
     pub master: Option<String>,
 }
 
-fn one() -> f32 {
+const fn one() -> f32 {
     1.0
 }
 
@@ -117,6 +118,7 @@ impl Fader {
     /// `recipe::apply_params` a cue's reference goes through, so the
     /// two cannot mean different things.
     // r[impl playback.effect-parameters] - applied to a copy at fold
+    #[must_use]
     pub fn parametrised<'r>(&self, recipe: &'r Recipe) -> std::borrow::Cow<'r, Recipe> {
         if self.params.is_empty() {
             return std::borrow::Cow::Borrowed(recipe);
@@ -127,6 +129,7 @@ impl Fader {
     }
 
     /// The `depth` parameter, 1 where none is set.
+    #[must_use]
     pub fn depth(&self) -> f32 {
         self.params.get("depth").copied().unwrap_or(1.0).max(0.0)
     }
@@ -140,6 +143,14 @@ impl Fader {
 /// belongs to none of them and always passes.
 // r[impl profile.attribute-filter]
 // r[impl playback.attribute-filter]
+// Four independent switches an operator sets separately, one per
+// family named in the doc comment above, and the on-disk field names
+// of a filter an `.ignition` file can save — not a state machine with
+// fewer real positions.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "four independent, separately-authored filter switches; see the comment above"
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AttrFilter {
     #[serde(default = "yes")]
@@ -152,7 +163,7 @@ pub struct AttrFilter {
     pub beam: bool,
 }
 
-fn yes() -> bool {
+const fn yes() -> bool {
     true
 }
 
@@ -175,6 +186,14 @@ impl AttrFilter {
     pub const POSITION: Self = Self::only(false, false, true, false);
     pub const BEAM: Self = Self::only(false, false, false, true);
 
+    // Private, and called only by the four named constants above with
+    // literal arguments read straight off their own names — there is no
+    // call site where these four positions could be confused for one
+    // another.
+    #[expect(
+        clippy::fn_params_excessive_bools,
+        reason = "a private constructor for the four class constants above, always called with literals; see the comment"
+    )]
     const fn only(intensity: bool, colour: bool, position: bool, beam: bool) -> Self {
         Self {
             intensity,
@@ -185,7 +204,8 @@ impl AttrFilter {
     }
 
     /// Whether an emit on this attribute passes the filter.
-    pub fn admits(&self, attr: &Attribute) -> bool {
+    #[must_use]
+    pub const fn admits(&self, attr: &Attribute) -> bool {
         match attr {
             Attribute::Dimmer => self.intensity,
             Attribute::ColorAdd { .. } | Attribute::ColorWheel { .. } => self.colour,
@@ -292,15 +312,11 @@ pub enum KeyAction {
 impl KeyAction {
     /// Whether this key belongs to a fader slot (as opposed to the
     /// transport or the tap master).
-    pub fn is_fader_key(self) -> bool {
+    #[must_use]
+    pub const fn is_fader_key(self) -> bool {
         matches!(
             self,
-            KeyAction::Flash
-                | KeyAction::Toggle
-                | KeyAction::Swap
-                | KeyAction::Kill
-                | KeyAction::Black
-                | KeyAction::Temp
+            Self::Flash | Self::Toggle | Self::Swap | Self::Kill | Self::Black | Self::Temp
         )
     }
 }
@@ -355,11 +371,13 @@ impl TapMaster {
         while self.taps.len() > Self::WINDOW + 1 {
             self.taps.remove(0);
         }
-        if self.taps.len() >= 2 {
-            let intervals = self.taps.len() - 1;
-            let span = self.taps[intervals] - self.taps[0];
+        if self.taps.len() >= 2
+            && let (Some(&first), Some(&last)) = (self.taps.first(), self.taps.last())
+        {
+            let intervals = self.taps.len().saturating_sub(1);
+            let span = last - first;
             if span > 0.0 {
-                self.learned = Some(60.0 * intervals as f32 / span);
+                self.learned = Some(60.0 * float_of(intervals) / span);
             }
         }
     }
@@ -377,12 +395,13 @@ impl TapMaster {
     /// Back to the learned tempo at ×1. The learned tempo is kept: reset
     /// is "stop halving", not "forget the song".
     // r[impl playback.speed-keys] - reset to the learned tempo
-    pub fn reset(&mut self) {
+    pub const fn reset(&mut self) {
         self.multiplier = 1.0;
     }
 
     /// The BPM the `Tap` master should carry, if a tempo has been
     /// learned.
+    #[must_use]
     pub fn bpm(&self) -> Option<f32> {
         self.learned.map(|b| b * self.multiplier)
     }
@@ -442,6 +461,15 @@ struct Held {
 }
 
 /// The live programmer.
+// The five booleans below (`blind`, `highlight`, `lowlight`,
+// `blackout`, `held_safe`) are independent operator-facing toggles on
+// what is otherwise a large aggregate of fader and value state, not a
+// state machine that would collapse into an enum — see each field's
+// own doc comment for what it does on its own.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent operator toggles on the programmer's live state; see the comment above"
+)]
 #[derive(Debug, Clone, Default)]
 // r[impl effects.live-control-on-programmer]
 pub struct Programmer {
@@ -652,6 +680,7 @@ struct Extra {
 const PICKUP: f32 = 0.05;
 
 impl Programmer {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // Effects at full and no masters pulled: a desk that starts
@@ -671,7 +700,7 @@ impl Programmer {
 
     /// Parks one attribute of every fixture in `selection` at `value`.
     // r[impl playback.park]
-    pub fn park(&mut self, selection: &Selection, attr: Attribute, value: f32, show: &Show<'_>) {
+    pub fn park(&mut self, selection: &Selection, attr: &Attribute, value: f32, show: &Show<'_>) {
         for chan in crate::selection::resolve_with(selection, show.groups, show.rig, show.roles) {
             self.parked.insert((chan, attr.clone()), value);
         }
@@ -710,7 +739,7 @@ impl Programmer {
     pub fn apply_parked_dmx(&self, universe: u16, frame: &mut [u8]) {
         for ((u, channel), value) in &self.parked_dmx {
             if *u == universe
-                && let Some(slot) = (*channel as usize)
+                && let Some(slot) = usize::from(*channel)
                     .checked_sub(1)
                     .and_then(|i| frame.get_mut(i))
             {
@@ -723,7 +752,7 @@ impl Programmer {
 
     /// Sets the grand master, 0..=1.
     // r[impl playback.grand-master]
-    pub fn set_grand(&mut self, level: f32) {
+    pub const fn set_grand(&mut self, level: f32) {
         self.grand = level.clamp(0.0, 1.0);
     }
 
@@ -820,7 +849,7 @@ impl Programmer {
         self.held_safe = false;
     }
 
-    pub fn is_holding(&self) -> bool {
+    pub const fn is_holding(&self) -> bool {
         !self.held.is_empty()
     }
 
@@ -960,12 +989,12 @@ impl Programmer {
     /// Sets one effect parameter on a fader — `depth`, `bars`, `duty`.
     // r[impl profile.effect-parameters]
     pub fn set_param(&mut self, index: usize, name: &str, value: f32) {
-        if index >= FADERS {
+        let Some(fader) = self.faders.get_mut(index) else {
             return;
-        }
-        self.faders[index].params.insert(name.to_string(), value);
-        if let Some(page) = self.pages.get_mut(self.page) {
-            page[index].params.insert(name.to_string(), value);
+        };
+        fader.params.insert(name.to_string(), value);
+        if let Some(page) = self.pages.get_mut(self.page).and_then(|p| p.get_mut(index)) {
+            page.params.insert(name.to_string(), value);
         }
     }
 
@@ -1034,7 +1063,7 @@ impl Programmer {
             let key = (emit.value.chan, emit.value.attr);
             let previous = self.values.get(&key).copied();
             let target = if emit.relative {
-                previous.map(|h| h.target).unwrap_or(0.0) + emit.value.value
+                previous.map_or(0.0, |h| h.target) + emit.value.value
             } else {
                 emit.value.value
             };
@@ -1063,7 +1092,7 @@ impl Programmer {
             return held.target;
         }
         let from = held.from.or(under).unwrap_or(held.target);
-        from + (held.target - from) * progress
+        (held.target - from).mul_add(progress, from)
     }
 
     /// How far through the program time `elapsed` seconds is, 0..=1.
@@ -1098,12 +1127,18 @@ impl Programmer {
         if index >= FADERS {
             return;
         }
-        if let Some(page) = self.pages.get_mut(self.page) {
-            page[index] = fader.clone();
+        if let Some(page) = self.pages.get_mut(self.page).and_then(|p| p.get_mut(index)) {
+            *page = fader.clone();
         }
-        self.faders[index] = fader;
-        self.latched[index] = false;
-        self.level_fades[index] = None;
+        if let Some(slot) = self.faders.get_mut(index) {
+            *slot = fader;
+        }
+        if let Some(slot) = self.latched.get_mut(index) {
+            *slot = false;
+        }
+        if let Some(slot) = self.level_fades.get_mut(index) {
+            *slot = None;
+        }
     }
 
     /// Moves a fader. The level arrives over the program time.
@@ -1119,26 +1154,43 @@ impl Programmer {
             return;
         }
         let level = level.clamp(0.0, 1.0);
-        if self.latched[index] {
-            let stored = self.pages.get(self.page).map(|p| p[index].level);
+        if self.latched.get(index).copied().unwrap_or(false) {
+            let stored = self
+                .pages
+                .get(self.page)
+                .and_then(|p| p.get(index))
+                .map(|f| f.level);
             match stored {
                 Some(stored) if (stored - level).abs() <= PICKUP => {
-                    self.faders[index] = self.pages[self.page][index].clone();
-                    self.latched[index] = false;
+                    let taken = self
+                        .pages
+                        .get(self.page)
+                        .and_then(|p| p.get(index))
+                        .cloned();
+                    if let (Some(slot), Some(taken)) = (self.faders.get_mut(index), taken) {
+                        *slot = taken;
+                    }
+                    if let Some(slot) = self.latched.get_mut(index) {
+                        *slot = false;
+                    }
                 }
                 _ => return,
             }
         }
         let now = self.now.get();
-        let was = self.faders[index].level;
+        let was = self.faders.get(index).map_or(0.0, |f| f.level);
         if self.program_time_beats > 0.0 && (was - level).abs() > f32::EPSILON {
-            self.level_fades[index] = Some((was, now));
-        } else {
-            self.level_fades[index] = None;
+            if let Some(slot) = self.level_fades.get_mut(index) {
+                *slot = Some((was, now));
+            }
+        } else if let Some(slot) = self.level_fades.get_mut(index) {
+            *slot = None;
         }
-        self.faders[index].level = level;
-        if let Some(page) = self.pages.get_mut(self.page) {
-            page[index].level = level;
+        if let Some(slot) = self.faders.get_mut(index) {
+            slot.level = level;
+        }
+        if let Some(page) = self.pages.get_mut(self.page).and_then(|p| p.get_mut(index)) {
+            page.level = level;
         }
     }
 
@@ -1149,9 +1201,11 @@ impl Programmer {
             return;
         }
         let scale = scale.max(0.0);
-        self.faders[index].speed_scale = scale;
-        if let Some(page) = self.pages.get_mut(self.page) {
-            page[index].speed_scale = scale;
+        if let Some(slot) = self.faders.get_mut(index) {
+            slot.speed_scale = scale;
+        }
+        if let Some(page) = self.pages.get_mut(self.page).and_then(|p| p.get_mut(index)) {
+            page.speed_scale = scale;
         }
     }
 
@@ -1194,25 +1248,50 @@ impl Programmer {
         }
         match action {
             KeyAction::Toggle => {
-                self.toggled[index] = !self.toggled[index];
+                if let Some(slot) = self.toggled.get_mut(index) {
+                    *slot = !*slot;
+                }
             }
             KeyAction::Temp => {
-                self.keys_down[index] = Some(action);
-                self.temp_down[index] = Some(self.now.get());
-                self.temp_release[index] = None;
+                if let Some(slot) = self.keys_down.get_mut(index) {
+                    *slot = Some(action);
+                }
+                if let Some(slot) = self.temp_down.get_mut(index) {
+                    *slot = Some(self.now.get());
+                }
+                if let Some(slot) = self.temp_release.get_mut(index) {
+                    *slot = None;
+                }
             }
             KeyAction::Kill => {
-                for i in 0..FADERS {
-                    let level = if i == index { 1.0 } else { 0.0 };
-                    self.faders[i].level = level;
-                    self.level_fades[i] = None;
-                    if let Some(page) = self.pages.get_mut(self.page) {
-                        page[i].level = level;
+                let page = self.page;
+                match self.pages.get_mut(page) {
+                    Some(page) => {
+                        for (i, (fader, page_fader)) in
+                            self.faders.iter_mut().zip(page.iter_mut()).enumerate()
+                        {
+                            let level = if i == index { 1.0 } else { 0.0 };
+                            fader.level = level;
+                            page_fader.level = level;
+                            if let Some(slot) = self.level_fades.get_mut(i) {
+                                *slot = None;
+                            }
+                        }
+                    }
+                    None => {
+                        for (i, fader) in self.faders.iter_mut().enumerate() {
+                            fader.level = if i == index { 1.0 } else { 0.0 };
+                            if let Some(slot) = self.level_fades.get_mut(i) {
+                                *slot = None;
+                            }
+                        }
                     }
                 }
             }
             KeyAction::Flash | KeyAction::Swap | KeyAction::Black => {
-                self.keys_down[index] = Some(action);
+                if let Some(slot) = self.keys_down.get_mut(index) {
+                    *slot = Some(action);
+                }
             }
             _ => {}
         }
@@ -1225,14 +1304,17 @@ impl Programmer {
         if index >= FADERS {
             return;
         }
-        if matches!(self.keys_down[index], Some(KeyAction::Temp))
-            && let Some(started) = self.temp_down[index].take()
-        {
+        let was_temp = matches!(self.keys_down.get(index), Some(Some(KeyAction::Temp)));
+        if was_temp && let Some(started) = self.temp_down.get_mut(index).and_then(Option::take) {
             let now = self.now.get();
             let reached = self.temp_progress(started, now);
-            self.temp_release[index] = Some((reached, now));
+            if let Some(slot) = self.temp_release.get_mut(index) {
+                *slot = Some((reached, now));
+            }
         }
-        self.keys_down[index] = None;
+        if let Some(slot) = self.keys_down.get_mut(index) {
+            *slot = None;
+        }
     }
 
     /// How far a temp key has lifted its fader: 0 at the press, 1 once
@@ -1264,18 +1346,29 @@ impl Programmer {
     // r[impl playback.pages]
     pub fn add_page(&mut self) -> usize {
         self.pages.push(Default::default());
-        self.pages.len() - 1
+        self.pages.len().saturating_sub(1)
     }
 
     pub fn next_page(&mut self) {
         if !self.pages.is_empty() {
-            self.set_page((self.page + 1) % self.pages.len());
+            self.set_page(
+                self.page
+                    .saturating_add(1)
+                    .checked_rem(self.pages.len())
+                    .unwrap_or(0),
+            );
         }
     }
 
     pub fn prev_page(&mut self) {
         if !self.pages.is_empty() {
-            self.set_page((self.page + self.pages.len() - 1) % self.pages.len());
+            self.set_page(
+                self.page
+                    .saturating_add(self.pages.len())
+                    .saturating_sub(1)
+                    .checked_rem(self.pages.len())
+                    .unwrap_or(0),
+            );
         }
     }
 
@@ -1289,19 +1382,32 @@ impl Programmer {
             return;
         }
         self.page = page;
-        for i in 0..FADERS {
-            let live = self.faders[i].level > 0.0 || self.level_fades[i].is_some();
+        // `page < self.pages.len()` is checked above, so `new_page` is
+        // the same shape as every other page — indexing `self.faders`
+        // and friends by a loop counter over that same shape is
+        // replaced by walking them together instead.
+        let Some(new_page) = self.pages.get(page).cloned() else {
+            return;
+        };
+        for (i, ((fader, level_fade), latched)) in self
+            .faders
+            .iter_mut()
+            .zip(self.level_fades.iter_mut())
+            .zip(self.latched.iter_mut())
+            .enumerate()
+        {
+            let live = fader.level > 0.0 || level_fade.is_some();
             if live {
-                self.latched[i] = true;
-            } else {
-                self.faders[i] = self.pages[page][i].clone();
-                self.latched[i] = false;
-                self.level_fades[i] = None;
+                *latched = true;
+            } else if let Some(new_fader) = new_page.get(i) {
+                *fader = new_fader.clone();
+                *latched = false;
+                *level_fade = None;
             }
-            // A held key belongs to the hand, not the page; a toggle
-            // latch belongs to the slot and is released by the change.
-            self.toggled[i] = false;
         }
+        // A held key belongs to the hand, not the page; a toggle latch
+        // belongs to the slot and is released by the change.
+        self.toggled = [false; FADERS];
     }
 
     // ── the fold ─────────────────────────────────────────────────────
@@ -1355,32 +1461,41 @@ impl Programmer {
 
     /// A fader's level as it is playing right now: its glide, then any
     /// key on it, then a swap held elsewhere.
+    // `self.faders`, `self.level_fades`, `self.toggled`, `self.keys_down`,
+    // `self.temp_down` and `self.temp_release` are all `[_; FADERS]` —
+    // the same length by construction — so `index` from iterating any
+    // one of them is always in range for the rest; the `get`s below only
+    // satisfy the lint, they never actually fall back.
     fn playing_level(&self, index: usize, show: &Show<'_>, secs: f32) -> f32 {
-        let fader = &self.faders[index];
-        let mut level = match self.level_fades[index] {
+        let Some(fader) = self.faders.get(index) else {
+            return 0.0;
+        };
+        let mut level = match self.level_fades.get(index).copied().flatten() {
             Some((from, started)) => {
-                from + (fader.level - from) * self.progress(show, secs - started)
+                (fader.level - from).mul_add(self.progress(show, secs - started), from)
             }
             None => fader.level,
         };
-        if self.toggled[index] || matches!(self.keys_down[index], Some(KeyAction::Flash)) {
+        let keys_down = self.keys_down.get(index).copied().flatten();
+        if self.toggled.get(index).copied().unwrap_or(false)
+            || matches!(keys_down, Some(KeyAction::Flash))
+        {
             level = 1.0;
         }
         // A temp lifts the fader toward full over the program time and
         // lets it back down over the same after release; the slot's own
         // level is what it lifts from and returns to.
         // r[impl playback.temp-and-pause] - temp
-        if let (Some(KeyAction::Temp), Some(started)) =
-            (self.keys_down[index], self.temp_down[index])
-        {
+        let temp_down = self.temp_down.get(index).copied().flatten();
+        if let (Some(KeyAction::Temp), Some(started)) = (keys_down, temp_down) {
             let t = self.progress(show, secs - started);
             level += (1.0 - level) * t;
-        } else if let Some((reached, released)) = self.temp_release[index] {
+        } else if let Some((reached, released)) = self.temp_release.get(index).copied().flatten() {
             let t = self.progress(show, secs - released);
             let lift = reached * (1.0 - t);
             level += (1.0 - level) * lift;
         }
-        match self.keys_down[index] {
+        match keys_down {
             Some(KeyAction::Swap) => 1.0,
             _ if self
                 .keys_down
@@ -1407,6 +1522,16 @@ impl Programmer {
         )
     }
 
+    /// Folds every fader over `base`, in order — protection, then
+    /// speed-scale, then each fader's own effect, level and key state —
+    /// each pass reading the `HashMap` the pass before it just wrote.
+    /// Pulling any one pass out would still need `base`, `show` and the
+    /// running set of protected channels threaded into it, which is
+    /// this function's own state, not a helper's.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "an ordered fold over one shared HashMap, each pass reading what the pass before it wrote; see the doc comment"
+    )]
     fn fold(&self, base: &mut HashMap<(ChanId, Attribute), f32>, show: &Show<'_>, secs: f32) {
         // Size and rate are applied where every recipe is expanded, not
         // here, so a fader and a cue-player effect obey the same control
@@ -1433,7 +1558,10 @@ impl Programmer {
             if level <= 0.0 {
                 continue;
             }
-            let black = matches!(self.keys_down[index], Some(KeyAction::Black));
+            let black = matches!(
+                self.keys_down.get(index).copied().flatten(),
+                Some(KeyAction::Black)
+            );
             // The fader's own speed scale stretches the clock the recipe
             // is evaluated at; the programmer's rate reaches it through
             // the show's speed scale, as it reaches every other recipe.
@@ -1461,9 +1589,9 @@ impl Programmer {
                     // swing inside the expansion.
                     let weight = level;
                     let value = if emit.relative {
-                        under + emit.value.value * weight
+                        emit.value.value.mul_add(weight, under)
                     } else {
-                        under + (emit.value.value - under) * weight
+                        (emit.value.value - under).mul_add(weight, under)
                     };
                     base.insert(key, value);
                 }
@@ -1482,9 +1610,9 @@ impl Programmer {
                 let key = (emit.value.chan, emit.value.attr);
                 let under = base.get(&key).copied().unwrap_or(0.0);
                 let value = if emit.relative {
-                    under + emit.value.value * extra.level
+                    emit.value.value.mul_add(extra.level, under)
                 } else {
-                    under + (emit.value.value - under) * extra.level
+                    (emit.value.value - under).mul_add(extra.level, under)
                 };
                 base.insert(key, value);
             }
@@ -1635,6 +1763,16 @@ impl Programmer {
     // r[impl groups.master]
     // r[impl groups.master.modes] - scaling, positive, negative, additive
     // r[impl playback.master-modes]
+    //
+    // The four modes' merge rules (multiply, cap high, cap low, HTP)
+    // interact — a scaling master changes what a limit clamps, a limit
+    // changes what an additive master merges into — so they are one
+    // ordered pass over `base`, not four independent ones a helper
+    // could take on its own.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one ordered pass whose four master modes each act on what the mode before it left in `base`; see the comment above"
+    )]
     fn apply_masters(&self, base: &mut HashMap<(ChanId, Attribute), f32>, show: &Show<'_>) {
         // A fader that *is* a master — `Fader::master` — is a scaling
         // master at the fader's level, folded with the named ones.
@@ -1773,7 +1911,7 @@ impl Programmer {
             || self.blackout
             || self.faders.iter().any(|f| f.level > 0.0)
             || self.toggled.iter().any(|t| *t)
-            || self.keys_down.iter().any(|k| k.is_some())
+            || self.keys_down.iter().any(std::option::Option::is_some)
             || !self.parked.is_empty()
             || !self.parked_dmx.is_empty()
     }
@@ -1781,7 +1919,7 @@ impl Programmer {
 
 /// Which of the hand's "one per role" slots an apply occupies —
 /// intensity, colour, focus, or anything else.
-fn apply_family(apply: &RecipeApply) -> u8 {
+const fn apply_family(apply: &RecipeApply) -> u8 {
     match apply {
         RecipeApply::Dimmer(_) => 0,
         RecipeApply::Color(_) | RecipeApply::Colors { .. } | RecipeApply::Split(_) => 1,
@@ -1826,6 +1964,10 @@ mod tests {
         assert!(p.captured().is_empty());
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     #[test]
     fn a_palette_hit_applies_to_the_selection() {
         let groups = groups();
@@ -1880,6 +2022,10 @@ mod tests {
         assert!(p.look_recipes().is_empty());
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.hand-wins]
     /// r[verify playback.busking-over-show]
     #[test]
@@ -1955,6 +2101,10 @@ mod tests {
         assert!((out[&(1, red)] - 0.5).abs() < 0.001);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     #[test]
     fn a_fader_at_zero_contributes_nothing() {
         let groups = groups();
@@ -2026,6 +2176,10 @@ mod tests {
         }
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// One rate source retiming every fader at once is the thing this
     /// design has that grandMA3 does not — a speed master drives *every*
     /// recipe here, because a phaser is a recipe.
@@ -2063,6 +2217,10 @@ mod tests {
         );
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A fader at double speed reaches its second step when the master's
     /// own tempo is still on its first.
     /// r[verify playback.speed-scale]
@@ -2337,6 +2495,10 @@ mod tests {
         );
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// The programmer's rate and size reach a fader's effect through the
     /// show it expands with — the same two numbers a host hands the cue
     /// player — so a master-slaved chase on a fader doubles with rate.
@@ -2458,6 +2620,10 @@ mod tests {
         }
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A held look beats the faders while the key is down and is gone
     /// the moment it is released — there is no envelope to wait out.
     #[test]
@@ -2491,6 +2657,10 @@ mod tests {
         out.get(&(chan, Attribute::Dimmer)).copied().unwrap_or(0.0)
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.keys] - flash
     #[test]
     fn flash_holds_the_fader_at_full_and_gives_it_back() {
@@ -2505,6 +2675,10 @@ mod tests {
         assert_eq!(p.faders[0].level, 0.25, "the fader itself never moved");
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.keys] - toggle
     #[test]
     fn toggle_latches_until_pressed_again() {
@@ -2523,6 +2697,10 @@ mod tests {
         assert_eq!(dimmer_of(&p, &groups, 1), 0.0);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.keys] - swap
     #[test]
     fn swap_takes_this_fader_to_full_and_suppresses_the_others_while_held() {
@@ -2541,6 +2719,10 @@ mod tests {
         );
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.keys] - kill
     #[test]
     fn kill_moves_the_faders_and_stays_moved() {
@@ -2584,6 +2766,10 @@ mod tests {
 
     // ── pages ────────────────────────────────────────────────────────
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.pages]
     #[test]
     fn a_fader_at_rest_takes_the_new_pages_assignment() {
@@ -2615,6 +2801,10 @@ mod tests {
         assert_eq!(p.faders[0].recipe, p.pages[0][0].recipe);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A fader that is up keeps playing its old assignment across a
     /// page change until it is brought back to match.
     /// r[verify playback.pages] - a fader that is up stays live
@@ -2655,6 +2845,10 @@ mod tests {
 
     // ── program time ─────────────────────────────────────────────────
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A palette punch over two beats at 120 BPM is a one-second fade:
     /// halfway at half a second, arrived at one.
     /// r[verify playback.program-time]
@@ -2750,6 +2944,10 @@ mod tests {
 
     // ── highlight / lowlight ─────────────────────────────────────────
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Highlight beats the hand and the masters: it is for finding a
     /// fixture, and a fixture a master has pulled to nothing cannot be
     /// found.
@@ -2814,7 +3012,7 @@ mod tests {
         let venue = roles();
         let show = show_with_roles(&groups, &venue);
         let mut p = Programmer::new();
-        p.park(&Selection::Chans(vec![1]), Attribute::Tilt, 12.0, &show);
+        p.park(&Selection::Chans(vec![1]), &Attribute::Tilt, 12.0, &show);
         p.park_chan(1, Attribute::Dimmer, 0.3);
         p.set_master("Key", 0.0);
         p.select(Selection::Chans(vec![1]));
@@ -2941,7 +3139,7 @@ mod tests {
         let mut tap = TapMaster::default();
         assert_eq!(tap.bpm(), None);
         for i in 0..8 {
-            tap.tap(i as f32 * 0.5);
+            tap.tap(float_of(i) * 0.5);
         }
         let bpm = tap.bpm().unwrap();
         assert!((bpm - 120.0).abs() < 0.5, "{bpm}");
@@ -2974,7 +3172,7 @@ mod tests {
     fn a_two_second_gap_starts_a_new_run() {
         let mut tap = TapMaster::default();
         for i in 0..4 {
-            tap.tap(i as f32 * 0.5);
+            tap.tap(float_of(i) * 0.5);
         }
         tap.tap(10.0);
         assert_eq!(tap.taps.len(), 1);
@@ -2986,6 +3184,10 @@ mod tests {
         assert!((tap.bpm().unwrap() - 60.0).abs() < 0.5);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// The keys reach the tap master, and its tempo reaches the `Tap`
     /// speed master a recipe names.
     /// r[verify playback.speed-keys]
@@ -2993,7 +3195,7 @@ mod tests {
     fn speed_keys_drive_the_tap_master() {
         let mut p = Programmer::new();
         for i in 0..5 {
-            p.set_now(i as f32 * 0.5);
+            p.set_now(float_of(i) * 0.5);
             assert_eq!(p.key_down(0, KeyAction::Learn), None);
         }
         p.key_down(0, KeyAction::HalfSpeed);
@@ -3013,6 +3215,10 @@ mod tests {
 
     // ── temp / transport keys ────────────────────────────────────────
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.temp-and-pause] - temp
     #[test]
     fn temp_arrives_over_the_program_time_and_leaves_over_the_same() {
@@ -3145,6 +3351,10 @@ mod tests {
         r
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify profile.attribute-filter]
     /// r[verify playback.attribute-filter]
     #[test]
@@ -3246,6 +3456,10 @@ mod tests {
         out
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify profile.protected-roles]
     /// r[verify playback.protected-untouched]
     /// r[verify playback.grand-master]
@@ -3317,6 +3531,10 @@ mod tests {
         assert_eq!(out[&(1, Attribute::Dimmer)], 0.25);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.blackout]
     /// r[verify profile.macros.release]
     #[test]
@@ -3402,6 +3620,10 @@ mod tests {
         assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 0.01);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// r[verify playback.macro-effects]
     #[test]
     fn macro_effects_play_beside_the_faders_and_release_without_them() {
@@ -3432,6 +3654,10 @@ mod tests {
         );
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Size and rate are the operator's, not the recipe's.
     ///
     /// They are live controls: a hand on a wheel while the show runs,

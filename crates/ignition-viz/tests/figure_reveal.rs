@@ -10,6 +10,21 @@ use ignition_core::{Attribute, Bars, CueList, CuePlayer, Show, SpeedMasters, Tri
 use ignition_viz::venue::Venue;
 use std::collections::HashMap;
 
+/// A channel count as `f32`, for averaging a handful of dimmer levels.
+/// `ignition_viz`'s own audited helper (`num::f32_of_usize`) is
+/// `pub(crate)` and unreachable from an integration test, so this is the
+/// same one-line audit repeated here: every count this test ever builds
+/// is a handful of channels on one venue, nowhere near where an `f32`
+/// stops counting integers exactly.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "channel counts here are tiny; see the doc comment"
+)]
+const fn count_as_f32(n: usize) -> f32 {
+    n as f32
+}
+
 /// r[verify playback.transient-over-sustained]
 /// r[verify playback.triggers-sum]
 /// r[verify triggers.transient-class]
@@ -40,7 +55,7 @@ fn a_cutout_reveals_its_zone_through_a_running_chase() {
 
     // Figure 0's first moment: a cut over everything and a lift on the
     // left third, at one position.
-    let lift = list
+    let reveal_trigger = list
         .triggers
         .iter()
         .find(|t| t.name == "fig 0 · 1/3")
@@ -50,9 +65,15 @@ fn a_cutout_reveals_its_zone_through_a_running_chase() {
         .iter()
         .find(|t| t.name == "fig 0 · 1/3 cut")
         .expect("figure 0 cuts");
-    let at = lift.bars().expect("the shipped show carries resolved bars");
-    let zone =
-        ignition_core::selection::resolve_with(&lift.recipe.target, &groups, &rig, &venue.profile);
+    let at = reveal_trigger
+        .bars()
+        .expect("the shipped show carries resolved bars");
+    let zone = ignition_core::selection::resolve_with(
+        &reveal_trigger.recipe.target,
+        &groups,
+        &rig,
+        &venue.profile,
+    );
     let all =
         ignition_core::selection::resolve_with(&cut.recipe.target, &groups, &rig, &venue.profile);
     assert!(!zone.is_empty(), "figure 0's zone selects nothing");
@@ -84,7 +105,7 @@ fn a_cutout_reveals_its_zone_through_a_running_chase() {
             .clamp(0.0, 1.0)
     };
     let mean = |out: &HashMap<(u32, Attribute), f32>, chans: &[u32]| {
-        chans.iter().map(|c| level(out, *c)).sum::<f32>() / chans.len().max(1) as f32
+        chans.iter().map(|c| level(out, *c)).sum::<f32>() / count_as_f32(chans.len().max(1))
     };
 
     let during = frame(&mut player, &bus, t0 + 0.05);

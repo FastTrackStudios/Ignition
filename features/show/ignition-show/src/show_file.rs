@@ -68,9 +68,9 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::Io { path, source } => write!(f, "reading {}: {source}", path.display()),
-            Error::Json { path, source } => write!(f, "parsing {}: {source}", path.display()),
-            Error::Version {
+            Self::Io { path, source } => write!(f, "reading {}: {source}", path.display()),
+            Self::Json { path, source } => write!(f, "parsing {}: {source}", path.display()),
+            Self::Version {
                 path,
                 found,
                 supported,
@@ -114,6 +114,20 @@ fn check_version(path: &Path, found: u32, supported: u32) -> Result<(), Error> {
 /// person can read the diff between what they wrote and what the
 /// generator wrote.
 // r[impl files.text-and-diffable]
+//
+// `to_string_pretty` only fails on a non-string map key (nothing here
+// has one) or a `NaN`/infinite float, which JSON cannot spell. The
+// latter is reachable in principle — a broken effect could hand a cue
+// a `NaN` — but every `to_json` in this file returns a bare `String`,
+// and making that fallible would push a `Result` onto every caller in
+// every crate that saves a show for one pathological value nothing
+// here currently produces. `expect` over a graceful fallback: a `.5,
+// NaN, .8` written to disk as `null` would silently corrupt the file
+// it claims to have saved, which is worse than the save failing loudly.
+#[expect(
+    clippy::expect_used,
+    reason = "no non-string map keys here, and turning a NaN into a silent bad write would be worse than the crash; see the comment above"
+)]
 fn to_pretty<T: Serialize>(value: &T) -> String {
     serde_json::to_string_pretty(value).expect("serialising a value this crate built")
 }
@@ -123,7 +137,7 @@ fn to_pretty<T: Serialize>(value: &T) -> String {
 // ---------------------------------------------------------------------------
 
 /// One song in the night's running order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SongEntry {
     /// The `.ignition` file, relative to the `.ig-show`.
     pub file: String,
@@ -138,11 +152,12 @@ pub struct SongEntry {
 }
 
 impl SongEntry {
+    #[must_use]
     pub fn new(file: &str) -> Self {
         Self {
             file: file.into(),
             layer: None,
-            extra: Default::default(),
+            extra: serde_json::Map::default(),
         }
     }
 }
@@ -159,7 +174,7 @@ impl SongEntry {
 // r[impl files.versioned]
 // r[impl files.additive-evolution] - unknown keys ride in `extra` and are written back
 // r[impl files.text-and-diffable] - JSON, pretty-printed on save
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ShowFile {
     pub version: u32,
     #[serde(default)]
@@ -176,17 +191,25 @@ pub struct ShowFile {
 }
 
 impl ShowFile {
+    /// # Errors
+    ///
+    /// `raw` does not parse as a `ShowFile`, or names a version newer
+    /// than [`SHOW_FILE_VERSION`].
     pub fn parse(path: &Path, raw: &str) -> Result<Self, Error> {
-        let show: ShowFile = parse(path, raw)?;
+        let show: Self = parse(path, raw)?;
         check_version(path, show.version, SHOW_FILE_VERSION)?;
         Ok(show)
     }
 
+    /// # Errors
+    ///
+    /// `path` cannot be read, or [`Self::parse`] rejects its contents.
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Error> {
         let path = path.as_ref();
         Self::parse(path, &read(path)?)
     }
 
+    #[must_use]
     pub fn to_json(&self) -> String {
         to_pretty(self)
     }
@@ -197,10 +220,12 @@ impl ShowFile {
     /// directory that sits beside `venues/` — the same convention
     /// `Venue::load` uses to inherit colours, so a show and a venue that
     /// name the same profile find the same file.
+    #[must_use]
     pub fn profile_path(&self, show_dir: &Path) -> PathBuf {
         resolve_profile(show_dir, &self.profile, Some(&show_dir.join(&self.venue)))
     }
 
+    #[must_use]
     pub fn venue_dir(&self, show_dir: &Path) -> PathBuf {
         show_dir.join(&self.venue)
     }
@@ -238,7 +263,7 @@ fn resolve_profile(base: &Path, profile: &str, venue_dir: Option<&Path>) -> Path
 /// and its tempo map, and nothing more. The audio and the arrangement
 /// stay in the DAW session; this is a pointer, not a copy.
 // r[impl files.show.song-binding]
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SongBinding {
     /// The song project, relative to the `.ignition` file.
     pub project: String,
@@ -281,27 +306,36 @@ pub struct ShowDocument {
 }
 
 impl ShowDocument {
+    #[must_use]
     pub fn new(list: CueList, profile: &str, song: SongBinding) -> Self {
         Self {
             version: Some(IGNITION_VERSION),
             profile: Some(profile.into()),
             song: Some(song),
             list,
-            extra: Default::default(),
+            extra: serde_json::Map::default(),
         }
     }
 
+    /// # Errors
+    ///
+    /// `raw` does not parse as a `ShowDocument`, or names a version
+    /// newer than [`IGNITION_VERSION`].
     pub fn parse(path: &Path, raw: &str) -> Result<Self, Error> {
-        let doc: ShowDocument = parse(path, raw)?;
+        let doc: Self = parse(path, raw)?;
         check_version(path, doc.version.unwrap_or(0), IGNITION_VERSION)?;
         Ok(doc)
     }
 
+    /// # Errors
+    ///
+    /// `path` cannot be read, or [`Self::parse`] rejects its contents.
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Error> {
         let path = path.as_ref();
         Self::parse(path, &read(path)?)
     }
 
+    #[must_use]
     pub fn to_json(&self) -> String {
         to_pretty(self)
     }
@@ -342,28 +376,37 @@ pub struct VenueLayer {
 }
 
 impl VenueLayer {
+    #[must_use]
     pub fn new(song: &str, venue: &str) -> Self {
         Self {
             version: VENUE_LAYER_VERSION,
             song: song.into(),
             venue: venue.into(),
-            override_cues: Default::default(),
-            add_cues: Default::default(),
-            extra: Default::default(),
+            override_cues: BTreeMap::default(),
+            add_cues: Vec::default(),
+            extra: serde_json::Map::default(),
         }
     }
 
+    /// # Errors
+    ///
+    /// `raw` does not parse as a `VenueLayer`, or names a version newer
+    /// than [`VENUE_LAYER_VERSION`].
     pub fn parse(path: &Path, raw: &str) -> Result<Self, Error> {
-        let layer: VenueLayer = parse(path, raw)?;
+        let layer: Self = parse(path, raw)?;
         check_version(path, layer.version, VENUE_LAYER_VERSION)?;
         Ok(layer)
     }
 
+    /// # Errors
+    ///
+    /// `path` cannot be read, or [`Self::parse`] rejects its contents.
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Error> {
         let path = path.as_ref();
         Self::parse(path, &read(path)?)
     }
 
+    #[must_use]
     pub fn to_json(&self) -> String {
         to_pretty(self)
     }
@@ -396,9 +439,10 @@ pub struct Applied {
 pub fn apply_layer(list: &mut CueList, layer: &VenueLayer) -> Applied {
     let mut applied = Applied::default();
     for (name, cue) in &layer.override_cues {
-        match list.cues.iter().position(|c| &c.name == name) {
-            Some(i) => {
-                let original = std::mem::replace(&mut list.cues[i], cue.clone());
+        let hit = list.cues.iter().position(|c| &c.name == name);
+        match hit.and_then(|i| list.cues.get_mut(i).map(|slot| (i, slot))) {
+            Some((i, slot)) => {
+                let original = std::mem::replace(slot, cue.clone());
                 applied.replaced.push((i, original));
             }
             None => applied.unmatched.push(name.clone()),
@@ -416,8 +460,8 @@ pub fn remove_layer(list: &mut CueList, applied: Applied) {
     let keep = list.cues.len().saturating_sub(applied.added);
     list.cues.truncate(keep);
     for (i, original) in applied.replaced {
-        if i < list.cues.len() {
-            list.cues[i] = original;
+        if let Some(slot) = list.cues.get_mut(i) {
+            *slot = original;
         }
     }
 }
@@ -437,7 +481,7 @@ pub fn remove_layer(list: &mut CueList, applied: Applied) {
 // r[impl files.venue.assets] - `assets` is relative to the venue directory
 // r[impl files.versioned]
 // r[impl files.additive-evolution]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VenueManifest {
     pub version: u32,
     #[serde(default)]
@@ -486,10 +530,10 @@ impl Default for VenueManifest {
             version: VENUE_MANIFEST_VERSION,
             name: String::new(),
             profile: String::new(),
-            files: Default::default(),
+            files: BTreeMap::default(),
             assets: default_assets(),
             dmx: None,
-            extra: Default::default(),
+            extra: serde_json::Map::default(),
         }
     }
 }
@@ -498,31 +542,38 @@ impl VenueManifest {
     /// The manifest in `dir`, or the all-defaults manifest for a bare
     /// directory. A manifest that is present but unreadable is an error,
     /// because a venue that half-loads is worse than one that does not.
+    ///
+    /// # Errors
+    ///
+    /// `VENUE_MANIFEST_FILE` exists in `dir` but cannot be read or does
+    /// not parse as a `VenueManifest`.
     pub fn load_dir(dir: &Path) -> Result<Self, Error> {
         let path = dir.join(VENUE_MANIFEST_FILE);
         if !path.is_file() {
             return Ok(Self::default());
         }
-        let manifest: VenueManifest = parse(&path, &read(&path)?)?;
+        let manifest: Self = parse(&path, &read(&path)?)?;
         check_version(&path, manifest.version, VENUE_MANIFEST_VERSION)?;
         Ok(manifest)
     }
 
     /// Where one of the venue's JSON files is: the override if named,
     /// else `<key>.json`, in either case relative to `dir`.
+    #[must_use]
     pub fn file(&self, dir: &Path, key: &str) -> PathBuf {
-        match self.files.get(key) {
-            Some(name) => dir.join(name),
-            None => dir.join(format!("{key}.json")),
-        }
+        self.files
+            .get(key)
+            .map_or_else(|| dir.join(format!("{key}.json")), |name| dir.join(name))
     }
 
     /// The assets directory, resolved against the venue directory.
     // r[impl files.venue.assets]
+    #[must_use]
     pub fn assets_dir(&self, dir: &Path) -> PathBuf {
         dir.join(&self.assets)
     }
 
+    #[must_use]
     pub fn to_json(&self) -> String {
         to_pretty(self)
     }
@@ -540,6 +591,13 @@ struct AreasFile {
 /// The venue's profile binding, from the directory: `profile.json` (or
 /// the manifest's override) with `areas.json` folded in. Everything the
 /// static check needs, and nothing that needs a renderer.
+///
+/// # Errors
+///
+/// The manifest cannot be loaded, the profile file it names cannot be
+/// read or parsed, or a present `areas.json` cannot be read or parsed.
+/// A *missing* `profile.json` or `areas.json` is not an error — the
+/// binding falls back to its defaults.
 // r[impl default.norco-is-the-proof] - data-defined: data/venues/norco/profile.json binds Norco to the roles; tests/profile_binding.rs holds it
 pub fn load_venue_binding(dir: &Path) -> Result<VenueProfile, Error> {
     let manifest = VenueManifest::load_dir(dir)?;
@@ -550,7 +608,7 @@ pub fn load_venue_binding(dir: &Path) -> Result<VenueProfile, Error> {
         VenueProfile::default()
     };
     if binding.profile.is_empty() {
-        binding.profile = manifest.profile.clone();
+        binding.profile.clone_from(&manifest.profile);
     }
     let areas_path = manifest.file(dir, "areas");
     if binding.areas.is_empty() && areas_path.is_file() {
@@ -597,18 +655,18 @@ pub enum Finding {
 impl fmt::Display for Finding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Finding::Undeclared { kind, name } => {
+            Self::Undeclared { kind, name } => {
                 write!(f, "{kind:?} {name:?} is not in the profile's vocabulary")
             }
-            Finding::VenueGroup { name } => {
+            Self::VenueGroup { name } => {
                 write!(f, "names venue group {name:?} directly; use a role")
             }
-            Finding::UnknownEffect { name } => {
+            Self::UnknownEffect { name } => {
                 write!(f, "effect {name:?} is not in the profile's library")
             }
-            Finding::FixtureIdentity { how } => write!(f, "names fixtures by identity: {how}"),
-            Finding::MetreCoordinate { what } => write!(f, "carries a room coordinate: {what}"),
-            Finding::AudienceOriented { area } => write!(
+            Self::FixtureIdentity { how } => write!(f, "names fixtures by identity: {how}"),
+            Self::MetreCoordinate { what } => write!(f, "carries a room coordinate: {what}"),
+            Self::AudienceOriented { area } => write!(
                 f,
                 "area {area:?} is named from the audience; use the performer's left and right"
             ),
@@ -700,7 +758,7 @@ impl Used {
     fn apply(&mut self, cue: Option<&str>, apply: &RecipeApply) {
         match apply {
             RecipeApply::Color(Ref::Named(name)) => {
-                self.names.push((name.clone(), RoleKind::Colour))
+                self.names.push((name.clone(), RoleKind::Colour));
             }
             RecipeApply::Colors { colors, .. } => {
                 for c in colors {
@@ -782,6 +840,7 @@ impl Used {
 }
 
 /// Every name a cue list uses, of every kind, deduplicated.
+#[must_use]
 pub fn names_used(list: &CueList) -> Vec<(String, RoleKind)> {
     let mut used = Used::default();
     let profile = Profile::default();
@@ -810,6 +869,7 @@ pub fn names_used(list: &CueList) -> Vec<(String, RoleKind)> {
 // r[impl files.no-fixture-identity] - `Chans` and `Layout` are reported
 // r[impl profile.ignition-has-no-venue] - inline metres are reported
 // r[impl profile.declares-vocabulary] - "a show MUST NOT use a name the profile does not declare, and that MUST be checkable"
+#[must_use]
 pub fn check_show_against_profile(list: &CueList, profile: &Profile) -> Vec<Located> {
     let mut used = Used::default();
     for cue in &list.cues {
@@ -867,6 +927,7 @@ pub fn check_show_against_profile(list: &CueList, profile: &Profile) -> Vec<Loca
 // r[impl files.compatibility-check] - venue against profile
 // r[impl profile.check-is-static]
 // r[impl files.required-roles] - a required gap is reported, and the venue still loaded
+#[must_use]
 pub fn check_venue_against_profile(venue: &VenueProfile, profile: &Profile) -> Vec<Gap> {
     profile.gaps(venue)
 }
@@ -933,6 +994,7 @@ impl Report {
         self.gaps.iter().filter(|g| g.required)
     }
 
+    #[must_use]
     pub fn ok(&self) -> bool {
         self.required_gaps().next().is_none()
     }
@@ -960,14 +1022,14 @@ impl fmt::Display for Report {
         }
         writeln!(f)?;
         for s in &self.songs {
-            let layer = match &s.layer {
-                Some(l) => format!("layer {l}"),
-                None => "no layer".into(),
-            };
-            let profile = match &s.profile {
-                Some(p) => format!("against {p}"),
-                None => "no profile header".into(),
-            };
+            let layer = s
+                .layer
+                .as_ref()
+                .map_or_else(|| "no layer".into(), |l| format!("layer {l}"));
+            let profile = s
+                .profile
+                .as_ref()
+                .map_or_else(|| "no profile header".into(), |p| format!("against {p}"));
             writeln!(f, "{} ({}) — {profile}, {layer}", s.name, s.file)?;
             if let Some(e) = &s.error {
                 writeln!(f, "  error: {e}")?;
@@ -1037,8 +1099,8 @@ pub fn check_ig_show(show: &ShowFile, show_dir: &Path) -> Report {
         };
         match ShowDocument::load(&path) {
             Ok(doc) => {
-                song.name = doc.list.name.clone();
-                song.profile = doc.profile.clone();
+                song.name.clone_from(&doc.list.name);
+                song.profile.clone_from(&doc.profile);
                 if let Some(p) = &profile {
                     song.findings = check_show_against_profile(&doc.list, p);
                 }
@@ -1055,7 +1117,7 @@ mod tests {
     use super::*;
     use crate::profile::Role;
     use crate::selection::{Axis, Cmp, Where};
-    use crate::step::Step;
+    use crate::step::{Step, Timing};
 
     fn data(rel: &str) -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -1080,7 +1142,7 @@ mod tests {
         RecipeRef::Inline(Recipe {
             target,
             steps: vec![Step::new(vec![RecipeApply::Dimmer(1.0)])],
-            timing: Default::default(),
+            timing: Timing::default(),
             tricks: vec![],
             stack: false,
             ..Default::default()
@@ -1293,7 +1355,7 @@ mod tests {
                                 z: 0.0,
                             },
                         ))])],
-                        timing: Default::default(),
+                        timing: Timing::default(),
                         tricks: vec![],
                         stack: false,
                         ..Default::default()
@@ -1385,7 +1447,7 @@ mod tests {
         // Riverside binds every required group and focus, so it passes
         // too; strip Key from a copy of its binding to see the failure.
         let binding = load_venue_binding(&data("venues/riverside")).unwrap();
-        let mut broken = binding.clone();
+        let mut broken = binding;
         broken.groups.remove("Key");
         let gaps = check_venue_against_profile(&broken, &profile());
         assert!(gaps.iter().any(|g| g.role == "Key" && g.required));

@@ -18,7 +18,10 @@
 //! The vocabulary is Avolites' rainbow and colour shapes and MagicQ's
 //! 2col and 3col.
 
-use super::*;
+use super::{
+    Add, Play, Put, Recipe, RecipeApply, Step, Timing, Trick, Waveform, add_chan, beat, float_of,
+    float_of_i32, hue, role, tapped,
+};
 use crate::preset::Ref;
 use crate::recipe::Distribute;
 use ignition_proto::ColorChannel;
@@ -57,7 +60,7 @@ fn rgb_wheel(amp: f32) -> Vec<Step> {
     let tau = std::f32::consts::TAU;
     (0..RESOLUTION)
         .map(|i| {
-            let t = tau * i as f32 / RESOLUTION as f32;
+            let t = tau * float_of(i) / float_of(RESOLUTION);
             Step {
                 apply: vec![RecipeApply::Delta(vec![
                     (add_chan(ColorChannel::Red), amp * t.sin()),
@@ -101,7 +104,14 @@ fn two_colour_chase() -> Recipe {
 // r[impl color.multi.distribution] - stripes, split swap
 pub(super) fn add(add: Add) {
     let mut put = |name: &str, about: &str, recipe: Recipe| add(name, FAMILY, about, recipe);
+    add_rainbows(&mut put);
+    add_two_colours(&mut put);
+    add_multi_colour_chases(&mut put);
+    add_accents(&mut put);
+}
 
+/// The rainbows and hue sweeps.
+fn add_rainbows(put: Put) {
     // ── rainbows ─────────────────────────────────────────────────────
 
     // The rig walking through the spectrum together. Relative, so over
@@ -130,7 +140,7 @@ pub(super) fn add(add: Add) {
         wash(
             (0..12)
                 .map(|i| {
-                    let t = std::f32::consts::TAU * i as f32 / 12.0;
+                    let t = std::f32::consts::TAU * float_of_i32(i) / 12.0;
                     let lean = 0.5 * t.sin();
                     Step {
                         apply: vec![RecipeApply::Delta(vec![
@@ -147,7 +157,10 @@ pub(super) fn add(add: Add) {
             Vec::new(),
         ),
     );
+}
 
+/// The two-colour splits, fades and stripes.
+fn add_two_colours(put: Put) {
     // ── two colours ──────────────────────────────────────────────────
 
     // Two hues snapping on odds and evens — the club-standard A/B
@@ -226,7 +239,10 @@ pub(super) fn add(add: Add) {
             vec![Trick::Block(2)],
         ),
     );
+}
 
+/// The three-and-four-colour chases and ballyhoo.
+fn add_multi_colour_chases(put: Put) {
     // ── multi-colour chases ──────────────────────────────────────────
 
     // Three hues walking the rig — each fixture a step behind its
@@ -278,7 +294,10 @@ pub(super) fn add(add: Add) {
             vec![Trick::Shuffle(2203)],
         ),
     );
+}
 
+/// The single-fixture accents and glints.
+fn add_accents(put: Put) {
     // ── accents ──────────────────────────────────────────────────────
 
     // Single fixtures flicking to the hot colour and back, in a shuffled
@@ -339,7 +358,15 @@ pub(super) fn add(add: Add) {
                 .map(|i| {
                     // A deliberately uneven dip so the flicker does not
                     // read as a sine.
-                    let dip = [0.0, -0.25, -0.1, -0.35, -0.05, -0.3, -0.15, -0.2][i];
+                    // The table has exactly as many entries as the range
+                    // above has steps, so `get` never actually falls
+                    // through — but the table is data, not a place to
+                    // panic, so the fallback is the flat 0.0 a missing
+                    // entry would mean.
+                    let dip = [0.0, -0.25, -0.1, -0.35, -0.05, -0.3, -0.15, -0.2]
+                        .get(i)
+                        .copied()
+                        .unwrap_or(0.0);
                     Step {
                         apply: vec![RecipeApply::Delta(vec![(
                             add_chan(ColorChannel::Green),
@@ -363,7 +390,7 @@ pub(super) fn add(add: Add) {
         "saturation breathe",
         "the look washing toward pastel and back to full colour over four bars — verses, felt not seen",
         wash(
-            Waveform::Sine.steps(add_chan(ColorChannel::White), 0.2, 0.2, true),
+            Waveform::Sine.steps(&add_chan(ColorChannel::White), 0.2, 0.2, true),
             beat(4.0, 0.0, Play::Forward),
             Vec::new(),
         ),
@@ -372,7 +399,9 @@ pub(super) fn add(add: Add) {
 
 #[cfg(test)]
 mod tests {
+    use super::super::Attribute;
     use super::*;
+    use std::collections::BTreeMap;
 
     fn family() -> BTreeMap<String, Recipe> {
         let mut out = BTreeMap::new();
@@ -410,6 +439,14 @@ mod tests {
     /// difference between them, and it is the whole difference.
     // r[verify effects.phase.spread]
     #[test]
+    // The two spreads are literal constants set by `beat(...)` a few
+    // lines up, not the result of any arithmetic, so an exact comparison
+    // is the right assertion — it is just not one `assert_eq!` can make
+    // of a float without the lint firing.
+    #[expect(
+        clippy::float_cmp,
+        reason = "phase_spread_deg is a literal set a few lines up, not computed"
+    )]
     fn the_rainbow_travels_and_the_cycle_does_not() {
         let f = family();
         assert_eq!(f["rainbow"].steps, f["colour cycle"].steps);

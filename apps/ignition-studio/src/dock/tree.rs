@@ -9,6 +9,7 @@
 
 use super::geometry::DropZone;
 use super::pane::PaneKind;
+use crate::num::f32_of_usize;
 use serde::{Deserialize, Serialize};
 
 /// Which way a split lays its children: `Row` side by side, `Col`
@@ -38,7 +39,7 @@ pub enum DockNode {
         axis: Axis,
         #[serde(default)]
         ratios: Vec<f32>,
-        children: Vec<DockNode>,
+        children: Vec<Self>,
     },
     Tabs {
         panes: Vec<PaneKind>,
@@ -49,7 +50,7 @@ pub enum DockNode {
 
 impl DockNode {
     pub fn tabs(panes: impl Into<Vec<PaneKind>>) -> Self {
-        DockNode::Tabs {
+        Self::Tabs {
             panes: panes.into(),
             active: 0,
         }
@@ -60,18 +61,18 @@ impl DockNode {
     }
 
     /// A split with equal ratios.
-    pub fn split(axis: Axis, children: Vec<DockNode>) -> Self {
+    pub fn split(axis: Axis, children: Vec<Self>) -> Self {
         let n = children.len().max(1);
-        DockNode::Split {
+        Self::Split {
             axis,
-            ratios: vec![1.0 / n as f32; children.len()],
+            ratios: vec![1.0 / f32_of_usize(n); children.len()],
             children,
         }
     }
 
     /// A split with the ratios given (normalised on use).
-    pub fn split_with(axis: Axis, ratios: Vec<f32>, children: Vec<DockNode>) -> Self {
-        DockNode::Split {
+    pub const fn split_with(axis: Axis, ratios: Vec<f32>, children: Vec<Self>) -> Self {
+        Self::Split {
             axis,
             ratios,
             children,
@@ -95,8 +96,8 @@ impl DockNode {
 
     fn collect_panes(&self, out: &mut Vec<PaneKind>) {
         match self {
-            DockNode::Tabs { panes, .. } => out.extend(panes.iter().copied()),
-            DockNode::Split { children, .. } => {
+            Self::Tabs { panes, .. } => out.extend(panes.iter().copied()),
+            Self::Split { children, .. } => {
                 for c in children {
                     c.collect_panes(out);
                 }
@@ -117,8 +118,8 @@ impl DockNode {
 
     fn collect_leaves<'a>(&'a self, path: Path, out: &mut Vec<(Path, &'a [PaneKind], usize)>) {
         match self {
-            DockNode::Tabs { panes, active } => out.push((path, panes, *active)),
-            DockNode::Split { children, .. } => {
+            Self::Tabs { panes, active } => out.push((path, panes, *active)),
+            Self::Split { children, .. } => {
                 for (i, c) in children.iter().enumerate() {
                     let mut p = path.clone();
                     p.push(i);
@@ -128,10 +129,10 @@ impl DockNode {
         }
     }
 
-    pub fn at(&self, path: &[usize]) -> Option<&DockNode> {
+    pub fn at(&self, path: &[usize]) -> Option<&Self> {
         let mut node = self;
         for &i in path {
-            let DockNode::Split { children, .. } = node else {
+            let Self::Split { children, .. } = node else {
                 return None;
             };
             node = children.get(i)?;
@@ -139,10 +140,10 @@ impl DockNode {
         Some(node)
     }
 
-    pub fn at_mut(&mut self, path: &[usize]) -> Option<&mut DockNode> {
+    pub fn at_mut(&mut self, path: &[usize]) -> Option<&mut Self> {
         let mut node = self;
         for &i in path {
-            let DockNode::Split { children, .. } = node else {
+            let Self::Split { children, .. } = node else {
                 return None;
             };
             node = children.get_mut(i)?;
@@ -171,7 +172,7 @@ impl DockNode {
         let Some((path, index)) = self.find(pane) else {
             return false;
         };
-        if let Some(DockNode::Tabs { active, .. }) = self.at_mut(&path) {
+        if let Some(Self::Tabs { active, .. }) = self.at_mut(&path) {
             *active = index;
         }
         true
@@ -184,13 +185,13 @@ impl DockNode {
             return false;
         };
         let old = std::mem::take(node);
-        let fresh = DockNode::tab(pane);
+        let fresh = Self::tab(pane);
         let children = if after {
             vec![old, fresh]
         } else {
             vec![fresh, old]
         };
-        *node = DockNode::split(axis, children);
+        *node = Self::split(axis, children);
         self.normalize();
         true
     }
@@ -198,7 +199,7 @@ impl DockNode {
     /// Add `pane` to the leaf at `path` at `index` (clamped) and show it.
     pub fn insert_tab(&mut self, path: &[usize], index: usize, pane: PaneKind) -> bool {
         match self.at_mut(path) {
-            Some(DockNode::Tabs { panes, active }) => {
+            Some(Self::Tabs { panes, active }) => {
                 let index = index.min(panes.len());
                 panes.insert(index, pane);
                 *active = index;
@@ -214,12 +215,12 @@ impl DockNode {
         let Some((path, index)) = self.find(pane) else {
             return false;
         };
-        if let Some(DockNode::Tabs { panes, active }) = self.at_mut(&path) {
+        if let Some(Self::Tabs { panes, active }) = self.at_mut(&path) {
             panes.remove(index);
             if *active >= panes.len() {
                 *active = panes.len().saturating_sub(1);
             } else if *active > index {
-                *active -= 1;
+                *active = active.saturating_sub(1);
             }
         }
         self.normalize();
@@ -231,7 +232,7 @@ impl DockNode {
     /// parent's), and ratios are kept summing to one. The root may end
     /// up an empty leaf; nothing else may.
     pub fn normalize(&mut self) {
-        if let DockNode::Split {
+        if let Self::Split {
             axis,
             ratios,
             children,
@@ -239,7 +240,7 @@ impl DockNode {
         {
             let axis = *axis;
             if ratios.len() != children.len() {
-                *ratios = vec![1.0 / children.len().max(1) as f32; children.len()];
+                *ratios = vec![1.0 / f32_of_usize(children.len().max(1)); children.len()];
             }
             let mut next_children = Vec::new();
             let mut next_ratios = Vec::new();
@@ -249,8 +250,8 @@ impl DockNode {
             {
                 child.normalize();
                 match child {
-                    DockNode::Tabs { ref panes, .. } if panes.is_empty() => {}
-                    DockNode::Split {
+                    Self::Tabs { ref panes, .. } if panes.is_empty() => {}
+                    Self::Split {
                         axis: inner,
                         ratios: inner_ratios,
                         children: inner_children,
@@ -273,11 +274,19 @@ impl DockNode {
                     *r /= sum;
                 }
             } else {
-                next_ratios = vec![1.0 / next_children.len().max(1) as f32; next_children.len()];
+                next_ratios =
+                    vec![1.0 / f32_of_usize(next_children.len().max(1)); next_children.len()];
             }
             match next_children.len() {
-                0 => *self = DockNode::empty(),
-                1 => *self = next_children.pop().expect("one child"),
+                0 => *self = Self::empty(),
+                // The `1` arm guarantees exactly one element; `pop` on an
+                // empty vec here cannot happen, but a fallible `if let`
+                // keeps the guarantee from ever becoming a panic.
+                1 => {
+                    if let Some(only) = next_children.pop() {
+                        *self = only;
+                    }
+                }
                 _ => {
                     *children = next_children;
                     *ratios = next_ratios;
@@ -290,20 +299,33 @@ impl DockNode {
     /// split at `path`, moved so the first of the pair takes `fraction`
     /// of what the two share (clamped so neither vanishes).
     pub fn set_split(&mut self, path: &[usize], index: usize, fraction: f32) -> bool {
-        let Some(DockNode::Split { ratios, .. }) = self.at_mut(path) else {
+        let Some(Self::Split { ratios, .. }) = self.at_mut(path) else {
             return false;
         };
-        if index + 1 >= ratios.len() {
+        let next = index.saturating_add(1);
+        if next >= ratios.len() {
             return false;
         }
-        let pair = ratios[index] + ratios[index + 1];
+        // `next < ratios.len()` is proven above, so both `get`s below
+        // always hit; the `else` arms exist only so nothing here can
+        // index its way into a panic.
+        let (Some(&a), Some(&b)) = (ratios.get(index), ratios.get(next)) else {
+            return false;
+        };
+        let pair = a + b;
         let fraction = if fraction.is_finite() {
             fraction.clamp(0.05, 0.95)
         } else {
             0.5
         };
-        ratios[index] = pair * fraction;
-        ratios[index + 1] = pair * (1.0 - fraction);
+        let Some(slot) = ratios.get_mut(index) else {
+            return false;
+        };
+        *slot = pair * fraction;
+        let Some(slot) = ratios.get_mut(next) else {
+            return false;
+        };
+        *slot = pair * (1.0 - fraction);
         true
     }
 
@@ -317,7 +339,7 @@ impl DockNode {
     /// pane already lives in the target leaf: an edge zone splits it
     /// off, a tab zone reorders it.
     pub fn drop_pane(&mut self, pane: PaneKind, target: &[usize], zone: DropZone) -> bool {
-        let Some(DockNode::Tabs {
+        let Some(Self::Tabs {
             panes: target_panes,
             active,
         }) = self.at(target)
@@ -329,13 +351,22 @@ impl DockNode {
             match zone {
                 DropZone::Centre => return self.activate(pane),
                 DropZone::TabBar(index) => {
-                    let Some(DockNode::Tabs { panes, active }) = self.at_mut(target) else {
+                    let Some(Self::Tabs { panes, active }) = self.at_mut(target) else {
                         return false;
                     };
-                    let from = panes.iter().position(|p| *p == pane).expect("in leaf");
+                    // `same_leaf` above already confirmed `pane` is one
+                    // of `panes`, so this always finds it; the `else`
+                    // exists only so the lookup cannot panic instead.
+                    let Some(from) = panes.iter().position(|p| *p == pane) else {
+                        return false;
+                    };
                     panes.remove(from);
-                    let index = index.min(panes.len() + 1);
-                    let index = if index > from { index - 1 } else { index };
+                    let index = index.min(panes.len().saturating_add(1));
+                    let index = if index > from {
+                        index.saturating_sub(1)
+                    } else {
+                        index
+                    };
                     let index = index.min(panes.len());
                     panes.insert(index, pane);
                     *active = index;
@@ -355,7 +386,10 @@ impl DockNode {
         }
         // A different leaf: anchor the target by a pane it keeps, so
         // the path can be found again once the source leaf has gone.
-        let anchor = target_panes.get(*active).or(target_panes.first()).copied();
+        let anchor = target_panes
+            .get(*active)
+            .or_else(|| target_panes.first())
+            .copied();
         self.remove(pane);
         let target = match anchor {
             Some(anchor) => match self.find(anchor) {
@@ -367,7 +401,7 @@ impl DockNode {
         match zone {
             DropZone::Centre => {
                 let len = match self.at(&target) {
-                    Some(DockNode::Tabs { panes, .. }) => panes.len(),
+                    Some(Self::Tabs { panes, .. }) => panes.len(),
                     _ => 0,
                 };
                 self.insert_tab(&target, len, pane)
@@ -381,13 +415,13 @@ impl DockNode {
     /// leaf must keep its path.
     fn remove_from_leaf(&mut self, pane: PaneKind) {
         if let Some((path, index)) = self.find(pane)
-            && let Some(DockNode::Tabs { panes, active }) = self.at_mut(&path)
+            && let Some(Self::Tabs { panes, active }) = self.at_mut(&path)
         {
             panes.remove(index);
             if *active >= panes.len() {
                 *active = panes.len().saturating_sub(1);
             } else if *active > index {
-                *active -= 1;
+                *active = active.saturating_sub(1);
             }
         }
     }
@@ -399,12 +433,12 @@ impl DockNode {
             return;
         }
         if self.is_empty() {
-            *self = DockNode::tab(pane);
+            *self = Self::tab(pane);
             return;
         }
         let path = self.first_leaf();
         let len = match self.at(&path) {
-            Some(DockNode::Tabs { panes, .. }) => panes.len(),
+            Some(Self::Tabs { panes, .. }) => panes.len(),
             _ => 0,
         };
         self.insert_tab(&path, len, pane);
@@ -422,17 +456,17 @@ pub struct DockState {
 
 impl Default for DockNode {
     fn default() -> Self {
-        DockNode::empty()
+        Self::empty()
     }
 }
 
 impl DockState {
-    pub fn new(tree: DockNode) -> Self {
+    pub const fn new(tree: DockNode) -> Self {
         Self { tree, solo: None }
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
-    pub fn is_solo(&self) -> bool {
+    pub const fn is_solo(&self) -> bool {
         self.solo.is_some()
     }
 
@@ -606,9 +640,9 @@ mod tests {
         let DockNode::Split { ratios, .. } = &t else {
             panic!()
         };
-        let third = 1.0 / 3.0;
-        assert!((ratios[0] - 2.0 * third * 0.2).abs() < 1e-5);
-        assert!((ratios[1] - 2.0 * third * 0.8).abs() < 1e-5);
+        let third: f32 = 1.0 / 3.0;
+        assert!((2.0 * third).mul_add(-0.2, ratios[0]).abs() < 1e-5);
+        assert!((2.0 * third).mul_add(-0.8, ratios[1]).abs() < 1e-5);
         assert!((ratios[2] - third).abs() < 1e-5);
         assert!(t.set_split(&[], 0, 0.0));
         let DockNode::Split { ratios, .. } = &t else {

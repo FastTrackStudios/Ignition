@@ -50,6 +50,7 @@ pub enum View {
 /// characters, upper-case, the rest cut.
 // r[impl studio.labels] - eight characters or fewer
 // r[impl profile.pages.label-fits]
+#[must_use]
 pub fn label8(name: &str) -> String {
     name.chars().take(8).collect::<String>().to_uppercase()
 }
@@ -57,6 +58,7 @@ pub fn label8(name: &str) -> String {
 /// Which clock a fader follows, as the badge says it: Song, Tap, Tap ½,
 /// Tap ×2 — or its own rate where the recipe is not slaved.
 // r[impl profile.speed-routing] - every fader shows its clock
+#[must_use]
 pub fn clock_badge(speed: Option<&Speed>) -> String {
     match speed {
         Some(Speed::Master(m)) => m.clone(),
@@ -76,6 +78,7 @@ pub fn clock_badge(speed: Option<&Speed>) -> String {
 
 /// A filter as a badge — empty when the fader passes everything.
 // r[impl profile.attribute-filter] - the filter shows on the fader
+#[must_use]
 pub fn filter_badge(filter: &AttrFilter) -> String {
     if *filter == AttrFilter::ALL {
         return String::new();
@@ -105,6 +108,11 @@ pub fn filter_badge(filter: &AttrFilter) -> String {
 // r[impl studio.one-truth] - level from the playhead, not remembered
 // r[impl studio.touch] - a wide grab and a tall track
 #[component]
+#[expect(
+    clippy::float_cmp,
+    reason = "`v` is `local`'s own value re-derived from the same latch; \
+              exact equality is the right test for \"nothing moved\""
+)]
 pub fn TouchFader(
     label: String,
     css: String,
@@ -156,7 +164,7 @@ pub fn TouchFader(
                     let p = e.data.client_coordinates();
                     local.set(level);
                     latch.set(Some(crate::pointer::Latch {
-                        at: (p.x as f32, p.y as f32),
+                        at: (crate::pointer::coord(p.x), crate::pointer::coord(p.y)),
                         level,
                         ups: feed.peek().ups,
                     }));
@@ -184,20 +192,19 @@ pub fn LooksBank() -> Element {
         .iter()
         .map(|(n, l)| (n.clone(), l.kind))
         .collect();
-    let favs = operator().favourites.looks.clone();
-    let mut looks: Vec<(String, LookKind, bool)> = favs
+    let favs = operator().favourites.looks;
+    let looks = favs
         .iter()
         .filter_map(|f| {
             all.iter()
                 .find(|(n, _)| n == f)
                 .map(|(n, k)| (n.clone(), *k, true))
         })
-        .collect();
-    looks.extend(
-        all.iter()
-            .filter(|(n, _)| !favs.contains(n))
-            .map(|(n, k)| (n.clone(), *k, false)),
-    );
+        .chain(
+            all.iter()
+                .filter(|(n, _)| !favs.contains(n))
+                .map(|(n, k)| (n.clone(), *k, false)),
+        );
     let held = playhead().held_look;
     rsx! {
         div { class: "live-block looks",
@@ -374,69 +381,83 @@ pub fn FaderBank(#[props(default = 220.0)] track: f32) -> Element {
             div { class: "tfader-row",
                 for i in 0..ignition_core::FADERS {
                     {
-                        let spec = &pages[current][i];
-                        let effect = match &profile.pages[current].faders[i].source {
-                            ignition_core::profile::FaderSource::Effect(n) => Some(n.as_str()),
-                            _ => None,
-                        };
-                        let speed = spec
-                            .fader
-                            .recipe
-                            .as_ref()
-                            .map(|r| r.timing.speed.clone())
-                            .or_else(|| effect.map(|e| profile.speed_for(&profile.pages[current].faders[i], Some(e))));
-                        let clock = clock_badge(speed.as_ref());
-                        let filter = filter_badge(&spec.fader.filter);
-                        let params = spec.params.clone();
-                        let level = playhead().levels[i];
-                        rsx! {
-                            div { key: "{current}-{i}", class: "tslot",
-                                div { class: "badges",
-                                    span { class: "badge clock", "{clock}" }
-                                    if !filter.is_empty() {
-                                        span { class: "badge filter", "{filter}" }
+                        // The bank is exactly `FADERS` wide by construction
+                        // (`faders::the_bank_fills_every_fader_and_no_more`
+                        // proves it), but that is not something the
+                        // compiler can see through a runtime index — a
+                        // slot the bank does not have draws nothing rather
+                        // than taking the whole surface down.
+                        let slot = pages.get(current).and_then(|page| page.get(i));
+                        slot.map_or_else(|| rsx! {}, |spec| {
+                            let page_fader = profile.pages.get(current).and_then(|p| p.faders.get(i));
+                            let effect = page_fader.and_then(|f| match &f.source {
+                                ignition_core::profile::FaderSource::Effect(n) => Some(n.as_str()),
+                                _ => None,
+                            });
+                            let speed = spec
+                                .fader
+                                .recipe
+                                .as_ref()
+                                .map(|r| r.timing.speed.clone())
+                                .or_else(|| match (effect, page_fader) {
+                                    (Some(e), Some(pf)) => Some(profile.speed_for(pf, Some(e))),
+                                    _ => None,
+                                });
+                            let clock = clock_badge(speed.as_ref());
+                            let filter = filter_badge(&spec.fader.filter);
+                            let params = spec.params.clone();
+                            let level = playhead().levels.get(i).copied().unwrap_or(0.0);
+                            let latched = desk().latched.get(i).copied().unwrap_or(false);
+                            let toggled = desk().toggled.get(i).copied().unwrap_or(false);
+                            rsx! {
+                                div { key: "{current}-{i}", class: "tslot",
+                                    div { class: "badges",
+                                        span { class: "badge clock", "{clock}" }
+                                        if !filter.is_empty() {
+                                            span { class: "badge filter", "{filter}" }
+                                        }
                                     }
-                                }
-                                TouchFader {
-                                    label: spec.name.clone(),
-                                    css: spec.css.to_string(),
-                                    level,
-                                    latched: desk().latched[i],
-                                    toggled: desk().toggled[i],
-                                    track,
-                                    on_change: move |v: f32| send(Command::Level(i, v)),
-                                }
-                                for param in params.iter() {
-                                    {
-                                        let name = param.name.clone();
-                                        let label = name.clone();
-                                        let (min, max) = (param.min, param.max);
-                                        let span = (max - min).max(f32::EPSILON);
-                                        let initial = ((param.default - min) / span).clamp(0.0, 1.0);
-                                        rsx! {
-                                            div { class: "tparam", key: "{label}",
-                                                span { class: "tparam-name", "{label8(&label)}" }
-                                                HSlider {
-                                                    initial,
-                                                    on_change: move |v: f32| send(Command::Param {
-                                                        index: i,
-                                                        name: name.clone(),
-                                                        value: min + v * span,
-                                                    }),
+                                    TouchFader {
+                                        label: spec.name.clone(),
+                                        css: spec.css.to_string(),
+                                        level,
+                                        latched,
+                                        toggled,
+                                        track,
+                                        on_change: move |v: f32| send(Command::Level(i, v)),
+                                    }
+                                    for param in params.iter() {
+                                        {
+                                            let name = param.name.clone();
+                                            let label = name.clone();
+                                            let (min, max) = (param.min, param.max);
+                                            let span = (max - min).max(f32::EPSILON);
+                                            let initial = ((param.default - min) / span).clamp(0.0, 1.0);
+                                            rsx! {
+                                                div { class: "tparam", key: "{label}",
+                                                    span { class: "tparam-name", "{label8(&label)}" }
+                                                    HSlider {
+                                                        initial,
+                                                        on_change: move |v: f32| send(Command::Param {
+                                                            index: i,
+                                                            name: name.clone(),
+                                                            value: v.mul_add(span, min),
+                                                        }),
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                                button {
-                                    class: if desk().toggled[i] { "tkey on" } else { "tkey" },
-                                    onpointerdown: move |_| send(Command::Key { index: i, action: key_mode(), down: true }),
-                                    onpointerup: move |_| send(Command::Key { index: i, action: key_mode(), down: false }),
-                                    onpointerleave: move |_| send(Command::Key { index: i, action: key_mode(), down: false }),
-                                    "●"
+                                    button {
+                                        class: if toggled { "tkey on" } else { "tkey" },
+                                        onpointerdown: move |_| send(Command::Key { index: i, action: key_mode(), down: true }),
+                                        onpointerup: move |_| send(Command::Key { index: i, action: key_mode(), down: false }),
+                                        onpointerleave: move |_| send(Command::Key { index: i, action: key_mode(), down: false }),
+                                        "●"
+                                    }
                                 }
                             }
-                        }
+                        })
                     }
                 }
             }
@@ -474,7 +495,7 @@ pub fn TapMasters() -> Element {
             }
             div { class: "tparam wide",
                 span { class: "tparam-name", "SPEED" }
-                HSlider { initial: 0.5, on_change: move |v: f32| send(Command::EffectRate(0.5 + v * 1.5)) }
+                HSlider { initial: 0.5, on_change: move |v: f32| send(Command::EffectRate(v.mul_add(1.5, 0.5))) }
             }
         }
     }
@@ -487,7 +508,7 @@ pub fn TapMasters() -> Element {
 pub fn Palettes(surface: Surface) -> Element {
     let operator = use_operator();
     let profile = crate::library::profile();
-    let favs = operator().favourites.clone();
+    let favs = operator().favourites;
     // Profile colours first — the busking vocabulary — then the venue's
     // own where a name is not in the profile.
     let mut colours: Vec<(String, String)> = profile
@@ -525,7 +546,7 @@ pub fn Palettes(surface: Surface) -> Element {
                     button {
                         key: "c-{name}",
                         class: if fav { "ptile fav" } else { "ptile" },
-                        onpointerdown: { let n = name.clone(); move |_| send(Command::Color(n.clone())) },
+                        onpointerdown: { let n = name; move |_| send(Command::Color(n.clone())) },
                         span { class: "pdisc", style: "background: {css}" }
                         span { class: "pname", "{name}" }
                     }
@@ -549,7 +570,7 @@ pub fn Palettes(surface: Surface) -> Element {
                     button {
                         key: "f-{name}",
                         class: if fav { "ptile fav" } else { "ptile" },
-                        onpointerdown: { let n = name.clone(); move |_| send(Command::Focus(n.clone())) },
+                        onpointerdown: { let n = name; move |_| send(Command::Focus(n.clone())) },
                         span { class: "pname", "{name}" }
                     }
                 }
@@ -560,7 +581,7 @@ pub fn Palettes(surface: Surface) -> Element {
                     button {
                         key: "g-{name}",
                         class: if fav { "ptile fav" } else { "ptile" },
-                        onpointerdown: { let n = name.clone(); move |_| send(Command::Select(Selection::Group(n.clone()))) },
+                        onpointerdown: { let n = name; move |_| send(Command::Select(Selection::Group(n.clone()))) },
                         span { class: "pname", "{name}" }
                     }
                 }
@@ -594,12 +615,11 @@ fn first(all: Vec<(String, String)>, favs: &[String]) -> Vec<(String, String, bo
 pub fn ProtectedRoles() -> Element {
     let playhead = use_playhead();
     let profile = crate::library::profile();
-    let roles: Vec<String> = profile
+    let roles = profile
         .roles
         .iter()
         .filter(|r| r.kind == ignition_core::RoleKind::Group)
-        .map(|r| r.name.clone())
-        .collect();
+        .map(|r| r.name.clone());
     let protected = playhead().protected;
     rsx! {
         div { class: "live-block protect",
@@ -652,7 +672,7 @@ pub fn Live(surface: Surface, #[props(default)] banks: Vec<crate::desk::Bank>) -
             div { class: "live-col scenes",
                 LooksBank {}
                 MacrosRow {}
-                DeskBanks { banks: banks.clone() }
+                DeskBanks { banks }
             }
             div { class: "live-col centre",
                 FaderBank {}
@@ -665,9 +685,9 @@ pub fn Live(surface: Surface, #[props(default)] banks: Vec<crate::desk::Bank>) -
                     if browse() { "PALETTES" } else { "BROWSE / SEARCH" }
                 }
                 if browse() {
-                    Library { surface: surface.clone(), open: library::Tab::Kind(Kind::Effect) }
+                    Library { surface, open: library::Tab::Kind(Kind::Effect) }
                 } else {
-                    Palettes { surface: surface.clone() }
+                    Palettes { surface }
                     ProtectedRoles {}
                 }
             }
@@ -695,7 +715,7 @@ pub fn Views(boot: Bootstrap) -> Element {
     use_effect(move || {
         crate::send(crate::command::Command::ProgramView(
             view() == View::Program,
-        ))
+        ));
     });
     let lan = boot.lan.join("  ");
     rsx! {
@@ -720,10 +740,10 @@ pub fn Views(boot: Bootstrap) -> Element {
                 }
             }
             div { class: if view() == View::Live { "view" } else { "view hidden" },
-                Live { surface: surface.clone(), banks: boot.banks.clone() }
+                Live { surface: surface.clone(), banks: boot.banks }
             }
             div { class: if view() == View::Program { "view" } else { "view hidden" },
-                crate::program::Program { surface: surface.clone() }
+                crate::program::Program { surface }
             }
         }
     }
@@ -802,8 +822,10 @@ mod tests {
         let start = source
             .find("pub fn Views(")
             .expect("the Program / Live switch");
-        let body = &source[start..];
-        let body = &body[..body.find("\n}\n").expect("the end of Views")];
+        let body = source.get(start..).expect("a valid byte offset");
+        let body = body
+            .get(..body.find("\n}\n").expect("the end of Views"))
+            .expect("a valid byte offset");
 
         // Both views are constructed, unconditionally, and hidden by a
         // class rather than by an `if` that would unmount one.
@@ -827,16 +849,18 @@ mod tests {
         let sent: std::collections::BTreeSet<&str> = body
             .match_indices("Command::")
             .map(|(i, _)| {
-                let rest = &body[i + "Command::".len()..];
+                let rest = body
+                    .get(i.saturating_add("Command::".len())..)
+                    .expect("a valid byte offset");
                 let end = rest
                     .find(|c: char| !c.is_alphanumeric() && c != '_')
                     .unwrap_or(rest.len());
-                &rest[..end]
+                rest.get(..end).expect("a valid byte offset")
             })
             .collect();
         assert_eq!(
             sent,
-            ["ProgramView"].into_iter().collect(),
+            std::iter::once("ProgramView").collect(),
             "the view switch sends something beyond the viewport's overlays, so changing \
              view changes the show: {sent:?}"
         );
@@ -851,8 +875,10 @@ mod tests {
         let start = LIVE_CSS
             .find("@media (pointer: coarse)")
             .expect("a coarse-pointer block");
-        let block = &LIVE_CSS[start..];
-        let block = &block[..block.find("\n}\n").expect("block end")];
+        let block = LIVE_CSS.get(start..).expect("a valid byte offset");
+        let block = block
+            .get(..block.find("\n}\n").expect("block end"))
+            .expect("a valid byte offset");
         let min = block
             .split("min-height:")
             .nth(1)
@@ -939,7 +965,7 @@ mod token_sheet {
         let mut i = 0;
         while i < bytes.len() {
             if bytes[i] == '#' {
-                let digits: String = bytes[i + 1..]
+                let digits: String = bytes[i.saturating_add(1)..]
                     .iter()
                     .take_while(|c| c.is_ascii_hexdigit())
                     .collect();
@@ -958,9 +984,9 @@ mod token_sheet {
                 } else if n == 6 {
                     out.push(digits.to_lowercase());
                 }
-                i += 1 + n.max(1);
+                i = i.saturating_add(n.max(1)).saturating_add(1);
             } else {
-                i += 1;
+                i = i.saturating_add(1);
             }
         }
         out
@@ -983,7 +1009,11 @@ mod token_sheet {
     }
 
     fn rgb(hex: &str) -> [i32; 3] {
-        let p = |i: usize| i32::from_str_radix(&hex[i..i + 2], 16).unwrap_or(0);
+        let p = |i: usize| {
+            hex.get(i..i.saturating_add(2))
+                .and_then(|s| i32::from_str_radix(s, 16).ok())
+                .unwrap_or(0)
+        };
         [p(0), p(2), p(4)]
     }
 
@@ -994,7 +1024,8 @@ mod token_sheet {
     /// blue" was several strings that agreed only by luck.
     #[test]
     fn no_colour_is_spelled_out_in_two_sheets() {
-        let mut seen: std::collections::BTreeMap<String, Vec<&str>> = Default::default();
+        let mut seen: std::collections::BTreeMap<String, Vec<&str>> =
+            std::collections::BTreeMap::default();
         for (name, css) in sheets() {
             for h in hexes(css) {
                 let e = seen.entry(h).or_default();

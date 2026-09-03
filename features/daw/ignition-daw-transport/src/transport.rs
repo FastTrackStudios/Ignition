@@ -74,7 +74,7 @@ impl SourceTransport {
         }
     }
 
-    pub fn song(&self) -> &SongMap {
+    pub const fn song(&self) -> &SongMap {
         &self.song
     }
 
@@ -142,7 +142,8 @@ const TAP_RESET: Duration = Duration::from_secs(2);
 
 impl TapClock {
     /// A stopped clock at `bpm`, positioned at bar 1.
-    pub fn new(bpm: f64, now: Instant) -> Self {
+    #[must_use]
+    pub const fn new(bpm: f64, now: Instant) -> Self {
         Self {
             inner: Mutex::new(TapState {
                 bpm: bpm.max(1.0),
@@ -156,10 +157,11 @@ impl TapClock {
     }
 
     /// A clock that takes its signature from the song.
+    #[must_use]
     pub fn for_song(bpm: f64, song: &SongMap, now: Instant) -> Self {
         let clock = Self::new(bpm, now);
         clock.lock().beats_per_bar =
-            song.tempo.at(Bars::START).time_signature.numerator.max(1) as f64;
+            f64::from(song.tempo.at(Bars::START).time_signature.numerator.max(1));
         clock
     }
 
@@ -211,11 +213,15 @@ impl TapClock {
         if s.taps.len() > 8 {
             s.taps.remove(0);
         }
-        if s.taps.len() >= 2 {
-            let span = s.taps[s.taps.len() - 1]
-                .saturating_duration_since(s.taps[0])
-                .as_secs_f64();
-            let interval = span / (s.taps.len() - 1) as f64;
+        let taps_len = s.taps.len();
+        if let (Some(&first), Some(&last)) = (s.taps.first(), s.taps.last())
+            && taps_len >= 2
+        {
+            let span = last.saturating_duration_since(first).as_secs_f64();
+            // `taps_len >= 2` above, so the intervals count is at least
+            // one; the fallback below is never actually hit.
+            let intervals = u32::try_from(taps_len.saturating_sub(1)).unwrap_or(1);
+            let interval = span / f64::from(intervals);
             if interval > 0.0 {
                 s.freeze(now);
                 s.bpm = 60.0 / interval;
@@ -238,12 +244,30 @@ impl TapClock {
     }
 
     /// The position, counted from bar 1 at the start.
+    #[must_use]
     pub fn position_at(&self, now: Instant) -> Bars {
         let s = self.lock();
         let beats = s.beats_at(now);
         let bar = (beats / s.beats_per_bar).floor();
-        Bars::new(bar as u32 + 1, beats - bar * s.beats_per_bar + 1.0)
+        Bars::new(
+            bar_number(bar).saturating_add(1),
+            bar.mul_add(-s.beats_per_bar, beats) + 1.0,
+        )
     }
+}
+
+/// A bar number floored from a beat count that only ever grows forward
+/// from zero. `bar` is always non-negative and, for anything a real
+/// session runs to, nowhere near `u32::MAX`, so this cast cannot lose a
+/// sign or wrap the count backwards.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "bar is a non-negative floor of a forward-only clock; see the doc comment"
+)]
+const fn bar_number(bar: f64) -> u32 {
+    bar as u32
 }
 
 impl TapState {
@@ -309,7 +333,8 @@ pub struct PlayheadClock {
 }
 
 impl PlayheadClock {
-    pub fn new(now: Instant) -> Self {
+    #[must_use]
+    pub const fn new(now: Instant) -> Self {
         Self {
             last_raw: 0.0,
             since: now,
@@ -318,6 +343,14 @@ impl PlayheadClock {
     }
 
     /// The position to report for a raw reading `raw` taken at `now`.
+    // The backend hands back the exact `f64` it last wrote, unchanged
+    // until the next callback; `!=` here is "did a new step arrive",
+    // not a comparison of two independently computed floats, so an
+    // epsilon would only make a genuine step go undetected.
+    #[expect(
+        clippy::float_cmp,
+        reason = "raw is the backend's own unmodified step value; see the comment above"
+    )]
     pub fn observe(&mut self, raw: f64, playing: bool, now: Instant) -> f64 {
         if raw != self.last_raw {
             // A genuine step from the callback, or a locate. A backward
@@ -377,19 +410,24 @@ impl SongTransport {
     /// architect rather than returning an error — so a caller that is
     /// not already async needs `rt.enter()` held for the lifetime of
     /// the transport, not just this call.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the project file cannot be read or parsed, if its audio
+    /// fails to load, if the output stream cannot be opened, or if the
+    /// project does not decode into a valid [`SongMap`].
     // r[impl song.transport.position-per-frame] - tempo map from the same project in the same pass as the audio
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         let text =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        let name = path
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "project".to_string());
+        let name = path.file_stem().map_or_else(
+            || "project".to_string(),
+            |s| s.to_string_lossy().into_owned(),
+        );
         let dir = path
             .parent()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| ".".into());
+            .map_or_else(|| PathBuf::from("."), PathBuf::from);
 
         let daw = Standalone::new();
         // Source paths in a project are relative to it. Without this the
@@ -427,7 +465,7 @@ impl SongTransport {
         })
     }
 
-    pub fn song(&self) -> &SongMap {
+    pub const fn song(&self) -> &SongMap {
         &self.song
     }
 
@@ -519,13 +557,13 @@ impl SongTransport {
 
     /// Moves the playhead to the start of a named section.
     pub fn locate_section(&self, name: &str) -> bool {
-        match self.song.section(name).map(|s| s.start) {
-            Some(start) => {
+        self.song
+            .section(name)
+            .map(|s| s.start)
+            .is_some_and(|start| {
                 self.locate(start);
                 true
-            }
-            None => false,
-        }
+            })
     }
 }
 
@@ -605,7 +643,10 @@ mod clock_tests {
     use std::time::Duration;
 
     fn at(t0: Instant, ms: u64) -> Instant {
-        t0 + Duration::from_millis(ms)
+        // `checked_add` over a bare `+`: an `Instant` addition can in
+        // principle overflow, and the milliseconds here are always small
+        // test offsets, so the fallback to `t0` never actually triggers.
+        t0.checked_add(Duration::from_millis(ms)).unwrap_or(t0)
     }
 
     #[test]
@@ -613,7 +654,7 @@ mod clock_tests {
     fn a_playing_clock_advances_between_callbacks_and_resyncs_on_each() {
         let t0 = Instant::now();
         let mut clock = PlayheadClock::new(t0);
-        assert_eq!(clock.observe(1.000, true, at(t0, 0)), 1.000);
+        assert!((clock.observe(1.000, true, at(t0, 0)) - 1.000).abs() < 1e-9);
         // Same raw value 8 ms later: extrapolated.
         let a = clock.observe(1.000, true, at(t0, 8));
         assert!((a - 1.008).abs() < 1e-6, "{a}");
@@ -630,8 +671,8 @@ mod clock_tests {
     fn a_paused_clock_reports_the_raw_value_and_a_stall_is_capped() {
         let t0 = Instant::now();
         let mut clock = PlayheadClock::new(t0);
-        assert_eq!(clock.observe(5.0, false, at(t0, 0)), 5.0);
-        assert_eq!(clock.observe(5.0, false, at(t0, 500)), 5.0);
+        assert!((clock.observe(5.0, false, at(t0, 0)) - 5.0).abs() < 1e-9);
+        assert!((clock.observe(5.0, false, at(t0, 500)) - 5.0).abs() < 1e-9);
         // Playing but the callback never moves: run ahead only so far.
         clock.observe(5.0, true, at(t0, 1000));
         let stuck = clock.observe(5.0, true, at(t0, 5000));
@@ -647,7 +688,7 @@ mod clock_tests {
         let mut clock = PlayheadClock::new(t0);
         clock.observe(30.0, true, at(t0, 0));
         clock.observe(30.0, true, at(t0, 10));
-        assert_eq!(clock.observe(4.0, true, at(t0, 11)), 4.0);
+        assert!((clock.observe(4.0, true, at(t0, 11)) - 4.0).abs() < 1e-9);
     }
 
     /// A source scripted by the test.
@@ -677,7 +718,10 @@ mod clock_tests {
             Box::leak(Box::new(Scripted(Mutex::new((None, false, false)))));
         let song = SongMap {
             name: "t".into(),
-            tempo: ignition_daw_proto::TempoMap::constant(120.0, Default::default()),
+            tempo: ignition_daw_proto::TempoMap::constant(
+                120.0,
+                ignition_daw_proto::TimeSignature::default(),
+            ),
             sections: Vec::new(),
         };
         let t = SourceTransport::from_source(source, song);

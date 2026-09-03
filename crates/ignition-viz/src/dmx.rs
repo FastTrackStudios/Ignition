@@ -1,7 +1,8 @@
 //! Live DMX input — sACN (E1.31) and Art-Net, both listened for
-//! concurrently since supporting both is cheap once one exists (see
-//! `docs/research/lighting-console-landscape.md`'s DMX-architecture
-//! research). Each protocol runs on its own OS thread and writes into a
+//! concurrently since supporting both is cheap once one exists.
+//!
+//! See `docs/research/lighting-console-landscape.md`'s DMX-architecture
+//! research. Each protocol runs on its own OS thread and writes into a
 //! shared per-universe buffer; the render loop only ever reads that buffer,
 //! never touches a socket directly.
 //!
@@ -33,17 +34,33 @@ pub struct DmxUniverses {
 }
 
 impl DmxUniverses {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Replaces a universe's frame — what a received packet does, and
     /// what the loopback sink does with the frame that left the socket.
+    // The guard is already dropped at the end of this small body — there
+    // is nothing after it to hold the lock away from, and clippy's own
+    // suggested rewrite here drops the `entry()` call it is rewriting.
+    #[expect(
+        clippy::significant_drop_tightening,
+        reason = "the write guard is held for exactly the body that needs it; nothing follows"
+    )]
     pub fn write_universe(&self, universe: u16, values: &[u8]) {
-        let mut map = self.inner.write().expect("dmx universes lock poisoned");
-        let frame = map.entry(universe).or_insert([0u8; UNIVERSE_LEN]);
         let n = values.len().min(UNIVERSE_LEN);
-        frame[..n].copy_from_slice(&values[..n]);
+        let mut map = self
+            .inner
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let frame = map.entry(universe).or_insert([0u8; UNIVERSE_LEN]);
+        // `n` is capped to both slices' lengths above, so this can never
+        // come up short — `get`/`get_mut` over indexing anyway, because a
+        // packet's payload is data off the wire, not a place to panic.
+        if let (Some(dst), Some(src)) = (frame.get_mut(..n), values.get(..n)) {
+            dst.copy_from_slice(src);
+        }
     }
 
     /// Sets one byte directly — used by `show.rs`'s cue-playback bridge to
@@ -63,11 +80,18 @@ impl DmxUniverses {
     /// Writes many `(universe, channel0, value)` bytes under one lock.
     /// A cue frame is a few hundred bytes, and a lock per byte was a
     /// few hundred lock round-trips per frame for no reason.
+    #[expect(
+        clippy::significant_drop_tightening,
+        reason = "the write guard is held for exactly the loop that needs it; nothing follows"
+    )]
     pub fn set_channels(&self, values: impl IntoIterator<Item = (u16, u16, u8)>) {
-        let mut map = self.inner.write().expect("dmx universes lock poisoned");
+        let mut map = self
+            .inner
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         for (universe, channel0, value) in values {
             let frame = map.entry(universe).or_insert([0u8; UNIVERSE_LEN]);
-            if let Some(slot) = frame.get_mut(channel0 as usize) {
+            if let Some(slot) = frame.get_mut(usize::from(channel0)) {
                 *slot = value;
             }
         }
@@ -77,10 +101,11 @@ impl DmxUniverses {
     /// sends. One read lock, one copy; the sender reorders and wraps
     /// these bytes and decides nothing.
     // r[impl dmx.one-frame] - the transmitter's frame is this snapshot, nothing else
+    #[must_use]
     pub fn snapshot(&self) -> HashMap<u16, [u8; UNIVERSE_LEN]> {
         self.inner
             .read()
-            .expect("dmx universes lock poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
     }
 
@@ -89,6 +114,13 @@ impl DmxUniverses {
     /// absent (the caller already has both by the time it calls this) —
     /// present-but-zero (e.g. blackout, or nothing has ever been sent) still
     /// resolves, just to zero/default values, matching real desk behaviour.
+    #[must_use]
+    #[expect(
+        clippy::significant_drop_tightening,
+        reason = "already as tight as it gets: the guard below lives only for the block that \
+                  looks up and copies the frame, and the lint attaches to the function, not \
+                  the inner `let`"
+    )]
     pub fn resolve(&self, dmx: &DmxAddress, map: &ChannelMap) -> ResolvedAttributes {
         // A universe no packet has EVER arrived for is a different state
         // from "a packet arrived and every byte in it happens to be zero" —
@@ -101,26 +133,34 @@ impl DmxUniverses {
         // neutral) purely because nothing had ever been received — the
         // same class of bug the dimmer default-to-off fix addressed, one
         // level up: universe-level rather than per-attribute.
-        // One read lock for the whole fixture, not one per byte: this
-        // runs for every fixture every frame.
-        let universes = self.inner.read().expect("dmx universes lock poisoned");
-        let Some(frame) = universes.get(&dmx.universe) else {
-            return ResolvedAttributes::default();
+        // One read lock for the whole fixture, not one per byte — and
+        // held only long enough to copy this fixture's 512-byte frame
+        // out, so the rest of the resolve (which runs the same per-byte
+        // work every fixture, every frame) never contends with a writer.
+        let frame: [u8; UNIVERSE_LEN] = {
+            let universes = self
+                .inner
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let Some(frame) = universes.get(&dmx.universe) else {
+                return ResolvedAttributes::default();
+            };
+            *frame
         };
 
         let read = |offset: u16| -> u8 {
-            let chan0 = dmx.start_channel.saturating_sub(1) + offset;
-            frame.get(chan0 as usize).copied().unwrap_or(0)
+            let chan0 = dmx.start_channel.saturating_sub(1).saturating_add(offset);
+            frame.get(usize::from(chan0)).copied().unwrap_or(0)
         };
         // Coarse byte high, fine byte low when the fixture has a fine
         // channel; the plain 8-bit value otherwise. Either way the
         // result is a fraction of the full 16-bit range, so the
         // degrees formula is the same for both.
         let read_wide = |coarse: u16, fine: Option<u16>| -> f32 {
-            match fine {
-                Some(fine) => u16::from_be_bytes([read(coarse), read(fine)]) as f32 / 65535.0,
-                None => read(coarse) as f32 / 255.0,
-            }
+            fine.map_or_else(
+                || f32::from(read(coarse)) / 255.0,
+                |fine| f32::from(u16::from_be_bytes([read(coarse), read(fine)])) / 65535.0,
+            )
         };
         let pan_fine = map.offset_of(&Attribute::PanFine);
         let tilt_fine = map.offset_of(&Attribute::TiltFine);
@@ -129,15 +169,13 @@ impl DmxUniverses {
         for (offset, attr) in &map.channels {
             let v = read(*offset);
             match attr {
-                Attribute::Dimmer => resolved.dimmer = v as f32 / 255.0,
+                Attribute::Dimmer => resolved.dimmer = f32::from(v) / 255.0,
                 Attribute::Pan => resolved.pan_deg = (read_wide(*offset, pan_fine) - 0.5) * 540.0,
                 Attribute::Tilt => {
-                    resolved.tilt_deg = (read_wide(*offset, tilt_fine) - 0.5) * 270.0
+                    resolved.tilt_deg = (read_wide(*offset, tilt_fine) - 0.5) * 270.0;
                 }
-                // Consumed alongside the coarse byte above.
-                Attribute::PanFine | Attribute::TiltFine => {}
                 Attribute::ColorAdd { channel } => {
-                    let f = v as f32 / 255.0;
+                    let f = f32::from(v) / 255.0;
                     match channel {
                         ColorChannel::Red => resolved.color[0] = f,
                         ColorChannel::Green => resolved.color[1] = f,
@@ -155,8 +193,8 @@ impl DmxUniverses {
                     }
                     resolved.has_color = true;
                 }
-                Attribute::Zoom => resolved.zoom = Some(v as f32 / 255.0),
-                Attribute::Strobe => resolved.strobe = Some(v as f32 / 255.0),
+                Attribute::Zoom => resolved.zoom = Some(f32::from(v) / 255.0),
+                Attribute::Strobe => resolved.strobe = Some(f32::from(v) / 255.0),
                 Attribute::GoboWheel { .. } => resolved.gobo = Some(v),
                 // GDTF names the rest of a wheel mover's beam channels
                 // as custom attributes; the two the renderer draws.
@@ -165,8 +203,11 @@ impl DmxUniverses {
                     if name.starts_with("Gobo")
                         && (name.contains("Pos") || name.contains("Rotate")) =>
                 {
-                    resolved.gobo_rotation = Some(v as f32 / 255.0)
+                    resolved.gobo_rotation = Some(f32::from(v) / 255.0);
                 }
+                // Everything else, including PanFine/TiltFine (consumed
+                // alongside the coarse byte above), is either not drawn
+                // or already covered elsewhere.
                 _ => {}
             }
         }
@@ -190,8 +231,10 @@ impl DmxUniverses {
 }
 
 /// A fixture's live-resolved state for one frame, in the visualizer's own
-/// units (0-1 for dimmer/colour, degrees for pan/tilt) — already converted
-/// out of raw DMX bytes so `scene.rs` never touches a byte value.
+/// units (0-1 for dimmer/colour, degrees for pan/tilt).
+///
+/// Already converted out of raw DMX bytes so `scene.rs` never touches a
+/// byte value.
 #[derive(Debug, Clone, Copy)]
 pub struct ResolvedAttributes {
     pub dimmer: f32,
@@ -237,10 +280,12 @@ impl Default for ResolvedAttributes {
     }
 }
 
-/// Spawn the sACN receiver thread. Listens on the standard E1.31 multicast
-/// port for every universe 1..=`max_universe` — sACN's own multicast-per-
-/// universe model means we have to subscribe up front rather than just
-/// opening one socket, unlike Art-Net's single broadcast port.
+/// Spawn the sACN receiver thread.
+///
+/// Listens on the standard E1.31 multicast port for every universe
+/// 1..=`max_universe` — sACN's own multicast-per-universe model means we
+/// have to subscribe up front rather than just opening one socket, unlike
+/// Art-Net's single broadcast port.
 pub fn spawn_sacn_listener(universes: DmxUniverses, max_universe: u16) {
     std::thread::spawn(move || {
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), ACN_SDT_MULTICAST_PORT);
@@ -278,10 +323,12 @@ pub fn spawn_sacn_listener(universes: DmxUniverses, max_universe: u16) {
     });
 }
 
-/// Spawn the Art-Net receiver thread. Art-Net is a single UDP port carrying
-/// `ArtDmx` packets tagged with a 15-bit port-address (net/sub-net/universe
-/// folded into one number) — unlike sACN there's no per-universe
-/// subscription, every packet that arrives gets decoded and filed.
+/// Spawn the Art-Net receiver thread.
+///
+/// Art-Net is a single UDP port carrying `ArtDmx` packets tagged with a
+/// 15-bit port-address (net/sub-net/universe folded into one number) —
+/// unlike sACN there's no per-universe subscription, every packet that
+/// arrives gets decoded and filed.
 pub fn spawn_artnet_listener(universes: DmxUniverses) {
     std::thread::spawn(move || {
         let socket = match UdpSocket::bind(("0.0.0.0", ARTNET_PORT)) {
@@ -301,14 +348,21 @@ pub fn spawn_artnet_listener(universes: DmxUniverses) {
                     continue;
                 }
             };
-            match artnet_protocol::ArtCommand::from_buffer(&buf[..len]) {
-                Ok(artnet_protocol::ArtCommand::Output(output)) => {
-                    let universe: u16 = output.port_address.into();
-                    let data: &Vec<u8> = output.data.as_ref();
-                    universes.write_universe(universe, data);
-                }
-                Ok(_) => {}  // Poll/PollReply/other control traffic — ignore.
-                Err(_) => {} // Non-Art-Net traffic on the port — ignore.
+            // `recv_from` never returns a `len` past the buffer it filled,
+            // but the packet is still bytes off the wire, not a place to
+            // panic if some future refactor changes that.
+            let Some(received) = buf.get(..len) else {
+                continue;
+            };
+            // Poll/PollReply/other control traffic, or non-Art-Net traffic
+            // on the port, is silently ignored — only an `Output` moves a
+            // frame into shared state.
+            if let Ok(artnet_protocol::ArtCommand::Output(output)) =
+                artnet_protocol::ArtCommand::from_buffer(received)
+            {
+                let universe: u16 = output.port_address.into();
+                let data: &Vec<u8> = output.data.as_ref();
+                universes.write_universe(universe, data);
             }
         }
     });
@@ -320,8 +374,10 @@ mod tests {
 
     fn map(channels: Vec<(u16, Attribute)>) -> ChannelMap {
         ChannelMap {
-            curves: Default::default(),
-            footprint: channels.len() as u16 + 1,
+            curves: std::collections::HashMap::default(),
+            footprint: u16::try_from(channels.len())
+                .unwrap_or(u16::MAX)
+                .saturating_add(1),
             channels,
         }
     }
@@ -380,7 +436,7 @@ mod tests {
             start_channel: 1,
         };
         let resolved = universes.resolve(&addr, &m);
-        assert_eq!(resolved.dimmer, 0.0);
+        assert!((resolved.dimmer - 0.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -474,7 +530,7 @@ mod tests {
             },
             &m,
         );
-        assert_eq!(resolved.dimmer, 0.0);
+        assert!((resolved.dimmer - 0.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -496,8 +552,8 @@ mod tests {
             },
             &m,
         );
-        assert_eq!(resolved.pan_deg, 0.0);
-        assert_eq!(resolved.tilt_deg, 0.0);
+        assert!((resolved.pan_deg - 0.0).abs() < f32::EPSILON);
+        assert!((resolved.tilt_deg - 0.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -534,7 +590,7 @@ mod tests {
             },
             &m,
         );
-        assert_eq!(off.dimmer, 0.0);
+        assert!((off.dimmer - 0.0).abs() < f32::EPSILON);
 
         // Non-zero RGB -> on, governed by colour alone (no dimmer channel
         // to read, so this fixture treats itself as full brightness and
@@ -551,7 +607,7 @@ mod tests {
             },
             &m,
         );
-        assert_eq!(on.dimmer, 1.0);
+        assert!((on.dimmer - 1.0).abs() < f32::EPSILON);
         assert!((on.color[0] - 1.0).abs() < 0.01);
     }
 }

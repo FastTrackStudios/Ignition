@@ -110,7 +110,7 @@ impl PointerSample {
     const SHIFT: u32 = 0x200;
     const CONTROL: u32 = 0x8;
 
-    fn of(p: &blitz_traits::events::BlitzPointerEvent, down: bool, up: bool) -> Self {
+    const fn of(p: &blitz_traits::events::BlitzPointerEvent, down: bool, up: bool) -> Self {
         let primary_held = p
             .buttons
             .contains(blitz_traits::events::MouseEventButtons::Primary);
@@ -181,7 +181,7 @@ impl VizWidget {
         Self { registered: None }
     }
 
-    fn with_core<R>(&mut self, f: impl FnOnce(&mut VizCore) -> R) -> Option<R> {
+    fn with_core<R>(f: impl FnOnce(&mut VizCore) -> R) -> Option<R> {
         CORE.with(|core| core.borrow_mut().as_mut().map(f))
     }
 }
@@ -195,12 +195,12 @@ impl Widget for VizWidget {
     }
 
     fn can_create_surfaces(&mut self, render_ctx: &mut dyn RenderContext) {
-        self.with_core(|core| core.can_create_surfaces(render_ctx));
+        Self::with_core(|core| core.can_create_surfaces(render_ctx));
     }
 
     fn destroy_surfaces(&mut self) {
         self.registered = None;
-        self.with_core(|core| core.destroy_surfaces());
+        Self::with_core(VizCore::destroy_surfaces);
     }
 
     /// Blitz forwards the pointer events that land on the widget's node.
@@ -221,7 +221,7 @@ impl Widget for VizWidget {
             UiEvent::PointerCancel(_) => PointerSample::default(),
             _ => return,
         };
-        self.with_core(|core| core.pointer = sample);
+        Self::with_core(|core| core.pointer = sample);
     }
 
     fn paint(
@@ -233,15 +233,14 @@ impl Widget for VizWidget {
         scale: f64,
     ) -> Scene {
         let mut registered = self.registered.take();
-        let scene = self
-            .with_core(|core| {
-                // The pointer arrives in CSS pixels; the texture is
-                // `scale` times that. Kept here so the sample is scaled
-                // by the value this paint actually used.
-                core.scale = scale;
-                core.paint(render_ctx, width, height, &mut registered)
-            })
-            .unwrap_or_default();
+        let scene = Self::with_core(|core| {
+            // The pointer arrives in CSS pixels; the texture is
+            // `scale` times that. Kept here so the sample is scaled
+            // by the value this paint actually used.
+            core.scale = scale;
+            core.paint(render_ctx, width, height, &mut registered)
+        })
+        .unwrap_or_default();
         self.registered = registered;
         scene
     }
@@ -257,11 +256,11 @@ pub struct ProgrammeWidget {
 }
 
 impl ProgrammeWidget {
-    pub fn attach() -> Self {
+    pub const fn attach() -> Self {
         Self { registered: None }
     }
 
-    fn with_core<R>(&mut self, f: impl FnOnce(&mut VizCore) -> R) -> Option<R> {
+    fn with_core<R>(f: impl FnOnce(&mut VizCore) -> R) -> Option<R> {
         CORE.with(|core| core.borrow_mut().as_mut().map(f))
     }
 }
@@ -270,16 +269,16 @@ impl Widget for ProgrammeWidget {
     fn connected(&mut self) {}
     fn disconnected(&mut self) {
         self.registered = None;
-        self.with_core(|core| core.programme_size = None);
+        Self::with_core(|core| core.programme_size = None);
     }
 
     fn can_create_surfaces(&mut self, render_ctx: &mut dyn RenderContext) {
-        self.with_core(|core| core.can_create_surfaces(render_ctx));
+        Self::with_core(|core| core.can_create_surfaces(render_ctx));
     }
 
     fn destroy_surfaces(&mut self) {
         self.registered = None;
-        self.with_core(|core| core.programme_size = None);
+        Self::with_core(|core| core.programme_size = None);
     }
 
     fn handle_event(&mut self, _event: &blitz_traits::events::UiEvent) {}
@@ -293,9 +292,10 @@ impl Widget for ProgrammeWidget {
         _scale: f64,
     ) -> Scene {
         let mut registered = self.registered.take();
-        let scene = self
-            .with_core(|core| core.paint_programme(render_ctx, width, height, &mut registered))
-            .unwrap_or_default();
+        let scene = Self::with_core(|core| {
+            core.paint_programme(render_ctx, width, height, &mut registered)
+        })
+        .unwrap_or_default();
         self.registered = registered;
         scene
     }
@@ -375,15 +375,12 @@ impl VizCore {
                 if let Some((old, _, _)) = other {
                     render_ctx.unregister_resource(old);
                 }
-                match render_ctx.try_register_custom_resource(Box::new(texture)) {
-                    Ok(id) => {
-                        *registered = Some((id, tw, th));
-                        id
-                    }
-                    Err(_) => {
-                        *registered = None;
-                        return scene;
-                    }
+                if let Ok(id) = render_ctx.try_register_custom_resource(Box::new(texture)) {
+                    *registered = Some((id, tw, th));
+                    id
+                } else {
+                    *registered = None;
+                    return scene;
                 }
             }
         };
@@ -395,7 +392,7 @@ impl VizCore {
                 sampler: ImageSampler::default(),
             }),
             None,
-            &Rect::from_origin_size((0.0, 0.0), (width as f64, height as f64)),
+            &Rect::from_origin_size((0.0, 0.0), (f64::from(width), f64::from(height))),
         );
         scene
     }
@@ -470,7 +467,10 @@ impl VizCore {
             ignition_viz::playback::LoadOptions {
                 recipes: show.map(|(path, _)| std::path::Path::new(path)),
                 jump_to_cue: show.map(|(_, cue)| *cue),
-                song: self.transport.as_ref().map(|t| t.song()),
+                song: self
+                    .transport
+                    .as_ref()
+                    .map(ignition_daw::SongTransport::song),
                 ..Default::default()
             },
         )
@@ -479,7 +479,13 @@ impl VizCore {
         // (`data/gdtf` + `data/gdtf/generated`), empty if absent.
         let gdtf = ignition_viz::gdtf_geometry::GdtfLibrary::load_default();
         tracing::info!(profiles = gdtf.len(), "viz.embed: GDTF library");
-        let viz = EmbeddedViz::new(*config, Default::default(), playback, Some(gdtf), *gpu);
+        let viz = EmbeddedViz::new(
+            *config,
+            ignition_viz::DmxUniverses::default(),
+            playback,
+            Some(gdtf),
+            *gpu,
+        );
         tracing::info!(width, height, "viz.embed: built on the host device");
         // Benchmark mode takes its cue, rather than merely standing on
         // it. Down the same channel the GO button uses, so what is
@@ -538,7 +544,7 @@ impl VizCore {
 }
 
 impl VizCore {
-    fn can_create_surfaces(&mut self, render_ctx: &mut dyn RenderContext) {
+    fn can_create_surfaces(&mut self, render_ctx: &dyn RenderContext) {
         if matches!(self.state, State::Active(_) | State::Ready(_)) {
             return;
         }
@@ -593,7 +599,7 @@ impl VizCore {
             tracing::debug!(width, height, "viz.embed: paint with no active viz");
             return scene;
         };
-        let scale = self.scale as f32;
+        let scale = crate::num::f32_of_f64(self.scale);
         viz.pointer(
             self.pointer.position.map(|(x, y)| (x * scale, y * scale)),
             self.pointer.primary,
@@ -649,15 +655,12 @@ impl VizCore {
                 if let Some((old, _, _)) = other {
                     render_ctx.unregister_resource(old);
                 }
-                match render_ctx.try_register_custom_resource(Box::new(texture)) {
-                    Ok(id) => {
-                        *registered = Some((id, tw, th));
-                        id
-                    }
-                    Err(_) => {
-                        *registered = None;
-                        return scene;
-                    }
+                if let Ok(id) = render_ctx.try_register_custom_resource(Box::new(texture)) {
+                    *registered = Some((id, tw, th));
+                    id
+                } else {
+                    *registered = None;
+                    return scene;
                 }
             }
         };
@@ -670,7 +673,7 @@ impl VizCore {
                 sampler: ImageSampler::default(),
             }),
             None,
-            &Rect::from_origin_size((0.0, 0.0), (width as f64, height as f64)),
+            &Rect::from_origin_size((0.0, 0.0), (f64::from(width), f64::from(height))),
         );
         scene
     }

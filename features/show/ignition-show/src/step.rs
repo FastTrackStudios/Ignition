@@ -12,6 +12,7 @@
 //! systems only partly meet. Here one tap-tempo source drives everything
 //! in the show, with no special case and no second code path.
 
+use crate::num::float_of;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -46,11 +47,12 @@ impl Ease {
     /// The general form of this ease, so the two named ones are visibly
     /// sugar rather than a second code path.
     // r[impl effects.step.accel-decel] - Linear and Sine remain expressible as sugar
-    pub fn as_curve(self) -> (f32, f32) {
+    #[must_use]
+    pub const fn as_curve(self) -> (f32, f32) {
         match self {
-            Ease::Linear => (0.0, 0.0),
-            Ease::Sine => (-1.0, -1.0),
-            Ease::Curve { accel, decel } => (accel.clamp(-1.0, 1.0), decel.clamp(-1.0, 1.0)),
+            Self::Linear => (0.0, 0.0),
+            Self::Sine => (-1.0, -1.0),
+            Self::Curve { accel, decel } => (accel.clamp(-1.0, 1.0), decel.clamp(-1.0, 1.0)),
         }
     }
 
@@ -65,22 +67,24 @@ impl Ease {
     /// endpoints so they are always hit exactly. With tangents in 0…2
     /// against a secant of 1 the curve cannot turn back on itself.
     // r[impl effects.step.accel-decel] - the shaping
+    #[must_use]
     pub fn apply(self, t: f32) -> f32 {
         let t = t.clamp(0.0, 1.0);
-        match self {
-            Ease::Linear => t,
-            _ => {
-                let (accel, decel) = self.as_curve();
-                let soft = (1.0 - (t * std::f32::consts::PI).cos()) * 0.5;
-                let leave = t * t * t - 2.0 * t * t + t;
-                let arrive = t * t * t - t * t;
-                (soft + (1.0 + accel) * leave + (1.0 + decel) * arrive).clamp(0.0, 1.0)
-            }
+        if self == Self::Linear {
+            t
+        } else {
+            let (accel, decel) = self.as_curve();
+            let soft = (1.0 - (t * std::f32::consts::PI).cos()) * 0.5;
+            let leave = (t * t).mul_add(t, -(2.0 * t * t)) + t;
+            let arrive = (t * t).mul_add(t, -(t * t));
+            (1.0 + decel)
+                .mul_add(arrive, (1.0 + accel).mul_add(leave, soft))
+                .clamp(0.0, 1.0)
         }
     }
 }
 
-fn one() -> f32 {
+const fn one() -> f32 {
     1.0
 }
 
@@ -110,6 +114,7 @@ pub struct Step {
 }
 
 impl Step {
+    #[must_use]
     pub fn new(apply: Vec<crate::recipe::RecipeApply>) -> Self {
         Self {
             apply,
@@ -165,7 +170,7 @@ impl Default for Speed {
     /// that forgot to say holds still rather than picking a tempo for
     /// the operator.
     fn default() -> Self {
-        Speed::Hz(0.0)
+        Self::Hz(0.0)
     }
 }
 
@@ -181,12 +186,13 @@ impl Speed {
     // r[impl effects.speed] - all four units resolve to one rate
     // r[impl effects.masters.uniform] - one code path for every recipe
     // r[impl effects.masters.unknown] - unset or zero master falls back rather than freezing
+    #[must_use]
     pub fn beats_per_second(&self, masters: &SpeedMasters) -> f32 {
         match self {
-            Speed::Hz(h) => *h,
-            Speed::Bpm(b) => b / 60.0,
-            Speed::Secs(s) if *s > 0.0 => 1.0 / s,
-            Speed::Secs(_) => 0.0,
+            Self::Hz(h) => *h,
+            Self::Bpm(b) => b / 60.0,
+            Self::Secs(s) if *s > 0.0 => 1.0 / s,
+            Self::Secs(_) => 0.0,
             // A master nobody has set falls back to a plausible tempo
             // rather than to *stopped*, and the difference is a safety
             // property rather than a nicety. Zero freezes anything slaved
@@ -200,11 +206,11 @@ impl Speed {
             // names it against every cue that asked for it — so this
             // does not hide the mistake. It stops the mistake being a
             // stuck light.
-            Speed::Master(name) => Self::master_rate(name, masters),
+            Self::Master(name) => Self::master_rate(name, masters),
             // A non-positive scale is a typo, not a request to freeze:
             // the same stuck-one-shot argument as an unset master.
             // r[impl playback.speed-scale] - a multiple of the master's rate
-            Speed::Scaled { master, scale } => {
+            Self::Scaled { master, scale } => {
                 let scale = if *scale > 0.0 { *scale } else { 1.0 };
                 Self::master_rate(master, masters) * scale
             }
@@ -213,9 +219,10 @@ impl Speed {
 
     /// The master this speed is slaved to, if it is.
     // r[impl playback.speed-scale] - a scaled speed still names one master
+    #[must_use]
     pub fn master(&self) -> Option<&str> {
         match self {
-            Speed::Master(name) | Speed::Scaled { master: name, .. } => Some(name),
+            Self::Master(name) | Self::Scaled { master: name, .. } => Some(name),
             _ => None,
         }
     }
@@ -342,6 +349,10 @@ impl Default for Timing {
     }
 }
 
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's skip_serializing_if requires fn(&T) -> bool"
+)]
 fn is_zero(v: &f32) -> bool {
     *v == 0.0
 }
@@ -349,6 +360,7 @@ fn is_zero(v: &f32) -> bool {
 impl Timing {
     /// Cycles elapsed after `secs`, before any per-fixture spread.
     // r[impl effects.measure]
+    #[must_use]
     pub fn cycles(&self, secs: f32, masters: &SpeedMasters) -> f32 {
         let measure = if self.measure > 0.0 {
             self.measure
@@ -361,9 +373,10 @@ impl Timing {
     /// Where a fixture sits in the selection, 0 at the leading end.
     // r[impl effects.phase.in-selection-order]
     // r[impl effects.play] - Reverse mirrors the spread fraction
+    #[must_use]
     pub fn spread_fraction(&self, index: usize, count: usize) -> f32 {
         let f = if count > 1 {
-            index as f32 / count as f32
+            float_of(index) / float_of(count)
         } else {
             0.0
         };
@@ -385,6 +398,7 @@ impl Timing {
     /// the same phase.
     // r[impl effects.phase.spread]
     // r[impl tricks.grid] - phase spread per axis
+    #[must_use]
     pub fn spread_fraction_3d(&self, pos: &crate::tricks::UnitPos) -> f32 {
         use crate::selection::Axis;
         let f = |axis: Axis| match self.direction {
@@ -403,6 +417,7 @@ impl Timing {
     /// no need of a spread) it is the X fraction, which is what the 1-D
     /// path uses today.
     // r[impl effects.play] - Build, per grid position
+    #[must_use]
     pub fn build_fraction_3d(&self, pos: &crate::tricks::UnitPos) -> f32 {
         let total = self.phase_spread_deg.abs()
             + self.phase_spread_y_deg.abs()
@@ -418,6 +433,7 @@ impl Timing {
     /// the clock.
     // r[impl effects.phase.spread]
     // r[impl tricks.grid] - phase spread per axis
+    #[must_use]
     pub fn cycles_at_pos(
         &self,
         secs: f32,
@@ -435,7 +451,11 @@ impl Timing {
         let warped = match self.direction {
             Play::Bounce => {
                 let u = raw - raw.floor();
-                if u < 0.5 { u * 2.0 } else { 2.0 - u * 2.0 }
+                if u < 0.5 {
+                    u * 2.0
+                } else {
+                    u.mul_add(-2.0, 2.0)
+                }
             }
             _ => raw,
         };
@@ -461,10 +481,10 @@ impl Timing {
     // r[impl effects.play] - Bounce
     // r[impl effects.once] - clamps just under one cycle and holds
     // r[impl recipes.one-shot] - hold at the last step; the clock choice is cue.rs recipe_time
+    #[must_use]
     pub fn cycles_at(&self, secs: f32, index: usize, count: usize, masters: &SpeedMasters) -> f32 {
         let spread = self.spread_fraction(index, count);
-        let raw = self.cycles(secs, masters)
-            + spread * (self.phase_spread_deg / 360.0)
+        let raw = spread.mul_add(self.phase_spread_deg / 360.0, self.cycles(secs, masters))
             + self.phase_offset_deg / 360.0;
         self.finish(raw)
     }
@@ -480,6 +500,7 @@ impl Timing {
 // r[impl effects.step.width]
 // r[impl effects.step.transition]
 // r[impl effects.step.ease]
+#[must_use]
 pub fn locate(steps: &[Step], cycles: f32) -> (usize, usize, f32) {
     if steps.len() < 2 {
         return (0, 0, 1.0);
@@ -493,7 +514,7 @@ pub fn locate(steps: &[Step], cycles: f32) -> (usize, usize, f32) {
     let mut edge = 0.0;
     for (i, step) in steps.iter().enumerate() {
         let width = step.width.max(0.0);
-        if u < edge + width || i == steps.len() - 1 {
+        if u < edge + width || i == steps.len().saturating_sub(1) {
             let progress = if width > 0.0 { (u - edge) / width } else { 1.0 };
             let blend = if step.transition > 0.0 {
                 step.ease
@@ -501,7 +522,11 @@ pub fn locate(steps: &[Step], cycles: f32) -> (usize, usize, f32) {
             } else {
                 1.0
             };
-            let prev = if i == 0 { steps.len() - 1 } else { i - 1 };
+            let prev = if i == 0 {
+                steps.len().saturating_sub(1)
+            } else {
+                i.saturating_sub(1)
+            };
             return (prev, i, blend);
         }
         edge += width;
@@ -526,11 +551,14 @@ pub mod transform {
     use crate::recipe::RecipeApply;
     use ignition_proto::Attribute;
 
-    /// The table played backwards. The transition and ease that shaped
-    /// the move *into* each step travel with the step, so a snap-then-
-    /// fall becomes a rise-then-snap rather than a table whose shaping
-    /// no longer belongs to its moves.
+    /// The table played backwards.
+    ///
+    /// The transition and ease that shaped the move *into* each step
+    /// travel with the step, so a snap-then-fall becomes a rise-then-
+    /// snap rather than a table whose shaping no longer belongs to its
+    /// moves.
     // r[impl effects.step-transforms] - reverse in time
+    #[must_use]
     pub fn reverse_time(mut steps: Vec<Step>) -> Vec<Step> {
         steps.reverse();
         steps
@@ -538,6 +566,16 @@ pub mod transform {
 
     /// The table starting `by` steps later; negative starts it earlier.
     // r[impl effects.step-transforms] - phase shift
+    #[must_use]
+    // A step table is authored by hand or generated in a loop far below
+    // `isize::MAX`, so `len()` fits an `isize` with room to spare; and
+    // `rem_euclid` against a positive `n` always lands in `[0, n)`,
+    // which is always a valid `usize`.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_wrap,
+        reason = "step tables are small; see the comment above"
+    )]
     pub fn shift_phase(mut steps: Vec<Step>, by: isize) -> Vec<Step> {
         if steps.is_empty() {
             return steps;
@@ -551,6 +589,7 @@ pub mod transform {
     /// Every `Delta` on `attr` negated: a tilt path that nods down now
     /// nods up.
     // r[impl effects.step-transforms] - flip one axis
+    #[must_use]
     pub fn flip(steps: Vec<Step>, attr: &Attribute) -> Vec<Step> {
         map_delta(steps, |a, v| if a == attr { -v } else { v })
     }
@@ -558,6 +597,7 @@ pub mod transform {
     /// Pan scaled by `pan_k` and tilt by `tilt_k`: a circle becomes an
     /// ellipse, or a wider or tighter circle.
     // r[impl effects.step-transforms] - scale a two-axis path
+    #[must_use]
     pub fn scale_axes(steps: Vec<Step>, pan_k: f32, tilt_k: f32) -> Vec<Step> {
         map_delta(steps, |a, v| match a {
             Attribute::Pan => v * pan_k,
@@ -568,6 +608,7 @@ pub mod transform {
 
     /// Pan and tilt exchanged: a pan sweep becomes a tilt sweep.
     // r[impl effects.step-transforms] - swap axes
+    #[must_use]
     pub fn swap_axes(steps: Vec<Step>) -> Vec<Step> {
         map_pairs(steps, |pairs| {
             for (a, _) in pairs.iter_mut() {
@@ -584,6 +625,7 @@ pub mod transform {
     /// with pan as x and tilt as y. Ninety degrees of a circle is the
     /// same circle a quarter later.
     // r[impl effects.step-transforms] - rotate a two-axis path
+    #[must_use]
     pub fn rotate_deg(steps: Vec<Step>, theta: f32) -> Vec<Step> {
         let (sin, cos) = theta.to_radians().sin_cos();
         map_pairs(steps, |pairs| {
@@ -593,7 +635,7 @@ pub mod transform {
                 return;
             }
             let (p, t) = (pan.unwrap_or(0.0), tilt.unwrap_or(0.0));
-            let (np, nt) = (p * cos - t * sin, p * sin + t * cos);
+            let (np, nt) = (p.mul_add(cos, -(t * sin)), p.mul_add(sin, t * cos));
             pairs.retain(|(a, _)| !matches!(a, Attribute::Pan | Attribute::Tilt));
             pairs.push((Attribute::Pan, np));
             pairs.push((Attribute::Tilt, nt));
@@ -609,8 +651,8 @@ pub mod transform {
     }
 
     fn map_pairs(mut steps: Vec<Step>, f: impl Fn(&mut Vec<(Attribute, f32)>)) -> Vec<Step> {
-        for step in steps.iter_mut() {
-            for apply in step.apply.iter_mut() {
+        for step in &mut steps {
+            for apply in &mut step.apply {
                 if let RecipeApply::Delta(pairs) = apply {
                     f(pairs);
                 }
@@ -640,13 +682,19 @@ pub enum Waveform {
 impl Waveform {
     /// The step table for this shape swinging `size` either side of
     /// `base` on `attr`.
+    #[must_use]
     pub fn steps(
         self,
-        attr: ignition_proto::Attribute,
+        attr: &ignition_proto::Attribute,
         base: f32,
         size: f32,
         relative: bool,
     ) -> Vec<Step> {
+        // The snap-back on a ramp is a step of near-zero width rather
+        // than a true discontinuity — 2% of the cycle, which reads as
+        // instant and keeps the model to one mechanism.
+        // r[impl effects.waveform.ramp-snaps]
+        const SNAP: f32 = 0.02;
         let make = |v: f32| {
             let pair = vec![(attr.clone(), v)];
             vec![if relative {
@@ -664,13 +712,8 @@ impl Waveform {
         // therefore starts the wave at `lo` and rises to `hi` at the
         // half-cycle — a pulse that builds, which is what every other
         // console means by a sine.
-        // The snap-back on a ramp is a step of near-zero width rather
-        // than a true discontinuity — 2% of the cycle, which reads as
-        // instant and keeps the model to one mechanism.
-        // r[impl effects.waveform.ramp-snaps]
-        const SNAP: f32 = 0.02;
         match self {
-            Waveform::Sine => vec![
+            Self::Sine => vec![
                 Step {
                     apply: make(hi),
                     width: 1.0,
@@ -684,7 +727,7 @@ impl Waveform {
                     ease: Ease::Sine,
                 },
             ],
-            Waveform::Triangle => vec![
+            Self::Triangle => vec![
                 Step {
                     apply: make(hi),
                     width: 1.0,
@@ -698,8 +741,8 @@ impl Waveform {
                     ease: Ease::Linear,
                 },
             ],
-            Waveform::Square => vec![Step::new(make(hi)), Step::new(make(lo))],
-            Waveform::RampUp => vec![
+            Self::Square => vec![Step::new(make(hi)), Step::new(make(lo))],
+            Self::RampUp => vec![
                 Step {
                     apply: make(lo),
                     width: SNAP,
@@ -713,7 +756,7 @@ impl Waveform {
                     ease: Ease::Linear,
                 },
             ],
-            Waveform::RampDown => vec![
+            Self::RampDown => vec![
                 Step {
                     apply: make(hi),
                     width: SNAP,
@@ -737,6 +780,10 @@ mod tests {
 
     // r[verify effects.speed]
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     #[test]
     fn speed_units_all_land_on_beats_per_second() {
         let masters = SpeedMasters::from([("Song".to_string(), 120.0)]);
@@ -746,6 +793,10 @@ mod tests {
         assert_eq!(Speed::Master("Song".into()).beats_per_second(&masters), 2.0);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A master that is not wired up runs at a fallback rather than
     /// freezing.
     ///
@@ -837,13 +888,17 @@ mod tests {
         assert!(at_end > 0.95, "{at_end}");
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A sine's structure. That the values really trace a sine is
     /// checked in `recipe.rs`, where they are actually resolved.
     // r[verify effects.waveform.is-sugar]
     // r[verify effects.step.ease]
     #[test]
     fn a_sine_waveform_is_two_fully_eased_steps() {
-        let steps = Waveform::Sine.steps(ignition_proto::Attribute::Dimmer, 0.5, 0.5, false);
+        let steps = Waveform::Sine.steps(&ignition_proto::Attribute::Dimmer, 0.5, 0.5, false);
         assert_eq!(steps.len(), 2);
         assert!(
             steps
@@ -872,7 +927,7 @@ mod tests {
             Waveform::RampUp,
             Waveform::RampDown,
         ] {
-            let steps = shape.steps(ignition_proto::Attribute::Dimmer, 0.5, 0.3, false);
+            let steps = shape.steps(&ignition_proto::Attribute::Dimmer, 0.5, 0.3, false);
             // The value at cycle 0 is what the cycle wraps *from*: for
             // an eased shape that is the last step, for a ramp up the
             // snap step listed first. Either way it is `base - size`.
@@ -885,7 +940,7 @@ mod tests {
                 "{shape:?} starts at {at_zero}"
             );
         }
-        let sine = Waveform::Sine.steps(ignition_proto::Attribute::Dimmer, 0.5, 0.3, false);
+        let sine = Waveform::Sine.steps(&ignition_proto::Attribute::Dimmer, 0.5, 0.3, false);
         assert!((level(&sine[0]) - 0.8).abs() < 1e-6, "high listed first");
     }
 
@@ -893,6 +948,10 @@ mod tests {
 
     // r[verify effects.phase.in-selection-order]
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     #[test]
     fn phase_spread_offsets_each_fixture_around_the_cycle() {
         let timing = Timing {
@@ -905,6 +964,10 @@ mod tests {
         assert_eq!(timing.cycles_at(0.0, 3, 4, &masters), 0.75);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Per-axis spread: equal X and Y spreads put every unit on an
     /// anti-diagonal of a 4×4 grid at the same phase, and a Y-only
     /// spread on a one-truss grid is nothing at all.
@@ -972,6 +1035,10 @@ mod tests {
         assert_eq!(Timing::default().build_fraction_3d(&lone), 0.25);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// The two new fields are absent from disk when unset, so every
     /// existing show file round-trips byte for byte.
     #[test]
@@ -985,6 +1052,10 @@ mod tests {
 
     // r[verify effects.measure]
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     #[test]
     fn measure_stretches_a_loop_across_more_beats() {
         let masters = SpeedMasters::new();
@@ -1024,6 +1095,10 @@ mod once_tests {
         assert!(t.cycles_at(4.0, 0, 1, &masters) > 3.0);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A one-shot stops at the end of its first cycle and stays there,
     /// which is what lets a bump release itself instead of needing a
     /// second cue to put it out.
@@ -1114,9 +1189,13 @@ mod ease_tests {
     use super::*;
 
     fn grid() -> impl Iterator<Item = f32> {
-        (0..=200).map(|i| i as f32 / 200.0)
+        (0..=200).map(|i| float_of(i) / 200.0)
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Whatever the bends, the move starts where it started and ends
     /// where it was going.
     // r[verify effects.step.accel-decel]
@@ -1221,6 +1300,10 @@ mod ease_tests {
 mod speed_scale_tests {
     use super::*;
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Double-time off the same master, and a tempo change carries it.
     // r[verify playback.speed-scale]
     #[test]
@@ -1242,6 +1325,10 @@ mod speed_scale_tests {
         assert_eq!(Speed::Hz(1.0).master(), None);
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// An unset master and a zero scale both fall back rather than
     /// freezing — the stuck-one-shot argument, twice.
     // r[verify playback.speed-scale]
@@ -1289,7 +1376,7 @@ mod transform_tests {
     fn circle(r_pan: f32, r_tilt: f32) -> Vec<Step> {
         (0..16)
             .map(|i| {
-                let t = std::f32::consts::TAU * i as f32 / 16.0;
+                let t = std::f32::consts::TAU * float_of(i) / 16.0;
                 Step {
                     transition: 1.0,
                     ..Step::new(vec![RecipeApply::Delta(vec![
@@ -1334,6 +1421,10 @@ mod transform_tests {
         same_path(&rotate_deg(c.clone(), 90.0), &shift_phase(c, -4));
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Flipping an axis negates it and touches nothing else.
     // r[verify effects.step-transforms]
     #[test]
@@ -1354,6 +1445,10 @@ mod transform_tests {
         same_path(&ellipse, &circle(30.0, 10.0));
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// Swapping axes twice is the identity, and once exchanges them.
     // r[verify effects.step-transforms]
     #[test]
@@ -1396,6 +1491,10 @@ mod transform_tests {
         Step::new(vec![RecipeApply::Delta(vec![(Attribute::Pan, v)])])
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// An effect that does not say how fast it goes holds still.
     ///
     /// A one-step recipe never asks. A multi-step one that forgot to
@@ -1488,6 +1587,10 @@ mod transform_tests {
         assert!(backward.spread_fraction(0, count) > backward.spread_fraction(3, count));
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
+    )]
     /// A ramp's snap-back is a very narrow step, not a discontinuity.
     ///
     /// It reads as instant and keeps the whole model to one mechanism:
@@ -1498,7 +1601,7 @@ mod transform_tests {
     #[test]
     fn a_ramps_snap_back_is_a_step_and_not_a_jump() {
         for waveform in [Waveform::RampUp, Waveform::RampDown] {
-            let steps = waveform.steps(Attribute::Dimmer, 0.5, 0.5, true);
+            let steps = waveform.steps(&Attribute::Dimmer, 0.5, 0.5, true);
             assert_eq!(steps.len(), 2, "{waveform:?} is not two steps");
 
             let snap = &steps[0];

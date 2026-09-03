@@ -30,7 +30,10 @@ fn every_generated_profile_imports_in_every_mode() {
             .fixture_types
             .first()
             .unwrap_or_else(|| panic!("{}: no fixture type", path.display()));
-        let name = fixture_type.name.as_deref().map(|n| n.to_string());
+        let name = fixture_type
+            .name
+            .as_deref()
+            .map(std::string::ToString::to_string);
         assert!(
             name.as_deref().is_some_and(|n| !n.trim().is_empty()),
             "{}: fixture type has no name",
@@ -45,7 +48,7 @@ fn every_generated_profile_imports_in_every_mode() {
             let mode_name = mode
                 .name
                 .as_deref()
-                .map(|n| n.to_string())
+                .map(std::string::ToString::to_string)
                 .unwrap_or_default();
             let imported = import_channel_map(&path, Some(&mode_name)).unwrap_or_else(|e| {
                 panic!(
@@ -77,7 +80,7 @@ fn generated_profiles_assemble_to_their_specs_physical_size() {
         env!("CARGO_MANIFEST_DIR"),
         "/../../data/gdtf/generated"
     ));
-    // (file, spec width/length/height in metres — see data/gdtf/specs).
+    // (file, spec width/length/height in metres — see data/fixtures).
     // Profiles without a pigtail: the cable stub is left out of the
     // listing's dimensions and of the generator's fit, but
     // `assembled_bounds` draws everything.

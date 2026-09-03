@@ -36,7 +36,7 @@ fn the_benchmark_cue_cooks_the_whole_rig_at_norco() {
     // Every recipe on the cue resolves to something — a named effect
     // that misses its group, or a group this venue lacks, would cook
     // to nothing without an error.
-    let mut lit = std::collections::BTreeSet::new();
+    let mut dimmed = std::collections::BTreeSet::new();
     let mut moved = std::collections::BTreeSet::new();
     for recipe_ref in &cue.recipes {
         let recipes = recipe_ref.resolve(&show);
@@ -52,7 +52,7 @@ fn the_benchmark_cue_cooks_the_whole_rig_at_norco() {
             );
             for emit in &full.emits {
                 if emit.value.attr == Attribute::Dimmer {
-                    lit.insert(emit.value.chan);
+                    dimmed.insert(emit.value.chan);
                 }
                 if matches!(emit.value.attr, Attribute::Pan | Attribute::Tilt) {
                     moved.insert(emit.value.chan);
@@ -65,9 +65,9 @@ fn the_benchmark_cue_cooks_the_whole_rig_at_norco() {
     }
     // Norco: 48 pars, 4 SlimPARs, 8 movers, 8 strips, 2 hazers.
     assert!(
-        lit.len() >= 60,
-        "only {} channels get a dimmer: {lit:?}",
-        lit.len()
+        dimmed.len() >= 60,
+        "only {} channels get a dimmer: {dimmed:?}",
+        dimmed.len()
     );
     assert!(
         moved.len() >= 8,

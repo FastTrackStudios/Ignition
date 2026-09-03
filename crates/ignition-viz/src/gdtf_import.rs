@@ -1,11 +1,13 @@
 //! GDTF import — Slice 4 of the DMX work
 //! (`docs/research/lighting-console-landscape.md`), the biggest-value,
-//! least-mature-tooling piece. This pulls a `ChannelMap` (the same type
-//! `channel_map.rs` hand-authors from address-spacing + guessed layouts)
-//! straight out of a real manufacturer `.gdtf` file's DMX-mode channel
-//! list, so a fixture with a real GDTF profile no longer needs its channel
-//! *function order* estimated at all — only the footprint was ever
-//! guaranteed correct before this (see `docs/domain/dmx-channel-maps.md`).
+//! least-mature-tooling piece.
+//!
+//! This pulls a `ChannelMap` (the same type `channel_map.rs` hand-authors
+//! from address-spacing + guessed layouts) straight out of a real
+//! manufacturer `.gdtf` file's DMX-mode channel list, so a fixture with a
+//! real GDTF profile no longer needs its channel *function order* estimated
+//! at all — only the footprint was ever guaranteed correct before this (see
+//! `docs/domain/dmx-channel-maps.md`).
 //!
 //! What this does NOT do yet: import the fixture's real 3D geometry
 //! (GDTF's Geometry tree — yoke/head as separate nodes — and the glTF/3DS
@@ -21,6 +23,7 @@ use crate::fixture_profile::{
     ColorWheelSlot, DeclaredColorSpace, FixtureEmitters, FixtureProfile, rest_defaults,
     typical_emitter,
 };
+use crate::num::{byte_of_f32, f32_of_f64, f32_of_usize, f64_of_u64, u16_of_i32};
 use gdtf::GdtfFile;
 use ignition_core::color::{ColorSpace, Emitter, Intent, emitter};
 use ignition_proto::{Attribute, ChannelMap, ColorChannel};
@@ -62,28 +65,33 @@ impl GdtfChannelMap {
     /// The output-side profile this import describes.
     // r[impl color.spaces] - the GDTF colour space reaches the solve
     // r[impl playback.defaults] - GDTF defaults reach the floor
+    #[must_use]
     pub fn profile(&self) -> FixtureProfile {
         let mut profile = FixtureProfile::from_channel_map(self.channel_map.clone())
             .with_wheel(self.wheel.clone());
         if self.emitters.is_some() {
-            profile.emitters = self.emitters.clone();
+            profile.emitters.clone_from(&self.emitters);
         }
         profile.color_space = self.color_space.clone();
-        profile.defaults = self.defaults.clone();
+        profile.defaults.clone_from(&self.defaults);
         profile
     }
 }
 
 /// A GDTF `DmxValue` as a fraction of its own byte width.
 fn dmx_fraction(value: gdtf::values::DmxValue) -> f32 {
-    let bits = 8 * value.bytes().get() as u32;
-    let max = ((1u64 << bits) - 1) as f64;
-    (value.value() as f64 / max) as f32
+    let bits = 8 * u32::from(value.bytes().get());
+    // `bits` is at most 32 (a 4-byte DMX value), so the shift never
+    // approaches u64's width; `saturating_sub` only exists to keep the
+    // subtraction itself off arithmetic_side_effects's radar, not because
+    // it can ever actually saturate here.
+    let max = f64_of_u64((1u64 << bits).saturating_sub(1));
+    f32_of_f64(f64_of_u64(value.value()) / max)
 }
 
 /// A GDTF `DmxValue` at 8 bits — its coarse byte.
 fn dmx_byte(value: gdtf::values::DmxValue) -> u8 {
-    (dmx_fraction(value) * 255.0).round().clamp(0.0, 255.0) as u8
+    byte_of_f32(dmx_fraction(value) * 255.0)
 }
 
 /// A channel function's `Default` in cue-engine units for `attr`.
@@ -101,7 +109,7 @@ fn gdtf_color_space(fixture_type: &gdtf::fixture_type::FixtureType) -> DeclaredC
     let Some(space) = &fixture_type.physical_descriptions.color_space else {
         return DeclaredColorSpace::Known(ColorSpace::Srgb);
     };
-    let xy = |c: &gdtf::values::ColorCie| (c.x as f32, c.y as f32);
+    let xy = |c: &gdtf::values::ColorCie| (f32_of_f64(c.x), f32_of_f64(c.y));
     match &space.mode {
         ColorSpaceMode::Srgb => DeclaredColorSpace::Known(ColorSpace::Srgb),
         ColorSpaceMode::ProPhoto => DeclaredColorSpace::Primaries {
@@ -144,15 +152,15 @@ fn gdtf_wheel_slots(
             return None;
         };
         Some(Intent::Xy {
-            x: c.x as f32,
-            y: c.y as f32,
+            x: f32_of_f64(c.x),
+            y: f32_of_f64(c.y),
             luminance: 1.0,
         })
     };
     let name = |slot: &gdtf::wheel::WheelSlot| {
         slot.name
             .as_ref()
-            .map(|n| n.to_string())
+            .map(std::string::ToString::to_string)
             .unwrap_or_default()
     };
     let by_sets: Vec<ColorWheelSlot> = function
@@ -173,7 +181,7 @@ fn gdtf_wheel_slots(
     if !by_sets.is_empty() {
         return by_sets;
     }
-    let n = wheel.slots.len().max(1) as f32;
+    let n = f32_of_usize(wheel.slots.len().max(1));
     wheel
         .slots
         .iter()
@@ -181,7 +189,7 @@ fn gdtf_wheel_slots(
         .filter_map(|(i, slot)| {
             Some(ColorWheelSlot {
                 name: name(slot),
-                byte: ((i as f32 + 0.5) / n * 255.0).round() as u8,
+                byte: byte_of_f32((f32_of_usize(i) + 0.5) / n * 255.0),
                 color: slot_color(slot)?,
             })
         })
@@ -189,9 +197,15 @@ fn gdtf_wheel_slots(
 }
 
 /// Reads a `.gdtf` file and extracts the `ChannelMap` for one DMX mode.
+///
 /// `mode_name`, when `None`, picks the file's first DMX mode — most real
 /// fixture GDTF files define exactly one, or a "Default"/simplest mode
 /// first.
+///
+/// # Errors
+///
+/// If the file can't be opened, isn't a valid GDTF zip, or the named
+/// mode doesn't exist in it.
 pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Result<GdtfChannelMap> {
     let file = File::open(path)?;
     let gdtf =
@@ -202,6 +216,11 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
 /// `import_channel_map` on an already-parsed description — the file's
 /// `description.xml`, which is also what a test can hand over as a
 /// string without building a zip.
+///
+/// # Errors
+///
+/// If `mode_name` names a mode the description doesn't have, or the
+/// description carries no usable channel layout at all.
 pub fn channel_map_from_description(
     description: &gdtf::Description,
     mode_name: Option<&str>,
@@ -215,7 +234,13 @@ pub fn channel_map_from_description(
         Some(name) => fixture_type
             .dmx_modes
             .iter()
-            .find(|m| m.name.as_deref().map(|n| n.to_string()).as_deref() == Some(name))
+            .find(|m| {
+                m.name
+                    .as_deref()
+                    .map(std::string::ToString::to_string)
+                    .as_deref()
+                    == Some(name)
+            })
             .ok_or_else(|| anyhow::anyhow!("GDTF file has no DMX mode named {name:?}"))?,
         None => fixture_type
             .dmx_modes
@@ -240,8 +265,12 @@ pub fn channel_map_from_description(
         if coarse < 1 {
             continue; // malformed/non-standard — 1-based per the GDTF spec.
         }
-        let offset0 = (coarse - 1) as u16;
-        footprint = footprint.max(offset0 + 1);
+        // `coarse >= 1` is checked above, so the subtraction never
+        // underflows; `saturating_sub` and `u16_of_i32` just keep that
+        // guarantee off arithmetic_side_effects's and as_conversions's
+        // radar instead of asserting it with a bare `as`.
+        let channel_offset = u16_of_i32(coarse.saturating_sub(1));
+        footprint = footprint.max(channel_offset.saturating_add(1));
 
         let Some(logical) = ch.logical_channels.first() else {
             continue;
@@ -276,7 +305,7 @@ pub fn channel_map_from_description(
                     measured.unwrap_or_else(|| typical_emitter(*channel)),
                 ));
             }
-            channels.push((offset0, attr));
+            channels.push((channel_offset, attr));
         }
     }
     let emitters = (!emitters.is_empty()).then_some(FixtureEmitters { channels: emitters });
@@ -289,7 +318,7 @@ pub fn channel_map_from_description(
     let dmx_mode_name = mode.name.as_deref().unwrap_or("").to_string();
 
     let channel_map = ChannelMap {
-        curves: Default::default(),
+        curves: std::collections::HashMap::default(),
         footprint,
         channels,
     };
@@ -307,10 +336,16 @@ pub fn channel_map_from_description(
     })
 }
 
-/// Every emitter the file declares, whether or not a channel links to
-/// it — for a caller that wants the fixture's palette of sources
-/// without a DMX mode. Wavelength-only emitters (no `Color=`) have no
-/// chromaticity to give and are skipped.
+/// Every emitter the file declares, whether or not a channel links to it —
+/// for a caller that wants the fixture's palette of sources without a DMX
+/// mode.
+///
+/// Wavelength-only emitters (no `Color=`) have no chromaticity to give and
+/// are skipped.
+///
+/// # Errors
+///
+/// If the file can't be opened or isn't a valid GDTF zip.
 // r[impl color.emitter-solve] - GDTF PhysicalDescriptions/Emitters
 pub fn import_emitters(path: &Path) -> anyhow::Result<Vec<Emitter>> {
     let file = File::open(path)?;
@@ -336,12 +371,16 @@ fn gdtf_emitter(e: &gdtf::physical_descriptions::Emitter) -> Option<Emitter> {
     let gdtf::physical_descriptions::EmitterOptic::Color { color, .. } = &e.optic else {
         return None;
     };
-    let name = e.name.as_ref().map(|n| n.to_string()).unwrap_or_default();
+    let name = e
+        .name
+        .as_ref()
+        .map(std::string::ToString::to_string)
+        .unwrap_or_default();
     Some(emitter(
         &name,
-        color.x as f32,
-        color.y as f32,
-        color.z as f32,
+        f32_of_f64(color.x),
+        f32_of_f64(color.y),
+        f32_of_f64(color.z),
     ))
 }
 

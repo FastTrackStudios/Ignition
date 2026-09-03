@@ -26,6 +26,7 @@
 //! averages one has to be able to exceed one.
 // r[impl viz.haze-is-volumetric] - the room's haze is uneven and drifts
 
+use crate::num;
 use bevy::asset::RenderAssetUsages;
 use bevy::image::{Image, ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::light::FogVolume;
@@ -134,7 +135,23 @@ impl Plugin for HazeTexturePlugin {
 
 /// `f32` to IEEE half, for the density texture. Only the range this
 /// module writes needs to be right — no subnormals, no infinities.
-fn f16_bits(value: f32) -> u16 {
+///
+/// Single audited bit-packer for the one lossy step in the whole
+/// module: every mask below narrows a known-width slice of the f32 bit
+/// pattern (a sign bit, an 8-bit exponent field, a 10-bit mantissa
+/// slice) into the half's layout, and the exponent's rebias
+/// (`0..=255 - 127 + 15`, i.e. `-112..=143`) sits nowhere near `i32`'s
+/// range — the arithmetic cannot wrap, and the final `as u16` follows
+/// the `<= 0` / `>= 0x1f` guards above it that make the narrowing total.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    clippy::arithmetic_side_effects,
+    reason = "single audited f32-to-half-bits packer; see the doc comment"
+)]
+const fn f16_bits(value: f32) -> u16 {
     let bits = value.to_bits();
     let sign = ((bits >> 16) & 0x8000) as u16;
     let exponent = ((bits >> 23) & 0xff) as i32 - 127 + 15;
@@ -149,16 +166,42 @@ fn f16_bits(value: f32) -> u16 {
 }
 
 /// Value noise on an integer lattice, hashed rather than stored.
+///
+/// The hash is masked to `0x00ff_ffff` — 0..=16,777,215 — which sits
+/// exactly at the boundary f32's 24-bit significand still represents
+/// every integer below exactly, so the widening below loses nothing.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "masked to 0..=16_777_215, exactly representable in f32; see the doc comment"
+)]
 fn hash(x: i32, y: i32, z: i32) -> f32 {
     let n =
         x.wrapping_mul(374_761_393) ^ y.wrapping_mul(668_265_263) ^ z.wrapping_mul(1_274_126_177);
     let n = (n ^ (n >> 13)).wrapping_mul(1_274_126_177);
-    ((n ^ (n >> 16)) & 0x00ff_ffff) as f32 / 0x00ff_ffff as f32
+    ((n ^ (n >> 16)) & 0x00ff_ffff) as f32 / 16_777_215.0
 }
 
 /// Trilinear value noise, wrapping at `period` so the tile repeats
 /// seamlessly — a seam in the haze would sweep across the room as the
 /// texture drifts.
+// `Vec3`'s `Sub`/`Mul` are float component-wise ops with no integer
+// overflow to guard against — `arithmetic_side_effects` fires on any
+// operator-overloaded type, not just the primitive integers the lint
+// is really about (see docs/ops/clippy.md and `view.rs`'s identical
+// suppression).
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3 arithmetic is float, component-wise, and cannot panic or overflow"
+)]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    reason = "period and the lattice offsets (0 or 1) are tiny, far below where f32 \
+              loses integer precision, and rem_euclid(period) bounds the wrapped \
+              coordinate back into 0..period before it narrows to i32"
+)]
 fn value_noise(p: Vec3, period: i32) -> f32 {
     let i = p.floor();
     let f = p - i;
@@ -186,25 +229,58 @@ fn value_noise(p: Vec3, period: i32) -> f32 {
 }
 
 /// Summed octaves, normalised to 0..1.
+// `Vec3`'s `Mul` is a float component-wise op with no integer overflow
+// to guard against — `arithmetic_side_effects` fires on any
+// operator-overloaded type, not just the primitive integers the lint
+// is really about (see docs/ops/clippy.md).
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3 multiplication is float, component-wise, and cannot panic or overflow"
+)]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "period only ever doubles OCTAVES (3) times from a `banks` clamped to \
+              1..=32, so it never exceeds a few hundred — far below where f32 loses \
+              integer precision"
+)]
 fn fbm(p: Vec3, banks: i32) -> f32 {
     let (mut sum, mut amplitude, mut total, mut period) = (0.0, 1.0, 0.0, banks);
     for _ in 0..OCTAVES {
         sum += value_noise(p * period as f32, period) * amplitude;
         total += amplitude;
         amplitude *= 0.5;
-        period *= 2;
+        // `saturating_mul` rather than bare `*=`: nothing about this loop
+        // proves to clippy that `banks`'s 1..=32 clamp keeps `period` far
+        // from overflow, and a fixture with an absurd `IGNITION_HAZE_BANKS`
+        // should clip rather than wrap the noise's period to something
+        // negative.
+        period = period.saturating_mul(2);
     }
     sum / total
 }
 
 /// The density texture: tileable fbm centred on `MEAN`.
+// `SIZE` is a small compile-time constant (32): `SIZE * SIZE * SIZE * 2`
+// is 65,536 and nowhere near overflowing `usize`, and every voxel
+// coordinate below is `0..SIZE`, nowhere near where `f32` would lose an
+// integer. `Vec3`'s `/` is a float component-wise op with no integer
+// overflow to guard against either — see docs/ops/clippy.md.
+#[must_use]
+#[expect(
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "SIZE is a small compile-time constant and every value cast here is a \
+              voxel coordinate bounded by it; see the comment above"
+)]
 pub fn noise_image(look: &HazeLook) -> Image {
     let mut data = Vec::with_capacity((SIZE * SIZE * SIZE) as usize * 2);
     for z in 0..SIZE {
         for y in 0..SIZE {
             for x in 0..SIZE {
                 let p = Vec3::new(x as f32, y as f32, z as f32) / SIZE as f32;
-                let n = fbm(p, look.banks) * 2.0 - 1.0;
+                let n = fbm(p, look.banks).mul_add(2.0, -1.0);
                 let density = (MEAN * (1.0 + n * look.unevenness)).max(0.0);
                 data.extend_from_slice(&f16_bits(density).to_le_bytes());
             }
@@ -239,6 +315,11 @@ pub fn noise_image(look: &HazeLook) -> Image {
 /// turning the unevenness dial is a texture upload, and doing that
 /// every frame would be absurd — and pushes the dilution onto the
 /// cameras, where the injection reads it.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resource it wraps"
+)]
 fn follow_look(
     look: Res<HazeLook>,
     mut images: ResMut<Assets<Image>>,
@@ -249,14 +330,18 @@ fn follow_look(
     let shape = (
         look.uneven,
         look.banks,
-        (look.unevenness * 1000.0).round() as u32,
+        // `unevenness` is clamped to 0..1 in `HazeLook::default`, so
+        // `* 1000.0` never goes negative — the helper's clamp is never
+        // what actually keeps this in range, only the audit that makes
+        // the cast total.
+        num::u32_of_f32((look.unevenness * 1000.0).round()),
     );
     let new_fogs = fogs.iter().any(|fog| fog.density_texture.is_none());
 
     if *built != Some(shape) || new_fogs {
         let texture = look.uneven.then(|| images.add(noise_image(&look)));
         for mut fog in &mut fogs {
-            fog.density_texture = texture.clone();
+            fog.density_texture.clone_from(&texture);
         }
         if !fogs.is_empty() {
             *built = Some(shape);
@@ -271,6 +356,19 @@ fn follow_look(
 }
 
 /// Advances the offset so the banks drift across the room.
+// `Vec3`'s `Mul`/`AddAssign` are float component-wise ops with no
+// integer overflow to guard against — `arithmetic_side_effects` fires
+// on any operator-overloaded type, not just the primitive integers the
+// lint is really about (see docs/ops/clippy.md).
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resources it wraps"
+)]
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3 arithmetic is float, component-wise, and cannot panic or overflow"
+)]
 fn drift(time: Res<Time>, look: Res<HazeLook>, mut fogs: Query<&mut FogVolume>) {
     if !look.uneven || look.drift == 0.0 {
         return;

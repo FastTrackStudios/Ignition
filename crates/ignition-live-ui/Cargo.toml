@@ -31,3 +31,6 @@ dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d0
 [lib]
 name = "ignition_live_ui"
 path = "src/lib.rs"
+
+[lints]
+workspace = true

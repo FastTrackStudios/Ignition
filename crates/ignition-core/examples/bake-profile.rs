@@ -1,3 +1,19 @@
+// Example: `clippy.toml`'s test allowances only reach
+// `#[cfg(test)]` modules, so the panic set is lifted here instead.
+// See docs/ops/clippy.md.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "example — see docs/ops/clippy.md"
+)]
+
 //! Writes the built-in effects library — and the busking programming
 //! beside it — into a profile file.
 //!
@@ -42,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let notes = ignition_core::effects::notes();
     let bundles = ignition_core::effects::bundles();
     let busking = ignition_core::macros::shipped();
-    let (count, bundled) = (library.len(), bundles.len());
+    let (effect_count, bundle_count) = (library.len(), bundles.len());
     let (looks, macros, pages) = (
         busking.looks.len(),
         busking.macros.len(),
@@ -59,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     std::fs::write(&path, format!("{}\n", serde_json::to_string_pretty(&doc)?))?;
     println!(
-        "baked {count} effects, their notes, {bundled} bundles, {looks} looks, {macros} macros and {pages} pages into {path}"
+        "baked {effect_count} effects, their notes, {bundle_count} bundles, {looks} looks, {macros} macros and {pages} pages into {path}"
     );
     Ok(())
 }

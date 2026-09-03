@@ -56,11 +56,17 @@ fn baked_with_authored() -> Profile {
 
 /// The profile behind the bank — for the widget, which resolves looks
 /// and macros through the same one.
+#[must_use]
 pub fn profile() -> &'static Profile {
-    if let Some(current) = *CURRENT.read().unwrap_or_else(|e| e.into_inner()) {
+    if let Some(current) = *CURRENT
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+    {
         return current;
     }
-    let mut slot = CURRENT.write().unwrap_or_else(|e| e.into_inner());
+    let mut slot = CURRENT
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some(current) = *slot {
         return current;
     }
@@ -73,7 +79,9 @@ pub fn profile() -> &'static Profile {
 /// calls this; hosts call that.
 pub fn reload_authored_looks() {
     let fresh: &'static Profile = Box::leak(Box::new(baked_with_authored()));
-    *CURRENT.write().unwrap_or_else(|e| e.into_inner()) = Some(fresh);
+    *CURRENT
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(fresh);
 }
 
 /// A fader as the surface presents it: what it does, and what colour to
@@ -175,11 +183,13 @@ fn resolving_show(profile: &Profile) -> Show<'_> {
 /// Page one is what the app opens on.
 // r[impl profile.pages] - the bank is the profile's pages, resolved
 // r[impl playback.pages]
+#[must_use]
 pub fn bank_pages() -> Vec<Vec<FaderSpec>> {
     bank_pages_of(profile())
 }
 
 /// The bank a given profile declares.
+#[must_use]
 pub fn bank_pages_of(profile: &Profile) -> Vec<Vec<FaderSpec>> {
     let show = resolving_show(profile);
     profile
@@ -204,6 +214,7 @@ pub fn bank_pages_of(profile: &Profile) -> Vec<Vec<FaderSpec>> {
 }
 
 /// The names of the pages, for the surface's page indicator.
+#[must_use]
 pub fn page_names() -> Vec<String> {
     profile().pages.iter().map(|p| p.name.clone()).collect()
 }
@@ -211,24 +222,44 @@ pub fn page_names() -> Vec<String> {
 /// The neutral stage-lit look — faces, wash and back at a working
 /// level, warm, nothing moving. One key; held, not fired. The
 /// profile's `punt` look.
+///
+/// A profile with no `punt` look falls back to the thing punt *means* —
+/// the required roles up at a working level — rather than to an empty
+/// recipe. This is the key an operator holds when the show is already
+/// wrong, so of the three ways it can fail, doing nothing is the worst:
+/// a panic at least takes the app down somewhere someone will notice,
+/// and a real fallback puts faces on stage. `Key`, `Wash` and `Back` are
+/// the roles every venue must bind (`r[default-profile.required]`), so
+/// this recipe can always cook.
 // r[impl profile.looks] - the punt is a profile look
+#[must_use]
 pub fn punt_look() -> Recipe {
     let profile = profile();
     profile
         .look_recipes("punt", &resolving_show(profile))
         .into_iter()
         .next()
-        .expect("the shipped profile has a punt look")
+        .unwrap_or_else(|| {
+            tracing::error!(
+                "shipped profile has no `punt` look; PUNT falls back to the required roles at 70%"
+            );
+            Recipe::new(
+                Selection::Union(vec![role("Key"), role("Wash"), role("Back")]),
+                RecipeApply::Dimmer(0.7),
+            )
+        })
 }
 
 /// Everything on stage to zero while the key is down. A momentary
 /// blackout the operator plays against a drop, or holds through a
 /// mistake. Never the house — see `r[profile.protected-roles]`.
+#[must_use]
 pub fn rig_drop() -> Recipe {
     Recipe::new(stage(), RecipeApply::Dimmer(0.0))
 }
 
 /// The flash keys, top to bottom.
+#[must_use]
 pub fn flash_keys() -> Vec<KeySpec> {
     vec![
         // The one accent that reads through any colour.
@@ -266,6 +297,7 @@ pub fn flash_keys() -> Vec<KeySpec> {
 
 /// The macro keys: one press runs the whole move.
 // r[impl playback.macro-runner] - the surface's macro keys
+#[must_use]
 pub fn macro_keys() -> Vec<NamedKey> {
     vec![
         NamedKey {
@@ -289,6 +321,7 @@ pub fn macro_keys() -> Vec<NamedKey> {
 
 /// The look keys: press to take, press again to let go.
 // r[impl playback.look-hold] - the surface's look keys
+#[must_use]
 pub fn look_keys() -> Vec<NamedKey> {
     vec![
         NamedKey {
@@ -314,17 +347,18 @@ pub fn look_keys() -> Vec<NamedKey> {
 /// that moved the movers would be a surprise, not a safe place.
 #[allow(dead_code)]
 fn is_static(recipe: &Recipe) -> bool {
-    recipe.steps.len() == 1
-        && recipe.steps[0].apply.iter().all(|a| {
-            matches!(
-                a,
-                RecipeApply::Dimmer(_) | RecipeApply::Color(_) | RecipeApply::Raw(_)
-            )
-        })
-        && !recipe.steps[0]
-            .apply
-            .iter()
-            .any(|a| matches!(a, RecipeApply::Raw(v) if v.iter().any(|(attr, _)| *attr == ignition_core::Attribute::Pan || *attr == ignition_core::Attribute::Tilt)))
+    let [only] = recipe.steps.as_slice() else {
+        return false;
+    };
+    only.apply.iter().all(|a| {
+        matches!(
+            a,
+            RecipeApply::Dimmer(_) | RecipeApply::Color(_) | RecipeApply::Raw(_)
+        )
+    }) && !only
+        .apply
+        .iter()
+        .any(|a| matches!(a, RecipeApply::Raw(v) if v.iter().any(|(attr, _)| *attr == ignition_core::Attribute::Pan || *attr == ignition_core::Attribute::Tilt)))
 }
 
 #[cfg(test)]
@@ -339,7 +373,9 @@ mod tests {
         match selection {
             Selection::Role(name) => out.push(name.clone()),
             Selection::Union(items) | Selection::Intersect(items) => {
-                items.iter().for_each(|s| roles_in(s, out))
+                for s in items {
+                    roles_in(s, out);
+                }
             }
             Selection::Except { of, minus } => {
                 roles_in(of, out);

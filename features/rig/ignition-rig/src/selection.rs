@@ -54,6 +54,7 @@ pub struct Rig {
 }
 
 impl Rig {
+    #[must_use]
     pub fn new(fixtures: Vec<FixtureInfo>) -> Self {
         let by_chan = fixtures
             .iter()
@@ -63,14 +64,22 @@ impl Rig {
         Self { fixtures, by_chan }
     }
 
+    #[must_use]
     pub fn get(&self, chan: ChanId) -> Option<&FixtureInfo> {
-        self.by_chan.get(&chan).map(|i| &self.fixtures[*i])
+        // `by_chan` maps a known channel to an in-bounds index, but this
+        // still goes through `get` rather than `[]`: the map is built
+        // once from `fixtures` and the two can never disagree, but that
+        // invariant lives in `new`, not here, and indexing is not the
+        // place to be trusting an invariant two functions away.
+        self.by_chan.get(&chan).and_then(|&i| self.fixtures.get(i))
     }
 
+    #[must_use]
     pub fn placement(&self, chan: ChanId) -> Option<Placement> {
         self.get(chan).and_then(|f| f.placement.clone())
     }
 
+    #[must_use]
     pub fn fixtures(&self) -> &[FixtureInfo] {
         &self.fixtures
     }
@@ -88,11 +97,12 @@ pub enum Axis {
 }
 
 impl Axis {
-    pub fn of(self, v: Vec3) -> f64 {
+    #[must_use]
+    pub const fn of(self, v: Vec3) -> f64 {
         match self {
-            Axis::X => v.x,
-            Axis::Y => v.y,
-            Axis::Z => v.z,
+            Self::X => v.x,
+            Self::Y => v.y,
+            Self::Z => v.z,
         }
     }
 }
@@ -108,10 +118,10 @@ pub enum Cmp {
 impl Cmp {
     fn test(self, a: f64, b: f64) -> bool {
         match self {
-            Cmp::Lt => a < b,
-            Cmp::Le => a <= b,
-            Cmp::Gt => a > b,
-            Cmp::Ge => a >= b,
+            Self::Lt => a < b,
+            Self::Le => a <= b,
+            Self::Gt => a > b,
+            Self::Ge => a >= b,
         }
     }
 }
@@ -166,14 +176,21 @@ pub enum Where {
 /// enough that it would land somewhere absurd. A fixture that does not
 /// cross the plane is not covering anything on it, which is a different
 /// statement from covering it at a great distance.
+// `x`, `y`, `z`, `w` are the standard names for a quaternion's components —
+// spelling them out (`imag_x`, `real_w`, ...) would read as though they
+// meant something other than the textbook Hamilton product below.
+#[expect(
+    clippy::many_single_char_names,
+    reason = "x, y, z, w are the conventional quaternion component names"
+)]
 fn beam_landing(placement: &Placement, height: f64) -> Option<Vec3> {
     let q = placement.orientation;
     // Rotate (0, 0, -1) by the quaternion.
     let (x, y, z, w) = (q.x, q.y, q.z, q.w);
     let dir = Vec3 {
-        x: -2.0 * (x * z + w * y),
-        y: -2.0 * (y * z - w * x),
-        z: -(1.0 - 2.0 * (x * x + y * y)),
+        x: -2.0 * x.mul_add(z, w * y),
+        y: -2.0 * y.mul_add(z, -(w * x)),
+        z: -(2.0f64.mul_add(-(x.mul_add(x, y * y)), 1.0)),
     };
     let drop = placement.position.z - height;
     // Beam must be travelling toward the plane, and steeply enough that
@@ -184,8 +201,8 @@ fn beam_landing(placement: &Placement, height: f64) -> Option<Vec3> {
     }
     let t = drop / -dir.z;
     Some(Vec3 {
-        x: placement.position.x + dir.x * t,
-        y: placement.position.y + dir.y * t,
+        x: dir.x.mul_add(t, placement.position.x),
+        y: dir.y.mul_add(t, placement.position.y),
         z: height,
     })
 }
@@ -197,14 +214,14 @@ impl Where {
     fn test(&self, placement: &Placement) -> bool {
         let p = placement.position;
         match self {
-            Where::Covers { min, max, height } => {
+            Self::Covers { min, max, height } => {
                 let Some(landing) = beam_landing(placement, *height) else {
                     return false;
                 };
                 landing.x >= min.x && landing.x <= max.x && landing.y >= min.y && landing.y <= max.y
             }
-            Where::Half { axis, cmp, at } => cmp.test(axis.of(p), *at),
-            Where::Within { min, max } => {
+            Self::Half { axis, cmp, at } => cmp.test(axis.of(p), *at),
+            Self::Within { min, max } => {
                 p.x >= min.x
                     && p.x <= max.x
                     && p.y >= min.y
@@ -212,9 +229,9 @@ impl Where {
                     && p.z >= min.z
                     && p.z <= max.z
             }
-            Where::Near { at, radius } => {
+            Self::Near { at, radius } => {
                 let (dx, dy, dz) = (p.x - at.x, p.y - at.y, p.z - at.z);
-                (dx * dx + dy * dy + dz * dz) <= radius * radius
+                dz.mul_add(dz, dx.mul_add(dx, dy * dy)) <= radius * radius
             }
         }
     }
@@ -279,11 +296,11 @@ pub enum Selection {
     /// are operator-authored and exact by convention.
     // r[impl files.capability-over-name]
     Model(String),
-    Union(Vec<Selection>),
-    Intersect(Vec<Selection>),
+    Union(Vec<Self>),
+    Intersect(Vec<Self>),
     Except {
-        of: Box<Selection>,
-        minus: Box<Selection>,
+        of: Box<Self>,
+        minus: Box<Self>,
     },
     /// Keep only the fixtures whose real position passes `filter`. A
     /// fixture with no known placement is dropped, not kept — a spatial
@@ -291,11 +308,11 @@ pub enum Selection {
     /// including it would put an unplaced fixture in a zone it may not
     /// be in.
     Where {
-        of: Box<Selection>,
+        of: Box<Self>,
         filter: Where,
     },
     Order {
-        of: Box<Selection>,
+        of: Box<Self>,
         by: Order,
     },
     /// An explicit grid layout carried through resolution — for a rig
@@ -315,7 +332,7 @@ pub enum Selection {
     /// On disk: `{"Layout":{"of":{"Role":"Wall"},"rows":[[1,2,3],[4,5,6]]}}`.
     // r[impl tricks.grid.explicit-override]
     Layout {
-        of: Box<Selection>,
+        of: Box<Self>,
         rows: Vec<Vec<ChanId>>,
     },
 }
@@ -331,8 +348,9 @@ pub enum Selection {
 pub fn layout_of(selection: &Selection) -> Option<&Vec<Vec<ChanId>>> {
     match selection {
         Selection::Layout { rows, .. } => Some(rows),
-        Selection::Where { of, .. } | Selection::Order { of, .. } => layout_of(of),
-        Selection::Except { of, .. } => layout_of(of),
+        Selection::Where { of, .. }
+        | Selection::Order { of, .. }
+        | Selection::Except { of, .. } => layout_of(of),
         Selection::Union(parts) | Selection::Intersect(parts) => parts.iter().find_map(layout_of),
         _ => None,
     }
@@ -341,6 +359,7 @@ pub fn layout_of(selection: &Selection) -> Option<&Vec<Vec<ChanId>>> {
 /// Resolves a selection to its ordered channel list.
 // r[impl groups.resolution-is-live]
 // r[impl groups.order-is-stable]
+#[must_use]
 pub fn resolve(selection: &Selection, groups: &[Group], rig: &Rig) -> Vec<ChanId> {
     resolve_with(selection, groups, rig, &())
 }
@@ -384,13 +403,12 @@ pub fn resolve_with(
         // r[impl profile.resolution-by-role]
         // r[impl profile.unbound-is-visible] - unbound resolves to clearly empty
         // r[impl effects.library.missing-role-is-empty]
-        Selection::Role(name) => match roles.role(name) {
-            // Resolved against the same machinery, so a role may bind to
-            // an expression rather than a group — "washes downstage of
-            // the plaster line" is as valid a Key as one named group.
-            Some(bound) => resolve_with(bound, groups, rig, roles),
-            None => Vec::new(),
-        },
+        // Resolved against the same machinery, so a role may bind to an
+        // expression rather than a group — "washes downstage of the
+        // plaster line" is as valid a Key as one named group.
+        Selection::Role(name) => roles
+            .role(name)
+            .map_or_else(Vec::new, |bound| resolve_with(bound, groups, rig, roles)),
         Selection::Chans(chans) => dedup(chans.clone()),
         Selection::Group(name) => group::find(groups, name)
             .map(|g| dedup(g.chans.clone()))
@@ -463,7 +481,7 @@ pub fn resolve_with(
                             p.position.y - from.y,
                             p.position.z - from.z,
                         );
-                        dx * dx + dy * dy + dz * dz
+                        dz.mul_add(dz, dx.mul_add(dx, dy * dy))
                     })
                 }),
             }
@@ -512,6 +530,7 @@ fn dedup(chans: Vec<ChanId>) -> Vec<ChanId> {
 }
 
 /// Every name in `selection` this venue cannot resolve.
+#[must_use]
 pub fn unresolved_names(selection: &Selection, groups: &[Group], rig: &Rig) -> Vec<String> {
     unresolved_names_with(selection, groups, rig, &())
 }
@@ -589,7 +608,7 @@ mod tests {
             }),
             manufacturer: "Uking".to_string(),
             model: model.to_string(),
-            tags: tags.iter().map(|t| t.to_string()).collect(),
+            tags: tags.iter().map(ToString::to_string).collect(),
         }
     }
 
@@ -611,8 +630,8 @@ mod tests {
         }]
     }
 
-    fn go(sel: Selection) -> Vec<ChanId> {
-        resolve(&sel, &groups(), &rig())
+    fn go(sel: &Selection) -> Vec<ChanId> {
+        resolve(sel, &groups(), &rig())
     }
 
     // r[verify files.capability-over-name]
@@ -621,16 +640,16 @@ mod tests {
 
     #[test]
     fn a_tag_selects_every_fixture_carrying_it() {
-        assert_eq!(go(Selection::Tag("wash".to_string())), vec![1, 2, 3]);
-        assert_eq!(go(Selection::Tag("WASH".to_string())), vec![1, 2, 3]);
+        assert_eq!(go(&Selection::Tag("wash".to_string())), vec![1, 2, 3]);
+        assert_eq!(go(&Selection::Tag("WASH".to_string())), vec![1, 2, 3]);
     }
 
     // r[verify files.capability-over-name]
 
     #[test]
     fn a_model_match_is_fuzzy_across_manufacturer_and_model() {
-        assert_eq!(go(Selection::Model("moving head".to_string())), vec![4]);
-        assert_eq!(go(Selection::Model("uking".to_string())).len(), 4);
+        assert_eq!(go(&Selection::Model("moving head".to_string())), vec![4]);
+        assert_eq!(go(&Selection::Model("uking".to_string())).len(), 4);
     }
 
     // r[verify groups.order-is-data]
@@ -643,19 +662,19 @@ mod tests {
             of: Box::new(Selection::Group("Pars".to_string())),
             minus: Box::new(Selection::Chans(vec![3])),
         };
-        assert_eq!(go(all_but_centre), vec![1, 2]);
+        assert_eq!(go(&all_but_centre), vec![1, 2]);
 
         let both = Selection::Union(vec![
             Selection::Chans(vec![3]),
             Selection::Group("Pars".to_string()),
         ]);
-        assert_eq!(go(both), vec![3, 1, 2], "first branch sets the order");
+        assert_eq!(go(&both), vec![3, 1, 2], "first branch sets the order");
 
         let overlap = Selection::Intersect(vec![
             Selection::Tag("wash".to_string()),
             Selection::Chans(vec![2, 3, 4]),
         ]);
-        assert_eq!(go(overlap), vec![2, 3]);
+        assert_eq!(go(&overlap), vec![2, 3]);
     }
 
     // r[verify groups.derived]
@@ -672,7 +691,7 @@ mod tests {
                 at: 0.0,
             },
         };
-        assert_eq!(go(stage_left), vec![1]);
+        assert_eq!(go(&stage_left), vec![1]);
     }
 
     // r[verify groups.derived]
@@ -690,7 +709,7 @@ mod tests {
                 at: 2.0,
             },
         };
-        assert_eq!(go(ceiling), vec![1, 2, 3]);
+        assert_eq!(go(&ceiling), vec![1, 2, 3]);
     }
 
     /// The point of the whole module: patch order is 1, 2, 3 at x = 2,
@@ -704,13 +723,13 @@ mod tests {
             of: Box::new(Selection::Group("Pars".to_string())),
             by: Order::Axis(Axis::X, Dir::Asc),
         };
-        assert_eq!(go(left_to_right), vec![2, 3, 1]);
+        assert_eq!(go(&left_to_right), vec![2, 3, 1]);
 
         let right_to_left = Selection::Order {
             of: Box::new(Selection::Group("Pars".to_string())),
             by: Order::Axis(Axis::X, Dir::Desc),
         };
-        assert_eq!(go(right_to_left), vec![1, 3, 2]);
+        assert_eq!(go(&right_to_left), vec![1, 3, 2]);
     }
 
     // r[verify groups.order-is-data]
@@ -729,7 +748,7 @@ mod tests {
             },
         };
         assert_eq!(
-            go(centre_out),
+            go(&centre_out),
             vec![3, 1, 2],
             "centre first, then the two flanks"
         );
@@ -748,7 +767,7 @@ mod tests {
             }),
             by: Order::Axis(Axis::X, Dir::Asc),
         };
-        assert_eq!(go(sel), vec![2, 3]);
+        assert_eq!(go(&sel), vec![2, 3]);
     }
 
     /// A fixture with no known position cannot be said to be inside or
@@ -810,7 +829,7 @@ mod tests {
         };
         // Rows flattened, 99 excluded (not in the group), 2 appended
         // (in the group, not in the layout); then the outer Reverse.
-        assert_eq!(go(sel.clone()), vec![2, 1, 3]);
+        assert_eq!(go(&sel), vec![2, 1, 3]);
         assert_eq!(layout_of(&sel), Some(&vec![vec![3, 99], vec![1]]));
         assert_eq!(layout_of(&Selection::Group("Pars".to_string())), None);
 
@@ -830,7 +849,7 @@ mod tests {
             of: Box::new(Selection::Tag("mvoer".to_string())),
             by: Order::Reverse,
         };
-        assert!(go(sel.clone()).is_empty());
+        assert!(go(&sel).is_empty());
         let problems = unresolved_names(&sel, &groups(), &rig());
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("mvoer"), "{problems:?}");

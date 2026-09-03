@@ -66,7 +66,7 @@ pub enum RoleKind {
 }
 
 /// One name a venue is expected to bind.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 // r[impl profile.roles-are-intent] - a role is a named datum with an `about`, not an enum of equipment
 pub struct Role {
     pub name: String,
@@ -86,6 +86,7 @@ pub struct Role {
 }
 
 impl Role {
+    #[must_use]
     pub fn required(name: &str, kind: RoleKind, about: &str) -> Self {
         Self {
             name: name.into(),
@@ -95,6 +96,7 @@ impl Role {
         }
     }
 
+    #[must_use]
     pub fn optional(name: &str, kind: RoleKind, about: &str) -> Self {
         Self {
             name: name.into(),
@@ -209,11 +211,13 @@ pub struct Look {
     pub recipes: Vec<RecipeRef>,
 }
 
-/// Looks authored at the desk, kept in `<profile stem>.looks.json`
-/// beside the baked profile file rather than in it — the file is
-/// written by `bake-profile` and a look put there would not survive
-/// the next bake. Merged over the baked looks at load; see
-/// [`Profile::load_with_authored`].
+/// Looks authored at the desk, kept beside the baked profile file
+/// rather than in it.
+///
+/// The file is `<profile stem>.looks.json`; it stays separate because
+/// the profile file is written by `bake-profile`, and a look put there
+/// would not survive the next bake. Merged over the baked looks at
+/// load; see [`Profile::load_with_authored`].
 // r[impl profile.looks.authored]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct AuthoredLooks {
@@ -226,16 +230,20 @@ impl AuthoredLooks {
     /// `ignition.looks.json`.
     pub fn path_for(profile_path: impl AsRef<std::path::Path>) -> std::path::PathBuf {
         let path = profile_path.as_ref();
-        let stem = path
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "ignition".to_string());
+        let stem = path.file_stem().map_or_else(
+            || "ignition".to_string(),
+            |s| s.to_string_lossy().into_owned(),
+        );
         path.with_file_name(format!("{stem}.looks.json"))
     }
 
     /// Reads the overlay. A missing file is an empty overlay; a file
     /// that does not parse is an error, since silently dropping an
     /// operator's looks is worse than a message.
+    ///
+    /// # Errors
+    ///
+    /// The file exists but cannot be parsed as JSON.
     pub fn load(path: impl AsRef<std::path::Path>) -> Result<Self, crate::show_file::Error> {
         let path = path.as_ref();
         let raw = match std::fs::read_to_string(path) {
@@ -257,6 +265,10 @@ impl AuthoredLooks {
     }
 
     /// Writes the overlay, pretty, so it diffs.
+    ///
+    /// # Errors
+    ///
+    /// The write to `path` fails.
     pub fn save(&self, path: impl AsRef<std::path::Path>) -> Result<(), crate::show_file::Error> {
         let path = path.as_ref();
         let io = |source| crate::show_file::Error::Io {
@@ -278,6 +290,10 @@ impl AuthoredLooks {
 
     /// Puts one look into the overlay on disk — read, insert, write —
     /// and returns the overlay as it now stands.
+    ///
+    /// # Errors
+    ///
+    /// The existing overlay cannot be read or parsed, or the write back fails.
     pub fn store(
         path: impl AsRef<std::path::Path>,
         name: &str,
@@ -363,6 +379,7 @@ pub struct Param {
 }
 
 impl Param {
+    #[must_use]
     pub fn new(name: &str, min: f32, max: f32, default: f32) -> Self {
         Self {
             name: name.into(),
@@ -392,6 +409,7 @@ pub struct FaderSpec {
 }
 
 impl FaderSpec {
+    #[must_use]
     pub fn new(label: &str, source: FaderSource) -> Self {
         Self {
             label: label.into(),
@@ -400,16 +418,19 @@ impl FaderSpec {
         }
     }
 
+    #[must_use]
     pub fn at(mut self, speed: Speed) -> Self {
         self.speed = Some(speed);
         self
     }
 
-    pub fn filtered(mut self, filter: AttrFilter) -> Self {
+    #[must_use]
+    pub const fn filtered(mut self, filter: AttrFilter) -> Self {
         self.filter = filter;
         self
     }
 
+    #[must_use]
     pub fn with(mut self, param: Param) -> Self {
         self.params.push(param);
         self
@@ -425,6 +446,7 @@ pub struct Page {
 }
 
 /// The bump kind a macro's `Flash` names, by label.
+#[must_use]
 pub fn bump_kind(label: &str) -> Option<crate::bump::Kind> {
     use crate::bump::Kind;
     [Kind::Level, Kind::White, Kind::ColorBoost, Kind::Burst]
@@ -524,6 +546,7 @@ pub struct VenueProfile {
 impl VenueProfile {
     /// The selection a group role resolves to.
     // r[impl profile.unbound-is-visible] - `None` for an unbound role, never an empty selection
+    #[must_use]
     pub fn group(&self, role: &str) -> Option<&crate::Selection> {
         self.groups.get(role)
     }
@@ -575,7 +598,7 @@ impl Bindings for VenueProfile {
 }
 
 /// Something a venue was expected to provide and did not.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 // r[impl profile.unbound-is-visible] - the reportable form of an unbound role
 // r[impl files.required-roles] - the gap a half-patched venue reports
 pub struct Gap {
@@ -656,11 +679,19 @@ impl Profile {
     // r[impl default.implementation-cost] - the required count is a property of the data, held by test
     // r[impl profile.minimal] - minimality is the file's; the loader imposes no floor
     // r[impl profile.several-may-exist] - any file that parses is a profile
+    ///
+    /// # Errors
+    ///
+    /// `raw` is not valid JSON, or not a valid `Profile`.
     pub fn parse(raw: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(raw)
     }
 
     /// Reads a profile file.
+    ///
+    /// # Errors
+    ///
+    /// The file cannot be read, or does not parse as a `Profile`.
     // r[impl profile.extensions] - `.ig-profile`, written out
     pub fn load(path: impl AsRef<std::path::Path>) -> Result<Self, crate::show_file::Error> {
         let path = path.as_ref();
@@ -677,6 +708,11 @@ impl Profile {
     /// Reads a profile file and merges the looks authored beside it
     /// (`AuthoredLooks::path_for`). What every loader of the file should
     /// call, so a look stored at the desk is a look everywhere.
+    ///
+    /// # Errors
+    ///
+    /// The profile file cannot be read or does not parse; a malformed
+    /// looks overlay is not an error (see [`AuthoredLooks::load`]).
     // r[impl profile.looks.authored] - merged at load
     pub fn load_with_authored(
         path: impl AsRef<std::path::Path>,
@@ -700,19 +736,21 @@ impl Profile {
     /// `data/profiles/<name>.ig-profile` — the lookup `Playback::load`
     /// and the studio's panels share.
     pub fn default_path(name: &str) -> std::path::PathBuf {
-        std::env::var("IGNITION_PROFILE")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|_| {
+        std::env::var("IGNITION_PROFILE").map_or_else(
+            |_| {
                 std::path::PathBuf::from(format!(
                     "data/profiles/{}.ig-profile",
                     name.to_lowercase()
                 ))
-            })
+            },
+            std::path::PathBuf::from,
+        )
     }
 
     /// Whether the roles a rig must bind stay few: the number that
     /// decides whether a second venue happens.
     // r[impl profile.setup-cost-is-the-metric] - required roles are the cost, counted
+    #[must_use]
     pub fn required(&self, kind: RoleKind) -> Vec<&str> {
         self.roles
             .iter()
@@ -759,6 +797,7 @@ impl Profile {
 
     /// Names a show may use, of one kind.
     // r[impl profile.declares-vocabulary]
+    #[must_use]
     pub fn vocabulary(&self, kind: RoleKind) -> Vec<&str> {
         self.roles
             .iter()
@@ -799,6 +838,7 @@ impl Profile {
     // ── busking programming ──────────────────────────────────────────
 
     /// The family a library effect belongs to, from its note.
+    #[must_use]
     pub fn family_of(&self, effect: &str) -> Option<&str> {
         self.effect_notes.get(effect).map(|n| n.family.as_str())
     }
@@ -806,6 +846,7 @@ impl Profile {
     /// The speed a fader runs an effect at: its own where declared,
     /// otherwise the family's routing, otherwise the `Song` master.
     // r[impl profile.speed-routing] - the fader's own speed wins; the family routes the rest
+    #[must_use]
     pub fn speed_for(&self, spec: &FaderSpec, effect: Option<&str>) -> Speed {
         if let Some(speed) = &spec.speed {
             return speed.clone();
@@ -814,12 +855,13 @@ impl Profile {
             .and_then(|name| self.family_of(name))
             .and_then(|family| self.speed_routing.get(family))
             .cloned()
-            .unwrap_or(Speed::Master("Song".into()))
+            .unwrap_or_else(|| Speed::Master("Song".into()))
     }
 
     /// A look's recipes, resolved through `show` — the library it
     /// carries is where a `Named` reference lands.
     // r[impl profile.looks] - resolved like a cue resolves any reference
+    #[must_use]
     pub fn look_recipes(&self, name: &str, show: &Show<'_>) -> Vec<Recipe> {
         self.looks
             .get(name)
@@ -830,6 +872,7 @@ impl Profile {
     /// Whether a role is protected — case-insensitive, like every role
     /// lookup.
     // r[impl profile.protected-roles]
+    #[must_use]
     pub fn is_protected(&self, role: &str) -> bool {
         self.protected.iter().any(|p| p.eq_ignore_ascii_case(role))
     }
@@ -840,6 +883,7 @@ impl Profile {
     /// labels, so the gap is visible at the desk rather than silent.
     // r[impl profile.pages] - the bank is built from data
     // r[impl profile.effect-parameters] - the declared defaults seed the fader's params
+    #[must_use]
     pub fn resolve_fader(&self, spec: &FaderSpec, show: &Show<'_>) -> Fader {
         let mut fader = Fader {
             name: spec.label.clone(),
@@ -1308,7 +1352,7 @@ mod tests {
         )
         .expect("a profile is a data file");
 
-        let half_patched = Elsewhere(["Baptistry"].into_iter().collect());
+        let half_patched = Elsewhere(std::iter::once("Baptistry").collect());
         assert!(!profile.satisfied_by(&half_patched));
         let gaps = profile.gaps(&half_patched);
         assert_eq!(gaps.len(), 1, "{gaps:?}");

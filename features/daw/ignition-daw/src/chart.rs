@@ -84,36 +84,38 @@ pub enum HitClass {
 
 impl HitClass {
     /// The pitch this class is written at.
-    pub fn pitch(self) -> u8 {
+    #[must_use]
+    pub const fn pitch(self) -> u8 {
         match self {
-            HitClass::Kick => 48,
-            HitClass::Snare => 50,
-            HitClass::Low => 60,
-            HitClass::Medium => 72,
-            HitClass::High => 84,
+            Self::Kick => 48,
+            Self::Snare => 50,
+            Self::Low => 60,
+            Self::Medium => 72,
+            Self::High => 84,
         }
     }
 
     // r[impl song.chart.class] - pitches outside the schema are ignored
-    fn from_pitch(pitch: u8) -> Option<Self> {
+    const fn from_pitch(pitch: u8) -> Option<Self> {
         Some(match pitch {
-            48 => HitClass::Kick,
-            50 => HitClass::Snare,
-            60 => HitClass::Low,
-            72 => HitClass::Medium,
-            84 => HitClass::High,
+            48 => Self::Kick,
+            50 => Self::Snare,
+            60 => Self::Low,
+            72 => Self::Medium,
+            84 => Self::High,
             _ => return None,
         })
     }
 
     /// The name REAPER shows for this pitch.
-    pub fn label(self) -> &'static str {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
         match self {
-            HitClass::Kick => "Kick",
-            HitClass::Snare => "Snare",
-            HitClass::Low => "Low Hit",
-            HitClass::Medium => "Medium Hit",
-            HitClass::High => "High Hit",
+            Self::Kick => "Kick",
+            Self::Snare => "Snare",
+            Self::Low => "Low Hit",
+            Self::Medium => "Medium Hit",
+            Self::High => "High Hit",
         }
     }
 
@@ -125,13 +127,14 @@ impl HitClass {
     /// them would be a rig that never stops flashing. What they are for
     /// is pulse. The band hits are what land.
     // r[impl song.chart.class-is-intensity] - fixed weight per class, soft tiers well under the band hits
-    pub fn weight(self) -> f32 {
+    #[must_use]
+    pub const fn weight(self) -> f32 {
         match self {
-            HitClass::Kick => 0.08,
-            HitClass::Snare => 0.16,
-            HitClass::Low => 0.30,
-            HitClass::Medium => 0.55,
-            HitClass::High => 0.85,
+            Self::Kick => 0.08,
+            Self::Snare => 0.16,
+            Self::Low => 0.30,
+            Self::Medium => 0.55,
+            Self::High => 0.85,
         }
     }
 }
@@ -158,7 +161,8 @@ impl ChartHit {
     /// identical earlier ones. A class already says how big a hit is.
     /// If a hit needs to be bigger, it should be a bigger class.
     // r[impl song.chart.class-is-intensity] - class weight only, velocity not applied
-    pub fn intensity(&self) -> f32 {
+    #[must_use]
+    pub const fn intensity(&self) -> f32 {
         self.class.weight()
     }
 }
@@ -192,7 +196,8 @@ impl HitChart {
     }
 
     /// Whether anything was charted at all.
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.hits.is_empty()
     }
 }
@@ -201,6 +206,11 @@ impl HitChart {
 ///
 /// An absent track is not an error — most projects have no chart, and a
 /// show without one is still a show.
+///
+/// # Errors
+///
+/// Returns an error if the project file cannot be read or fails to
+/// parse as a REAPER project.
 // r[impl song.chart]
 // r[impl song.hits.detection-is-a-draft] - the chart is read from the project, and is the authority where it exists
 pub fn read(project: impl AsRef<Path>, song: &SongMap) -> Result<HitChart> {
@@ -231,7 +241,7 @@ pub fn read(project: impl AsRef<Path>, song: &SongMap) -> Result<HitChart> {
                 .flat_map(move |midi| notes_of(midi, offset))
         })
         .collect();
-    Ok(assemble(notes, song))
+    Ok(assemble(&notes, song))
 }
 
 /// One decoded note-on/note-off pair, in seconds from the project start.
@@ -243,6 +253,21 @@ struct Note {
     velocity: u8,
 }
 
+/// A MIDI tick count as a float, for dividing by ticks-per-quarter-note.
+///
+/// A tick count here is a position within one song, not a running total
+/// across a session — bounded by `ppq * beats`, which for any tempo and
+/// song length a human writes is nowhere near the 2^52 where an `f64`
+/// stops counting integers exactly.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "tick counts within one song are far below 2^52; see the doc comment"
+)]
+const fn ticks_as_qn(ticks: u64) -> f64 {
+    ticks as f64
+}
+
 /// Pairs note-ons with note-offs.
 ///
 /// Deltas are cumulative and per-*event*, not per-note, so the running
@@ -252,11 +277,17 @@ fn notes_of(midi: &daw::file::types::item::MidiSource, item_offset_secs: f64) ->
     let ppq = f64::from(midi.ticks_per_qn.max(1));
     let _ = item_offset_secs;
     let mut clock = 0u64;
-    let mut open: std::collections::HashMap<u8, Vec<(u64, u8)>> = Default::default();
+    let mut open: std::collections::HashMap<u8, Vec<(u64, u8)>> =
+        std::collections::HashMap::default();
     let mut notes = Vec::new();
 
     for event in &midi.events {
-        clock += u64::from(event.delta_ticks);
+        // A running clock over one MIDI track's events cannot reach
+        // `u64::MAX` ticks — that is billions of years of song at any
+        // real tempo — so saturating rather than wrapping only guards
+        // against the unreachable case without ever changing a real
+        // note's position.
+        clock = clock.saturating_add(u64::from(event.delta_ticks));
         let [status, pitch, velocity] = event.bytes[..] else {
             continue;
         };
@@ -271,8 +302,8 @@ fn notes_of(midi: &daw::file::types::item::MidiSource, item_offset_secs: f64) ->
                 {
                     let (start, velocity) = stack.remove(0);
                     notes.push(Note {
-                        start_qn: start as f64 / ppq,
-                        end_qn: clock as f64 / ppq,
+                        start_qn: ticks_as_qn(start) / ppq,
+                        end_qn: ticks_as_qn(clock) / ppq,
                         pitch,
                         velocity,
                     });
@@ -288,7 +319,7 @@ fn notes_of(midi: &daw::file::types::item::MidiSource, item_offset_secs: f64) ->
 /// Turns decoded notes into hits and the groups spanning them.
 // r[impl song.chart.class] - note positions through the tempo map from quarter-notes
 // r[impl song.chart.figure] - membership by overlap
-fn assemble(notes: Vec<Note>, song: &SongMap) -> HitChart {
+fn assemble(notes: &[Note], song: &SongMap) -> HitChart {
     let at = |qn: f64| -> Bars {
         // Quarter notes from the project start, through the tempo map,
         // so a tempo change moves the chart with the music.
@@ -324,7 +355,13 @@ fn assemble(notes: Vec<Note>, song: &SongMap) -> HitChart {
         }
         let index = groups.len();
         for member in &members {
-            hits[*member].group = Some(index);
+            // `members` was built by enumerating `hits`, so every index
+            // here is in bounds — but the chart is read from a project
+            // file, so the lookup still goes through `get_mut` rather
+            // than asserting it with an index.
+            if let Some(hit) = hits.get_mut(*member) {
+                hit.group = Some(index);
+            }
         }
         groups.push(Group {
             start,
@@ -346,14 +383,11 @@ fn qn_to_secs(qn: f64, song: &SongMap) -> f64 {
     let mut seconds = 0.0;
     let points = song.tempo.points();
     for (i, point) in points.iter().enumerate() {
-        let next = points.get(i + 1);
-        let span_qn = match next {
-            Some(next) => {
-                let beats = beats_between(point.at, next.at, point.time_signature.numerator);
-                beats * f64::from(point.time_signature.denominator) / 4.0
-            }
-            None => f64::INFINITY,
-        };
+        let next = i.checked_add(1).and_then(|n| points.get(n));
+        let span_qn = next.map_or(f64::INFINITY, |next| {
+            let beats = beats_between(point.at, next.at, point.time_signature.numerator);
+            beats * f64::from(point.time_signature.denominator) / 4.0
+        });
         let take = remaining.min(span_qn);
         seconds += take * 60.0 / point.bpm;
         remaining -= take;
@@ -367,7 +401,7 @@ fn qn_to_secs(qn: f64, song: &SongMap) -> f64 {
 /// Beats between two positions at a fixed time signature.
 fn beats_between(from: Bars, to: Bars, beats_per_bar: u32) -> f64 {
     let per_bar = f64::from(beats_per_bar.max(1));
-    let flat = |b: Bars| f64::from(b.bar) * per_bar + b.beat;
+    let flat = |b: Bars| f64::from(b.bar).mul_add(per_bar, b.beat);
     flat(to) - flat(from)
 }
 
@@ -406,7 +440,7 @@ mod tests {
     #[test]
     fn a_connected_note_gathers_its_hits() {
         let chart = assemble(
-            vec![
+            &[
                 // Drawn a little early, as a hand-drawn note is.
                 note(3.9, 1.7, CONNECTED, 48),
                 note(4.0, 0.1, 84, 96),
@@ -461,7 +495,7 @@ mod tests {
     /// r[verify song.chart.figure]
     fn hits_outside_a_span_stay_ungrouped() {
         let chart = assemble(
-            vec![
+            &[
                 note(3.9, 1.2, CONNECTED, 48),
                 note(4.0, 0.1, 84, 96),
                 note(9.0, 0.1, 72, 96),
@@ -478,7 +512,7 @@ mod tests {
     #[test]
     /// r[verify song.chart.class]
     fn unknown_pitches_are_ignored() {
-        let chart = assemble(vec![note(0.0, 0.1, 42, 100)], &song());
+        let chart = assemble(&[note(0.0, 0.1, 42, 100)], &song());
         assert!(chart.is_empty());
     }
 
@@ -500,7 +534,7 @@ mod tests {
             velocity: 127,
             group: None,
         };
-        assert_eq!(soft.intensity(), hard.intensity());
+        assert!((soft.intensity() - hard.intensity()).abs() < f32::EPSILON);
         assert!((hard.intensity() - HitClass::High.weight()).abs() < 1e-6);
     }
 

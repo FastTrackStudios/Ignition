@@ -44,13 +44,19 @@
 // r[impl viz.gobo-raster] - gobos and prism are clustered decals hung off the emitter
 
 use crate::fixture_profile::BeamThrow;
+use crate::num::{
+    byte_of_f32, byte_of_f64, f32_of_u32, f32_of_usize, f64_of_u64, u8_of_usize, usize_of_i32,
+    usize_of_u32,
+};
 use crate::spawn::{BeamEmitter, EmitterState, GdtfLibraryRes, LiveDmx, VenueRes};
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
 use bevy::light::ClusteredDecal;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use gdtf::GdtfFile;
+use gdtf::dmx_mode::LogicalChannel;
+use gdtf::fixture_type::FixtureType;
+use gdtf::{GdtfFile, ResourceMap};
 use ignition_proto::Attribute;
 use std::collections::HashMap;
 use std::io::Read as _;
@@ -105,18 +111,24 @@ impl GoboMask {
     /// — and both read the same under one rule: light gets through in
     /// proportion to luminance times alpha, so opaque white is open and
     /// both black and transparent are blocked.
+    ///
+    /// # Errors
+    ///
+    /// If `bytes` isn't a valid PNG.
     pub fn from_png(bytes: &[u8]) -> anyhow::Result<Self> {
         let decoded = image::load_from_memory_with_format(bytes, image::ImageFormat::Png)?;
         let rgba = decoded.to_rgba8();
         let (w, h) = rgba.dimensions();
         let size = w.min(h);
-        let mut out = Vec::with_capacity((size * size * 4) as usize);
+        let mut out = Vec::with_capacity(usize_of_u32(size.saturating_mul(size).saturating_mul(4)));
         for y in 0..size {
             for x in 0..size {
                 let p = rgba.get_pixel(x, y).0;
-                let lum =
-                    (0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32) / 255.0;
-                let open = lum * (p[3] as f32 / 255.0);
+                let lum = 0.0722f32.mul_add(
+                    f32::from(p[2]),
+                    0.2126f32.mul_add(f32::from(p[0]), 0.7152 * f32::from(p[1])),
+                ) / 255.0;
+                let open = lum * (f32::from(p[3]) / 255.0);
                 out.extend_from_slice(&[0, 0, 0, blocked_byte(open)]);
             }
         }
@@ -127,13 +139,14 @@ impl GoboMask {
     /// centred on the gate, `(-1, -1)` to `(1, 1)`; everything outside
     /// the unit disc — the gate itself — is blocked.
     pub fn procedural(size: u32, open_at: impl Fn(f32, f32) -> f32) -> Self {
-        let mut rgba = Vec::with_capacity((size * size * 4) as usize);
-        let edge = 1.5 / size as f32;
+        let mut rgba =
+            Vec::with_capacity(usize_of_u32(size.saturating_mul(size).saturating_mul(4)));
+        let edge = 1.5 / f32_of_u32(size);
         for y in 0..size {
             for x in 0..size {
-                let u = (x as f32 + 0.5) / size as f32 * 2.0 - 1.0;
-                let v = 1.0 - (y as f32 + 0.5) / size as f32 * 2.0;
-                let r = (u * u + v * v).sqrt();
+                let u = ((f32_of_u32(x) + 0.5) / f32_of_u32(size)).mul_add(2.0, -1.0);
+                let v = ((f32_of_u32(y) + 0.5) / f32_of_u32(size)).mul_add(-2.0, 1.0);
+                let r = u.hypot(v);
                 // The gate: a soft one-pixel rim so it does not alias.
                 let gate = ((1.0 - r) / edge).clamp(0.0, 1.0);
                 let open = open_at(u, v).clamp(0.0, 1.0) * gate;
@@ -144,22 +157,38 @@ impl GoboMask {
     }
 
     /// How open the mask is at a pixel, 0 (blocked) to 1.
+    #[must_use]
     pub fn openness(&self, x: u32, y: u32) -> f32 {
-        let i = ((y * self.size + x) * 4 + 3) as usize;
-        1.0 - self.rgba[i] as f32 / 255.0
+        // Row-major, 4 bytes a pixel, alpha last. A byte the caller's
+        // `x`/`y` puts outside the mask reads as fully blocked rather
+        // than panicking or reading someone else's pixel.
+        let index = usize_of_u32(
+            self.size
+                .saturating_mul(y)
+                .saturating_add(x)
+                .saturating_mul(4)
+                .saturating_add(3),
+        );
+        let alpha = self.rgba.get(index).copied().unwrap_or(255);
+        1.0 - f32::from(alpha) / 255.0
     }
 
     /// The fraction of the whole mask that lets light through.
+    #[must_use]
     pub fn open_fraction(&self) -> f32 {
-        let n = (self.size * self.size) as f32;
+        let n = f32_of_u32(self.size.saturating_mul(self.size));
         self.rgba
             .chunks_exact(4)
-            .map(|p| 1.0 - p[3] as f32 / 255.0)
+            // `chunks_exact(4)` guarantees each `p` is 4 bytes long, so
+            // this `get` never falls back — it exists to keep the index
+            // audited rather than because index 3 can be out of range.
+            .map(|p| 1.0 - f32::from(p.get(3).copied().unwrap_or(255)) / 255.0)
             .sum::<f32>()
             / n
     }
 
     /// The mask as a Bevy image for the decal to sample.
+    #[must_use]
     pub fn to_image(&self) -> Image {
         Image::new(
             Extent3d {
@@ -176,7 +205,7 @@ impl GoboMask {
 }
 
 fn blocked_byte(open: f32) -> u8 {
-    ((1.0 - open.clamp(0.0, 1.0)) * 255.0).round() as u8
+    byte_of_f32((1.0 - open.clamp(0.0, 1.0)) * 255.0)
 }
 
 /// The built-in gobo set, for wheels whose profile ships no art.
@@ -193,111 +222,116 @@ pub enum Builtin {
 }
 
 impl Builtin {
-    pub const ALL: [Builtin; 8] = [
-        Builtin::Dots,
-        Builtin::Bars,
-        Builtin::Breakup,
-        Builtin::Star,
-        Builtin::Spiral,
-        Builtin::Radial,
-        Builtin::Tri,
-        Builtin::Open,
+    pub const ALL: [Self; 8] = [
+        Self::Dots,
+        Self::Bars,
+        Self::Breakup,
+        Self::Star,
+        Self::Spiral,
+        Self::Radial,
+        Self::Tri,
+        Self::Open,
     ];
 
     /// The patterned ones, in wheel order — `Open` is the wheel's own
     /// open slot, not a pattern.
-    pub const PATTERNS: [Builtin; 7] = [
-        Builtin::Dots,
-        Builtin::Bars,
-        Builtin::Breakup,
-        Builtin::Star,
-        Builtin::Spiral,
-        Builtin::Radial,
-        Builtin::Tri,
+    pub const PATTERNS: [Self; 7] = [
+        Self::Dots,
+        Self::Bars,
+        Self::Breakup,
+        Self::Star,
+        Self::Spiral,
+        Self::Radial,
+        Self::Tri,
     ];
 
-    pub fn name(self) -> &'static str {
+    #[must_use]
+    pub const fn name(self) -> &'static str {
         match self {
-            Builtin::Dots => "dots",
-            Builtin::Bars => "bars",
-            Builtin::Breakup => "breakup",
-            Builtin::Star => "star",
-            Builtin::Spiral => "spiral",
-            Builtin::Radial => "radial",
-            Builtin::Tri => "tri",
-            Builtin::Open => "open",
+            Self::Dots => "dots",
+            Self::Bars => "bars",
+            Self::Breakup => "breakup",
+            Self::Star => "star",
+            Self::Spiral => "spiral",
+            Self::Radial => "radial",
+            Self::Tri => "tri",
+            Self::Open => "open",
         }
     }
 
     /// The pattern as a mask of `size` pixels a side.
+    #[must_use]
     pub fn mask(self, size: u32) -> GoboMask {
         use core::f32::consts::{PI, TAU};
         // A crisp edge a couple of pixels wide, in unit coordinates.
-        let soft = 3.0 / size as f32;
+        let soft = 3.0 / f32_of_u32(size);
         let step = move |x: f32| (x / soft).clamp(0.0, 1.0);
         match self {
-            Builtin::Open => GoboMask::procedural(size, |_, _| 1.0),
+            Self::Open => GoboMask::procedural(size, |_, _| 1.0),
             // A hex-ish grid of round holes.
-            Builtin::Dots => GoboMask::procedural(size, move |u, v| {
+            Self::Dots => GoboMask::procedural(size, move |u, v| {
                 let pitch = 0.36;
                 let row = (v / (pitch * 0.866)).round();
-                let shift = if row as i32 % 2 == 0 {
+                // `row` is already integer-valued; `rem_euclid` reads its
+                // parity the same way `row as i32 % 2` did, without a
+                // cast, and agrees with it on negative rows too.
+                let shift = if row.rem_euclid(2.0) < 0.5 {
                     0.0
                 } else {
                     pitch * 0.5
                 };
-                let cx = ((u - shift) / pitch).round() * pitch + shift;
+                let cx = ((u - shift) / pitch).round().mul_add(pitch, shift);
                 let cy = row * pitch * 0.866;
-                let d = ((u - cx).powi(2) + (v - cy).powi(2)).sqrt();
+                let d = (u - cx).hypot(v - cy);
                 step(0.11 - d)
             }),
             // Parallel slits.
-            Builtin::Bars => GoboMask::procedural(size, move |u, _| {
+            Self::Bars => GoboMask::procedural(size, move |u, _| {
                 let phase = (u * 3.0).rem_euclid(1.0);
                 step(phase - 0.3) * step(0.7 - phase)
             }),
             // Leafy breakup: a hash of overlapping blobs.
-            Builtin::Breakup => GoboMask::procedural(size, move |u, v| {
+            Self::Breakup => GoboMask::procedural(size, move |u, v| {
                 let mut best: f32 = 0.0;
                 for i in 0..28 {
-                    let a = i as f32 * 2.399_963; // golden angle
-                    let r = 0.15 + 0.75 * ((i as f32 * 0.618_034).fract());
+                    let a = f32_of_usize(i) * 2.399_963; // golden angle
+                    let r = 0.75f32.mul_add((f32_of_usize(i) * 0.618_034).fract(), 0.15);
                     let (cx, cy) = (r * a.cos(), r * a.sin());
-                    let rad = 0.07 + 0.09 * ((i as f32 * 0.381_966).fract());
-                    let d = ((u - cx).powi(2) + (v - cy).powi(2)).sqrt();
+                    let rad = 0.09f32.mul_add((f32_of_usize(i) * 0.381_966).fract(), 0.07);
+                    let d = (u - cx).hypot(v - cy);
                     best = best.max(step(rad - d));
                 }
                 best
             }),
             // Five-pointed star.
-            Builtin::Star => GoboMask::procedural(size, move |u, v| {
-                let r = (u * u + v * v).sqrt();
+            Self::Star => GoboMask::procedural(size, move |u, v| {
+                let r = u.hypot(v);
                 let ang = v.atan2(u) + PI / 2.0;
                 let t = (ang / (TAU / 5.0)).rem_euclid(1.0);
                 let t = (t - 0.5).abs() * 2.0; // 0 at a point, 1 between points
-                let edge = 0.85 - 0.5 * t;
+                let edge = 0.5f32.mul_add(-t, 0.85);
                 step(edge - r)
             }),
             // Three-armed spiral.
-            Builtin::Spiral => GoboMask::procedural(size, move |u, v| {
-                let r = (u * u + v * v).sqrt();
+            Self::Spiral => GoboMask::procedural(size, move |u, v| {
+                let r = u.hypot(v);
                 let ang = v.atan2(u);
-                let phase = ((ang + r * 6.0) * 3.0 / TAU).rem_euclid(1.0);
+                let phase = (r.mul_add(6.0, ang) * 3.0 / TAU).rem_euclid(1.0);
                 step(phase - 0.25) * step(0.75 - phase) * step(r - 0.08)
             }),
             // Radial spokes.
-            Builtin::Radial => GoboMask::procedural(size, move |u, v| {
+            Self::Radial => GoboMask::procedural(size, move |u, v| {
                 let ang = v.atan2(u);
                 let phase = (ang * 8.0 / TAU).rem_euclid(1.0);
                 step(phase - 0.3) * step(0.7 - phase)
             }),
             // Triangles tiled across the gate.
-            Builtin::Tri => GoboMask::procedural(size, move |u, v| {
+            Self::Tri => GoboMask::procedural(size, move |u, v| {
                 let pitch = 0.5;
                 let uu = u / pitch;
                 let vv = v / (pitch * 0.866);
                 let row = vv.floor();
-                let fx = (uu - 0.5 * row).rem_euclid(1.0);
+                let fx = 0.5f32.mul_add(-row, uu).rem_euclid(1.0);
                 let fy = vv - row;
                 let inside = if fx + fy < 1.0 {
                     1.0 - fx - fy
@@ -311,6 +345,7 @@ impl Builtin {
 }
 
 /// Every built-in gobo, name and mask, at `GOBO_SIZE`.
+#[must_use]
 pub fn builtin_masks() -> Vec<(&'static str, GoboMask)> {
     Builtin::ALL
         .iter()
@@ -344,6 +379,7 @@ pub struct WheelSpec {
 
 impl WheelSpec {
     /// The slot a wheel byte selects.
+    #[must_use]
     pub fn slot_for_byte(&self, byte: u8) -> Option<usize> {
         self.select
             .iter()
@@ -356,33 +392,37 @@ impl WheelSpec {
     /// The spin the byte asks for: `None` outside every spin range,
     /// otherwise a signed speed, radians per second, fastest at the
     /// range's far end.
+    #[must_use]
     pub fn spin_for_byte(&self, byte: u8) -> Option<f32> {
         self.spin.iter().find_map(|(from, to, sign)| {
             (byte >= *from && byte <= *to).then(|| {
-                let span = (*to as f32 - *from as f32).max(1.0);
-                let t = (byte as f32 - *from as f32) / span;
-                sign * MAX_SPIN_RAD_PER_SEC * (0.15 + 0.85 * t)
+                let span = (f32::from(*to) - f32::from(*from)).max(1.0);
+                let t = (f32::from(byte) - f32::from(*from)) / span;
+                sign * MAX_SPIN_RAD_PER_SEC * 0.85f32.mul_add(t, 0.15)
             })
         })
     }
 
+    #[must_use]
     pub fn prism_in(&self, byte: u8) -> bool {
         self.prism_from.is_some_and(|from| byte >= from)
     }
 
     /// The prism's rotation speed, radians per second, when the byte is
     /// in the rotation range.
+    #[must_use]
     pub fn prism_spin_for_byte(&self, byte: u8) -> Option<f32> {
         let from = self.prism_spin_from?;
         (byte >= from).then(|| {
-            let t = (byte as f32 - from as f32) / (255.0 - from as f32).max(1.0);
-            MAX_SPIN_RAD_PER_SEC * (0.15 + 0.85 * t)
+            let t = (f32::from(byte) - f32::from(from)) / (255.0 - f32::from(from)).max(1.0);
+            MAX_SPIN_RAD_PER_SEC * 0.85f32.mul_add(t, 0.15)
         })
     }
 
     /// The wheel of a fixture that has a `GoboWheel` channel but no
     /// profile to say what is on it: open, then the seven built-in
     /// patterns, at eight-byte steps.
+    #[must_use]
     pub fn builtin_default() -> Self {
         let mut spec = Self {
             slots: vec![None],
@@ -391,7 +431,11 @@ impl WheelSpec {
         };
         for (i, pattern) in Builtin::PATTERNS.iter().enumerate() {
             spec.slots.push(Some(pattern.mask(GOBO_SIZE)));
-            spec.select.push(((i as u8 + 1) * 8, i + 1));
+            let slot_index = i.saturating_add(1);
+            spec.select.push((
+                u8_of_usize(i).saturating_add(1).saturating_mul(8),
+                slot_index,
+            ));
         }
         spec
     }
@@ -403,7 +447,17 @@ impl WheelSpec {
             return;
         }
         for (i, slot) in self.slots.iter_mut().enumerate().skip(1) {
-            let pattern = Builtin::PATTERNS[(i - 1) % Builtin::PATTERNS.len()];
+            // `skip(1)` guarantees `i >= 1`, so the subtraction never
+            // underflows; `PATTERNS` is a fixed 7-element array so the
+            // `checked_rem` never actually misses, and the `get` below
+            // never falls back, since the modulo always lands inside it.
+            let offset = i
+                .saturating_sub(1)
+                .checked_rem(Builtin::PATTERNS.len())
+                .unwrap_or(0);
+            let Some(pattern) = Builtin::PATTERNS.get(offset).copied() else {
+                continue;
+            };
             *slot = Some(pattern.mask(GOBO_SIZE));
         }
     }
@@ -412,6 +466,11 @@ impl WheelSpec {
 /// Reads the gobo wheel (and prism) of a `.gdtf` file's first fixture
 /// type: `mode_name`'s DMX mode, or the first when `None`. `Ok(None)`
 /// when the mode has no `Gobo1` channel.
+///
+/// # Errors
+///
+/// If the file can't be opened, isn't a valid GDTF zip, or names a mode
+/// that doesn't exist in it.
 pub fn wheel_from_gdtf(path: &Path, mode_name: Option<&str>) -> anyhow::Result<Option<WheelSpec>> {
     let file = std::fs::File::open(path)?;
     let mut gdtf =
@@ -424,13 +483,18 @@ pub fn wheel_from_gdtf(path: &Path, mode_name: Option<&str>) -> anyhow::Result<O
         .fixture_types
         .first()
         .ok_or_else(|| anyhow::anyhow!("{}: no fixture types", path.display()))?;
-    let mode = match mode_name {
-        Some(name) => fixture_type
-            .dmx_modes
-            .iter()
-            .find(|m| m.name.as_deref().map(|n| n.to_string()).as_deref() == Some(name)),
-        None => fixture_type.dmx_modes.first(),
-    };
+    let mode = mode_name.map_or_else(
+        || fixture_type.dmx_modes.first(),
+        |name| {
+            fixture_type.dmx_modes.iter().find(|m| {
+                m.name
+                    .as_deref()
+                    .map(std::string::ToString::to_string)
+                    .as_deref()
+                    == Some(name)
+            })
+        },
+    );
     let Some(mode) = mode else { return Ok(None) };
 
     let mut spec = WheelSpec::default();
@@ -440,81 +504,9 @@ pub fn wheel_from_gdtf(path: &Path, mode_name: Option<&str>) -> anyhow::Result<O
             let attr = logical.attribute.to_string();
             if attr == "Gobo1" {
                 found = true;
-                let mut wheel_name = None;
-                let functions = &logical.channel_functions;
-                for (i, f) in functions.iter().enumerate() {
-                    let fattr = f.attribute.to_string();
-                    let from = dmx_byte(f.dmx_from);
-                    let to = functions
-                        .get(i + 1)
-                        .map(|n| dmx_byte(n.dmx_from).saturating_sub(1))
-                        .unwrap_or(255);
-                    if wheel_name.is_none() {
-                        wheel_name = f.wheel.as_ref().map(|w| w.to_string());
-                    }
-                    if fattr.contains("Spin") {
-                        let name = f
-                            .name
-                            .as_deref()
-                            .map(|n| n.to_lowercase())
-                            .unwrap_or_default();
-                        let sign = if name.contains("counter") || name.contains("ccw") {
-                            -1.0
-                        } else {
-                            1.0
-                        };
-                        spec.spin.push((from, to, sign));
-                    } else if fattr == "Gobo1" || fattr.contains("Shake") {
-                        for set in &f.channel_sets {
-                            // The crate hands `WheelSlotIndex` back
-                            // zero-based, `None` for a set with none.
-                            if let Some(index) = set.wheel_slot_index.filter(|i| *i >= 0) {
-                                spec.select.push((dmx_byte(set.dmx_from), index as usize));
-                            }
-                        }
-                    }
-                }
-                let wheel = wheel_name.as_deref().and_then(|n| fixture_type.wheel(n));
-                if let Some(wheel) = wheel {
-                    for slot in &wheel.slots {
-                        let mask = match &slot.media_name {
-                            Some(media) => {
-                                let mut bytes = Vec::new();
-                                match resources.read_wheel_media(media) {
-                                    Ok(mut r) => {
-                                        r.read_to_end(&mut bytes)?;
-                                        GoboMask::from_png(&bytes).ok()
-                                    }
-                                    Err(_) => None,
-                                }
-                            }
-                            None => None,
-                        };
-                        spec.has_art |= mask.is_some();
-                        spec.slots.push(mask);
-                    }
-                }
+                read_gobo_channel(logical, fixture_type, resources, &mut spec)?;
             } else if attr == "Prism1" {
-                let functions = &logical.channel_functions;
-                for f in functions {
-                    let fattr = f.attribute.to_string();
-                    let name = f
-                        .name
-                        .as_deref()
-                        .map(|n| n.to_lowercase())
-                        .unwrap_or_default();
-                    let from = dmx_byte(f.dmx_from);
-                    let closed = name.contains("closed")
-                        || name.contains("off")
-                        || name.contains("no prism")
-                        || (f.physical_from == 0.0 && f.physical_to == 0.0);
-                    if fattr.contains("Spin") || name.contains("rotat") {
-                        spec.prism_spin_from.get_or_insert(from);
-                        spec.prism_from.get_or_insert(from.max(1));
-                    } else if !closed {
-                        spec.prism_from.get_or_insert(from.max(1));
-                    }
-                }
+                read_prism_channel(logical, &mut spec);
             }
         }
     }
@@ -525,25 +517,129 @@ pub fn wheel_from_gdtf(path: &Path, mode_name: Option<&str>) -> anyhow::Result<O
     spec.select.dedup_by_key(|(from, _)| *from);
     // A wheel the select table reaches past what the slots say: pad with
     // open, so a byte never lands nowhere.
-    let highest = spec.select.iter().map(|(_, s)| *s + 1).max().unwrap_or(0);
+    let highest = spec
+        .select
+        .iter()
+        .map(|(_, s)| s.saturating_add(1))
+        .max()
+        .unwrap_or(0);
     while spec.slots.len() < highest {
         spec.slots.push(None);
     }
     if spec.select.is_empty() && !spec.slots.is_empty() {
-        // Slots but no channel sets: uniform steps.
-        let step = (256 / spec.slots.len().max(1)) as u8;
-        spec.select = (0..spec.slots.len()).map(|i| (i as u8 * step, i)).collect();
+        // Slots but no channel sets: uniform steps. The `checked_div` can
+        // never miss — `.max(1)` rules out a zero divisor — and when
+        // there is exactly one slot the truncating `256 -> u8` step below
+        // is inert either way, since a lone entry at byte 0 already
+        // covers every byte.
+        let divisor = spec.slots.len().max(1);
+        let step = u8_of_usize(256usize.checked_div(divisor).unwrap_or(256));
+        spec.select = (0..spec.slots.len())
+            .map(|i| (u8_of_usize(i).saturating_mul(step), i))
+            .collect();
     }
     spec.fill_with_builtins();
     Ok(Some(spec))
 }
 
+/// Reads one `Gobo1` logical channel: each function's select bytes or
+/// spin range, then — once, from the first function that names a wheel —
+/// the wheel's own slot art out of the archive.
+///
+/// # Errors
+///
+/// If a slot's media file can't be read out of the archive.
+fn read_gobo_channel(
+    logical: &LogicalChannel,
+    fixture_type: &FixtureType,
+    resources: &mut ResourceMap,
+    spec: &mut WheelSpec,
+) -> anyhow::Result<()> {
+    let mut wheel_name = None;
+    let functions = &logical.channel_functions;
+    for (i, f) in functions.iter().enumerate() {
+        let fattr = f.attribute.to_string();
+        let from = dmx_byte(f.dmx_from);
+        let to = functions
+            .get(i.saturating_add(1))
+            .map_or(255, |n| dmx_byte(n.dmx_from).saturating_sub(1));
+        if wheel_name.is_none() {
+            wheel_name = f.wheel.as_ref().map(std::string::ToString::to_string);
+        }
+        if fattr.contains("Spin") {
+            let name = f.name.as_deref().map(str::to_lowercase).unwrap_or_default();
+            let sign = if name.contains("counter") || name.contains("ccw") {
+                -1.0
+            } else {
+                1.0
+            };
+            spec.spin.push((from, to, sign));
+        } else if fattr == "Gobo1" || fattr.contains("Shake") {
+            for set in &f.channel_sets {
+                // The crate hands `WheelSlotIndex` back
+                // zero-based, `None` for a set with none.
+                if let Some(index) = set.wheel_slot_index.filter(|i| *i >= 0) {
+                    spec.select
+                        .push((dmx_byte(set.dmx_from), usize_of_i32(index)));
+                }
+            }
+        }
+    }
+    let wheel = wheel_name.as_deref().and_then(|n| fixture_type.wheel(n));
+    if let Some(wheel) = wheel {
+        for slot in &wheel.slots {
+            let mask = match &slot.media_name {
+                Some(media) => {
+                    let mut bytes = Vec::new();
+                    match resources.read_wheel_media(media) {
+                        Ok(mut r) => {
+                            r.read_to_end(&mut bytes)?;
+                            GoboMask::from_png(&bytes).ok()
+                        }
+                        Err(_) => None,
+                    }
+                }
+                None => None,
+            };
+            spec.has_art |= mask.is_some();
+            spec.slots.push(mask);
+        }
+    }
+    Ok(())
+}
+
+/// Reads one `Prism1` logical channel: the byte the prism engages at,
+/// and separately the byte its rotation range starts at when the mode
+/// has one.
+fn read_prism_channel(logical: &LogicalChannel, spec: &mut WheelSpec) {
+    let functions = &logical.channel_functions;
+    for f in functions {
+        let fattr = f.attribute.to_string();
+        let name = f.name.as_deref().map(str::to_lowercase).unwrap_or_default();
+        let from = dmx_byte(f.dmx_from);
+        let closed = name.contains("closed")
+            || name.contains("off")
+            || name.contains("no prism")
+            || (f.physical_from == 0.0 && f.physical_to == 0.0);
+        if fattr.contains("Spin") || name.contains("rotat") {
+            spec.prism_spin_from.get_or_insert(from);
+            spec.prism_from.get_or_insert_with(|| from.max(1));
+        } else if !closed {
+            spec.prism_from.get_or_insert_with(|| from.max(1));
+        }
+    }
+}
+
 fn dmx_byte(value: gdtf::values::DmxValue) -> u8 {
-    let bits = 8 * value.bytes().get() as u32;
-    let max = ((1u64 << bits) - 1) as f64;
-    ((value.value() as f64 / max) * 255.0)
-        .round()
-        .clamp(0.0, 255.0) as u8
+    let bits = 8u32.saturating_mul(u32::from(value.bytes().get()));
+    // The largest value `bits` bits can hold, as the `f64` denominator of
+    // a 0..=max ratio. `checked_shl` (rather than bare `<<`) turns an
+    // implausibly wide `bits` into 0 instead of a shift-amount panic; a
+    // 0..=-1 range collapsing to a 0 max only matters if `value.value()`
+    // is also 0 there, which it is — so the ratio below is still 0/0,
+    // same as it always was for an empty range.
+    let max = f64_of_u64(1u64.checked_shl(bits).unwrap_or(0).saturating_sub(1));
+    byte_of_f64((f64_of_u64(value.value()) / max) * 255.0)
 }
 
 // ── library ──────────────────────────────────────────────────────────────
@@ -579,16 +675,19 @@ pub struct GoboLibrary {
 
 impl GoboLibrary {
     /// The wheel for a fixture type, or the built-in one.
+    #[must_use]
     pub fn wheel(&self, fixture_type_name: Option<&str>) -> Option<&LoadedWheel> {
         fixture_type_name
             .and_then(|n| self.by_type.get(&normalize(n)))
             .or(self.fallback.as_ref())
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.by_type.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.by_type.is_empty()
     }
@@ -597,6 +696,7 @@ impl GoboLibrary {
 /// The same directories `GdtfLibrary::load_default` reads, in the same
 /// order, so the wheel found for a fixture type is the one whose
 /// geometry is drawn.
+#[must_use]
 pub fn gdtf_files() -> Vec<PathBuf> {
     let candidates = [
         PathBuf::from("data/gdtf"),
@@ -640,7 +740,7 @@ fn fixture_type_name(path: &Path) -> Option<String> {
     gdtf.description
         .fixture_types
         .first()
-        .and_then(|t| t.name.as_ref().map(|n| n.to_string()))
+        .and_then(|t| t.name.as_ref().map(std::string::ToString::to_string))
 }
 
 fn normalize(s: &str) -> String {
@@ -692,6 +792,10 @@ pub struct GoboFacet(pub usize);
 
 /// Hangs a projector off every new emitter of a fixture with a gobo
 /// wheel channel.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Bevy system params (Res, Option<Res>) are taken by value by the system signature itself; see docs/ops/clippy.md"
+)]
 fn attach_gobo_projectors(
     mut commands: Commands,
     venue: Res<VenueRes>,
@@ -738,16 +842,28 @@ fn attach_gobo_projectors(
 
 /// The width of the projected pattern at the surface it lands on: the
 /// beam's full field at `reach` metres.
+#[must_use]
 pub fn pattern_width(reach: f32, field_half_angle_deg: f32) -> f32 {
     2.0 * reach * field_half_angle_deg.to_radians().tan()
 }
 
-/// The local transform of facet `facet`'s decal under its emitter: a
-/// cube `width` across, `DECAL_DEPTH_FACTOR * reach` deep, its near
-/// face at the gate, projecting down the emitter's -Z. With the prism
-/// in, every facet is thrown `PRISM_SPREAD_DEG` off axis in a direction
-/// `prism_angle + facet * 120°` round the beam; the gobo's own spin is
-/// applied about the beam axis inside that.
+/// The local transform of facet `facet`'s decal under its emitter: a cube
+/// `width` across, `DECAL_DEPTH_FACTOR * reach` deep, its near face at the
+/// gate, projecting down the emitter's -Z.
+///
+/// With the prism in, every facet is thrown `PRISM_SPREAD_DEG` off axis in a
+/// direction `prism_angle + facet * 120°` round the beam; the gobo's own
+/// spin is applied about the beam axis inside that.
+// `Vec3`/`Quat` composition below is float, component-wise math with no
+// integer overflow to guard against — `arithmetic_side_effects` fires
+// on any operator-overloaded type, not just the primitive integers the
+// lint is really about (see docs/ops/clippy.md, and the same precedent
+// in `gdtf_geometry.rs::collect_beams`).
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat composition is float and cannot panic or overflow"
+)]
+#[must_use]
 pub fn facet_transform(
     facet: usize,
     reach: f32,
@@ -760,7 +876,7 @@ pub fn facet_transform(
     let depth = reach * DECAL_DEPTH_FACTOR;
     let spin_rot = Quat::from_rotation_z(spin);
     let rotation = if prism_in {
-        let phi = prism_angle + facet as f32 * TAU / PRISM_FACETS as f32;
+        let phi = prism_angle + f32_of_usize(facet) * TAU / f32_of_usize(PRISM_FACETS);
         Quat::from_rotation_z(phi)
             * Quat::from_rotation_x(PRISM_SPREAD_DEG.to_radians())
             * Quat::from_rotation_z(-phi)
@@ -788,7 +904,23 @@ fn forced_bytes() -> Option<(u8, Option<u8>)> {
 
 /// Points every projector's decals down its beam, sized to the surface
 /// the beam lands on, showing the slot the wire selected.
-#[allow(clippy::type_complexity)]
+#[expect(
+    clippy::type_complexity,
+    reason = "Bevy query tuples name their own component set; a type alias would move the shape away from its one call site"
+)]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Bevy system params (Res) are taken by value by the system signature itself; see docs/ops/clippy.md"
+)]
+// `Vec3`/`Quat` composition below (the beam direction, the facet
+// transform's translation) is float, component-wise math with no
+// integer overflow to guard against — `arithmetic_side_effects` fires
+// on any operator-overloaded type, not just the primitive integers the
+// lint is really about (see docs/ops/clippy.md).
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3/Quat composition is float and cannot panic or overflow"
+)]
 fn update_gobo_projectors(
     time: Res<Time>,
     venue: Res<VenueRes>,
@@ -817,7 +949,7 @@ fn update_gobo_projectors(
         let wheel = library.wheel(projector.fixture_type.as_deref());
         let live = live.0.get(emitter.fixture).and_then(|o| o.as_ref());
         let (gobo_byte, prism_byte) = match forced {
-            Some((g, p)) => (Some(g), p.or(live.and_then(|l| l.prism))),
+            Some((g, p)) => (Some(g), p.or_else(|| live.and_then(|l| l.prism))),
             None => (live.and_then(|l| l.gobo), live.and_then(|l| l.prism)),
         };
 
@@ -825,7 +957,7 @@ fn update_gobo_projectors(
         let mut prism_in = false;
         if let (Some(wheel), Some(byte)) = (wheel, gobo_byte) {
             if let Some(slot) = wheel.spec.slot_for_byte(byte) {
-                image = wheel.images[slot].clone();
+                image.clone_from(wheel.images.get(slot).unwrap_or(&None));
             }
             match wheel.spec.spin_for_byte(byte) {
                 Some(speed) => projector.spin += speed * dt,
@@ -875,7 +1007,7 @@ fn update_gobo_projectors(
                 projector.prism,
             );
             if decal.base_color_texture != image {
-                decal.base_color_texture = image.clone();
+                decal.base_color_texture.clone_from(&image);
             }
         }
     }
@@ -902,10 +1034,9 @@ mod tests {
         .expect("Lixada mode has a Gobo1 channel");
         assert!(spec.has_art);
         assert_eq!(spec.slots.len(), 8);
-        let art: Vec<_> = spec.slots.iter().filter(|s| s.is_some()).collect();
+        let art_count = spec.slots.iter().filter(|s| s.is_some()).count();
         assert_eq!(
-            art.len(),
-            7,
+            art_count, 7,
             "seven slots carry PNGs, the placeholder is open"
         );
         assert!(spec.slots[7].is_none());
@@ -958,7 +1089,7 @@ mod tests {
         .unwrap();
         assert!(!spec.has_art);
         assert!(spec.slots[0].is_none());
-        assert!(spec.slots[1..].iter().all(|s| s.is_some()));
+        assert!(spec.slots[1..].iter().all(std::option::Option::is_some));
         assert!(spec.spin_for_byte(0).is_none());
         assert!(spec.spin_for_byte(150).is_some());
     }
@@ -971,7 +1102,10 @@ mod tests {
         let mut fractions = Vec::new();
         for (name, mask) in &set {
             assert_eq!(mask.size, GOBO_SIZE);
-            assert_eq!(mask.rgba.len(), (GOBO_SIZE * GOBO_SIZE * 4) as usize);
+            assert_eq!(
+                mask.rgba.len(),
+                usize_of_u32(GOBO_SIZE.saturating_mul(GOBO_SIZE).saturating_mul(4))
+            );
             let open = mask.open_fraction();
             if *name == "open" {
                 assert!(open > 0.75, "open is the whole gate, got {open}");
@@ -982,7 +1116,7 @@ mod tests {
                 );
             }
             // Outside the gate is always blocked.
-            assert_eq!(mask.openness(0, 0), 0.0);
+            assert!((mask.openness(0, 0) - (0.0)).abs() < 1e-6);
             fractions.push(mask.rgba.clone());
         }
         fractions.sort();
@@ -996,12 +1130,12 @@ mod tests {
         let reach = 6.0;
         let half = 12.5_f32;
         let width = pattern_width(reach, half);
-        assert!((width - 2.0 * reach * half.to_radians().tan()).abs() < 1e-5);
+        assert!((2.0 * reach).mul_add(-half.to_radians().tan(), width).abs() < 1e-5);
         let t = facet_transform(0, reach, width, 0.0, false, 0.0);
         assert_eq!(t.scale, Vec3::new(width, width, reach * DECAL_DEPTH_FACTOR));
         // Near face at the gate, projecting down -Z past the surface.
-        let near = t.translation.z + t.scale.z * 0.5;
-        let far = t.translation.z - t.scale.z * 0.5;
+        let near = t.scale.z.mul_add(0.5, t.translation.z);
+        let far = t.scale.z.mul_add(-0.5, t.translation.z);
         assert!(near.abs() < 1e-5);
         assert!(far < -reach);
         // Spin turns the pattern about the beam, not the beam itself.
@@ -1031,7 +1165,10 @@ mod tests {
             // Projected onto the plane across the beam, neighbours sit 120 deg apart.
             let (pa, pb) = (a.truncate(), b.truncate());
             let sep = pa.angle_to(pb).abs().to_degrees();
-            assert!((sep - 360.0 / PRISM_FACETS as f32).abs() < 0.1, "{sep}");
+            assert!(
+                (sep - 360.0 / f32_of_usize(PRISM_FACETS)).abs() < 0.1,
+                "{sep}"
+            );
         }
         // Rotating the prism turns the triplet round the beam.
         let turned =

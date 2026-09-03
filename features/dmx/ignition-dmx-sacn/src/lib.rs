@@ -30,7 +30,8 @@ const ACN_PACKET_ID: [u8; 12] = *b"ASC-E1.17\0\0\0";
 
 /// The multicast group a universe is sent to: `239.255.hi.lo:5568`.
 // r[impl dmx.sacn.addressing]
-pub fn multicast_addr(universe: u16) -> SocketAddr {
+#[must_use]
+pub const fn multicast_addr(universe: u16) -> SocketAddr {
     let [hi, lo] = universe.to_be_bytes();
     SocketAddr::V4(SocketAddrV4::new(
         Ipv4Addr::new(239, 255, hi, lo),
@@ -41,6 +42,7 @@ pub fn multicast_addr(universe: u16) -> SocketAddr {
 /// A live data frame for one universe.
 // r[impl dmx.sacn.priority]
 // r[impl dmx.sequence]
+#[must_use]
 pub fn data_packet(
     cid: &[u8; 16],
     source_name: &str,
@@ -55,6 +57,7 @@ pub fn data_packet(
 /// The frame a source sends (three times) when it leaves a universe,
 /// so nodes release it at once instead of waiting out their timeout.
 // r[impl dmx.sacn.addressing]
+#[must_use]
 pub fn terminate_packet(
     cid: &[u8; 16],
     source_name: &str,
@@ -73,9 +76,22 @@ pub fn terminate_packet(
     )
 }
 
-fn flags_length(len: usize) -> [u8; 2] {
+/// The one place a PDU length becomes the low 12 bits of an ACN
+/// flags/length word. Every packet this crate builds is a fixed, small
+/// size (at most `DATA_PACKET_LEN`), so the truncation the cast performs
+/// never discards anything the mask has not already accounted for.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "packet lengths here are all under 4096; see the doc comment"
+)]
+const fn low_12_bits(len: usize) -> u16 {
+    (len & 0x0fff) as u16
+}
+
+const fn flags_length(len: usize) -> [u8; 2] {
     // High nibble 0x7 (the ACN "flags"), low 12 bits the PDU length.
-    (0x7000 | (len as u16 & 0x0fff)).to_be_bytes()
+    (0x7000 | low_12_bits(len)).to_be_bytes()
 }
 
 fn build(
@@ -104,9 +120,14 @@ fn build(
     // never cut a multi-byte character in half.
     let mut n = bytes.len().min(SOURCE_NAME_LEN - 1);
     while n > 0 && !source_name.is_char_boundary(n) {
-        n -= 1;
+        n = n.saturating_sub(1);
     }
-    name[..n].copy_from_slice(&bytes[..n]);
+    // `n` is bounded by `SOURCE_NAME_LEN - 1` and by `bytes.len()` above,
+    // so both slices always exist; the `if let` is the audited-`get`
+    // idiom rather than a real fallback path.
+    if let (Some(dst), Some(src)) = (name.get_mut(..n), bytes.get(..n)) {
+        dst.copy_from_slice(src);
+    }
     p.extend_from_slice(&name);
     p.push(priority.min(200));
     p.extend_from_slice(&0u16.to_be_bytes()); // synchronization address
@@ -140,37 +161,52 @@ pub struct DataPacket {
 }
 
 impl DataPacket {
-    pub fn is_terminated(&self) -> bool {
+    #[must_use]
+    pub const fn is_terminated(&self) -> bool {
         self.options & OPTION_STREAM_TERMINATED != 0
     }
 }
 
+/// A big-endian field read out of a buffer whose length has not been
+/// checked yet — every offset in `parse` comes from the wire, so this
+/// is `get`, never `[]`.
+fn be32(buf: &[u8], i: usize) -> Option<u32> {
+    let end = i.checked_add(4)?;
+    Some(u32::from_be_bytes(buf.get(i..end)?.try_into().ok()?))
+}
+
+fn be16(buf: &[u8], i: usize) -> Option<u16> {
+    let end = i.checked_add(2)?;
+    Some(u16::from_be_bytes(buf.get(i..end)?.try_into().ok()?))
+}
+
 /// Parse a data packet. Returns `None` for anything that is not an
 /// E1.31 data packet with a level (start code 0) or other payload.
+#[must_use]
 pub fn parse(buf: &[u8]) -> Option<DataPacket> {
-    if buf.len() < 126 || buf[4..16] != ACN_PACKET_ID {
+    if buf.len() < 126 || buf.get(4..16)? != ACN_PACKET_ID {
         return None;
     }
-    let be32 = |i: usize| Some(u32::from_be_bytes(buf[i..i + 4].try_into().ok()?));
-    let be16 = |i: usize| u16::from_be_bytes([buf[i], buf[i + 1]]);
-    if be32(18)? != VECTOR_ROOT_DATA || be32(40)? != VECTOR_FRAMING_DATA {
+    if be32(buf, 18)? != VECTOR_ROOT_DATA || be32(buf, 40)? != VECTOR_FRAMING_DATA {
         return None;
     }
     let mut cid = [0u8; 16];
-    cid.copy_from_slice(&buf[22..38]);
-    let name_end = buf[44..108].iter().position(|b| *b == 0).unwrap_or(64);
-    let source_name = String::from_utf8_lossy(&buf[44..44 + name_end]).into_owned();
-    let priority = buf[108];
-    let sequence = buf[111];
-    let options = buf[112];
-    let universe = be16(113);
-    if buf[117] != VECTOR_DMP_SET_PROPERTY || buf[118] != 0xa1 {
+    cid.copy_from_slice(buf.get(22..38)?);
+    let name_field = buf.get(44..108)?;
+    let name_end = name_field.iter().position(|b| *b == 0).unwrap_or(64);
+    let source_name = String::from_utf8_lossy(name_field.get(..name_end)?).into_owned();
+    let priority = *buf.get(108)?;
+    let sequence = *buf.get(111)?;
+    let options = *buf.get(112)?;
+    let universe = be16(buf, 113)?;
+    if buf.get(117) != Some(&VECTOR_DMP_SET_PROPERTY) || buf.get(118) != Some(&0xa1) {
         return None;
     }
-    let count = be16(123) as usize;
-    if count == 0 || buf.len() < 125 + count {
+    let count = usize::from(be16(buf, 123)?);
+    if count == 0 {
         return None;
     }
+    let data_end = 125usize.checked_add(count)?;
     Some(DataPacket {
         cid,
         source_name,
@@ -178,8 +214,8 @@ pub fn parse(buf: &[u8]) -> Option<DataPacket> {
         sequence,
         options,
         universe,
-        start_code: buf[125],
-        data: buf[126..125 + count].to_vec(),
+        start_code: *buf.get(125)?,
+        data: buf.get(126..data_end)?.to_vec(),
     })
 }
 
@@ -194,8 +230,8 @@ mod tests {
 
     fn ramp() -> [u8; 512] {
         let mut d = [0u8; 512];
-        for (i, b) in d.iter_mut().enumerate() {
-            *b = (i % 256) as u8;
+        for (b, v) in d.iter_mut().zip((0u8..=255).cycle()) {
+            *b = v;
         }
         d
     }

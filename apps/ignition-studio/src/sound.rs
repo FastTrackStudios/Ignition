@@ -27,6 +27,7 @@
 #![cfg_attr(not(feature = "sound"), allow(dead_code))]
 
 use crate::command::Sender;
+use crate::num;
 
 /// Samples per analysis hop. ~11.6 ms at 44.1 kHz: fine enough that an
 /// onset lands within a frame, coarse enough that a hop's energy is a
@@ -128,7 +129,7 @@ impl Detector {
 
     /// Seconds of audio consumed.
     pub fn now(&self) -> f32 {
-        self.samples as f32 / self.sample_rate
+        num::f32_of_u64(self.samples) / self.sample_rate
     }
 
     /// Consumes mono samples and returns whatever they produced.
@@ -143,7 +144,7 @@ impl Detector {
             self.acc[1] += mid * mid;
             self.acc[2] += high * high;
             self.hop.push(x);
-            self.samples += 1;
+            self.samples = self.samples.saturating_add(1);
             if self.hop.len() == HOP {
                 self.finish_hop(&mut events);
             }
@@ -152,7 +153,7 @@ impl Detector {
     }
 
     fn finish_hop(&mut self, events: &mut Vec<Event>) {
-        let n = HOP as f32;
+        let n = num::f32_of_usize(HOP);
         let rms = |sum: f32| (sum / n).sqrt();
         // Meters move fast up and slow down, the way a VU does, so a
         // kick reads as a kick rather than as a wobble.
@@ -160,7 +161,7 @@ impl Detector {
             if next > current {
                 next
             } else {
-                current + (next - current) * 0.25
+                (next - current).mul_add(0.25, current)
             }
         };
         let (l, m, h) = (rms(self.acc[0]), rms(self.acc[1]), rms(self.acc[2]));
@@ -177,7 +178,7 @@ impl Detector {
         let baseline = if self.energies.is_empty() {
             0.0
         } else {
-            self.energies.iter().sum::<f32>() / self.energies.len() as f32
+            self.energies.iter().sum::<f32>() / num::f32_of_usize(self.energies.len())
         };
         let flux = (energy - baseline).max(0.0);
         self.energies.push(energy);
@@ -189,7 +190,7 @@ impl Detector {
         // a quiet room and a loud one both find their hits, with a
         // floor so silence does not fire on nothing.
         let (mean, std) = mean_std(&self.fluxes);
-        let threshold = (mean + 2.5 * std).max(1e-5);
+        let threshold = 2.5f32.mul_add(std, mean).max(1e-5);
         self.fluxes.push(flux);
         if self.fluxes.len() > 64 {
             self.fluxes.remove(0);
@@ -221,7 +222,7 @@ fn mean_std(values: &[f32]) -> (f32, f32) {
     if values.is_empty() {
         return (0.0, 0.0);
     }
-    let n = values.len() as f32;
+    let n = num::f32_of_usize(values.len());
     let mean = values.iter().sum::<f32>() / n;
     let var = values.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / n;
     (mean, var.sqrt())
@@ -229,10 +230,22 @@ fn mean_std(values: &[f32]) -> (f32, f32) {
 
 /// Folds a BPM into the range by octaves.
 fn fold(mut bpm: f32) -> f32 {
-    while bpm < BPM_MIN {
+    // `loop` + `break` rather than `while <float comparison>`: clippy's
+    // `while_float` flags a float condition on a `while` regardless of
+    // the operator, on the grounds that a `while` invites `==`/`!=`
+    // elsewhere in the file; this loop only ever compares with `<`/`>`,
+    // so restructuring it says that plainly instead of suppressing the
+    // lint.
+    loop {
+        if bpm >= BPM_MIN {
+            break;
+        }
         bpm *= 2.0;
     }
-    while bpm > BPM_MAX {
+    loop {
+        if bpm <= BPM_MAX {
+            break;
+        }
         bpm /= 2.0;
     }
     bpm
@@ -251,16 +264,19 @@ pub fn estimate_tempo(onsets: &[f32]) -> Option<f32> {
     if onsets.len() < 4 {
         return None;
     }
-    let mut bins = vec![0.0f32; (BPM_MAX - BPM_MIN) as usize + 2];
+    let mut bins = vec![0.0f32; num::usize_of_f32(BPM_MAX - BPM_MIN).saturating_add(2)];
     for (i, &a) in onsets.iter().enumerate() {
-        for (k, &b) in onsets.iter().enumerate().skip(i + 1).take(4) {
-            let span = (k - i) as f32;
+        for (k, &b) in onsets.iter().enumerate().skip(i.saturating_add(1)).take(4) {
+            // `k` only ever reaches here from `skip(i + 1)`, so it is
+            // always strictly greater than `i`; `saturating_sub` states
+            // that instead of asserting it.
+            let span = num::f32_of_usize(k.saturating_sub(i));
             let gap = b - a;
             if gap <= 0.0 || gap > 2.0 * span {
                 continue;
             }
             let bpm = fold(60.0 * span / gap);
-            let bin = (bpm - BPM_MIN).round() as usize;
+            let bin = num::usize_of_f32((bpm - BPM_MIN).round());
             if let Some(slot) = bins.get_mut(bin) {
                 // The nearest pair is the most trustworthy; a span of
                 // several is only a check on it.
@@ -273,14 +289,14 @@ pub fn estimate_tempo(onsets: &[f32]) -> Option<f32> {
         return None;
     }
     let lo = best.saturating_sub(1);
-    let hi = (best + 1).min(bins.len() - 1);
-    let mut num = 0.0;
+    let hi = best.saturating_add(1).min(bins.len().saturating_sub(1));
+    let mut weighted = 0.0;
     let mut den = 0.0;
-    for (i, w) in bins.iter().enumerate().take(hi + 1).skip(lo) {
-        num += w * (BPM_MIN + i as f32);
+    for (i, w) in bins.iter().enumerate().take(hi.saturating_add(1)).skip(lo) {
+        weighted += w * (BPM_MIN + num::f32_of_usize(i));
         den += w;
     }
-    Some(num / den)
+    Some(weighted / den)
 }
 
 /// Starts capture on the default input, if this build has one.
@@ -393,14 +409,17 @@ mod tests {
     /// between. Deterministic — no noise — so a failure is the
     /// detector's, not the dice's.
     fn click_track(bpm: f32, secs: f32) -> Vec<f32> {
-        let n = (RATE * secs) as usize;
-        let period = (RATE * 60.0 / bpm) as usize;
-        let click_len = (RATE * 0.02) as usize;
+        let n = num::usize_of_f32(RATE * secs);
+        let period = num::usize_of_f32(RATE * 60.0 / bpm);
+        let click_len = num::usize_of_f32(RATE * 0.02);
         (0..n)
             .map(|i| {
-                let since = i % period;
+                // `period` is built from a fixed, non-zero test `bpm`
+                // above, but `checked_rem` says that instead of trusting
+                // it silently the way a bare `%` would.
+                let since = i.checked_rem(period).unwrap_or(0);
                 if since < click_len {
-                    let t = since as f32 / RATE;
+                    let t = num::f32_of_usize(since) / RATE;
                     let env = (-t * 200.0).exp();
                     // A 1 kHz tone under the envelope; the sign
                     // alternation keeps it from being a DC step.
@@ -444,7 +463,7 @@ mod tests {
         assert!((bpm - 90.0).abs() <= 2.0, "{bpm}");
 
         let mut quiet = Detector::new(RATE);
-        let silence = vec![0.0f32; (RATE * 4.0) as usize];
+        let silence = vec![0.0f32; num::usize_of_f32(RATE * 4.0)];
         let events = quiet.push(&silence);
         assert!(events.is_empty(), "{events:?}");
         assert_eq!(quiet.tempo, None);
@@ -453,8 +472,10 @@ mod tests {
     #[test]
     fn the_bands_split_where_the_energy_is() {
         let tone = |hz: f32| -> Vec<f32> {
-            (0..(RATE as usize))
-                .map(|i| (2.0 * std::f32::consts::PI * hz * i as f32 / RATE).sin() * 0.5)
+            (0..num::usize_of_f32(RATE))
+                .map(|i| {
+                    (2.0 * std::f32::consts::PI * hz * num::f32_of_usize(i) / RATE).sin() * 0.5
+                })
                 .collect()
         };
         let mut d = Detector::new(RATE);
@@ -479,11 +500,11 @@ mod tests {
     #[test]
     fn tempo_needs_enough_onsets_and_folds_octaves() {
         assert_eq!(estimate_tempo(&[0.0, 0.5]), None);
-        let beats: Vec<f32> = (0..12).map(|i| i as f32 * 0.5).collect();
+        let beats: Vec<f32> = (0..12).map(|i| num::f32_of_i32(i) * 0.5).collect();
         let bpm = estimate_tempo(&beats).unwrap();
         assert!((bpm - 120.0).abs() < 1.0, "{bpm}");
         // Sixteenths at 120 are 480 BPM and fold to 120.
-        let fast: Vec<f32> = (0..48).map(|i| i as f32 * 0.125).collect();
+        let fast: Vec<f32> = (0..48).map(|i| num::f32_of_i32(i) * 0.125).collect();
         let bpm = estimate_tempo(&fast).unwrap();
         assert!((bpm - 120.0).abs() < 1.0, "{bpm}");
     }

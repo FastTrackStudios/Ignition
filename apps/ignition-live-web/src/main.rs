@@ -18,10 +18,18 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::Closure;
 use web_sys::{MessageEvent, WebSocket};
 
+#[expect(
+    clippy::volatile_composites,
+    reason = "the asset! macro generates a const with volatile inner types; this is a limitation of the dioxus macro system"
+)]
 const MANIFEST: Asset = asset!("/assets/manifest.json");
 /// Compiled by `dx build` from `tailwind.css` at the crate root, the
 /// same way the desk's is. Present so a shared `ignition-live-ui` pane
 /// may use a utility class and have it work here too — see that file.
+#[expect(
+    clippy::volatile_composites,
+    reason = "the asset! macro generates a const with volatile inner types; this is a limitation of the dioxus macro system"
+)]
 const TAILWIND: Asset = asset!("/assets/tailwind.css");
 const BASE_CSS: &str = include_str!("base.css");
 
@@ -64,12 +72,13 @@ fn App() -> Element {
         });
         spawn(async move {
             while let Some(command) = out_rx.next().await {
-                let text = serde_json::to_string(&command).expect("json");
-                SOCKET.with(|s| {
-                    if let Some(ws) = s.borrow().as_ref() {
-                        let _ = ws.send_with_str(&text);
-                    }
-                });
+                if let Ok(text) = serde_json::to_string(&command) {
+                    SOCKET.with(|s| {
+                        if let Some(ws) = s.borrow().as_ref() {
+                            let _ = ws.send_with_str(&text);
+                        }
+                    });
+                }
             }
         });
     });
@@ -113,6 +122,11 @@ fn App() -> Element {
         });
     });
 
+    let content = boot().map_or_else(
+        || rsx! { div { class: "connecting", "connecting to the studio" } },
+        |boot| rsx! { ignition_live_ui::pointer::PointerRoot { Views { boot } } },
+    );
+
     rsx! {
         document::Title { "Ignition Live" }
         // No pinch-zoom: a fader drag must never become a zoom, and
@@ -136,10 +150,7 @@ fn App() -> Element {
             if !online() {
                 div { class: "offline", "no studio — reconnecting" }
             }
-            match boot() {
-                Some(boot) => rsx! { ignition_live_ui::pointer::PointerRoot { Views { boot } } },
-                None => rsx! { div { class: "connecting", "connecting to the studio" } },
-            }
+            {content}
         }
     }
 }
@@ -147,6 +158,10 @@ fn App() -> Element {
 /// Open the socket to the page's own host and route its events into
 /// the channel. The closures are leaked deliberately: they live as
 /// long as the socket, which lives as long as the page.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tx is cloned into multiple long-lived closures that are leaked; each needs its own owned copy"
+)]
 fn connect(tx: futures_channel::mpsc::UnboundedSender<Incoming>) {
     let Some(window) = web_sys::window() else {
         return;
@@ -185,6 +200,10 @@ fn connect(tx: futures_channel::mpsc::UnboundedSender<Incoming>) {
     on_message.forget();
 
     let on_close = {
+        #[expect(
+            clippy::redundant_clone,
+            reason = "each long-lived closure is forgotten and needs its own owned copy of the sender"
+        )]
         let tx = tx.clone();
         Closure::<dyn FnMut()>::new(move || {
             let _ = tx.unbounded_send(Incoming::Closed);

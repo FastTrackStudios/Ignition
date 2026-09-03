@@ -19,6 +19,7 @@ pub mod desk;
 pub mod faders;
 pub mod library;
 pub mod live;
+mod numeric;
 pub mod operators;
 pub mod panes;
 pub mod pointer;
@@ -43,7 +44,7 @@ pub trait Bridge: Send + Sync {
 
 impl<F: Fn(Command) + Send + Sync> Bridge for F {
     fn send(&self, command: Command) {
-        self(command)
+        self(command);
     }
 }
 
@@ -55,10 +56,11 @@ pub fn install(bridge: impl Bridge + 'static) {
     let _ = BRIDGE.set(Box::new(bridge));
 }
 
-/// A free function rather than a captured closure: every control needs
-/// to send, closures in `rsx!` are `FnMut`, and a captured sender
-/// cannot be moved out of one more than once. Before `install`, a
-/// command is dropped — there is nothing to send it to.
+/// A free function rather than a captured closure.
+///
+/// Every control needs to send, closures in `rsx!` are `FnMut`, and a
+/// captured sender cannot be moved out of one more than once. Before
+/// `install`, a command is dropped — there is nothing to send it to.
 pub fn send(command: Command) {
     if let Some(bridge) = BRIDGE.get() {
         bridge.send(command);
@@ -78,6 +80,7 @@ pub struct PlayheadFeed(pub Signal<Playhead>);
 /// The whole playhead. Every read of this re-renders with the song
 /// clock; prefer [`use_desk`] or [`use_current_cue`] for a control that
 /// only cares about a slice.
+#[must_use]
 pub fn use_playhead() -> Signal<Playhead> {
     use_context::<PlayheadFeed>().0
 }
@@ -85,16 +88,19 @@ pub fn use_playhead() -> Signal<Playhead> {
 /// Only the cue the player is standing on. A memo, so the cue list —
 /// a hundred-odd rows that only care which one is lit — diffs only
 /// when the cue actually changes.
+#[must_use]
 pub fn use_current_cue() -> Memo<Option<usize>> {
     let playhead = use_playhead();
     use_memo(move || playhead().cue)
 }
 
 /// The standing cue's fade, 0 to 1, and which cue is next with how long
-/// until it takes itself. Narrowed from the playhead for the same
-/// reason `use_current_cue` is: a hundred rows should not re-render
-/// because the song clock moved.
+/// until it takes itself.
+///
+/// Narrowed from the playhead for the same reason `use_current_cue` is:
+/// a hundred rows should not re-render because the song clock moved.
 // r[impl studio.cuelist.live-state]
+#[must_use]
 pub fn use_cue_progress() -> Memo<(f32, Option<usize>, Option<f32>)> {
     let playhead = use_playhead();
     use_memo(move || {
@@ -107,6 +113,7 @@ pub fn use_cue_progress() -> Memo<(f32, Option<usize>, Option<f32>)> {
 }
 
 /// Which hit is ringing, for the list.
+#[must_use]
 pub fn use_ringing_hit() -> Memo<Option<usize>> {
     let playhead = use_playhead();
     use_memo(move || playhead().hit)
@@ -129,6 +136,7 @@ pub struct Desk {
 }
 
 impl Desk {
+    #[must_use]
     pub fn of(playhead: &Playhead) -> Self {
         Self {
             page: playhead.page,
@@ -145,6 +153,7 @@ impl Desk {
     }
 }
 
+#[must_use]
 pub fn use_desk() -> Memo<Desk> {
     let playhead = use_playhead();
     use_memo(move || Desk::of(&playhead()))
@@ -155,7 +164,7 @@ pub fn use_desk() -> Memo<Desk> {
 /// A colour palette entry as the surface draws it: the name to send, and
 /// the colour to show. A colour pool that does not show its colours is a
 /// list of words, which is the whole reason to have a pool.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ColorChip {
     pub name: String,
     /// The flat fill, for anywhere the swatch is a bar rather than a
@@ -183,6 +192,7 @@ pub struct ColorChip {
 
 impl ColorChip {
     /// A single colour, with no palette behind it.
+    #[must_use]
     pub fn solid(name: impl Into<String>, css: impl Into<String>) -> Self {
         let css = css.into();
         Self {
@@ -200,8 +210,9 @@ impl ColorChip {
     /// the eye reads as brightness, blue almost none, which is why a
     /// plain average calls Deep Blue light and Straw dark — both
     /// backwards.
+    #[must_use]
     pub fn is_light(red: f32, green: f32, blue: f32) -> bool {
-        0.2126 * red + 0.7152 * green + 0.0722 * blue > 0.55
+        0.0722f32.mul_add(blue, 0.2126f32.mul_add(red, 0.7152 * green)) > 0.55
     }
 
     /// The fill for a **round** swatch.
@@ -212,10 +223,14 @@ impl ColorChip {
     /// reads as one muddy colour at swatch size, which is the whole
     /// problem: two palettes that differ only in their third colour
     /// look identical.
+    #[must_use]
     pub fn disc(&self) -> String {
         match self.colors.len() {
             0 => self.css.clone(),
-            1 => self.colors[0].clone(),
+            1 => self
+                .colors
+                .first()
+                .map_or_else(|| self.css.clone(), Clone::clone),
             n if self.spread => {
                 // A sweep has to close the loop or the last colour meets
                 // the first at a seam the eye reads as a wedge that is
@@ -224,15 +239,18 @@ impl ColorChip {
                     .colors
                     .iter()
                     .enumerate()
-                    .map(|(i, c)| format!("{c} {:.2}deg", i as f32 * 360.0 / n as f32))
+                    .map(|(i, c)| format!("{c} {:.2}deg", count_f32(i) * 360.0 / count_f32(n)))
                     .collect();
-                stops.push(format!("{} 360deg", self.colors[0]));
+                let Some(first) = self.colors.first() else {
+                    return self.css.clone();
+                };
+                stops.push(format!("{first} 360deg"));
                 format!("conic-gradient({})", stops.join(", "))
             }
             n => {
                 // Hard wedges: each colour owns its arc outright, which
                 // is what "cycle" and "block" actually do on the rig.
-                let step = 360.0 / n as f32;
+                let step = 360.0 / count_f32(n);
                 let wedges: Vec<String> = self
                     .colors
                     .iter()
@@ -240,8 +258,8 @@ impl ColorChip {
                     .map(|(i, c)| {
                         format!(
                             "{c} {:.2}deg {:.2}deg",
-                            i as f32 * step,
-                            (i + 1) as f32 * step
+                            count_f32(i) * step,
+                            count_f32(i.saturating_add(1)) * step
                         )
                     })
                     .collect();
@@ -249,6 +267,21 @@ impl ColorChip {
             }
         }
     }
+}
+
+/// A wedge count or index as a float, for spacing a palette's colours
+/// round a disc.
+///
+/// A colour chip's palette is a handful of entries at most — nowhere
+/// near the 2^24 where an `f32` stops counting integers exactly — so the
+/// conversion is total in practice, and this is the one place it happens.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "a palette's colour count is small; see the doc comment"
+)]
+const fn count_f32(n: usize) -> f32 {
+    n as f32
 }
 
 /// The named things the surface offers, resolved once from the venue by
@@ -266,8 +299,10 @@ pub struct Surface {
 }
 
 /// One line of the cue list: a cue the operator can GO, or a hit the
-/// song fires. Hits are shown because an operator wants to see what is
-/// coming and what just landed; they are not in the GO order — see
+/// song fires.
+///
+/// Hits are shown because an operator wants to see what is coming and
+/// what just landed; they are not in the GO order — see
 /// `docs/spec/triggers.md`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Row {
@@ -338,7 +373,7 @@ pub struct CueRow {
 /// same shape and a cue has one kind of subdivision rather than two.
 // r[impl cues.parts-are-recipes]
 // r[impl studio.cuelist.expand]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartRow {
     /// The part number — the recipe's place in the cue.
     pub number: usize,
@@ -366,7 +401,7 @@ pub struct PartRow {
 }
 
 /// One class's timing, condensed to a single cell.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClassCell {
     /// "dim", "col", "pos", "beam".
     pub class: String,
@@ -392,27 +427,39 @@ pub enum TrigKind {
 impl TrigKind {
     /// The glyph the list draws. One character, because the trigger
     /// column is read at a glance in the dark and a word is not.
-    pub fn glyph(self) -> &'static str {
+    #[must_use]
+    pub const fn glyph(self) -> &'static str {
         match self {
-            TrigKind::Go => "▶",
-            TrigKind::At => "♪",
-            TrigKind::Follow => "↳",
-            TrigKind::Sound => "≈",
+            Self::Go => "▶",
+            Self::At => "♪",
+            Self::Follow => "↳",
+            Self::Sound => "≈",
         }
     }
 
-    pub fn label(self) -> &'static str {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
         match self {
-            TrigKind::Go => "taken by hand",
-            TrigKind::At => "taken by the clock",
-            TrigKind::Follow => "follows the cue before it",
-            TrigKind::Sound => "taken by a sound event",
+            Self::Go => "taken by hand",
+            Self::At => "taken by the clock",
+            Self::Follow => "follows the cue before it",
+            Self::Sound => "taken by a sound event",
         }
     }
 }
 
 /// The flags a cue carries, as the list shows them: a row of chips,
 /// each present only when set.
+///
+/// Seven independent bools rather than a bitset: each one is a named
+/// JSON field a show file already carries (`block`, `assert`, …), and a
+/// bitset would trade that field-per-flag shape — readable in a diff,
+/// stable to reorder — for a packed representation with no reader-side
+/// benefit here.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one bool per independent cue flag, each its own show-file field; see the doc comment"
+)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Flags {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -433,6 +480,7 @@ pub struct Flags {
 
 impl Flags {
     /// `(chip, what it means)` for every flag that is set.
+    #[must_use]
     pub fn chips(self) -> Vec<(&'static str, &'static str)> {
         let mut out = Vec::new();
         if self.block {
@@ -491,23 +539,25 @@ pub enum CookState {
 }
 
 impl CookState {
-    pub fn css(self) -> &'static str {
+    #[must_use]
+    pub const fn css(self) -> &'static str {
         match self {
-            CookState::Cooked => "ok",
-            CookState::Failed => "bad",
-            CookState::Mixed => "warn",
-            CookState::Direct => "direct",
-            CookState::Empty => "dead",
+            Self::Cooked => "ok",
+            Self::Failed => "bad",
+            Self::Mixed => "warn",
+            Self::Direct => "direct",
+            Self::Empty => "dead",
         }
     }
 
-    pub fn label(self) -> &'static str {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
         match self {
-            CookState::Cooked => "every recipe resolves",
-            CookState::Failed => "a recipe resolves to nothing on this rig",
-            CookState::Mixed => "recipes and hand-placed values",
-            CookState::Direct => "hand-placed values only",
-            CookState::Empty => "dead: nothing in this cue resolves",
+            Self::Cooked => "every recipe resolves",
+            Self::Failed => "a recipe resolves to nothing on this rig",
+            Self::Mixed => "recipes and hand-placed values",
+            Self::Direct => "hand-placed values only",
+            Self::Empty => "dead: nothing in this cue resolves",
         }
     }
 }
@@ -528,10 +578,12 @@ pub enum Preset {
 }
 
 /// Everything a Live client needs to draw before the first playhead
-/// arrives: the surface, the desk banks, whose favourites, and — for
-/// the profile the library lists — the file profile the studio loaded,
-/// since the browser has no disk to read it from. Also which URLs the
-/// server is listening on, for the mode strip.
+/// arrives.
+///
+/// The surface, the desk banks, whose favourites, and — for the profile
+/// the library lists — the file profile the studio loaded, since the
+/// browser has no disk to read it from. Also which URLs the server is
+/// listening on, for the mode strip.
 // r[impl studio.touch.ipad] - the browser is bootstrapped, not configured
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Bootstrap {
@@ -551,7 +603,10 @@ pub struct Bootstrap {
 /// boxed; `Playhead` goes out on every frame the show moves, and boxing it
 /// would put an allocation on that path to save width on the one message
 /// that is never in a hurry. The enum is sized for the common case.
-#[allow(clippy::large_enum_variant)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Playhead is the hot path and stays unboxed; see the doc comment"
+)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", content = "v", rename_all = "snake_case")]
 pub enum ServerMessage {
@@ -562,17 +617,26 @@ pub enum ServerMessage {
 // ── Shared controls ──────────────────────────────────────────────────
 
 /// The horizontal slider's track width in CSS pixels, matching
-/// `live.css` / `studio.css`. Blitz reports pointer positions relative
-/// to the element but not the element's own width, so the maths needs
-/// the number from somewhere.
+/// `live.css` / `studio.css`.
+///
+/// Blitz reports pointer positions relative to the element but not the
+/// element's own width, so the maths needs the number from somewhere.
 pub const HSLIDER_WIDTH: f32 = 90.0;
 
 /// A small horizontal slider, for the trims. Divs, not a range input,
 /// so it draws the same on Blitz and in Safari and so the grab area is
-/// the whole track. Latched on press, it follows the window's pointer
+/// the whole track.
+///
+/// Latched on press, it follows the window's pointer
 /// (`pointer::PointerRoot`) until the release, wherever that is, and
 /// the value moves by how far the hand moved.
 #[component]
+#[expect(
+    clippy::float_cmp,
+    reason = "`v` is `level`'s own last value re-derived from the same \
+              latch, so exact equality is the right test for \"nothing \
+              moved\" — see the doc comment"
+)]
 pub fn HSlider(initial: f32, on_change: EventHandler<f32>) -> Element {
     let mut level = use_signal(|| initial);
     let mut latch = use_signal(|| Option::<pointer::Latch>::None);
@@ -600,7 +664,7 @@ pub fn HSlider(initial: f32, on_change: EventHandler<f32>) -> Element {
             onpointerdown: move |e| {
                 let p = e.data.client_coordinates();
                 latch.set(Some(pointer::Latch {
-                    at: (p.x as f32, p.y as f32),
+                    at: (pointer::coord(p.x), pointer::coord(p.y)),
                     level: level(),
                     ups: feed.peek().ups,
                 }));

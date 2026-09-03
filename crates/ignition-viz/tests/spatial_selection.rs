@@ -9,6 +9,14 @@
 use ignition_core::{Axis, Cmp, Dir, Order, Selection, Where};
 use ignition_viz::Venue;
 
+/// Loading the fixture the whole suite runs against, so a missing/broken
+/// extract fails loudly rather than each test discovering it separately.
+/// This helper is not itself `#[test]`-attributed, so `clippy.toml`'s
+/// `allow-expect-in-tests` does not reach it; see docs/ops/clippy.md.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture load failure is the test failure; see the doc comment"
+)]
 fn venue() -> Venue {
     Venue::load(concat!(
         env!("CARGO_MANIFEST_DIR"),

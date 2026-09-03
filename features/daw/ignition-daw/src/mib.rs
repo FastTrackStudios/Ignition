@@ -28,13 +28,10 @@ const MIB_FADE_BEATS: f32 = 2.0;
 pub(crate) fn leaves(selection: &Selection, out: &mut Vec<String>) {
     match selection {
         Selection::Group(n) | Selection::Role(n) | Selection::Tag(n) | Selection::Model(n) => {
-            out.push(n.clone())
+            out.push(n.clone());
         }
         Selection::Union(v) | Selection::Intersect(v) => v.iter().for_each(|s| leaves(s, out)),
         Selection::Except { .. } | Selection::Where { .. } | Selection::Order { .. } => {
-            let Ok(json) = serde_json::to_value(selection) else {
-                return;
-            };
             // Nested selections live under `of`, whatever the variant.
             fn walk(v: &serde_json::Value, out: &mut Vec<String>) {
                 if let Some(of) = v.get("of")
@@ -45,13 +42,16 @@ pub(crate) fn leaves(selection: &Selection, out: &mut Vec<String>) {
                     obj.values().for_each(|v| walk(v, out));
                 }
             }
+            let Ok(json) = serde_json::to_value(selection) else {
+                return;
+            };
             walk(&json, out);
         }
         _ => {}
     }
 }
 
-fn is_focus(apply: &RecipeApply) -> bool {
+const fn is_focus(apply: &RecipeApply) -> bool {
     matches!(
         apply,
         RecipeApply::FocusPoint(_)
@@ -95,15 +95,23 @@ fn moves(recipes: &[RecipeRef]) -> Moves {
 }
 
 /// Does this cue aim movers somewhere the previous aiming cue did not?
+///
+/// An out-of-range `index` has no cue to answer for, so this reads as
+/// "no, it does not re-aim" rather than panicking on a list that is
+/// itself just data.
+#[must_use]
 pub fn reaims(list: &CueList, index: usize) -> bool {
-    let mut last: BTreeMap<String, String> = BTreeMap::new();
-    for cue in &list.cues[..index] {
-        last.extend(moves(&cue.recipes).aims);
+    let Some(cue) = list.cues.get(index) else {
+        return false;
+    };
+    let mut aimed_before: BTreeMap<String, String> = BTreeMap::new();
+    for cue in list.cues.get(..index).unwrap_or(&[]) {
+        aimed_before.extend(moves(&cue.recipes).aims);
     }
-    moves(&list.cues[index].recipes)
+    moves(&cue.recipes)
         .aims
         .iter()
-        .any(|(leaf, focus)| last.get(leaf) != Some(focus))
+        .any(|(leaf, focus)| aimed_before.get(leaf) != Some(focus))
 }
 
 /// Flags pre-positioning on every cue that re-aims a mover.
@@ -119,14 +127,14 @@ pub fn reaims(list: &CueList, index: usize) -> bool {
 // r[impl cues.mib.timing] - the pre-position's own fade
 // r[impl cues.mib.preference] - sections over lifts
 pub fn set_mib(list: &mut CueList) {
-    let mut last: BTreeMap<String, String> = BTreeMap::new();
+    let mut aimed_before: BTreeMap<String, String> = BTreeMap::new();
     let mut dark: BTreeSet<String> = BTreeSet::new();
     for cue in &mut list.cues {
         let m = moves(&cue.recipes);
         let changed: Vec<&String> = m
             .aims
             .iter()
-            .filter(|(leaf, focus)| last.get(*leaf) != Some(*focus))
+            .filter(|(leaf, focus)| aimed_before.get(*leaf) != Some(*focus))
             .map(|(leaf, _)| leaf)
             .collect();
         if !changed.is_empty() {
@@ -152,12 +160,17 @@ pub fn set_mib(list: &mut CueList) {
         for leaf in m.aims.keys() {
             dark.remove(leaf);
         }
-        dark.extend(m.darkens.iter().filter(|l| last.contains_key(*l)).cloned());
-        last.extend(m.aims);
+        dark.extend(
+            m.darkens
+                .iter()
+                .filter(|l| aimed_before.contains_key(*l))
+                .cloned(),
+        );
+        aimed_before.extend(m.aims);
     }
 }
 
-fn set_preference(mib: &mut Mib, preference: u8) {
+const fn set_preference(mib: &mut Mib, preference: u8) {
     mib.preference = preference;
 }
 
@@ -224,7 +237,7 @@ mod tests {
         set_mib(&mut l);
         let modes: Vec<_> = l.cues.iter().map(|c| c.mib).collect();
         assert_eq!(modes[0].mode, MibMode::Early);
-        assert_eq!(modes[0].fade_beats, MIB_FADE_BEATS);
+        assert!((modes[0].fade_beats - MIB_FADE_BEATS).abs() < f32::EPSILON);
         assert_eq!(modes[1], Mib::default(), "a lift that does not aim");
         assert_eq!(modes[2], Mib::default(), "same focus as before");
         assert_eq!(modes[3].preference, LIFT_PREFERENCE, "a lift that re-aims");
@@ -235,7 +248,7 @@ mod tests {
             MibMode::default(),
             "parked dark: engine chooses"
         );
-        assert_eq!(modes[6].fade_beats, MIB_FADE_BEATS);
+        assert!((modes[6].fade_beats - MIB_FADE_BEATS).abs() < f32::EPSILON);
         assert_eq!(modes[0].preference, SECTION_PREFERENCE);
         assert!(reaims(&l, 6));
         assert!(!reaims(&l, 2));
@@ -253,6 +266,6 @@ mod tests {
         assert_eq!(l.cues[0].timing.position, Some(4.0));
         assert_eq!(l.cues[0].timing.color, None);
         assert_eq!(l.cues[1].timing.color, Some(0.0));
-        assert_eq!(l.cues[2].timing, Default::default());
+        assert_eq!(l.cues[2].timing, ignition_show::cue::CueTiming::default());
     }
 }

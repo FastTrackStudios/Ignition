@@ -40,7 +40,7 @@ pub fn note(cmd: &Command) {
     if let Command::Look(name) = cmd
         && let Ok(mut held) = HELD_LOOK.lock()
     {
-        *held = name.clone();
+        held.clone_from(name);
     }
 }
 
@@ -63,200 +63,229 @@ pub fn apply(
     match cmd {
         // r[impl studio.views.whole-profile] - any effect or bundle, by name, on the macro layer
         Command::Take { name, level } => {
-            let recipes: Vec<(String, ignition_core::Recipe)> =
-                if let Some(bundle) = playback.bundles.get(name) {
-                    bundle
-                        .recipes
-                        .iter()
-                        .filter_map(|n| playback.library.get(n).map(|r| (n.clone(), r.clone())))
-                        .collect()
-                } else if let Some(recipe) = playback.library.get(name) {
-                    vec![(name.clone(), recipe.clone())]
-                } else {
-                    tracing::warn!(name, "studio: no such effect or bundle");
-                    Vec::new()
-                };
-            for (n, recipe) in recipes {
-                playback.programmer.take_effect(&n, recipe, *level);
-            }
-            true
+            apply_take(playback, name, *level);
         }
-        Command::Untake(name) => {
-            let members: Vec<String> = playback
-                .bundles
-                .get(name)
-                .map(|b| b.recipes.clone())
-                .unwrap_or_else(|| vec![name.clone()]);
-            for n in members {
-                playback.programmer.release_effect(&n);
-            }
-            true
-        }
+        Command::Untake(name) => apply_untake(playback, name),
         // r[impl studio.live.desk-scenes] - a desk scene is a cue on the Show-class playback
-        Command::DeskScene(index) => {
-            let Playback {
-                playbacks,
-                groups,
-                rig,
-                palettes,
-                speeds,
-                profile,
-                library,
-                bundles,
-                looks,
-                named_tricks,
-                ..
-            } = playback;
-            if !playbacks.entries.iter().any(|e| e.class == Class::Show) {
-                let Some(path) = desk else {
-                    tracing::warn!("studio: this venue has no desk show");
-                    return true;
-                };
-                match crate::desk::load_list(path) {
-                    Ok(list) => {
-                        playbacks.push(Class::Show, ignition_core::CuePlayer::from_list(&list));
-                    }
-                    Err(error) => {
-                        tracing::warn!(%error, "studio: desk show does not load");
-                        return true;
-                    }
-                }
-            }
-            let show = Show {
-                groups,
-                palettes,
-                rig,
-                speeds,
-                roles: profile,
-                library,
-                bundles,
-                looks,
-                named_tricks,
-                ..Show::new(groups, rig)
-            };
-            if let Some(entry) = playbacks
-                .entries
-                .iter_mut()
-                .find(|e| e.class == Class::Show)
-            {
-                entry.enabled = true;
-                entry.player.jump_to_end_of(*index, &show);
-            }
-            true
-        }
-        Command::DeskRelease => {
-            for entry in playback
-                .playbacks
-                .entries
-                .iter_mut()
-                .filter(|e| e.class == Class::Show)
-            {
-                entry.enabled = false;
-            }
-            true
-        }
+        Command::DeskScene(index) => apply_desk_scene(playback, desk, *index),
+        Command::DeskRelease => apply_desk_release(playback),
         // r[impl profile.protected-roles] - toggled from the surface
-        Command::Protect { role, on } => {
-            let protected = &mut playback.programmer.protected;
-            protected.retain(|p| !p.eq_ignore_ascii_case(role));
-            if *on {
-                protected.push(role.clone());
-            }
-            true
-        }
+        Command::Protect { role, on } => apply_protect(playback, role, *on),
         // r[impl studio.program.cue-editing] - store what the hand holds into the file's cue
         Command::StoreCue { index, mode } => {
-            let Some(path) = show_file else {
-                tracing::warn!("studio: no show file to store into");
-                return true;
-            };
-            let (name, mut list) =
-                match store_cue(path, *index, *mode, playback.programmer.captured()) {
-                    Ok(stored) => stored,
-                    Err(error) => {
-                        tracing::warn!(%error, "studio: store failed");
-                        return true;
-                    }
-                };
-            tracing::info!(index, name, "studio: stored cue");
-            // The running player takes the list as written, so the
-            // stage shows the stored cue now rather than next launch.
-            // Positions are resolved against the song the way
-            // `Playback::load` resolved them, so nothing moves.
-            if let Some(song) = song {
-                for problem in list.resolve_positions(song) {
-                    tracing::warn!("{problem}");
-                }
-            }
-            let Playback {
-                playbacks,
-                groups,
-                rig,
-                palettes,
-                speeds,
-                profile,
-                library,
-                bundles,
-                looks,
-                named_tricks,
-                ..
-            } = playback;
-            let show = Show {
-                groups,
-                palettes,
-                rig,
-                speeds,
-                roles: profile,
-                library,
-                bundles,
-                looks,
-                named_tricks,
-                tempo: song.map(|s| &s.tempo),
-                ..Show::new(groups, rig)
-            };
-            match playbacks.of_class(Class::Song) {
-                Some(player) => player.replace_list(&list, &show),
-                None => tracing::warn!("studio: no song playback to refresh"),
-            }
-            true
+            apply_store_cue(playback, show_file, song, *index, *mode);
         }
         // r[impl studio.program.cue-editing] - store what the hand holds as a look
         // r[impl profile.looks.authored] - into the overlay, never the baked file
-        Command::StoreLook { name, kind } => {
-            let name = name.trim();
-            if name.is_empty() {
-                tracing::warn!("studio: a look needs a name");
-                return true;
+        Command::StoreLook { name, kind } => apply_store_look(playback, name, *kind),
+        _ => return false,
+    }
+    true
+}
+
+/// `Command::Take`: any effect or bundle, by name, on the macro layer.
+fn apply_take(playback: &mut Playback, name: &str, level: f32) {
+    let recipes: Vec<(String, ignition_core::Recipe)> =
+        if let Some(bundle) = playback.bundles.get(name) {
+            bundle
+                .recipes
+                .iter()
+                .filter_map(|n| playback.library.get(n).map(|r| (n.clone(), r.clone())))
+                .collect()
+        } else if let Some(recipe) = playback.library.get(name) {
+            vec![(name.to_string(), recipe.clone())]
+        } else {
+            tracing::warn!(name, "studio: no such effect or bundle");
+            Vec::new()
+        };
+    for (n, recipe) in recipes {
+        playback.programmer.take_effect(&n, recipe, level);
+    }
+}
+
+/// `Command::Untake`: releases every recipe a `Take` of this name added.
+fn apply_untake(playback: &mut Playback, name: &str) {
+    let members: Vec<String> = playback
+        .bundles
+        .get(name)
+        .map_or_else(|| vec![name.to_string()], |b| b.recipes.clone());
+    for n in members {
+        playback.programmer.release_effect(&n);
+    }
+}
+
+/// `Command::DeskScene`: a desk scene is a cue on the Show-class
+/// playback, built from the venue's desk show on first use.
+fn apply_desk_scene(playback: &mut Playback, desk: Option<&Path>, index: usize) {
+    let Playback {
+        playbacks,
+        groups,
+        rig,
+        palettes,
+        speeds,
+        profile,
+        library,
+        bundles,
+        looks,
+        named_tricks,
+        ..
+    } = playback;
+    if !playbacks.entries.iter().any(|e| e.class == Class::Show) {
+        let Some(path) = desk else {
+            tracing::warn!("studio: this venue has no desk show");
+            return;
+        };
+        match crate::desk::load_list(path) {
+            Ok(list) => {
+                playbacks.push(Class::Show, ignition_core::CuePlayer::from_list(&list));
             }
-            let recipes: Vec<RecipeRef> = playback
-                .programmer
-                .look_recipes()
-                .into_iter()
-                .map(RecipeRef::Inline)
-                .collect();
-            if recipes.is_empty() {
-                tracing::warn!(name, "studio: nothing in the hand to store as a look");
-                return true;
+            Err(error) => {
+                tracing::warn!(%error, "studio: desk show does not load");
+                return;
             }
-            let look = Look {
-                kind: *kind,
-                about: String::new(),
-                recipes,
-            };
-            let path = ignition_live_ui::library::looks_path();
-            match AuthoredLooks::store(&path, name, look.clone()) {
-                Ok(_) => {
-                    tracing::info!(name, path = %path.display(), "studio: stored look");
-                    // The engine's own copy, so a cue may open on it and
-                    // a key may hold it; the panels re-read the file.
-                    playback.looks.insert(name.to_string(), look);
-                    ignition_live_ui::library::reload_authored_looks();
-                }
-                Err(error) => tracing::warn!(%error, "studio: store look failed"),
-            }
-            true
         }
-        _ => false,
+    }
+    let show = Show {
+        groups,
+        palettes,
+        rig,
+        speeds,
+        roles: profile,
+        library,
+        bundles,
+        looks,
+        named_tricks,
+        ..Show::new(groups, rig)
+    };
+    if let Some(entry) = playbacks
+        .entries
+        .iter_mut()
+        .find(|e| e.class == Class::Show)
+    {
+        entry.enabled = true;
+        entry.player.jump_to_end_of(index, &show);
+    }
+}
+
+/// `Command::DeskRelease`: folds the desk playback out of the stack
+/// without forgetting it.
+fn apply_desk_release(playback: &mut Playback) {
+    for entry in playback
+        .playbacks
+        .entries
+        .iter_mut()
+        .filter(|e| e.class == Class::Show)
+    {
+        entry.enabled = false;
+    }
+}
+
+/// `Command::Protect`: protects, or stops protecting, a role.
+fn apply_protect(playback: &mut Playback, role: &str, on: bool) {
+    let protected = &mut playback.programmer.protected;
+    protected.retain(|p| !p.eq_ignore_ascii_case(role));
+    if on {
+        protected.push(role.to_string());
+    }
+}
+
+/// `Command::StoreCue`: writes the programmer's captured values into
+/// the show file, then replaces the running player's list with what was
+/// just written so the stage shows the stored cue now rather than next
+/// launch.
+fn apply_store_cue(
+    playback: &mut Playback,
+    show_file: Option<&Path>,
+    song: Option<&SongMap>,
+    index: usize,
+    mode: ignition_core::cue::StoreMode,
+) {
+    let Some(path) = show_file else {
+        tracing::warn!("studio: no show file to store into");
+        return;
+    };
+    let (name, mut list) = match store_cue(path, index, mode, playback.programmer.captured()) {
+        Ok(stored) => stored,
+        Err(error) => {
+            tracing::warn!(%error, "studio: store failed");
+            return;
+        }
+    };
+    tracing::info!(index, name, "studio: stored cue");
+    // Positions are resolved against the song the way `Playback::load`
+    // resolved them, so nothing moves.
+    if let Some(song) = song {
+        for problem in list.resolve_positions(song) {
+            tracing::warn!("{problem}");
+        }
+    }
+    let Playback {
+        playbacks,
+        groups,
+        rig,
+        palettes,
+        speeds,
+        profile,
+        library,
+        bundles,
+        looks,
+        named_tricks,
+        ..
+    } = playback;
+    let show = Show {
+        groups,
+        palettes,
+        rig,
+        speeds,
+        roles: profile,
+        library,
+        bundles,
+        looks,
+        named_tricks,
+        tempo: song.map(|s| &s.tempo),
+        ..Show::new(groups, rig)
+    };
+    if let Some(player) = playbacks.of_class(Class::Song) {
+        player.replace_list(&list, &show);
+    } else {
+        tracing::warn!("studio: no song playback to refresh");
+    }
+}
+
+/// `Command::StoreLook`: what the hand holds — a latched look plus
+/// every apply since CLEAR — as a look of this name and kind, in the
+/// profile's authored overlay beside the baked file.
+fn apply_store_look(playback: &mut Playback, name: &str, kind: ignition_core::profile::LookKind) {
+    let name = name.trim();
+    if name.is_empty() {
+        tracing::warn!("studio: a look needs a name");
+        return;
+    }
+    let recipes: Vec<RecipeRef> = playback
+        .programmer
+        .look_recipes()
+        .into_iter()
+        .map(RecipeRef::Inline)
+        .collect();
+    if recipes.is_empty() {
+        tracing::warn!(name, "studio: nothing in the hand to store as a look");
+        return;
+    }
+    let look = Look {
+        kind,
+        about: String::new(),
+        recipes,
+    };
+    let path = ignition_live_ui::library::looks_path();
+    match AuthoredLooks::store(&path, name, look.clone()) {
+        Ok(_) => {
+            tracing::info!(name, path = %path.display(), "studio: stored look");
+            // The engine's own copy, so a cue may open on it and a key
+            // may hold it; the panels re-read the file.
+            playback.looks.insert(name.to_string(), look);
+            ignition_live_ui::library::reload_authored_looks();
+        }
+        Err(error) => tracing::warn!(%error, "studio: store look failed"),
     }
 }
 
@@ -276,7 +305,7 @@ fn store_cue(
         .get(index)
         .cloned()
         .unwrap_or_else(|| ignition_core::Cue {
-            name: format!("Cue {}", list.cues.len() + 1),
+            name: format!("Cue {}", list.cues.len().saturating_add(1)),
             ..Default::default()
         });
     cue.values = values;
@@ -305,7 +334,7 @@ pub fn publish(next: &mut Playhead, playback: &Playback) {
         .iter()
         .find(|e| e.class == Class::Show && e.enabled)
         .and_then(|e| e.player.current_index());
-    next.protected = playback.programmer.protected.clone();
+    next.protected.clone_from(&playback.programmer.protected);
     next.selection = playback.programmer.selection.as_ref().map(describe);
     next.captured = playback.programmer.captured().len();
 }
@@ -343,6 +372,11 @@ mod tests {
     /// A store writes the file and keeps everything but the values.
     /// r[verify studio.program.cue-editing]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "fade_secs round-trips through JSON unmodified; exact equality is the \
+                  property under test, not a coincidence to relax"
+    )]
     fn store_cue_replaces_values_and_keeps_the_rest() {
         let dir = std::env::temp_dir().join(format!("ig-store-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -387,6 +421,12 @@ mod tests {
     /// STORE → NEW appends to the running list too.
     /// r[verify studio.program.cue-editing]
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "dimmer levels here are set, then read back the same tick with no fade in \
+                  between; exact equality is the property under test — the store landed on \
+                  the stage without a GO — not a coincidence to relax"
+    )]
     fn a_stored_cue_is_on_the_stage_without_a_go() {
         use ignition_core::{Attribute, CueList, CuePlayer, RecipeApply, Selection};
         let dir = std::env::temp_dir().join(format!("ig-store-live-{}", std::process::id()));

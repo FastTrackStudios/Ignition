@@ -62,12 +62,24 @@ struct Mailbox {
 }
 
 /// Render-world side: posts the wanted targets' textures once they exist.
+// Bevy systems receive their `Res<T>` params by value — that is how the
+// ECS injects them, not a choice made here, and taking a reference
+// instead would only push the borrow onto every call site (there are
+// none; Bevy calls this). See docs/ops/clippy.md's note on Bevy's own
+// by-value APIs.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Bevy system params are injected by value; see the comment above"
+)]
 fn post_target_texture(
     mailbox: Res<TargetMailbox>,
     images: Res<RenderAssets<GpuImage>>,
     pipelines: Res<bevy::render::render_resource::PipelineCache>,
 ) {
-    let mut mailbox = mailbox.0.lock().expect("target mailbox");
+    let mut mailbox = mailbox
+        .0
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     mailbox.pipelines = pipelines.pipelines().count();
     if let Some(wanted) = mailbox.wanted
         && mailbox.texture.as_ref().is_none_or(|(id, _)| *id != wanted)
@@ -220,7 +232,11 @@ impl EmbeddedViz {
             );
         }
         let target = add_target(&mut app, size);
-        mailbox.0.lock().expect("target mailbox").wanted = Some(target.id());
+        mailbox
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .wanted = Some(target.id());
         let camera_target: RenderTarget = target.clone().into();
         app.add_systems(
             Startup,
@@ -336,7 +352,7 @@ impl EmbeddedViz {
         self.mailbox
             .0
             .lock()
-            .expect("target mailbox")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .programme_wanted = wants.then_some(id);
     }
 
@@ -351,7 +367,11 @@ impl EmbeddedViz {
             .filter(|v| v.host_wants)?
             .target
             .id();
-        let mailbox = self.mailbox.0.lock().expect("target mailbox");
+        let mailbox = self
+            .mailbox
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         match &mailbox.programme {
             Some((id, texture)) if *id == wanted => Some(texture.clone()),
             _ => None,
@@ -362,7 +382,11 @@ impl EmbeddedViz {
     /// render thread last posted for the current target. `None` until
     /// it has allocated one, which takes a frame or two.
     pub fn texture(&self) -> Option<wgpu::Texture> {
-        let mailbox = self.mailbox.0.lock().expect("target mailbox");
+        let mailbox = self
+            .mailbox
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         match &mailbox.texture {
             // `bevy_render`'s `Texture` is a newtype over the wgpu one;
             // what was posted is the same GPU resource, not a copy.
@@ -417,11 +441,15 @@ impl EmbeddedViz {
                 .entity_mut(entity)
                 .insert(render_target.clone());
         }
-        self.mailbox.0.lock().expect("target mailbox").wanted = Some(target.id());
+        self.mailbox
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .wanted = Some(target.id());
         self.target = target;
     }
 
-    pub fn app_mut(&mut self) -> &mut App {
+    pub const fn app_mut(&mut self) -> &mut App {
         &mut self.app
     }
 
@@ -487,7 +515,11 @@ impl EmbeddedViz {
     /// How many render pipelines the render world had compiled as of
     /// the last frame it rendered.
     pub fn pipeline_count(&self) -> usize {
-        self.mailbox.0.lock().expect("target mailbox").pipelines
+        self.mailbox
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .pipelines
     }
 }
 

@@ -1,5 +1,6 @@
 //! Open Fixture Library (OFL, openlighting.org/ofl) channel-map import —
 //! Slice 8 of the DMX work (`docs/research/lighting-console-landscape.md`).
+//!
 //! Sibling to `gdtf_import.rs`, same purpose (pull a real `ChannelMap` out
 //! of a fixture's own published profile instead of guessing the channel
 //! function order), different source format. Found by actually cloning
@@ -20,6 +21,7 @@
 //! Value` rather than a strict typed schema to tolerate that, the same
 //! spirit `gdtf_import.rs` uses for GDTF's `Attribute::Custom` fallback.
 
+use crate::num::u16_of_usize;
 use ignition_proto::{Attribute, ChannelMap, ColorChannel};
 use serde_json::Value;
 use std::path::Path;
@@ -32,31 +34,50 @@ pub struct OflChannelMap {
 
 /// Reads an OFL fixture JSON file and extracts the `ChannelMap` for one
 /// mode. `mode_name`, when `None`, picks the file's first mode.
+///
+/// # Errors
+///
+/// If the file can't be read, isn't valid OFL JSON, or names a mode
+/// that doesn't exist in it.
 pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Result<OflChannelMap> {
     let text = std::fs::read_to_string(path)?;
     let doc: Value = serde_json::from_str(&text)?;
 
-    let fixture_name = doc["name"].as_str().unwrap_or("").to_string();
-    let available_channels = doc["availableChannels"]
-        .as_object()
+    // `get` rather than `[]`: this is untrusted file data, and `Value`'s
+    // `Index` impl is not the bounds-checked kind clippy already knows
+    // about, so `indexing_slicing` catches it — see docs/ops/clippy.md.
+    let fixture_name = doc
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let available_channels = doc
+        .get("availableChannels")
+        .and_then(Value::as_object)
         .ok_or_else(|| anyhow::anyhow!("no availableChannels in fixture"))?;
-    let modes = doc["modes"]
-        .as_array()
+    let modes = doc
+        .get("modes")
+        .and_then(Value::as_array)
         .ok_or_else(|| anyhow::anyhow!("no modes in fixture"))?;
 
     let mode = match mode_name {
         Some(name) => modes
             .iter()
-            .find(|m| m["name"].as_str() == Some(name))
+            .find(|m| m.get("name").and_then(Value::as_str) == Some(name))
             .ok_or_else(|| anyhow::anyhow!("fixture has no mode named {name:?}"))?,
         None => modes
             .first()
             .ok_or_else(|| anyhow::anyhow!("fixture defines no modes"))?,
     };
-    let mode_channels = mode["channels"]
-        .as_array()
+    let mode_channels = mode
+        .get("channels")
+        .and_then(Value::as_array)
         .ok_or_else(|| anyhow::anyhow!("mode has no channel list"))?;
-    let resolved_mode_name = mode["name"].as_str().unwrap_or("").to_string();
+    let resolved_mode_name = mode
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
 
     let mut channels = Vec::new();
     for (offset, entry) in mode_channels.iter().enumerate() {
@@ -71,16 +92,21 @@ pub fn import_channel_map(path: &Path, mode_name: Option<&str>) -> anyhow::Resul
             continue;
         };
         if let Some(attr) = map_capability(channel_def) {
-            channels.push((offset as u16, attr));
+            // `offset` is a position in this mode's own channel list, which
+            // is a DMX footprint (max 512) in every real fixture; saturating
+            // rather than an inline `as` keeps a pathological file from
+            // wrapping onto some other channel's offset instead of clipping
+            // visibly.
+            channels.push((u16_of_usize(offset), attr));
         }
     }
 
-    let footprint = mode_channels.len() as u16;
+    let footprint = u16_of_usize(mode_channels.len());
     Ok(OflChannelMap {
         fixture_name,
         mode_name: resolved_mode_name,
         channel_map: ChannelMap {
-            curves: Default::default(),
+            curves: std::collections::HashMap::default(),
             footprint,
             channels,
         },
@@ -100,13 +126,16 @@ fn map_capability(channel_def: &Value) -> Option<Attribute> {
     } else {
         channel_def.get("capabilities")?.as_array()?.first()?
     };
-    let cap_type = cap["type"].as_str()?;
+    let cap_type = cap.get("type").and_then(Value::as_str)?;
     match cap_type {
-        "Intensity" => Some(Attribute::Dimmer),
+        // `Fog` shares `Intensity`'s body: no dedicated haze `Attribute`
+        // exists yet, so a fog channel is treated as a dimmer — see
+        // `channel_map.rs`'s hurricane entry.
+        "Intensity" | "Fog" => Some(Attribute::Dimmer),
         "Pan" => Some(Attribute::Pan),
         "Tilt" => Some(Attribute::Tilt),
         "ColorIntensity" => {
-            let color = match cap["color"].as_str()? {
+            let color = match cap.get("color").and_then(Value::as_str)? {
                 "Red" => ColorChannel::Red,
                 "Green" => ColorChannel::Green,
                 "Blue" => ColorChannel::Blue,
@@ -123,7 +152,6 @@ fn map_capability(channel_def: &Value) -> Option<Attribute> {
         "Focus" => Some(Attribute::Focus),
         "Iris" | "IrisEffect" => Some(Attribute::Iris),
         "ShutterStrobe" => Some(Attribute::Strobe),
-        "Fog" => Some(Attribute::Dimmer), // no dedicated haze Attribute yet — see channel_map.rs's hurricane entry.
         other => Some(Attribute::Custom(other.to_string())),
     }
 }
@@ -134,7 +162,7 @@ mod tests {
 
     /// Real fixture files, not hand-authored test data — the exact ones
     /// that resolved the Uking Par / Chauvet Hurricane Haze corrections in
-    /// channel_map.rs. Fetched once from
+    /// `channel_map.rs`. Fetched once from
     /// github.com/OpenLightingProject/open-fixture-library (MIT-licensed,
     /// same as the rest of OFL) and vendored under
     /// `assets/ofl-samples/LICENSE-NOTICE.txt`.

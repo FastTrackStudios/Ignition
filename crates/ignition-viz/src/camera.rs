@@ -20,6 +20,7 @@
 //! the beat the cue said, whatever the frame rate, and an export
 //! (`r[viz.export]`) renders exactly the cut the studio showed.
 
+use crate::num;
 use crate::playback::Playback;
 use crate::view::ViewPreset;
 use bevy::camera::{OrthographicProjection, RenderTarget, ScalingMode};
@@ -31,9 +32,10 @@ use std::path::{Path, PathBuf};
 /// The file a venue keeps its cameras in.
 pub const FILE: &str = "cameras.json";
 
-/// The names the shipped show vocabulary cuts between. A song cuts to
-/// `Drums`, and a venue's file says where the drums are — the same
-/// split the profile makes for roles (`r[song.no-room]`). A venue may
+/// The names the shipped show vocabulary cuts between.
+///
+/// A song cuts to `Drums`, and a venue's file says where the drums are — the
+/// same split the profile makes for roles (`r[song.no-room]`). A venue may
 /// name as many others as it likes.
 pub const STANDARD: [&str; 10] = [
     "Wide",
@@ -76,11 +78,12 @@ pub struct CameraPreset {
     pub about: String,
 }
 
-fn default_fov() -> f32 {
+const fn default_fov() -> f32 {
     50.0
 }
 
 impl CameraPreset {
+    #[must_use]
     pub fn new(name: &str, eye: [f32; 3], look: [f32; 3], fov_deg: f32) -> Self {
         Self {
             name: name.to_string(),
@@ -94,6 +97,7 @@ impl CameraPreset {
     }
 
     /// The state this preset puts the camera in.
+    #[must_use]
     pub fn state(&self) -> CameraState {
         CameraState {
             eye: Vec3::from(self.eye),
@@ -105,6 +109,7 @@ impl CameraPreset {
     }
 
     /// A preset from an auto-framed `ViewPreset` on a venue's bounds.
+    #[must_use]
     pub fn from_view(view: ViewPreset, min: Vec3, max: Vec3) -> Self {
         let (eye, look) = view.eye_target(min, max);
         let name = match view {
@@ -121,7 +126,7 @@ impl CameraPreset {
 
 /// N presets, in slot order, that a cut list addresses by number.
 // r[impl viz.camera-setups] - a named list of presets, one per slot
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CameraSetup {
     pub name: String,
     pub slots: Vec<String>,
@@ -146,12 +151,18 @@ pub struct Cameras {
 pub const SLOTS: usize = 10;
 
 impl Cameras {
+    #[must_use]
     pub fn path(dir: &Path) -> PathBuf {
         dir.join(FILE)
     }
 
     /// The venue's file, if it has one. A file that will not parse is an
     /// error; a missing file is `None`.
+    ///
+    /// # Errors
+    ///
+    /// If the file exists but is not valid JSON for this shape, or reading
+    /// it fails for a reason other than "not found".
     // r[impl viz.camera-presets] - stored per venue, unlimited
     pub fn load(dir: &Path) -> anyhow::Result<Option<Self>> {
         let path = Self::path(dir);
@@ -178,6 +189,10 @@ impl Cameras {
         }
     }
 
+    /// # Errors
+    ///
+    /// If the presets don't serialize (they always do) or the file can't
+    /// be written (a read-only or missing venue directory).
     pub fn save(&self, dir: &Path) -> anyhow::Result<()> {
         let path = Self::path(dir);
         let json = serde_json::to_string_pretty(self)?;
@@ -187,6 +202,7 @@ impl Cameras {
 
     /// House, Stage and Top from the venue's bounds — what a venue with
     /// no file gets, and the same three `--view` always offered.
+    #[must_use]
     pub fn builtin(min: Vec3, max: Vec3) -> Self {
         let presets: Vec<CameraPreset> = [ViewPreset::House, ViewPreset::Stage, ViewPreset::Top]
             .into_iter()
@@ -204,6 +220,7 @@ impl Cameras {
     }
 
     /// A preset by name, case-insensitively.
+    #[must_use]
     pub fn preset(&self, name: &str) -> Option<&CameraPreset> {
         let name = name.trim();
         self.presets
@@ -211,6 +228,7 @@ impl Cameras {
             .find(|p| p.name.eq_ignore_ascii_case(name))
     }
 
+    #[must_use]
     pub fn setup(&self, name: &str) -> Option<&CameraSetup> {
         self.setups
             .iter()
@@ -227,10 +245,9 @@ impl Cameras {
     // r[impl viz.camera-favourites] - ten slots, 1..9 then 0
     pub fn slot(&self, slot: u8, setup: Option<&str>) -> Option<&str> {
         let index = slot_index(slot)?;
-        let list = match setup.and_then(|s| self.setup(s)) {
-            Some(setup) => &setup.slots,
-            None => &self.favourites,
-        };
+        let list = setup
+            .and_then(|s| self.setup(s))
+            .map_or(&self.favourites, |setup| &setup.slots);
         list.get(index)
             .map(String::as_str)
             .filter(|name| !name.is_empty())
@@ -250,7 +267,7 @@ impl Cameras {
             return false;
         };
         // One preset per key: a preset moved to a new key leaves its old one.
-        for entry in self.favourites.iter_mut() {
+        for entry in &mut self.favourites {
             if entry.eq_ignore_ascii_case(name) {
                 entry.clear();
             }
@@ -258,7 +275,12 @@ impl Cameras {
         while self.favourites.len() <= index {
             self.favourites.push(String::new());
         }
-        self.favourites[index] = name.to_string();
+        // The loop above just grew the vec past `index`, so this slot
+        // always exists; `get_mut` only to satisfy `indexing_slicing`
+        // without asserting anything the growth didn't already promise.
+        if let Some(slot) = self.favourites.get_mut(index) {
+            *slot = name.to_string();
+        }
         while self.favourites.last().is_some_and(String::is_empty) {
             self.favourites.pop();
         }
@@ -281,7 +303,7 @@ impl Cameras {
     pub fn remove(&mut self, name: &str) -> bool {
         let before = self.presets.len();
         self.presets.retain(|p| !p.name.eq_ignore_ascii_case(name));
-        for entry in self.favourites.iter_mut() {
+        for entry in &mut self.favourites {
             if entry.eq_ignore_ascii_case(name) {
                 entry.clear();
             }
@@ -290,7 +312,7 @@ impl Cameras {
             self.favourites.pop();
         }
         for setup in &mut self.setups {
-            for entry in setup.slots.iter_mut() {
+            for entry in &mut setup.slots {
                 if entry.eq_ignore_ascii_case(name) {
                     entry.clear();
                 }
@@ -300,6 +322,7 @@ impl Cameras {
     }
 
     /// The preset a target names.
+    #[must_use]
     pub fn resolve(&self, target: &CameraTarget, setup: Option<&str>) -> Option<&CameraPreset> {
         match target {
             CameraTarget::Preset(name) => self.preset(name),
@@ -308,6 +331,7 @@ impl Cameras {
     }
 
     /// Every favourite that names a preset the file does not have.
+    #[must_use]
     pub fn dangling(&self) -> Vec<String> {
         let mut out: Vec<String> = self
             .favourites
@@ -327,18 +351,26 @@ impl Cameras {
 }
 
 /// `1`..`9` -> 0..8, `0` -> 9.
+#[must_use]
 pub fn slot_index(slot: u8) -> Option<usize> {
     match slot {
-        1..=9 => Some(slot as usize - 1),
+        // The match arm already guarantees `slot >= 1`, so this can
+        // never actually saturate; `saturating_sub` over a bare `-`
+        // just says so to the lint rather than to a reader doing the
+        // arithmetic themselves.
+        1..=9 => Some(usize::from(slot).saturating_sub(1)),
         0 => Some(9),
         _ => None,
     }
 }
 
 /// 0..8 -> `1`..`9`, 9 -> `0`.
+#[must_use]
 pub fn slot_key(index: usize) -> Option<u8> {
     match index {
-        0..=8 => Some(index as u8 + 1),
+        // Bounded 0..=8 by the match arm; `num::u8_of_usize` saturates
+        // instead of wrapping in the case that can't happen here.
+        0..=8 => Some(num::u8_of_usize(index).saturating_add(1)),
         9 => Some(0),
         _ => None,
     }
@@ -353,6 +385,7 @@ pub enum CameraTarget {
 
 impl CameraTarget {
     /// A single digit is a key; anything else is a name.
+    #[must_use]
     pub fn parse(text: &str) -> Option<Self> {
         let text = text.trim();
         if text.is_empty() {
@@ -400,25 +433,48 @@ impl CameraCommand {
         let words: Vec<&str> = rest.split_whitespace().collect();
         // The target runs up to the first keyword that is followed by a
         // number, so a preset called "Side stage" survives.
-        let is_kw = |i: usize| matches!(words[i], "in" | "after" | "for");
+        let is_kw = |i: usize| {
+            words
+                .get(i)
+                .is_some_and(|w| matches!(*w, "in" | "after" | "for"))
+        };
         let end = (0..words.len()).find(|&i| is_kw(i)).unwrap_or(words.len());
-        let target = CameraTarget::parse(&words[..end].join(" "))?;
+        let target = CameraTarget::parse(&words.get(..end).unwrap_or(&[]).join(" "))?;
         let mut out = Self {
             target,
             dissolve_beats: 0.0,
             after_beats: 0.0,
             hold_beats: None,
         };
+        // Walks `words` two at a time from `end`: a keyword and the
+        // number after it. `checked_add` rather than a bare `i += 2`
+        // only to keep `arithmetic_side_effects` from firing on a
+        // counter that is bounded by `words.len()` on every iteration
+        // anyway — it can never actually overflow.
         let mut i = end;
-        while i + 1 < words.len() {
-            let value: f32 = words[i + 1].parse().ok()?;
-            match words[i] {
+        while let Some(after) = i.checked_add(1) {
+            if after >= words.len() {
+                break;
+            }
+            let Some(value_str) = words.get(after) else {
+                break;
+            };
+            let value: f32 = value_str.parse().ok()?;
+            let Some(&key) = words.get(i) else {
+                break;
+            };
+            match key {
                 "in" => out.dissolve_beats = value.max(0.0),
                 "after" => out.after_beats = value.max(0.0),
                 "for" => out.hold_beats = Some(value.max(0.0)),
                 _ => return None,
             }
-            i += 2;
+            // `unwrap_or(words.len())` rather than another `checked_add`
+            // break: `after < words.len()` here, so this can never
+            // actually saturate — it just ends the loop by construction
+            // instead of adding a fourth break arm for a case that
+            // cannot happen.
+            i = after.checked_add(1).unwrap_or(words.len());
         }
         if i != words.len() {
             return None;
@@ -440,7 +496,8 @@ pub struct CameraState {
 }
 
 impl CameraState {
-    pub fn new(eye: Vec3, look: Vec3, fov_deg: f32) -> Self {
+    #[must_use]
+    pub const fn new(eye: Vec3, look: Vec3, fov_deg: f32) -> Self {
         Self {
             eye,
             look,
@@ -453,20 +510,21 @@ impl CameraState {
     /// Linear between two states. The projection kind cannot blend, so
     /// it switches at the midpoint.
     // r[impl viz.camera-cuts] - a dissolve is linear on the song clock
-    pub fn lerp(a: &Self, b: &Self, t: f32) -> Self {
+    #[must_use]
+    pub fn lerp(from: &Self, to: &Self, t: f32) -> Self {
         let t = t.clamp(0.0, 1.0);
         Self {
-            eye: a.eye.lerp(b.eye, t),
-            look: a.look.lerp(b.look, t),
-            fov_deg: a.fov_deg + (b.fov_deg - a.fov_deg) * t,
-            ortho: if t < 0.5 { a.ortho } else { b.ortho },
-            focus: match (a.focus, b.focus) {
-                (Some(x), Some(y)) => Some(x + (y - x) * t),
+            eye: from.eye.lerp(to.eye, t),
+            look: from.look.lerp(to.look, t),
+            fov_deg: (to.fov_deg - from.fov_deg).mul_add(t, from.fov_deg),
+            ortho: if t < 0.5 { from.ortho } else { to.ortho },
+            focus: match (from.focus, to.focus) {
+                (Some(start), Some(end)) => Some((end - start).mul_add(t, start)),
                 _ => {
                     if t < 0.5 {
-                        a.focus
+                        from.focus
                     } else {
-                        b.focus
+                        to.focus
                     }
                 }
             },
@@ -476,6 +534,12 @@ impl CameraState {
     /// The transform: Z up, unless the camera looks straight along Z,
     /// where Y is up so the look-at is not degenerate (a plan reads
     /// with the stage at the top).
+    #[must_use]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Vec3 subtraction is float, component-wise, and cannot panic or overflow \
+                  (see docs/ops/clippy.md and the same pattern in view.rs)"
+    )]
     pub fn transform(&self) -> Transform {
         let dir = (self.look - self.eye).normalize_or_zero();
         let up = if dir.z.abs() > 0.995 {
@@ -490,6 +554,7 @@ impl CameraState {
     /// orthographic one whose vertical extent matches that field of
     /// view at the look-at distance.
     // r[impl viz.camera-birdseye] - a true orthographic plan
+    #[must_use]
     pub fn projection(&self, far: f32) -> Projection {
         if self.ortho {
             let distance = self.eye.distance(self.look).max(0.5);
@@ -513,6 +578,7 @@ impl CameraState {
     }
 
     /// Where depth of field focuses.
+    #[must_use]
     pub fn focus_distance(&self) -> f32 {
         self.focus
             .unwrap_or_else(|| self.eye.distance(self.look))
@@ -538,6 +604,15 @@ struct Pending {
 /// two, and what is queued.
 // r[impl viz.camera-cuts] - one programme camera, cut by cue or key
 #[derive(Resource, Debug, Clone)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is independent and set from a different place — `keys` by \
+              which surface owns the keyboard, `host_drains_cues` by whether a host \
+              app or this crate's own systems drain cue commands, `dirty`/\
+              `ceiling_hidden` as this frame's internal render bookkeeping — folding \
+              them into an enum would force those independent sources to agree on \
+              a shared shape they don't share"
+)]
 pub struct ActiveCamera {
     pub cameras: Cameras,
     /// The setup slots resolve through, if one is chosen; else the
@@ -572,16 +647,17 @@ pub struct ActiveCamera {
 
 impl ActiveCamera {
     /// Starting on `initial` (a preset name, else the given state).
+    #[must_use]
     pub fn new(cameras: Cameras, initial: Option<&str>, fallback: CameraState, far: f32) -> Self {
-        let (preset, state) = match initial.and_then(|n| cameras.preset(n)) {
-            Some(p) => (Some(p.name.clone()), p.state()),
-            None => {
+        let (preset, state) = initial.and_then(|n| cameras.preset(n)).map_or_else(
+            || {
                 if let Some(name) = initial {
                     tracing::warn!(name, "viz: no such camera preset; using the view");
                 }
                 (None, fallback)
-            }
-        };
+            },
+            |p| (Some(p.name.clone()), p.state()),
+        );
         Self {
             cameras,
             setup: None,
@@ -615,6 +691,7 @@ impl ActiveCamera {
 
     /// The wide preset's name: what was chosen, else the first favourite,
     /// else the first preset.
+    #[must_use]
     pub fn wide_name(&self) -> Option<String> {
         self.wide
             .clone()
@@ -629,6 +706,7 @@ impl ActiveCamera {
     }
 
     /// Where the camera is at `now`.
+    #[must_use]
     pub fn state_at(&self, now: f32) -> CameraState {
         if self.duration <= 0.0 {
             return self.to;
@@ -641,6 +719,7 @@ impl ActiveCamera {
         }
     }
 
+    #[must_use]
     pub fn is_dissolving(&self, now: f32) -> bool {
         self.duration > 0.0 && now < self.start + self.duration
     }
@@ -689,13 +768,13 @@ impl ActiveCamera {
             hold_beats: command.hold_beats,
         };
         if pending.at <= now {
-            self.fire(pending, now, bpm);
+            self.fire(&pending, now, bpm);
         } else {
             self.pending.push(pending);
         }
     }
 
-    fn fire(&mut self, pending: Pending, now: f32, bpm: f32) {
+    fn fire(&mut self, pending: &Pending, now: f32, bpm: f32) {
         // A punch-in remembers where it left from — the preset, so the
         // return lands on it even if the camera was mid-dissolve.
         let leaving = self.preset.clone().map(CameraTarget::Preset);
@@ -728,7 +807,7 @@ impl ActiveCamera {
             }
         });
         due.sort_by(|a, b| a.at.total_cmp(&b.at));
-        for p in due {
+        for p in &due {
             self.fire(p, now, bpm);
         }
         if let Some((back, at)) = self.punch_return.clone()
@@ -747,6 +826,7 @@ impl ActiveCamera {
 
     /// The presets on the keys, for a surface: ten entries, `None`
     /// where a key is empty.
+    #[must_use]
     pub fn slots(&self) -> Vec<Option<String>> {
         (0..SLOTS)
             .map(|i| {
@@ -764,14 +844,13 @@ impl ActiveCamera {
 pub(crate) fn active_from_config(config: &crate::app::VizConfig) -> ActiveCamera {
     let (min, max) = config.venue.bounds();
     let far = config.view.far(min, max);
-    let fallback = match config.camera {
-        Some((eye, look)) => CameraState::new(eye, look, config.view.fov_y_deg()),
-        None => {
-            let (eye, look) = config.view.eye_target(min, max);
-            CameraState {
-                ortho: matches!(config.view, ViewPreset::Top),
-                ..CameraState::new(eye, look, config.view.fov_y_deg())
-            }
+    let fallback = if let Some((eye, look)) = config.camera {
+        CameraState::new(eye, look, config.view.fov_y_deg())
+    } else {
+        let (eye, look) = config.view.eye_target(min, max);
+        CameraState {
+            ortho: matches!(config.view, ViewPreset::Top),
+            ..CameraState::new(eye, look, config.view.fov_y_deg())
         }
     };
     let mut active = ActiveCamera::new(
@@ -799,20 +878,39 @@ pub(crate) fn active_from_config(config: &crate::app::VizConfig) -> ActiveCamera
 
 /// The song's clock and tempo, or the app's when there is no song.
 fn clock(time: &Time, playback: Option<&Playback>) -> (f32, f32) {
-    match playback {
-        Some(p) => {
+    playback.map_or_else(
+        || (time.elapsed_secs(), 120.0),
+        |p| {
             let bpm = p.speeds.get("Song").copied().unwrap_or(120.0);
-            match p.song() {
-                Some(player) => (player.clock(), bpm),
-                None => (time.elapsed_secs(), bpm),
-            }
-        }
-        None => (time.elapsed_secs(), 120.0),
-    }
+            p.song().map_or_else(
+                || (time.elapsed_secs(), bpm),
+                |player| (player.clock(), bpm),
+            )
+        },
+    )
 }
 
 /// The number keys, in a window: `1`..`9` and `0` cut to the slots.
 // r[impl viz.camera-favourites] - 1..0 on the keyboard
+/// The number keys `1`..`9`, `0`, paired with the slot each cuts to.
+const DIGIT_SLOTS: [(KeyCode, u8); 10] = [
+    (KeyCode::Digit1, 1),
+    (KeyCode::Digit2, 2),
+    (KeyCode::Digit3, 3),
+    (KeyCode::Digit4, 4),
+    (KeyCode::Digit5, 5),
+    (KeyCode::Digit6, 6),
+    (KeyCode::Digit7, 7),
+    (KeyCode::Digit8, 8),
+    (KeyCode::Digit9, 9),
+    (KeyCode::Digit0, 0),
+];
+
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T>/Option<Res<T>> are Bevy SystemParams and must be taken by value \
+              for this to run as a system; the fn only borrows what they wrap"
+)]
 pub fn camera_keys(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
@@ -822,19 +920,7 @@ pub fn camera_keys(
     if !active.keys {
         return;
     }
-    const DIGITS: [(KeyCode, u8); 10] = [
-        (KeyCode::Digit1, 1),
-        (KeyCode::Digit2, 2),
-        (KeyCode::Digit3, 3),
-        (KeyCode::Digit4, 4),
-        (KeyCode::Digit5, 5),
-        (KeyCode::Digit6, 6),
-        (KeyCode::Digit7, 7),
-        (KeyCode::Digit8, 8),
-        (KeyCode::Digit9, 9),
-        (KeyCode::Digit0, 0),
-    ];
-    let Some((_, slot)) = DIGITS.iter().find(|(k, _)| keys.just_pressed(*k)) else {
+    let Some((_, slot)) = DIGIT_SLOTS.iter().find(|(k, _)| keys.just_pressed(*k)) else {
         return;
     };
     let (now, bpm) = clock(&time, playback.as_deref());
@@ -853,6 +939,11 @@ pub fn camera_keys(
 /// A cue's `camera …` commands, taken as the cue goes live. Only when
 /// no host is draining the commands itself.
 // r[impl viz.camera-cuts] - the cue command cuts the programme camera
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T> is a Bevy SystemParam and must be taken by value for this to run \
+              as a system; the fn only borrows the resource it wraps"
+)]
 pub fn cue_camera_commands(
     time: Res<Time>,
     mut playback: Option<ResMut<Playback>>,
@@ -869,9 +960,10 @@ pub fn cue_camera_commands(
         return;
     };
     for line in player.drain_commands() {
-        match CameraCommand::parse(&line) {
-            Some(command) => active.schedule(command, now, bpm),
-            None => info!("cue command: {line}"),
+        if let Some(command) = CameraCommand::parse(&line) {
+            active.schedule(command, now, bpm);
+        } else {
+            info!("cue command: {line}");
         }
     }
 }
@@ -879,13 +971,10 @@ pub fn cue_camera_commands(
 /// Apply one camera command line from a host, at the host's clock.
 /// Returns whether it was a camera command.
 pub fn apply_command_line(active: &mut ActiveCamera, line: &str, now: f32, bpm: f32) -> bool {
-    match CameraCommand::parse(line) {
-        Some(command) => {
-            active.schedule(command, now, bpm);
-            true
-        }
-        None => false,
-    }
+    CameraCommand::parse(line).is_some_and(|command| {
+        active.schedule(command, now, bpm);
+        true
+    })
 }
 
 /// What a camera is written from: its pose, projection and focus.
@@ -900,6 +989,11 @@ type NotACamera = (Without<MainCamera>, Without<ProgrammeCamera>);
 /// Writes the programme camera into the main camera every frame it
 /// moves, and hides the ceiling while a plan is up.
 // r[impl viz.camera-birdseye] - ceiling entities hidden while the plan is active
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Res<T>/Option<Res<T>> are Bevy SystemParams and must be taken by value \
+              for this to run as a system; the fn only borrows what they wrap"
+)]
 pub fn drive_camera(
     time: Res<Time>,
     playback: Option<Res<Playback>>,
@@ -930,7 +1024,7 @@ pub fn drive_camera(
     let wide = active
         .wide_name()
         .and_then(|n| active.cameras.preset(&n))
-        .map(|p| p.state());
+        .map(CameraPreset::state);
     let write = |state: &CameraState,
                  transform: &mut Transform,
                  projection: &mut Projection,
@@ -1237,13 +1331,13 @@ mod tests {
     fn cue_commands_parse() {
         let c = CameraCommand::parse("camera 3").unwrap();
         assert_eq!(c.target, CameraTarget::Slot(3));
-        assert_eq!(c.dissolve_beats, 0.0);
+        assert!((c.dissolve_beats - (0.0)).abs() < 1e-6);
         let c = CameraCommand::parse("camera Drums in 2").unwrap();
         assert_eq!(c.target, CameraTarget::Preset("Drums".into()));
-        assert_eq!(c.dissolve_beats, 2.0);
+        assert!((c.dissolve_beats - (2.0)).abs() < 1e-6);
         let c = CameraCommand::parse("camera Side stage after 4 for 1.5").unwrap();
         assert_eq!(c.target, CameraTarget::Preset("Side stage".into()));
-        assert_eq!(c.after_beats, 4.0);
+        assert!((c.after_beats - (4.0)).abs() < 1e-6);
         assert_eq!(c.hold_beats, Some(1.5));
         assert_eq!(
             CameraCommand::parse("camera 0").unwrap().target,
@@ -1268,10 +1362,10 @@ mod tests {
         assert!((half.fov_deg - 45.0).abs() < 1e-4);
         assert!(active.is_dissolving(10.9));
         assert!(!active.is_dissolving(11.0));
-        assert_eq!(active.state_at(12.0).eye.y, -6.0);
+        assert!((active.state_at(12.0).eye.y - (-6.0)).abs() < 1e-6);
         // A cut lands at once.
         assert!(active.cut_to(&CameraTarget::Slot(1), 0.0, 12.0, 120.0));
-        assert_eq!(active.state_at(12.0).eye.y, -10.0);
+        assert!((active.state_at(12.0).eye.y - (-10.0)).abs() < 1e-6);
         assert!(!active.is_dissolving(12.0));
         // An unknown target leaves everything alone.
         assert!(!active.cut_to(&CameraTarget::Preset("Nope".into()), 0.0, 12.0, 120.0));
@@ -1518,6 +1612,7 @@ pub enum CameraSource {
 
 impl CameraSource {
     /// `None` for content that is not a camera.
+    #[must_use]
     pub fn parse(content: &str) -> Option<Self> {
         let rest = content.trim().strip_prefix(CAMERA_PREFIX)?.trim();
         if rest.is_empty() {
@@ -1530,6 +1625,7 @@ impl CameraSource {
         }
     }
 
+    #[must_use]
     pub fn content(&self) -> String {
         match self {
             Self::Programme => format!("{CAMERA_PREFIX}programme"),
@@ -1568,7 +1664,8 @@ pub struct ProgrammeView {
 }
 
 impl ProgrammeView {
-    pub fn wanted(&self) -> bool {
+    #[must_use]
+    pub const fn wanted(&self) -> bool {
         self.host_wants || self.canvas_wants
     }
 }
@@ -1605,6 +1702,7 @@ impl CameraSources {
 
 /// An offscreen colour target a camera renders into and a material
 /// samples.
+#[must_use]
 pub fn camera_target((width, height): (u32, u32)) -> Image {
     let mut target = Image::new_target_texture(
         width.max(1),
@@ -1755,6 +1853,7 @@ pub fn manage_camera_views(
 /// No longer decides where the *cuts* land; the main view holds the wide
 /// preset either way. It answers the remaining question, which is what
 /// the desk should say the main view is looking at.
+#[must_use]
 pub fn programme_is_separate(programme: Option<&ProgrammeView>) -> bool {
     programme.is_some_and(|p| p.camera.is_some())
 }
@@ -1792,7 +1891,7 @@ pub fn apply_canvas_switches(
             match &source {
                 Some(source) => {
                     let target = sources.target_for(source, &mut programme, &mut images);
-                    let aspect = SOURCE_SIZE.0 as f32 / SOURCE_SIZE.1 as f32;
+                    let aspect = num::f32_of_u32(SOURCE_SIZE.0) / num::f32_of_u32(SOURCE_SIZE.1);
                     let slice = panel
                         .slice
                         .cover(panel.size.x / panel.size.y.max(0.01), aspect);
@@ -1827,6 +1926,11 @@ pub fn apply_canvas_switches(
 }
 
 /// A display quad in a panel's place, lit by `target`.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Vec3 * f32 is float, component-wise, and cannot panic or overflow \
+              (see docs/ops/clippy.md and the same pattern in view.rs)"
+)]
 fn camera_quad(
     commands: &mut Commands,
     materials: &mut Assets<StandardMaterial>,
@@ -1841,7 +1945,7 @@ fn camera_quad(
             Mesh3d(meshes.add(crate::canvas::sliced_quad(slice))),
             MeshMaterial3d(crate::spawn::display_material(materials, target)),
             Transform {
-                translation: Vec3::Z * (panel.depth * 0.5 + 0.006),
+                translation: Vec3::Z * panel.depth.mul_add(0.5, 0.006),
                 scale: Vec3::new(panel.size.x * 0.94, panel.size.y * 0.94, 1.0),
                 ..default()
             },

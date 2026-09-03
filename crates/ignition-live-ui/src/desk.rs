@@ -18,14 +18,14 @@ use ignition_core::CueList;
 
 /// One scene of the desk: its index in the cue list — what `DeskScene`
 /// fires — and the name without its bank prefix.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Scene {
     pub index: usize,
     pub name: String,
 }
 
 /// A bank of the old desk: what one page of its buttons held.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Bank {
     pub name: String,
     pub scenes: Vec<Scene>,
@@ -36,6 +36,7 @@ const SEP: &str = " · ";
 
 /// Split a cue name into its bank and scene. A name with no separator
 /// is a bank of its own — "Blackout" is one.
+#[must_use]
 pub fn split(name: &str) -> (&str, &str) {
     match name.split_once(SEP) {
         Some((bank, scene)) => (bank.trim(), scene.trim()),
@@ -45,6 +46,7 @@ pub fn split(name: &str) -> (&str, &str) {
 
 /// Group a cue list into banks, in order of first appearance, each
 /// bank's scenes in list order.
+#[must_use]
 pub fn banks(list: &CueList) -> Vec<Bank> {
     let mut out: Vec<Bank> = Vec::new();
     for (index, cue) in list.cues.iter().enumerate() {
@@ -66,6 +68,7 @@ pub fn banks(list: &CueList) -> Vec<Bank> {
 
 /// Where a venue's desk show lives, if it has one: the venue directory's
 /// name under `data/shows/<venue>-desk.json`.
+#[must_use]
 pub fn path_for_venue(venue_dir: &str) -> Option<std::path::PathBuf> {
     let name = std::path::Path::new(venue_dir).file_name()?.to_str()?;
     let path = std::path::PathBuf::from(format!("data/shows/{name}-desk.json"));
@@ -88,6 +91,10 @@ pub fn load(venue_dir: &str) -> Vec<Bank> {
 }
 
 /// The desk cue list itself — what the engine plays.
+///
+/// # Errors
+///
+/// The file cannot be read, or its JSON does not parse as a `CueList`.
 pub fn load_list(path: &std::path::Path) -> anyhow::Result<CueList> {
     let raw = std::fs::read_to_string(path)?;
     Ok(serde_json::from_str(&raw)?)

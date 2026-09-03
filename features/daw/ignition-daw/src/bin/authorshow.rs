@@ -93,6 +93,97 @@ use ignition_show::{
     Waveform,
 };
 
+/// Numeric conversions used throughout this authoring script's bar and
+/// beat math. Each is total for what this file ever hands it — a
+/// song's bars, beats and hit counts, not an unbounded value — with the
+/// bound stated on the function.
+mod num {
+    /// A musical quantity (a beat, a bar count, a bpm) as an `f32`.
+    /// Hand-authored or tempo-derived for one song, far below where an
+    /// `f32` loses precision that matters here.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "musical quantities for one song are far below f32's precision limit"
+    )]
+    pub const fn narrow(value: f64) -> f32 {
+        value as f32
+    }
+
+    /// The bar number under a flattened or floating bar position,
+    /// floored and clamped. `authorshow` only ever calls this with a
+    /// position derived from the song's own tempo map, never a
+    /// negative or NaN value — the clamp exists because the cast is on
+    /// a float, not because either case is expected.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "clamped to a non-negative range before the cast; see the doc comment"
+    )]
+    pub const fn bar_of(value: f32) -> u32 {
+        if value.is_nan() || value <= 0.0 {
+            0
+        } else {
+            value.min(4_294_967_295.0) as u32
+        }
+    }
+
+    /// [`bar_of`] on an `f64` position.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "clamped to a non-negative range before the cast; see the doc comment"
+    )]
+    pub const fn bar_of_f64(value: f64) -> u32 {
+        if value.is_nan() || value <= 0.0 {
+            0
+        } else {
+            value.min(4_294_967_295.0) as u32
+        }
+    }
+
+    /// A bar count as an `f32`. A song's bars are far below where an
+    /// `f32` stops counting integers exactly.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "bar counts for one song are far below f32's precision limit"
+    )]
+    pub const fn bar_as_f32(bar: u32) -> f32 {
+        bar as f32
+    }
+
+    /// A small, bounded count (a hit index, a bar span) as a float.
+    /// This file's songs run minutes, not years, so these stay far
+    /// below where precision would start to matter.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_precision_loss,
+        reason = "counts here are small; see the doc comment"
+    )]
+    pub const fn count_as_f64(n: usize) -> f64 {
+        n as f64
+    }
+
+    /// A clamped, non-negative float as an index into a song-length
+    /// list — bounded the same way [`count_as_f64`] is, in reverse.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "clamped to a non-negative range before the cast; see the doc comment"
+    )]
+    pub const fn index_of(value: f64) -> usize {
+        if value.is_nan() || value <= 0.0 {
+            0
+        } else {
+            value.min(count_as_f64(usize::MAX)) as usize
+        }
+    }
+}
+
 // r[impl song.chart] - the chart is re-read from the project on every run
 // r[impl cues.sorted-by-position]
 // r[impl song.hits.detection-is-a-draft] - only the chart is consulted; detection is never read here
@@ -167,8 +258,7 @@ fn main() -> anyhow::Result<()> {
                 edits_path.display(),
                 opts.merge
                     .as_deref()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "any --merge file".into())
+                    .map_or_else(|| "any --merge file".into(), |p| p.display().to_string())
             );
         }
         // A cue kept from an old file may still carry an absolute bar
@@ -322,7 +412,7 @@ fn cut_plan(name: &str) -> Option<Cut> {
 fn camera_cuts(list: &mut CueList, song: &SongMap, setup: &str) -> anyhow::Result<usize> {
     let has = setup_cameras(setup)?;
     let allowed = |camera: &str| has.contains(&camera);
-    let mut count = 0;
+    let mut count: usize = 0;
     for cue in &mut list.cues {
         cue.commands.retain(|c| !c.starts_with("camera "));
         let Some((camera, dissolve, follow)) = cut_plan(&cue.name) else {
@@ -334,7 +424,7 @@ fn camera_cuts(list: &mut CueList, song: &SongMap, setup: &str) -> anyhow::Resul
             } else {
                 format!("camera {camera}")
             });
-            count += 1;
+            count = count.saturating_add(1);
         }
         if let Some((camera, after)) = follow
             && allowed(camera)
@@ -392,7 +482,7 @@ fn camera_cuts(list: &mut CueList, song: &SongMap, setup: &str) -> anyhow::Resul
                 .find(|c| c.resolved.is_some() && c.resolved == resolved)
             {
                 cue.commands.push(format!("camera Drums for {beats}"));
-                count += 1;
+                count = count.saturating_add(1);
                 continue;
             }
             list.cues.push(Cue {
@@ -404,7 +494,7 @@ fn camera_cuts(list: &mut CueList, song: &SongMap, setup: &str) -> anyhow::Resul
                 commands: vec![format!("camera Drums for {beats}")],
                 ..Default::default()
             });
-            count += 1;
+            count = count.saturating_add(1);
         }
     }
     list.resolve_positions(song);
@@ -460,9 +550,13 @@ fn splits(profile: &std::path::Path) -> Vec<ColorSplit> {
 
 /// The profile's shared Tricks chains, by name.
 fn profile_tricks() -> std::collections::BTreeMap<String, Vec<Trick>> {
+    // Same fallback as `pools` above: the shipped profile is expected
+    // to parse, but this is a place a person's file lands eventually,
+    // and a parse failure here should mean "no shared tricks" rather
+    // than a lost show.
     serde_json::from_str::<ProfilePools>(PROFILE)
-        .expect("the shipped profile parses")
-        .tricks
+        .map(|p| p.tricks)
+        .unwrap_or_default()
 }
 
 /// The command line.
@@ -480,7 +574,7 @@ struct Options {
 }
 
 impl Options {
-    fn parse(args: impl Iterator<Item = String>) -> anyhow::Result<Self> {
+    fn parse(mut args: impl Iterator<Item = String>) -> anyhow::Result<Self> {
         let usage = "usage: authorshow <project file> [--lint] [--profile <ig-profile>] \
                      [--merge <existing.json>] [--edits <edits.json>] \
                      [--sidecar-dir <dir>] [--no-sidecars] [--cameras two|four|eight]";
@@ -492,7 +586,6 @@ impl Options {
         let mut lint = false;
         let mut cameras = None;
         let mut profile = std::path::PathBuf::from("data/profiles/ignition.ig-profile");
-        let mut args = args.peekable();
         while let Some(arg) = args.next() {
             let mut value = |flag: &str| {
                 args.next()
@@ -679,20 +772,28 @@ fn everything() -> Selection {
 /// cutouts, which is what the guide says to do on a full stage.
 const LOOK_CEILING: f32 = 0.72;
 
+/// Pushes one more `apply` onto a freshly built recipe's first step.
+///
+/// `Recipe::new` always writes exactly one step, but the field is still
+/// a `Vec` a caller could in principle have emptied, so every shorthand
+/// below reaches for `first_mut` rather than asserting the invariant
+/// with an index.
+fn push_apply(r: &mut Recipe, apply: RecipeApply) {
+    if let Some(step) = r.steps.first_mut() {
+        step.apply.push(apply);
+    }
+}
+
 fn look(target: Selection, level: f32, colour: &str) -> RecipeRef {
     let mut r = Recipe::new(target, RecipeApply::Dimmer(level.min(LOOK_CEILING)));
-    r.steps[0]
-        .apply
-        .push(RecipeApply::Color(Ref::Named(colour.into())));
+    push_apply(&mut r, RecipeApply::Color(Ref::Named(colour.into())));
     r.into()
 }
 
 /// A look with no ceiling — the peak only.
 fn full(target: Selection, level: f32, colour: &str) -> RecipeRef {
     let mut r = Recipe::new(target, RecipeApply::Dimmer(level));
-    r.steps[0]
-        .apply
-        .push(RecipeApply::Color(Ref::Named(colour.into())));
+    push_apply(&mut r, RecipeApply::Color(Ref::Named(colour.into())));
     r.into()
 }
 
@@ -701,20 +802,26 @@ fn full(target: Selection, level: f32, colour: &str) -> RecipeRef {
 // r[impl color.multi] - authored use
 fn gradient(target: Selection, level: f32, from: &str, to: &str) -> RecipeRef {
     let mut r = Recipe::new(target, RecipeApply::Dimmer(level.min(LOOK_CEILING)));
-    r.steps[0].apply.push(RecipeApply::Colors {
-        colors: vec![Ref::Named(from.into()), Ref::Named(to.into())],
-        distribute: Distribute::Spread,
-    });
+    push_apply(
+        &mut r,
+        RecipeApply::Colors {
+            colors: vec![Ref::Named(from.into()), Ref::Named(to.into())],
+            distribute: Distribute::Spread,
+        },
+    );
     r.into()
 }
 
 /// Two colours alternating fixture by fixture.
 fn two_tone(target: Selection, level: f32, a: &str, b: &str) -> RecipeRef {
     let mut r = Recipe::new(target, RecipeApply::Dimmer(level.min(LOOK_CEILING)));
-    r.steps[0].apply.push(RecipeApply::Colors {
-        colors: vec![Ref::Named(a.into()), Ref::Named(b.into())],
-        distribute: Distribute::Cycle,
-    });
+    push_apply(
+        &mut r,
+        RecipeApply::Colors {
+            colors: vec![Ref::Named(a.into()), Ref::Named(b.into())],
+            distribute: Distribute::Cycle,
+        },
+    );
     r.into()
 }
 
@@ -723,9 +830,7 @@ fn two_tone(target: Selection, level: f32, a: &str, b: &str) -> RecipeRef {
 // r[impl color.recall-by-reference] - the cue stores the split's name
 fn split(target: Selection, level: f32, name: &str) -> RecipeRef {
     let mut r = Recipe::new(target, RecipeApply::Dimmer(level.min(LOOK_CEILING)));
-    r.steps[0]
-        .apply
-        .push(RecipeApply::Split(Ref::Named(name.into())));
+    push_apply(&mut r, RecipeApply::Split(Ref::Named(name.into())));
     r.into()
 }
 
@@ -804,7 +909,7 @@ fn focus_walk(points: &[&str], bars: f32) -> RecipeRef {
 fn chase(target: Selection, depth: f32, bars: f32, spread: f32, play: Play) -> RecipeRef {
     Recipe {
         target,
-        steps: Waveform::Sine.steps(Attribute::Dimmer, -depth, depth, true),
+        steps: Waveform::Sine.steps(&Attribute::Dimmer, -depth, depth, true),
         timing: Timing {
             speed: Speed::Master("Song".into()),
             measure: bars * 4.0,
@@ -824,7 +929,7 @@ fn chase(target: Selection, depth: f32, bars: f32, spread: f32, play: Play) -> R
 fn stacked_nod(bars: f32) -> RecipeRef {
     Recipe {
         target: movers(),
-        steps: Waveform::Sine.steps(Attribute::Tilt, 0.0, 4.0, true),
+        steps: Waveform::Sine.steps(&Attribute::Tilt, 0.0, 4.0, true),
         timing: Timing {
             speed: Speed::Master("Song".into()),
             measure: bars * 4.0,
@@ -856,7 +961,7 @@ fn canvas_noise_on_bars(colour: &str) -> RecipeRef {
                     measure: 16.0,
                     ..Default::default()
                 },
-                plane: Default::default(),
+                plane: ignition_show::canvas::CanvasPlane::default(),
             },
             channel: BitmapChannel {
                 canvas: "Main".into(),
@@ -868,9 +973,7 @@ fn canvas_noise_on_bars(colour: &str) -> RecipeRef {
             },
         },
     );
-    r.steps[0]
-        .apply
-        .push(RecipeApply::Color(Ref::Named(colour.into())));
+    push_apply(&mut r, RecipeApply::Color(Ref::Named(colour.into())));
     r.into()
 }
 
@@ -998,7 +1101,9 @@ fn with_trick(r: RecipeRef, name: &str) -> RecipeRef {
         }
         // A named effect carries its tricks inline; the pool's chain is
         // copied in so the file still says which one it meant.
-        named @ RecipeRef::Named { .. } => named.tricked(profile_tricks()[name].clone()),
+        named @ RecipeRef::Named { .. } => {
+            named.tricked(pool.get(name).cloned().unwrap_or_default())
+        }
         other => other,
     }
 }
@@ -1077,7 +1182,7 @@ impl Author<'_> {
         let bpm = self.song.tempo.at(at).bpm;
         self.cues.push(Cue {
             name: name.to_string(),
-            fade_secs: (fade_beats * 60.0 / bpm) as f32,
+            fade_secs: num::narrow(fade_beats * 60.0 / bpm),
             values: Vec::new(),
             recipes,
             // Sections are complete statements; accents inside a section
@@ -1093,12 +1198,11 @@ impl Author<'_> {
     /// Beats in a named section, for a follow that has to land a fixed
     /// distance before the next one.
     fn beats_in(&self, section: &str) -> f32 {
-        self.song
-            .section(section)
-            .map(|s| {
-                (s.bars * self.song.tempo.at(s.start).time_signature.numerator.max(1) as f64) as f32
-            })
-            .unwrap_or(16.0)
+        self.song.section(section).map_or(16.0, |s| {
+            let beats_per_bar =
+                f64::from(self.song.tempo.at(s.start).time_signature.numerator.max(1));
+            num::narrow(s.bars * beats_per_bar)
+        })
     }
 }
 
@@ -1126,12 +1230,110 @@ impl Author<'_> {
 
 // r[impl song.relative-position] - every cue placed relative to a section
 // r[impl cues.sorted-by-position]
-fn author(song: &SongMap) -> CueList {
-    let mut a = Author {
-        song,
-        cues: Vec::new(),
-    };
+/// The verse recipes — closed over nothing, so it is a function rather
+/// than a closure and `author` can call it from either verse's section
+/// without redefining it there. `second` is the second verse's own
+/// restatement of the bed (see the call sites).
+fn verse_recipes(second: bool) -> Vec<RecipeRef> {
+    let mut v = vec![
+        gradient(wash_lr(), 0.32, "Lavender", "Purple"),
+        look(key(), 0.72, "Warm White"),
+        effect("candle", None, None),
+        look(back(), 0.35, "Indigo"),
+        look(bars(), if second { 0.3 } else { 0.2 }, "Purple"),
+        look(movers(), 0.3, "Indigo"),
+        aim(movers(), "Band"),
+        stacked_nod(2.0),
+        dark(beams()),
+        dark(floor()),
+        dark(audience()),
+        dark(drums()),
+    ];
+    if second {
+        // The second verse restates the bed itself, because its
+        // circle carries a trick the look's cannot: half as deep a
+        // breathe as the library's — the second verse moves less,
+        // not more, so the pre has somewhere to go — under the
+        // counter-rotating circle.
+        v.push(param(effect("breathe", None, None), "depth", 0.5));
+        v.push(tricked(
+            effect("circle breathe", None, None),
+            vec![Trick::OnAxis(
+                Axis::Z,
+                Box::new(Trick::Invert(InvertStyle::Pan)),
+            )],
+        ));
+    } else {
+        // The profile's verse bed — key warm, back deep, the wash
+        // breathing under a circle — is the scene the VERSE key
+        // holds; the first verse opens on it and says what differs.
+        v.insert(0, look_ref("verse bed"));
+    }
+    v
+}
 
+/// The pre-chorus recipes, shared between `PRE` and `PRE 2`.
+fn pre_recipes() -> Vec<RecipeRef> {
+    vec![
+        with_trick(two_tone(wash_lr(), 0.55, "Magenta", "Pink"), "paired odds"),
+        look(key(), 0.7, "Warm White"),
+        look(back(), 0.6, "Magenta"),
+        look(bars(), 0.55, "Magenta"),
+        look(movers(), 0.6, "Indigo"),
+        keyframes(&["Band", "Vocal", "Audience"]),
+        dark(beams()),
+        dark(floor()),
+        dark(audience()),
+        dark(drums()),
+        // Up the rig, not across it: a pre-chorus build is a rise.
+        effect("build", Some(wash_up()), Some(1.0)),
+    ]
+}
+
+/// The pre-chorus's last-bar wipe, shared between `PRE` and `PRE 2` —
+/// `riser` is `PRE 2`'s own addition, the strobe climbing into `CH 2`.
+fn pre_lift_recipes(riser: bool) -> Vec<RecipeRef> {
+    let mut v = vec![
+        look(wash_lr(), 0.65, "Pink"),
+        focus_walk(&["Band", "Vocal", "Audience"], 1.0),
+    ];
+    if riser {
+        // The shutter climbs from nothing over the bar and the
+        // chorus ends it — the one thing PRE 2 has that PRE 1 did
+        // not, and the first the beams are seen.
+        v.push(look(beams(), 0.4, "Gold"));
+        v.push(aim(beams(), "Audience"));
+        v.push(effect("strobe riser", None, Some(1.0)));
+    }
+    v
+}
+
+/// The chorus recipes shared by `CH 1` and `CH 2` — everything the
+/// chorus owns, and only the chorus.
+fn chorus_recipes(fan_to: &'static str) -> Vec<RecipeRef> {
+    vec![
+        look(wash(), 0.72, "Gold"),
+        look(key(), 0.72, "Warm White"),
+        look(back(), 0.72, "Amber"),
+        look(bars(), 0.65, "Amber"),
+        look(movers(), 0.7, "Open White"),
+        fan("Vocal", fan_to),
+        look(drums(), 0.5, "Warm White"),
+        dark(beams()),
+        dark(audience()),
+        effect("dark chase", Some(wash_lr()), None),
+    ]
+}
+
+/// Colour snaps; the dimmer arrives over a beat — `CH 1` and `CH 2`'s
+/// shared timing, from the design guide's per-attribute rule.
+const fn apply_chorus_timing(c: &mut Cue) {
+    c.timing.dimmer_in = Some(1.0);
+    c.timing.color = Some(0.0);
+}
+
+/// Safe, the count-in and the cold, mechanical intro riff.
+fn section_intro(a: &mut Author) {
     // ── safe ─────────────────────────────────────────────────────────
     // The profile's punt look — stage lit, warm, nothing moving — then
     // this show's own colours on top. Positioned under the count-in so
@@ -1227,54 +1429,19 @@ fn author(song: &SongMap) -> CueList {
             chase(wash_lr(), 0.15, 2.0, 360.0, Play::Bounce),
         ],
     );
+}
 
+/// The first verse and its lift, and the first pre-chorus and its wipe.
+///
+/// Home. Key warm and up with a candle in it — barely there; the wash
+/// a lavender-to-purple spread, low; indigo behind. The movers run the
+/// library's verse bed (the wash breathing under a circle that swells
+/// and shrinks with it) with a stacked nod summed on the tilt, so the
+/// beams drift and bob at once. The position class arrives on a swing
+/// curve over a bar, per `set_class_timing`.
+fn section_verse_one_and_prechorus(a: &mut Author) {
     // ── verses: low, and the vocal is the picture ────────────────────
-    // Home. Key warm and up with a candle in it — barely there; the
-    // wash a lavender-to-purple spread, low; indigo behind. The movers
-    // run the library's verse bed (the wash breathing under a circle
-    // that swells and shrinks with it) with a stacked nod summed on the
-    // tilt, so the beams drift and bob at once. The position class
-    // arrives on a swing curve over a bar, per `set_class_timing`.
-    // The second verse counter-rotates the upper row of movers about Z,
-    // which a venue with one height simply does not have.
-    let verse = |second: bool| {
-        let mut v = vec![
-            gradient(wash_lr(), 0.32, "Lavender", "Purple"),
-            look(key(), 0.72, "Warm White"),
-            effect("candle", None, None),
-            look(back(), 0.35, "Indigo"),
-            look(bars(), if second { 0.3 } else { 0.2 }, "Purple"),
-            look(movers(), 0.3, "Indigo"),
-            aim(movers(), "Band"),
-            stacked_nod(2.0),
-            dark(beams()),
-            dark(floor()),
-            dark(audience()),
-            dark(drums()),
-        ];
-        if second {
-            // The second verse restates the bed itself, because its
-            // circle carries a trick the look's cannot: half as deep a
-            // breathe as the library's — the second verse moves less,
-            // not more, so the pre has somewhere to go — under the
-            // counter-rotating circle.
-            v.push(param(effect("breathe", None, None), "depth", 0.5));
-            v.push(tricked(
-                effect("circle breathe", None, None),
-                vec![Trick::OnAxis(
-                    Axis::Z,
-                    Box::new(Trick::Invert(InvertStyle::Pan)),
-                )],
-            ));
-        } else {
-            // The profile's verse bed — key warm, back deep, the wash
-            // breathing under a circle — is the scene the VERSE key
-            // holds; the first verse opens on it and says what differs.
-            v.insert(0, look_ref("verse bed"));
-        }
-        v
-    };
-    if let Some(c) = a.cue(at("VS 1", 0), "VS 1", 2.0, verse(false)) {
+    if let Some(c) = a.cue(at("VS 1", 0), "VS 1", 2.0, verse_recipes(false)) {
         c.timing.ease.position = CurveName::Swing.ease();
     }
     // Halfway through, the bars join in — a lift the ear hears at the
@@ -1292,43 +1459,12 @@ fn author(song: &SongMap) -> CueList {
     // bar. The movers come to the band, the vocal and the audience in
     // one keyframed line across the truss. Beams stay dark: they are
     // for the end.
-    let pre = || {
-        vec![
-            with_trick(two_tone(wash_lr(), 0.55, "Magenta", "Pink"), "paired odds"),
-            look(key(), 0.7, "Warm White"),
-            look(back(), 0.6, "Magenta"),
-            look(bars(), 0.55, "Magenta"),
-            look(movers(), 0.6, "Indigo"),
-            keyframes(&["Band", "Vocal", "Audience"]),
-            dark(beams()),
-            dark(floor()),
-            dark(audience()),
-            dark(drums()),
-            // Up the rig, not across it: a pre-chorus build is a rise.
-            effect("build", Some(wash_up()), Some(1.0)),
-        ]
-    };
-    a.cue(at("PRE", 0), "PRE", 2.0, pre());
+    a.cue(at("PRE", 0), "PRE", 2.0, pre_recipes());
     // The last bar: the wash wipes up left to right on a **delay fan**
     // — every fixture arrives at the same pink, just later — while the
     // movers walk Band → Vocal → Audience over the bar and land on the
     // downbeat. Figure 0 (the three hits carving the stage) sits on top.
-    let pre_lift = |riser: bool| {
-        let mut v = vec![
-            look(wash_lr(), 0.65, "Pink"),
-            focus_walk(&["Band", "Vocal", "Audience"], 1.0),
-        ];
-        if riser {
-            // The shutter climbs from nothing over the bar and the
-            // chorus ends it — the one thing PRE 2 has that PRE 1 did
-            // not, and the first the beams are seen.
-            v.push(look(beams(), 0.4, "Gold"));
-            v.push(aim(beams(), "Audience"));
-            v.push(effect("strobe riser", None, Some(1.0)));
-        }
-        v
-    };
-    if let Some(c) = a.cue(last_bar("PRE"), "· PRE wipe", 1.0, pre_lift(false)) {
+    if let Some(c) = a.cue(last_bar("PRE"), "· PRE wipe", 1.0, pre_lift_recipes(false)) {
         c.fan = Some(CueFan {
             delay: Fan {
                 from: 0.0,
@@ -1338,35 +1474,21 @@ fn author(song: &SongMap) -> CueList {
             fade: Fan::default(),
         });
     }
+}
 
+/// The first chorus, and the one-bar break after it.
+///
+/// Everything the chorus owns, and only the chorus: gold on the wash,
+/// amber behind and on the bars, open white movers fanned from the
+/// singer out over the crowd. A dark gap chases through the wash once
+/// a bar — motion without more light. Colour snaps; the dimmer arrives
+/// over a beat (`set_class_timing` and [`apply_chorus_timing`]).
+fn section_chorus_one_and_break(a: &mut Author) {
     // ── choruses ─────────────────────────────────────────────────────
-    // Everything the chorus owns, and only the chorus: gold on the
-    // wash, amber behind and on the bars, open white movers fanned from
-    // the singer out over the crowd. A dark gap chases through the wash
-    // once a bar — motion without more light. Colour snaps; the dimmer
-    // arrives over a beat (`set_class_timing` and the timing below).
-    let chorus = |fan_to: &'static str| {
-        vec![
-            look(wash(), 0.72, "Gold"),
-            look(key(), 0.72, "Warm White"),
-            look(back(), 0.72, "Amber"),
-            look(bars(), 0.65, "Amber"),
-            look(movers(), 0.7, "Open White"),
-            fan("Vocal", fan_to),
-            look(drums(), 0.5, "Warm White"),
-            dark(beams()),
-            dark(audience()),
-            effect("dark chase", Some(wash_lr()), None),
-        ]
-    };
-    let chorus_timing = |c: &mut Cue| {
-        c.timing.dimmer_in = Some(1.0);
-        c.timing.color = Some(0.0);
-    };
-    let mut ch1 = chorus("Audience");
+    let mut ch1 = chorus_recipes("Audience");
     ch1.push(dark(floor()));
     if let Some(c) = a.cue(at("CH 1", 0), "CH 1", 0.25, ch1) {
-        chorus_timing(c);
+        apply_chorus_timing(c);
     }
 
     // ── the one-bar break ────────────────────────────────────────────
@@ -1388,9 +1510,13 @@ fn author(song: &SongMap) -> CueList {
             effect("lightning", None, None),
         ],
     );
+}
 
+/// The second verse and pre-chorus pass, and `CH 2` — `CH 1` plus the
+/// windmill and the floor.
+fn section_second_time(a: &mut Author) {
     // ── second time round, a little more ─────────────────────────────
-    if let Some(c) = a.cue(at("VS 2", 0), "VS 2", 4.0, verse(true)) {
+    if let Some(c) = a.cue(at("VS 2", 0), "VS 2", 4.0, verse_recipes(true)) {
         c.timing.ease.position = CurveName::Swing.ease();
     }
     a.cue(
@@ -1399,8 +1525,13 @@ fn author(song: &SongMap) -> CueList {
         1.0,
         vec![look(bars(), 0.45, "Magenta")],
     );
-    a.cue(at_nth("PRE", 1, 0), "PRE 2", 2.0, pre());
-    if let Some(c) = a.cue(last_bar_nth("PRE", 1), "· PRE 2 wipe", 1.0, pre_lift(true)) {
+    a.cue(at_nth("PRE", 1, 0), "PRE 2", 2.0, pre_recipes());
+    if let Some(c) = a.cue(
+        last_bar_nth("PRE", 1),
+        "· PRE 2 wipe",
+        1.0,
+        pre_lift_recipes(true),
+    ) {
         c.fan = Some(CueFan {
             delay: Fan {
                 from: 0.0,
@@ -1411,13 +1542,16 @@ fn author(song: &SongMap) -> CueList {
         });
     }
     // CH 2 = CH 1 + one addition: the windmill, and the floor.
-    let mut ch2 = chorus("Audience");
+    let mut ch2 = chorus_recipes("Audience");
     ch2.push(look(floor(), 0.6, "Amber"));
     ch2.push(effect("windmill", None, None));
     if let Some(c) = a.cue(at("CH 2", 0), "CH 2", 0.25, ch2) {
-        chorus_timing(c);
+        apply_chorus_timing(c);
     }
+}
 
+/// The bridge, and the breakdown with its follow-lift into `CH 3`.
+fn section_bridge_and_breakdown(a: &mut Author) {
     // ── bridge: somewhere else ───────────────────────────────────────
     // The home hue at its deepest: the Congo Split in blocks across the
     // wash, rocking warmer and cooler about itself; the movers on the
@@ -1473,8 +1607,8 @@ fn author(song: &SongMap) -> CueList {
     );
     let breakdown_beats = a.beats_in("Breakdown");
     let lift_beats = (breakdown_beats - 2.0).max(1.0);
-    let lift_bars = (lift_beats / 4.0) as u32;
-    let lift_beat = (lift_beats - lift_bars as f32 * 4.0) as f64 + 1.0;
+    let lift_bars = num::bar_of(lift_beats / 4.0);
+    let lift_beat = f64::from(num::bar_as_f32(lift_bars).mul_add(-4.0, lift_beats)) + 1.0;
     if let Some(c) = a.cue(
         at_beat("Breakdown", 0, lift_bars, lift_beat),
         "· Breakdown lift",
@@ -1495,16 +1629,19 @@ fn author(song: &SongMap) -> CueList {
     ) {
         c.trig = Trig::Follow { beats: lift_beats };
     }
+}
 
-    // ── last chorus: the biggest thing in the show ───────────────────
-    // Everything, at full — the only cue that is. The chorus look with
-    // the beams over the audience, the blinders up, the floor in, a
-    // colour wipe sweeping the hot colour across the wash as it lands
-    // and a rainbow rolling along the bars for four bars. Then, four
-    // bars in, the strobe: random pops on the beams and the blinders
-    // chasing for four bars, no more. Then the run-out: eighth-note
-    // chases and the windmill at its fastest. The hits here are cutouts,
-    // as they should be on a stage this bright.
+/// The last chorus: the biggest thing in the show.
+///
+/// Everything, at full — the only cue that is. The chorus look with
+/// the beams over the audience, the blinders up, the floor in, a
+/// colour wipe sweeping the hot colour across the wash as it lands and
+/// a rainbow rolling along the bars for four bars. Then, four bars in,
+/// the strobe: random pops on the beams and the blinders chasing for
+/// four bars, no more. Then the run-out: eighth-note chases and the
+/// windmill at its fastest. The hits here are cutouts, as they should
+/// be on a stage this bright.
+fn section_last_chorus(a: &mut Author) {
     let mut ch3 = vec![
         full(wash(), 1.0, "Gold"),
         look(key(), 0.8, "Warm White"),
@@ -1530,7 +1667,7 @@ fn author(song: &SongMap) -> CueList {
     ];
     ch3.push(effect("white pop", None, None));
     if let Some(c) = a.cue(at("CH 3", 0), "CH 3", 0.25, ch3) {
-        chorus_timing(c);
+        apply_chorus_timing(c);
         // The profile's drop macro on the downbeat — strobe burst,
         // blinders, the movers flying out over the chorus look for four
         // beats, then let go — the same move the DROP key runs, fired
@@ -1588,7 +1725,10 @@ fn author(song: &SongMap) -> CueList {
             ),
         ],
     );
+}
 
+/// The outro's cold fade to black, and the reset.
+fn section_outro(a: &mut Author) {
     // ── out ──────────────────────────────────────────────────────────
     // Back to the intro's cold. The wash drains light by light and
     // stays dark; the movers lift off the stage and go. Then the end:
@@ -1657,6 +1797,23 @@ fn author(song: &SongMap) -> CueList {
             dark(drums()),
         ],
     );
+}
+
+/// The whole show, one section function at a time — see the table at
+/// the top of the file for what each one demonstrates.
+fn author(song: &SongMap) -> CueList {
+    let mut a = Author {
+        song,
+        cues: Vec::new(),
+    };
+
+    section_intro(&mut a);
+    section_verse_one_and_prechorus(&mut a);
+    section_chorus_one_and_break(&mut a);
+    section_second_time(&mut a);
+    section_bridge_and_breakdown(&mut a);
+    section_last_chorus(&mut a);
+    section_outro(&mut a);
 
     // Positions are authored per section, not in order, so sort before
     // handing over: `seek` walks the list backwards looking for the last
@@ -1708,8 +1865,8 @@ fn zone(n: usize, count: usize) -> Selection {
     if count <= 1 {
         return wash();
     }
-    let width = 2.0 * RIG_HALF_WIDTH / count as f64;
-    let min_x = -RIG_HALF_WIDTH + width * n as f64;
+    let width = 2.0 * RIG_HALF_WIDTH / num::count_as_f64(count);
+    let min_x = width.mul_add(num::count_as_f64(n), -RIG_HALF_WIDTH);
     Selection::Where {
         of: Box::new(wash()),
         // Where the light *lands*, not where the fixture hangs. A front
@@ -1749,25 +1906,28 @@ fn pattern(
 ) -> Option<[bool; SLOTS]> {
     let section = song.section(section)?;
     let first = section.start.bar;
-    let last = first + section.bars as u32;
-    let bars = (last - first).max(1);
+    let last = first.saturating_add(num::bar_of_f64(section.bars));
+    let bars = last.saturating_sub(first).max(1);
+    let bars = usize::try_from(bars).unwrap_or(usize::MAX);
 
     let mut counts = [0usize; SLOTS];
     for hit in chart.hits.iter().filter(|h| h.class == class) {
         if hit.at.bar < first || hit.at.bar >= last {
             continue;
         }
-        let slot = ((hit.at.beat - 1.0) * 2.0).round() as usize;
+        let slot = num::index_of((hit.at.beat - 1.0) * 2.0);
         if let Some(count) = counts.get_mut(slot) {
-            *count += 1;
+            *count = count.saturating_add(1);
         }
     }
 
     let mut slots = [false; SLOTS];
     let mut any = false;
     for (slot, count) in counts.iter().enumerate() {
-        if *count * 2 >= bars as usize {
-            slots[slot] = true;
+        if count.saturating_mul(2) >= bars
+            && let Some(on) = slots.get_mut(slot)
+        {
+            *on = true;
             any = true;
         }
     }
@@ -1854,8 +2014,8 @@ fn bump(target: Selection, class: HitClass, depth: f32) -> Recipe {
 /// needs the lift to be cut-plus-level, which is more than one.
 fn envelope(target: Selection, depth: f32) -> Recipe {
     let mut r = ignition_show::bump::bump(target, ignition_show::BumpKind::Level, 1.0);
-    for step in r.steps.iter_mut() {
-        for apply in step.apply.iter_mut() {
+    for step in &mut r.steps {
+        for apply in &mut step.apply {
             if let RecipeApply::Delta(pairs) = apply {
                 for (_, v) in pairs.iter_mut() {
                     *v *= depth;
@@ -1866,7 +2026,161 @@ fn envelope(target: Selection, depth: f32) -> Recipe {
     r
 }
 
-/// The triggers for every figure and the hits the guide keeps.
+/// The cutout/bump triggers for every charted figure — the first half
+/// of [`triggers`], pulled into its own function so that one stays
+/// under the line budget. Returns the triggers and the bars a figure
+/// already owns, so the lone-hit pass below knows to leave them alone.
+fn figure_triggers(
+    chart: &HitChart,
+    song: &SongMap,
+) -> (Vec<Trigger>, std::collections::BTreeSet<u32>) {
+    let mut out = Vec::new();
+    let cut_depth = 0.95;
+    // Hits arrive at absolute bars from the chart; written down relative
+    // to their section so they move with it, the bar kept beside.
+    // r[impl song.relative-position] - triggers too
+    let place = |at: Bars| (Position::relative_to(song, at), Some(at));
+
+    let mut figure_bars = std::collections::BTreeSet::new();
+    for (index, group) in chart.groups.iter().enumerate() {
+        // Hits landing together are one moment: a snare and a crash on
+        // the same eighth should light one zone, not two.
+        let mut moments: Vec<(Bars, f32)> = Vec::new();
+        for hit in chart.members(group) {
+            match moments.last_mut() {
+                Some((at, level)) if *at == hit.at => *level = level.max(hit.intensity()),
+                _ => moments.push((hit.at, hit.intensity())),
+            }
+        }
+        let count = moments.len();
+        for (n, (at, level)) in moments.into_iter().enumerate() {
+            figure_bars.insert(at.bar);
+            let ordinal = n.saturating_add(1);
+            let name = format!("fig {index} · {ordinal}/{count}");
+            // Inside a figure each moment holds until the next one moves
+            // the shape along; the last moment falls, so the figure
+            // ends and the look comes back. A held last moment would
+            // leave the stage carved until the next cue, which is a
+            // different idea from the one that was drawn.
+            let hold = ordinal < count;
+            let (position, resolved) = place(at);
+            if (2..=3).contains(&count) {
+                out.push(Trigger {
+                    at: position.clone(),
+                    resolved,
+                    recipe: envelope(everything(), -cut_depth),
+                    name: format!("{name} cut"),
+                    hold,
+                });
+                out.push(Trigger {
+                    at: position,
+                    resolved,
+                    recipe: envelope(zone(n, count), cut_depth + level.max(0.6)),
+                    name,
+                    hold,
+                });
+            } else {
+                out.push(Trigger {
+                    at: position,
+                    resolved,
+                    recipe: bump(zone(n, count), HitClass::High, level),
+                    name,
+                    hold,
+                });
+            }
+        }
+    }
+    (out, figure_bars)
+}
+
+/// Lone hits, thinned to the guide's density — the second half of
+/// [`triggers`]. `figure_bars` excludes anything a figure already
+/// owns.
+fn thinned_hit_triggers(
+    chart: &HitChart,
+    song: &SongMap,
+    figure_bars: &std::collections::BTreeSet<u32>,
+) -> Vec<Trigger> {
+    let mut out = Vec::new();
+    // Hits arrive at absolute bars from the chart; written down relative
+    // to their section so they move with it, the bar kept beside.
+    // r[impl song.relative-position] - triggers too
+    let place = |at: Bars| (Position::relative_to(song, at), Some(at));
+    // The soft tiers are the pulse and already have their effect; a
+    // trigger as well would flash twice for one hit. The rest are
+    // thinned per section to the guide's density.
+    let mut candidates: Vec<&ignition_daw::chart::ChartHit> = chart
+        .ungrouped()
+        .filter(|h| matches!(h.class, HitClass::High | HitClass::Medium))
+        .filter(|h| !figure_bars.contains(&h.at.bar))
+        .collect();
+    candidates.sort_by(|a, b| a.at.partial_cmp(&b.at).unwrap_or(std::cmp::Ordering::Equal));
+    for section in &song.sections {
+        let kind = kind_of(&section.name);
+        let first = section.start.bar;
+        let last = first
+            .saturating_add(num::bar_of_f64(section.bars).max(1))
+            .saturating_sub(1);
+        // (allowed, per how many bars)
+        let per = match kind {
+            Kind::Verse | Kind::Outro => 2,
+            _ => 1,
+        };
+        let mut bar = first;
+        while bar <= last {
+            let span_end = bar.saturating_add(per).saturating_sub(1).min(last);
+            let allowed = match kind {
+                Kind::Breakdown if span_end != last => 0,
+                // The break's accent is the negative flash on its
+                // downbeat (`section_triggers`); the count-in has none.
+                Kind::CountIn | Kind::Break => 0,
+                _ => 1,
+            };
+            if allowed > 0 && !(bar..=span_end).any(|b| figure_bars.contains(&b)) {
+                let best = candidates
+                    .iter()
+                    .filter(|h| h.at.bar >= bar && h.at.bar <= span_end)
+                    .max_by(|a, b| {
+                        let score = |h: &ignition_daw::chart::ChartHit| {
+                            (
+                                h.class == HitClass::High,
+                                (h.at.beat - 1.0).abs() < f64::EPSILON,
+                                num::index_of(f64::from(h.intensity()) * 100.0),
+                                h.at.bar.cast_signed().saturating_neg(),
+                            )
+                        };
+                        score(a).cmp(&score(b))
+                    });
+                if let Some(hit) = best {
+                    // High hits take the bars with them; the rest stay
+                    // on the wash.
+                    let target = if hit.class == HitClass::High {
+                        Selection::Union(vec![wash(), bars()])
+                    } else {
+                        wash()
+                    };
+                    let (position, resolved) = place(hit.at);
+                    out.push(Trigger {
+                        at: position,
+                        resolved,
+                        recipe: bump(target, hit.class, hit.intensity()),
+                        name: format!("{} {}.{:.2}", hit.class.label(), hit.at.bar, hit.at.beat),
+                        // A lone hit is a moment, not a state: it snaps
+                        // and falls. Holding is for figures, where the
+                        // next moment is what releases the last.
+                        hold: false,
+                    });
+                }
+            }
+            bar = bar.saturating_add(per);
+        }
+    }
+    out
+}
+
+/// The triggers for every figure and the hits the guide keeps — see
+/// [`figure_triggers`] and [`thinned_hit_triggers`] for the two halves
+/// this stitches together.
 ///
 /// A figure of two or three moments is a **cutout**: the whole stage is
 /// taken away and one zone left standing, one zone per moment, so the
@@ -1893,130 +2207,8 @@ fn envelope(target: Selection, depth: f32) -> Recipe {
 // r[impl triggers.simultaneous-sum] - authored against the summing rule
 // r[impl triggers.hold] - figure moments hold until the next; the last, and lone hits, fall
 fn triggers(chart: &HitChart, song: &SongMap) -> Vec<Trigger> {
-    let mut out = Vec::new();
-    let cut_depth = 0.95;
-    // Hits arrive at absolute bars from the chart; written down relative
-    // to their section so they move with it, the bar kept beside.
-    // r[impl song.relative-position] - triggers too
-    let place = |at: Bars| (Position::relative_to(song, at), Some(at));
-
-    let mut figure_bars = std::collections::BTreeSet::new();
-    for (index, group) in chart.groups.iter().enumerate() {
-        // Hits landing together are one moment: a snare and a crash on
-        // the same eighth should light one zone, not two.
-        let mut moments: Vec<(Bars, f32)> = Vec::new();
-        for hit in chart.members(group) {
-            match moments.last_mut() {
-                Some((at, level)) if *at == hit.at => *level = level.max(hit.intensity()),
-                _ => moments.push((hit.at, hit.intensity())),
-            }
-        }
-        let count = moments.len();
-        for (n, (at, level)) in moments.into_iter().enumerate() {
-            figure_bars.insert(at.bar);
-            let name = format!("fig {index} · {}/{count}", n + 1);
-            // Inside a figure each moment holds until the next one moves
-            // the shape along; the last moment falls, so the figure
-            // ends and the look comes back. A held last moment would
-            // leave the stage carved until the next cue, which is a
-            // different idea from the one that was drawn.
-            let hold = n + 1 < count;
-            if (2..=3).contains(&count) {
-                let (position, resolved) = place(at);
-                out.push(Trigger {
-                    at: position.clone(),
-                    resolved,
-                    recipe: envelope(everything(), -cut_depth),
-                    name: format!("{name} cut"),
-                    hold,
-                });
-                out.push(Trigger {
-                    at: position,
-                    resolved,
-                    recipe: envelope(zone(n, count), cut_depth + level.max(0.6)),
-                    name,
-                    hold,
-                });
-            } else {
-                let (position, resolved) = place(at);
-                out.push(Trigger {
-                    at: position,
-                    resolved,
-                    recipe: bump(zone(n, count), HitClass::High, level),
-                    name,
-                    hold,
-                });
-            }
-        }
-    }
-
-    // The soft tiers are the pulse and already have their effect; a
-    // trigger as well would flash twice for one hit. The rest are
-    // thinned per section to the guide's density.
-    let mut candidates: Vec<&ignition_daw::chart::ChartHit> = chart
-        .ungrouped()
-        .filter(|h| matches!(h.class, HitClass::High | HitClass::Medium))
-        .filter(|h| !figure_bars.contains(&h.at.bar))
-        .collect();
-    candidates.sort_by(|a, b| a.at.partial_cmp(&b.at).unwrap_or(std::cmp::Ordering::Equal));
-    for section in &song.sections {
-        let kind = kind_of(&section.name);
-        let first = section.start.bar;
-        let last = first + (section.bars as u32).max(1) - 1;
-        // (allowed, per how many bars)
-        let per = match kind {
-            Kind::Verse | Kind::Outro => 2,
-            _ => 1,
-        };
-        let mut bar = first;
-        while bar <= last {
-            let span_end = (bar + per - 1).min(last);
-            let allowed = match kind {
-                Kind::Breakdown if span_end != last => 0,
-                // The break's accent is the negative flash on its
-                // downbeat (`section_triggers`); the count-in has none.
-                Kind::CountIn | Kind::Break => 0,
-                _ => 1,
-            };
-            if allowed > 0 && !(bar..=span_end).any(|b| figure_bars.contains(&b)) {
-                let best = candidates
-                    .iter()
-                    .filter(|h| h.at.bar >= bar && h.at.bar <= span_end)
-                    .max_by(|a, b| {
-                        let score = |h: &ignition_daw::chart::ChartHit| {
-                            (
-                                h.class == HitClass::High,
-                                h.at.beat == 1.0,
-                                (h.intensity() * 100.0) as i32,
-                                -(h.at.bar as i32),
-                            )
-                        };
-                        score(a).cmp(&score(b))
-                    });
-                if let Some(hit) = best {
-                    // High hits take the bars with them; the rest stay
-                    // on the wash.
-                    let target = if hit.class == HitClass::High {
-                        Selection::Union(vec![wash(), bars()])
-                    } else {
-                        wash()
-                    };
-                    let (position, resolved) = place(hit.at);
-                    out.push(Trigger {
-                        at: position,
-                        resolved,
-                        recipe: bump(target, hit.class, hit.intensity()),
-                        name: format!("{} {}.{:.2}", hit.class.label(), hit.at.bar, hit.at.beat),
-                        // A lone hit is a moment, not a state: it snaps
-                        // and falls. Holding is for figures, where the
-                        // next moment is what releases the last.
-                        hold: false,
-                    });
-                }
-            }
-            bar += per;
-        }
-    }
+    let (mut out, figure_bars) = figure_triggers(chart, song);
+    out.extend(thinned_hit_triggers(chart, song, &figure_bars));
     out.sort_by(|a, b| {
         a.resolved
             .partial_cmp(&b.resolved)
@@ -2031,8 +2223,11 @@ fn triggers(chart: &HitChart, song: &SongMap) -> Vec<Trigger> {
 /// on.
 fn section_triggers(song: &SongMap) -> Vec<Trigger> {
     let mut out = Vec::new();
-    if song.section("Break").is_some() {
-        let mut flash = ignition_effects::effects::library()["negative flash"].clone();
+    if song.section("Break").is_some()
+        && let Some(mut flash) = ignition_effects::effects::library()
+            .get("negative flash")
+            .cloned()
+    {
         flash.target = everything();
         out.push(Trigger {
             at: at("Break", 0),
@@ -2075,11 +2270,11 @@ mod tests {
                 start: Bars::bar(bar),
                 bars,
             });
-            bar += bars as u32;
+            bar = bar.saturating_add(num::bar_of_f64(bars));
         }
         SongMap {
             name: "Bye Bye Bye".into(),
-            tempo: TempoMap::constant(86.28, Default::default()),
+            tempo: TempoMap::constant(86.28, ignition_daw_proto::TimeSignature::default()),
             sections,
         }
     }
@@ -2146,7 +2341,10 @@ mod tests {
         assert!(!fired.is_empty(), "a charted figure rendered nothing");
 
         // Five hits, four moments — the doubled instant is one.
-        let mut moments: Vec<Bars> = fired.iter().filter_map(|t| t.bars()).collect();
+        let mut moments: Vec<Bars> = fired
+            .iter()
+            .filter_map(ignition_show::Trigger::bars)
+            .collect();
         moments.sort_by(|a, b| a.partial_cmp(b).expect("charted bars compare"));
         moments.dedup();
         assert_eq!(moments.len(), 4, "moments: {moments:?}");
@@ -2244,7 +2442,7 @@ mod tests {
             .triggers
             .iter()
             .filter(|t| t.name.starts_with("fig "))
-            .filter_map(|t| t.bars())
+            .filter_map(ignition_show::Trigger::bars)
             .collect();
         moments.sort_by(|a, b| a.partial_cmp(b).expect("charted bars compare"));
         moments.dedup();
@@ -2347,7 +2545,7 @@ mod tests {
             };
             triggers(&chart, &song)
                 .iter()
-                .filter_map(|t| t.bars())
+                .filter_map(ignition_show::Trigger::bars)
                 .map(|b| b.bar)
                 .collect()
         };
@@ -2529,7 +2727,11 @@ mod tests {
             if ignition_daw::mib::reaims(&list, i) {
                 flagged += 1;
                 assert_ne!(cue.mib.mode, MibMode::None, "{}", cue.name);
-                assert_eq!(cue.mib.fade_beats, 2.0, "{}", cue.name);
+                assert!(
+                    (cue.mib.fade_beats - 2.0).abs() < f32::EPSILON,
+                    "{}",
+                    cue.name
+                );
                 assert_eq!(
                     cue.mib.preference,
                     if cue.block { 80 } else { 30 },
@@ -2682,13 +2884,13 @@ mod tests {
         assert_eq!(cue_at(&list, "CH 1"), Bars::bar(21));
         assert_eq!(cue_at(&list, "PRE 2"), Bars::bar(36));
         assert_eq!(cue_at(&list, "· Breakdown lift"), Bars::new(56, 3.0));
-        let lift = list
+        let lift_cue = list
             .cues
             .iter()
             .find(|c| c.name == "· Breakdown lift")
             .unwrap();
-        assert_eq!(lift.trig, Trig::Follow { beats: 14.0 });
-        assert!(!lift.block);
+        assert_eq!(lift_cue.trig, Trig::Follow { beats: 14.0 });
+        assert!(!lift_cue.block);
     }
 
     /// The library effects and bundles go into the file by name, never
@@ -2708,7 +2910,7 @@ mod tests {
                 // The `verse bed` bundle arrives through the look of
                 // the same name now.
                 RecipeRef::Look { look } => Some(look.as_str()),
-                _ => None,
+                RecipeRef::Inline(_) => None,
             })
             .collect();
         for name in [
@@ -2790,7 +2992,7 @@ mod tests {
             "{}",
             findings
                 .iter()
-                .map(|f| f.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join("\n")
         );
@@ -2803,7 +3005,7 @@ mod tests {
                 "{}",
                 findings
                     .iter()
-                    .map(|f| f.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect::<Vec<_>>()
                     .join("\n")
             );
