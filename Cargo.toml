@@ -32,6 +32,7 @@ members = [
     "apps/ignition-engine",
     "apps/ignition-studio",
     "apps/ignition-live-web",
+    "apps/ignition-web",
     "apps/ignition-mobile",
 ]
 
@@ -86,6 +87,23 @@ ignition-live-ui = { path = "crates/ignition-live-ui" }
 daw = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", default-features = false, features = [
     "file",
 ] }
+
+# task — the vault / knowledge-graph layer.
+#
+# The site's guide is a **vault**: `docs/guides/*.md` are wiki notes that
+# cross-link as `[[slug]]`, and `apps/ignition-web` renders that web as a
+# real knowledge graph rather than as a chapter list. This is the same
+# crate that draws Task's own wiki — deliberately pure and FS-free, so the
+# builder that runs natively runs unchanged in the browser.
+#
+# Pinned by rev, not a branch, so a push to task's main cannot change this
+# build under us. It takes `architect-ui` at tag v0.5.0 — the SAME tag
+# `architect-telemetry` above is pinned to, which is what keeps one copy
+# of the architect crates in the tree rather than two that refuse to
+# unify. Move the two together or not at all. Its dioxus pin is this
+# workspace's rev, for the same reason: two dioxus copies means two
+# `Element` types and a component that cannot be called.
+view-knowledge-graph = { git = "https://github.com/FastTrackStudios/task", rev = "607916d171467df08216529f9dfcf88308c3f636" }
 
 serde = { version = "1", features = ["derive"] }
 

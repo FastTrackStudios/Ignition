@@ -1,0 +1,42 @@
+/*
+ * Tailwind input for the Ignition site.
+ *
+ * Compiled to `assets/tailwind.css` by `just site-tailwind`, which is
+ * gitignored build output — `asset!()` demands it at compile time, so a
+ * fresh clone must run that recipe (or `just site` / `just site-dev`,
+ * which depend on it) before a build of this crate will pass.
+ *
+ * WHY THIS FILE EXISTS AT ALL
+ *
+ * The rest of the site is hand-written CSS in `assets/site.css` and wants
+ * no framework. `view-knowledge-graph` — the guide's graph — is not ours,
+ * and it is styled entirely in Tailwind utilities: the node colours are
+ * interpolated palette stems (`text-sky-400`, `text-violet-400`, …), the
+ * labels are `text-xs`, the pan cursor is `cursor-grab`. Without a sheet
+ * carrying those classes the graph still renders, and renders WRONG —
+ * every node one colour, labels at the browser's default SVG text size,
+ * which at the graph's user-unit scale is enormous. That is exactly what
+ * it looked like before this file existed.
+ *
+ * The failure is silent in the other direction too: a `@source` that
+ * matches nothing is not an error, it just yields fewer classes. Hence
+ * `site-tailwind` resolving the git-dep checkouts through `cargo
+ * metadata`, and `site-tailwind-check` asserting the result.
+ */
+
+/* `source(none)` disables Tailwind v4's automatic content detection,
+ * which is rooted at the working directory and would make the output
+ * depend on where the build ran from. Every source is named explicitly
+ * below, so the result is identical from any cwd. */
+@import "tailwindcss" source(none);
+
+/* The design tokens (--background, --border, --muted-foreground, …) that
+ * every class below resolves against. Symlinked from the resolved
+ * architect-ui checkout by the just recipe. */
+@import "./.tailwind-src/architect-ui/assets/fts-theme.css";
+
+/* The imported components. These are git deps with no stable path on
+ * disk; `.tailwind-src/` is a directory of symlinks pointing at whatever
+ * `cargo metadata` says cargo actually resolved. */
+@source "./.tailwind-src/view-knowledge-graph/src/**/*.rs";
+@source "./.tailwind-src/architect-ui/src/**/*.rs";

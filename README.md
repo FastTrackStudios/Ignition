@@ -65,6 +65,8 @@ apps/
   ignition-live-web      the Live panes, built for a browser/iPad
   ignition-engine        the headless engine binary
   ignition-mobile        the Ignition iPhone app
+  ignition-web           the public site — landing page and guide (`just site`)
+docs/guides/             the public guide — a wiki vault, compiled into the site
 docs/spec/               normative `r[topic.id]` requirements, traced by tracey
 docs/domain/             the domain model, grounded in a real venue
 docs/research/           landscape studies — grandMA3, Resolume, OSS comparison

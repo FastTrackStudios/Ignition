@@ -1,0 +1,52 @@
+[package]
+name = "ignition-web"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "ignition.fasttrackstudio.app — the Ignition landing page and guide"
+
+# The public site: one landing screen and a guide, and nothing else. It
+# links to the source and it plays a real render of the visualizer; it
+# does not talk to a desk, so it takes no domain crate. Built with
+# `just site`.
+
+[dependencies]
+dioxus = { workspace = true, features = ["web", "launch", "router"] }
+
+# The guide's knowledge graph. Pure and FS-free by design, so the same
+# builder that draws Task's wiki natively builds this one in the browser
+# from the notes compiled in by build.rs.
+view-knowledge-graph = { workspace = true }
+wasm-bindgen = "0.2"
+# Not called from this crate. `dioxus-web`'s history stack reads
+# `window.location()`, and web-sys gates every DOM type behind a feature
+# — features are unified across the graph, so *some* crate has to turn
+# them on and dioxus-web does not turn on its own. Without this the
+# router fails to build with "no method named `location`".
+# `Element` and `MouseEvent` are this crate's own: a wikilink inside the
+# rendered note is an ordinary anchor, and the click is caught by walking
+# up from the event target to it (see `routes::guide_page`).
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Location",
+    "History",
+    "Document",
+    "Element",
+    "EventTarget",
+    "MouseEvent",
+] }
+
+[build-dependencies]
+# The guide is markdown under `docs/guides/`, rendered to HTML at build
+# time rather than in the browser: the pages never change after a build,
+# so shipping a markdown parser to every visitor buys nothing.
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+
+[[bin]]
+name = "ignition-web"
+path = "src/main.rs"
+
+[lints]
+workspace = true

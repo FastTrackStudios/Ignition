@@ -20,3 +20,9 @@ __pycache__/
 # The looks' four stills stay committed; they are a quarter of a megabyte.
 data/effects/previews/
 data/macros/previews/
+
+# The site's Tailwind sheet and the symlinks it is compiled through.
+# Build output — `just site-tailwind` remakes both, and `just site`
+# depends on it. See apps/ignition-web/tailwind.css for why they exist.
+apps/ignition-web/assets/tailwind.css
+apps/ignition-web/.tailwind-src/

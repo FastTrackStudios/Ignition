@@ -101,6 +101,101 @@ live-web:
     mkdir -p apps/ignition-live-web/dist
     cp -r target/dx/ignition-live-web/release/web/public/. apps/ignition-live-web/dist/
 
+# ── The site's Tailwind sheet ────────────────────────────────────────
+#
+# `apps/ignition-web` is hand-written CSS except for one thing: the
+# guide's knowledge graph is `view-knowledge-graph`'s component, and it is
+# styled entirely in Tailwind utilities. Its sheet is compiled from
+# `apps/ignition-web/tailwind.css`, which @sources that crate plus
+# `architect-ui` — both GIT DEPS, so the globs cannot be written
+# literally: a git dep has no stable path on disk.
+#
+# `cargo metadata` knows where cargo actually resolved them. This asks,
+# and symlinks the answers into `.tailwind-src/` so the @source globs have
+# something real to match. Without it the classes those crates use are
+# simply absent from the sheet, and the failure is SILENT: a @source
+# matching nothing is not an error, the graph just renders unstyled.
+_site-tw-link:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p apps/ignition-web/.tailwind-src
+    for crate in architect-ui view-knowledge-graph; do
+        dir=$(cargo metadata --format-version 1 2>/dev/null \
+            | python3 -c "import json,sys,os;p=json.load(sys.stdin)['packages'];print(next(os.path.dirname(x['manifest_path']) for x in p if x['name']=='$crate'))")
+        if [ -z "$dir" ] || [ ! -d "$dir" ]; then
+            echo "cannot resolve $crate — is it in the dependency graph?" >&2
+            exit 1
+        fi
+        ln -sfn "$dir" "apps/ignition-web/.tailwind-src/$crate"
+    done
+
+# Compile the site's Tailwind sheet. Gitignored output; `asset!()` needs
+# it at compile time, so this runs before any build of the site.
+site-tailwind: _site-tw-link
+    cd apps/ignition-web && tailwindcss -i ./tailwind.css -o ./assets/tailwind.css --minify
+
+# Fail if the sheet is missing classes the graph needs. Cheap insurance
+# against the silent-@source failure described above.
+site-tailwind-check: site-tailwind
+    #!/usr/bin/env bash
+    set -euo pipefail
+    missing=()
+    for class in cursor-grab cursor-grabbing text-muted-foreground; do
+        grep -q -- "$class" apps/ignition-web/assets/tailwind.css || missing+=("$class")
+    done
+    if [ ${#missing[@]} -ne 0 ]; then
+        echo "the site's tailwind sheet is missing: ${missing[*]}" >&2
+        echo "the @source globs in apps/ignition-web/tailwind.css matched nothing — run 'just _site-tw-link'" >&2
+        exit 1
+    fi
+    echo "the sites tailwind sheet covers the graph"
+
+# The public site — the landing page and the guide
+# (apps/ignition-web). Static: no server, no backend, nothing to deploy
+# but the directory `dist` ends up as.
+site: site-tailwind
+    NO_DOWNLOADS=1 dx build -p ignition-web --platform web --release
+    rm -rf apps/ignition-web/dist
+    mkdir -p apps/ignition-web/dist
+    cp -r target/dx/ignition-web/release/web/public/. apps/ignition-web/dist/
+
+# The site with hot reload. Editing a guide page under `docs/guides/`
+# rebuilds too — see the crate's Dioxus.toml watch list.
+site-dev: site-tailwind
+    dx serve -p ignition-web --platform web
+
+# The landing page's hero clip: the third chorus of Bye Bye Bye on the
+# Norco rig, rendered offline against the song's clock and encoded to
+# H.264. Twelve bars at 120 BPM is 24 seconds, which loops without
+# either end drawing attention to itself — both are warm chorus light.
+#
+# Through the PNG sequence and the `ffmpeg` BINARY rather than the crate
+# feature, because the feature links libav* into the visualizer and this
+# is the only thing in the tree that needs a video file out of it.
+#
+# Regenerate after a change to the rig, the show or the look of the
+# render — the front page's whole claim is that it is the real thing.
+SITE_VIDEO_BARS_FROM := "61"
+SITE_VIDEO_BARS_TO := "73"
+site-video:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    frames=$(mktemp -d -t ignition-site-video-XXXXXX)
+    trap 'rm -rf "$frames"' EXIT
+    cargo run -q --release -p ignition-viz --bin viz -- \
+      --venue data/venues/norco --cuelist data/songs/bye-bye-bye.json \
+      --export "$frames" \
+      --from-bar {{SITE_VIDEO_BARS_FROM}} --to-bar {{SITE_VIDEO_BARS_TO}} \
+      --fps 30 --camera {{quote(CAMERA)}} --haze 1.2 --width 1280 --height 720
+    ffmpeg -y -loglevel error -framerate 30 -i "$frames/frame_%06d.png" \
+      -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 25 -preset slow \
+      -movflags +faststart -an apps/ignition-web/assets/hero.mp4
+    # The poster is the frame the page shows before the clip has loaded,
+    # so it wants to be a good one rather than the first one.
+    ffmpeg -y -loglevel error -i "$frames/frame_000192.png" -q:v 4 \
+      apps/ignition-web/assets/hero-poster.jpg
+    ls -lh apps/ignition-web/assets/hero.mp4 apps/ignition-web/assets/hero-poster.jpg
+
 # A headless render of the venue. `--overlay` adds the cue sheet.
 shot OUT="/tmp/ignition.png" *ARGS:
     cargo run -p ignition-viz --bin viz -- \

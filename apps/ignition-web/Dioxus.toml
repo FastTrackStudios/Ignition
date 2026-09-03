@@ -1,0 +1,11 @@
+[application]
+name = "ignition-web"
+
+[web.app]
+title = "Ignition"
+base_path = "/"
+
+[web.watcher]
+# The guide is compiled in by build.rs, so editing a page must trigger a
+# rebuild rather than an asset reload.
+watch_path = ["src", "assets", "../../docs/guides"]
