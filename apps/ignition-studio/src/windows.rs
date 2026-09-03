@@ -617,6 +617,8 @@ pub fn PaneBody(pane: PaneKind) -> Element {
         // The Setup view — `docs/spec/patch.md`.
         PaneKind::Patch => rsx! { ignition_live_ui::patch::PatchPane {} },
         PaneKind::Universes => rsx! { ignition_live_ui::patch::UniversesPane {} },
+        PaneKind::FixtureTypes => rsx! { ignition_live_ui::fixtures::FixtureTypesPane {} },
+        PaneKind::FixtureEditor => rsx! { ignition_live_ui::fixtures::FixtureEditorPane {} },
         other => rsx! {
             div { class: "placeholder",
                 span { class: "placeholder-name", "{other.label()}" }
