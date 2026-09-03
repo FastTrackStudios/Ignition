@@ -513,6 +513,12 @@ pub fn PatchPane() -> Element {
     let mut adding = use_signal(|| false);
     let filter = use_signal(Filter::default);
     let mut selected = use_signal(|| None::<u32>);
+    // A pick in the viewport lights the row, and picking a row selects
+    // the fixture: the room and the sheet are two views of one thing,
+    // and matching them up by counting is the slowest part of patching
+    // a rig nobody has patched before (`r[patch.pick]`).
+    // r[impl patch.pick] - the viewport's pick, on the sheet
+    let picked = crate::use_playhead()().selected_chans;
 
     let sheet = sheet();
     let conflicts: std::collections::BTreeMap<u32, Conflict> =
@@ -529,6 +535,7 @@ pub fn PatchPane() -> Element {
     }
     let untyped = sheet.untyped().count();
     let unpatched = sheet.unpatched().count();
+    let overridden = sheet.rows.iter().filter(|row| row.overridden).count();
 
     let rows: Vec<&PatchRow> = sheet
         .rows
@@ -560,6 +567,16 @@ pub fn PatchPane() -> Element {
                         class: "patch-warn",
                         title: "no fixture type resolved — these will not light",
                         "{untyped} untyped"
+                    }
+                }
+                // A room behaving differently from its own file is a
+                // fact somebody needs before the night, not during it.
+                // r[impl patch.venue-layer.visible] - said on the sheet
+                if overridden > 0 {
+                    span {
+                        class: "patch-local",
+                        title: "a venue-local layer is overriding these fixtures tonight",
+                        "{overridden} local"
                     }
                 }
                 button {
@@ -647,7 +664,8 @@ pub fn PatchPane() -> Element {
                                     row: row.clone(),
                                     full: full(),
                                     conflict: conflicts.get(&row.chan).cloned(),
-                                    selected: selected() == Some(row.chan),
+                                    selected: selected() == Some(row.chan)
+                                        || picked.contains(&row.chan),
                                     on_pick: move |chan| {
                                         selected.set(Some(chan));
                                         send(Command::Select(ignition_core::Selection::Chans(vec![chan])));
@@ -688,10 +706,19 @@ fn PatchLine(
     on_pick: EventHandler<u32>,
 ) -> Element {
     let chan = row.chan;
-    let class = match (selected, conflict.is_some(), row.patched) {
-        (true, _, _) => "patch-row on",
-        (_, true, _) => "patch-row clash",
-        (_, _, false) => "patch-row dark",
+    let class = match (selected, conflict.is_some(), row.patched, row.overridden) {
+        (true, _, _, _) => "patch-row on",
+        (_, true, _, _) => "patch-row clash",
+        // An override is a fact about tonight, not a problem: marked,
+        // never coloured like a conflict (`r[patch.venue-layer.visible]`).
+        (_, _, patched, true) => {
+            if patched {
+                "patch-row local"
+            } else {
+                "patch-row local dark"
+            }
+        }
+        (_, _, false, _) => "patch-row dark",
         _ => "patch-row",
     };
     let kind = if row.fixture_type.is_empty() {

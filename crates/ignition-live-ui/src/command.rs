@@ -538,6 +538,17 @@ pub struct Playhead {
     pub protected: Vec<String>,
     /// The programmer's selection, described for the surface.
     pub selection: Option<String>,
+    /// The selection's channels, when it names them directly.
+    ///
+    /// The description above is for reading; this is for pointing. The
+    /// patch sheet lights the row of whatever was clicked in the
+    /// viewport, and matching on prose would be matching on a sentence
+    /// somebody may reword (`r[patch.pick]`). Only populated for a
+    /// selection that is literally a channel list — which is exactly
+    /// what a viewport pick produces — because resolving a role against
+    /// the rig every frame to light a row is not worth it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub selected_chans: Vec<u32>,
     /// How many direct values the programmer holds — what a store
     /// would write.
     pub captured: usize,

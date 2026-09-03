@@ -404,6 +404,7 @@ mod tests {
             palettes: ignition_core::Palettes::default(),
             profile: ignition_core::profile::VenueProfile::default(),
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx: None,
         }
     }
@@ -462,6 +463,7 @@ mod tests {
             palettes: ignition_core::Palettes::default(),
             profile: ignition_core::profile::VenueProfile::default(),
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx: None,
         };
         let dmx = DmxUniverses::new();

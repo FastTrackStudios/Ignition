@@ -57,6 +57,7 @@ pub mod show;
 pub mod solari;
 pub mod spawn;
 pub mod venue;
+pub mod venue_layer;
 pub mod video;
 pub mod view;
 

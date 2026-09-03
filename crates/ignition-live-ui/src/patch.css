@@ -373,3 +373,15 @@
   outline: none;
   border-color: #6f68d8;
 }
+
+/* A fixture a venue-local layer is overriding tonight. Marked, never
+ * coloured like a conflict: it is a fact about this week, not a
+ * problem to fix (`r[patch.venue-layer.visible]`). */
+.patch-row.local td:first-child {
+  box-shadow: inset 2px 0 0 #48c8d8;
+}
+
+.patch-local {
+  color: #48c8d8;
+  font-variant-numeric: tabular-nums;
+}

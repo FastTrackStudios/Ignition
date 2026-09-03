@@ -336,6 +336,11 @@ pub fn publish(next: &mut Playhead, playback: &Playback) {
         .and_then(|e| e.player.current_index());
     next.protected.clone_from(&playback.programmer.protected);
     next.selection = playback.programmer.selection.as_ref().map(describe);
+    // r[impl patch.pick] - what the viewport picked, for the sheet
+    next.selected_chans = match playback.programmer.selection.as_ref() {
+        Some(ignition_core::Selection::Chans(chans)) => chans.clone(),
+        _ => Vec::new(),
+    };
     next.captured = playback.programmer.captured().len();
 }
 

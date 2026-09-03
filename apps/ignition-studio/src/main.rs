@@ -578,7 +578,7 @@ fn build_patch_sheet(venue: &Venue, name: &str) -> PatchSheet {
                     .collect(),
                 tags: fixture.tags.clone(),
                 position: [fixture.position.x, fixture.position.y, fixture.position.z],
-                overridden: false,
+                overridden: venue.overridden.contains(&fixture.chan.unwrap_or(0)),
             }
         })
         .collect();

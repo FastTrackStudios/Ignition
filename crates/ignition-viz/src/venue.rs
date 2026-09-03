@@ -384,6 +384,19 @@ pub struct Venue {
     /// Every fixture's address and channel layout, resolved once on
     /// first use — see `PatchTable`.
     pub patch: std::sync::OnceLock<PatchTable>,
+    /// Channels a venue-local layer is overriding, if the room has one.
+    ///
+    /// Empty for a room with no layer, which is every room by default:
+    /// the base venue must be complete and playable on its own
+    /// (`r[patch.venue-layer.optional]`). The patch sheet marks these
+    /// rows, because a room behaving differently from its own file is a
+    /// fact somebody needs before the night rather than during it.
+    // r[impl patch.venue-layer.visible] - which fixtures are overridden
+    #[allow(
+        clippy::struct_field_names,
+        reason = "it is the overridden channels, and any shorter name reads as something else"
+    )]
+    pub overridden: Vec<u32>,
     /// Where this room's universes go on the wire, from the manifest's
     /// `dmx` key. `None` when the manifest has none; `output_config()`
     /// is the answer either way.
@@ -398,7 +411,7 @@ pub struct Venue {
 /// renamed over the original — a rename within a directory is atomic on
 /// every filesystem this runs on. The temporary is removed if the rename
 /// fails, so a failed save does not litter the venue.
-fn write_atomically(path: &Path, contents: &str) -> anyhow::Result<()> {
+pub(crate) fn write_atomically(path: &Path, contents: &str) -> anyhow::Result<()> {
     let Some(dir) = path.parent() else {
         anyhow::bail!("{} has no directory to write into", path.display());
     };
@@ -942,17 +955,36 @@ impl Venue {
             .map(serde_json::from_value::<ignition_dmx::OutputConfig>)
             .transpose()
             .map_err(|e| anyhow::anyhow!("{}: bad `dmx` block: {e}", dir.display()))?;
-        Ok(Self {
+        let mut venue = Self {
             palettes,
             profile,
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx,
             fixtures: serde_json::from_str(&read("fixtures")?)?,
             room: serde_json::from_str(&read("room")?)?,
             screens: serde_json::from_str(&read("screens")?)?,
             props: serde_json::from_str(&read("props")?)?,
             group_records,
-        })
+        };
+        // The room's own local changes, last, so they sit over
+        // everything the base venue said (`r[patch.venue-layer]`). A
+        // missing layer is the normal case and not an error; a malformed
+        // one *is*, because applying half of somebody's changes and
+        // dropping the rest is worse than refusing to open.
+        // r[impl patch.venue-layer] - laid over the room it belongs to
+        // r[impl patch.venue-layer.optional] - and absent by default
+        if let Some(layer) = crate::venue_layer::VenueLayer::load(dir)? {
+            venue.overridden = layer.apply(&mut venue);
+            if !venue.overridden.is_empty() {
+                tracing::info!(
+                    venue = %dir.display(),
+                    fixtures = venue.overridden.len(),
+                    "a venue-local layer is overriding this room"
+                );
+            }
+        }
+        Ok(venue)
     }
 
     /// Where a venue directory's assets live — room models, fixture
@@ -1101,6 +1133,7 @@ mod tests {
             palettes: ignition_core::Palettes::default(),
             profile: ignition_core::profile::VenueProfile::default(),
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx: None,
         };
         let (min, max) = venue.room_extent();
@@ -1147,6 +1180,7 @@ mod tests {
             palettes: ignition_core::Palettes::default(),
             profile: ignition_core::profile::VenueProfile::default(),
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx: None,
             group_records: vec![GroupRecord {
                 target: "1".to_string(),
@@ -1180,6 +1214,7 @@ mod tests {
             palettes: ignition_core::Palettes::default(),
             profile: ignition_core::profile::VenueProfile::default(),
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx: None,
             group_records: vec![],
         };
@@ -1221,6 +1256,7 @@ mod tests {
             palettes: ignition_core::Palettes::default(),
             profile: ignition_core::profile::VenueProfile::default(),
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx: None,
             group_records: vec![],
         };
@@ -1362,6 +1398,7 @@ mod tests {
             palettes: ignition_core::Palettes::default(),
             profile: ignition_core::profile::VenueProfile::default(),
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx: None,
         };
         let config = venue.output_config();
