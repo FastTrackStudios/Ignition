@@ -6778,6 +6778,7 @@ dependencies = [
  "futures-util",
  "ignition-core",
  "ignition-daw",
+ "ignition-fixture",
  "ignition-live-ui",
  "ignition-profile",
  "ignition-viz",

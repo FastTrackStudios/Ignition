@@ -1,0 +1,387 @@
+/* The Setup view's panes: the patch sheet and the universe grid.
+ *
+ * A patch sheet is read, not played, so this is the one surface in the
+ * studio that is deliberately dense and typographic rather than
+ * touch-sized: rows a hand's width apart would put eight fixtures on a
+ * screen where a rig has seventy. Everything else follows the dock's
+ * chrome — hairline rules, no frames, the content getting the pixels.
+ */
+
+.patch,
+.universes {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--ink, #cfcbd8);
+}
+
+/* ── the sheet's header row ─────────────────────────────────────── */
+
+.patch-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--hair, #2a2833);
+  flex: 0 0 auto;
+}
+
+.patch-count {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two counts an operator needs before a show, not during one: a
+ * conflict is two fixtures on one channel, and an untyped fixture is
+ * one that will not light at all. Both are amber rather than red —
+ * a patch is often briefly wrong on the way to being right. */
+.patch-warn {
+  color: #e0a848;
+  font-variant-numeric: tabular-nums;
+}
+
+.patch-dirty {
+  color: #e0a848;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+}
+
+.patch-key {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--hair, #2a2833);
+  color: inherit;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 1px 7px;
+  cursor: pointer;
+}
+
+.patch-key.on {
+  border-color: #6f68d8;
+  color: #b8b2f0;
+}
+
+/* ── the two columns ────────────────────────────────────────────── */
+
+.patch-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.patch-rail {
+  flex: 0 0 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px;
+  border-right: 1px solid var(--hair, #2a2833);
+  overflow-y: auto;
+}
+
+.patch-rail-head {
+  margin-top: 8px;
+  padding: 2px 4px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.4;
+}
+
+.rail-key {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  padding: 3px 6px;
+  cursor: pointer;
+  min-height: 22px;
+}
+
+.rail-key:hover {
+  background: #211f2a;
+}
+
+.rail-key.on {
+  background: #2b2740;
+  color: #cfc8ff;
+}
+
+/* A filter with nothing behind it stays visible and goes dim: "no
+ * conflicts" is the answer you are looking for, and a key that
+ * disappears when the answer is good cannot give it. */
+.rail-key.none {
+  opacity: 0.35;
+}
+
+.rail-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-count {
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── the sheet ──────────────────────────────────────────────────── */
+
+.patch-sheet {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-width: 0;
+}
+
+.patch-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.patch-sheet th {
+  position: sticky;
+  top: 0;
+  background: var(--pane, #16151c);
+  text-align: left;
+  font-weight: 400;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--hair, #2a2833);
+  white-space: nowrap;
+}
+
+.patch-sheet td {
+  padding: 2px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.patch-sheet .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.addr {
+  color: #9fd8e8;
+}
+
+.patch-row:hover {
+  background: #1d1b25;
+  cursor: pointer;
+}
+
+.patch-row.on {
+  background: #2b2740;
+  color: #e8e4ff;
+}
+
+/* A clash is the row's whole business until it is resolved. */
+.patch-row.clash td {
+  background: #3a2418;
+  color: #f0c8a0;
+}
+
+/* Present in the room, in groups, with no address. Not an error. */
+.patch-row.dark {
+  opacity: 0.45;
+}
+
+.type.missing {
+  color: #e0a848;
+  font-style: italic;
+}
+
+/* How the channel chart was come by, per `r[patch.type-confidence]`. A
+ * guess is worth knowing about *before* the fixture does something
+ * unexpected, so it is the one that gets a colour. */
+.conf {
+  margin-left: 6px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  opacity: 0.45;
+}
+
+.conf.guess {
+  color: #e0a848;
+  opacity: 0.85;
+}
+
+.conf.manual {
+  display: none;
+}
+
+/* ── the universe grid ──────────────────────────────────────────── */
+
+.universes {
+  overflow-y: auto;
+  padding: 6px;
+  gap: 10px;
+}
+
+.uni-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 2px 0 4px;
+}
+
+.uni-name {
+  letter-spacing: 0.04em;
+}
+
+.uni-used,
+.uni-gap {
+  opacity: 0.55;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thirty-two across, so a row is a round number of channels and the eye
+ * can count in blocks rather than in ones. */
+.uni-grid {
+  display: grid;
+  grid-template-columns: repeat(32, 1fr);
+  gap: 1px;
+}
+
+.slot {
+  aspect-ratio: 1;
+  background: #221f2b;
+  min-width: 3px;
+}
+
+.slot.on {
+  background: #6f68d8;
+}
+
+.patch-empty {
+  padding: 12px;
+  opacity: 0.5;
+}
+
+/* ── editing ────────────────────────────────────────────────────── */
+
+/* An editable cell is an input that does not look like one until you
+ * are in it. A sheet of seventy boxed inputs is unreadable, and reading
+ * is what a patch sheet is mostly for. */
+.cell {
+  width: 100%;
+  background: none;
+  border: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  padding: 0 2px;
+}
+
+.cell::placeholder {
+  color: inherit;
+  opacity: 0.25;
+}
+
+.cell:hover {
+  border-color: #2a2833;
+}
+
+.cell:focus {
+  outline: none;
+  border-color: #6f68d8;
+  background: #16151c;
+}
+
+.addr-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #9fd8e8;
+}
+
+/* SAVE is lit only when there is something to save, so an operator can
+ * tell at a glance whether the room on screen is the room on disk. */
+.patch-key.save.on {
+  border-color: #e0a848;
+  color: #f0c888;
+}
+
+.patch-key:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── the insert bar ─────────────────────────────────────────────── */
+
+.insert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--hair, #2a2833);
+  background: #1b1922;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.insert-type {
+  background: #16151c;
+  border: 1px solid var(--hair, #2a2833);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 6px;
+  min-width: 180px;
+}
+
+.insert-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.insert-field span {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+.insert-field input {
+  width: 74px;
+  background: #16151c;
+  border: 1px solid var(--hair, #2a2833);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 5px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.insert-field input:focus {
+  outline: none;
+  border-color: #6f68d8;
+}
+
+/* A fixture a venue-local layer is overriding tonight. Marked, never
+ * coloured like a conflict: it is a fact about this week, not a
+ * problem to fix (`r[patch.venue-layer.visible]`). */
+.patch-row.local td:first-child {
+  box-shadow: inset 2px 0 0 #48c8d8;
+}
+
+.patch-local {
+  color: #48c8d8;
+  font-variant-numeric: tabular-nums;
+}

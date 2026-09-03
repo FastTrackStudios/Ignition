@@ -39,6 +39,8 @@
 //! The two are matched on the same name (`r[viz.gdtf-generated]`) and
 //! that is the whole of their coupling.
 
+// r[impl patch.type-not-geometry] - what a fixture looks like stays with GDTF
+
 pub mod attribute;
 pub mod document;
 pub mod expand;
@@ -76,7 +78,7 @@ impl FixtureType {
     pub fn channel_map(&self, mode: &str) -> (ChannelMap, Vec<Complaint>) {
         let (resolved, complaints) = expand::mode(mode, &self.modes);
         let footprint = resolved.iter().map(|r| r.number).max().unwrap_or(0);
-        let channels = resolved
+        let channels: Vec<(u16, ignition_proto::Attribute)> = resolved
             .iter()
             .filter_map(|r| {
                 // A 1-based channel of 0 is a document error, not an
@@ -85,7 +87,18 @@ impl FixtureType {
                 Some((offset, r.function.attribute()))
             })
             .collect();
-        (ChannelMap::new(footprint, channels), complaints)
+        // Per-attribute output curves (`r[files.venue.dmx-curves]`).
+        // Keyed by attribute rather than by offset because that is what
+        // the encoder looks a curve up by, and because two channels
+        // driving one attribute — a coarse and its fine — share a law.
+        // r[impl patch.curves] - authored on the fixture type, applied at output
+        let curves = resolved
+            .iter()
+            .filter_map(|r| Some((r.function.attribute(), r.curve.clone()?)))
+            .collect();
+        let mut map = ChannelMap::new(footprint, channels);
+        map.curves = curves;
+        (map, complaints)
     }
 
     /// Where every channel of a mode rests when nothing is driving it.
@@ -304,5 +317,35 @@ mod hint_tests {
         assert_eq!(doc.mode_for("Rockstrip 252 7ch", Some(27)), Some("7ch"));
         // With nothing in the name, the gap is all there is.
         assert_eq!(doc.mode_for("Rockstrip 252", Some(27)), Some("24ch"));
+    }
+
+    /// r[verify patch.curves] - a curve on the chart reaches the map
+    #[test]
+    fn a_channels_curve_travels_with_its_attribute() {
+        // A shutter that is only open above 32 is corrected here rather
+        // than by every cue that touches it.
+        let doc: FixtureType = serde_json::from_str(
+            r#"{"console_name": "T", "modes": {"2ch": [
+                 {"channel": 1, "attribute": "Dimmer",
+                  "curve": {"range": {"lo": 0, "hi": 200}}},
+                 {"channel": 2, "attribute": "Strobe"}]}}"#,
+        )
+        .unwrap();
+        let (map, complaints) = doc.channel_map("2ch");
+        assert!(complaints.is_empty(), "{complaints:?}");
+        assert_eq!(
+            map.curve_of(&ignition_proto::Attribute::Dimmer),
+            &ignition_proto::Curve::Range { lo: 0, hi: 200 }
+        );
+        // Full sends 200, not 255.
+        assert_eq!(
+            map.curve_of(&ignition_proto::Attribute::Dimmer).apply(1.0),
+            200
+        );
+        // And a channel with no curve is linear.
+        assert_eq!(
+            map.curve_of(&ignition_proto::Attribute::Strobe),
+            &ignition_proto::Curve::Linear
+        );
     }
 }

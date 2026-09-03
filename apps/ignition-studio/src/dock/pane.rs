@@ -41,10 +41,22 @@ pub enum PaneKind {
     /// The programme camera — the cut — beside the wide Visualizer.
     // r[impl viz.programme-view] - a pane of its own
     Programme,
+    // --- Setup (`docs/spec/patch.md`) ---
+    /// The patch sheet: one row per fixture, channel-ordered.
+    // r[impl patch.sheet] - the pane
+    Patch,
+    /// A universe as its 512 channels — what occupies each, and what is
+    /// free.
+    // r[impl patch.occupancy] - the pane
+    Universes,
+    /// The fixture-type library: what Ignition knows how to address.
+    FixtureTypes,
+    /// One fixture type's channels, modes, wheels and physical facts.
+    FixtureEditor,
 }
 
 impl PaneKind {
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 27] = [
         Self::CueList,
         Self::Visualizer,
         Self::Transport,
@@ -68,6 +80,10 @@ impl PaneKind {
         Self::Cameras,
         Self::Lyrics,
         Self::Programme,
+        Self::Patch,
+        Self::Universes,
+        Self::FixtureTypes,
+        Self::FixtureEditor,
     ];
 
     /// The name on the tab.
@@ -96,6 +112,10 @@ impl PaneKind {
             Self::Cameras => "Cameras",
             Self::Lyrics => "Lyrics",
             Self::Programme => "Programme",
+            Self::Patch => "Patch",
+            Self::Universes => "Universes",
+            Self::FixtureTypes => "Fixture Types",
+            Self::FixtureEditor => "Fixture Editor",
         }
     }
 
@@ -125,6 +145,10 @@ impl PaneKind {
             Self::Cameras => "cameras",
             Self::Lyrics => "lyrics",
             Self::Programme => "programme",
+            Self::Patch => "patch",
+            Self::Universes => "universes",
+            Self::FixtureTypes => "fixture_types",
+            Self::FixtureEditor => "fixture_editor",
         }
     }
 }

@@ -25,6 +25,24 @@
 use crate::fixture_profile::{ColorWheelSlot, FixtureProfile};
 use ignition_fixture::Library;
 
+/// What resolving a patched fixture's model string produced.
+#[derive(Debug, Clone)]
+pub struct Resolved {
+    /// How the encoder addresses this fixture's bytes.
+    pub profile: FixtureProfile,
+    /// The fixture type's console name — what a patch sheet should show
+    /// in its type column. Empty when the hand-written table answered,
+    /// which has no notion of a named type.
+    pub fixture_type: String,
+    /// The mode chosen, per `r[patch.type-modes]`. `legacy` when the
+    /// table answered.
+    pub mode: String,
+    /// `manual`, `listing` or `guess` — how the chart was come by
+    /// (`r[patch.type-confidence]`). Empty for the table, whose
+    /// confidence nobody recorded per model.
+    pub confidence: String,
+}
+
 /// The library, read once. A missing `data/fixtures` is an empty
 /// library and the fallback carries everything — the desk still opens.
 fn library() -> &'static Library {
@@ -51,14 +69,11 @@ fn library() -> &'static Library {
 /// the last fixture in a universe. See
 /// [`ignition_fixture::FixtureType::mode_for_gap`].
 ///
-/// Returns the profile and the mode it chose, so a patch sheet can show
-/// what was decided rather than leaving the operator to guess.
+/// Returns the profile with the type, mode and confidence it resolved
+/// to, so a patch sheet can show what was decided rather than leaving
+/// the operator to guess at it.
 #[must_use]
-pub fn profile_for(
-    manufacturer: &str,
-    model: &str,
-    gap: Option<u16>,
-) -> Option<(FixtureProfile, String)> {
+pub fn profile_for(manufacturer: &str, model: &str, gap: Option<u16>) -> Option<Resolved> {
     if let Some(doc) = library().find(manufacturer, model)
         && let Some(mode) = doc.mode_for(model, gap)
     {
@@ -79,18 +94,23 @@ pub fn profile_for(
                     .into_iter()
                     .map(|slot| ColorWheelSlot::xy(&slot.name, slot.byte, slot.xy.0, slot.xy.1))
                     .collect();
-                let mode = mode.to_owned();
-                return Some((
-                    FixtureProfile::from_channel_map(map).with_wheel(wheel),
-                    mode,
-                ));
+                return Some(Resolved {
+                    profile: FixtureProfile::from_channel_map(map).with_wheel(wheel),
+                    fixture_type: doc.console_name.clone(),
+                    mode: mode.to_owned(),
+                    confidence: doc.confidence.badge().to_owned(),
+                });
             }
         }
     }
     // No document, or a document whose chart yields nothing addressable.
     // The hand-written table is what keeps the fixture lit.
-    crate::channel_map::profile_for(manufacturer, model)
-        .map(|profile| (profile, "legacy".to_owned()))
+    crate::channel_map::profile_for(manufacturer, model).map(|profile| Resolved {
+        profile,
+        fixture_type: String::new(),
+        mode: "legacy".to_owned(),
+        confidence: String::new(),
+    })
 }
 
 #[cfg(test)]
@@ -108,12 +128,12 @@ mod tests {
     /// asked of a mini gobo head landed on the wrong gel.
     #[test]
     fn the_document_supplies_the_wheel_the_table_had_wrong() {
-        let Some((profile, mode)) = profile_for("Riukoe", "Mini Gobo Moving Head Light", Some(11))
-        else {
+        let Some(found) = profile_for("Riukoe", "Mini Gobo Moving Head Light", Some(11)) else {
             panic!("the mini gobo head resolves to something");
         };
-        assert_ne!(mode, "legacy", "the document answered, not the table");
-        let slots = profile.wheel_slots();
+        assert_ne!(found.mode, "legacy", "the document answered, not the table");
+        assert!(!found.fixture_type.is_empty(), "and it named its type");
+        let slots = found.profile.wheel_slots();
         assert_eq!(slots.len(), 8, "eight positions on the wheel");
         // Ranges of sixteen put the first two centres at 7 and 23. The
         // old table said 3 and 11.
@@ -138,12 +158,13 @@ mod tests {
     /// The room's spacing picks the mode, and the mode picks the width.
     #[test]
     fn the_gap_the_room_left_decides_the_footprint() {
-        let Some((wide, _)) = profile_for("Rockville", "RockStrip 252", Some(28)) else {
+        let Some(wide) = profile_for("Rockville", "RockStrip 252", Some(28)) else {
             panic!("the Rockstrip resolves");
         };
-        let Some((narrow, _)) = profile_for("Rockville", "RockStrip 252", Some(7)) else {
+        let Some(narrow) = profile_for("Rockville", "RockStrip 252", Some(7)) else {
             panic!("the Rockstrip resolves at seven too");
         };
+        let (wide, narrow) = (wide.profile, narrow.profile);
         assert!(
             wide.map.footprint > narrow.map.footprint,
             "a bar patched with 28 channels of room is not the same fixture as one with 7 \
@@ -157,9 +178,10 @@ mod tests {
     /// A mixing par comes back with emitters rather than a wheel.
     #[test]
     fn a_par_mixes_and_a_mover_wheels() {
-        let Some((par, _)) = profile_for("Uking", "Par", Some(8)) else {
+        let Some(par) = profile_for("Uking", "Par", Some(8)) else {
             panic!("the par resolves");
         };
+        let par = par.profile;
         assert!(par.wheel.is_empty(), "a mixing par has no wheel");
         assert!(
             par.map.channels.iter().any(|(_, attr)| matches!(

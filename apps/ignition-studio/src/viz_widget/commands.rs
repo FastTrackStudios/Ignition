@@ -90,6 +90,8 @@ pub(super) fn drain(
                 | Command::Protect { .. }
                 | Command::StoreCue { .. }
                 | Command::StoreLook { .. } => deferred.push(command),
+                // r[impl patch.writes-the-venue] - the edit reaches the room
+                Command::Patch(edit) => patch_edit(world, &edit),
                 Command::Select(selection) => programmer.select(selection),
                 Command::Deselect => programmer.deselect(),
                 Command::ClearValues => programmer.clear_values(),
@@ -632,4 +634,102 @@ pub(super) fn drain(
         }
     }
     viz.app_mut().world_mut().insert_resource(playback);
+}
+
+/// How many times the patch has changed this run.
+///
+/// The sheet itself is far too big to put on a per-frame message, so
+/// what the surface gets is this counter on the `Playhead`; when it
+/// moves, the host re-reads the sheet. See `Playhead::patch_revision`.
+pub static PATCH_REVISION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Whether the venue has edits the file has not been told about
+/// (`r[patch.explicit-save]`).
+pub static PATCH_DIRTY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Apply one Setup-view edit to the live venue.
+///
+/// The venue lives in the Bevy world, so this is where an edit has to
+/// land — but *what* an edit means is `ignition_viz::patch_edit`, which
+/// is testable without a window. This function is the seam: translate
+/// the wire type, apply, and decide what the result means for the
+/// surface and for the file.
+fn patch_edit(world: &mut bevy::prelude::World, edit: &ignition_live_ui::PatchEdit) {
+    use ignition_live_ui::PatchEdit;
+    use ignition_viz::patch_edit::{Edit, Insert, Outcome};
+    use std::sync::atomic::Ordering;
+
+    let Some(mut venue) = world.get_resource_mut::<ignition_viz::spawn::VenueRes>() else {
+        tracing::warn!("a patch edit arrived with no venue loaded");
+        return;
+    };
+
+    // Save is the host's business, not the venue's: everything else
+    // changes a room, and this writes one out.
+    if matches!(edit, PatchEdit::Save) {
+        match venue.0.save_fixtures(crate::venue_dir()) {
+            Ok(()) => {
+                PATCH_DIRTY.store(false, Ordering::Relaxed);
+                crate::set_patch_sheet(&venue.0, false);
+                tracing::info!("the patch was written to the venue");
+            }
+            Err(error) => {
+                // The venue keeps its edits; only the file did not take
+                // them. An operator can try again, or copy the room out.
+                tracing::error!(%error, "the patch could not be written");
+            }
+        }
+        PATCH_REVISION.fetch_add(1, Ordering::Relaxed);
+        return;
+    }
+
+    let translated = match edit.clone() {
+        PatchEdit::Address {
+            chan,
+            universe,
+            address,
+        } => Edit::Address {
+            chan,
+            universe,
+            address,
+        },
+        PatchEdit::Unpatch { chan } => Edit::Unpatch { chan },
+        PatchEdit::Label { chan, label } => Edit::Label { chan, label },
+        PatchEdit::Gel { chan, gel } => Edit::Gel { chan, gel },
+        PatchEdit::Remove { chan } => Edit::Remove { chan },
+        PatchEdit::Insert {
+            fixture_type,
+            count,
+            chan,
+            universe,
+            address,
+            offset,
+        } => Edit::Insert(Insert {
+            fixture_type,
+            count,
+            chan,
+            universe,
+            address,
+            offset,
+        }),
+        // Handled above; the match has to be total.
+        PatchEdit::Save => return,
+    };
+
+    let outcome = ignition_viz::patch_edit::apply(&mut venue.0, &translated);
+    if let Some(message) = outcome.message() {
+        tracing::warn!(%message, "patch edit");
+    }
+    if outcome.dirties() {
+        PATCH_DIRTY.store(true, Ordering::Relaxed);
+        // From the *live* venue, not from the file: the edit is not on
+        // disk yet and the sheet has to show what the room is now.
+        crate::set_patch_sheet(&venue.0, true);
+    }
+    if !matches!(outcome, Outcome::Unchanged) {
+        // Even a refusal bumps it: the surface has a message to show,
+        // and the cheapest way to get it there is the path everything
+        // else already takes.
+        PATCH_REVISION.fetch_add(1, Ordering::Relaxed);
+    }
 }

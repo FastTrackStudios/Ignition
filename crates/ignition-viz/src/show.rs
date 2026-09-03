@@ -173,6 +173,10 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
     let mut bytes = Vec::with_capacity(frame.values.len());
     let solved = solve_colors(patch, frame.values, frame.intents);
     let mut push = |fixture: &Patch, offset: u16, byte: u8| {
+        // Every address this fixture drives, not just its first: four
+        // house pars on one address are one fixture in the show and
+        // four on the wire.
+        // r[impl patch.multipatch] - the same bytes to each address
         for addr in fixture.addresses() {
             let channel0 = addr.start_channel.saturating_sub(1).saturating_add(offset);
             bytes.push((addr.universe, channel0, byte));
@@ -404,6 +408,7 @@ mod tests {
             palettes: ignition_core::Palettes::default(),
             profile: ignition_core::profile::VenueProfile::default(),
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx: None,
         }
     }
@@ -462,6 +467,7 @@ mod tests {
             palettes: ignition_core::Palettes::default(),
             profile: ignition_core::profile::VenueProfile::default(),
             patch: std::sync::OnceLock::default(),
+            overridden: Vec::new(),
             dmx: None,
         };
         let dmx = DmxUniverses::new();

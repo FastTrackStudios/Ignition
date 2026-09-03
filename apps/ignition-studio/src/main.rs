@@ -31,8 +31,9 @@ use command::{Command, PageMove, SpeedKey};
 // `live_web`. The studio re-exports the names its own panels use.
 // r[impl studio.touch.ipad] - one UI crate, mounted natively here
 use ignition_live_ui::{
-    ColorChip, CueList, HSlider, PlayheadFeed, Row, Surface, desk, faders, library, operators,
-    program, send, use_desk, use_playhead,
+    ChannelRow, ColorChip, CueList, HSlider, ModeRow, PatchRow, PatchSheet, PlayheadFeed, Row,
+    Surface, TypeLibrary, TypeRow, desk, faders, library, operators, program, send, use_desk,
+    use_playhead,
 };
 
 use viz_widget::VizWidget;
@@ -360,6 +361,10 @@ fn main() -> anyhow::Result<()> {
 
     let venue = Venue::load(venue_dir())?;
     let surface = build_surface(&venue);
+    // The Setup view's rows, resolved from the same venue at the same
+    // moment as the Surface, so the two cannot disagree.
+    set_patch_sheet(&venue, false);
+    let _ = TYPE_LIBRARY.set(build_type_library(&venue));
 
     // The same surface, to an iPad — opt-in, see `live_web`. Started
     // here rather than in a component because it needs the sender and
@@ -534,6 +539,317 @@ fn busking_groups(venue: &Venue) -> Vec<String> {
 /// be handed across that boundary except through the process.
 static SURFACE: std::sync::OnceLock<Surface> = std::sync::OnceLock::new();
 
+/// The patch, flattened for the Setup view.
+///
+/// The same trick as `build_surface`: resolved once by the host from the
+/// venue, because `ignition-live-ui` cannot see a `Venue` and the iPad
+/// has no Bevy world to hold one. Every fixture appears, addressed or
+/// not — an unpatched fixture is a prop or a spare, and the sheet is
+/// where you go to give it an address (`r[patch.unpatched]`).
+// r[impl patch.sheet] - the rows the pane draws
+fn build_patch_sheet(venue: &Venue, name: &str) -> PatchSheet {
+    let patch = venue.patch();
+    let mut rows: Vec<PatchRow> = venue
+        .fixtures
+        .iter()
+        .enumerate()
+        .map(|(index, fixture)| {
+            let entry = patch.get(index);
+            PatchRow {
+                chan: fixture.chan.unwrap_or(0),
+                name: fixture.name.clone(),
+                // `label` and `gel` have been in the venue files since
+                // they were written and nothing has ever shown them.
+                label: String::new(),
+                gel: String::new(),
+                manufacturer: fixture.manufacturer.clone().unwrap_or_default(),
+                model: fixture.model.clone().unwrap_or_default(),
+                mode: entry.map(|p| p.mode.clone()).unwrap_or_default(),
+                fixture_type: entry.map(|p| p.fixture_type.clone()).unwrap_or_default(),
+                confidence: entry.map(|p| p.confidence.clone()).unwrap_or_default(),
+                universe: fixture.universe.unwrap_or(0),
+                address: fixture.address.unwrap_or(0),
+                footprint: entry.map_or(0, |p| p.map.footprint),
+                patched: fixture.patched && fixture.dmx_address().is_some(),
+                mirrors: fixture
+                    .mirrors
+                    .iter()
+                    .map(|a| (a.universe, a.start_channel))
+                    .collect(),
+                tags: fixture.tags.clone(),
+                position: [fixture.position.x, fixture.position.y, fixture.position.z],
+                overridden: venue.overridden.contains(&fixture.chan.unwrap_or(0)),
+            }
+        })
+        .collect();
+    // Channel order: how a patch sheet is read everywhere.
+    rows.sort_by_key(|row| row.chan);
+    PatchSheet {
+        rows,
+        universes: venue.patched_universes(),
+        venue: name.to_owned(),
+        dirty: false,
+    }
+}
+
+/// The fixture-type library, flattened for the Setup view's two panes.
+///
+/// Read once from `data/fixtures/` at startup, like the patch sheet and
+/// for the same reason: `ignition-live-ui` cannot open a directory, and
+/// the same panes run in a browser that has no filesystem.
+///
+/// `venue` is only used to count how many fixtures in the room are
+/// patched to each type — a number that turns an alphabetical list into
+/// a picture of the rig.
+// r[impl patch.type-is-data] - the library, on the surface
+// r[impl patch.type-interchange] - what a document carries, shown whole
+fn build_type_library(venue: &Venue) -> TypeLibrary {
+    use ignition_fixture::Library;
+
+    let library = Library::load_default();
+    // How many fixtures in this room are on each type — the number that
+    // turns an alphabetical list into a picture of the rig.
+    let mut used: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (_, entry) in venue.patch().iter() {
+        if !entry.fixture_type.is_empty() {
+            let count = used.entry(entry.fixture_type.clone()).or_insert(0_usize);
+            *count = count.saturating_add(1);
+        }
+    }
+
+    let mut types: Vec<TypeRow> = library
+        .types()
+        .iter()
+        .map(|doc| type_row(doc, used.get(&doc.console_name).copied().unwrap_or(0)))
+        .collect();
+    // The rig first, then the rest: a library this size is short enough
+    // to scan, and the types this room actually uses are the ones being
+    // looked for.
+    types.sort_by(|a, b| {
+        b.patched
+            .cmp(&a.patched)
+            .then_with(|| a.console_name.cmp(&b.console_name))
+    });
+
+    TypeLibrary {
+        types,
+        rejected: library
+            .rejected()
+            .iter()
+            .map(|r| (r.path.display().to_string(), r.message.clone()))
+            .collect(),
+    }
+}
+
+/// One fixture type, flattened.
+fn type_row(doc: &ignition_fixture::FixtureType, patched: usize) -> TypeRow {
+    let modes: Vec<ModeRow> = doc.modes.keys().map(|name| mode_row(doc, name)).collect();
+    // The wheels come off the widest mode: a narrower mode of the same
+    // fixture has the same wheel, when it has one at all.
+    let widest = modes
+        .iter()
+        .max_by_key(|m| m.footprint)
+        .map(|m| m.name.clone())
+        .unwrap_or_default();
+
+    TypeRow {
+        key: doc.console_name.clone(),
+        console_name: doc.console_name.clone(),
+        manufacturer: doc.manufacturer.clone(),
+        model: doc.model.clone(),
+        aliases: doc.console_aliases.clone(),
+        confidence: doc.confidence.badge().to_owned(),
+        notes: doc.notes.clone(),
+        sources: doc.sources.clone(),
+        physical: facts(&[
+            ("Width", doc.physical.width_mm.map(|v| format!("{v:.0} mm"))),
+            (
+                "Length",
+                doc.physical.length_mm.map(|v| format!("{v:.0} mm")),
+            ),
+            (
+                "Height",
+                doc.physical.height_mm.map(|v| format!("{v:.0} mm")),
+            ),
+            (
+                "Weight",
+                doc.physical.weight_kg.map(|v| format!("{v:.1} kg")),
+            ),
+            ("Power", doc.physical.power_w.map(|v| format!("{v:.0} W"))),
+        ]),
+        optics: doc.optics.as_ref().map_or_else(Vec::new, |optics| {
+            facts(&[
+                (
+                    "Beam angle",
+                    optics.beam_angle_deg.map(|v| format!("{v:.0}°")),
+                ),
+                (
+                    "Field angle",
+                    optics.field_angle_deg.map(|v| format!("{v:.0}°")),
+                ),
+                ("LEDs", optics.led_count.map(|v| v.to_string())),
+                (
+                    "Emitters",
+                    (!optics.emitters.is_empty()).then(|| optics.emitters.join(", ")),
+                ),
+            ])
+        }),
+        color_wheel: slot_rows(doc.color_wheel(&widest), true),
+        gobo_wheel: slot_rows(doc.gobo_wheel(&widest), false),
+        patched,
+        modes,
+    }
+}
+
+/// One mode's chart, flattened — including the lines of it nobody could
+/// read, which the editor shows rather than hides.
+fn mode_row(doc: &ignition_fixture::FixtureType, name: &str) -> ModeRow {
+    let (map, complaints) = doc.channel_map(name);
+    let (resolved, _) = ignition_fixture::expand::mode(name, &doc.modes);
+    let mode = doc.modes.get(name);
+    ModeRow {
+        name: name.to_owned(),
+        footprint: map.footprint,
+        confidence: mode
+            .and_then(|m| m.confidence)
+            .map(|c| c.badge().to_owned())
+            .unwrap_or_default(),
+        note: mode.map(|m| m.note.clone()).unwrap_or_default(),
+        channels: resolved.iter().map(channel_row).collect(),
+        complaints: complaints
+            .iter()
+            .map(|c| format!("channel {}: {}", c.channel, c.message))
+            .collect(),
+    }
+}
+
+fn channel_row(channel: &ignition_fixture::Resolved) -> ChannelRow {
+    ChannelRow {
+        number: channel.number,
+        name: channel.name.clone(),
+        function: match &channel.function {
+            ignition_fixture::Function::Known(known) => known.canonical().to_owned(),
+            // A name that resolved to nothing still occupies its byte;
+            // the editor says so rather than inventing a function.
+            ignition_fixture::Function::Unknown(_) => String::new(),
+        },
+        default: channel.default,
+        ranges: channel
+            .ranges
+            .iter()
+            .map(|range| ignition_live_ui::fixtures::RangeRow {
+                from: range.from,
+                to: range.to,
+                meaning: range.meaning.clone(),
+                slot: range.slot.clone().unwrap_or_default(),
+            })
+            .collect(),
+    }
+}
+
+fn slot_rows(
+    wheel: Vec<ignition_fixture::Slot>,
+    colour: bool,
+) -> Vec<ignition_live_ui::fixtures::SlotRow> {
+    wheel
+        .into_iter()
+        .map(|slot| ignition_live_ui::fixtures::SlotRow {
+            name: slot.name,
+            byte: slot.byte,
+            css: if colour {
+                swatch_css(slot.xy)
+            } else {
+                String::new()
+            },
+        })
+        .collect()
+}
+
+/// The facts a type actually published, dropping the ones nobody did.
+fn facts(pairs: &[(&str, Option<String>)]) -> Vec<(String, String)> {
+    pairs
+        .iter()
+        .filter_map(|(name, value)| Some(((*name).to_owned(), value.clone()?)))
+        .collect()
+}
+
+/// A wheel slot's CIE xy as something a swatch can be painted with.
+///
+/// Deliberately crude: xyY at Y = 1 through the sRGB matrix, normalised
+/// so the brightest primary lands at full, then gamma-encoded. There is
+/// no white adaptation and no gamut mapping beyond a clamp, so a slot
+/// outside sRGB — most saturated gels are — comes back as the nearest
+/// thing sRGB can say.
+///
+/// That is the right amount of effort. The swatch exists so the row for
+/// "pale blue" looks pale and blue beside its name; treating it as a
+/// colour-managed preview would invite somebody to trust it, and nobody
+/// has ever measured these wheels (see `ignition_fixture::wheel`).
+fn swatch_css((x, y): (f32, f32)) -> String {
+    // Guard a degenerate y before dividing by it.
+    let y_safe = if y.abs() < 1e-4 { 1e-4 } else { y };
+    let big_x = x / y_safe;
+    let big_y = 1.0_f32;
+    let big_z = (1.0 - x - y) / y_safe;
+
+    // XYZ -> linear sRGB, D65.
+    let red = 0.4986f32.mul_add(-big_z, 1.5372f32.mul_add(-big_y, 3.2406 * big_x));
+    let green = 0.0415f32.mul_add(big_z, 1.8758f32.mul_add(big_y, -0.9689 * big_x));
+    let blue = 1.0570f32.mul_add(big_z, 0.2040f32.mul_add(-big_y, 0.0557 * big_x));
+
+    // Normalise to the brightest primary, so a saturated gel reads as
+    // itself rather than as white with the top clipped off.
+    let peak = red.max(green).max(blue).max(1e-4);
+    let encode = |v: f32| {
+        let linear = (v / peak).clamp(0.0, 1.0);
+        let gamma = if linear <= 0.003_130_8 {
+            linear * 12.92
+        } else {
+            1.055f32.mul_add(linear.powf(1.0 / 2.4), -0.055)
+        };
+        num::byte_of_f32(gamma * 255.0)
+    };
+    format!("rgb({} {} {})", encode(red), encode(green), encode(blue))
+}
+
+static TYPE_LIBRARY: std::sync::OnceLock<TypeLibrary> = std::sync::OnceLock::new();
+
+/// The fixture-type library as the panes see it.
+fn type_library() -> TypeLibrary {
+    TYPE_LIBRARY.get().cloned().unwrap_or_default()
+}
+
+/// The patch as the panes last saw it.
+///
+/// A lock rather than a `OnceLock`, unlike `SURFACE`: the surface is
+/// fixed for a run and the patch is the one thing the Setup view exists
+/// to change. Rebuilt from the live venue after every edit — see
+/// `viz_widget::commands::patch_edit` — and read by whichever window
+/// asks.
+static PATCH_SHEET: std::sync::RwLock<Option<PatchSheet>> = std::sync::RwLock::new(None);
+
+/// The patch as the panes see it.
+pub(crate) fn patch_sheet() -> PatchSheet {
+    PATCH_SHEET
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone()
+        .unwrap_or_default()
+}
+
+/// Republish the patch from a venue that has just changed.
+pub(crate) fn set_patch_sheet(venue: &Venue, dirty: bool) {
+    let name = std::path::Path::new(&venue_dir())
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let mut sheet = build_patch_sheet(venue, &name);
+    sheet.dirty = dirty;
+    *PATCH_SHEET
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(sheet);
+}
+
 /// # Panics
 ///
 /// Never in practice: `app` sets `SURFACE` before rendering the first
@@ -578,14 +894,35 @@ pub fn bootstrap() -> ignition_live_ui::Bootstrap {
 pub fn provide_playhead() {
     let mut playhead = use_signal(command::Playhead::default);
     use_context_provider(|| PlayheadFeed(playhead));
+    // The patch, for the Setup view's panes. A signal rather than a
+    // plain value because a patch edit republishes it — the pane must
+    // never go back to the venue file for a second copy.
+    let mut sheet =
+        use_context_provider(|| ignition_live_ui::patch::SheetFeed(Signal::new(patch_sheet()))).0;
+    use_context_provider(|| ignition_live_ui::fixtures::LibraryFeed(Signal::new(type_library())));
+    // Which fixture type the editor is showing — picked in one pane and
+    // read in the other, so it lives above both.
+    use_context_provider(|| ignition_live_ui::fixtures::Opened(Signal::new(None)));
     use_future(move || async move {
+        // What the sheet was last rebuilt for. The counter starts at
+        // zero and the first edit makes it one, so a window that opens
+        // mid-session picks up whatever has already happened.
+        let mut seen_patch = 0_u64;
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(33)).await;
-            if let Some(rx) = STATE_RX.get() {
-                let latest = rx.borrow().clone();
-                if latest != playhead() {
-                    playhead.set(latest);
-                }
+            let Some(rx) = STATE_RX.get() else {
+                continue;
+            };
+            let latest = rx.borrow().clone();
+            // The patch travels as a revision, not as seventy rows a
+            // frame; when it moves, re-read the sheet the engine thread
+            // rebuilt (`viz_widget::commands::patch_edit`).
+            if latest.patch_revision != seen_patch {
+                seen_patch = latest.patch_revision;
+                sheet.set(patch_sheet());
+            }
+            if latest != playhead() {
+                playhead.set(latest);
             }
         }
     });
@@ -1699,4 +2036,206 @@ fn load_cue_names(path: &str) -> anyhow::Result<Vec<Row>> {
     let raw = std::fs::read_to_string(path)?;
     let list: ignition_core::CueList = serde_json::from_str(&raw)?;
     Ok(ignition_live_ui::cuelist::rows(&list, None))
+}
+
+#[cfg(test)]
+mod patch_sheet_tests {
+    use super::{build_patch_sheet, build_type_library, swatch_css};
+    use ignition_viz::venue::Venue;
+
+    fn norco() -> Option<Venue> {
+        // Runs from the crate directory, so reach the repo root the way
+        // the rest of the tree's tests do.
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/venues/norco");
+        Venue::load(dir).ok()
+    }
+
+    /// r[verify patch.sheet] - the real rig, as the sheet draws it
+    ///
+    /// The Setup view cannot be screenshotted in CI, so this is what
+    /// stands in for looking at it: the columns an operator reads are
+    /// the ones most likely to be quietly wrong, and every one of them
+    /// is a lookup that could have come back empty.
+    #[test]
+    fn norcos_patch_sheet_says_what_the_rig_is() {
+        let Some(venue) = norco() else {
+            return; // the venue is not in this checkout
+        };
+        let sheet = build_patch_sheet(&venue, "norco");
+        assert!(!sheet.rows.is_empty(), "the rig has fixtures");
+        assert!(
+            !sheet.universes.is_empty(),
+            "and the venue configures universes"
+        );
+
+        // Channel order, because that is how a patch sheet is read.
+        let chans: Vec<u32> = sheet.rows.iter().map(|r| r.chan).collect();
+        let mut sorted = chans.clone();
+        sorted.sort_unstable();
+        assert_eq!(chans, sorted, "rows come out in channel order");
+
+        let patched: Vec<_> = sheet.rows.iter().filter(|r| r.patched).collect();
+        assert!(!patched.is_empty(), "something is patched");
+
+        // Every patched fixture resolved to a type with a width. A row
+        // with no type is a fixture that will not light, and the sheet
+        // exists to say so — but on the shipped rig there should be
+        // none, which is what `ignition-fixture`'s own coverage test
+        // asserts from the other side.
+        let untyped: Vec<&str> = patched
+            .iter()
+            .filter(|r| r.fixture_type.is_empty())
+            .map(|r| r.model.as_str())
+            .collect();
+        assert!(
+            untyped.is_empty(),
+            "models with no fixture type: {untyped:?}"
+        );
+        assert!(
+            patched.iter().all(|r| r.footprint > 0),
+            "and every one of them occupies channels"
+        );
+        assert!(
+            patched.iter().all(|r| !r.mode.is_empty()),
+            "and resolved to a named mode"
+        );
+        assert!(
+            patched.iter().all(|r| !r.confidence.is_empty()),
+            "and says how its chart was come by"
+        );
+    }
+
+    /// r[verify patch.conflict] - the shipped rig is not self-conflicting
+    ///
+    /// If this ever fails, either two fixtures really do share channels
+    /// in `data/venues/norco` — worth knowing — or the mode resolution
+    /// has started picking something too wide, which is the failure
+    /// `tests/dmx_loopback.rs` caught once already.
+    #[test]
+    fn norco_patches_without_a_clash() {
+        let Some(venue) = norco() else {
+            return;
+        };
+        let sheet = build_patch_sheet(&venue, "norco");
+        let clashes = sheet.conflicts();
+        assert!(
+            clashes.is_empty(),
+            "the shipped rig conflicts with itself: {clashes:#?}"
+        );
+    }
+
+    /// Every patched fixture is inside a universe the venue configures,
+    /// and inside its 512 channels.
+    #[test]
+    fn nothing_is_patched_off_the_end_of_a_universe() {
+        let Some(venue) = norco() else {
+            return;
+        };
+        let sheet = build_patch_sheet(&venue, "norco");
+        for row in sheet.rows.iter().filter(|r| r.patched) {
+            let end = u32::from(row.address).saturating_add(u32::from(row.footprint));
+            assert!(
+                end <= 513,
+                "chan {} runs to {end} in universe {}",
+                row.chan,
+                row.universe
+            );
+        }
+    }
+
+    /// r[verify patch.type-is-data] - the library, as the editor draws it
+    ///
+    /// The same argument as the patch-sheet test: the Setup view cannot
+    /// be screenshotted, so the columns an operator reads are checked
+    /// here instead. Every one is a lookup that could have come back
+    /// empty and left a blank pane.
+    #[test]
+    fn the_editor_can_show_every_fixture_type() {
+        let Some(venue) = norco() else {
+            return;
+        };
+        let library = build_type_library(&venue);
+        assert!(!library.types.is_empty(), "the library loaded");
+        assert!(
+            library.rejected.is_empty(),
+            "documents that would not load: {:#?}",
+            library.rejected
+        );
+        for row in &library.types {
+            assert!(!row.console_name.is_empty(), "a type with no name");
+            assert!(!row.confidence.is_empty(), "{} has no confidence", row.key);
+            assert!(!row.modes.is_empty(), "{} has no modes", row.key);
+            for mode in &row.modes {
+                assert!(
+                    mode.footprint > 0,
+                    "{} mode {} is empty",
+                    row.key,
+                    mode.name
+                );
+                assert!(
+                    !mode.channels.is_empty(),
+                    "{} mode {} charts nothing",
+                    row.key,
+                    mode.name
+                );
+                assert!(
+                    mode.complaints.is_empty(),
+                    "{} mode {}: {:?}",
+                    row.key,
+                    mode.name,
+                    mode.complaints
+                );
+            }
+        }
+        // Something in this rig is on a wheel rather than mixing, and
+        // its slots must have come through with names and bytes — the
+        // fix `data/fixtures/README.md` recorded and nothing had acted
+        // on until now.
+        assert!(
+            library.types.iter().any(|row| !row.color_wheel.is_empty()),
+            "no fixture type has a colour wheel"
+        );
+        for row in library.types.iter().filter(|r| !r.color_wheel.is_empty()) {
+            assert!(
+                row.color_wheel.iter().all(|s| !s.name.is_empty()),
+                "{} has an unnamed wheel slot",
+                row.key
+            );
+            assert!(
+                row.color_wheel.iter().all(|s| s.css.starts_with("rgb(")),
+                "{} has a slot with no swatch",
+                row.key
+            );
+        }
+    }
+
+    /// The swatch is crude on purpose, but it has to be the right hue.
+    #[test]
+    fn a_wheel_swatch_looks_like_the_gel() {
+        // Textbook red, green and blue from `ignition_fixture::wheel`'s
+        // table. Each should come back with its own channel dominant —
+        // if the sRGB matrix were transposed or a term dropped, this is
+        // what would catch it.
+        let channels = |css: String| -> Vec<u32> {
+            css.trim_start_matches("rgb(")
+                .trim_end_matches(')')
+                .split_whitespace()
+                .filter_map(|n| n.parse().ok())
+                .collect()
+        };
+        let red = channels(swatch_css((0.6394, 0.3302)));
+        assert!(red[0] > red[1] && red[0] > red[2], "red is red: {red:?}");
+        let green = channels(swatch_css((0.3000, 0.6000)));
+        assert!(
+            green[1] > green[0] && green[1] > green[2],
+            "green is green: {green:?}"
+        );
+        let blue = channels(swatch_css((0.1481, 0.0603)));
+        assert!(
+            blue[2] > blue[0] && blue[2] > blue[1],
+            "blue is blue: {blue:?}"
+        );
+        // A degenerate y must not divide by zero.
+        assert!(swatch_css((0.3, 0.0)).starts_with("rgb("));
+    }
 }

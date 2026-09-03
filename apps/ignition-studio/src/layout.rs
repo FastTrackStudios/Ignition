@@ -131,6 +131,9 @@ pub enum View {
     #[default]
     Program,
     Live,
+    /// Building the rig rather than running it: the patch, the fixture
+    /// types, the universes. See `docs/spec/patch.md`.
+    Setup,
 }
 
 impl View {
@@ -138,14 +141,50 @@ impl View {
         match self {
             Self::Program => "Program",
             Self::Live => "Live",
+            Self::Setup => "Setup",
         }
     }
-    pub const fn other(self) -> Self {
+
+    /// The next view in the strip's cycle.
+    ///
+    /// A cycle rather than a toggle, since there are three. Setup sits
+    /// last because it is the one an operator leaves and does not come
+    /// back to during a show.
+    pub const fn next(self) -> Self {
         match self {
             Self::Program => Self::Live,
-            Self::Live => Self::Program,
+            Self::Live => Self::Setup,
+            Self::Setup => Self::Program,
         }
     }
+
+    /// Which desk this view draws.
+    ///
+    /// Program and Live deliberately share one: switching between them
+    /// changes the chrome and what the viewport overlays, never where
+    /// the panes are, and an operator who has arranged their desk does
+    /// not want it rearranged by a view key. Setup has its own, because
+    /// it is a different set of panes entirely — nothing in the patch
+    /// belongs on a busking surface.
+    pub const fn desk(self) -> Desk {
+        match self {
+            Self::Program | Self::Live => Desk::Show,
+            Self::Setup => Desk::Setup,
+        }
+    }
+}
+
+/// The two desks a window holds, one at a time.
+///
+/// Named for what they are rather than for the views that draw them:
+/// two of the three views share the show desk.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Desk {
+    /// Program and Live: running and programming a show.
+    Show,
+    /// Setup: building the rig.
+    Setup,
 }
 
 /// One window of the layout: where it sits and the dock tree it draws.
@@ -163,9 +202,57 @@ pub struct WindowSpec {
     pub monitor: String,
     #[serde(default = "fullscreen")]
     pub placement: Placement,
+    /// The tree of the layout currently on screen — see
+    /// [`View::layout`].
     pub tree: DockNode,
     #[serde(default)]
     pub view: View,
+    /// The *other* layout's tree, parked while this one is shown.
+    ///
+    /// A window holds two arrangements — the show desk and the setup
+    /// desk — and shows one. Parking the one that is not on screen,
+    /// rather than keying both off a map, is what keeps every existing
+    /// read of `tree` correct: the dock, the drag-and-drop, the pop-out
+    /// and the presets all go on addressing "the tree", and only the
+    /// view key knows there are two.
+    ///
+    /// `None` for a window that has never been switched, and for every
+    /// layout file written before Setup existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parked: Option<DockNode>,
+}
+
+impl WindowSpec {
+    /// Show `view`, swapping the dock trees if it draws the other
+    /// layout.
+    ///
+    /// Returns whether the tree changed, so the caller knows whether the
+    /// window needs redrawing beyond its chrome.
+    pub fn show(&mut self, view: View) -> bool {
+        let swap = self.view.desk() != view.desk();
+        self.view = view;
+        if !swap {
+            return false;
+        }
+        let incoming = self
+            .parked
+            .take()
+            .unwrap_or_else(|| default_tree(view.desk()));
+        self.parked = Some(std::mem::replace(&mut self.tree, incoming));
+        self.tree.normalize();
+        true
+    }
+}
+
+/// What a desk opens on when a window has never shown it.
+fn default_tree(desk: Desk) -> DockNode {
+    match desk {
+        Desk::Show => Preset::Console.build(&crate::dock::preset::CONSOLE_TOP),
+        // The patch beside the room, with the inspector under it — the
+        // arrangement every console's patch page converges on, and the
+        // one `docs/spec/patch.md` describes.
+        Desk::Setup => Preset::Setup.build(&crate::dock::preset::SETUP_PANES),
+    }
 }
 
 #[derive(Deserialize)]
@@ -180,17 +267,24 @@ struct RawWindowSpec {
     panels: Vec<Panel>,
     #[serde(default)]
     view: View,
+    #[serde(default)]
+    parked: Option<DockNode>,
 }
 
 impl From<RawWindowSpec> for WindowSpec {
     fn from(raw: RawWindowSpec) -> Self {
         let mut tree = raw.tree.unwrap_or_else(|| migrate(&raw.panels));
         tree.normalize();
+        let parked = raw.parked.map(|mut parked| {
+            parked.normalize();
+            parked
+        });
         Self {
             monitor: raw.monitor,
             placement: raw.placement,
             tree,
             view: raw.view,
+            parked,
         }
     }
 }
@@ -253,6 +347,7 @@ impl Layout {
                     ],
                 ),
                 view: View::Live,
+                parked: None,
             }],
         }
     }
@@ -698,6 +793,7 @@ mod tests {
             placement: Placement::Fullscreen,
             tree: DockNode::tabs(vec![PaneKind::Visualizer, PaneKind::Transport]),
             view: View::Live,
+            parked: None,
         };
         assert_eq!(spec.title(), "Ignition Studio — Visualizer, Transport");
     }
@@ -750,8 +846,81 @@ mod tests {
                 placement,
                 tree: DockNode::tabs(anywhere.clone()),
                 view: View::Program,
+                parked: None,
             };
             assert!(!spec.tree.panes().is_empty(), "a pane refused a window");
         }
+    }
+
+    /// r[verify studio.views] - three views, two desks
+    ///
+    /// Program and Live share their arrangement. An operator who has
+    /// spent a night getting the desk how they want it does not expect a
+    /// view key to move anything, and only Setup is a different set of
+    /// panes.
+    #[test]
+    fn switching_between_program_and_live_does_not_move_a_pane() {
+        let mut spec = WindowSpec {
+            monitor: String::new(),
+            placement: Placement::Fullscreen,
+            tree: DockNode::tab(PaneKind::Faders),
+            view: View::Program,
+            parked: None,
+        };
+        let before = spec.tree.clone();
+        assert!(!spec.show(View::Live), "no swap between Program and Live");
+        assert_eq!(spec.tree, before);
+        assert!(spec.parked.is_none());
+    }
+
+    /// r[verify patch.sheet] - Setup is its own desk, and coming back
+    /// restores the one you left.
+    #[test]
+    fn setup_swaps_the_desk_and_gives_it_back() {
+        let show = DockNode::tab(PaneKind::Faders);
+        let mut spec = WindowSpec {
+            monitor: String::new(),
+            placement: Placement::Fullscreen,
+            tree: show.clone(),
+            view: View::Live,
+            parked: None,
+        };
+        assert!(spec.show(View::Setup), "Setup draws a different desk");
+        assert_ne!(spec.tree, show, "and it is not the show desk");
+        assert!(
+            spec.tree.contains(PaneKind::Patch),
+            "the Setup desk opens on the patch"
+        );
+        // Rearrange the Setup desk, then leave and come back.
+        spec.tree = DockNode::tab(PaneKind::Universes);
+        assert!(spec.show(View::Program));
+        assert_eq!(spec.tree, show, "the show desk came back untouched");
+        assert!(spec.show(View::Setup));
+        assert_eq!(
+            spec.tree,
+            DockNode::tab(PaneKind::Universes),
+            "and so did the Setup desk, as it was left"
+        );
+    }
+
+    /// r[verify studio.views] - the cycle visits all three and returns
+    #[test]
+    fn the_view_key_cycles() {
+        assert_eq!(View::Program.next(), View::Live);
+        assert_eq!(View::Live.next(), View::Setup);
+        assert_eq!(View::Setup.next(), View::Program);
+    }
+
+    /// A layout file written before Setup existed still opens, with its
+    /// tree as the show desk and nothing parked.
+    #[test]
+    fn a_layout_file_from_before_setup_still_opens() {
+        // r[verify files.additive-evolution]
+        let json = r#"{"windows":[{"monitor":"","tree":{"tabs":{"panes":["faders"]}}}]}"#;
+        let layout: Layout = serde_json::from_str(json).expect("an older layout file");
+        let spec = layout.windows.first().expect("one window");
+        assert_eq!(spec.view, View::Program);
+        assert!(spec.parked.is_none());
+        assert_eq!(spec.tree, DockNode::tab(PaneKind::Faders));
     }
 }

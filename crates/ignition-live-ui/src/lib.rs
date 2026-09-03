@@ -17,6 +17,7 @@ pub mod command;
 pub mod cuelist;
 pub mod desk;
 pub mod faders;
+pub mod fixtures;
 pub mod library;
 pub mod live;
 mod numeric;
@@ -27,9 +28,10 @@ pub mod pointer;
 pub mod program;
 
 pub use cuelist::CueList;
+pub use fixtures::{ChannelRow, ModeRow, TypeLibrary, TypeRow};
 pub use patch::{Conflict, Occupancy, PatchRow, PatchSheet};
 
-pub use command::{Command, PageMove, Playhead, SpeedKey};
+pub use command::{Command, PageMove, PatchEdit, Playhead, SpeedKey};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 

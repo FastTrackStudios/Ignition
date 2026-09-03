@@ -214,6 +214,16 @@ pub struct Channel {
     /// white. `None` rests at zero.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default: Option<u8>,
+    /// How this channel's normalised value becomes its wire byte, when
+    /// it is not linear (`r[files.venue.dmx-curves]`).
+    ///
+    /// A dimmer that is not linear, or a channel whose useful range is a
+    /// slice of the byte — a shutter that is only open above 32 — is
+    /// corrected here rather than by every cue that touches it, which is
+    /// also what makes HTP between two different fixture types compare
+    /// like with like.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub curve: Option<ignition_proto::Curve>,
     #[serde(flatten)]
     pub extra: Extra,
 }

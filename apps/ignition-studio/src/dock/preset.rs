@@ -17,6 +17,11 @@ pub enum Preset {
     Grid2x2,
     TopBottom,
     Console,
+    /// The patch page. Every console's converges on the same shape and
+    /// so does `docs/spec/patch.md`: the fixture-type library at the
+    /// left, the patch sheet filling the middle, the room beside it, and
+    /// the selected fixture's detail underneath.
+    Setup,
 }
 
 /// The share of a window's height the Console preset gives the fader
@@ -45,14 +50,33 @@ pub const CONSOLE_TOP: [PaneKind; 7] = [
     PaneKind::Macros,
 ];
 
+/// How wide the Setup preset's three columns are.
+///
+/// The sheet gets the room, because patching is reading rows; the type
+/// library is a list of names and needs a fifth; the visualizer is
+/// square-ish and takes what is left. The sheet is what an operator's
+/// eyes live in, so the slack goes there.
+pub const SETUP_RATIOS: [f32; 3] = [0.20, 0.48, 0.32];
+
+/// The Setup layout's panes: the library, the sheet, and the room.
+/// `Universes` and `Fixture Editor` tab in behind the first two.
+pub const SETUP_PANES: [PaneKind; 5] = [
+    PaneKind::FixtureTypes,
+    PaneKind::Patch,
+    PaneKind::Visualizer,
+    PaneKind::Universes,
+    PaneKind::FixtureEditor,
+];
+
 impl Preset {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::TwoColumns,
         Self::LeftRightSplit,
         Self::ThreeColumns,
         Self::Grid2x2,
         Self::TopBottom,
         Self::Console,
+        Self::Setup,
     ];
 
     pub const fn label(self) -> &'static str {
@@ -63,6 +87,7 @@ impl Preset {
             Self::Grid2x2 => "2×2 grid",
             Self::TopBottom => "Top + bottom",
             Self::Console => "Console",
+            Self::Setup => "Setup",
         }
     }
 
@@ -96,17 +121,42 @@ impl Preset {
                     DockNode::tab(PaneKind::Faders),
                 ],
             ),
+            // Three columns, and the middle one split so the selected
+            // fixture's detail sits under the sheet it was picked from.
+            Self::Setup => DockNode::split_with(
+                Axis::Row,
+                SETUP_RATIOS.to_vec(),
+                vec![
+                    DockNode::tab(PaneKind::FixtureTypes),
+                    DockNode::split_with(
+                        Axis::Col,
+                        vec![0.62, 0.38],
+                        vec![
+                            DockNode::tab(PaneKind::Patch),
+                            DockNode::tab(PaneKind::FixtureEditor),
+                        ],
+                    ),
+                    DockNode::split_with(
+                        Axis::Col,
+                        vec![0.55, 0.45],
+                        vec![
+                            DockNode::tab(PaneKind::Visualizer),
+                            DockNode::tab(PaneKind::Universes),
+                        ],
+                    ),
+                ],
+            ),
         }
     }
 
     /// The preset laid out over `panes`: one pane per leaf in order,
     /// the rest tabbed into the last leaf, leaves nobody fills dropped.
-    /// The Console preset names its own panes; any others of the
-    /// window's are tabbed into its first top pane.
+    /// The Console and Setup presets name their own panes; any others of
+    /// the window's are tabbed into the first.
     pub fn build(self, panes: &[PaneKind]) -> DockNode {
         let mut tree = self.shape();
         let leaves: Vec<Path> = tree.leaves().into_iter().map(|(p, _, _)| p).collect();
-        if self == Self::Console {
+        if matches!(self, Self::Console | Self::Setup) {
             let first = leaves.first().cloned().unwrap_or_default();
             for pane in panes {
                 if !tree.contains(*pane) {

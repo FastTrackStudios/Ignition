@@ -215,6 +215,11 @@ pub(super) fn publish(state: &StateTx, transport: Option<&SongTransport>, viz: &
     log_heartbeat(transport);
     let playback = viz.app_mut().world().get_resource::<Playback>();
     let mut next = playhead_from_playback(playback);
+    // The patch's revision, not the patch: seventy rows sixty times a
+    // second to say nothing would be absurd, so what travels is a
+    // counter and the host re-reads the sheet when it moves.
+    next.patch_revision =
+        super::commands::PATCH_REVISION.load(std::sync::atomic::Ordering::Relaxed);
     let song_clock = playback
         .and_then(|p| p.song())
         .map_or(0.0, ignition_core::CuePlayer::clock);
