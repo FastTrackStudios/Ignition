@@ -113,7 +113,7 @@ view-knowledge-graph = { git = "https://github.com/FastTrackStudios/task", rev =
 # `ssg` without default features: its `ui` components are not used here
 # (this site renders the note itself, so a click inside it can navigate
 # in place), and leaving them off keeps ssg-ui's Dioxus out of the graph.
-ssg = { git = "https://github.com/FastTrackStudios/task", branch = "main", default-features = false }
+ssg = { git = "https://github.com/FastTrackStudios/task", branch = "main" }
 ssg-build = { git = "https://github.com/FastTrackStudios/task", branch = "main" }
 
 serde = { version = "1", features = ["derive"] }

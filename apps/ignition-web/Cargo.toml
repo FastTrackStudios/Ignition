@@ -27,10 +27,19 @@ dioxus = { workspace = true, features = ["launch", "router"] }
 dioxus-web = { workspace = true, optional = true }
 
 # The guide, as a static site. `ssg-build` renders the vault to HTML in
-# build.rs; `ssg` is the page model it codegens. The components are this
-# crate's own — the guide page here delegates clicks inside the rendered
-# note so a wikilink navigates in place — so `ssg-ui` is not taken.
-ssg = { workspace = true, default-features = false }
+# build.rs; `ssg` is the page model it codegens and the components that
+# go around it — the in-page contents rail and the search box.
+#
+# The NOTE itself is still rendered by this crate rather than by
+# `VaultArticle`: the guide page delegates clicks inside it so a
+# `[[wikilink]]` navigates in place instead of reloading the site.
+#
+# Default features, so `ssg-ui` comes along — but NOT its `graph`
+# feature, which would pull task@main's view-knowledge-graph beside this
+# repo's pinned one and put two architect versions (and two reqwest
+# majors) in the wasm binary. The graph here is drawn with the copy
+# pinned above.
+ssg = { workspace = true }
 
 # The guide's knowledge graph. Pure and FS-free by design, so the same
 # builder that draws Task's wiki natively builds this one in the browser

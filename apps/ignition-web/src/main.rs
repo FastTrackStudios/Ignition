@@ -166,6 +166,11 @@ fn App() -> Element {
         // design tokens the graph resolves against), then the site's own
         // sheet, which must win where the two overlap.
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }
+        // The guide components' own sheet — the in-page contents rail,
+        // the search box, the tag pills. Before site.css deliberately:
+        // its rules are defaults built on custom properties, and the
+        // site's own sheet wins on source order where the two overlap.
+        document::Link { rel: "stylesheet", href: ssg::VAULT_STYLE }
         document::Link { rel: "stylesheet", href: SITE_CSS }
         Router::<Route> {}
     }

@@ -52,6 +52,11 @@ pub fn GuidePage(slug: String) -> Element {
                 article { class: "ig-guide-page",
                     ChapterNav { slug: page.slug, compact: true }
 
+                    // The headings of THIS note, as links into it. Renders
+                    // nothing on a short one — a contents list exists to
+                    // save a scroll, and two entries do not.
+                    ssg::PageToc { page }
+
                     // The note. This HTML is what this crate's own build
                     // script produced from markdown in this repo — there
                     // is no untrusted author anywhere in the path, which
@@ -81,7 +86,13 @@ pub fn GuidePage(slug: String) -> Element {
                     Backlinks { pages: backlinks() }
                 }
 
-                LocalGraph { graph: local(), current: page.slug }
+                aside { class: "ig-guide-aside",
+                    // Search is a scan over the vault, which is already
+                    // `&'static` in this binary — no index to fetch, and
+                    // the first search is as fast as the tenth.
+                    ssg::VaultSearch { vault: VAULT, base: guide::BASE }
+                    LocalGraph { graph: local(), current: page.slug }
+                }
             }
         }
     }

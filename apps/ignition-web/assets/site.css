@@ -645,3 +645,41 @@ body {
 .ig-md th { background: var(--code-bg); font-weight: 560; }
 
 .ig-md hr { border: 0; border-top: 1px solid var(--line); margin: 2.4rem 0; }
+
+/* ── Guide: the vault components ──────────────────────────────────────
+ *
+ * `ssg-ui` ships its own sheet (linked ahead of this one) with layout
+ * and spacing built on custom properties. This binds those to the
+ * site's palette, and adds the two things that are Ignition's own: the
+ * aside that stacks search above the graph, and a search panel that has
+ * to sit ON the page rather than push it down. */
+
+.ig-guide {
+  --ssg-rule: var(--line);
+  --ssg-accent: var(--accent);
+  --ssg-broken: var(--ink-faint);
+  --ssg-code-bg: rgba(255, 255, 255, 0.05);
+  /* The results panel floats; without an opaque ground the prose shows
+   * through it. */
+  --ssg-surface: var(--bg-raised, #14141a);
+}
+
+.ig-guide-aside {
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+  position: sticky;
+  top: 1.5rem;
+}
+
+/* The in-page contents sits above the note, not beside it — the left
+ * rail is already the vault's contents and two rails of links either
+ * side of the prose is one too many. */
+.ig-guide-page .ssg-page-toc {
+  margin-block-end: 2rem;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 2px solid var(--line);
+}
+
+.ig-guide-page .ssg-page-toc a { color: var(--ink-soft); }
+.ig-guide-page .ssg-page-toc a:hover { color: var(--accent); }
