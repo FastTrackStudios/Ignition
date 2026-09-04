@@ -93,6 +93,11 @@ pub struct VizConfig {
     pub fps: bool,
     /// Room objects to leave out — see `VizSettings::exclude`.
     pub exclude: Vec<String>,
+    /// A CSS selector for a canvas already on the page to render into,
+    /// rather than a window of our own — the browser's answer to a
+    /// window, and the only way the visualizer can sit inside a page
+    /// something else is laying out. `None` everywhere but the web demo.
+    pub canvas: Option<String>,
     /// Exposure offset in stops on top of `STAGE_EV100` — see
     /// `stage_exposure`. `0.0` is the calibrated stage camera; `+1`
     /// doubles the picture, `-1` halves it.
@@ -172,6 +177,7 @@ impl VizConfig {
             screen_content: None,
             canvas_content: std::collections::HashMap::default(),
             canvas_focus: std::collections::HashMap::default(),
+            canvas: None,
             assets_dir: concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string(),
             output: false,
             loopback: false,
@@ -1246,6 +1252,67 @@ pub fn run(config: VizConfig, playback: Playback, gdtf: Option<GdtfLibrary>) {
     }
 }
 
+/// Boot the visualizer into a canvas the page already owns.
+///
+/// The browser's entry point. It is deliberately thin — it builds the
+/// same `VizConfig` a desk does and calls the same `run_windowed` — so
+/// that what a visitor sees is the visualizer, not a second
+/// implementation of it that happens to look similar.
+///
+/// No DMX (there are no sockets), no snapshot, no output. What the demo
+/// has is a room and a rig, which is what a demo is for.
+#[cfg(target_arch = "wasm32")]
+pub fn run_web(venue: Venue, canvas: &str, assets_dir: &str) {
+    let cameras = crate::camera::Cameras::default();
+    let config = VizConfig {
+        // The live preset, same as a desk window. A browser is not a
+        // reason to render a different room.
+        quality: RenderQuality::live(),
+        venue,
+        view: ViewPreset::House,
+        // The canvas is sized by CSS and Bevy follows the element, so
+        // these are a starting point rather than a constraint.
+        width: 1280,
+        height: 720,
+        haze: 0.6,
+        ambient: 0.15,
+        max_universe: 4,
+        snapshot: None,
+        settle_frames: 20,
+        show_props: true,
+        camera: None,
+        cameras,
+        camera_preset: Some("Wide".to_string()),
+        // The cue-sheet overlay belongs to an operator with a show
+        // loaded; a page has its own chrome around this canvas.
+        overlay: false,
+        fps: false,
+        exclude: Vec::new(),
+        exposure: 0.0,
+        auto_exposure: true,
+        grade: Grade::Neutral,
+        screen_content: None,
+        canvas_content: std::collections::HashMap::default(),
+        canvas_focus: std::collections::HashMap::default(),
+        // Where the page serves the visualizer's own models from. A URL
+        // here rather than a directory — Bevy's wasm asset reader fetches
+        // it — and the caller passes it because only the page knows what
+        // its bundler named the folder.
+        assets_dir: assets_dir.to_string(),
+        output: false,
+        loopback: false,
+        body_glow: false,
+        labels: false,
+        canvas: Some(canvas.to_string()),
+    };
+    let dmx = DmxUniverses::new();
+    // Not `bind_output`: that opens a UDP socket, and the browser's
+    // answer to that is a warning in the console on every load. There is
+    // nothing to send DMX *to* from a page.
+    let output = DmxOutput::disabled();
+    run_windowed(config, dmx, Playback::default(), None, output);
+}
+
 fn run_windowed(
     config: VizConfig,
     dmx: DmxUniverses,
@@ -1257,6 +1324,10 @@ fn run_windowed(
     let spec = CameraSpec::new(&config, quality);
     let (width, height) = (config.width, config.height);
     let assets_dir = config.assets_dir.clone();
+    let canvas = config.canvas.clone();
+    // Only the embedded (web) path wants the canvas to follow a parent
+    // element, and only it should leave the browser's own keys alone.
+    let canvas_fit = canvas.is_some();
 
     App::new()
         // Before `DefaultPlugins`: an asset source must exist before the
@@ -1272,6 +1343,24 @@ fn run_windowed(
                     primary_window: Some(Window {
                         title: "Ignition — visualizer".into(),
                         resolution: (width, height).into(),
+                        // On the web this is a selector for a canvas the
+                        // page already owns, so Dioxus can lay out around
+                        // the visualizer instead of it opening a window
+                        // of its own. Off the web it is always `None`.
+                        canvas,
+                        // The page sizes the element; without this Bevy
+                        // keeps the drawing buffer at the resolution
+                        // above and the room sits in the corner of a
+                        // wider box with black beside it.
+                        //
+                        // The warning on this field applies to a parent
+                        // sized BY its children; `.ig-demo-stage` is a
+                        // grid row with a definite height, so there is no
+                        // feedback loop to fall into.
+                        fit_canvas_to_parent: canvas_fit,
+                        // A page is not a game: swallowing F5, Ctrl+R and
+                        // tab inside an embedded canvas is hostile.
+                        prevent_default_event_handling: !canvas_fit,
                         ..default()
                     }),
                     ..default()

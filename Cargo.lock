@@ -7646,10 +7646,13 @@ version = "0.1.0"
 dependencies = [
  "dioxus",
  "dioxus-web",
+ "ignition-viz",
+ "js-sys",
  "ssg",
  "ssg-build",
  "view-knowledge-graph",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

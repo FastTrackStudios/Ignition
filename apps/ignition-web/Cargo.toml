@@ -54,6 +54,12 @@ wasm-bindgen = "0.2"
 # `Element` and `MouseEvent` are this crate's own: a wikilink inside the
 # rendered note is an ordinary anchor, and the click is caught by walking
 # up from the event target to it (see `routes::guide_page`).
+# The demo asks for a WebGPU adapter before it boots Bevy. Through
+# `Reflect` rather than web-sys's `Gpu` bindings: it is three property
+# reads, and the typed surface would be a dozen more feature flags on a
+# dependency this crate otherwise barely touches.
+js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
     "Window",
     "Location",
@@ -65,7 +71,20 @@ web-sys = { version = "0.3", features = [
     # The hero clip mutes and starts ITSELF — see `routes::home`, where
     # the attribute alone is not enough.
     "HtmlMediaElement",
+    # The demo fetches the venue's documents before booting Bevy.
+    "Request",
+    "Response",
 ] }
+
+# The visualizer, for the browser only.
+#
+# Its LIBRARY builds for wasm32 — the CLI binaries beside it do not, and
+# are not asked to. A target dependency rather than a plain one because
+# the OTHER half of this crate is the SSG server binary that pre-renders
+# the guide, and there is no reason for that to link Bevy, wgpu and a
+# glTF loader in order to emit HTML.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+ignition-viz = { workspace = true }
 
 [build-dependencies]
 # The guide is markdown under `docs/guides/`, rendered to HTML at build

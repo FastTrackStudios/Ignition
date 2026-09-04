@@ -574,6 +574,7 @@ fn build_config(
         screen_content: args.screen_content.clone(),
         canvas_content: args.canvas_content.clone(),
         canvas_focus: std::collections::HashMap::default(),
+        canvas: None,
         assets_dir: args.assets_dir.clone(),
         output: args.output,
         loopback: args.loopback,

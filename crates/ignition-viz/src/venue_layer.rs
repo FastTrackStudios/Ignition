@@ -127,20 +127,48 @@ impl VenueLayer {
     // r[impl patch.venue-layer] - the sanctioned home for the non-portable
     // r[impl files.versioned] - a newer layer is refused by name
     pub fn load(dir: impl AsRef<Path>) -> anyhow::Result<Option<Self>> {
-        let path = dir.as_ref().join(FILE);
-        let Ok(raw) = std::fs::read_to_string(&path) else {
-            return Ok(None);
-        };
-        let layer: Self = serde_json::from_str(&raw)
-            .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
+        Self::source(dir)?.map_or_else(|| Ok(None), |raw| Self::from_str(&raw).map(Some))
+    }
+
+    /// The layer's text, if the room has one.
+    ///
+    /// A missing file is the normal case and comes back as `None`; an
+    /// unreadable one does too, because "there is no layer" and "the
+    /// layer cannot be opened" are the same thing to a room that is
+    /// meant to work without one.
+    ///
+    /// # Errors
+    ///
+    /// Never, today. It returns a `Result` so the directory half and the
+    /// parsing half read the same at every call site.
+    pub fn source(dir: impl AsRef<Path>) -> anyhow::Result<Option<String>> {
+        Ok(std::fs::read_to_string(dir.as_ref().join(FILE)).ok())
+    }
+
+    /// Parse a layer from its text.
+    ///
+    /// The pure half, so a browser can apply one — see
+    /// `Venue::from_files`.
+    ///
+    /// # Errors
+    ///
+    /// If the text will not parse, or names a version this build does
+    /// not know.
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "this is the fallible parse half of `load`, named to match it; \
+                  `FromStr` would put a different name on the same thing"
+    )]
+    pub fn from_str(raw: &str) -> anyhow::Result<Self> {
+        let layer: Self =
+            serde_json::from_str(raw).map_err(|e| anyhow::anyhow!("reading {FILE}: {e}"))?;
         if layer.version > VERSION {
             anyhow::bail!(
-                "{} is version {}; this build knows {VERSION}",
-                path.display(),
+                "{FILE} is version {}; this build knows {VERSION}",
                 layer.version
             );
         }
-        Ok(Some(layer))
+        Ok(layer)
     }
 
     /// Write this layer beside its venue, or remove the file when the

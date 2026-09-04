@@ -178,6 +178,40 @@ site-tailwind-check: site-tailwind
     fi
     echo "the site tailwind sheet covers the graph"
 
+# The demo's data, copied from where it is AUTHORED.
+#
+# `/demo` boots the real visualizer on the real Norco venue, so it needs
+# that venue's documents and the visualizer's own models (the people, the
+# kit, the screens) served beside the site. `asset!` takes a literal path
+# inside the crate, so they have to BE inside it — and 4 MB of glTF and
+# JSON that already live in this repo have no business being committed to
+# it twice.
+#
+# So they are copied, gitignored, and remade here. `just site` and
+# `just site-dev` depend on this; a bare `cargo check -p ignition-web`
+# after a fresh clone needs it run first, which is the same contract
+# `_site-tw-input` has and for the same reason.
+site-demo-assets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    venue=apps/ignition-web/assets/venue
+    viz=apps/ignition-web/assets/viz
+    rm -rf "$venue" "$viz"
+    mkdir -p "$venue" "$viz"
+    cp data/venues/norco/*.json "$venue"/
+    cp data/venues/norco/venue.ig-venue "$venue"/
+    # The profile the venue names, under a fixed name: the browser has no
+    # `profiles/` beside `venues/` to find it by convention, so the demo
+    # passes the document in (see `Venue::from_files`).
+    cp data/profiles/ignition.ig-profile "$venue"/profile.ig-profile
+    # Only what the room actually draws. `qlc-meshes`, `gdtf-samples` and
+    # `ofl-samples` are importer fixtures, not scenery.
+    cp -r crates/ignition-viz/assets/people \
+          crates/ignition-viz/assets/props \
+          crates/ignition-viz/assets/screens \
+          crates/ignition-viz/assets/gdtf-primitives "$viz"/
+    du -sh "$venue" "$viz"
+
 # The site's tab icon, re-copied from where the mark is AUTHORED
 # (`apps/ignition-mobile/ios/icon.svg`) and re-rasterised for the
 # browsers that will not take an SVG favicon.
@@ -199,7 +233,7 @@ site-icons:
 # The public site — the landing page and the guide
 # (apps/ignition-web). Static: no server, no backend, nothing to deploy
 # but the directory `dist` ends up as.
-site: site-tailwind
+site: site-tailwind site-demo-assets
     # `--debug-symbols false`: drops DWARF, which both shrinks the bundle
     # and sidesteps the DWARF-version mismatch that makes wasm-opt abort
     # (dx logs the SIGABRT and ships the UNOPTIMISED wasm, so the failure
@@ -245,7 +279,7 @@ site: site-tailwind
 
 # The site with hot reload. Editing a guide page under `docs/guides/`
 # rebuilds too — see the crate's Dioxus.toml watch list.
-site-dev: site-tailwind
+site-dev: site-tailwind site-demo-assets
     dx serve -p ignition-web --platform web
 
 # The landing page's hero clip: the third chorus of Bye Bye Bye on the

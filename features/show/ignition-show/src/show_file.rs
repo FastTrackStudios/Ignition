@@ -588,6 +588,38 @@ struct AreasFile {
     areas: BTreeMap<String, String>,
 }
 
+/// The venue's profile binding, from the two documents themselves.
+///
+/// The pure half of [`load_venue_binding`]. The caller has the text —
+/// off a disk, off a network, out of a test — and this parses it. Split
+/// out so a browser can build a venue at all: everything below the
+/// directory walk is ordinary parsing, and it was only the walk that
+/// could not follow.
+///
+/// A missing document is not an error; the binding falls back to its
+/// defaults. The manifest's own `profile` name is not consulted — that
+/// is a directory fact, and it stays with [`load_venue_binding`].
+///
+/// # Errors
+///
+/// If either document is present and will not parse.
+pub fn venue_binding_from_str(
+    binding: Option<&str>,
+    areas: Option<&str>,
+) -> Result<VenueProfile, Error> {
+    let mut binding: VenueProfile = match binding {
+        Some(raw) => parse(Path::new("profile.json"), raw)?,
+        None => VenueProfile::default(),
+    };
+    if binding.areas.is_empty()
+        && let Some(raw) = areas
+    {
+        let areas: AreasFile = parse(Path::new("areas.json"), raw)?;
+        binding.areas = areas.areas;
+    }
+    Ok(binding)
+}
+
 /// The venue's profile binding, from the directory: `profile.json` (or
 /// the manifest's override) with `areas.json` folded in. Everything the
 /// static check needs, and nothing that needs a renderer.

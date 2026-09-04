@@ -1,9 +1,11 @@
 //! The site's screens, and the chrome they share.
 
+mod demo;
 mod graph;
 mod guide_page;
 mod home;
 
+pub use demo::Demo;
 pub use graph::GuideGraph;
 pub use guide_page::{GuideIndex, GuidePage};
 pub use home::Home;
