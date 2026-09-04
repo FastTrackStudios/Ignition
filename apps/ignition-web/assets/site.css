@@ -479,7 +479,7 @@ body {
  * contents above every page turns each one into a menu you scroll past,
  * and the graph is a rail, not a figure. Both stay reachable — the header
  * carries Guide and Graph, and the chapter buttons walk the whole thing. */
-@media (max-width: 78rem) {
+@media (max-width: 96rem) {
   .ig-guide { grid-template-columns: 13rem minmax(0, 1fr); }
   .ig-local-graph { display: none; }
 }
@@ -703,7 +703,9 @@ body {
      and a desk squeezed to a reading measure is a desk nobody can use.
      It takes the viewport. */
   margin: 0 auto;
-  height: calc(100vh - 9rem);
+  /* Nearly the whole viewport: this screen is the application, and the
+     site's header is the only chrome it keeps. */
+  height: calc(100vh - 5rem);
   width: 100%;
 }
 
@@ -718,8 +720,12 @@ body {
   min-height: 0;
 }
 
+/* The desk's Live view is a multi-column layout built for a monitor —
+   looks and macros, the fader strip, then the palettes. Squeezed into a
+   narrow rail its own inner columns clip, so it gets a real share of the
+   screen rather than a sidebar's. */
 .ig-demo-body.has-desk {
-  grid-template-columns: minmax(0, 1fr) 30rem;
+  grid-template-columns: minmax(0, 1fr) minmax(38rem, 44rem);
 }
 
 /* The desk's own sheets style everything inside this; all that is
@@ -733,7 +739,7 @@ body {
   background: var(--surface);
 }
 
-@media (max-width: 78rem) {
+@media (max-width: 96rem) {
   /* Below this the two do not both fit, and a 20rem-wide desk is not a
      desk. Stack them and let the page scroll. */
   .ig-demo { height: auto; }
