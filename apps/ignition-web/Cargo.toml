@@ -41,6 +41,15 @@ dioxus-web = { workspace = true, optional = true }
 # pinned above.
 ssg = { workspace = true }
 
+# The desk's own components — the cue list, the palettes, the effects
+# library, the faders. THE SAME ONES the studio and the iPad draw, not a
+# web copy of them: `ignition-live-ui` is built so a component never owns
+# its transport, and `routes::desk` is this page's. `r[studio.one-truth]`
+ignition-live-ui = { workspace = true }
+ignition-core = { workspace = true }
+# The demo parses the documents it fetched — the show, the profile.
+serde_json = { workspace = true }
+
 # The guide's knowledge graph. Pure and FS-free by design, so the same
 # builder that draws Task's wiki natively builds this one in the browser
 # from the notes compiled in by build.rs.
@@ -85,6 +94,8 @@ web-sys = { version = "0.3", features = [
 # glTF loader in order to emit HTML.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 ignition-viz = { workspace = true }
+# The playhead poll. tokio's timer wants a reactor a browser has not got.
+gloo-timers = { version = "0.3", features = ["futures"] }
 
 [build-dependencies]
 # The guide is markdown under `docs/guides/`, rendered to HTML at build
