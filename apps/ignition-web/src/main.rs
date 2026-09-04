@@ -89,7 +89,57 @@ const ICON_PNG: Asset = asset!("/assets/icon-32.png");
 const ICON_APPLE: Asset = asset!("/assets/icon-180.png");
 
 fn main() {
-    dioxus::launch(App);
+    dioxus::LaunchBuilder::new()
+        .with_cfg(server_only! {
+            dioxus::server::ServeConfig::builder().incremental(
+                dioxus::server::IncrementalRendererConfig::new()
+                    // `public` beside the executable is where the CLI
+                    // also puts the web bundle, so the pre-rendered
+                    // pages and the assets they reference land in one
+                    // directory — and that directory is what deploys.
+                    .static_dir(
+                        std::env::current_exe()
+                            .expect("the server knows its own path")
+                            .parent()
+                            .expect("an executable has a parent directory")
+                            .join("public"),
+                    )
+                    // Emphatically false. The cache directory is shared
+                    // with the wasm bundle and every asset; clearing it
+                    // per render would delete the site around the pages
+                    // being written into it.
+                    .clear_cache(false),
+            )
+        })
+        .launch(App);
+}
+
+/// The paths `dx build --ssg` should pre-render.
+///
+/// The CLI looks for a server function at exactly this endpoint, calls
+/// it once, and requests every path it returns — which is what writes
+/// them to disk as HTML.
+///
+/// Two sources, and the second is the point. `Route::static_routes()`
+/// gives the routes with no parameters — `/`, `/guide`, `/guide/graph`.
+/// It cannot give the guide's notes, because `/guide/:slug` is a
+/// *single* parameterised route and only the vault knows the slugs; so
+/// the vault supplies them.
+#[cfg(feature = "server")]
+#[server(endpoint = "static_routes")]
+async fn static_routes() -> ServerFnResult<Vec<String>> {
+    let mut routes: Vec<String> = Route::static_routes()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+
+    for route in guide::VAULT.routes(guide::BASE) {
+        if !routes.contains(&route) {
+            routes.push(route);
+        }
+    }
+
+    Ok(routes)
 }
 
 #[component]
@@ -116,6 +166,11 @@ fn App() -> Element {
         // design tokens the graph resolves against), then the site's own
         // sheet, which must win where the two overlap.
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }
+        // The guide components' own sheet — the in-page contents rail,
+        // the search box, the tag pills. Before site.css deliberately:
+        // its rules are defaults built on custom properties, and the
+        // site's own sheet wins on source order where the two overlap.
+        document::Link { rel: "stylesheet", href: ssg::VAULT_STYLE }
         document::Link { rel: "stylesheet", href: SITE_CSS }
         Router::<Route> {}
     }

@@ -13,7 +13,33 @@ description = "ignition.fasttrackstudio.app — the Ignition landing page and gu
 # `just site`.
 
 [dependencies]
-dioxus = { workspace = true, features = ["web", "launch", "router"] }
+# `launch` sits on the base dep rather than a platform feature because
+# both halves of a fullstack build go through `LaunchBuilder` — the
+# browser one to mount, the server one to render for `dx build --ssg`.
+#
+# `fullstack` is deliberately NOT here; it belongs to the `server`
+# feature alone. See the note there.
+dioxus = { workspace = true, features = ["launch", "router"] }
+
+# Direct, only so the `web` feature can turn on `hydrate` — the client
+# half of static generation, which adopts the pre-rendered DOM instead of
+# throwing it away and re-rendering.
+dioxus-web = { workspace = true, optional = true }
+
+# The guide, as a static site. `ssg-build` renders the vault to HTML in
+# build.rs; `ssg` is the page model it codegens and the components that
+# go around it — the in-page contents rail and the search box.
+#
+# The NOTE itself is still rendered by this crate rather than by
+# `VaultArticle`: the guide page delegates clicks inside it so a
+# `[[wikilink]]` navigates in place instead of reloading the site.
+#
+# Default features, so `ssg-ui` comes along — but NOT its `graph`
+# feature, which would pull task@main's view-knowledge-graph beside this
+# repo's pinned one and put two architect versions (and two reqwest
+# majors) in the wasm binary. The graph here is drawn with the copy
+# pinned above.
+ssg = { workspace = true }
 
 # The guide's knowledge graph. Pure and FS-free by design, so the same
 # builder that draws Task's wiki natively builds this one in the browser
@@ -44,12 +70,28 @@ web-sys = { version = "0.3", features = [
 [build-dependencies]
 # The guide is markdown under `docs/guides/`, rendered to HTML at build
 # time rather than in the browser: the pages never change after a build,
-# so shipping a markdown parser to every visitor buys nothing.
-pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+# so shipping a markdown parser to every visitor buys nothing. The whole
+# build script is one call to this.
+ssg-build = { workspace = true }
 
 [[bin]]
 name = "ignition-web"
 path = "src/main.rs"
+
+[features]
+default = ["web"]
+# `dioxus-web/hydrate` rather than `dioxus/fullstack`, which is the usual
+# way to turn it on. Fullstack carries the server-function *client*
+# transport — reqwest 0.12 — and this tree already has 0.13 through iroh;
+# two reqwest majors in one wasm binary is a hundred `duplicate symbol:
+# intounderlyingsource_*` errors out of rust-lld. The site calls no
+# server functions from the browser.
+web = ["dioxus/web", "dep:dioxus-web", "dioxus-web/hydrate"]
+# The server half, which exists only for the length of
+# `dx build --ssg` — dx enables it for the server target by name, never
+# for the wasm one. reqwest 0.12 arriving here is harmless: this half is
+# a host binary.
+server = ["dioxus/server", "dioxus/fullstack"]
 
 [lints]
 workspace = true

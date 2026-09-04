@@ -105,6 +105,17 @@ daw = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", default
 # `Element` types and a component that cannot be called.
 view-knowledge-graph = { git = "https://github.com/FastTrackStudios/task", rev = "607916d171467df08216529f9dfcf88308c3f636" }
 
+# features/ssg — a vault (a directory of markdown notes) published as a
+# static site. The guide is one: `ssg-build` renders it to HTML in
+# build.rs, `ssg` is the page model, and `dx build --ssg` pre-renders the
+# routes the vault names.
+#
+# `ssg` without default features: its `ui` components are not used here
+# (this site renders the note itself, so a click inside it can navigate
+# in place), and leaving them off keeps ssg-ui's Dioxus out of the graph.
+ssg = { git = "https://github.com/FastTrackStudios/task", branch = "main" }
+ssg-build = { git = "https://github.com/FastTrackStudios/task", branch = "main" }
+
 serde = { version = "1", features = ["derive"] }
 
 # Shared with Bevy 0.19.1 (which pins ^29.0.3) and with the Dioxus 0.8
@@ -151,6 +162,11 @@ bevy = { version = "0.19.1", default-features = false, features = [
 # use -- the `dx` CLI in the devshell is 0.8.0-alpha.0 and refuses to build
 # against a mismatched dioxus, so this rev moves in lockstep with them.
 dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false, features = ["lib"] }
+# Direct, and only apps/ignition-web takes it: it is how the site turns
+# on `hydrate` for static generation without `dioxus/fullstack`, whose
+# reqwest would be a second major in the wasm binary. Same rev as the
+# meta-crate above — they are one repo and must not drift.
+dioxus-web = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false }
 ignition-mobile = { path = "apps/ignition-mobile" }
 
 # Telemetry -- Ignition's ONLY dependency on architect, taken deliberately

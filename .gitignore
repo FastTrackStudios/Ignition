@@ -28,3 +28,4 @@ data/macros/previews/
 # at compile time, so a fresh clone and the nix build both have to work
 # without running the recipe first. See apps/ignition-web/tailwind.css.
 apps/ignition-web/.tailwind.gen.css
+apps/ignition-web/generated/
