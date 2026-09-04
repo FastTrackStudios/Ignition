@@ -50,6 +50,12 @@ pub fn GuidePage(slug: String) -> Element {
                 GuideToc { current: page.slug }
 
                 article { class: "ig-guide-page",
+                    // Where you are: the guide, the stage, this note.
+                    // From the stage rather than a path — the vault is
+                    // flat, and the reading order is the only structure
+                    // the notes actually declare.
+                    ssg::Breadcrumbs { page, base: guide::BASE }
+
                     ChapterNav { slug: page.slug, compact: true }
 
                     // The headings of THIS note, as links into it. Renders
@@ -70,6 +76,12 @@ pub fn GuidePage(slug: String) -> Element {
                     // one. Delegated from the container rather than bound
                     // per link, because the links are inside opaque HTML
                     // and there is no element here to attach to.
+                    // Hovering a cross-reference shows where it goes —
+                    // title, summary, reading time — so a reader can
+                    // decide NOT to follow it and lose their place. The
+                    // target is already `&'static` here, so the card
+                    // costs no fetch.
+                    ssg::LinkPreviews { vault: VAULT,
                     div {
                         class: "ig-md",
                         dangerous_inner_html: "{page.html}",
@@ -80,8 +92,20 @@ pub fn GuidePage(slug: String) -> Element {
                             }
                         },
                     }
+                    }
 
                     ChapterNav { slug: page.slug, compact: false }
+
+                    // Reading time always; the date only when the build
+                    // established one — a nix build has no git history,
+                    // and an invented date is worse than none.
+                    p { class: "ig-page-meta",
+                        "{page.reading_minutes()} min read"
+                        if !page.updated.is_empty() {
+                            " · updated "
+                            time { datetime: page.updated, {day(page.updated)} }
+                        }
+                    }
 
                     Backlinks { pages: backlinks() }
                 }
@@ -96,6 +120,15 @@ pub fn GuidePage(slug: String) -> Element {
             }
         }
     }
+}
+
+/// The date part of an RFC 3339 timestamp — `2026-09-04`.
+///
+/// A guide page is not a news post: the hour it was committed is noise,
+/// and the `datetime` attribute carries the precise value for anything
+/// that wants it.
+fn day(timestamp: &str) -> &str {
+    timestamp.split('T').next().unwrap_or(timestamp)
 }
 
 /// The in-app route a click inside the rendered note asked for, if any.

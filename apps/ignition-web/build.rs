@@ -33,5 +33,14 @@
 fn main() {
     ssg_build::Vault::at("../../docs/guides")
         .link_base("/guide")
+        // When each note last changed, from git. Empty in a nix build,
+        // which copies the files and not the history — the page shows
+        // nothing rather than guessing.
+        .dates()
+        // `sitemap.xml` and `rss.xml`, written to a gitignored directory
+        // that `just site` copies into the output. They cannot go
+        // through `asset!`, which content-hashes what it touches, and
+        // `/sitemap.xml` is a fixed URL every crawler looks for.
+        .feeds("https://ignition.fasttrackstudio.app", "generated")
         .emit();
 }

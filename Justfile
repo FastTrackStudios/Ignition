@@ -234,6 +234,11 @@ site: site-tailwind
     # build still reporting success. (dioxus#3518.)
     NO_DOWNLOADS=1 dx build -p ignition-web --platform web --release --debug-symbols false \
         --ssg --fullstack --force-sequential
+    # `sitemap.xml` and `rss.xml` are written by build.rs into a
+    # gitignored directory. They cannot go through `asset!` — that
+    # content-hashes what it touches, and `/sitemap.xml` is the fixed URL
+    # every crawler looks for — so they are copied in at the top level.
+    cp apps/ignition-web/generated/*.xml target/dx/ignition-web/release/web/public/
     rm -rf apps/ignition-web/dist
     mkdir -p apps/ignition-web/dist
     cp -r target/dx/ignition-web/release/web/public/. apps/ignition-web/dist/

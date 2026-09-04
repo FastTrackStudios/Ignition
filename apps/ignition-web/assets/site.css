@@ -683,3 +683,9 @@ body {
 
 .ig-guide-page .ssg-page-toc a { color: var(--ink-soft); }
 .ig-guide-page .ssg-page-toc a:hover { color: var(--accent); }
+
+.ig-page-meta {
+  margin-block-start: 2rem;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+}

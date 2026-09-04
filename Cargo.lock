@@ -12862,7 +12862,7 @@ dependencies = [
 [[package]]
 name = "ssg"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/task?branch=main#8ee58e2cd277b1680d8bf10bd93fcd9f8fd83540"
+source = "git+https://github.com/FastTrackStudios/task?branch=main#18ea797750f8816e26d4ef4ab121cf6035eac0ec"
 dependencies = [
  "ssg-ui",
  "ssg-vault",
@@ -12871,7 +12871,7 @@ dependencies = [
 [[package]]
 name = "ssg-build"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/task?branch=main#8ee58e2cd277b1680d8bf10bd93fcd9f8fd83540"
+source = "git+https://github.com/FastTrackStudios/task?branch=main#18ea797750f8816e26d4ef4ab121cf6035eac0ec"
 dependencies = [
  "ssg-vault",
 ]
@@ -12879,16 +12879,18 @@ dependencies = [
 [[package]]
 name = "ssg-ui"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/task?branch=main#8ee58e2cd277b1680d8bf10bd93fcd9f8fd83540"
+source = "git+https://github.com/FastTrackStudios/task?branch=main#18ea797750f8816e26d4ef4ab121cf6035eac0ec"
 dependencies = [
  "dioxus",
  "ssg-vault",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
 name = "ssg-vault"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/task?branch=main#8ee58e2cd277b1680d8bf10bd93fcd9f8fd83540"
+source = "git+https://github.com/FastTrackStudios/task?branch=main#18ea797750f8816e26d4ef4ab121cf6035eac0ec"
 dependencies = [
  "pulldown-cmark",
 ]
