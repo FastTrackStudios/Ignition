@@ -61,6 +61,17 @@ pub struct LoadOptions<'a> {
     pub song_bpm: Option<f32>,
     /// The arrangement the show's relative positions resolve against.
     pub song: Option<&'a SongMap>,
+    /// The cue list itself, when the caller already has the text.
+    ///
+    /// Takes precedence over `cuelist`. A browser has no path to open
+    /// and fetches the document instead — the same split `VenueFiles`
+    /// makes, for the same reason: only the *reading* could not follow
+    /// the visualizer to the web.
+    pub cuelist_document: Option<&'a str>,
+    /// The profile document, likewise — the named tricks and the baked
+    /// looks come out of it. On a desk it is found by convention under
+    /// `data/profiles/`; a browser has no such directory to walk.
+    pub profile_document: Option<&'a str>,
 }
 
 /// A loaded show, if the CLI was given one.
@@ -466,6 +477,8 @@ impl Playback {
             bar,
             song_bpm,
             song,
+            cuelist_document,
+            profile_document,
         } = options;
         anyhow::ensure!(
             cuelist.is_none() || recipes.is_none(),
@@ -492,16 +505,29 @@ impl Playback {
         // The looks are the baked ones with the desk's authored overlay
         // laid over them (`r[profile.looks.authored]`), so a look stored
         // at the desk is one a cue may open on.
-        let (named_tricks, looks) = {
-            let path = ignition_core::Profile::default_path(&venue.profile.profile);
-            match ignition_core::Profile::load_with_authored(&path) {
-                Ok(profile) => (profile.tricks, profile.looks),
-                Err(error) => {
-                    tracing::debug!(%error, path = %path.display(), "no profile file for named tricks");
-                    (BTreeMap::new(), BTreeMap::new())
+        let (named_tricks, looks) = profile_document.map_or_else(
+            || {
+                let path = ignition_core::Profile::default_path(&venue.profile.profile);
+                match ignition_core::Profile::load_with_authored(&path) {
+                    Ok(profile) => (profile.tricks, profile.looks),
+                    Err(error) => {
+                        tracing::debug!(%error, path = %path.display(), "no profile file for named tricks");
+                        (BTreeMap::new(), BTreeMap::new())
+                    }
                 }
-            }
-        };
+            },
+            |raw| {
+                // Handed in: no authored overlay, because authored looks
+                // are a desk-local file and a browser has no desk.
+                match serde_json::from_str::<ignition_core::Profile>(raw) {
+                    Ok(profile) => (profile.tricks, profile.looks),
+                    Err(error) => {
+                        tracing::debug!(%error, "the profile document did not parse");
+                        (BTreeMap::new(), BTreeMap::new())
+                    }
+                }
+            },
+        );
         let show = Show {
             groups: &groups,
             palettes: &venue.palettes,
@@ -517,9 +543,19 @@ impl Playback {
         };
 
         let mut triggers = TriggerBus::default();
-        let cues: Option<CuePlayer> = match cuelist.or(recipes) {
-            Some(path) => {
-                let mut list: CueList = read_json(path, "a cue list")?;
+        // The document if the caller has it, else the file it names.
+        let listed: Option<CueList> = match cuelist_document {
+            Some(raw) => Some(
+                serde_json::from_str(raw)
+                    .map_err(|e| anyhow::anyhow!("parsing a cue list: {e}"))?,
+            ),
+            None => cuelist
+                .or(recipes)
+                .map(|path| read_json(path, "a cue list"))
+                .transpose()?,
+        };
+        let cues: Option<CuePlayer> = match listed {
+            Some(mut list) => {
                 // A cue written "4 bars into the chorus" lands on this
                 // arrangement's chorus, not the one it was authored
                 // against. Only possible with a song map; without one

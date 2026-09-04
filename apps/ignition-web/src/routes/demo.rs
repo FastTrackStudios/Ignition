@@ -82,6 +82,12 @@ const VENUE_AREAS: Asset = asset!("/assets/venue/areas.json");
     reason = "the asset! macro generates a const with volatile inner types; this is a limitation of the dioxus macro system"
 )]
 const PROFILE_DOCUMENT: Asset = asset!("/assets/venue/profile.ig-profile");
+/// The show the demo plays — `data/songs/bye-bye-bye.json`, a `CueList`.
+#[expect(
+    clippy::volatile_composites,
+    reason = "the asset! macro generates a const with volatile inner types; this is a limitation of the dioxus macro system"
+)]
+const SHOW: Asset = asset!("/assets/venue/show.json");
 
 /// The visualizer's own asset root — the people, the drum kit, the
 /// speakers, the screen content. A FOLDER asset: Bevy's asset server
@@ -199,8 +205,24 @@ async fn launch(stage: &mut Signal<Stage>) -> Result<(), String> {
     stage.set(Stage::Loading("the rig"));
     let venue = ignition_viz::Venue::from_files(&files).map_err(|e| format!("venue: {e}"))?;
 
+    stage.set(Stage::Loading("the show"));
+    let cuelist = fetch_text(&SHOW.to_string()).await.ok();
+    let profile = files.profile_document.clone();
+
     stage.set(Stage::Loading("the visualizer"));
-    ignition_viz::run_web(venue, "#ig-viz", &VIZ_ASSETS.to_string());
+    ignition_viz::run_web(
+        venue,
+        &ignition_viz::WebShow {
+            cuelist: cuelist.as_deref(),
+            profile: profile.as_deref(),
+            // No song map: the show's positions are already absolute
+            // bars. A map would only matter if the arrangement had been
+            // re-cut since it was written.
+            song: None,
+        },
+        "#ig-viz",
+        &VIZ_ASSETS.to_string(),
+    );
     Ok(())
 }
 

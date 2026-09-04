@@ -302,6 +302,113 @@ pub struct Surface {
     pub cues: Vec<Row>,
 }
 
+impl Surface {
+    /// Build a surface from the room's own vocabulary.
+    ///
+    /// Deliberately NOT from a `Venue`: a venue is `ignition-viz`'s
+    /// type, that crate carries Bevy and wgpu, and this one is the view
+    /// layer for a desk and an iPad. What a surface is actually made of
+    /// is palettes, a list of group names and a list of cue rows — all
+    /// `ignition-core` — so that is what it takes, and every host hands
+    /// them over from wherever it happens to keep them.
+    ///
+    /// The studio reads them off a venue directory; the web demo reads
+    /// them out of documents it fetched. One builder either way, which
+    /// is the point: two surfaces that disagree about what "Deep Blue"
+    /// looks like would be two products.
+    // r[impl studio.one-truth] - one surface builder, every host
+    #[must_use]
+    pub fn from_room(
+        palettes: &ignition_core::Palettes,
+        groups: Vec<String>,
+        cues: Vec<Row>,
+    ) -> Self {
+        Self {
+            groups,
+            colors: palettes
+                .colors
+                .iter()
+                .map(|c| {
+                    // The palette is linear 0–1 like the fixtures; the
+                    // disc only has to look like the gel, so a plain
+                    // byte scale is close enough and avoids a
+                    // colour-management rabbit hole for a swatch.
+                    ColorChip {
+                        light: ColorChip::is_light(c.red, c.green, c.blue),
+                        ..ColorChip::solid(c.name.clone(), chip_rgb(c))
+                    }
+                })
+                .collect(),
+            splits: palettes
+                .splits
+                .iter()
+                .filter_map(|split| {
+                    let (colors, distribute) =
+                        palettes.resolve_split(&ignition_core::Ref::Named(split.name.clone()))?;
+                    let stops: Vec<String> = colors.iter().map(chip_rgb).collect();
+                    // Spread is a gradient; cycle and block are hard
+                    // bands, which is also how they land on the rig.
+                    let css = if distribute == ignition_core::Distribute::Spread {
+                        format!("linear-gradient(90deg, {})", stops.join(", "))
+                    } else {
+                        let n = stops.len().max(1);
+                        let bands: Vec<String> = stops
+                            .iter()
+                            .enumerate()
+                            .map(|(i, c)| {
+                                // `n` is `len().max(1)`, never zero, so
+                                // the fallback never fires — `checked_div`
+                                // only exists to give the division
+                                // something other than a bare `/` for
+                                // `arithmetic_side_effects` to examine.
+                                format!(
+                                    "{c} {}% {}%",
+                                    i.saturating_mul(100).checked_div(n).unwrap_or(0),
+                                    i.saturating_add(1)
+                                        .saturating_mul(100)
+                                        .checked_div(n)
+                                        .unwrap_or(0)
+                                )
+                            })
+                            .collect();
+                        format!("linear-gradient(90deg, {})", bands.join(", "))
+                    };
+                    // A palette is light when its colours average light
+                    // — Ice reads as light, Hot/Deep does not, and the
+                    // name written across it has to follow.
+                    let light_count: usize = colors
+                        .iter()
+                        .filter(|c| ColorChip::is_light(c.red, c.green, c.blue))
+                        .count();
+                    Some(ColorChip {
+                        name: split.name.clone(),
+                        css,
+                        light: light_count.saturating_mul(2) > colors.len(),
+                        // The individual colours travel too: a bar can be
+                        // a gradient, but a disc has to be wedges, and
+                        // only the surface knows which it is drawing.
+                        colors: stops,
+                        spread: matches!(distribute, ignition_core::Distribute::Spread),
+                    })
+                })
+                .collect(),
+            focus: palettes.focus.iter().map(|f| f.name.clone()).collect(),
+            cues,
+        }
+    }
+}
+
+/// A palette colour as a CSS `rgb()`, for a swatch.
+fn chip_rgb(c: &ignition_core::preset::ColorPreset) -> String {
+    use numeric::byte_of_f32 as byte;
+    format!(
+        "rgb({} {} {})",
+        byte(c.red * 255.0),
+        byte(c.green * 255.0),
+        byte(c.blue * 255.0)
+    )
+}
+
 /// One line of the cue list: a cue the operator can GO, or a hit the
 /// song fires.
 ///
