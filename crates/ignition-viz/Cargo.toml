@@ -34,7 +34,6 @@ trace = ["bevy/trace", "bevy/debug"]
 
 [dependencies]
 anyhow = "1.0.104"
-artnet_protocol = "0.4.4"
 bevy.workspace = true
 wgpu.workspace = true
 tracing = "0.1"
@@ -58,7 +57,6 @@ ignition-fixture.workspace = true
 # version exactly, and two copies of `image` in one tree is a silent
 # duplicate rather than an error. Bevy only needs 0.25.2.
 image = { version = "0.25.6", default-features = false, features = ["png"] }
-sacn = "0.11.1"
 # The host pointer's stable `PointerId::Custom` — see `picking.rs`.
 uuid = "1"
 serde.workspace = true
@@ -78,6 +76,15 @@ texpresso = { version = "2.0", optional = true }
 # flake's nixpkgs pin carries, and the binding will refuse to build
 # against a libav* whose major it does not know.
 ffmpeg-next = { version = "9", optional = true }
+
+# Live DMX in. Host-only, and this gate is the one the comment in
+# `features/dmx/ignition-dmx/Cargo.toml` anticipated: a backend with a
+# real cost gets a gate, and "does not build for wasm32 at all" is the
+# realest cost there is. `sacn` reaches `socket2`, which fails to
+# compile for the browser long before any of our code is reached.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+sacn = "0.11.1"
+artnet_protocol = "0.4.4"
 
 # The one visualizer binary — windowed by default, `--snapshot <path>` to
 # render a single frame headlessly. Replaces the pre-Bevy pair of `shot`
