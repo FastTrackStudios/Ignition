@@ -86,6 +86,19 @@ ffmpeg-next = { version = "9", optional = true }
 sacn = "0.11.1"
 artnet_protocol = "0.4.4"
 
+# WebGPU, not WebGL 2 — and this is not a preference, it is the whole
+# renderer. A wasm build of Bevy defaults to the GL backend, and WebGL 2
+# reports `max_storage_buffers_per_shader_stage: 0`: no storage buffers,
+# so no clustered forward lighting, and the room renders black on a
+# machine whose browser had WebGPU available the whole time. Bevy's own
+# feature says it best — turning this on in a wasm build turns WebGL 2
+# support off, which is exactly what is wanted here.
+#
+# Features are additive, so the `x11`/`wayland`/`multi_threaded` set the
+# workspace asks for comes along and is ignored for this target.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+bevy = { workspace = true, features = ["webgpu"] }
+
 # The one visualizer binary — windowed by default, `--snapshot <path>` to
 # render a single frame headlessly. Replaces the pre-Bevy pair of `shot`
 # (static venue) and `live` (live DMX), which were two binaries only

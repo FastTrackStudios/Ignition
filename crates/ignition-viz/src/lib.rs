@@ -61,6 +61,9 @@ pub mod venue_layer;
 pub mod video;
 pub mod view;
 
+/// The browser's way in — see `app::run_web`.
+#[cfg(target_arch = "wasm32")]
+pub use app::run_web;
 pub use app::{Grade, RenderQuality, VizConfig, run, run_export};
 pub use camera::{
     ActiveCamera, CameraCommand, CameraPreset, CameraSetup, CameraState, CameraTarget, Cameras,

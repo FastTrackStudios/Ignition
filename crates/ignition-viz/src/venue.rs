@@ -430,6 +430,44 @@ pub(crate) fn write_atomically(path: &Path, contents: &str) -> anyhow::Result<()
     Ok(())
 }
 
+/// A venue's seven documents, as text.
+///
+/// The unit [`Venue::from_files`] parses. It exists so that WHERE the
+/// bytes came from is somebody else's problem: on a desk they are
+/// read off a directory ([`Venue::load`]), and in a browser they are
+/// fetched over HTTP, and the parsing — which is all the interesting
+/// part — is the same code either way.
+///
+/// Only `fixtures`, `room`, `screens` and `props` are required. The
+/// rest are absent on a room somebody is still setting up, which is
+/// not an error.
+#[derive(Debug, Clone, Default)]
+pub struct VenueFiles {
+    pub fixtures: String,
+    pub room: String,
+    pub screens: String,
+    pub props: String,
+    /// A venue extract without one just has no named groups to
+    /// recipe-target by name; `RecipeTarget::Chans` still works.
+    pub groups: Option<String>,
+    /// A show can always write its colours and points out inline.
+    pub palettes: Option<String>,
+    /// The venue's binding to a profile, and the blocking grid
+    /// beside it — both the venue's own vocabulary.
+    pub profile: Option<String>,
+    pub areas: Option<String>,
+    /// The profile this venue names, if it is to hand. Colours
+    /// declared there are inherited unless the venue overrides them
+    /// — see `inherit_colors`.
+    pub profile_document: Option<String>,
+    /// The manifest's `dmx` block, already pulled out of the
+    /// manifest. A block that is present but malformed is a load
+    /// error, per `r[dmx.venue-config]`.
+    pub dmx: Option<serde_json::Value>,
+    /// A `.ig-local` layer for this room, if it has one.
+    pub layer: Option<String>,
+}
+
 impl Venue {
     /// Where every fixture sits on the wire, built once.
     ///
@@ -632,48 +670,68 @@ impl PatchTable {
     }
 }
 
-/// Fills in any colour the venue did not define itself from its profile.
+/// Fills in any colour the venue did not define itself from its profile,
+/// finding the profile by convention beside the venue.
 ///
-/// The venue always wins. A room whose fixtures render `Deep Blue`
-/// differently says so once, and every show using that name is right
-/// there without knowing anything happened.
+/// A venue names its profile and the profile lives in `profiles/` beside
+/// `venues/`, so there is nothing to keep in sync. That convention is a
+/// DIRECTORY fact, which is why this half stays on the host: a browser
+/// has no `..` to walk and passes the document straight to
+/// [`inherit_colors_from_str`].
 // r[impl default.colour-defaults-ship] - profile colour defaults inherited unless the venue overrides
+#[cfg(not(target_arch = "wasm32"))]
 fn inherit_colors(
-    mut palettes: ignition_core::Palettes,
+    palettes: ignition_core::Palettes,
     venue_dir: &Path,
     binding: &ignition_core::profile::VenueProfile,
 ) -> ignition_core::Palettes {
-    // Splits inherit by the same rule as colours below. They are read
-    // from the profile file's own `splits` key rather than through
-    // `Profile`, which does not carry them yet: a split is palette
-    // vocabulary, and this is the one place the profile is opened as a
-    // palette.
-    // r[impl color.multi] - profile split defaults inherited unless the venue overrides
-    #[derive(serde::Deserialize, Default)]
-    struct ProfileSplits {
-        #[serde(default)]
-        splits: Vec<ignition_core::preset::ColorSplit>,
-    }
     if binding.profile.is_empty() {
-        return palettes;
+        return alias_focus(palettes, binding);
     }
     let path = venue_dir.parent().and_then(|p| p.parent()).map(|root| {
         root.join("profiles")
             .join(format!("{}.ig-profile", binding.profile.to_lowercase()))
     });
     let Some(path) = path else {
-        return palettes;
+        return alias_focus(palettes, binding);
     };
     let Ok(raw) = std::fs::read_to_string(&path) else {
         // A missing profile is not fatal: the venue still has whatever
         // colours it defined, and the compatibility check is the thing
         // that reports the profile being absent.
         tracing::debug!(path = %path.display(), "venue: no profile file to inherit colours from");
-        return palettes;
+        return alias_focus(palettes, binding);
     };
-    let Ok(profile) = serde_json::from_str::<ignition_core::profile::Profile>(&raw) else {
-        tracing::warn!(path = %path.display(), "venue: profile did not parse; colours not inherited");
-        return palettes;
+    inherit_colors_from_str(palettes, &raw, binding)
+}
+
+/// Fills in any colour the venue did not define itself, from the profile
+/// document itself.
+///
+/// The venue always wins. A room whose fixtures render `Deep Blue`
+/// differently says so once, and every show using that name is right
+/// there without knowing anything happened.
+///
+/// Pure, so a browser can do it too.
+// r[impl default.colour-defaults-ship] - profile colour defaults inherited unless the venue overrides
+fn inherit_colors_from_str(
+    mut palettes: ignition_core::Palettes,
+    raw: &str,
+    binding: &ignition_core::profile::VenueProfile,
+) -> ignition_core::Palettes {
+    // Splits inherit by the same rule as colours. They are read from the
+    // profile file's own `splits` key rather than through `Profile`,
+    // which does not carry them yet: a split is palette vocabulary, and
+    // this is the one place the profile is opened as a palette.
+    // r[impl color.multi] - profile split defaults inherited unless the venue overrides
+    #[derive(serde::Deserialize, Default)]
+    struct ProfileSplits {
+        #[serde(default)]
+        splits: Vec<ignition_core::preset::ColorSplit>,
+    }
+    let Ok(profile) = serde_json::from_str::<ignition_core::profile::Profile>(raw) else {
+        tracing::warn!("venue: profile did not parse; colours not inherited");
+        return alias_focus(palettes, binding);
     };
 
     let mut inherited = 0usize;
@@ -685,7 +743,7 @@ fn inherit_colors(
     }
     tracing::debug!(inherited, "venue: colours inherited from profile");
 
-    let profile_splits = serde_json::from_str::<ProfileSplits>(&raw).unwrap_or_default();
+    let profile_splits = serde_json::from_str::<ProfileSplits>(raw).unwrap_or_default();
     let mut inherited = 0usize;
     for split in profile_splits.splits {
         if !palettes.splits.iter().any(|s| s.name == split.name) {
@@ -959,6 +1017,9 @@ impl Venue {
 
     /// Read a venue from its directory.
     ///
+    /// The host's way in: gather the files, then hand them to
+    /// [`Venue::from_files`], which is where the parsing lives.
+    ///
     /// # Errors
     ///
     /// If the manifest names a version this build does not know, if a
@@ -966,6 +1027,7 @@ impl Venue {
     /// or malformed, or if the manifest's `dmx` block will not parse. The
     /// optional files — groups, palettes, profile, areas — are absent on
     /// a room somebody is still setting up, which is not an error.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load(dir: impl AsRef<Path>) -> anyhow::Result<Self> {
         let dir = dir.as_ref();
         // A directory with a `venue.ig-venue` manifest, or a bare
@@ -981,57 +1043,82 @@ impl Venue {
             std::fs::read_to_string(file(key))
                 .map_err(|e| anyhow::anyhow!("reading {}: {e}", file(key).display()))
         };
-        // groups.json is optional — a venue extract without one (or an
-        // older extract, predating this field) just has no named groups
-        // to recipe-target by name; `RecipeTarget::Chans` still works.
-        let group_records = match std::fs::read_to_string(file("groups")) {
-            Ok(raw) => serde_json::from_str(&raw)?,
-            Err(_) => Vec::new(),
-        };
-        // palettes.json is optional for the same reason groups.json is —
-        // a show can always write its colours and points out inline.
-        let palettes = match std::fs::read_to_string(file("palettes")) {
-            Ok(raw) => serde_json::from_str(&raw)?,
-            Err(_) => ignition_core::Palettes::default(),
-        };
-        // profile.json is optional like the rest. A venue that has not
-        // been bound to a profile yet is a venue somebody is still
-        // setting up, not an error. `areas.json` — the blocking grid —
-        // is folded in beside it; both are the venue's own vocabulary.
-        let profile = ignition_core::show_file::load_venue_binding(dir)
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        let optional = |key: &str| std::fs::read_to_string(file(key)).ok();
+
+        let mut venue = Self::from_files(&VenueFiles {
+            fixtures: read("fixtures")?,
+            room: read("room")?,
+            screens: read("screens")?,
+            props: read("props")?,
+            groups: optional("groups"),
+            palettes: optional("palettes"),
+            profile: std::fs::read_to_string(dir.join("profile.json")).ok(),
+            areas: std::fs::read_to_string(dir.join("areas.json")).ok(),
+            profile_document: None,
+            dmx: manifest.dmx.clone(),
+            layer: crate::venue_layer::VenueLayer::source(dir)?,
+        })?;
+
         // Colours declared by the profile are inherited unless the venue
         // overrides them, which is what keeps implementing a room cheap:
         // bind the groups, which genuinely differ per rig, and inherit
         // the colours, which mostly do not. Found by convention next to
         // the venue rather than configured — a venue names its profile
         // and the profile lives in `profiles/` beside `venues/`, so
-        // there is nothing to keep in sync.
-        let palettes = inherit_colors(palettes, dir, &profile);
-        // The manifest's `dmx` block, typed here rather than in the
-        // core so the core never links the transmit crate. A block
-        // that is present but malformed is a load error: a venue that
-        // silently falls back to multicast is the "silently not
-        // sending" the spec warns about.
-        // r[impl dmx.venue-config] - parsed from the manifest, refused if malformed
-        let dmx = manifest
+        // there is nothing to keep in sync. That convention is a
+        // DIRECTORY fact, so it stays on this side of the split; the
+        // browser passes the document in as `profile_document`.
+        venue.palettes = inherit_colors(venue.palettes, dir, &venue.profile);
+        Ok(venue)
+    }
+
+    /// Build a venue from its documents, wherever they came from.
+    ///
+    /// Pure: no filesystem, no network, no ambient directory. This is the
+    /// half that runs in a browser.
+    ///
+    /// # Errors
+    ///
+    /// If a required document will not parse, or if the `dmx` block is
+    /// present but malformed — a venue that silently falls back to
+    /// multicast is the "silently not sending" the spec warns about.
+    /// r[impl dmx.venue-config] - parsed from the manifest, refused if malformed
+    pub fn from_files(files: &VenueFiles) -> anyhow::Result<Self> {
+        let group_records = match files.groups.as_deref() {
+            Some(raw) => serde_json::from_str(raw)?,
+            None => Vec::new(),
+        };
+        let palettes = match files.palettes.as_deref() {
+            Some(raw) => serde_json::from_str(raw)?,
+            None => ignition_core::Palettes::default(),
+        };
+        let profile = ignition_core::show_file::venue_binding_from_str(
+            files.profile.as_deref(),
+            files.areas.as_deref(),
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+        let dmx = files
             .dmx
             .clone()
             .map(serde_json::from_value::<ignition_dmx::OutputConfig>)
             .transpose()
-            .map_err(|e| anyhow::anyhow!("{}: bad `dmx` block: {e}", dir.display()))?;
+            .map_err(|e| anyhow::anyhow!("bad `dmx` block: {e}"))?;
+
         let mut venue = Self {
             palettes,
             profile,
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx,
-            fixtures: serde_json::from_str(&read("fixtures")?)?,
-            room: serde_json::from_str(&read("room")?)?,
-            screens: serde_json::from_str(&read("screens")?)?,
-            props: serde_json::from_str(&read("props")?)?,
+            fixtures: serde_json::from_str(&files.fixtures)?,
+            room: serde_json::from_str(&files.room)?,
+            screens: serde_json::from_str(&files.screens)?,
+            props: serde_json::from_str(&files.props)?,
             group_records,
         };
+        if let Some(raw) = files.profile_document.as_deref() {
+            venue.palettes = inherit_colors_from_str(venue.palettes, raw, &venue.profile);
+        }
         // The room's own local changes, last, so they sit over
         // everything the base venue said (`r[patch.venue-layer]`). A
         // missing layer is the normal case and not an error; a malformed
@@ -1039,11 +1126,11 @@ impl Venue {
         // dropping the rest is worse than refusing to open.
         // r[impl patch.venue-layer] - laid over the room it belongs to
         // r[impl patch.venue-layer.optional] - and absent by default
-        if let Some(layer) = crate::venue_layer::VenueLayer::load(dir)? {
+        if let Some(raw) = files.layer.as_deref() {
+            let layer = crate::venue_layer::VenueLayer::from_str(raw)?;
             venue.overridden = layer.apply(&mut venue);
             if !venue.overridden.is_empty() {
                 tracing::info!(
-                    venue = %dir.display(),
                     fixtures = venue.overridden.len(),
                     "a venue-local layer is overriding this room"
                 );

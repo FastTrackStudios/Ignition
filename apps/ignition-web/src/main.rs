@@ -30,6 +30,8 @@ use dioxus::prelude::*;
 pub enum Route {
     #[route("/")]
     Home {},
+    #[route("/demo")]
+    Demo {},
     #[route("/guide")]
     GuideIndex {},
     // Before `/guide/:slug`, or "graph" matches as a page slug.
@@ -44,7 +46,7 @@ pub enum Route {
 /// Where "Source" and every "on GitHub" link points.
 pub const REPO: &str = "https://github.com/FastTrackStudios/Ignition";
 
-use routes::{GuideGraph, GuideIndex, GuidePage, Home, NotFound};
+use routes::{Demo, GuideGraph, GuideIndex, GuidePage, Home, NotFound};
 
 #[expect(
     clippy::volatile_composites,

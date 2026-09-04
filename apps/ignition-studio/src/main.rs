@@ -1920,6 +1920,9 @@ fn Viewport() -> Element {
             // `IGNITION_LOOPBACK=1` is read by the viz itself; see
             // `ignition_viz::output::LoopbackSink` for what it is for.
             loopback: false,
+            // The desk has real windows; the canvas selector is
+            // the web demo's way of borrowing one from a page.
+            canvas: None,
         };
         // The core is built once per process; a Visualizer panel hosted
         // by a later window (or popped out and docked back) attaches to

@@ -689,3 +689,80 @@ body {
   font-size: 0.8rem;
   color: var(--ink-faint);
 }
+
+/* ── The demo ─────────────────────────────────────────────────────
+ *
+ * A canvas Bevy owns, and a bar above it. Deliberately spare: the point
+ * of the screen is the room, and every pixel of chrome is a pixel not
+ * showing it. */
+.ig-demo {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem;
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  height: calc(100vh - 10rem);
+}
+
+.ig-demo-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ig-demo-bar h1 { font-weight: 600; font-size: 1.4rem; letter-spacing: -0.02em; margin: 0; flex: 1; }
+
+.ig-demo-status {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ig-accent);
+}
+
+/* A failure here is usually a sentence naming a browser flag, not a
+ * word — it needs to wrap and to sit under the heading rather than
+ * beside it. */
+.ig-demo-failed {
+  color: #ff9b6b;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  flex-basis: 100%;
+  max-width: 60ch;
+  line-height: 1.5;
+}
+
+/* `position: relative` so the hint can sit over the canvas rather than
+ * beside it — before launch the canvas is an empty black rectangle, and
+ * a caption under it reads as a caption for nothing. */
+.ig-demo-stage {
+  position: relative;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  overflow: hidden;
+  background: #000;
+}
+
+/* Bevy sizes the drawing buffer; CSS sizes the element. `display: block`
+ * for the same reason the hero video wants it — no text baseline under
+ * a replaced element. */
+.ig-demo-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+.ig-demo-hint {
+  position: absolute;
+  inset: auto 0 0 0;
+  margin: 0;
+  padding: 0.9rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}

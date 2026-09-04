@@ -29,3 +29,9 @@ data/macros/previews/
 # without running the recipe first. See apps/ignition-web/tailwind.css.
 apps/ignition-web/.tailwind.gen.css
 apps/ignition-web/generated/
+
+# The demo's data, copied into the site's assets by `just site-demo-assets`
+# from `data/venues/norco`, `data/profiles` and `crates/ignition-viz/assets`.
+# `asset!` needs them inside the crate; git does not need them twice.
+apps/ignition-web/assets/venue/
+apps/ignition-web/assets/viz/
