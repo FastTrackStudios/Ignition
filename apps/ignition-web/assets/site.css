@@ -699,9 +699,47 @@ body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 1rem;
-  max-width: var(--shell-max);
+  /* Not `--shell-max`: this screen is an application, not a document,
+     and a desk squeezed to a reading measure is a desk nobody can use.
+     It takes the viewport. */
   margin: 0 auto;
-  height: calc(100vh - 10rem);
+  height: calc(100vh - 9rem);
+  width: 100%;
+}
+
+/* The room and the desk. Before the demo is launched there is no desk,
+   so the room has the whole frame; after, the desk takes a fixed rail
+   and the room takes what is left — the room is the thing being looked
+   at, and it should not shrink as panes appear inside the desk. */
+.ig-demo-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 0;
+}
+
+.ig-demo-body.has-desk {
+  grid-template-columns: minmax(0, 1fr) 30rem;
+}
+
+/* The desk's own sheets style everything inside this; all that is
+   wanted here is a box for them with its own scroll, so a long cue list
+   never grows the page and pushes the room off the bottom. */
+.ig-demo-desk {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--surface);
+}
+
+@media (max-width: 78rem) {
+  /* Below this the two do not both fit, and a 20rem-wide desk is not a
+     desk. Stack them and let the page scroll. */
+  .ig-demo { height: auto; }
+  .ig-demo-body.has-desk { grid-template-columns: minmax(0, 1fr); }
+  .ig-demo-stage { height: 60vh; }
+  .ig-demo-desk { height: 40rem; }
 }
 
 .ig-demo-bar {

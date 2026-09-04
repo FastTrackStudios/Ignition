@@ -7646,8 +7646,12 @@ version = "0.1.0"
 dependencies = [
  "dioxus",
  "dioxus-web",
+ "gloo-timers",
+ "ignition-core",
+ "ignition-live-ui",
  "ignition-viz",
  "js-sys",
+ "serde_json",
  "ssg",
  "ssg-build",
  "view-knowledge-graph",

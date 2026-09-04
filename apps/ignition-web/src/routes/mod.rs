@@ -1,6 +1,7 @@
 //! The site's screens, and the chrome they share.
 
 mod demo;
+pub mod desk;
 mod graph;
 mod guide_page;
 mod home;

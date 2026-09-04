@@ -1248,8 +1248,61 @@ pub fn run(config: VizConfig, playback: Playback, gdtf: Option<GdtfLibrary>) {
 
     match config.snapshot.clone() {
         Some(path) => run_snapshot(config, dmx, playback, gdtf, &path),
-        None => run_windowed(config, dmx, playback, gdtf, output),
+        None => run_windowed(
+            config,
+            dmx,
+            playback,
+            gdtf,
+            output,
+            #[cfg(target_arch = "wasm32")]
+            None,
+        ),
     }
+}
+
+/// The page's end of the desk, implemented by the web host.
+///
+/// The same idea `ignition-live-ui` is built on, one level down. That
+/// crate splits the VIEW from its transport — "a component never owns a
+/// channel; the host decides what `send` is wired to". This splits the
+/// ENGINE from the same transport, and for the same reason: `Command`
+/// and `Playhead` are the view layer's types, the visualizer must not
+/// depend on the view layer to run headless, and the host is the one
+/// place that already knows about both.
+///
+/// So the visualizer promises only this: once a frame, with the show in
+/// hand, it will let the page say what it wants and then tell the page
+/// what happened. What those words mean is the host's business.
+// r[impl studio.one-truth] - the surface is told, never left to remember
+#[cfg(target_arch = "wasm32")]
+pub trait WebDesk: Send + Sync + 'static {
+    /// Apply whatever the page has asked for since the last frame.
+    fn drain(&self, playback: &mut Playback);
+    /// Publish what the show is now doing, for the page to draw.
+    fn publish(&self, playback: &Playback);
+}
+
+/// The host's desk, as a resource the systems below can reach.
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource, Clone)]
+struct WebDeskResource(std::sync::Arc<dyn WebDesk>);
+
+/// Once a frame: what the page asked for, then what the show is doing.
+///
+/// Ordered deliberately. Publishing after draining means a GO clicked
+/// this frame is reflected in the same frame's playhead, rather than the
+/// surface briefly drawing the cue it just left.
+#[cfg(target_arch = "wasm32")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "a Bevy system takes its parameters by value; `Res` is a handle, not the resource"
+)]
+fn pump_web_desk(desk: Res<'_, WebDeskResource>, playback: Option<ResMut<'_, Playback>>) {
+    let Some(mut playback) = playback else {
+        return;
+    };
+    desk.0.drain(&mut playback);
+    desk.0.publish(&playback);
 }
 
 /// The documents a web host has already fetched for the show it wants
@@ -1278,7 +1331,13 @@ pub struct WebShow<'a> {
 /// No DMX (there are no sockets), no snapshot, no output. What the demo
 /// has is a room and a rig, which is what a demo is for.
 #[cfg(target_arch = "wasm32")]
-pub fn run_web(venue: Venue, show: &WebShow<'_>, canvas: &str, assets_dir: &str) {
+pub fn run_web(
+    venue: Venue,
+    show: &WebShow<'_>,
+    canvas: &str,
+    assets_dir: &str,
+    desk: Option<std::sync::Arc<dyn WebDesk>>,
+) {
     let cameras = crate::camera::Cameras::default();
     let config = VizConfig {
         // The live preset, same as a desk window. A browser is not a
@@ -1343,7 +1402,7 @@ pub fn run_web(venue: Venue, show: &WebShow<'_>, canvas: &str, assets_dir: &str)
     // answer to that is a warning in the console on every load. There is
     // nothing to send DMX *to* from a page.
     let output = DmxOutput::disabled();
-    run_windowed(config, dmx, playback, None, output);
+    run_windowed(config, dmx, playback, None, output, desk);
 }
 
 fn run_windowed(
@@ -1352,6 +1411,8 @@ fn run_windowed(
     playback: Playback,
     gdtf: Option<GdtfLibrary>,
     output: DmxOutput,
+    // The page's desk, on the web. A desk owns a window off it.
+    #[cfg(target_arch = "wasm32")] desk: Option<std::sync::Arc<dyn WebDesk>>,
 ) {
     let quality = config.quality.for_rig(&config.venue, gdtf.as_ref());
     let spec = CameraSpec::new(&config, quality);
@@ -1362,7 +1423,8 @@ fn run_windowed(
     // element, and only it should leave the browser's own keys alone.
     let canvas_fit = canvas.is_some();
 
-    App::new()
+    let mut app = App::new();
+    app
         // Before `DefaultPlugins`: an asset source must exist before the
         // asset server is built. See `gdtf_assets`.
         .add_plugins(crate::gdtf_assets::GdtfSourcePlugin)
@@ -1412,8 +1474,13 @@ fn run_windowed(
                   mut curves: ResMut<Assets<AutoExposureCompensationCurve>>| {
                 spawn_camera(&mut commands, &mut curves, spec);
             },
-        )
-        .run();
+        );
+    #[cfg(target_arch = "wasm32")]
+    if let Some(desk) = desk {
+        app.insert_resource(WebDeskResource(desk))
+            .add_systems(Update, pump_web_desk);
+    }
+    app.run();
 }
 
 /// A headless app rendering into an offscreen image target, finished
