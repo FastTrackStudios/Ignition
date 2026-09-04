@@ -33,34 +33,25 @@ env:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
-    # Bevy, wgpu and the Blitz stack are a long cold build. The Nix store
-    # and cargo caches below make the warm case a few minutes; this ceiling
-    # is for the cold one.
+    # The repo's own self-hosted runner on THEBATTLESHIP (NixOS, nix
+    # preinstalled, its store persistent between runs).
+    runs-on: [self-hosted, ignition]
+    # Bevy, wgpu and the Blitz stack are a long cold build. The persistent
+    # target dir below makes the warm case a few minutes; this ceiling is
+    # for the cold one.
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-
-      # The flake already declares fasttrackstudio.cachix.org as a
-      # substituter; this makes the runner trust it for pulls.
-      - name: Cachix
-        uses: cachix/cachix-action@v15
-        with:
-          name: fasttrackstudio
-          skipPush: true
-
-      - name: Cache the Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          # One cache for the whole workspace; the vendored Bevy fork is
-          # the bulk of it and never changes between runs.
-          shared-key: ignition-workspace
+      # One target dir for the whole workspace, on the runner's durable
+      # cache disk; the vendored Bevy fork is the bulk of it and never
+      # changes between runs.
+      - name: Persistent target dir
+        run: |
+          dir="${CI_CACHE_DIR:-$HOME/cargo-target}/checks"
+          mkdir -p "$dir"
+          echo "CARGO_TARGET_DIR=$dir" >> "$GITHUB_ENV"
+          echo "target dir: $dir ($(du -sh "$dir" 2>/dev/null | cut -f1))"
 
       # `asset!()` demands the stylesheet at compile time and it is
       # gitignored build output, so it has to exist before cargo runs.
