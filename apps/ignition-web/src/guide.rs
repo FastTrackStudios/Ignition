@@ -108,10 +108,7 @@ mod tests {
 
     #[test]
     fn the_guide_is_not_empty() {
-        assert!(
-            VAULT.pages.len() >= 5,
-            "the whole guide should compile in"
-        );
+        assert!(VAULT.pages.len() >= 5, "the whole guide should compile in");
     }
 
     #[test]

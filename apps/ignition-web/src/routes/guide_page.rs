@@ -17,7 +17,9 @@ use crate::routes::Shell;
 /// `/guide` — opens at the front door.
 #[component]
 pub fn GuideIndex() -> Element {
-    let slug = VAULT.first().map_or_else(String::new, |p| p.slug.to_string());
+    let slug = VAULT
+        .first()
+        .map_or_else(String::new, |p| p.slug.to_string());
     rsx! {
         GuidePage { slug }
     }
