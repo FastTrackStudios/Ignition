@@ -31,9 +31,8 @@ use command::{Command, PageMove, SpeedKey};
 // `live_web`. The studio re-exports the names its own panels use.
 // r[impl studio.touch.ipad] - one UI crate, mounted natively here
 use ignition_live_ui::{
-    ChannelRow, ColorChip, CueList, HSlider, ModeRow, PatchRow, PatchSheet, PlayheadFeed, Row,
-    Surface, TypeLibrary, TypeRow, desk, faders, library, operators, program, send, use_desk,
-    use_playhead,
+    ChannelRow, CueList, HSlider, ModeRow, PatchRow, PatchSheet, PlayheadFeed, Row, Surface,
+    TypeLibrary, TypeRow, desk, faders, library, operators, program, send, use_desk, use_playhead,
 };
 
 use viz_widget::VizWidget;
@@ -233,88 +232,19 @@ fn init_logging() {
 /// `too_many_lines`, and it does not touch anything `main` sets up
 /// around it (no channel, no window), so it reads and returns cleanly on
 /// its own.
+/// The named things the surface offers, for this room.
+///
+/// The building is `Surface::from_room`'s, in `ignition-live-ui`, so the
+/// desk and the web demo cannot end up with two ideas of what a palette
+/// looks like. What is left here is where a *desk* gets the parts: a
+/// venue directory and a show file.
+// r[impl studio.one-truth] - one surface builder, every host
 fn build_surface(venue: &Venue) -> Surface {
-    Surface {
-        groups: busking_groups(venue),
-        colors: venue
-            .palettes
-            .colors
-            .iter()
-            .map(|c| {
-                // The palette is linear 0–1 like the fixtures; the disc
-                // only has to look like the gel, so a plain byte scale
-                // is close enough and avoids a colour-management rabbit
-                // hole for a swatch.
-                ColorChip {
-                    light: ColorChip::is_light(c.red, c.green, c.blue),
-                    ..ColorChip::solid(c.name.clone(), rgb(c))
-                }
-            })
-            .collect(),
-        splits: venue
-            .palettes
-            .splits
-            .iter()
-            .filter_map(|split| {
-                let (colors, distribute) = venue
-                    .palettes
-                    .resolve_split(&ignition_core::Ref::Named(split.name.clone()))?;
-                let stops: Vec<String> = colors.iter().map(rgb).collect();
-                // Spread is a gradient; cycle and block are hard bands,
-                // which is also how they land on the rig.
-                let css = if distribute == ignition_core::Distribute::Spread {
-                    format!("linear-gradient(90deg, {})", stops.join(", "))
-                } else {
-                    let n = stops.len().max(1);
-                    let bands: Vec<String> = stops
-                        .iter()
-                        .enumerate()
-                        .map(|(i, c)| {
-                            // `n` is `stops.len().max(1)`, never zero, so
-                            // the fallback below never actually fires —
-                            // `checked_div` only exists to give the
-                            // division something other than a bare `/`
-                            // for `arithmetic_side_effects` to examine.
-                            format!(
-                                "{c} {}% {}%",
-                                i.saturating_mul(100).checked_div(n).unwrap_or(0),
-                                i.saturating_add(1)
-                                    .saturating_mul(100)
-                                    .checked_div(n)
-                                    .unwrap_or(0)
-                            )
-                        })
-                        .collect();
-                    format!("linear-gradient(90deg, {})", bands.join(", "))
-                };
-                // A palette is light when its colours average light —
-                // Ice reads as light, Hot/Deep does not, and the name
-                // written across it has to follow.
-                let light_count = colors
-                    .iter()
-                    .map(|c| u32::from(ColorChip::is_light(c.red, c.green, c.blue)))
-                    .sum::<u32>();
-                let light = num::usize_of_u32(light_count).saturating_mul(2) > colors.len();
-                Some(ColorChip {
-                    name: split.name.clone(),
-                    css,
-                    light,
-                    // The individual colours travel too: a bar can be a
-                    // gradient, but a disc has to be wedges, and only
-                    // the surface knows which shape it is drawing.
-                    colors: stops,
-                    spread: matches!(distribute, ignition_core::Distribute::Spread),
-                })
-            })
-            .collect(),
-        focus: venue
-            .palettes
-            .focus
-            .iter()
-            .map(|f| f.name.clone())
-            .collect(),
-        cues: load_cue_names(&show_path()).unwrap_or_default(),
-    }
+    Surface::from_room(
+        &venue.palettes,
+        busking_groups(venue),
+        load_cue_names(&show_path()).unwrap_or_default(),
+    )
 }
 
 fn main() -> anyhow::Result<()> {
@@ -495,16 +425,6 @@ fn pick_monitor(
         "left" => monitors.iter().min_by_key(|m| x_of(m)).cloned(),
         _ => None,
     }
-}
-
-/// A palette colour as CSS. Linear 0–1 in, plain bytes out.
-fn rgb(c: &ignition_core::preset::ColorPreset) -> String {
-    format!(
-        "rgb({} {} {})",
-        num::byte_of_f32(c.red * 255.0),
-        num::byte_of_f32(c.green * 255.0),
-        num::byte_of_f32(c.blue * 255.0)
-    )
 }
 
 /// The groups worth a button. The venue carries 127, most of them

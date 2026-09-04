@@ -491,6 +491,8 @@ fn load_playback(
             bar: export.map(|e| e.from_bar).or(args.bar),
             song_bpm: args.song_bpm,
             song: None,
+            // A desk opens files. Only a browser hands the documents in.
+            ..Default::default()
         },
     )
 }

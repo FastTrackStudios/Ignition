@@ -1252,6 +1252,22 @@ pub fn run(config: VizConfig, playback: Playback, gdtf: Option<GdtfLibrary>) {
     }
 }
 
+/// The documents a web host has already fetched for the show it wants
+/// played. Everything is optional: without them the room simply stands
+/// at its defaults.
+#[cfg(target_arch = "wasm32")]
+#[derive(Default)]
+pub struct WebShow<'a> {
+    /// A `CueList` — `data/songs/<song>.json`.
+    pub cuelist: Option<&'a str>,
+    /// The profile the venue implements, for its named tricks and its
+    /// baked looks.
+    pub profile: Option<&'a str>,
+    /// The arrangement, so a cue written "4 bars into the chorus" lands
+    /// on this song's chorus.
+    pub song: Option<&'a ignition_core::SongMap>,
+}
+
 /// Boot the visualizer into a canvas the page already owns.
 ///
 /// The browser's entry point. It is deliberately thin — it builds the
@@ -1262,7 +1278,7 @@ pub fn run(config: VizConfig, playback: Playback, gdtf: Option<GdtfLibrary>) {
 /// No DMX (there are no sockets), no snapshot, no output. What the demo
 /// has is a room and a rig, which is what a demo is for.
 #[cfg(target_arch = "wasm32")]
-pub fn run_web(venue: Venue, canvas: &str, assets_dir: &str) {
+pub fn run_web(venue: Venue, show: &WebShow<'_>, canvas: &str, assets_dir: &str) {
     let cameras = crate::camera::Cameras::default();
     let config = VizConfig {
         // The live preset, same as a desk window. A browser is not a
@@ -1305,12 +1321,29 @@ pub fn run_web(venue: Venue, canvas: &str, assets_dir: &str) {
         labels: false,
         canvas: Some(canvas.to_string()),
     };
+    // The show, from documents the page fetched. A failure here is not
+    // fatal: an empty `Playback` is the room at its defaults, which is
+    // still the room.
+    let playback = Playback::load(
+        &config.venue,
+        crate::playback::LoadOptions {
+            cuelist_document: show.cuelist,
+            profile_document: show.profile,
+            song: show.song,
+            ..Default::default()
+        },
+    )
+    .unwrap_or_else(|error| {
+        tracing::error!(%error, "the show did not load; running the room bare");
+        Playback::default()
+    });
+
     let dmx = DmxUniverses::new();
     // Not `bind_output`: that opens a UDP socket, and the browser's
     // answer to that is a warning in the console on every load. There is
     // nothing to send DMX *to* from a page.
     let output = DmxOutput::disabled();
-    run_windowed(config, dmx, Playback::default(), None, output);
+    run_windowed(config, dmx, playback, None, output);
 }
 
 fn run_windowed(

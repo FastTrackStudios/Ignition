@@ -204,6 +204,8 @@ site-demo-assets:
     # `profiles/` beside `venues/` to find it by convention, so the demo
     # passes the document in (see `Venue::from_files`).
     cp data/profiles/ignition.ig-profile "$venue"/profile.ig-profile
+    # The show the demo plays.
+    cp data/songs/bye-bye-bye.json "$venue"/show.json
     # Only what the room actually draws. `qlc-meshes`, `gdtf-samples` and
     # `ofl-samples` are importer fixtures, not scenery.
     cp -r crates/ignition-viz/assets/people \

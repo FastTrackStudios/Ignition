@@ -82,3 +82,25 @@ pub fn floor_usize(x: f64) -> usize {
     }
     x.floor() as usize
 }
+
+/// A colour channel, clamped to `0..=255` and rounded to the nearest
+/// byte.
+///
+/// NaN and anything at or below 0 land on 0, anything at or above 255
+/// lands on 255, so the cast that follows cannot lose a sign or truncate
+/// anything the clamp has not already decided. The same shape as
+/// `ignition_proto::Curve`'s private `byte()` and the studio's
+/// `num::byte_of_f32`, which is where this came from when `Surface`
+/// learned to build itself.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the clamp makes this cast total; see the doc comment"
+)]
+pub const fn byte_of_f32(value: f32) -> u8 {
+    if value.is_nan() {
+        return 0;
+    }
+    value.round().clamp(0.0, 255.0) as u8
+}
