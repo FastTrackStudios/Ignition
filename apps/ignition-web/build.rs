@@ -2,207 +2,36 @@
 //!
 //! The guide is a **vault**, not a chapter list: the notes carry
 //! frontmatter, they cross-reference each other as `[[slug]]`, and the
-//! site draws that web as a knowledge graph (`src/guide.rs`). This is the
-//! same shape Task's wiki has and the same shape Keyflow's guide has, so
-//! the same tooling reads all three.
+//! site draws that web as a knowledge graph. This is the same shape
+//! Task's wiki has and the same shape Keyflow's guide has, so the same
+//! tooling reads all three — `ssg-build`, which is what this file is now
+//! a call to.
 //!
-//! Two forms of each note come out of here, and they are not
+//! It replaces about two hundred lines that did the job here alone: a
+//! frontmatter reader, a wikilink rewriter, a nav-footer stripper and a
+//! markdown pass. Ignition's version was the *right* one — it rendered
+//! at build time while the other sites shipped markdown to the browser —
+//! and that is the shape the shared crate took.
+//!
+//! Both forms of each note survive the move, because they are not
 //! interchangeable:
 //!
 //! - `source` is the note **verbatim**, frontmatter and nav footer
-//!   included. That is what the graph builder reads — it takes `type:`
-//!   out of the frontmatter to classify the node, and most of the edges
-//!   in this guide come from the footer's `Previous:`/`Next:`/`Up:`
-//!   wikilinks.
-//! - `html` is the note rendered for a reader: frontmatter gone (it is
-//!   metadata, not prose), footer gone (the page draws real buttons from
-//!   the same order the table of contents uses, and printing the chain
-//!   twice helps nobody), and `[[wikilinks]]` rewritten to `/guide/…`
-//!   links.
-//!
-//! Rendering happens here rather than in the browser because the pages
-//! are fixed at build time — shipping a markdown parser to every visitor
-//! would buy nothing.
+//!   included. That is what the graph builder reads — `type:` classifies
+//!   the node, and most of the edges in this guide come from the
+//!   footer's `Previous:`/`Next:`/`Up:` wikilinks.
+//! - `html` is the note rendered for a reader: frontmatter gone, footer
+//!   gone (the page draws real buttons from the same order the table of
+//!   contents uses), and `[[wikilinks]]` rewritten to `/guide/…` links.
 //!
 //! Reading outside the crate is what a build script is for. `include_str!`
 //! across the boundary would be invisible to cargo and would fail at
-//! compile time rather than resolution time; `cargo:rerun-if-changed`
-//! below makes editing a guide page rebuild the site.
-
-#![expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "a build script that cannot read its input should fail the build; the panic lints exist to keep a *show* running"
-)]
-
-use std::collections::BTreeMap;
-use std::fmt::Write as _;
-use std::path::{Path, PathBuf};
+//! compile time rather than resolution time; the `cargo:rerun-if-changed`
+//! lines `emit` prints are what make editing a guide page rebuild the
+//! site.
 
 fn main() {
-    let guides = guides_dir();
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed={}", guides.display());
-
-    // Keyed by (order, slug) so the table of contents comes out in the
-    // order the frontmatter asks for, and alphabetically within a tie.
-    let mut pages: BTreeMap<(u32, String), String> = BTreeMap::new();
-
-    let entries = std::fs::read_dir(&guides)
-        .unwrap_or_else(|e| panic!("cannot read the guide directory {}: {e}", guides.display()));
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().is_none_or(|e| e != "md") {
-            continue;
-        }
-        println!("cargo:rerun-if-changed={}", path.display());
-
-        let slug = path
-            .file_stem()
-            .expect("a .md path has a stem")
-            .to_string_lossy()
-            .into_owned();
-        let raw = std::fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()));
-
-        let front = frontmatter(&raw);
-        let title = fm_scalar(front, "title").unwrap_or_else(|| slug.replace('-', " "));
-        let blurb = fm_scalar(front, "blurb").unwrap_or_default();
-        let stage = fm_scalar(front, "stage").unwrap_or_default();
-        let order: u32 = fm_scalar(front, "order")
-            .and_then(|o| o.parse().ok())
-            .unwrap_or(u32::MAX);
-
-        let body = strip_nav_footer(strip_frontmatter(&raw));
-        let html = render(&wikilinks_to_routes(body));
-        let mut lit = String::new();
-        let _ = write!(
-            lit,
-            "    GuidePage {{\n        slug: {slug:?},\n        title: {title:?},\n        \
-             blurb: {blurb:?},\n        order: {order},\n        stage: {stage:?},\n        \
-             source: {raw:?},\n        html: {html:?},\n    }},\n"
-        );
-        pages.insert((order, slug), lit);
-    }
-
-    assert!(
-        !pages.is_empty(),
-        "no guide pages found in {} — the site would ship an empty guide",
-        guides.display()
-    );
-
-    let mut out = String::from(
-        "// @generated by build.rs from docs/guides/*.md — do not edit.\n\
-         pub static GUIDE_PAGES: &[GuidePage] = &[\n",
-    );
-    for page in pages.values() {
-        out.push_str(page);
-    }
-    out.push_str("];\n");
-
-    let dest = PathBuf::from(std::env::var_os("OUT_DIR").expect("cargo sets OUT_DIR"))
-        .join("guide_generated.rs");
-    std::fs::write(&dest, out).unwrap_or_else(|e| panic!("cannot write {}: {e}", dest.display()));
-}
-
-/// `<repo>/docs/guides`, resolved from this crate's manifest dir so it
-/// does not depend on the directory cargo was invoked from.
-fn guides_dir() -> PathBuf {
-    let manifest = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("cargo sets this"));
-    let repo = manifest
-        .parent()
-        .and_then(Path::parent)
-        .expect("apps/ignition-web is two levels below the repo root");
-    repo.join("docs").join("guides")
-}
-
-/// `[[slug]]` and `[[slug|label]]` become ordinary markdown links to
-/// `/guide/slug`.
-///
-/// Wikilinks are the vault's own syntax and markdown knows nothing about
-/// them, so something has to translate. Doing it here rather than in a
-/// custom renderer keeps the rest of the pipeline plain markdown; the
-/// route prefix is what the page's click handler then recognises, so a
-/// wikilink navigates within the app instead of reloading it.
-fn wikilinks_to_routes(body: &str) -> String {
-    let mut out = String::with_capacity(body.len());
-    let mut rest = body;
-    while let Some((before, after_open)) = rest.split_once("[[") {
-        let Some((inner, after_close)) = after_open.split_once("]]") else {
-            break;
-        };
-        out.push_str(before);
-        let (target, label) = inner.split_once('|').unwrap_or((inner, inner));
-        let _ = write!(out, "[{}](/guide/{})", label.trim(), target.trim());
-        rest = after_close;
-    }
-    out.push_str(rest);
-    out
-}
-
-/// Markdown to HTML, with the extensions the guide pages actually use:
-/// tables for the grids the domain is full of, and strikethrough and
-/// smart punctuation because they cost nothing.
-fn render(markdown: &str) -> String {
-    let mut options = pulldown_cmark::Options::empty();
-    options.insert(pulldown_cmark::Options::ENABLE_TABLES);
-    options.insert(pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
-    options.insert(pulldown_cmark::Options::ENABLE_SMART_PUNCTUATION);
-    let parser = pulldown_cmark::Parser::new_ext(markdown, options);
-    let mut html = String::new();
-    pulldown_cmark::html::push_html(&mut html, parser);
-    html
-}
-
-/// The note with its frontmatter block removed.
-///
-/// `split_once` rather than `find` and a slice: the body may open with
-/// anything, and a byte index into a `&str` is only sound on a character
-/// boundary.
-fn strip_frontmatter(raw: &str) -> &str {
-    let Some(rest) = raw.strip_prefix("---\n") else {
-        return raw;
-    };
-    rest.split_once("\n---")
-        .map_or(raw, |(_, body)| body.trim_start_matches(['\r', '\n']))
-}
-
-/// The note without its trailing `Previous: … · Next: … · Up: …` line.
-///
-/// The footer is one line, it is the last line, and it always carries an
-/// `Up:` wikilink — so that is what identifies it. The `---` rule above
-/// it goes too; it was there to separate the footer from the prose, and
-/// with the footer gone it would close the page on a horizontal line.
-///
-/// A note without a footer — the front door — comes back untouched.
-fn strip_nav_footer(body: &str) -> &str {
-    let trimmed = body.trim_end();
-    let Some((above, last)) = trimmed.rsplit_once('\n') else {
-        return body;
-    };
-    if !last.contains("Up: [[") {
-        return body;
-    }
-    let cut = above.trim_end();
-    cut.strip_suffix("---").map_or(cut, str::trim_end)
-}
-
-/// The `---`-delimited frontmatter block, without its fences.
-fn frontmatter(raw: &str) -> &str {
-    let Some(rest) = raw.strip_prefix("---\n") else {
-        return "";
-    };
-    rest.split_once("\n---").map_or("", |(front, _)| front)
-}
-
-/// Read a flat `key: value` line out of a frontmatter block.
-///
-/// Deliberately not a YAML parser: the guides use flat scalars, and a
-/// dependency to read four of them would not earn its place.
-fn fm_scalar(front: &str, key: &str) -> Option<String> {
-    front.lines().find_map(|line| {
-        let (k, v) = line.split_once(':')?;
-        (k.trim() == key).then(|| v.trim().trim_matches(['"', '\'']).to_owned())
-    })
+    ssg_build::Vault::at("../../docs/guides")
+        .link_base("/guide")
+        .emit();
 }

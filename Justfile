@@ -208,8 +208,32 @@ site: site-tailwind
     # prunes the old ones, so a directory built over several commits
     # accumulates every wasm it has ever produced — and `dist` is a copy
     # of that directory. Start from empty.
+    #
+    # Starting from empty is load-bearing for a second reason now: the
+    # guide is pre-rendered into this same directory, and the renderer's
+    # cache is configured `clear_cache(false)` (it must be — the cache
+    # directory IS the bundle), so a route already in it would be served
+    # rather than re-rendered and the build would ship the old html.
     rm -rf target/dx/ignition-web/release/web/public
-    NO_DOWNLOADS=1 dx build -p ignition-web --platform web --release --debug-symbols false
+    # `--ssg` pre-renders the guide: dx builds the app's server as well,
+    # runs it, asks it for `static_routes` (the router's static ones plus
+    # every note of the guide vault) and requests each, which writes it
+    # here as finished HTML. Nothing deploys that server — what ships is
+    # still a directory of static files.
+    #
+    # `--fullstack` because dx decides whether to build a server from the
+    # CLIENT's features, and this crate keeps `dioxus/fullstack` on its
+    # `server` feature alone (its reqwest would be a second major in the
+    # wasm binary — see apps/ignition-web/Cargo.toml). Without the flag
+    # there is no server target and `--ssg` silently does nothing.
+    #
+    # `--force-sequential` because the pre-render borrows
+    # `public/index.html` for its page shell and the CLIENT build writes
+    # that file; in parallel the pages can come out in Dioxus's bare
+    # fallback shell — no title, no charset, no hydration — with the
+    # build still reporting success. (dioxus#3518.)
+    NO_DOWNLOADS=1 dx build -p ignition-web --platform web --release --debug-symbols false \
+        --ssg --fullstack --force-sequential
     rm -rf apps/ignition-web/dist
     mkdir -p apps/ignition-web/dist
     cp -r target/dx/ignition-web/release/web/public/. apps/ignition-web/dist/

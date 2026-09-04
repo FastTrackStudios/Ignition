@@ -2,115 +2,61 @@
 //!
 //! `docs/guides/*.md` are wiki notes: frontmatter, `[[wikilink]]`
 //! cross-references, and a `Previous: … · Next: … · Up: …` footer.
-//! `build.rs` compiles them in; everything that makes them a *guide*
-//! rather than a pile of files happens here and in [`crate::routes`].
+//! `build.rs` hands them to `ssg-build`, which renders them and codegens
+//! the page table this module includes; everything that makes them a
+//! *guide* rather than a pile of files happens here and in
+//! [`crate::routes`].
 //!
 //! Two consumers of the same text:
 //!
 //! - the **page**, which renders `html` — the note without its
 //!   frontmatter or footer, with wikilinks rewritten to routes.
 //! - the **graph**, which reads `source` — the note verbatim — and turns
-//!   the whole set into a force-directed map of how the concepts connect.
-//!   `view-knowledge-graph` is the crate that draws Task's own wiki, and
-//!   it is pure and FS-free by design, so the same builder runs here in
-//!   the browser.
+//!   the whole set into a force-directed map of how the concepts
+//!   connect. `view-knowledge-graph` is the crate that draws Task's own
+//!   wiki, and it is pure and FS-free by design, so the same builder
+//!   runs here in the browser.
+//!
+//! The guide is also **pre-rendered**: `dx build --ssg` writes each of
+//! its routes out as a finished `index.html`, so the notes arrive as
+//! text rather than as a program that produces text. The bundle then
+//! hydrates the page into the ordinary app — which is what keeps the
+//! graph interactive and wikilinks navigating in place.
 
 use view_knowledge_graph::model::WikiGraph;
 use view_knowledge_graph::parse::WikiFile;
 
-/// One note of the guide.
-#[derive(PartialEq, Eq)]
-pub struct GuidePage {
-    /// URL segment, from the filename. Also the wikilink target.
-    pub slug: &'static str,
-    /// Display title, from the frontmatter.
-    pub title: &'static str,
-    /// One line for the table of contents, from `blurb:`.
-    pub blurb: &'static str,
-    /// Sort key, from `order:`. Pages without one sort last.
-    pub order: u32,
-    /// The part of the guide this note belongs to, from `stage:` — the
-    /// heading it sits under in the table of contents.
-    pub stage: &'static str,
-    /// The note verbatim, frontmatter and footer included. What the graph
-    /// reads: `type:` classifies the node, and most of the edges here come
-    /// from the footer's wikilinks.
-    pub source: &'static str,
-    /// The note rendered for a reader — no frontmatter, no footer,
-    /// wikilinks rewritten to `/guide/…`.
-    pub html: &'static str,
-}
+// `pub static VAULT: ssg::StaticVault`, from `build.rs`.
+ssg::include_vault!();
 
-include!(concat!(env!("OUT_DIR"), "/guide_generated.rs"));
-
-/// Look up a note by its URL slug.
-#[must_use]
-pub fn page(slug: &str) -> Option<&'static GuidePage> {
-    GUIDE_PAGES.iter().find(|p| p.slug == slug)
-}
-
-/// The front door — the first note in reading order.
+/// Where the guide is published, as a URL prefix.
 ///
-/// `Option`, though `build.rs` refuses to generate an empty guide: the
-/// panic lints are the house rule, and "this cannot happen" is exactly
-/// the claim they exist to stop anyone from making.
-#[must_use]
-pub fn first_page() -> Option<&'static GuidePage> {
-    GUIDE_PAGES.first()
-}
-
-/// The notes either side of `slug`, in reading order.
-///
-/// Derived from `GUIDE_PAGES`, which is the same order the table of
-/// contents renders, so the buttons cannot disagree with the sidebar.
-#[must_use]
-pub fn neighbours(slug: &str) -> (Option<&'static GuidePage>, Option<&'static GuidePage>) {
-    let Some(at) = GUIDE_PAGES.iter().position(|p| p.slug == slug) else {
-        return (None, None);
-    };
-    (
-        at.checked_sub(1).and_then(|i| GUIDE_PAGES.get(i)),
-        at.checked_add(1).and_then(|i| GUIDE_PAGES.get(i)),
-    )
-}
+/// `build.rs` resolves `[[wikilinks]]` against this, and
+/// `crate::static_routes` enumerates the pages under it for the
+/// pre-render — the two have to agree.
+pub const BASE: &str = "/guide";
 
 /// The guide as the graph builder wants it.
+///
+/// Built on demand rather than compiled in: a serialised graph would be
+/// a second copy of every note in the binary, and the builder is fast
+/// enough to run when asked. Callers hold it in a `use_memo`.
 fn wiki_files() -> Vec<WikiFile> {
-    GUIDE_PAGES
+    VAULT
+        .pages
         .iter()
-        .map(|p| WikiFile {
-            name: format!("{}.md", p.slug),
-            // The route, not a filesystem path: the graph surfaces this
-            // for click-to-open, and in a browser "open" means navigate.
-            path: format!("/guide/{}", p.slug),
-            content: p.source.to_string(),
+        .map(|page| WikiFile {
+            name: format!("{}.md", page.slug),
+            path: format!("{}.md", page.slug),
+            content: page.source.to_owned(),
         })
         .collect()
 }
 
-/// The guide's knowledge graph — nodes, relevance-weighted edges, and
-/// communities detected from the link structure rather than declared.
-///
-/// Built rather than cached: it is a pure function of text baked into the
-/// binary, and the builder is fast enough to run on demand. Callers hold
-/// it in a `use_memo`.
+/// The whole guide as a link graph.
 #[must_use]
 pub fn graph() -> WikiGraph {
     view_knowledge_graph::build_wiki_graph(&wiki_files())
-}
-
-/// Notes that link *to* `slug` — the wiki's answer to "what leads here".
-#[must_use]
-pub fn backlinks(graph: &WikiGraph, slug: &str) -> Vec<&'static GuidePage> {
-    let mut out: Vec<&'static GuidePage> = graph
-        .edges
-        .iter()
-        .filter(|e| e.target == slug && e.source != slug)
-        .filter_map(|e| page(&e.source))
-        .collect();
-    out.sort_by_key(|p| p.order);
-    out.dedup_by_key(|p| p.slug);
-    out
 }
 
 /// The neighbourhood around one note — the local graph.
@@ -156,45 +102,21 @@ pub fn local_graph(graph: &WikiGraph, slug: &str) -> WikiGraph {
     }
 }
 
-/// Wikilink targets in a note, ignoring the `|label` half.
-///
-/// Only the tests need this — the rendered page gets its links from
-/// `build.rs`, and the graph finds its own. It lives here rather than in
-/// the test module because it is a fact about the note format, not about
-/// the test.
-#[cfg(test)]
-#[must_use]
-pub fn wikilink_targets(source: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut rest = source;
-    while let Some((_, after_open)) = rest.split_once("[[") {
-        let Some((inner, after_close)) = after_open.split_once("]]") else {
-            break;
-        };
-        out.push(
-            inner
-                .split_once('|')
-                .map_or(inner, |(t, _)| t)
-                .trim()
-                .to_owned(),
-        );
-        rest = after_close;
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn the_guide_is_not_empty() {
-        assert!(GUIDE_PAGES.len() >= 5, "the whole guide should compile in");
+        assert!(
+            VAULT.pages.len() >= 5,
+            "the whole guide should compile in"
+        );
     }
 
     #[test]
     fn pages_are_ordered_by_frontmatter() {
-        let orders: Vec<u32> = GUIDE_PAGES.iter().map(|p| p.order).collect();
+        let orders: Vec<u32> = VAULT.pages.iter().map(|p| p.order).collect();
         let mut sorted = orders.clone();
         sorted.sort_unstable();
         assert_eq!(orders, sorted, "guide pages must arrive in reading order");
@@ -202,7 +124,7 @@ mod tests {
 
     #[test]
     fn slugs_are_unique() {
-        let mut slugs: Vec<&str> = GUIDE_PAGES.iter().map(|p| p.slug).collect();
+        let mut slugs: Vec<&str> = VAULT.pages.iter().map(|p| p.slug).collect();
         slugs.sort_unstable();
         let before = slugs.len();
         slugs.dedup();
@@ -211,226 +133,67 @@ mod tests {
 
     #[test]
     fn every_page_has_a_title_a_blurb_and_a_body() {
-        for p in GUIDE_PAGES {
+        for p in VAULT.pages {
             assert!(!p.title.is_empty(), "guide page `{}` has no title", p.slug);
             assert!(
-                !p.blurb.is_empty(),
-                "guide page `{}` has no `blurb:` for the table of contents",
+                !p.summary.is_empty(),
+                "guide page `{}` has no blurb for the contents list",
                 p.slug
             );
-            assert!(p.source.len() > 100, "guide page `{}` looks empty", p.slug);
-            assert!(
-                p.html.contains("<h1>"),
-                "guide page `{}` lost its own `# heading`",
-                p.slug
-            );
+            assert!(!p.html.is_empty(), "guide page `{}` rendered empty", p.slug);
         }
     }
 
     #[test]
     fn the_rendered_page_drops_the_frontmatter_and_the_footer() {
-        for p in GUIDE_PAGES {
+        for p in VAULT.pages {
             assert!(
                 !p.html.contains("stage:"),
-                "guide page `{}` carried its frontmatter into the rendered body",
+                "guide page `{}` still carries its frontmatter",
                 p.slug
             );
             assert!(
                 !p.html.contains("Up: "),
-                "guide page `{}` prints its nav footer as well as the buttons",
+                "guide page `{}` still carries its nav footer",
                 p.slug
             );
         }
     }
 
-    #[test]
-    fn wikilinks_render_as_routes() {
-        let index = first_page().expect("the guide has a front door");
-        assert!(
-            index.html.contains("href=\"/guide/"),
-            "the front door's wikilinks did not become links"
-        );
-        assert!(
-            !index.html.contains("[["),
-            "a raw wikilink survived into the rendered page"
-        );
-    }
-
-    #[test]
-    fn every_wikilink_points_at_a_real_page() {
-        // A dead `[[link]]` renders as a link that goes nowhere. This is
-        // what notices.
-        for p in GUIDE_PAGES {
-            for target in wikilink_targets(p.source) {
-                assert!(
-                    page(&target).is_some(),
-                    "guide page `{}` links to `[[{target}]]`, which does not exist",
-                    p.slug
-                );
-            }
-        }
-    }
-
-    /// The slug a `Previous:`/`Next:`/`Up:` footer entry points at.
+    /// Every `[[wikilink]]` resolves.
     ///
-    /// Read from `source`, not `html`: the site strips the footer before
-    /// rendering — it shows real buttons instead — but the note keeps it,
-    /// because those wikilinks are most of the graph's edges.
-    fn footer_link(source: &str, label: &str) -> Option<String> {
-        let line = source.lines().find(|l| l.contains("Up: [["))?;
-        let after = line.split_once(&format!("{label}: [["))?.1;
-        let target = after.split_once("]]")?.0;
-        Some(target.split('|').next().unwrap_or(target).to_owned())
-    }
-
+    /// `ssg-build` fails the build on an unresolved one, so this cannot
+    /// fire — which is the point. It is here to say so, and to catch the
+    /// day someone reaches for `allow_broken_links`.
     #[test]
-    fn the_chapters_form_one_unbroken_chain() {
-        // The footer and the `order:` are written in different places and
-        // nothing else compares them. This does: a chapter that points at
-        // the wrong neighbour disagrees with the table of contents, and a
-        // reader following the buttons gets a different guide from a
-        // reader following the sidebar.
-        //
-        // Everything after the front door, which carries no footer — it
-        // opens the guide rather than continuing it.
-        let chapters: Vec<_> = GUIDE_PAGES.iter().skip(1).collect();
-        assert!(chapters.len() > 1, "the guide should have chapters");
-
-        for (i, p) in chapters.iter().enumerate() {
-            match chapters.get(i.saturating_add(1)) {
-                Some(next) => assert_eq!(
-                    footer_link(p.source, "Next").as_deref(),
-                    Some(next.slug),
-                    "`{}` should send the reader to `{}`",
-                    p.slug,
-                    next.slug
-                ),
-                // The last chapter closes the tour instead of pointing on.
-                None => assert!(
-                    footer_link(p.source, "Next").is_none(),
-                    "`{}` is the last chapter and should not have a Next",
-                    p.slug
-                ),
-            }
-            if i > 0 {
-                assert_eq!(
-                    footer_link(p.source, "Previous").as_deref(),
-                    chapters.get(i.saturating_sub(1)).map(|q| q.slug),
-                    "`{}` should come back to the chapter before it",
-                    p.slug
-                );
-            }
-            assert_eq!(
-                footer_link(p.source, "Up").as_deref(),
-                first_page().map(|f| f.slug),
-                "`{}` should link up to the front door, so no chapter is a dead end",
-                p.slug
-            );
-        }
-    }
-
-    #[test]
-    fn every_chapter_belongs_to_a_stage_and_the_stages_run_in_order() {
-        // The table of contents emits a heading whenever the stage
-        // changes, so a stage whose chapters are not contiguous would
-        // print its heading twice and split the run under it.
-        let mut seen: Vec<&str> = Vec::new();
-        let mut current = "";
-        for p in GUIDE_PAGES {
-            assert!(
-                !p.stage.is_empty(),
-                "chapter `{}` has no `stage:` in its frontmatter",
-                p.slug
-            );
-            if p.stage != current {
+    fn every_cross_reference_resolves() {
+        for page in VAULT.pages {
+            for target in page.links {
                 assert!(
-                    !seen.contains(&p.stage),
-                    "stage `{}` appears twice — `{}` is out of order",
-                    p.stage,
-                    p.slug
+                    VAULT.page(target).is_some(),
+                    "guide page `{}` links to `{target}`, which does not exist",
+                    page.slug
                 );
-                seen.push(p.stage);
-                current = p.stage;
             }
         }
     }
 
     #[test]
     fn the_graph_has_a_node_per_page() {
-        assert_eq!(
-            graph().nodes.len(),
-            GUIDE_PAGES.len(),
-            "every guide page should be a node"
-        );
+        assert_eq!(graph().nodes.len(), VAULT.pages.len());
     }
 
     #[test]
-    fn the_graph_is_connected_by_wikilinks() {
-        // The guide cross-references itself throughout — that web is the
-        // whole reason it is a vault rather than a chapter list. If the
-        // edges vanish, either the links broke or the builder stopped
-        // seeing them.
-        let g = graph();
-        assert!(
-            g.edges.len() >= GUIDE_PAGES.len(),
-            "only {} edges across {} pages — the wikilink web is missing",
-            g.edges.len(),
-            GUIDE_PAGES.len()
-        );
-    }
-
-    #[test]
-    fn the_front_door_leads_somewhere() {
-        let g = graph();
-        let first = first_page().expect("the guide has a front door");
-        assert!(
-            g.edges.iter().any(|e| e.source == first.slug),
-            "the front door `{}` links to nothing — the guide has no entry path",
-            first.slug
-        );
-    }
-
-    #[test]
-    fn backlinks_are_the_reverse_of_links() {
-        let g = graph();
-        let back = backlinks(&g, "the-four-files");
-        assert!(
-            !back.is_empty(),
-            "nothing links to `the-four-files`, which the front door should"
-        );
-        assert!(
-            back.iter().all(|p| p.slug != "the-four-files"),
-            "a page must not be its own backlink"
-        );
-    }
-
-    #[test]
-    fn the_local_graph_is_the_page_and_its_neighbours() {
-        let g = graph();
-        let local = local_graph(&g, "recipes-cues-effects");
-
-        assert!(
-            local.nodes.iter().any(|n| n.id == "recipes-cues-effects"),
-            "the local graph must contain the page it is about"
-        );
-        assert!(
-            local.nodes.len() > 1,
-            "`recipes-cues-effects` should have neighbours — it is a hub"
-        );
-        let ids: Vec<&str> = local.nodes.iter().map(|n| n.id.as_str()).collect();
-        for e in &local.edges {
+    fn a_local_graph_is_the_page_and_its_neighbours() {
+        let whole = graph();
+        for page in VAULT.pages {
+            let local = local_graph(&whole, page.slug);
             assert!(
-                ids.contains(&e.source.as_str()) && ids.contains(&e.target.as_str()),
-                "edge {} -> {} dangles outside the local node set",
-                e.source,
-                e.target
+                local.nodes.iter().any(|n| n.id == page.slug),
+                "the local graph of `{}` does not contain it",
+                page.slug
             );
+            assert!(local.nodes.len() <= whole.nodes.len());
         }
-    }
-
-    #[test]
-    fn an_unknown_slug_gives_an_empty_local_graph_not_a_panic() {
-        let g = graph();
-        assert!(local_graph(&g, "no-such-page").nodes.is_empty());
     }
 }

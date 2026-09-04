@@ -699,6 +699,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "askama_escape"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3df27b8d5ddb458c5fb1bbc1ce172d4a38c614a97d550b0ac89003897fb01de4"
+
+[[package]]
 name = "assert_type_match"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -957,6 +963,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
+ "axum-macros",
  "base64 0.22.1",
  "bytes",
  "form_urlencoded",
@@ -984,6 +991,7 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -1002,6 +1010,41 @@ dependencies = [
  "sync_wrapper",
  "tower-layer",
  "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "axum-extra"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9963ff19f40c6102c76756ef0a46004c0d58957d87259fc9208ff8441c12ab96"
+dependencies = [
+ "axum",
+ "axum-core",
+ "bytes",
+ "futures-util",
+ "headers",
+ "http",
+ "http-body",
+ "http-body-util",
+ "mime",
+ "pin-project-lite",
+ "rustversion",
+ "serde_core",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "axum-macros"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7aa268c23bfbbd2c4363b9cd302a4f504fb2a9dfe7e3451d66f35dd392e20aca"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3916,6 +3959,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6361d5c062261c78a176addb82d4c821ae42bed6089de0e12603cd25de2059c"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core",
+]
+
+[[package]]
 name = "dasp_sample"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4178,15 +4235,20 @@ dependencies = [
  "dioxus-devtools",
  "dioxus-document",
  "dioxus-fullstack",
+ "dioxus-fullstack-macro",
  "dioxus-history",
  "dioxus-hooks",
  "dioxus-html",
+ "dioxus-liveview",
  "dioxus-logger",
  "dioxus-router",
+ "dioxus-server",
  "dioxus-signals",
+ "dioxus-ssr",
  "dioxus-stores",
  "dioxus-web",
  "manganis",
+ "serde",
  "subsecond",
  "warnings",
 ]
@@ -4348,6 +4410,8 @@ dependencies = [
  "dioxus-core",
  "dioxus-devtools-types",
  "dioxus-signals",
+ "futures-channel",
+ "futures-util",
  "serde",
  "serde_json",
  "subsecond",
@@ -4394,6 +4458,7 @@ dependencies = [
  "async-tungstenite",
  "axum",
  "axum-core",
+ "axum-extra",
  "base64 0.22.1",
  "bytes",
  "ciborium",
@@ -4418,6 +4483,7 @@ dependencies = [
  "http",
  "http-body",
  "http-body-util",
+ "inventory",
  "js-sys",
  "mime",
  "pin-project",
@@ -4429,7 +4495,13 @@ dependencies = [
  "serde_qs",
  "serde_urlencoded",
  "thiserror 2.0.20",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite 0.28.0",
  "tokio-util",
+ "tower",
+ "tower-http",
+ "tower-layer",
  "tracing",
  "tungstenite 0.27.0",
  "url",
@@ -4561,6 +4633,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "dioxus-liveview"
+version = "0.8.0-alpha.0"
+source = "git+https://github.com/DioxusLabs/dioxus?rev=f717a8e184a522d078b70bb4b4d62a5f9a99ddfc#f717a8e184a522d078b70bb4b4d62a5f9a99ddfc"
+dependencies = [
+ "axum",
+ "dioxus-cli-config",
+ "dioxus-core",
+ "dioxus-devtools",
+ "dioxus-document",
+ "dioxus-history",
+ "dioxus-html",
+ "dioxus-interpreter-js",
+ "futures-channel",
+ "futures-util",
+ "generational-box",
+ "rustc-hash 2.1.3",
+ "serde",
+ "serde_json",
+ "slab",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "dioxus-logger"
 version = "0.8.0-alpha.0"
 source = "git+https://github.com/DioxusLabs/dioxus?rev=f717a8e184a522d078b70bb4b4d62a5f9a99ddfc#f717a8e184a522d078b70bb4b4d62a5f9a99ddfc"
@@ -4651,6 +4750,7 @@ dependencies = [
  "dioxus-cli-config",
  "dioxus-core",
  "dioxus-core-macro",
+ "dioxus-fullstack-core",
  "dioxus-history",
  "dioxus-hooks",
  "dioxus-html",
@@ -4700,6 +4800,63 @@ dependencies = [
 ]
 
 [[package]]
+name = "dioxus-server"
+version = "0.8.0-alpha.0"
+source = "git+https://github.com/DioxusLabs/dioxus?rev=f717a8e184a522d078b70bb4b4d62a5f9a99ddfc#f717a8e184a522d078b70bb4b4d62a5f9a99ddfc"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "ciborium",
+ "dashmap",
+ "dioxus-cli-config",
+ "dioxus-core",
+ "dioxus-core-macro",
+ "dioxus-devtools",
+ "dioxus-document",
+ "dioxus-fullstack-core",
+ "dioxus-history",
+ "dioxus-hooks",
+ "dioxus-html",
+ "dioxus-interpreter-js",
+ "dioxus-logger",
+ "dioxus-router",
+ "dioxus-signals",
+ "dioxus-ssr",
+ "enumset",
+ "futures",
+ "futures-channel",
+ "futures-util",
+ "generational-box",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "inventory",
+ "lru 0.16.4",
+ "parking_lot",
+ "pin-project",
+ "rustc-hash 2.1.3",
+ "serde",
+ "serde_json",
+ "serde_qs",
+ "subsecond",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-tungstenite 0.28.0",
+ "tokio-util",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-futures",
+ "url",
+ "walkdir",
+]
+
+[[package]]
 name = "dioxus-signals"
 version = "0.8.0-alpha.0"
 source = "git+https://github.com/DioxusLabs/dioxus?rev=f717a8e184a522d078b70bb4b4d62a5f9a99ddfc#f717a8e184a522d078b70bb4b4d62a5f9a99ddfc"
@@ -4712,6 +4869,17 @@ dependencies = [
  "rustc-hash 2.1.3",
  "tracing",
  "warnings",
+]
+
+[[package]]
+name = "dioxus-ssr"
+version = "0.8.0-alpha.0"
+source = "git+https://github.com/DioxusLabs/dioxus?rev=f717a8e184a522d078b70bb4b4d62a5f9a99ddfc#f717a8e184a522d078b70bb4b4d62a5f9a99ddfc"
+dependencies = [
+ "askama_escape",
+ "dioxus-core",
+ "dioxus-core-types",
+ "rustc-hash 2.1.3",
 ]
 
 [[package]]
@@ -4746,6 +4914,7 @@ dependencies = [
  "dioxus-core-types",
  "dioxus-devtools",
  "dioxus-document",
+ "dioxus-fullstack-core",
  "dioxus-history",
  "dioxus-html",
  "dioxus-interpreter-js",
@@ -6563,6 +6732,12 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
+version = "0.14.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
+
+[[package]]
+name = "hashbrown"
 version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
@@ -6838,6 +7013,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "http-range-header"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9171a2ea8a68358193d15dd5d70c1c10a2afc3e7e4c5bc92bc9f025cebd7359c"
+
+[[package]]
 name = "httparse"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6931,9 +7112,12 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "socket2",
+ "system-configuration",
  "tokio",
+ "tower-layer",
  "tower-service",
  "tracing",
+ "windows-registry",
 ]
 
 [[package]]
@@ -7461,7 +7645,9 @@ name = "ignition-web"
 version = "0.1.0"
 dependencies = [
  "dioxus",
- "pulldown-cmark",
+ "dioxus-web",
+ "ssg",
+ "ssg-build",
  "view-knowledge-graph",
  "wasm-bindgen",
  "web-sys",
@@ -7763,7 +7949,7 @@ dependencies = [
  "iroh-base",
  "iroh-dns",
  "iroh-metrics",
- "lru",
+ "lru 0.18.4",
  "n0-error",
  "n0-future",
  "noq",
@@ -8365,6 +8551,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fae87c125b03c1d2c0150c90365d7d6bcc53fb73a9acaef207d2d065860f062"
 dependencies = [
  "imgref",
+]
+
+[[package]]
+name = "lru"
+version = "0.16.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f66e8d5d03f609abc3a39e6f08e4164ebf1447a732906d39eb9b99b7919ef39"
+dependencies = [
+ "hashbrown 0.16.1",
 ]
 
 [[package]]
@@ -10935,9 +11130,9 @@ dependencies = [
 
 [[package]]
 name = "pulldown-cmark"
-version = "0.13.4"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9f068eba8e7071c5f9511831b44f32c740d5adf574e990f946ddb53db2f314e"
+checksum = "76979bea66e7875e7509c4ec5300112b316af87fa7a252ca91c448b32dfe3993"
 dependencies = [
  "bitflags 2.13.1",
  "memchr",
@@ -10947,9 +11142,9 @@ dependencies = [
 
 [[package]]
 name = "pulldown-cmark-escape"
-version = "0.11.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
+checksum = "bd348ff538bc9caeda7ee8cad2d1d48236a1f443c1fa3913c6a02fe0043b1dd3"
 
 [[package]]
 name = "pulp"
@@ -12665,6 +12860,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "ssg"
+version = "0.1.0"
+source = "git+https://github.com/FastTrackStudios/task?branch=main#506ae6db164acba9308e5dce64c4d14662b4681e"
+dependencies = [
+ "ssg-vault",
+]
+
+[[package]]
+name = "ssg-build"
+version = "0.1.0"
+source = "git+https://github.com/FastTrackStudios/task?branch=main#506ae6db164acba9308e5dce64c4d14662b4681e"
+dependencies = [
+ "ssg-vault",
+]
+
+[[package]]
+name = "ssg-vault"
+version = "0.1.0"
+source = "git+https://github.com/FastTrackStudios/task?branch=main#506ae6db164acba9308e5dce64c4d14662b4681e"
+dependencies = [
+ "pulldown-cmark",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13898,6 +14117,7 @@ dependencies = [
  "tokio",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -13908,10 +14128,19 @@ checksum = "4cfcf7e2740e6fc6d4d688b4ef00650406bb94adf4731e43c096c3a19fe40840"
 dependencies = [
  "bitflags 2.13.1",
  "bytes",
+ "futures-core",
  "futures-util",
  "http",
  "http-body",
+ "http-body-util",
+ "http-range-header",
+ "httpdate",
+ "mime",
+ "mime_guess",
+ "percent-encoding",
  "pin-project-lite",
+ "tokio",
+ "tokio-util",
  "tower",
  "tower-layer",
  "tower-service",
@@ -13971,6 +14200,16 @@ checksum = "8b1581020d7a273442f5b45074a6a57d5757ad0a47dac0e9f0bd57b81936f3db"
 dependencies = [
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "tracing-futures"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
+dependencies = [
+ "pin-project",
+ "tracing",
 ]
 
 [[package]]

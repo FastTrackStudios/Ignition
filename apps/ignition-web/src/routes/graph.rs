@@ -75,7 +75,7 @@ pub fn GuideGraph() -> Element {
                         spacing: 1.6,
                         highlighted: highlighted(),
                         on_node_click: move |id: String| {
-                            if guide::page(&id).is_some() {
+                            if guide::VAULT.page(&id).is_some() {
                                 nav.push(Route::GuidePage { slug: id });
                             }
                         },

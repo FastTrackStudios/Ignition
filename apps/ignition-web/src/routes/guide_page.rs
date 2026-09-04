@@ -11,13 +11,13 @@ use dioxus::prelude::*;
 use view_knowledge_graph::model::{ColorMode, WikiGraph};
 
 use crate::Route;
-use crate::guide;
+use crate::guide::{self, VAULT};
 use crate::routes::Shell;
 
 /// `/guide` — opens at the front door.
 #[component]
 pub fn GuideIndex() -> Element {
-    let slug = guide::first_page().map_or_else(String::new, |p| p.slug.to_string());
+    let slug = VAULT.first().map_or_else(String::new, |p| p.slug.to_string());
     rsx! {
         GuidePage { slug }
     }
@@ -28,7 +28,7 @@ pub fn GuideIndex() -> Element {
 pub fn GuidePage(slug: String) -> Element {
     let nav = navigator();
 
-    let Some(page) = guide::page(&slug) else {
+    let Some(page) = VAULT.page(&slug) else {
         return rsx! {
             Shell {
                 section { class: "ig-prose",
@@ -41,7 +41,7 @@ pub fn GuidePage(slug: String) -> Element {
 
     let graph = use_memo(guide::graph);
     let here = page.slug;
-    let backlinks = use_memo(move || guide::backlinks(&graph.read(), here));
+    let backlinks = use_memo(move || VAULT.backlinks(here));
     let local = use_memo(move || guide::local_graph(&graph.read(), here));
 
     rsx! {
@@ -103,7 +103,7 @@ fn clicked_route(evt: &Event<MouseData>) -> Option<Route> {
     match rest.trim_start_matches('/') {
         "graph" => Some(Route::GuideGraph {}),
         "" => Some(Route::GuideIndex {}),
-        slug if guide::page(slug).is_some() => Some(Route::GuidePage {
+        slug if VAULT.page(slug).is_some() => Some(Route::GuidePage {
             slug: slug.to_owned(),
         }),
         _ => None,
@@ -148,7 +148,7 @@ fn LocalGraph(graph: WikiGraph, current: &'static str) -> Element {
                     spacing: 0.45,
                     node_scale: 0.75,
                     on_node_click: move |id: String| {
-                        if guide::page(&id).is_some() {
+                        if VAULT.page(&id).is_some() {
                             nav.push(Route::GuidePage { slug: id });
                         }
                     },
@@ -172,24 +172,26 @@ fn LocalGraph(graph: WikiGraph, current: &'static str) -> Element {
 /// belong to.
 #[component]
 fn GuideToc(current: &'static str) -> Element {
-    let mut stage = "";
     rsx! {
         nav { class: "ig-guide-toc",
-            for entry in guide::GUIDE_PAGES {
-                if entry.stage != stage {
-                    {
-                        stage = entry.stage;
-                        rsx! { span { class: "ig-toc-stage", "{entry.stage}" } }
-                    }
+            // `stages()` groups consecutive pages by their `stage:`, so
+            // the order of the headings IS the reading order and a
+            // chapter cannot appear under a stage it does not belong to.
+            for (stage , pages) in VAULT.stages() {
+                if !stage.is_empty() {
+                    span { class: "ig-toc-stage", "{stage}" }
                 }
-                Link {
-                    to: Route::GuidePage { slug: entry.slug.to_string() },
-                    class: if entry.slug == current { "ig-toc-current" } else { "" },
-                    // The note's `blurb:`. A title is a name; the blurb
-                    // is what the chapter is about, and a sidebar with
-                    // both in it stops being a sidebar.
-                    title: entry.blurb,
-                    "{entry.title}"
+                for entry in pages {
+                    Link {
+                        key: "{entry.slug}",
+                        to: Route::GuidePage { slug: entry.slug.to_string() },
+                        class: if entry.slug == current { "ig-toc-current" } else { "" },
+                        // The note's `blurb:`. A title is a name; the
+                        // blurb is what the chapter is about, and a
+                        // sidebar with both in it stops being a sidebar.
+                        title: entry.summary,
+                        "{entry.title}"
+                    }
                 }
             }
             Link { to: Route::GuideGraph {}, class: "ig-toc-graph", "Graph" }
@@ -199,7 +201,7 @@ fn GuideToc(current: &'static str) -> Element {
 
 /// Previous and next, above and below the note.
 ///
-/// Both copies read from [`guide::neighbours`], which reads
+/// Both copies read the vault's reading order, which is what
 /// `GUIDE_PAGES`, which is what the table of contents renders — so the
 /// buttons, the sidebar and the reading order are one fact with one
 /// source. The prose footer these replace still lives in each note's
@@ -211,7 +213,7 @@ fn GuideToc(current: &'static str) -> Element {
 /// with the title.
 #[component]
 fn ChapterNav(slug: &'static str, compact: bool) -> Element {
-    let (previous, next) = guide::neighbours(slug);
+    let (previous, next) = (VAULT.previous(slug), VAULT.next(slug));
     if previous.is_none() && next.is_none() {
         return rsx! {};
     }
@@ -244,7 +246,7 @@ fn ChapterNav(slug: &'static str, compact: bool) -> Element {
 /// Rendered only when there is something to show — an empty "Referenced
 /// by" heading is worse than none.
 #[component]
-fn Backlinks(pages: Vec<&'static guide::GuidePage>) -> Element {
+fn Backlinks(pages: Vec<&'static ssg::StaticPage>) -> Element {
     if pages.is_empty() {
         return rsx! {};
     }
