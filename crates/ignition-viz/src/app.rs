@@ -24,7 +24,10 @@ use crate::spawn::{
 };
 use crate::video::export::{self, ExportRequest, FrameSchedule};
 use crate::view::ViewPreset;
-use crate::{DmxUniverses, Venue, dmx};
+use crate::{DmxUniverses, Venue};
+// The DMX listeners are host-only; see the banner in `dmx.rs`.
+#[cfg(not(target_arch = "wasm32"))]
+use crate::dmx;
 use bevy::app::SubApps;
 use bevy::asset::{AssetPlugin, RenderAssetUsages};
 use bevy::camera::{Hdr, RenderTarget};
@@ -1227,8 +1230,14 @@ impl Plugin for VizPlugin {
 /// cloneable — they hold live fade state.
 pub fn run(config: VizConfig, playback: Playback, gdtf: Option<GdtfLibrary>) {
     let dmx = DmxUniverses::new();
-    dmx::spawn_sacn_listener(dmx.clone(), config.max_universe);
-    dmx::spawn_artnet_listener(dmx.clone());
+    // No sockets in a browser — see the banner in `dmx.rs`. The
+    // visualizer runs there without them; it simply has no live input,
+    // which is what a demo build wants anyway.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        dmx::spawn_sacn_listener(dmx.clone(), config.max_universe);
+        dmx::spawn_artnet_listener(dmx.clone());
+    }
     let output = bind_output(&config, &dmx);
 
     match config.snapshot.clone() {

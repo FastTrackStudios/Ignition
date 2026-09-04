@@ -15,14 +15,21 @@
 //! default, exactly as before this module existed.
 
 use ignition_proto::{Attribute, ChannelMap, ColorChannel, DmxAddress};
-use sacn::packet::ACN_SDT_MULTICAST_PORT;
-use sacn::receive::SacnReceiver;
 use std::collections::HashMap;
+// The listeners at the bottom of this file, and nothing else here, need
+// these. They are not compiled for the browser — see the `cfg` there.
+#[cfg(not(target_arch = "wasm32"))]
+use sacn::packet::ACN_SDT_MULTICAST_PORT;
+#[cfg(not(target_arch = "wasm32"))]
+use sacn::receive::SacnReceiver;
+#[cfg(not(target_arch = "wasm32"))]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::{Arc, RwLock};
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
 const UNIVERSE_LEN: usize = 512;
+#[cfg(not(target_arch = "wasm32"))]
 const ARTNET_PORT: u16 = 6454;
 
 /// Shared live state: one 512-byte frame per universe, last-write-wins
@@ -280,6 +287,21 @@ impl Default for ResolvedAttributes {
     }
 }
 
+// ── Live DMX in ──────────────────────────────────────────────────────
+//
+// Everything above is pure: universes are bytes in shared memory and
+// `ResolvedAttributes` is arithmetic over them. Everything below owns a
+// SOCKET and a THREAD, which is the whole reason for the split.
+//
+// A browser has neither, and `sacn` does not build for wasm32 at all —
+// it reaches `socket2`, which fails to compile long before any of our
+// code is reached. The visualizer itself is perfectly happy in a
+// browser; a DMX *receiver* is the part that cannot follow it there, so
+// that part is what is gated rather than the module.
+//
+// Nothing else in the crate calls these two. The types above are what
+// the rest of the visualizer uses, and they compile anywhere.
+#[cfg(not(target_arch = "wasm32"))]
 /// Spawn the sACN receiver thread.
 ///
 /// Listens on the standard E1.31 multicast port for every universe
@@ -323,6 +345,7 @@ pub fn spawn_sacn_listener(universes: DmxUniverses, max_universe: u16) {
     });
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Spawn the Art-Net receiver thread.
 ///
 /// Art-Net is a single UDP port carrying `ArtDmx` packets tagged with a
