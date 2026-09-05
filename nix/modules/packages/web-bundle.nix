@@ -81,6 +81,29 @@
           buildPhaseCargoCommand = ''
             export HOME="$TMPDIR/dx-home"
             mkdir -p "$HOME"
+
+            # The demo's data, into the crate where `asset!` can name it.
+            #
+            # The same copy `just site-demo-assets` makes, and it has to
+            # happen HERE too: those directories are gitignored — 4 MB of
+            # glTF and venue JSON that already live in this repo have no
+            # business being committed to it twice — so a fresh checkout
+            # does not have them, and `asset!` fails at COMPILE time
+            # without them rather than at run time. That is a deploy that
+            # breaks in CI and builds fine on the machine it was written
+            # on, which is the worst shape a build failure comes in.
+            #
+            # Kept in step with the recipe by hand. If a third copy of
+            # this list appears, it wants to be a script both call.
+            mkdir -p apps/ignition-web/assets/venue apps/ignition-web/assets/viz
+            cp data/venues/norco/*.json apps/ignition-web/assets/venue/
+            cp data/venues/norco/venue.ig-venue apps/ignition-web/assets/venue/
+            cp data/profiles/ignition.ig-profile apps/ignition-web/assets/venue/profile.ig-profile
+            cp data/songs/bye-bye-bye.json apps/ignition-web/assets/venue/show.json
+            cp -r crates/ignition-viz/assets/people \
+                  crates/ignition-viz/assets/props \
+                  crates/ignition-viz/assets/screens \
+                  crates/ignition-viz/assets/gdtf-primitives apps/ignition-web/assets/viz/
             # --debug-symbols false: drops DWARF. Not only a size win —
             # with DWARF present wasm-opt ABORTS on a version mismatch,
             # and dx logs the SIGABRT and ships the unoptimised module
