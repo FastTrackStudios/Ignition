@@ -84,11 +84,10 @@
 
             # No demo data, and no `--features demo`: the shipped image
             # is the landing page and the guide. `/demo` links Bevy and
-            # wgpu — 37 MB of wasm — and the first deploy that carried it
-            # exhausted the memory on the build host, which is the host
-            # the cluster runs on, and took k3s down with it. See the
-            # `demo` feature in apps/ignition-web/Cargo.toml for what has
-            # to be true before it comes back.
+            # wgpu — 37 MB of wasm against 1.1 MB without — which is both
+            # a heavy download and a heavy build. See the `demo` feature
+            # in apps/ignition-web/Cargo.toml for what wants doing before
+            # it comes back.
             # --debug-symbols false: drops DWARF. Not only a size win —
             # with DWARF present wasm-opt ABORTS on a version mismatch,
             # and dx logs the SIGABRT and ships the unoptimised module

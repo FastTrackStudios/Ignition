@@ -122,17 +122,23 @@ web = ["dioxus/web", "dep:dioxus-web", "dioxus-web/hydrate"]
 # `/demo`: the visualizer itself, running in the page.
 #
 # OFF by default, and the reason is the build rather than the code. It
-# links Bevy and wgpu — 37 MB of wasm, 8.6 MB brotli — which is a heavy
-# landing page for a reader who came for the guide, and it is a heavy
-# LINK: the first deploy that carried it exhausted the memory on the
-# host it was built on, which is the same host the cluster runs on, and
-# took k3s down with it.
+# links Bevy and wgpu:
 #
-# Both halves of that want fixing before this goes back on by default:
-# `wasm-split` so the guide never fetches the chunk, and a build that
-# does not share a machine with production. Until then the code stays
-# compiled and linted (`cargo clippy -p ignition-web --features demo
-# --target wasm32-unknown-unknown`), and the site ships without it.
+#   with demo     37 MB wasm    8.6 MB brotli
+#   without      1.1 MB wasm   0.34 MB brotli
+#
+# A 25x landing page for a reader who came for the guide, and a build
+# that fills the runner's disk — the first deploy carrying it left
+# THEBATTLESHIP at 98% and the NEXT deploy died in `actions/checkout`
+# with "no space left on device".
+#
+# `wasm-split` is what makes this reasonable: `dioxus-router`'s feature
+# of that name puts every route in its own lazily-fetched chunk, so the
+# guide never pays for the visualizer. That plus somewhere to put the
+# build artifacts is what wants doing before this goes back on. Until
+# then the code stays compiled and linted (`cargo clippy -p ignition-web
+# --features demo --target wasm32-unknown-unknown`), `just site-demo`
+# runs it, and the site ships without it.
 demo = ["dep:ignition-viz"]
 # The server half, which exists only for the length of
 # `dx build --ssg` — dx enables it for the server target by name, never
