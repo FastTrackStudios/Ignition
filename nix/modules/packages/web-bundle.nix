@@ -93,12 +93,37 @@
             # and dx logs the SIGABRT and ships the unoptimised module
             # anyway. That is 2.7 MB of wasm instead of 903 KB, and it
             # fails quietly.
-            dx build -p ignition-web --platform web --release --debug-symbols false
+            # `--ssg --fullstack --force-sequential`, exactly as
+            # `just site` does, and NOT optional: this crate's `web`
+            # feature turns on `dioxus-web/hydrate`, so the client that
+            # ships expects a pre-rendered DOM and the hydration data
+            # that comes with it. Build it without `--ssg` and the wasm
+            # loads, calls `atob` on hydration data that was never
+            # written, throws `InvalidCharacterError`, and mounts
+            # nothing — A WHITE PAGE, from an image that built and
+            # deployed and passed its own liveness check, because
+            # `/version.json` is a static file and answers either way.
+            #
+            # That is exactly what shipped between the SSG change and
+            # this comment. `--fullstack` is what makes dx build a
+            # server at all (this crate keeps `dioxus/fullstack` on its
+            # `server` feature alone), and without it `--ssg` silently
+            # does nothing. `--force-sequential` because the pre-render
+            # borrows `public/index.html` while the client build is
+            # writing it (dioxus#3518).
+            dx build -p ignition-web --platform web --release --debug-symbols false \
+                --ssg --fullstack --force-sequential
           '';
 
           installPhaseCommand = ''
             mkdir -p $out/www
             cp -R target/dx/ignition-web/release/web/public/. $out/www/
+            # `sitemap.xml` and `rss.xml` are written by build.rs into a
+            # gitignored directory. They cannot go through `asset!` —
+            # that content-hashes what it touches, and `/sitemap.xml` is
+            # the fixed URL every crawler looks for — so they are copied
+            # in at the top level, the same as `just site` does.
+            cp apps/ignition-web/generated/*.xml $out/www/ 2>/dev/null || true
             # Pre-compress so static-web-server's `compression-static`
             # can serve .br — the wasm is the bulk of the bundle.
             find $out/www -type f \( -name '*.wasm' -o -name '*.js' \
