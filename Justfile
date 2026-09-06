@@ -178,6 +178,12 @@ site-tailwind-check: site-tailwind
     fi
     echo "the site tailwind sheet covers the graph"
 
+# The site WITH `/demo` — the visualizer in the page. Local only: it
+# links Bevy into the bundle, and both the download and the LINK are why
+# the feature is off by default (see apps/ignition-web/Cargo.toml).
+site-demo: site-tailwind site-demo-assets
+    dx serve -p ignition-web --platform web --fullstack --features demo
+
 # The demo's data, copied from where it is AUTHORED.
 #
 # `/demo` boots the real visualizer on the real Norco venue, so it needs
@@ -235,7 +241,7 @@ site-icons:
 # The public site — the landing page and the guide
 # (apps/ignition-web). Static: no server, no backend, nothing to deploy
 # but the directory `dist` ends up as.
-site: site-tailwind site-demo-assets
+site: site-tailwind
     # `--debug-symbols false`: drops DWARF, which both shrinks the bundle
     # and sidesteps the DWARF-version mismatch that makes wasm-opt abort
     # (dx logs the SIGABRT and ships the UNOPTIMISED wasm, so the failure
@@ -281,7 +287,7 @@ site: site-tailwind site-demo-assets
 
 # The site with hot reload. Editing a guide page under `docs/guides/`
 # rebuilds too — see the crate's Dioxus.toml watch list.
-site-dev: site-tailwind site-demo-assets
+site-dev: site-tailwind
     dx serve -p ignition-web --platform web
 
 # The landing page's hero clip: the third chorus of Bye Bye Bye on the

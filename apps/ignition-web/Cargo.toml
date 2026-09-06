@@ -85,15 +85,17 @@ web-sys = { version = "0.3", features = [
     "Response",
 ] }
 
-# The visualizer, for the browser only.
+# The visualizer, for the browser only, and only in a `demo` build.
 #
 # Its LIBRARY builds for wasm32 — the CLI binaries beside it do not, and
 # are not asked to. A target dependency rather than a plain one because
 # the OTHER half of this crate is the SSG server binary that pre-renders
 # the guide, and there is no reason for that to link Bevy, wgpu and a
 # glTF loader in order to emit HTML.
+#
+# OPTIONAL, and off by default — see the `demo` feature.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-ignition-viz = { workspace = true }
+ignition-viz = { workspace = true, optional = true }
 # The playhead poll. tokio's timer wants a reactor a browser has not got.
 gloo-timers = { version = "0.3", features = ["futures"] }
 
@@ -117,6 +119,21 @@ default = ["web"]
 # intounderlyingsource_*` errors out of rust-lld. The site calls no
 # server functions from the browser.
 web = ["dioxus/web", "dep:dioxus-web", "dioxus-web/hydrate"]
+# `/demo`: the visualizer itself, running in the page.
+#
+# OFF by default, and the reason is the build rather than the code. It
+# links Bevy and wgpu — 37 MB of wasm, 8.6 MB brotli — which is a heavy
+# landing page for a reader who came for the guide, and it is a heavy
+# LINK: the first deploy that carried it exhausted the memory on the
+# host it was built on, which is the same host the cluster runs on, and
+# took k3s down with it.
+#
+# Both halves of that want fixing before this goes back on by default:
+# `wasm-split` so the guide never fetches the chunk, and a build that
+# does not share a machine with production. Until then the code stays
+# compiled and linted (`cargo clippy -p ignition-web --features demo
+# --target wasm32-unknown-unknown`), and the site ships without it.
+demo = ["dep:ignition-viz"]
 # The server half, which exists only for the length of
 # `dx build --ssg` — dx enables it for the server target by name, never
 # for the wasm one. reqwest 0.12 arriving here is harmless: this half is

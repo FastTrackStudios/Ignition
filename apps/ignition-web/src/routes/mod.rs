@@ -1,11 +1,15 @@
 //! The site's screens, and the chrome they share.
 
+// `/demo` is behind the `demo` feature — see the note in Cargo.toml.
+#[cfg(feature = "demo")]
 mod demo;
+#[cfg(feature = "demo")]
 pub mod desk;
 mod graph;
 mod guide_page;
 mod home;
 
+#[cfg(feature = "demo")]
 pub use demo::Demo;
 pub use graph::GuideGraph;
 pub use guide_page::{GuideIndex, GuidePage};
