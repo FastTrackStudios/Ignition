@@ -21,6 +21,7 @@ __pycache__/
 data/effects/previews/
 data/macros/previews/
 
+<<<<<<< Updated upstream
 # The site's real Tailwind input, generated from `tailwind.css` with the
 # git-dep paths cargo actually resolved substituted in — machine-local by
 # construction. `just tailwind` remakes it. The compiled SHEET is
@@ -35,3 +36,12 @@ apps/ignition-web/generated/
 # `asset!` needs them inside the crate; git does not need them twice.
 apps/ignition-web/assets/venue/
 apps/ignition-web/assets/viz/
+=======
+# The symlinks the site's Tailwind sheet is compiled through — they point
+# at git-dep checkouts in the nix store, so they are machine-local by
+# construction. `just tailwind` remakes them. The SHEET itself is
+# committed, like the studio's and the Live view's: `asset!()` demands it
+# at compile time, so a fresh clone has to build without running the
+# recipe first. See apps/ignition-web/tailwind.css.
+apps/ignition-web/.tailwind-src/
+>>>>>>> Stashed changes

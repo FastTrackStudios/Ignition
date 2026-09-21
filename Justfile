@@ -84,13 +84,22 @@ phone *ARGS:
 # nothing about dx's Tailwind pipeline. Both apps, because both scan the
 # shared `ignition-live-ui` sources: a utility used in a shared pane has
 # to be emitted into each sheet that mounts it.
+<<<<<<< Updated upstream
 tailwind: _site-tw-input
+=======
+tailwind: _site-tw-link
+>>>>>>> Stashed changes
     tailwindcss -i apps/ignition-studio/tailwind.css \
         -o apps/ignition-studio/assets/tailwind.css
     tailwindcss -i apps/ignition-live-web/tailwind.css \
         -o apps/ignition-live-web/assets/tailwind.css
+<<<<<<< Updated upstream
     tailwindcss -i apps/ignition-web/.tailwind.gen.css \
         -o apps/ignition-web/assets/tailwind.css --minify
+=======
+    cd apps/ignition-web && tailwindcss -i ./tailwind.css \
+        -o ./assets/tailwind.css --minify
+>>>>>>> Stashed changes
 
 # The Live view for an iPad: the same components as the desk, built
 # for the browser and copied to where the studio serves them from

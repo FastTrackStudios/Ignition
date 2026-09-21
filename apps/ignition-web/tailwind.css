@@ -1,8 +1,19 @@
 /*
+<<<<<<< Updated upstream
  * Tailwind input for the Ignition site — a TEMPLATE, not the file
  * tailwindcss is pointed at. `just site-tailwind` substitutes the two
  * `@@…@@` placeholders below and writes `.tailwind.gen.css` beside this
  * file; that is what gets compiled, and it is gitignored.
+=======
+ * Tailwind input for the Ignition site.
+ *
+ * Compiled to `assets/tailwind.css` by `just tailwind` (or
+ * `just site-tailwind` for this crate alone). The SHEET is committed,
+ * like the studio's and the Live view's — `asset!()` demands it at
+ * compile time, so a fresh clone and the hermetic nix build both have to
+ * work without running the recipe first. `.tailwind-src/` is not: it is
+ * symlinks into the nix store.
+>>>>>>> Stashed changes
  *
  * WHY THIS FILE EXISTS AT ALL
  *
