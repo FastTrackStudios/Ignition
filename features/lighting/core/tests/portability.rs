@@ -40,8 +40,7 @@ use std::collections::BTreeMap;
 /// unresolvable colour is not a colour — which makes an empty palette a
 /// silent way to test nothing.
 fn profile_palettes() -> ignition_core::Palettes {
-    let raw =
-        std::fs::read_to_string("../data/profiles/ignition.ig-profile").unwrap_or_default();
+    let raw = std::fs::read_to_string("../data/profiles/ignition.ig-profile").unwrap_or_default();
     let profile: ignition_core::profile::Profile = serde_json::from_str(&raw).unwrap_or_default();
     ignition_core::Palettes {
         colors: profile.colors,

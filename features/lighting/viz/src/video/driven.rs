@@ -14,9 +14,9 @@ use crate::dmx::DmxUniverses;
 use crate::gdtf_geometry::GdtfLibrary;
 use crate::playback::Playback;
 use bevy::prelude::*;
+use bevy::render::render_resource::TextureFormat;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
 use bevy::time::TimeUpdateStrategy;
-use bevy::render::render_resource::TextureFormat;
 use std::time::{Duration, Instant};
 
 /// Captures that may be outstanding before the loop waits for the GPU.
@@ -159,11 +159,11 @@ pub fn run_driven(
         world.insert_resource(TimeUpdateStrategy::ManualDuration(advance));
         if let Some(index) = update.checked_sub(1).filter(|i| *i < frames) {
             let tx = tx.clone();
-            world
-                .spawn(Screenshot::image(target))
-                .observe(move |captured: On<ScreenshotCaptured>| {
+            world.spawn(Screenshot::image(target)).observe(
+                move |captured: On<ScreenshotCaptured>| {
                     let _ = tx.send((index, captured.image.clone()));
-                });
+                },
+            );
         }
         // The update, then the GPU polled without waiting: the readbacks
         // finish while the next frame is being built. Only when more than

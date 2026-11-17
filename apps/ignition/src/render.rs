@@ -209,7 +209,11 @@ impl FrameClock {
     #[cfg(test)]
     #[must_use]
     pub fn frame_at(&self, secs: f64) -> u32 {
-        u32_of(((secs - self.start_secs) * f64::from(self.fps) - 1e-6).ceil().max(0.0))
+        u32_of(
+            ((secs - self.start_secs) * f64::from(self.fps) - 1e-6)
+                .ceil()
+                .max(0.0),
+        )
     }
 }
 
@@ -271,7 +275,12 @@ struct FixedBeat(Arc<Mutex<f64>>);
 
 impl BeatSource for FixedBeat {
     fn beats(&self, _now: Instant) -> Option<f64> {
-        Some(*self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner))
+        Some(
+            *self
+                .0
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        )
     }
 
     fn is_playing(&self) -> bool {
@@ -300,7 +309,11 @@ pub fn run(night: Night, args: &RenderArgs) -> Result<()> {
     let song_len = night.set.seconds_at(song.live.end_beats) - song_start;
     // Past the song's end the follower finds no song and the rig holds.
     let to = args.to.unwrap_or_else(|| song_len.max(args.min_length));
-    anyhow::ensure!(to > args.from, "render: --from {} is past --to {to}", args.from);
+    anyhow::ensure!(
+        to > args.from,
+        "render: --from {} is past --to {to}",
+        args.from
+    );
     let clock = FrameClock::new(song_start + args.from, to - args.from, args.fps);
 
     // The cues, in frames — the sidecar, the chapters, and the check.
@@ -342,7 +355,10 @@ pub fn run(night: Night, args: &RenderArgs) -> Result<()> {
     let (min, max) = venue.bounds();
     let cameras = ignition_viz::Cameras::load_or_builtin(&venue_dir, min, max);
     anyhow::ensure!(
-        cameras.presets.iter().any(|p| p.name.eq_ignore_ascii_case(&args.camera)),
+        cameras
+            .presets
+            .iter()
+            .any(|p| p.name.eq_ignore_ascii_case(&args.camera)),
         "the venue has no camera {:?}",
         args.camera
     );
@@ -356,7 +372,14 @@ pub fn run(night: Night, args: &RenderArgs) -> Result<()> {
     let gdtf = ignition_viz::gdtf_geometry::GdtfLibrary::load_default();
 
     let partial = out.with_extension("partial.mp4");
-    let encoder = Encoder::spawn(args, &partial, audio.as_deref(), &chapters, &song.title, clock)?;
+    let encoder = Encoder::spawn(
+        args,
+        &partial,
+        audio.as_deref(),
+        &chapters,
+        &song.title,
+        clock,
+    )?;
     let beat = Arc::new(Mutex::new(clock.set_beat(|s| set.beat_at(s), 0)));
     let follower = crate::Follower {
         night: Arc::clone(&night),
@@ -371,7 +394,14 @@ pub fn run(night: Night, args: &RenderArgs) -> Result<()> {
         encoder,
         began: Instant::now(),
     };
-    let rendered = run_driven(config, playback, Some(gdtf), clock.fps, clock.frames, &mut driver);
+    let rendered = run_driven(
+        config,
+        playback,
+        Some(gdtf),
+        clock.fps,
+        clock.frames,
+        &mut driver,
+    );
     let SongDriver { encoder, began, .. } = driver;
     let finished = encoder.finish();
     rendered?;
@@ -585,7 +615,10 @@ fn write_chapters(path: &Path, title: &str, marks: &[CueMark], clock: FrameClock
         s.chars()
             .flat_map(|c| {
                 let escaped = matches!(c, '=' | ';' | '#' | '\\' | '\n');
-                escaped.then_some('\\').into_iter().chain(std::iter::once(c))
+                escaped
+                    .then_some('\\')
+                    .into_iter()
+                    .chain(std::iter::once(c))
             })
             .collect::<String>()
     };
@@ -652,7 +685,9 @@ mod tests {
         let player = CuePlayer::new(list.cues);
         let beat_at = steady(120.0);
         let clock = FrameClock::new(0.0, 30.0, 30);
-        let marks = cue_marks(&clock, &player, |i| bars_of(clock.set_beat(&beat_at, i), 0.0));
+        let marks = cue_marks(&clock, &player, |i| {
+            bars_of(clock.set_beat(&beat_at, i), 0.0)
+        });
         let frames: Vec<(u32, &str)> = marks.iter().map(|m| (m.frame, m.name.as_str())).collect();
         // Bar 11 beat 2.5 = 41.5 beats = 20.75 s = frame 622.5 -> first seen on 623.
         assert_eq!(frames, vec![(0, "Dark"), (480, "Hit"), (623, "Off-beat")]);
@@ -683,7 +718,9 @@ mod tests {
         )
         .unwrap();
         let player = CuePlayer::new(list.cues);
-        let marks = cue_marks(&clock, &player, |i| bars_of(clock.set_beat(beat_at, i), 80.0));
+        let marks = cue_marks(&clock, &player, |i| {
+            bars_of(clock.set_beat(beat_at, i), 80.0)
+        });
         assert_eq!(marks.get(1).map(|m| m.frame), Some(504));
         assert!((clock.secs(504) - 16.8).abs() < 1e-9);
     }

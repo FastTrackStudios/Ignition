@@ -53,8 +53,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  {count:>3}  {tag}");
     }
 
-    let screens: Value =
-        serde_json::from_str(&fs::read_to_string("features/lighting/data/venues/norco/screens.json")?)?;
+    let screens: Value = serde_json::from_str(&fs::read_to_string(
+        "features/lighting/data/venues/norco/screens.json",
+    )?)?;
     println!(
         "Norco venue extract: {} mappable screens (TVs)",
         screens.as_array().map_or(0, Vec::len)

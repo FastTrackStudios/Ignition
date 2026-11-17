@@ -18,11 +18,8 @@ use ignition_viz::Venue;
     reason = "test fixture load failure is the test failure; see the doc comment"
 )]
 fn venue() -> Venue {
-    Venue::load(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../data/venues/norco"
-    ))
-    .expect("the Norco venue extract")
+    Venue::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../data/venues/norco"))
+        .expect("the Norco venue extract")
 }
 
 /// The whole point of Decision 4: a chase that runs left to right
