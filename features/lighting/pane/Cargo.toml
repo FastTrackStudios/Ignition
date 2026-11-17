@@ -1,0 +1,38 @@
+[package]
+name = "ignition-pane"
+description = "Lighting, an Architect extension: the show in 3D as a pane, drawn by the `ignition` program as a process view, following Studio's playback. Linked into Studio Architect, or run as a process extension (a development copy that shadows the linked one live)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+# The extension as a process (extension.toml's [entry]): what a
+# development copy runs.
+name = "ignition-pane"
+path = "src/main.rs"
+required-features = ["extension"]
+
+# No Bevy here: the renderer is the `ignition` program (apps/ignition).
+[features]
+# The extension by default: EXT_CLONE builds its process copy with a plain
+# `cargo build --bin ignition-pane`.
+default = ["extension"]
+# The extension: its actions, settings and view, over the app's actions.
+extension = ["dep:architect-extensions", "dep:dioxus", "dep:serde_json", "dep:futures-timer"]
+# Its view as the GPU pane — linked into an app built with
+# `architect-desktop/process-views` (Studio Architect). Without it (the
+# process), the view opens the room in a window.
+pane = ["extension", "dep:architect-process-view"]
+
+[dependencies]
+architect-extensions = { workspace = true, optional = true, features = ["guest"] }
+architect-process-view = { workspace = true, optional = true, features = ["host"] }
+dioxus = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+futures-timer = { workspace = true, optional = true }
+
+[lints]
+workspace = true

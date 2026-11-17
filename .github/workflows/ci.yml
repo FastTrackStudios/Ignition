@@ -71,4 +71,4 @@ jobs:
       # of tracey: it also fails on an `r[impl ...]` naming a requirement
       # no spec defines, which is how a renamed rule gets caught.
       - name: Spec coverage
-        run: nix develop .#ci -c python3 tools/spec_coverage.py
+        run: nix develop .#ci -c python3 features/lighting/tools/spec_coverage.py

@@ -24,25 +24,25 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 
 /// The show the desk opens on, as shipped.
-const SHOW_JSON: &str = include_str!("../../../data/songs/bye-bye-bye.json");
+const SHOW_JSON: &str = include_str!("../../../features/lighting/data/songs/bye-bye-bye.json");
 /// Room 138's patch and groups — the venue the studio defaults to.
-const PATCH_JSON: &str = include_str!("../../../data/venues/room138-cbu/patch.json");
-const GROUPS_JSON: &str = include_str!("../../../data/venues/room138-cbu/groups.json");
+const PATCH_JSON: &str = include_str!("../../../features/lighting/data/venues/room138-cbu/patch.json");
+const GROUPS_JSON: &str = include_str!("../../../features/lighting/data/venues/room138-cbu/groups.json");
 /// Fixture names and tags, for a patch list that reads as a rig rather
 /// than as a column of numbers.
-const FIXTURES_JSON: &str = include_str!("../../../data/venues/room138-cbu/fixtures.json");
+const FIXTURES_JSON: &str = include_str!("../../../features/lighting/data/venues/room138-cbu/fixtures.json");
 /// The venue's role bindings and its named colours — what turns a show
 /// written against `Role("Key")` into fixtures, and `"Turquoise"` into a
 /// triple.
-const PROFILE_JSON: &str = include_str!("../../../data/venues/room138-cbu/profile.json");
-const PALETTES_JSON: &str = include_str!("../../../data/venues/room138-cbu/palettes.json");
+const PROFILE_JSON: &str = include_str!("../../../features/lighting/data/venues/room138-cbu/profile.json");
+const PALETTES_JSON: &str = include_str!("../../../features/lighting/data/venues/room138-cbu/palettes.json");
 /// The shipped profile, for the colours a venue inherits rather than
 /// declares. Room 138's own palette carries its focus points and an
 /// empty colour list — the twenty-eight named colours the show says
 /// (`"Gold"`, `"Turquoise"`) are the profile's, and the desk's venue
 /// loader folds them in on load. Without this the phone resolved every
 /// colour to nothing and showed levels with no hue.
-const PROFILE_COLORS_JSON: &str = include_str!("../../../data/profiles/ignition.ig-profile");
+const PROFILE_COLORS_JSON: &str = include_str!("../../../features/lighting/data/profiles/ignition.ig-profile");
 
 /// A fixture the venue file has no hang for — origin, upright.
 const UNPLACED: Placement = Placement {

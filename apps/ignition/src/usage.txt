@@ -1,0 +1,26 @@
+ignition — a night of lighting, following a Live set's playhead
+
+  ignition --set <set.als> [--show <night.ig-show>] [--clock internal|studio[:<socket>]|midi:<port>]
+           [--output] [--camera <preset>] [--start <n>]
+  ignition --set <set.als> --check          load the night, print the running order
+  ignition --set <set.als> --at <beat>      the song, bar, section and cue at a beat of the set
+  ignition --midi-ports                     list MIDI inputs
+  ignition --set <set.als> --process-view   draw into an Architect pane (ARCHITECT_VIEW_FD; shared memory)
+
+  --clock internal   the operator's clock (default): type a song number, Enter to GO/stop,
+                     `b <bar>` to cue a bar, `l` to list
+  --clock studio     follow the Studio app's playback: the running Studio engine's transport
+                     (the newest $XDG_RUNTIME_DIR/fts/engine-<pid>.sock, or studio:<socket>) —
+                     the song playing and where in it
+  --clock midi:<p>   follow Ableton's MIDI beat clock + Song Position Pointer on the input
+                     whose name contains <p> (Live: the port's Sync output on)
+  --output           send DMX to the rig (sACN + Art-Net, as the venue's venue.ig-venue says)
+
+  IGNITION_LIVE_SET  the set, when --set is not given
+  IGNITION_QUALITY   potato | low | medium | high | ultra
+
+  ignition --set <set.als> render --song <title|locator|n> --out <file.mp4> [--audio <file>]
+           [--camera Wide] [--fps 30] [--size 1920x1080] [--from <s>] [--to <s>] [--crf 20]
+                     a song's show rendered offline to H.264, frame i = i/fps s after its locator,
+                     muxed with its audio from sample 0; <out>.cues.tsv and chapters per cue
+                     (IGNITION_FFMPEG: the ffmpeg binary)

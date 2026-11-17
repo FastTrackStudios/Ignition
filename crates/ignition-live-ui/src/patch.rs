@@ -892,7 +892,7 @@ fn AddressCell(chan: u32, universe: Universe, address: u16, patched: bool) -> El
             oninput: move |e| draft.set(e.value()),
             onblur: move |_| commit(&draft(), chan, universe, &back, draft, editing),
             onkeydown: move |e| {
-                if e.key() == Key::Enter {
+                if e.key() == Key::Named(NamedKey::Enter) {
                     commit(&draft(), chan, universe, &on_enter, draft, editing);
                 }
             },
@@ -938,7 +938,7 @@ fn TextCell(value: String, placeholder: String, on_commit: EventHandler<String>)
                 on_commit.call(draft().trim().to_owned());
             },
             onkeydown: move |e| {
-                if e.key() == Key::Enter {
+                if e.key() == Key::Named(NamedKey::Enter) {
                     editing.set(false);
                     on_commit.call(draft().trim().to_owned());
                 }

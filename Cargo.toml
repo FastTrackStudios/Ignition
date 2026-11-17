@@ -1,218 +1,243 @@
-# Ignition — one root workspace, matching FastTrackStudio's convention.
+# Ignition — one root workspace.
+#
+# The lighting engine as an Architect extension, in its own repo. The
+# crates are the port that lived in Studio as `features/lighting` and
+# `apps/ignition` (studio 8bfa77ea, branch save/recital-worktree-2026-11-17)
+# and keep that layout. Everything Ignition still takes from Studio is in
+# the "Studio crates" block of `[workspace.dependencies]` below; that block
+# is the list of what stands between Ignition and not needing Studio.
 [workspace]
 resolver = "3"
 
 members = [
-    "crates/bevy-pbr-vendored",
-    "crates/gdtf-vendored",
-    "crates/dioxus-native-vendored",
-    "crates/anyrender-vello-vendored",
-    "crates/blitz-dom-vendored",
-    "crates/ignition-proto",
-    "crates/ignition-core",
-    # features/ — one capability per directory, backends beside the
-    # facade. See docs/domain/DOMAIN.md; the shape is architect's.
-    "features/dmx/ignition-dmx-proto",
-    "features/dmx/ignition-dmx-sacn",
-    "features/dmx/ignition-dmx-artnet",
-    "features/dmx/ignition-dmx",
-    "features/colour/ignition-colour",
-    "features/rig/ignition-rig",
-    "features/show/ignition-show",
-    "features/effects/ignition-effects",
-    "features/playback/ignition-playback",
-    "features/daw/ignition-daw-proto",
-    "features/daw/ignition-daw-reaper",
-    "features/daw/ignition-daw-transport",
-    "features/daw/ignition-daw",
-    "crates/ignition-profile",
-    "crates/ignition-fixture",
-    "crates/ignition-viz",
-    "crates/ignition-live-ui",
+    # ── lighting (docs/lighting; features/lighting/README.md) ──
+    "features/lighting/proto",
+    "features/lighting/daw-proto",
+    "features/lighting/colour",
+    "features/lighting/rig",
+    "features/lighting/show",
+    "features/lighting/effects",
+    "features/lighting/playback",
+    "features/lighting/core",
+    "features/lighting/dmx",
+    "features/lighting/daw",
+    "features/lighting/fixture",
+    "features/lighting/profile",
+    "features/lighting/viz",
+    # The Architect extension (id `ignition`, extension.toml).
+    "features/lighting/pane",
+    # The renderer the extension starts (`--process-view`), and tooling.
+    "apps/ignition",
     "apps/ignition-engine",
-    "apps/ignition-studio",
-    "apps/ignition-live-web",
-    "apps/ignition-web",
     "apps/ignition-mobile",
+    "apps/ignition-live-web",
+    "crates/ignition-live-ui",
 ]
 
+# Not ported; kept as they were at 196e159. See legacy/README.md. The two
+# forks in vendor/ are patched in below and are not members, as in Studio.
+exclude = ["legacy", "vendor"]
+
 [workspace.package]
+# The extension's version (features/lighting/pane/extension.toml).
+version = "0.2.0"
 license = "GPL-3.0-or-later"
 edition = "2024"
-# Bevy 0.19's own MSRV — see `flake.nix`, which is where a toolchain
-# that new comes from.
+# Bevy 0.19's own MSRV. The compiler is rust-toolchain.toml's.
 rust-version = "1.95"
+authors = ["FastTrack Studio"]
 repository = "https://github.com/FastTrackStudios/Ignition"
 
 [workspace.dependencies]
-ignition-proto = { path = "crates/ignition-proto" }
-ignition-core = { path = "crates/ignition-core" }
-ignition-profile = { path = "crates/ignition-profile" }
-ignition-fixture = { path = "crates/ignition-fixture" }
-ignition-daw = { path = "features/daw/ignition-daw" }
-ignition-viz = { path = "crates/ignition-viz" }
-ignition-dmx-proto = { path = "features/dmx/ignition-dmx-proto" }
-ignition-dmx-sacn = { path = "features/dmx/ignition-dmx-sacn" }
-ignition-dmx-artnet = { path = "features/dmx/ignition-dmx-artnet" }
-ignition-dmx = { path = "features/dmx/ignition-dmx" }
-ignition-colour = { path = "features/colour/ignition-colour" }
-ignition-rig = { path = "features/rig/ignition-rig" }
-ignition-show = { path = "features/show/ignition-show" }
-ignition-effects = { path = "features/effects/ignition-effects" }
-ignition-playback = { path = "features/playback/ignition-playback" }
-ignition-daw-proto = { path = "features/daw/ignition-daw-proto" }
-ignition-daw-transport = { path = "features/daw/ignition-daw-transport" }
-ignition-daw-reaper = { path = "features/daw/ignition-daw-reaper" }
+# ── lighting: features/lighting ──
+ignition-proto = { path = "features/lighting/proto" }
+ignition-daw-proto = { path = "features/lighting/daw-proto" }
+ignition-colour = { path = "features/lighting/colour" }
+ignition-rig = { path = "features/lighting/rig" }
+ignition-show = { path = "features/lighting/show" }
+ignition-effects = { path = "features/lighting/effects" }
+ignition-playback = { path = "features/lighting/playback" }
+ignition-core = { path = "features/lighting/core" }
+ignition-dmx = { path = "features/lighting/dmx" }
+ignition-daw = { path = "features/lighting/daw" }
+ignition-fixture = { path = "features/lighting/fixture" }
+ignition-profile = { path = "features/lighting/profile" }
+ignition-viz = { path = "features/lighting/viz" }
+ignition-pane = { path = "features/lighting/pane" }
+
+# ── Studio crates ─────────────────────────────────────────────────────
+# Everything Ignition takes from github.com/FastTrackStudios/studio, at
+# the commit the port was saved at (8bfa77ea, branch
+# save/recital-worktree-2026-11-17). One revision for all of them: they
+# are one workspace there and resolve against each other. Each entry says
+# what Ignition uses it for; removing an entry is a step towards Ignition
+# not needing Studio.
+#
+# `utils::paths::checkout_path` only: where the checkout's data is
+# (features/lighting, its GDTF library, the visualizer's assets). Used by
+# ignition-fixture, ignition-viz and apps/ignition.
+utils = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+# Reading an Ableton Live set (`read_live_set`, `setlist`, `tempo`): the
+# songs of a night and their tempo maps. ignition-daw's `ableton` feature
+# (on by default), and apps/ignition's tests.
+ableton = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+# `dsp::hits::detect` (feature `hits`): drum hits found in a stem, for
+# ignition-daw's `hits` (cues on the hits).
+dsp = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+# The REAPER project parser (`parse_rpp_file`, `ReaperProject`, MIDI
+# items): ignition-daw's `reaper` and `chart`.
+dawfile-reaper = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+# The DAW's wire types (`ProjectContext`, the `Transport` service, play
+# state): ignition-daw's `play` feature.
+daw-proto = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+# `daw_control::Daw`, the client of Studio's running engine: apps/ignition
+# follows Studio's playback with it (`--clock studio`, studio_clock.rs).
+daw-control = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+# The DAW facade. ignition-daw's `play` feature plays a REAPER project on
+# its standalone engine (`daw::standalone`, feature `standalone-rpp`), so
+# a song can be heard while its cues are written.
+daw = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+# `audio::io::AudioIoPrefs`: the output device for that playback
+# (ignition-daw's `play` feature).
+audio = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+# Decoding a stem to mono samples (`load_mono_f32`), for hit detection in
+# ignition-daw. Defaults off, as at Studio's root; ignition-daw asks for
+# `decode-compressed`.
+fts-sample = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1", default-features = false }
+
+# Not Studio's, but Studio's pin: the LRC lyrics parser
+# (`keyflow_proto::lrc`), for ignition-daw's `lyrics`.
+keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", tag = "v0.5.4" }
+
+# ── Architect — the same source Studio's root pins at that commit ─────
+# One tag shared by every entry so the framework moves together.
+# The extension API: ignition-pane links into an Architect build
+# (`linked`) and runs as a process extension (`guest`).
+architect-extensions = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6" }
+# View input and theme tokens (`ViewInput`, `Button`, `ThemeTokens`) the
+# process view receives.
+architect-workspace = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6" }
+# Process views (architect#641): a pane drawn by another program over a
+# socket pair, its frames in shared memory or a dma-buf — the visualizer's
+# pane (apps/ignition --process-view). Pinned to main's revision until a
+# tag carries it; move to the tag with the rest of architect.
+architect-process-view = { git = "https://github.com/FastTrackStudios/architect", rev = "50a37e5e8409cb8b9b46727f83ea882cc85471c2" }
+
+architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", features = ["otel"] }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
-
-# The DAW domain, from the `daw` repo.
-#
-# A **tagged git dep**, not a sibling path, and this is not negotiable:
-# `../daw/...` only resolves when the two repos happen to sit side by
-# side on one disk, so CI — which checks out ONE repo — could not run
-# `cargo metadata` on this workspace at all, let alone build it.
-#
-# The pull the other way is real and worth naming, because it is what
-# put a path here in the first place: the end goal is lighting as a
-# sub-project *inside* a DAW project, the two trees are edited together,
-# and a version pin describes that badly. The answer is to move the tag
-# often, not to point at a directory. `features/daw/ignition-daw` takes
-# `daw-proto`, `daw-audio-io`, `keyflow-proto` and `fts-sample` from the
-# same tag, and `hit-detect-dsp` from `signal` at its own — all six move
-# together or not at all.
-#
-# `file` is the only feature on: it brings `daw::file` (the RPP/`.daw`
-# parser) and nothing else. Transport and playback arrive with
-# `standalone-*` when there is a clock to drive.
-daw = { git = "https://github.com/FastTrackStudios/daw", tag = "v0.0.3", default-features = false, features = [
-    "file",
-] }
-
-# task — the vault / knowledge-graph layer.
-#
-# The site's guide is a **vault**: `docs/guides/*.md` are wiki notes that
-# cross-link as `[[slug]]`, and `apps/ignition-web` renders that web as a
-# real knowledge graph rather than as a chapter list. This is the same
-# crate that draws Task's own wiki — deliberately pure and FS-free, so the
-# builder that runs natively runs unchanged in the browser.
-#
-# Pinned by rev, not a branch, so a push to task's main cannot change this
-# build under us. It takes `architect-ui` at tag v0.5.0 — the SAME tag
-# `architect-telemetry` above is pinned to, which is what keeps one copy
-# of the architect crates in the tree rather than two that refuse to
-# unify. Move the two together or not at all. Its dioxus pin is this
-# workspace's rev, for the same reason: two dioxus copies means two
-# `Element` types and a component that cannot be called.
-view-knowledge-graph = { git = "https://github.com/FastTrackStudios/task", rev = "607916d171467df08216529f9dfcf88308c3f636" }
-
-# features/ssg — a vault (a directory of markdown notes) published as a
-# static site. The guide is one: `ssg-build` renders it to HTML in
-# build.rs, `ssg` is the page model, and `dx build --ssg` pre-renders the
-# routes the vault names.
-#
-# `ssg` without default features: its `ui` components are not used here
-# (this site renders the note itself, so a click inside it can navigate
-# in place), and leaving them off keeps ssg-ui's Dioxus out of the graph.
-ssg = { git = "https://github.com/FastTrackStudios/task", branch = "main" }
-ssg-build = { git = "https://github.com/FastTrackStudios/task", branch = "main" }
-
-serde = { version = "1", features = ["derive"] }
-
-# Shared with Bevy 0.19.1 (which pins ^29.0.3) and with the Dioxus 0.8
-# line's Blitz renderer. That they agree is what makes embedding the
-# visualizer in a Dioxus window possible at all — one `Device` type, one
-# texture, no cross-device copy. See crates/ignition-viz/src/embedded.rs.
-wgpu = "29"
-serde_json = "1"
-
-# The visualizer's engine. `default-features = false` drops the 2D and
-# audio stacks; `3d` pulls the render / PBR / post-process / picking set,
-# and the camera-controller features are the operator's fly-around.
-#
-# Bevy re-exports `glam` as `bevy::math`, which is the tree's only glam —
-# crates here take their vector types from Bevy rather than depending on
-# glam directly, so there is never a second incompatible copy of `Vec3`
-# to convert across.
-#
-# 0.19 needs Rust 1.95; `flake.nix` is what supplies it (the ambient
-# FastTrackStudio toolchain is 1.94). Build through `nix develop`.
-bevy = { version = "0.19.1", default-features = false, features = [
-    "3d",
-    # The CDN serves this venue's screen content as WebP regardless of the
-    # extension it is requested under, and neither WebP nor JPEG is in the
-    # default image set.
-    "webp",
-    "jpeg",
-    # The operator overlay: cue name, cooked status, show clock. Not in
-    # the `3d` set, which is renderer-only.
-    "bevy_ui",
-    "bevy_ui_render",
-    "bevy_text",
-    "default_font",
-    # Clustered decals: the gobo projector (`crates/ignition-viz/src/gobo.rs`).
-    "pbr_clustered_decals",
-    "bevy_camera_controller",
-    "free_camera",
-    "pan_camera",
-    "multi_threaded",
-    "x11",
-    "wayland",
-] }
-# Dioxus for the iOS app. Pinned to the SAME git rev the sibling FTS repos
-# use -- the `dx` CLI in the devshell is 0.8.0-alpha.0 and refuses to build
-# against a mismatched dioxus, so this rev moves in lockstep with them.
-dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false, features = ["lib"] }
-# Direct, and only apps/ignition-web takes it: it is how the site turns
-# on `hydrate` for static generation without `dioxus/fullstack`, whose
-# reqwest would be a second major in the wasm binary. Same rev as the
-# meta-crate above — they are one repo and must not drift.
-dioxus-web = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false }
 ignition-mobile = { path = "apps/ignition-mobile" }
 
-# Telemetry -- Ignition's ONLY dependency on architect, taken deliberately
-# narrow: just the telemetry feature crate, not the framework. Traces, logs
-# and metrics go to the FTS collector so the lighting app is observable
-# alongside the other products. `otel` is inert unless the build bakes
-# TASK_OTLP_ENDPOINT, so a dev build ships no telemetry at all.
-#
-# Pinned to a tag like every cross-repo dep here. If Ignition later takes a
-# wider architect dependency, that one must use this SAME tag -- a split tag
-# means two copies of the architect crates whose traits refuse to unify.
-architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.5.0", features = ["otel"] }
+# ── UI framework ──────────────────────────────────────────────────────
+# dioxus 0.8 line — git rev pinned: DioxusLabs/dioxus main 430cfb56
+# (0.8.0-alpha.3), architect v0.12.6's. Only ignition-pane takes it (the
+# extension's view when it runs as a process).
+dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "430cfb563f1b70602ef387f0c80f171d84527b41", default-features = false, features = ["lib"] }
+
+# ── RPC to Studio's engine (apps/ignition, studio_clock.rs) ───────────
+vox = { version = "0.10.0-rc.5", default-features = false, features = ["runtime"] }
+vox-stream = { version = "0.10.0-rc.5" }
+
+# ── External, at Studio's versions ────────────────────────────────────
+tokio = { version = "1.48", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+anyhow = "1.0"
+tracing = { version = "0.1", features = ["std"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+futures-timer = "3"
+# Hardware MIDI I/O — 0.11 to share one alsa-sys across the stack.
+midir = "0.11"
+cpal = "0.18"
 
-# Vendored fork — see crates/gdtf-vendored/PATCH-NOTES.md. Redirects every
-# `gdtf = "0.3.0"` dependency (currently just ignition-viz) to the local
-# patched copy without touching any import paths.
+# Bevy and wgpu are not here: ignition-viz and apps/ignition name them
+# themselves (`bevy = "0.19.1"`, `wgpu = "29"`), because Bevy 0.19 is on
+# wgpu 29 while Architect's Blitz is on wgpu 30. That is why the pane is
+# a process view (another program, its own GPU device).
+
 [patch.crates-io]
-gdtf = { path = "crates/gdtf-vendored" }
-# Vendored, one-hunk patch: one wgpu instance and device pool for every
-# Blitz window in the process — see crates/anyrender-vello-vendored/NOTICE.md.
-anyrender_vello = { path = "crates/anyrender-vello-vendored" }
-# Vendored `bevy_pbr`, one hunk: a light may scatter in volumetric fog
-# without casting a shadow. Upstream ties the two together, which for a
-# lighting visualiser means only the eight fixtures that can afford a
-# shadow map appear in the haze — see crates/bevy-pbr-vendored/NOTICE.md
-# and docs/domain/beams-in-the-air.md.
-bevy_pbr = { path = "crates/bevy-pbr-vendored" }
-# Vendored: text-selection endpoints are cleared when the node they point at
-# is removed, and the document-order walk no longer panics on a detached
-# node (studio crash in traversal.rs `compare_document_order`) — see
-# crates/blitz-dom-vendored/NOTICE.md.
-blitz-dom = { path = "crates/blitz-dom-vendored" }
+# The visualizer's two one-hunk forks (features/lighting/viz):
+# gdtf 0.3.0 (vendor/gdtf/FTS-PATCH.md) and bevy_pbr 0.19.1, so a light
+# can scatter in volumetric fog without casting a shadow
+# (vendor/bevy_pbr/FTS-PATCH.md, docs/lighting/domain/beams-in-the-air.md).
+gdtf = { path = "vendor/gdtf" }
+bevy_pbr = { path = "vendor/bevy_pbr" }
 
-# Vendored `packages/native` from the pinned dioxus revision, with
-# runtime multi-window (`NewWindow` / `open_window`) added — see
-# crates/dioxus-native-vendored/NOTICE.md. r[impl studio.windows.implementation]
+# ── Studio's patches ──────────────────────────────────────────────────
+# A git dependency's [patch] does not reach its consumers, so the entries
+# of Studio's root [patch] tables (at 8bfa77ea) that this graph uses are
+# repeated here, with Studio's pins. They go with the Studio and
+# Architect crates above. Left out because nothing in this graph takes
+# them: tone3000, baseview, editor-lsp, editor-crdt.
+# Vendored one-line fix: parse_schema_bytes rejected every real schema
+# exchange with "schema decode consumed N of M bytes".
+vox-phon = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.3.0" }
+# pipewire-rs one commit past v0.10.0: PipeWire 1.6's cast-form constants
+# need the clang macro fallback's build dir.
+libspa-sys = { git = "https://gitlab.freedesktop.org/pipewire/pipewire-rs.git", rev = "9b54509e848e53ffa971ace15d7adf4908c09358" }
+pipewire-sys = { git = "https://gitlab.freedesktop.org/pipewire/pipewire-rs.git", rev = "9b54509e848e53ffa971ace15d7adf4908c09358" }
+# Blitz from the FTS fork, at the revision architect v0.12.6 pins. One
+# revision across all blitz crates, and anyrender from the same one.
+blitz-dom = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
+blitz-traits = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
+blitz-paint = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
+blitz-shell = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
+blitz-net = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
+blitz-html = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
+anyrender = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
+anyrender_vello = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
+anyrender_vello_hybrid = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
+winit-uikit = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
+wgpu-hal = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
+raw-window-metal = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
+# Quote scalars containing `<`/`>`.
+styx-format = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.1.0" }
+# phon rc.7 + derive support for parse/display opaque scalars; facet-core
+# rc.7 keeping sub-second precision; phon-jit forced to the stable stencils.
+phon = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.4.1" }
+facet-core = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.4.1" }
+phon-jit = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.2.3" }
+
+# The FTS forks of dioxus-native, dioxus-native-dom and dioxus-vdom
+# (vendor v0.7.1 = architect's v0.7.0 + DioxusLabs/dioxus#5668's fix).
 [patch."https://github.com/DioxusLabs/dioxus"]
-dioxus-native = { path = "crates/dioxus-native-vendored" }
+dioxus-native = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
+dioxus-native-dom = { git = "https://www.github.com/FastTrackStudios/vendor", rev = "25bf4bcdfd0b6acb268ca91a93bc8ff8da683a96" }
+dioxus-vdom = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
 
-# The lint gate. Every crate that is ours takes this table with
-# `[lints] workspace = true`; the five `crates/*-vendored` forks never
-# do, because policing upstream's style would mean editing them for
-# reasons their NOTICE cannot justify (`Justfile`'s `vendored :=` list
-# is the same exclusion, from the other side).
-#
+# keyflow (a git dependency) still takes daw, dawfile-reaper and fts-sample
+# from daw's old repo; this gives it Studio's copies, so there is one of
+# each. Paths in Studio; here the same crates from Studio's repo.
+[patch."https://github.com/FastTrackStudios/daw"]
+daw = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+dawfile-reaper = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+fts-sample = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+
+# One editor source: architect v0.12.6's workspace-hack names the editor
+# on the `www.` host while its other crates name the plain one.
+[patch."https://github.com/FastTrackStudios/editor"]
+editor-ext = { git = "https://www.github.com/FastTrackStudios/editor", rev = "6817dc2c709fbb5a7858229592bbbc85eed49528" }
+editor-state = { git = "https://www.github.com/FastTrackStudios/editor", rev = "6817dc2c709fbb5a7858229592bbbc85eed49528" }
+editor-syntax = { git = "https://www.github.com/FastTrackStudios/editor", rev = "6817dc2c709fbb5a7858229592bbbc85eed49528" }
+editor-view = { git = "https://www.github.com/FastTrackStudios/editor", rev = "6817dc2c709fbb5a7858229592bbbc85eed49528" }
+editor-vim = { git = "https://www.github.com/FastTrackStudios/editor", rev = "6817dc2c709fbb5a7858229592bbbc85eed49528" }
+
+# ── Lints ─────────────────────────────────────────────────────────────
+# The rust and rustdoc tables are Studio's, which the port was written
+# under; the clippy table was already the same in both repos.
+[workspace.lints.rust]
+dead_code = "warn"
+unused = "warn"
+unused_unsafe = "warn"
+# architect's attribute macros emit `#[cfg_attr(feature = "fake", ...)]`
+# into the calling crate; declare the name so those crates don't warn.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("fake"))'] }
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "allow"
+private_intra_doc_links = "allow"
+redundant_explicit_links = "allow"
+
 # `deny`, not `warn`: this tree went from 0 to 55 warnings without
 # anyone noticing, and a gate nothing has to pass is not a gate. The
 # panic set below is the load-bearing half — a desk that unwraps its
@@ -246,8 +271,14 @@ split-debuginfo = "unpacked"
 
 # Dependencies at full optimisation even in dev. Bevy, wgpu and the
 # volumetric pass are all in the dependency graph, and unoptimised they
-# run the studio at a handful of frames a second — `just studio-dev`
-# was unusable for judging anything about motion. The workspace crates
-# keep the dev profile above, so a rebuild of our own code stays fast.
+# run the visualizer at a handful of frames a second. The workspace
+# crates keep the dev profile above, so a rebuild of our own code stays
+# fast.
 [profile.dev.package."*"]
 opt-level = 3
+
+# The profile the Justfile's recipes build with (Studio's name for it, so
+# a renderer built here and an Architect built there share kache's
+# entries). It is the dev profile, nothing else.
+[profile.desktop-dev]
+inherits = "dev"

@@ -1,0 +1,22 @@
+[package]
+name = "ignition-profile"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+# Where the frame went.
+#
+# No optional features and no external profiler: this is a
+# `tracing_subscriber::Layer`, so it sees every span any crate in the
+# process already emits — ours, Bevy's (with `ignition-viz/trace`),
+# Blitz's — without any of them depending on this crate. Spans are the
+# wire protocol.
+
+[dependencies]
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["registry"] }
+
+[lints]
+workspace = true

@@ -17,7 +17,7 @@ fn main() {
             )
             .with(tracing_subscriber::fmt::layer())
             .with(architect_telemetry::tracing_layer());
-        match architect_telemetry::otel::init("ignition") {
+        match architect_telemetry::otel::init("ignition", "info") {
             Some((otel_guard, layers)) => {
                 registry.with(layers).init();
                 std::mem::forget(otel_guard);
