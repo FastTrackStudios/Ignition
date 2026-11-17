@@ -59,7 +59,7 @@ jobs:
       - name: Build the stylesheet
         run: nix develop .#ci -c just tailwind
 
-      # fmt + clippy with `-D warnings`. Kept as `just lint` so a
+      # fmt, and clippy reporting without failing for now (#13). Kept as `just lint` so a
       # contributor runs locally exactly what CI runs.
       - name: Lint
         run: nix develop .#ci -c just lint
