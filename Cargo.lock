@@ -9422,7 +9422,7 @@ dependencies = [
  "ableton",
  "anyhow",
  "architect-process-view",
- "architect-workspace 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "architect-workspace 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
  "bevy",
  "daw-control",
  "ignition-core",
