@@ -1448,7 +1448,7 @@ mod tests {
         )
         .unwrap();
         assert_ne!(a.name, b.name);
-        assert!(b.required(RoleKind::Group) == vec!["Pulpit"]);
+        assert_eq!(b.required(RoleKind::Group), vec!["Pulpit"]);
     }
 
     /// r[verify profile.protected-roles]

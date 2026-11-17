@@ -4027,10 +4027,6 @@ mod tests {
             .collect()
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Reverse runs the wave the other way along the selection.
     ///
     /// Not a plain list reversal, and the reason is worth stating:
@@ -4649,10 +4645,6 @@ mod scope_and_marker_tests {
         Recipe::new(Selection::Chans(vec![1, 2, 3]), apply)
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify color.scope.selective]
     /// r[verify color.scope.fallback-order]
     #[test]
@@ -4694,10 +4686,6 @@ mod scope_and_marker_tests {
         assert_eq!(red_of(&emits, 2), 0.5);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify color.scope.global]
     #[test]
     fn a_global_preset_lands_by_fixture_type() {
@@ -4731,10 +4719,6 @@ mod scope_and_marker_tests {
         (get(Attribute::Pan), get(Attribute::Tilt))
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify focus.marker-moving]
     #[test]
     fn a_recipe_aimed_at_vocal_follows_the_moved_marker() {
@@ -4839,10 +4823,6 @@ mod grid_tests {
         )
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// On a one-truss rig the grid is `[n, 1, 1]` and every quantity
     /// the expansion reads off it — units, inverts, the phase clock,
     /// the Build threshold — is exactly what the one-dimensional
@@ -4989,10 +4969,6 @@ mod grid_tests {
         assert_eq!(row(1), vec![8, 7, 6, 5]);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Two trusses at different heights: `OnAxis(Z, Invert(Pan))` runs
     /// the upper truss the other way and leaves the lower alone.
     // r[verify tricks.grid.from-space]
@@ -5098,10 +5074,6 @@ mod grid_tests {
         }
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Equal X and Y spreads on a matrix make a diagonal: every unit on
     /// an anti-diagonal (`x + y` constant) is at the same step, and the
     /// step climbs along either axis.
@@ -5637,10 +5609,6 @@ mod pattern_and_control_tests {
         assert_eq!(cook.status(), Status::Empty, "not Failed");
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A shared Tricks chain by name lands before the inline one, and an
     /// unknown name is reported.
     /// r[verify tricks.shared-or-inline]
@@ -5770,10 +5738,6 @@ mod pattern_and_control_tests {
         assert_eq!(metres(&half), v(1.0, 0.0, 0.0));
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// One speed scale multiplies every master and touches nothing that
     /// is not slaved to one.
     /// r[verify effects.masters.scale]
@@ -6102,10 +6066,6 @@ mod intent_and_sound_tests {
             .find(|e| e.value.chan == chan && e.value.attr == Attribute::Dimmer)
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.sound-as-value]
     #[test]
     fn a_sound_apply_sits_between_low_and_high_on_the_bands_level() {
@@ -6423,10 +6383,6 @@ mod busking_refs {
         assert_eq!(back, RecipeRef::look("bed"));
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify profile.effect-parameters]
     /// r[verify playback.effect-parameters]
     #[test]

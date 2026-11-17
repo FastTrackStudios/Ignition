@@ -146,10 +146,10 @@ pub fn run_driven(
         );
         let target = headless.target_image();
         let world = headless.subapps.main.world_mut();
-        if update < frames {
-            if let Some(mut playback) = world.get_resource_mut::<Playback>() {
-                driver.position(&mut playback, update);
-            }
+        if update < frames
+            && let Some(mut playback) = world.get_resource_mut::<Playback>()
+        {
+            driver.position(&mut playback, update);
         }
         let advance = if update == 0 || update >= frames {
             Duration::ZERO

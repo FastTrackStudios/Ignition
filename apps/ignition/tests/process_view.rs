@@ -49,7 +49,9 @@ fn a_lit_frame(host: &Socket, map: &[u8], width: u32, height: u32, id: u64) -> b
             assert_eq!(buffers, id);
             let pixels = &map[slot as usize * slot_len..(slot as usize + 1) * slot_len];
             let lit = pixels
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .any(|p| p[0] > 8 || p[1] > 8 || p[2] > 8);
             host.send(&ToGuest::Release { buffers, slot }.encode().unwrap(), &[])
                 .unwrap();

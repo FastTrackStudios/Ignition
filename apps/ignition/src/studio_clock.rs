@@ -262,11 +262,6 @@ impl StudioClock {
                     }
                 });
                 if ended_by_signal {
-                    #[expect(
-                        clippy::exit,
-                        reason = "Ctrl-C ends the runner; its handler replaced the default, \
-                                  and the engine has been let go cleanly first"
-                    )]
                     std::process::exit(130);
                 }
             })
@@ -291,12 +286,13 @@ impl StudioClock {
 /// Ctrl-C or SIGTERM. The follow loop is then told to stop, and lets the
 /// engine go itself (see [`follow`]) before the program ends.
 async fn terminated() {
-    let mut term = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-        Ok(term) => term,
-        Err(_) => {
-            let _ = tokio::signal::ctrl_c().await;
-            return;
-        }
+    let mut term = if let Ok(term) =
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+    {
+        term
+    } else {
+        let _ = tokio::signal::ctrl_c().await;
+        return;
     };
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {}
@@ -342,7 +338,7 @@ async fn follow_forever(
                 return;
             }
             Ok(false) => {
-                tracing::warn!(socket = %path.display(), "studio clock: the engine's stream ended")
+                tracing::warn!(socket = %path.display(), "studio clock: the engine's stream ended");
             }
             Err(error) => {
                 tracing::warn!(socket = %path.display(), %error, "studio clock: lost the engine");

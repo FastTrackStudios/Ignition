@@ -2022,10 +2022,6 @@ mod tests {
         assert!(p.look_recipes().is_empty());
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.hand-wins]
     /// r[verify playback.busking-over-show]
     #[test]
@@ -2101,10 +2097,6 @@ mod tests {
         assert!((out[&(1, red)] - 0.5).abs() < 0.001);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     #[test]
     fn a_fader_at_zero_contributes_nothing() {
         let groups = groups();
@@ -2176,10 +2168,6 @@ mod tests {
         }
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// One rate source retiming every fader at once is the thing this
     /// design has that grandMA3 does not — a speed master drives *every*
     /// recipe here, because a phaser is a recipe.
@@ -2217,10 +2205,6 @@ mod tests {
         );
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A fader at double speed reaches its second step when the master's
     /// own tempo is still on its first.
     /// r[verify playback.speed-scale]
@@ -2495,10 +2479,6 @@ mod tests {
         );
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// The programmer's rate and size reach a fader's effect through the
     /// show it expands with — the same two numbers a host hands the cue
     /// player — so a master-slaved chase on a fader doubles with rate.
@@ -2620,10 +2600,6 @@ mod tests {
         }
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A held look beats the faders while the key is down and is gone
     /// the moment it is released — there is no envelope to wait out.
     #[test]
@@ -2657,10 +2633,6 @@ mod tests {
         out.get(&(chan, Attribute::Dimmer)).copied().unwrap_or(0.0)
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.keys] - flash
     #[test]
     fn flash_holds_the_fader_at_full_and_gives_it_back() {
@@ -2675,10 +2647,6 @@ mod tests {
         assert_eq!(p.faders[0].level, 0.25, "the fader itself never moved");
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.keys] - toggle
     #[test]
     fn toggle_latches_until_pressed_again() {
@@ -2697,10 +2665,6 @@ mod tests {
         assert_eq!(dimmer_of(&p, &groups, 1), 0.0);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.keys] - swap
     #[test]
     fn swap_takes_this_fader_to_full_and_suppresses_the_others_while_held() {
@@ -2719,10 +2683,6 @@ mod tests {
         );
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.keys] - kill
     #[test]
     fn kill_moves_the_faders_and_stays_moved() {
@@ -2766,10 +2726,6 @@ mod tests {
 
     // ── pages ────────────────────────────────────────────────────────
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.pages]
     #[test]
     fn a_fader_at_rest_takes_the_new_pages_assignment() {
@@ -2801,10 +2757,6 @@ mod tests {
         assert_eq!(p.faders[0].recipe, p.pages[0][0].recipe);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A fader that is up keeps playing its old assignment across a
     /// page change until it is brought back to match.
     /// r[verify playback.pages] - a fader that is up stays live
@@ -2845,10 +2797,6 @@ mod tests {
 
     // ── program time ─────────────────────────────────────────────────
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A palette punch over two beats at 120 BPM is a one-second fade:
     /// halfway at half a second, arrived at one.
     /// r[verify playback.program-time]
@@ -2944,10 +2892,6 @@ mod tests {
 
     // ── highlight / lowlight ─────────────────────────────────────────
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Highlight beats the hand and the masters: it is for finding a
     /// fixture, and a fixture a master has pulled to nothing cannot be
     /// found.
@@ -3184,10 +3128,6 @@ mod tests {
         assert!((tap.bpm().unwrap() - 60.0).abs() < 0.5);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// The keys reach the tap master, and its tempo reaches the `Tap`
     /// speed master a recipe names.
     /// r[verify playback.speed-keys]
@@ -3215,10 +3155,6 @@ mod tests {
 
     // ── temp / transport keys ────────────────────────────────────────
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.temp-and-pause] - temp
     #[test]
     fn temp_arrives_over_the_program_time_and_leaves_over_the_same() {
@@ -3351,10 +3287,6 @@ mod tests {
         r
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify profile.attribute-filter]
     /// r[verify playback.attribute-filter]
     #[test]
@@ -3456,10 +3388,6 @@ mod tests {
         out
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify profile.protected-roles]
     /// r[verify playback.protected-untouched]
     /// r[verify playback.grand-master]
@@ -3531,10 +3459,6 @@ mod tests {
         assert_eq!(out[&(1, Attribute::Dimmer)], 0.25);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.blackout]
     /// r[verify profile.macros.release]
     #[test]
@@ -3620,10 +3544,6 @@ mod tests {
         assert!((out[&(1, Attribute::Dimmer)] - 0.5).abs() < 0.01);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// r[verify playback.macro-effects]
     #[test]
     fn macro_effects_play_beside_the_faders_and_release_without_them() {
@@ -3654,10 +3574,6 @@ mod tests {
         );
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Size and rate are the operator's, not the recipe's.
     ///
     /// They are live controls: a hand on a wheel while the show runs,

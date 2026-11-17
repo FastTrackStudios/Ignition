@@ -1876,10 +1876,6 @@ mod tests {
     /// the same whichever attribute they land on.
     // r[verify tricks.spread.attributes]
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "comparing a linear spread's exact result against a hand-picked literal, not an accumulated float"
-    )]
     fn fan_is_attribute_agnostic() {
         let units = apply_all(&(1..=5).collect::<Vec<_>>(), &[]);
         let phase = Fan::new(0.0, 360.0).over(&units);
@@ -1957,10 +1953,6 @@ mod tests {
     /// r[verify tricks.fan.shapes]
     /// r[verify effects.align]
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "comparing an align shape's exact result against hand-picked literals, not accumulated floats"
-    )]
     fn fan_shapes_place_the_ends_where_align_says() {
         let five = apply_all(&(1..=5).collect::<Vec<_>>(), &[]);
         let at = |shape| Fan::shaped(0.0, 1.0, shape, Curve::Linear).over(&five);
@@ -1980,10 +1972,6 @@ mod tests {
     /// r[verify tricks.fan.shapes]
     /// r[verify effects.align]
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "comparing a curve's exact endpoint against a hand-picked literal, not an accumulated float"
-    )]
     fn fan_curves_bend_the_middle_and_keep_the_ends() {
         for curve in [Curve::Linear, Curve::Sine, Curve::Slow, Curve::Fast] {
             let fan = Fan::shaped(0.0, 1.0, FanShape::Linear, curve);
@@ -2024,10 +2012,6 @@ mod tests {
     /// r[verify tricks.keyframes]
     /// r[verify focus.magic]
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "comparing exact hand-set keyframe values, not accumulated floats"
-    )]
     fn keyframes_interpolate_along_the_selection() {
         let five = apply_all(&(1..=5).collect::<Vec<_>>(), &[]);
         let k = Fan::new(0.0, 0.0).keyframes(vec![0.0, 10.0, 0.0]);

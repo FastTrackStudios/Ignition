@@ -780,10 +780,6 @@ mod tests {
 
     // r[verify effects.speed]
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     #[test]
     fn speed_units_all_land_on_beats_per_second() {
         let masters = SpeedMasters::from([("Song".to_string(), 120.0)]);
@@ -793,10 +789,6 @@ mod tests {
         assert_eq!(Speed::Master("Song".into()).beats_per_second(&masters), 2.0);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A master that is not wired up runs at a fallback rather than
     /// freezing.
     ///
@@ -948,10 +940,6 @@ mod tests {
 
     // r[verify effects.phase.in-selection-order]
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     #[test]
     fn phase_spread_offsets_each_fixture_around_the_cycle() {
         let timing = Timing {
@@ -964,10 +952,6 @@ mod tests {
         assert_eq!(timing.cycles_at(0.0, 3, 4, &masters), 0.75);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Per-axis spread: equal X and Y spreads put every unit on an
     /// anti-diagonal of a 4×4 grid at the same phase, and a Y-only
     /// spread on a one-truss grid is nothing at all.
@@ -1035,10 +1019,6 @@ mod tests {
         assert_eq!(Timing::default().build_fraction_3d(&lone), 0.25);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// The two new fields are absent from disk when unset, so every
     /// existing show file round-trips byte for byte.
     #[test]
@@ -1052,10 +1032,6 @@ mod tests {
 
     // r[verify effects.measure]
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     #[test]
     fn measure_stretches_a_loop_across_more_beats() {
         let masters = SpeedMasters::new();
@@ -1095,10 +1071,6 @@ mod once_tests {
         assert!(t.cycles_at(4.0, 0, 1, &masters) > 3.0);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A one-shot stops at the end of its first cycle and stays there,
     /// which is what lets a bump release itself instead of needing a
     /// second cue to put it out.
@@ -1192,10 +1164,6 @@ mod ease_tests {
         (0..=200).map(|i| float_of(i) / 200.0)
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Whatever the bends, the move starts where it started and ends
     /// where it was going.
     // r[verify effects.step.accel-decel]
@@ -1300,10 +1268,6 @@ mod ease_tests {
 mod speed_scale_tests {
     use super::*;
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Double-time off the same master, and a tempo change carries it.
     // r[verify playback.speed-scale]
     #[test]
@@ -1325,10 +1289,6 @@ mod speed_scale_tests {
         assert_eq!(Speed::Hz(1.0).master(), None);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// An unset master and a zero scale both fall back rather than
     /// freezing — the stuck-one-shot argument, twice.
     // r[verify playback.speed-scale]
@@ -1421,10 +1381,6 @@ mod transform_tests {
         same_path(&rotate_deg(c.clone(), 90.0), &shift_phase(c, -4));
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Flipping an axis negates it and touches nothing else.
     // r[verify effects.step-transforms]
     #[test]
@@ -1445,10 +1401,6 @@ mod transform_tests {
         same_path(&ellipse, &circle(30.0, 10.0));
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Swapping axes twice is the identity, and once exchanges them.
     // r[verify effects.step-transforms]
     #[test]
@@ -1491,10 +1443,6 @@ mod transform_tests {
         Step::new(vec![RecipeApply::Delta(vec![(Attribute::Pan, v)])])
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// An effect that does not say how fast it goes holds still.
     ///
     /// A one-step recipe never asks. A multi-step one that forgot to
@@ -1587,10 +1535,6 @@ mod transform_tests {
         assert!(backward.spread_fraction(0, count) > backward.spread_fraction(3, count));
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A ramp's snap-back is a very narrow step, not a discontinuity.
     ///
     /// It reads as instant and keeps the whole model to one mechanism:

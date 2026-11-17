@@ -151,11 +151,6 @@ fn check_patch_round_trips<I>(
 /// twice. `assert_eq!` on the resolved floats is therefore the right
 /// check, not `float_cmp`'s usual worry about accumulated rounding: `==`
 /// is what "the same wire value" means here.
-#[expect(
-    clippy::float_cmp,
-    reason = "the mirror and the primary decode the identical bytes off the wire; exact \
-              equality is the property under test, not a coincidence to relax with a tolerance"
-)]
 fn assert_mirror_matches_primary(
     dmx: &DmxUniverses,
     primary: &ignition_viz::venue::Patch,
