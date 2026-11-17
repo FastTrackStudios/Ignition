@@ -33,6 +33,10 @@ path = "features/lighting/pane"
 [capabilities]
 actions = ["EXT_VIEW_OPEN"]
 effect = "mutating"
+# The room's renderer, run from the package by the app's process-view pane
+# (the `room` view below, architect#838): asked for, granted like any
+# capability.
+programs = ["bin/ignition"]
 
 [[actions]]
 id = "IGNITION_SHOW_OPEN"
@@ -138,3 +142,17 @@ default = false
 id = "show"
 title = "Lighting"
 icon = "lightbulb"
+
+# The room itself, drawn by the renderer in the package on its own GPU
+# device (architect#838: `kind = "process"`). Any copy shows it, built in,
+# installed or in development: nothing is compiled into the app. Its
+# arguments are fixed here; the show, camera and clock picks reach only
+# the `show` view's linked pane for now (a process view's arguments do not
+# read settings yet).
+[[views]]
+id = "room"
+title = "Lighting: room"
+icon = "box"
+kind = "process"
+program = "bin/ignition"
+args = ["--process-view", "--clock", "internal"]
