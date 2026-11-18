@@ -119,17 +119,17 @@ keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", tag = "v0
 # One tag shared by every entry so the framework moves together.
 # The extension API: ignition-pane links into an Architect build
 # (`linked`) and runs as a process extension (`guest`).
-architect-extensions = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6" }
+architect-extensions = { git = "https://github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
 # View input and theme tokens (`ViewInput`, `Button`, `ThemeTokens`) the
 # process view receives.
-architect-workspace = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6" }
+architect-workspace = { git = "https://github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
 # Process views (architect#641): a pane drawn by another program over a
 # socket pair, its frames in shared memory or a dma-buf — the visualizer's
 # pane (apps/ignition --process-view). Pinned to main's revision until a
 # tag carries it; move to the tag with the rest of architect.
-architect-process-view = { git = "https://github.com/FastTrackStudios/architect", rev = "50a37e5e8409cb8b9b46727f83ea882cc85471c2" }
+architect-process-view = { git = "https://github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
 
-architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", features = ["otel"] }
+architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8", features = ["otel"] }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
 ignition-mobile = { path = "apps/ignition-mobile" }
 
@@ -183,15 +183,17 @@ vox-phon = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.3.0" 
 # need the clang macro fallback's build dir.
 libspa-sys = { git = "https://gitlab.freedesktop.org/pipewire/pipewire-rs.git", rev = "9b54509e848e53ffa971ace15d7adf4908c09358" }
 pipewire-sys = { git = "https://gitlab.freedesktop.org/pipewire/pipewire-rs.git", rev = "9b54509e848e53ffa971ace15d7adf4908c09358" }
-# Blitz from the FTS fork, at the revision architect v0.12.6 pins. One
-# revision across all blitz crates, and anyrender from the same one.
-blitz-dom = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
-blitz-traits = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
-blitz-paint = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
-blitz-shell = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
-blitz-net = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
-blitz-html = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
-anyrender = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "db5b7ef11e4df19ef317c23f77152ec5e1887101" }
+# Blitz from the FTS fork, at the revision Architect's pin names
+# (`fix/accessibility-unstyled`, 8009ce15: a resize and the accessibility
+# tree pass elements never styled). One revision across all blitz
+# crates, and anyrender from the same one.
+blitz-dom = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "8009ce1572aee1c7f4fbed25856189e5e79da4fb" }
+blitz-traits = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "8009ce1572aee1c7f4fbed25856189e5e79da4fb" }
+blitz-paint = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "8009ce1572aee1c7f4fbed25856189e5e79da4fb" }
+blitz-shell = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "8009ce1572aee1c7f4fbed25856189e5e79da4fb" }
+blitz-net = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "8009ce1572aee1c7f4fbed25856189e5e79da4fb" }
+blitz-html = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "8009ce1572aee1c7f4fbed25856189e5e79da4fb" }
+anyrender = { git = "https://www.github.com/FastTrackStudios/blitz", rev = "8009ce1572aee1c7f4fbed25856189e5e79da4fb" }
 anyrender_vello = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
 anyrender_vello_hybrid = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
 winit-uikit = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
@@ -219,6 +221,24 @@ dioxus-vdom = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.
 daw = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
 dawfile-reaper = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
 fts-sample = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+
+# One Architect: `session` (the session primitive) takes architect and
+# crdt at tag v0.12.6, which would put a second Architect in the graph,
+# and with it blitz db5b7ef (whose window resize panics). Every Architect
+# crate is at the root's pin (above); the same revision on the `www.`
+# host, which cargo counts as another source, is how a git dependency's
+# own pin is overridden. Move it with that pin.
+[patch."https://github.com/FastTrackStudios/architect"]
+architect = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-action-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-devices = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-orgs = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-permissions = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-rpc-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-workspace-hack = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+crdt = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+crdt-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
 
 # One editor source: architect v0.12.6's workspace-hack names the editor
 # on the `www.` host while its other crates name the plain one.

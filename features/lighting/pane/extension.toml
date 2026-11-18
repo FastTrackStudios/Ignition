@@ -4,12 +4,12 @@
 #   - linked into Studio Architect (on by default in Studio's
 #     distribution): its view is the show in 3D, a process view
 #     (architect#641) drawn by the `ignition` program on the GPU;
-#   - as a process (src/main.rs, [entry]): a development copy loaded into
-#     the running app (`studio-architect extensions dev <folder>`) shadows
-#     the linked one live, `undev` gives it back. Architect cannot host a
-#     GPU process view in a process extension's pane yet (a remote view is
-#     a Dioxus document), so that copy's pane says so and opens the room
-#     in its own window.
+#   - as a process (src/main.rs, [entry]): a development or installed
+#     copy loaded into the running app (`architect dev --extension
+#     <folder>`) shadows the linked one live, `undev` gives it back. Its
+#     room is the `room` view below (`kind = "process"`, architect#838),
+#     drawn by the renderer in the package on Linux and macOS; its `show`
+#     view is the room's controls.
 # The renderer is swappable live too: `ignition.renderer` (or
 # IGNITION_BIN) names the program the pane runs.
 id = "ignition"
@@ -37,11 +37,15 @@ path = "features/lighting/pane"
 [capabilities]
 actions = ["EXT_VIEW_OPEN"]
 effect = "mutating"
+# The room's renderer, run from the package by the app's process-view pane
+# (the `room` view below, architect#838): asked for, granted like any
+# capability.
+programs = ["bin/ignition"]
 
 [[actions]]
 id = "IGNITION_SHOW_OPEN"
 name = "Lighting: show the room"
-description = "Opens (or focuses) the Lighting pane: the show in 3D, following the clock it is set to."
+description = "Opens (or focuses) the room: the show in 3D, following the clock it is set to (a process copy's `room` view, a linked copy's pane)."
 group = "Lighting"
 effect = "mutating"
 
@@ -142,6 +146,27 @@ default = false
 id = "show"
 title = "Lighting"
 icon = "lightbulb"
+
+# The room itself, drawn by the renderer in the package on its own GPU
+# device (architect#838: `kind = "process"`). Any copy shows it, built in,
+# installed or in development: nothing is compiled into the app. Its
+# arguments name the extension's settings (`{{setting:<key>}}`): a pick
+# changed on the settings page starts the renderer again with it; one
+# left empty is left out (`--show=` is as if not given).
+[[views]]
+id = "room"
+title = "Lighting: room"
+icon = "box"
+kind = "process"
+program = "bin/ignition"
+args = [
+  "--process-view",
+  "--clock={{setting:ignition.clock}}",
+  "--set={{setting:ignition.live_set}}",
+  "--show={{setting:ignition.show}}",
+  "--camera={{setting:ignition.camera}}",
+  "--output={{setting:ignition.output}}",
+]
 
 [[actions]]
 id = "IGNITION_SESSION_STORE"

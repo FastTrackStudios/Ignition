@@ -21,7 +21,7 @@
 //! locate, every song `AbleSet` jumps to, lands on the right cue.
 
 mod night;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 mod process_view;
 mod render;
 mod studio_clock;
@@ -98,7 +98,23 @@ fn parse_args() -> Result<Args> {
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
-        let mut next = |what: &str| it.next().with_context(|| format!("{arg} needs {what}"));
+        // `--flag=value` as well as `--flag value`: what an Architect
+        // process view's arguments give (`--set={{setting:ignition.live_set}}`,
+        // architect#838). An empty value is a setting left empty: as if the
+        // flag were not given, so its default holds.
+        let (arg, mut inline) = match arg.split_once('=') {
+            Some((flag, value)) if flag.starts_with("--") => {
+                (flag.to_owned(), Some(value.to_owned()))
+            }
+            _ => (arg, None),
+        };
+        if inline.as_deref() == Some("") {
+            continue;
+        }
+        let mut next = |what: &str| match inline.take() {
+            Some(value) => Ok(value),
+            None => it.next().with_context(|| format!("{arg} needs {what}")),
+        };
         match arg.as_str() {
             "--show" => args.show = PathBuf::from(next("a .ig-show")?),
             "--set" => args.set = Some(PathBuf::from(next("a .als")?)),
@@ -115,7 +131,7 @@ fn parse_args() -> Result<Args> {
                     ),
                 };
             }
-            "--output" => args.output = true,
+            "--output" => args.output = inline.as_deref().is_none_or(|v| v == "true"),
             "--check" => args.check = true,
             "--at" => args.at = Some(next("a beat of the set")?.parse()?),
             "--start" => args.start = Some(next("a song number")?.parse()?),
@@ -198,15 +214,15 @@ fn main() -> Result<()> {
         current: Mutex::new(None),
     });
     if args.process_view {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
         let served = process_view::serve(process_view::Show {
             config,
             playback,
             gdtf,
             follow: follower,
         });
-        #[cfg(not(target_os = "linux"))]
-        let served: Result<()> = Err(anyhow::anyhow!("process views are Linux only"));
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        let served: Result<()> = Err(anyhow::anyhow!("process views run on Linux and macOS"));
         if let Some(stopper) = stopper {
             stopper.stop();
         }

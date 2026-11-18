@@ -1,0 +1,3 @@
+# The programs a development copy runs (`just lighting pane-dev`, or a
+# build copied in): built, not checked in.
+/bin/
