@@ -146,13 +146,20 @@ icon = "lightbulb"
 # The room itself, drawn by the renderer in the package on its own GPU
 # device (architect#838: `kind = "process"`). Any copy shows it, built in,
 # installed or in development: nothing is compiled into the app. Its
-# arguments are fixed here; the show, camera and clock picks reach only
-# the `show` view's linked pane for now (a process view's arguments do not
-# read settings yet).
+# arguments name the extension's settings (`{{setting:<key>}}`): a pick
+# changed on the settings page starts the renderer again with it; one
+# left empty is left out (`--show=` is as if not given).
 [[views]]
 id = "room"
 title = "Lighting: room"
 icon = "box"
 kind = "process"
 program = "bin/ignition"
-args = ["--process-view", "--clock", "internal"]
+args = [
+  "--process-view",
+  "--clock={{setting:ignition.clock}}",
+  "--set={{setting:ignition.live_set}}",
+  "--show={{setting:ignition.show}}",
+  "--camera={{setting:ignition.camera}}",
+  "--output={{setting:ignition.output}}",
+]

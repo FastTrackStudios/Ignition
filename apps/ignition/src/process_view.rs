@@ -207,14 +207,16 @@ impl Guest {
                 .map(|a| a.state_at(f32::MAX))
         };
         match input {
-            ViewInput::PointerDown { x, y, button } => {
-                let pan = !matches!(button, Button::Primary);
+            ViewInput::PointerDown { x, y, button, mods } => {
+                // Right-drag, or Shift-drag (the keys held came with
+                // architect#831), moves; a plain drag turns.
+                let pan = !matches!(button, Button::Primary) || mods.contains(&"Shift");
                 self.drag = Some((*x, *y, pan));
                 if let Some(state) = current() {
                     self.orbit = Orbit::from_state(&state);
                 }
             }
-            ViewInput::PointerMove { x, y } => {
+            ViewInput::PointerMove { x, y, .. } => {
                 if let Some((px, py, pan)) = self.drag {
                     let (dx, dy) = (x - px, y - py);
                     if pan {
