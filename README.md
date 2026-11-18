@@ -4,7 +4,7 @@ A lighting-and-visual control system: DMX/Art-Net/sACN console, GPU-accelerated
 real-time 3D visualizer, and video/projection mapping, in one Rust/Dioxus
 application — desktop and web, from the same codebase.
 
-**Status**: pre-alpha. Domain modelling and research phase; see `docs/`.
+**Status**: pre-alpha; see `docs/lighting/`.
 
 ## Why
 
@@ -13,7 +13,7 @@ platform that already owns the *musical* structure of a show: song sections,
 tempo maps, chord detection, setlists, a guide/count-in engine. No lighting
 console on the market has access to that. Ignition's long-term bet is cues
 that write themselves from the song — see
-[`docs/research/lighting-console-landscape.md`](docs/research/lighting-console-landscape.md)
+[`docs/lighting/research/lighting-console-landscape.md`](docs/lighting/research/lighting-console-landscape.md)
 for the full argument.
 
 Short-term, Ignition needs to be a *good console* first: patch, groups,
@@ -37,41 +37,45 @@ Resolume box.
 
 ## Repo layout
 
-Follows [architect](https://github.com/FastTrackStudios/architect)'s
-monorepo shape: `features/` for capability slices, `crates/` for the
-libraries that compose them, `apps/` for things you run.
+Ignition is an [Architect](https://github.com/FastTrackStudios/architect)
+extension (id `ignition`, `features/lighting/pane/extension.toml`): linked
+into an Architect build, its view is a GPU pane drawn by the `ignition`
+program as a process view; it also builds as a process extension. The
+layout is the one the port had inside Studio (`features/lighting`,
+`apps/ignition`), so the two agree on every path.
+[`features/lighting/README.md`](features/lighting/README.md) is the guide
+to running it.
 
 ```
-features/                one capability per directory, backends beside the facade
-  colour/                what a value is — presets, splits, emitter resolve
-  rig/                   what it lands on — selections, groups, tricks, focus
-  show/                  recipes, cues, tracking, the programmer, the show file
-  effects/               the shipped effect library
-  playback/              the priority stack and the desk macros
-  dmx/                   ignition-dmx-proto · -sacn · -artnet · the facade
-  daw/                   ignition-daw-proto · -reaper · -transport · the facade
-crates/
-  ignition-proto         the types every crate shares
-  ignition-core          composes the five domain slices into one namespace
-  ignition-profile       the frame profiler — a tracing Layer that splits a
-                          frame into Blitz's half and Bevy's. Nothing to do
-                          with a lighting "profile", which is a domain term
-                          this crate name unfortunately collides with
-  ignition-viz           Bevy/wgpu visualizer, GDTF meshes, haze, gobos, canvases
-  ignition-live-ui       Dioxus panes shared by the desk and the iPad Live page
-  *-vendored             one-hunk forks of upstream crates, each with a NOTICE.md
+features/lighting/       the lighting crates, one directory each
+  proto                  ignition-proto — the types every crate shares
+  daw-proto              ignition-daw-proto — musical time: bars, tempo map, sections
+  colour · rig · show · effects · playback
+                         the domain: colour presets, selections and tricks,
+                         cues and recipes, the effect library, the priority stack
+  core                   ignition-core — the domain as one namespace
+  dmx                    ignition-dmx — sockets, rate limiting, sACN and Art-Net
+  daw                    ignition-daw — a song's shape from a REAPER project or
+                         an Ableton Live set, the cue generator, the playhead
+  fixture · profile · viz
+                         the fixture library, the frame profiler, the Bevy visualizer
+  pane                   ignition-pane — the Architect extension
+  data/                  venues, profiles, songs, shows, the GDTF library
+  tools/                 GDTF generation, the recital's author and renderer,
+                         the spec-coverage reporter
 apps/
-  ignition-studio        the operator desk — multi-window Dioxus, viz embedded
-  ignition-live-web      the Live panes, built for a browser/iPad
-  ignition-engine        the headless engine binary
+  ignition               the renderer the extension starts (`--process-view`),
+                         and tooling: `render`, `--check`, `--at`, a debug runner
+  ignition-engine        a smoke check that a venue's files parse
   ignition-mobile        the Ignition iPhone app
-  ignition-web           the public site — landing page and guide (`just site`)
-docs/guides/             the public guide — a wiki vault, compiled into the site
-docs/spec/               normative `r[topic.id]` requirements, traced by tracey
-docs/domain/             the domain model, grounded in a real venue
-docs/research/           landscape studies — grandMA3, Resolume, OSS comparison
-data/                    venues, profiles, songs, the GDTF library
-tools/                   GDTF generation and the spec-coverage reporter
+  ignition-live-web      the Live panes, built for a browser/iPad
+crates/
+  ignition-live-ui       Dioxus panes shared by the Live page (and the old desk)
+vendor/                  one-hunk forks of `bevy_pbr` and `gdtf` (FTS-PATCH.md each)
+legacy/                  not ported, not built: the operator desk and the public
+                         site (legacy/README.md)
+docs/lighting/           guides/ · spec/ (normative `r[topic.id]` requirements) ·
+                         domain/ · research/ · ops/
 nix/                     flake-parts modules: toolchain, dx, dev + CI shells
 ```
 
@@ -81,15 +85,17 @@ that cannot be split further without redesigning what a cue means, and
 `effects` then `playback` sit above it. `ignition-core` re-exports the
 lot so an application sees one flat namespace.
 
-Package names carry an `ignition-` prefix rather than architect's bare
-`<feature>-<role>`: `daw`, `daw-proto`, `daw-audio-io`, `daw-control`,
-`daw-module` and `daw-standalone` are already in this workspace's
-dependency graph from the `FastTrackStudios/daw` repo, so the bare
-namespace is taken and the tree is consistent about it.
+**What Ignition takes from Studio.** The "Studio crates" block of the root
+`Cargo.toml` lists every crate taken from `FastTrackStudios/studio`, pinned
+to one revision, with what each is for. The domain crates (`proto`,
+`daw-proto`, `colour`, `rig`, `show`, `effects`, `playback`, `core`, `dmx`,
+`profile`) take none.
+
+The compiler is `rust-toolchain.toml`'s (1.99.1); `.cargo/config.toml` is
+the fleet's. `just` lists the recipes.
 
 Not yet built: `ignition-video` (media decode for mapped surfaces) and
-the Graphics/Video studio modes — the only five requirements in
-`docs/spec/` with no implementation. Lights first, deliberately
+the Graphics/Video studio modes. Lights first, deliberately
 (`r[studio.modes.lights-first]`).
 
 ## Licence

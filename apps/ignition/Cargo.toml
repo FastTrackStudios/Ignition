@@ -1,0 +1,49 @@
+[package]
+name = "ignition"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Ignition: run a night of lighting cues against a Live set's playhead, in the 3D room and out to the rig over sACN / Art-Net"
+
+# The show runner. It reads a night (`.ig-show`) whose songs are songs of
+# one Ableton Live set, follows the set's playhead — Ableton's MIDI beat
+# clock, or its own clock started by the operator — and plays each song's
+# cue list in the visualizer, which sends the rig its DMX.
+[features]
+default = ["midi-clock"]
+midi-clock = ["ignition-daw/midi-clock"]
+
+[dependencies]
+ignition-core.workspace = true
+ignition-daw = { workspace = true, features = ["ableton"] }
+ignition-viz.workspace = true
+utils.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+# Following a Studio engine's transport over its socket.
+daw-control.workspace = true
+vox.workspace = true
+vox-stream.workspace = true
+tokio = { workspace = true, features = ["rt", "net", "time", "signal", "sync", "macros"] }
+# The visualizer as an Architect process view (`--process-view`): the
+# wire and its socket (no wgpu of its own), the frames in a memfd, and
+# Bevy's wgpu to read them back.
+architect-process-view.workspace = true
+# The wire's own `ViewInput` and `ThemeTokens`: the same revision as
+# `architect-process-view` (the root manifest's pin), not the workspace's
+# tag, whose types are another crate's. Moves with that pin.
+architect-workspace = { git = "https://github.com/FastTrackStudios/architect", rev = "50a37e5e8409cb8b9b46727f83ea882cc85471c2" }
+rustix = { version = "1", features = ["fs", "mm"] }
+wgpu = "29"
+bevy = { version = "0.19.1", default-features = false }
+
+[dev-dependencies]
+ableton.workspace = true
+
+[lints]
+workspace = true

@@ -15,8 +15,8 @@ on:
     branches: [main]
     paths:
       - "apps/ignition-mobile/**"
-      - "crates/ignition-core/**"
-      - "crates/ignition-proto/**"
+      - "features/lighting/core/**"
+      - "features/lighting/proto/**"
       - "flake.nix"
       - "flake.lock"
       - ".github/workflows/ignition-ios.yml"

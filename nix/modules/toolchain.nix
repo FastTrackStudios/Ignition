@@ -49,11 +49,13 @@
       '';
     in
     {
-      # Rust toolchain. NOT the FTS-wide 1.94 pin: Bevy 0.19 raises its
-      # MSRV to 1.95, and the workspace `rust-version` says so too. This
-      # divergence is the whole reason Ignition carries a flake of its
-      # own — see the root Cargo.toml comment on the bevy dependency.
-      fts.rustToolchain = pkgs.rust-bin.stable."1.95.0".default.override {
+      # Rust toolchain: the fleet's 1.99.1, as rust-toolchain.toml says.
+      # Bevy 0.19 needs at least 1.95 (the workspace `rust-version`), and
+      # Architect's manifests need cargo 1.99: cargo 1.95-1.98 refuse
+      # `architect-commands` (`default-features = false` over a workspace
+      # dependency), so nothing resolves. Keep this and
+      # rust-toolchain.toml in lockstep.
+      fts.rustToolchain = pkgs.rust-bin.stable."1.99.1".default.override {
         extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
         # wasm for the web remotes; on darwin also the iOS targets for the
         # iPhone app (device + simulator), and x86_64-apple-darwin so

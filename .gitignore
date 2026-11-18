@@ -18,20 +18,21 @@ __pycache__/
 # profile, two minutes of GPU to remake (`just effect-previews`) — and a
 # missing one degrades to a row with no thumbnail rather than an error.
 # The looks' four stills stay committed; they are a quarter of a megabyte.
-data/effects/previews/
-data/macros/previews/
+features/lighting/data/effects/previews/
+features/lighting/data/macros/previews/
 
 # The site's real Tailwind input, generated from `tailwind.css` with the
 # git-dep paths cargo actually resolved substituted in — machine-local by
 # construction. `just tailwind` remakes it. The compiled SHEET is
 # committed, like the studio's and the Live view's: `asset!()` demands it
 # at compile time, so a fresh clone and the nix build both have to work
-# without running the recipe first. See apps/ignition-web/tailwind.css.
-apps/ignition-web/.tailwind.gen.css
-apps/ignition-web/generated/
+# without running the recipe first. See legacy/apps/ignition-web/tailwind.css.
+legacy/apps/ignition-web/.tailwind.gen.css
+legacy/apps/ignition-web/generated/
 
 # The demo's data, copied into the site's assets by `just site-demo-assets`
-# from `data/venues/norco`, `data/profiles` and `crates/ignition-viz/assets`.
+# from `features/lighting/data/venues/norco`, `…/data/profiles` and
+# `features/lighting/viz/assets`.
 # `asset!` needs them inside the crate; git does not need them twice.
-apps/ignition-web/assets/venue/
-apps/ignition-web/assets/viz/
+legacy/apps/ignition-web/assets/venue/
+legacy/apps/ignition-web/assets/viz/

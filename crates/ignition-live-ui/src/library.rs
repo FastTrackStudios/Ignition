@@ -65,7 +65,7 @@ static CURRENT: std::sync::RwLock<Option<&'static ignition_core::Profile>> =
 
 /// The profile file the panels read: `IGNITION_PROFILE` or
 /// `data/profiles/ignition.ig-profile`, from the working directory or,
-/// failing that, the workspace root (tests run from the crate).
+/// failing that, `features/lighting` in the checkout (tests run from the crate).
 #[must_use]
 pub fn profile_path() -> std::path::PathBuf {
     let path = std::env::var("IGNITION_PROFILE")
@@ -73,7 +73,7 @@ pub fn profile_path() -> std::path::PathBuf {
     let candidates = [
         std::path::PathBuf::from(&path),
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
+            .join("../../features/lighting")
             .join(&path),
     ];
     candidates
@@ -874,12 +874,6 @@ mod tests {
         assert!(house.family.contains("protected"));
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "a macro's beat sum is a total of literal step values \
-                  the profile bakes in, exact in f32; not an accumulated \
-                  computation that could drift"
-    )]
     #[test]
     fn a_macro_shows_its_beats_and_release() {
         let profile = profile();

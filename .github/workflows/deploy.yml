@@ -21,18 +21,29 @@
 # (see nix/modules/packages/web-bundle.nix). The guide, the site crate,
 # the bundle's nix and the chart can, and that is the list.
 
+#
+# DISABLED (2026-11-17): the port (#12) moved the public site to
+# `legacy/apps/ignition-web`, out of the workspace, because it needs an
+# older Architect than the one pinned here. `.#ignition-web-image` no
+# longer has a site to build (see nix/modules/packages/web-bundle.nix),
+# so the push trigger is off and the job does not run. The site at
+# ignition.fasttrackstudio.app keeps serving the last image pushed.
+# To re-enable: bring the site back into the workspace on the current
+# Architect, point web-bundle.nix at it and turn its `siteBuilds` on,
+# then restore the `push:` trigger below and drop the job's `if: false`.
+
 name: deploy
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/ignition-web/**"
-      - "docs/guides/**"
-      - "nix/modules/packages/**"
-      - "deploy/chart/ignition/**"
-      - ".github/workflows/deploy.yml"
-      - "Cargo.lock"
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "apps/ignition-web/**"
+  #     - "docs/guides/**"
+  #     - "nix/modules/packages/**"
+  #     - "deploy/chart/ignition/**"
+  #     - ".github/workflows/deploy.yml"
+  #     - "Cargo.lock"
   workflow_dispatch:
 
 # Never cancel a deploy mid-push; queue instead. A cancelled deploy can
@@ -49,6 +60,8 @@ env:
 
 jobs:
   deploy:
+    # Disabled: see the note at the top. A manual dispatch skips it too.
+    if: false
     runs-on: [self-hosted, ignition]
     environment:
       name: ignition-production

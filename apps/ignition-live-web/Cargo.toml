@@ -17,7 +17,7 @@ ignition-live-ui.workspace = true
 ignition-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", features = ["web"] }
+dioxus = { workspace = true, features = ["web", "launch"] }
 wasm-bindgen = "0.2"
 futures-channel = "0.3"
 futures-util = { version = "0.3", default-features = false }

@@ -1,0 +1,78 @@
+[package]
+name = "ignition-daw"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Lighting: a song's shape read from its project, cues generated from it, and the playhead followed live"
+
+# One crate for the lighting domain's `daw` feature: the REAPER reader,
+# the Ableton reader, the cue generator and the transport. The playhead
+# sources each sit behind a cargo feature because each pulls a device
+# stack the others do not need.
+[features]
+default = ["ableton"]
+# A song of an Ableton Live set (its locators, section cards and tempo
+# automation), through studio's `ableton` adapter.
+ableton = ["dep:ableton"]
+# Playing a project — studio's standalone engine, its RPP loader and an
+# output stream.
+play = ["daw/standalone-rpp", "dep:daw-proto", "dep:audio", "dep:tokio", "dep:tracing-subscriber"]
+# MIDI Time Code from a MIDI input port. The decoder is always built.
+mtc = ["dep:midir"]
+# MIDI beat clock + Song Position Pointer from a MIDI input port — what
+# Ableton Live sends when its sync output is on.
+midi-clock = ["dep:midir"]
+# LTC from an audio input. The decoder is always built.
+ltc = ["dep:cpal"]
+
+[[bin]]
+name = "songmap"
+
+[[bin]]
+name = "gencues"
+
+[[bin]]
+name = "authorshow"
+
+[[bin]]
+name = "lyrics"
+
+[[bin]]
+name = "hits"
+
+[[bin]]
+name = "chart"
+
+[[bin]]
+name = "playsong"
+required-features = ["play"]
+
+[dependencies]
+ignition-proto.workspace = true
+ignition-colour.workspace = true
+ignition-rig.workspace = true
+ignition-show.workspace = true
+ignition-effects.workspace = true
+ignition-playback.workspace = true
+ignition-daw-proto.workspace = true
+daw.workspace = true
+dawfile-reaper.workspace = true
+ableton = { workspace = true, optional = true }
+keyflow-proto.workspace = true
+dsp = { workspace = true, features = ["hits"] }
+fts-sample = { workspace = true, features = ["decode-compressed"] }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+daw-proto = { workspace = true, optional = true }
+audio = { workspace = true, optional = true }
+midir = { workspace = true, optional = true }
+cpal = { workspace = true, optional = true }
+
+[lints]
+workspace = true

@@ -26,7 +26,7 @@ anyhow = "1"
 futures-timer = "3"
 tracing = "0.1"
 # Same rev as the studio — the two have to agree on one Dioxus.
-dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev = "f717a8e184a522d078b70bb4b4d62a5f9a99ddfc", default-features = false, features = ["lib"] }
+dioxus.workspace = true
 
 [lib]
 name = "ignition_live_ui"

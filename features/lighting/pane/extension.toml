@@ -1,0 +1,140 @@
+# Lighting, an Architect extension (src/ext.rs). One Rust value
+# (`ignition_pane::ext::Lighting`) runs it two ways, as Studio's other
+# extensions do:
+#   - linked into Studio Architect (on by default in Studio's
+#     distribution): its view is the show in 3D, a process view
+#     (architect#641) drawn by the `ignition` program on the GPU;
+#   - as a process (src/main.rs, [entry]): a development copy loaded into
+#     the running app (`studio-architect extensions dev <folder>`) shadows
+#     the linked one live, `undev` gives it back. Architect cannot host a
+#     GPU process view in a process extension's pane yet (a remote view is
+#     a Dioxus document), so that copy's pane says so and opens the room
+#     in its own window.
+# The renderer is swappable live too: `ignition.renderer` (or
+# IGNITION_BIN) names the program the pane runs.
+id = "ignition"
+name = "Lighting"
+version = "0.2.0"
+kind = "process"
+api = "0.1"
+description = "The lighting show in 3D: the room, the rig and the cues, following Studio's playback. Pick the show, the camera and the clock; drag to orbit, right-drag to move, the wheel to come closer, the number keys for the room's camera presets."
+authors = ["FastTrackStudios"]
+
+[entry]
+# The program: bin/ignition-pane in a package (`just lighting pane-dev`
+# puts a build there).
+path = "bin/ignition-pane"
+
+[source]
+git = "https://github.com/FastTrackStudios/Ignition"
+rev = "main"
+path = "features/lighting/pane"
+
+[capabilities]
+actions = ["EXT_VIEW_OPEN"]
+effect = "mutating"
+
+[[actions]]
+id = "IGNITION_SHOW_OPEN"
+name = "Lighting: show the room"
+description = "Opens (or focuses) the Lighting pane: the show in 3D, following the clock it is set to."
+group = "Lighting"
+effect = "mutating"
+
+[[actions]]
+id = "IGNITION_SHOW_PICK"
+name = "Lighting: pick the show"
+description = "The night the pane plays: `show`, a path to an `.ig-show` (empty: the recital's, the program's default). `live_set` (optional) names the Live set its songs are of."
+group = "Lighting"
+effect = "mutating"
+params = '{"type":"object","properties":{"show":{"type":"string"},"live_set":{"type":"string"}},"required":["show"]}'
+
+[[actions]]
+id = "IGNITION_CAMERA_PICK"
+name = "Lighting: pick the camera"
+description = "The camera preset the pane opens on (`Wide`, or a preset of the room's cameras.json; empty: the room's first)."
+group = "Lighting"
+effect = "mutating"
+params = '{"type":"object","properties":{"camera":{"type":"string"}},"required":["camera"]}'
+
+[[actions]]
+id = "IGNITION_CLOCK_PICK"
+name = "Lighting: pick the clock"
+description = "What the show follows: `studio` (Studio's playback, the running engine), `studio:<socket>`, `internal` (stands at the first song) or `midi:<port>` (Ableton's beat clock)."
+group = "Lighting"
+effect = "mutating"
+params = '{"type":"object","properties":{"clock":{"type":"string"}},"required":["clock"]}'
+
+[[actions]]
+id = "IGNITION_POP_OUT"
+name = "Lighting: pop out to a display"
+description = "The room fullscreen on a display of its own (a projector, the stage monitor): Studio runs the renderer borderless fullscreen with the pane's show, camera and clock. `display` (optional) is the display's index, 0 the first; none: the one Studio is on. Popping out again replaces it."
+group = "Lighting"
+effect = "mutating"
+params = '{"type":"object","properties":{"display":{"type":"integer","minimum":0}}}'
+
+[[actions]]
+id = "IGNITION_POP_IN"
+name = "Lighting: pop back in"
+description = "Closes the popped-out room (the pane keeps running)."
+group = "Lighting"
+effect = "mutating"
+
+[[actions]]
+id = "IGNITION_STATE"
+name = "Lighting: what it runs"
+description = "Which copy of Lighting this is (linked or a process), and the renderer, show, camera and clock its pane runs."
+group = "Lighting"
+effect = "read_only"
+
+[[sections]]
+id = "lighting"
+title = "Lighting"
+icon = "lightbulb"
+
+[[sections.settings]]
+key = "ignition.show"
+title = "Show"
+description = "An .ig-show to play; empty for the recital's."
+control = "text"
+default = ""
+
+[[sections.settings]]
+key = "ignition.live_set"
+title = "Live set"
+description = "The Ableton set the show's songs are of; empty for IGNITION_LIVE_SET."
+control = "text"
+default = ""
+
+[[sections.settings]]
+key = "ignition.camera"
+title = "Camera"
+description = "The preset the pane opens on."
+control = "text"
+default = "Wide"
+
+[[sections.settings]]
+key = "ignition.clock"
+title = "Clock"
+description = "studio, studio:<socket>, internal or midi:<port>."
+control = "text"
+default = "studio"
+
+[[sections.settings]]
+key = "ignition.renderer"
+title = "Renderer"
+description = "The ignition program the pane runs; empty for IGNITION_BIN, else the one beside the app, else on PATH."
+control = "text"
+default = ""
+
+[[sections.settings]]
+key = "ignition.output"
+title = "Drive the rig"
+description = "Send the show to the lights (sACN and Art-Net, as the venue says) from the pane's renderer."
+control = "switch"
+default = false
+
+[[views]]
+id = "show"
+title = "Lighting"
+icon = "lightbulb"

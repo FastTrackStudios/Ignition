@@ -1,5 +1,5 @@
 //! Placeholder engine binary. Right now it does exactly one thing: prove the
-//! Norco venue extract in `data/venues/norco/` parses, as the first checkpoint
+//! Norco venue extract in `features/lighting/data/venues/norco/` parses, as the first checkpoint
 //! toward the Phase 0 spike in
 //! `docs/research/lighting-console-landscape.md` §9.
 //!
@@ -19,7 +19,7 @@ struct FixtureRecord {
 
 // r[impl files.venue] - smoke check only: reads fixtures.json and screens.json from the venue directory
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = "data/venues/norco/fixtures.json";
+    let path = "features/lighting/data/venues/norco/fixtures.json";
     let raw = fs::read_to_string(path)?;
     let fixtures: Vec<FixtureRecord> = serde_json::from_str(&raw)?;
 
@@ -53,8 +53,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  {count:>3}  {tag}");
     }
 
-    let screens: Value =
-        serde_json::from_str(&fs::read_to_string("data/venues/norco/screens.json")?)?;
+    let screens: Value = serde_json::from_str(&fs::read_to_string(
+        "features/lighting/data/venues/norco/screens.json",
+    )?)?;
     println!(
         "Norco venue extract: {} mappable screens (TVs)",
         screens.as_array().map_or(0, Vec::len)

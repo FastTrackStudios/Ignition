@@ -1,0 +1,19 @@
+[package]
+name = "ignition-dmx"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Lighting: DMX transmit — one socket set, sACN and Art-Net per universe, at a bounded rate"
+
+# One crate for the `dmx` feature: the wire contract (`proto`), the two
+# packet codecs (`sacn`, `artnet`) and the facade that owns the sockets.
+# Both backends are unconditional because a venue may put either protocol
+# on any universe at run time — the choice is data in `venue.ig-venue`.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

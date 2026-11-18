@@ -939,10 +939,10 @@ mod token_sheet {
 
     const TOKENS: &str = include_str!("tokens.css");
     const LIVE: &str = include_str!("live.css");
-    const STUDIO: &str = include_str!("../../../apps/ignition-studio/src/studio.css");
-    const DOCK: &str = include_str!("../../../apps/ignition-studio/src/dock.css");
+    const STUDIO: &str = include_str!("../../../legacy/apps/ignition-studio/src/studio.css");
+    const DOCK: &str = include_str!("../../../legacy/apps/ignition-studio/src/dock.css");
     const BASE: &str = include_str!("../../../apps/ignition-live-web/src/base.css");
-    const PANEL: &str = include_str!("../../../apps/ignition-studio/src/panel.css");
+    const PANEL: &str = include_str!("../../../legacy/apps/ignition-studio/src/panel.css");
     const THEME: &str = include_str!("theme.css");
 
     fn sheets() -> [(&'static str, &'static str); 5] {
