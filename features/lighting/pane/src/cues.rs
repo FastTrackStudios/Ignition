@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use architect_extensions::hostcall::HostRequest;
 use dioxus::prelude::*;
-use ignition_session::{load, tempo, time_of};
+use ignition_session::{bar_one, chart_bar, load, tempo, time_of};
 use session::LaneId;
 
 /// The view's id.
@@ -47,8 +47,11 @@ impl Place {
 pub struct Row {
     pub number: f32,
     pub name: String,
-    /// Its bar of the song; `None`: the operator's.
+    /// Its bar as the chart numbers it (from the song's bar 1, session
+    /// `bar_one`); `None`: the operator's, or in the count-in.
     pub bar: Option<u32>,
+    /// It falls in the count-in, before the song's bar 1.
+    pub count_in: bool,
     /// Its time in the session, seconds; `None`: the operator's.
     pub at: Option<f64>,
 }
@@ -97,16 +100,21 @@ async fn read(place: &Place) -> Result<(String, Vec<Row>), String> {
         .await
         .map_err(|e| e.to_string())?;
     let map = tempo(&ask, &place.doc).await.map_err(|e| e.to_string())?;
+    // Bars as the chart numbers them: from the song's bar 1, where a
+    // count-in ends (the session's structure says where).
+    let first = bar_one(&ask, &place.doc).await.unwrap_or(1);
     let rows = list
         .cues
         .iter()
         .enumerate()
         .map(|(i, cue)| {
             let bars = cue.position();
+            let bar = bars.and_then(|b| chart_bar(b.bar, first));
             Row {
                 number: list.number_of(i),
                 name: cue.name.clone(),
-                bar: bars.map(|b| b.bar),
+                bar,
+                count_in: bars.is_some() && bar.is_none(),
                 at: bars.map(|b| time_of(&map, b).seconds(&map)),
             }
         })
@@ -254,6 +262,7 @@ mod tests {
             number,
             name: String::new(),
             bar: None,
+            count_in: false,
             at,
         }
     }
