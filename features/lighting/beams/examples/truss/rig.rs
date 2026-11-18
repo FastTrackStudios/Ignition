@@ -136,6 +136,8 @@ pub struct Look {
     pub gobo: Option<Gobo>,
     /// Zoom: its angles as a multiple of the kind's.
     pub zoom: f32,
+    /// How far the beam reaches, in metres.
+    pub range: f32,
 }
 
 impl Look {
@@ -146,6 +148,7 @@ impl Look {
             dimmer: 0.0,
             gobo: None,
             zoom: 1.0,
+            range: 40.0,
         }
     }
 }
@@ -173,10 +176,13 @@ pub enum Scene {
     Alias,
     /// The spots, each with a rotating gobo.
     Gobos,
+    /// Beams and spots thrown out over the house into open air, cut short,
+    /// so each ends in its own fade and not on a surface.
+    EndFade,
 }
 
 impl Scene {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Show,
         Self::SidePan,
         Self::AtCamera,
@@ -186,6 +192,7 @@ impl Scene {
         Self::InsideWash,
         Self::Alias,
         Self::Gobos,
+        Self::EndFade,
     ];
 
     #[must_use]
@@ -200,6 +207,7 @@ impl Scene {
             Self::InsideWash => "inside-wash",
             Self::Alias => "alias",
             Self::Gobos => "gobos",
+            Self::EndFade => "end-fade",
         }
     }
 
@@ -220,6 +228,7 @@ impl Scene {
             Self::Overlap => (Vec3::new(6.0, 1.7, 13.0), Vec3::new(0.0, 3.0, -1.0)),
             Self::FloorWall => (Vec3::new(-7.0, 1.4, 9.0), Vec3::new(1.0, 2.2, -6.0)),
             Self::InsideWash => (INSIDE_WASH_EYE, Vec3::new(3.0, 2.5, -4.0)),
+            Self::EndFade => (Vec3::new(-21.0, 5.0, 9.0), Vec3::new(0.0, 8.5, 5.0)),
         }
     }
 }
@@ -271,6 +280,7 @@ pub fn look(scene: Scene, fixture: &Fixture, t: f32) -> Look {
         Scene::InsideWash => inside_wash(fixture, t),
         Scene::Alias => alias(fixture),
         Scene::Gobos => gobos(fixture, t),
+        Scene::EndFade => end_fade(fixture),
     }
 }
 
@@ -377,6 +387,9 @@ fn strobing(fixture: &Fixture, t: f32) -> Look {
 }
 
 fn floor_wall(fixture: &Fixture) -> Look {
+    if fixture.kind == Kind::Wash {
+        return Look::dark();
+    }
     let to_wall = fixture.index.is_multiple_of(2);
     let aim = if to_wall {
         Vec3::new(
@@ -476,6 +489,26 @@ fn gobos(fixture: &Fixture, t: f32) -> Look {
             blur: 0.0,
         }),
         zoom: 1.3,
+        ..Look::dark()
+    }
+}
+
+/// Out over the house and up, with a short reach: nothing is in the way,
+/// so what ends each beam is its fade.
+fn end_fade(fixture: &Fixture) -> Look {
+    if fixture.kind == Kind::Wash {
+        return Look::dark();
+    }
+    Look {
+        aim: fixture.position + Vec3::new(fixture.along * 3.0, 2.0 + f32::from(fixture.truss), 9.0),
+        colour: if fixture.kind == Kind::Beam {
+            WHITE
+        } else {
+            palette(fixture.index / 3)
+        },
+        dimmer: 1.0,
+        range: 9.0 + 4.0 * fixture.along.abs(),
+        ..Look::dark()
     }
 }
 

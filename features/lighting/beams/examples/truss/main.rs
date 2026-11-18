@@ -137,6 +137,23 @@ fn parse_options(mut args: impl Iterator<Item = String>) -> Result<Options, Stri
     Ok(options)
 }
 
+/// Makes the directory the headless modes write into: the captures' own,
+/// or the one the bench's file goes in.
+///
+/// # Errors
+/// When the directory cannot be made.
+fn make_room_for_output(options: &Options) -> Result<(), String> {
+    let directory = match options.mode {
+        Mode::Window => return Ok(()),
+        Mode::Headless => Some(options.out.as_path()),
+        Mode::Bench => options.out.parent(),
+    };
+    let Some(directory) = directory.filter(|path| !path.as_os_str().is_empty()) else {
+        return Ok(());
+    };
+    std::fs::create_dir_all(directory).map_err(|e| format!("{}: {e}", directory.display()))
+}
+
 /// One frame to capture: a scene at a moment.
 #[derive(Clone, Debug, PartialEq)]
 struct Shot {
@@ -185,6 +202,7 @@ const EV100: f32 = 7.6;
 
 fn main() -> Result<(), String> {
     let options = parse_options(std::env::args().skip(1))?;
+    make_room_for_output(&options)?;
     let mut app = App::new();
     let plugins = DefaultPlugins.set(RenderPlugin {
         // A capture must not be taken while a pipeline is still compiling.
@@ -423,6 +441,7 @@ fn apply_stage(
             colour: now.colour,
             dimmer: now.dimmer,
             gobo: now.gobo,
+            range: now.range,
             // A beam fixture's shaft is its whole point: let it run hotter
             // before its own knee.
             knee: if fixture.kind == Kind::Beam { 4.0 } else { 3.0 },
@@ -497,6 +516,11 @@ impl Capture {
             saved: 0,
         }
     }
+
+    /// The file a shot is written to.
+    fn path_of(&self, shot: &Shot) -> PathBuf {
+        self.out.join(format!("{}.png", shot.name))
+    }
 }
 
 /// Stages each shot, lets it settle, captures it, and leaves when the last
@@ -514,8 +538,18 @@ fn drive_capture(
     }
     let Some(shot) = capture.shots.get(capture.next).cloned() else {
         if capture.saved >= capture.shots.len() {
-            info!(frames = capture.saved, out = %capture.out.display(), "beams: captures written");
-            exit.write(AppExit::Success);
+            let missing = capture
+                .shots
+                .iter()
+                .filter(|shot| !capture.path_of(shot).exists())
+                .count();
+            if missing == 0 {
+                info!(frames = capture.saved, out = %capture.out.display(), "beams: captures written");
+                exit.write(AppExit::Success);
+            } else {
+                error!(missing, out = %capture.out.display(), "beams: captures not written");
+                exit.write(AppExit::error());
+            }
         }
         return;
     };
@@ -528,7 +562,7 @@ fn drive_capture(
         capture.wait = SETTLE;
         return;
     }
-    let path = capture.out.join(format!("{}.png", shot.name));
+    let path = capture.path_of(&shot);
     commands
         .spawn(Screenshot::image(offscreen.0.clone()))
         .observe(save_to_disk(path))
