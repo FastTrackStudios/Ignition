@@ -1,8 +1,9 @@
 //! The extension: one `linked::Extension`, linked into Studio Architect
-//! (feature `pane`: its view is the GPU process view) or served as a
-//! process (`src/main.rs`: a development copy, whose view is drawn
-//! remotely and so opens the room in a window instead — Architect has no
-//! GPU process view for a process extension's pane yet).
+//! (feature `pane`: its `show` view is the GPU process view) or served as
+//! a process (`src/main.rs`: a development or installed copy). A process
+//! copy's room is the manifest's `room` view (`kind = "process"`,
+//! architect#838), which the app draws from the renderer in the package;
+//! its own `show` view is the room's controls.
 
 use std::sync::{Mutex, PoisonError};
 
@@ -17,9 +18,11 @@ use crate::{Picks, SETTINGS};
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Lighting;
 
-/// Its id and its view's, as the manifest names them.
+/// Its id and its views', as the manifest names them.
 pub const EXTENSION: &str = "ignition";
 pub const VIEW: &str = "show";
+/// The room drawn by the renderer in the package (`kind = "process"`).
+pub const ROOM: &str = "room";
 
 /// Which way this copy runs: in the app, its view the GPU pane; or as a
 /// process, its view a status pane.
@@ -79,18 +82,26 @@ impl Extension for Lighting {
     }
 }
 
+/// Opens the room: a linked copy's `show` view (its GPU pane), else the
+/// `room` view the app draws from the package's renderer.
 async fn open() -> Result<Value, String> {
+    let view = if LINKED { VIEW } else { ROOM };
+    open_view(view).await?;
+    Ok(
+        json!({ "opened": format!("{EXTENSION}/{view}"), "copy": if LINKED { "linked" } else { "process" } }),
+    )
+}
+
+async fn open_view(view: &str) -> Result<(), String> {
     handle()?
         .host(HostRequest::Run {
             action: "EXT_VIEW_OPEN".to_owned(),
-            args: json!({ "extension": EXTENSION, "view": VIEW }),
+            args: json!({ "extension": EXTENSION, "view": view }),
             ticket: None,
         })
         .await
         .map_err(|e| e.to_string())?;
-    Ok(
-        json!({ "opened": format!("{EXTENSION}/{VIEW}"), "copy": if LINKED { "linked" } else { "process" } }),
-    )
+    Ok(())
 }
 
 async fn pick(args: &Value, name: &str, key: &str) -> Result<Value, String> {
@@ -255,33 +266,48 @@ fn Room(picks: Picks) -> Element {
     }
 }
 
-/// As a process (a development copy): no GPU pane in a remote view yet,
-/// so what it would run, and a button that opens the room in a window.
+/// As a process (a development or installed copy): the room is the
+/// `room` view, which the app draws from the package's renderer; this is
+/// what it runs, a button that opens it, and one that pops it out to a
+/// display of its own.
 #[cfg(not(feature = "pane"))]
 #[component]
 fn Room(picks: Picks) -> Element {
-    let mut opened = use_signal(String::new);
+    let mut said = use_signal(String::new);
     let program = picks.program().display().to_string();
     let args = picks.args(false).join(" ");
     rsx! {
         div { style: "flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 20px; font-size: 13px;",
-            div { style: "font-size: 15px; font-weight: 600;", "Lighting — development copy (a process)" }
+            div { style: "font-size: 15px; font-weight: 600;", "Lighting" }
             div { style: "color: var(--muted-foreground);",
-                "Architect cannot show a GPU process view in a process extension's pane yet, so this copy pops the room out to a display."
+                "The room is drawn by the renderer in this package, in its own pane (Lighting: room); the show, the camera and the clock are this extension's settings."
             }
             div { style: "font-family: monospace; font-size: 12px;", "{program} {args}" }
-            button {
-                style: "align-self: flex-start; padding: 6px 12px;",
-                onclick: move |_| {
-                    let picks = picks.clone();
-                    opened.set(match pop_out(&picks, None) {
-                        Ok(pid) => format!("popped out (pid {pid})"),
-                        Err(e) => e,
-                    });
-                },
-                "Pop out to a display"
+            div { style: "display: flex; gap: 8px;",
+                button {
+                    style: "padding: 6px 12px;",
+                    onclick: move |_| {
+                        spawn(async move {
+                            if let Err(e) = open_view(ROOM).await {
+                                said.set(e);
+                            }
+                        });
+                    },
+                    "Open the room"
+                }
+                button {
+                    style: "padding: 6px 12px;",
+                    onclick: move |_| {
+                        let picks = picks.clone();
+                        said.set(match pop_out(&picks, None) {
+                            Ok(pid) => format!("popped out (pid {pid})"),
+                            Err(e) => e,
+                        });
+                    },
+                    "Pop out to a display"
+                }
             }
-            div { "{opened}" }
+            div { "{said}" }
         }
     }
 }
