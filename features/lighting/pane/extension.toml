@@ -149,6 +149,7 @@ name = "Lighting: put the cue list in a session"
 description = "Stores the cue list of a song's show document (`song`, a path) as lane `lane` of session `doc`, through the session's host (fts.session)."
 group = "Lighting"
 effect = "mutating"
+params = '{"type":"object","properties":{"doc":{"type":"string"},"lane":{"type":"string"},"song":{"type":"string"}},"required":["doc","lane","song"]}'
 
 [[actions]]
 id = "IGNITION_SESSION_CUES"
@@ -156,6 +157,7 @@ name = "Lighting: the session's cue list"
 description = "Lane `lane` of session `doc` read back through fts.session, in GO order: number, name, bar (null: the operator's)."
 group = "Lighting"
 effect = "read_only"
+params = '{"type":"object","properties":{"doc":{"type":"string"},"lane":{"type":"string"}},"required":["doc","lane"]}'
 
 [[actions]]
 id = "IGNITION_SESSION_FOLLOW"
@@ -163,6 +165,7 @@ name = "Lighting: follow the session's transport"
 description = "Follows the session host's transport and clock at `url` (`ws://host:port/vox`) and takes lane `lane`'s cues of session `doc` as the playhead crosses them."
 group = "Lighting"
 effect = "mutating"
+params = '{"type":"object","properties":{"url":{"type":"string"},"doc":{"type":"string"},"lane":{"type":"string"}},"required":["url","doc","lane"]}'
 
 [[actions]]
 id = "IGNITION_SESSION_TAKEN"
