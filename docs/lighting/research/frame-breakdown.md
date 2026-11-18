@@ -146,3 +146,133 @@ Frames a second through the pane: 20.9 / 20.3 / 20.6.
 - **The owner's 10 to 15 ms.** At these sizes this rig and preset are
   20 ms and 46 ms. The 10 ms floor was not reproduced; a smaller pane or
   the Norco rig may be where it was seen.
+
+## After: Bevy `main` at 948cc8270, wgpu 30, frames as dma-bufs
+
+The same script, scenes, sizes and counts, on this branch (99cfefe plus
+the lockfile test's fix), later the same day; the load was lower (6 to
+28 against 11 to 41), which the interleaved rows within each table
+share. The fog is unchanged (32 steps, the two carried commits); the
+froxel path is gone and was never the default.
+
+### 2560x1440
+
+| | load | update | wait | memcpy | frame (interval) p50 | p99 |
+|---|---|---|---|---|---|---|
+| no transport (`ignition --bench`) | 24 / 15 / 11 | 3.2 / 3.0 / 3.1 | 15.8 / 16.5 / 15.8 | 0 | **18.8 / 19.2 / 18.9** | 22.3 / 22.3 / 21.5 |
+| `viz --bench`, same venue and cue | 24 / 14 / 11 | 3.0 / 6.0 / 3.1 (avg) | 16.4 / 14.6 / 16.0 (avg) | 0 | 18.9 / 19.2 / 18.7 | 22.1 / 35.5 / 22.9 |
+| pane, **dma-buf** (what the pane now gets) | 21 / 15 / 10 | 2.9 / 8.5 / 2.8 | 16.0 / 12.2 / 16.4 | 0 | **18.8 / 20.7 / 19.2** | 25.5 / 61.5 / 23.1 |
+| pane, shared memory (the fallback, forced) | 20 / 24 / 9 | 3.1 / 4.6 / 3.0 | 16.1 / 13.5 / 16.3 | 1.2 / 2.2 / 1.2 | 20.5 / 20.7 / 20.5 | 23.8 / 42.3 / 23.9 |
+
+Frames a second through the pane: 50.9 / 42.8 / 50.4 as dma-bufs
+(45.4 / 41.2 / 44.8 before); 48.0 / 45.5 / 48.2 through shared memory.
+The middle dma-buf run caught a burst of load (its `update` p50 is 8.5
+ms against 2.9); it is reported, not dropped.
+
+### 5120x1440
+
+| | load | update | wait | memcpy | frame (interval) p50 | p99 |
+|---|---|---|---|---|---|---|
+| no transport (`ignition --bench`) | 18 / 28 / 7 | 3.6 / 4.0 / 3.0 | 38.6 / 38.7 / 39.3 | 0 | **42.2 / 42.7 / 42.3** | 47.9 / 48.3 / 47.1 |
+| `viz --bench`, same venue and cue | 17 / 25 / 7 | 3.1 / 4.2 / 3.0 (avg) | 39.6 / 38.9 / 40.4 (avg) | 0 | 42.3 / 42.7 / 43.3 | 47.2 / 47.8 / 48.6 |
+| pane, **dma-buf** | 14 / 24 / 6 | 3.9 / 3.0 / 3.0 | 38.9 / 40.6 / 39.6 | 0 | **43.2 / 43.8 / 42.7** | 52.0 / 50.4 / 49.2 |
+| pane, shared memory (forced) | 15 / 19 / 6 | 4.0 / 3.2 / 3.4 | 38.5 / 41.5 / 42.0 | 3.3 / 2.6 / 2.6 | 46.3 / 47.6 / 48.2 | 57.5 / 55.6 / 63.6 |
+
+Frames a second through the pane: 22.8 / 22.5 / 22.9 as dma-bufs
+(20.9 / 20.3 / 20.6 before); 21.2 / 21.0 / 20.9 through shared memory.
+
+## Before and after
+
+Frame through the pane, p50 of the three runs' p50s, milliseconds:
+
+| | before (0.19.1, shared memory) | after (dma-buf) | saved | of which the transport | of which the Bevy move |
+|---|---|---|---|---|---|
+| 2560x1440 | 21.7 | 19.2 | **2.5** | 1.5 (after: 20.5 forced through shared memory against 19.2 as dma-bufs; 18.8 against 20.5 on the quiet runs, 1.7) | about 1.7 (no transport: 20.6 before, 18.9 after) |
+| 5120x1440 | 47.9 | 43.2 | **4.7** | 4.4 (47.6 against 43.2) | about 3.5 (no transport: 45.9 before, 42.3 after) |
+
+(The two parts do not add to the total exactly: each is its own pair of
+medians, and the "before" shared-memory rows carried a little less
+overhead than the "after" ones.)
+
+- **The transport is now free in the renderer at 2560x1440** (the
+  dma-buf rows equal the no-transport rows within the runs' spread) and
+  costs **0.4 to 1.1 ms at 5120x1440**, the GPU's copy of 29.5 MB into
+  the slot. There is no `copy_texture_to_buffer`, mapping or memcpy in
+  the frame, and no upload in the app: its 1.4 to 1.6 ms (2560x1440) and
+  2.7 to 2.8 ms (5120x1440) a frame on the UI thread are gone, which
+  this harness cannot show as frame time because it has no UI thread.
+- **Against the report's estimate** (3 to 6 ms saved at a 2560x1440
+  pane): about 1.5 ms in the renderer plus about 1.5 ms in the app, so
+  about 3 ms across the two processes, the bottom of the range. At
+  5120x1440 it is about 4.4 ms plus 2.75 ms.
+- **The Bevy move itself is 8 % faster on this scene** at both sizes,
+  with the same fog. Not looked into further; `main` changed its mesh
+  extraction and its main-texture sharing, either of which could be it.
+- **The GPU wait remains, as the report said, but pipelining frames
+  across the slots would not shorten it.** The wait is the rendering
+  itself (the fog), and the CPU's update already runs inside it: `wait`
+  is the GPU's frame less `update`, and the interval is the GPU's frame.
+  Drawing frame N+1 while frame N finishes would only help a frame the
+  CPU bounds, and at these sizes none is. So it was not built. It
+  becomes worth building when the beam renderer has taken the fog's 19
+  ms away and a frame is 4 to 5 ms of mostly CPU: then the guest's wait
+  for its GPU and the one frame of latency above are the next things in
+  the way, and the fixes are, in order of size, (a) copying the frame in
+  the render world, after the camera has drawn (removes the frame of
+  latency), (b) a fourth slot and sending frame N once its submission
+  has finished while N+1 is drawn (`on_submitted_work_done` instead of
+  `poll(Wait)`), and (c) the `sync_file` semaphore Architect's `gpu.rs`
+  names, so the app's GPU does the waiting.
+
+## Does it look the same
+
+Same cue, camera, size and effect time (`viz --snapshot --time 2.0`,
+`IGNITION_QUALITY=medium`, 2560x1440), 0.19.1 on the left, the pin in
+the middle, four times the difference on the right.
+
+![The recital chorus before, after and their difference](img/bevy-pin-recital-chorus.jpg)
+
+![Norco's benchmark cue before, after and their difference](img/bevy-pin-norco-benchmark.jpg)
+
+| | mean difference per channel (of 255) | pixels differing by more than 8 | by more than 32 |
+|---|---|---|---|
+| the recital's chorus (`room138-cbu`, "Figure It Out" cue 5) | 5.8 / 5.5 / 5.5 | 27.4 % | 0 % |
+| Norco, `benchmark.json` cue 0 | 1.6 / 1.8 / 1.0 | 0.4 % | 0 % |
+
+What changed, and whether it matters:
+
+- **The picture is a little brighter where much of it is near black**:
+  7 % on the recital's dark room (mean 77 → 83), 3 % at Norco. That is
+  upstream #25798: auto exposure now counts pixels below its luminance
+  range (as the minimum) instead of skipping them, which lowers the
+  metered average, so the exposure comes up. It is the same everywhere
+  in the frame, not a change in any light. It matters only to a look
+  that was tuned to the old metering; raising the lower end of
+  `AutoExposure::filter` (0.15 today, `app.rs`) brings it back if it is
+  wanted. Not changed here.
+- **Thin differences along the movers' beams and the fixtures' edges**
+  (the bright lines in the difference). The beams are in the same place;
+  their edges land a fraction of a pixel apart, which is TAA's jitter
+  and the fog's dither at a different frame count when the still is
+  taken. No block, band or missing light.
+- **Every fixture is in the air in both**, so the first carried commit
+  does on the pin what it did on 0.19.1 (without it, only the 4 or 12
+  lights with shadow maps would be).
+- Nothing else was found: the colours, the gobos on the floor, the
+  screens' canvases (the WESL port of `canvas.wesl`), the people and the
+  haze's unevenness are where they were.
+
+Not compared: the froxel path (not carried), the Solari feature (not
+built), a moving shot (stills only), and the pane inside Architect's
+window (below).
+
+## What is verified, and how
+
+| | how |
+|---|---|
+| The room renders on the pin, as before | The stills above, read by eye and by difference; `viz --bench` and `ignition --bench` at both sizes. |
+| The frames are dma-bufs, and another device reads the room in them | `a_pane_gets_lit_frames_as_dmabufs_on_linux`: the renderer started as a pane's program; each slot's dma-buf imported on a second wgpu device with `gpu::import_dmabuf` (the call Architect's pane makes), read back there, lit; again after a resize. RTX 4080, NVIDIA 615.78.08, Vulkan. |
+| The fallback is taken and said | `an_app_that_cannot_import_gets_shared_memory` and the shared-memory test: the warning names the reason (`forced`, `host-cannot-import`), and the frames' spans carry `transport="shm"` and `fallback`. |
+| One wgpu on the frame path | `tests/one_wgpu.rs`, which runs in CI's `cargo test --workspace`. |
+| **Not verified: the pane in Architect's own window.** | No Architect app was run with this branch. The only one on the machine was the sprint's running Studio on the owner's desktop and vault, which this work was told to leave alone, and the pane's forced `shm` is compiled into that build's copy of `ignition-pane`. To see it: build `studio-architect` against this branch's `ignition-pane` and renderer, open "Lighting: show the room", and read the pane's stats line, which says `dma-buf`; the renderer's log says `process view: frames transport="dmabuf"`. |
+| **Not verified: anything on macOS.** | See `bevy-pin.md`. |
