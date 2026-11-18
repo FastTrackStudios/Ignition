@@ -24,6 +24,7 @@ mod night;
 #[cfg(target_os = "linux")]
 mod process_view;
 mod render;
+mod session_clock;
 mod studio_clock;
 
 use anyhow::{Context, Result};
@@ -60,6 +61,8 @@ enum ClockArg {
     Midi(String),
     /// A running Studio engine's transport: its socket, or the newest.
     Studio(Option<PathBuf>),
+    /// A session host's transport: `session:<url>#<doc>@<song>`.
+    Session(session_clock::SessionArg),
 }
 
 #[derive(Debug)]
@@ -103,7 +106,9 @@ fn parse_args() -> Result<Args> {
         // architect#838). An empty value is a setting left empty: as if the
         // flag were not given, so its default holds.
         let (arg, mut inline) = match arg.split_once('=') {
-            Some((flag, value)) if flag.starts_with("--") => (flag.to_owned(), Some(value.to_owned())),
+            Some((flag, value)) if flag.starts_with("--") => {
+                (flag.to_owned(), Some(value.to_owned()))
+            }
             _ => (arg, None),
         };
         if inline.as_deref() == Some("") {
@@ -117,15 +122,19 @@ fn parse_args() -> Result<Args> {
             "--show" => args.show = PathBuf::from(next("a .ig-show")?),
             "--set" => args.set = Some(PathBuf::from(next("a .als")?)),
             "--clock" => {
-                let value = next("internal, studio[:<socket>] or midi:<port>")?;
+                let value =
+                    next("internal, studio[:<socket>], midi:<port> or session:<url>#<doc>@<song>")?;
                 args.clock = match value.split_once(':') {
                     Some(("midi", port)) => ClockArg::Midi(port.to_string()),
+                    Some(("session", rest)) => {
+                        ClockArg::Session(session_clock::SessionArg::parse(rest)?)
+                    }
                     Some(("studio", socket)) => ClockArg::Studio(Some(PathBuf::from(socket))),
                     None if value == "internal" => ClockArg::Internal,
                     None if value == "studio" => ClockArg::Studio(None),
                     None if value == "midi" => ClockArg::Midi(String::new()),
                     _ => anyhow::bail!(
-                        "--clock {value}: use internal, studio[:<socket>] or midi:<port>"
+                        "--clock {value}: use internal, studio[:<socket>], midi:<port> or session:<url>#<doc>@<song>"
                     ),
                 };
             }
@@ -254,6 +263,10 @@ fn make_clock(
             let stopper = clock.stopper();
             (Box::new(clock), Some(stopper))
         }
+        ClockArg::Session(arg) => (
+            Box::new(session_clock::SessionClock::spawn(Arc::clone(night), arg)?),
+            None,
+        ),
     })
 }
 

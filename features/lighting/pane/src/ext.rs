@@ -67,6 +67,7 @@ impl Extension for Lighting {
             .action("IGNITION_SESSION_STORE", crate::session::store_song)
             .action("IGNITION_SESSION_CUES", crate::session::cues)
             .action("IGNITION_SESSION_FOLLOW", crate::session::follow)
+            .action("IGNITION_SESSION_ROOM", crate::session::room)
             .action("IGNITION_SESSION_TAKEN", |_| async move {
                 Ok(crate::session::report())
             })
@@ -108,7 +109,7 @@ async fn pick(args: &Value, name: &str, key: &str) -> Result<Value, String> {
     Ok(json!({ key: value }))
 }
 
-async fn set_setting(key: &str, value: &str) -> Result<(), String> {
+pub(crate) async fn set_setting(key: &str, value: &str) -> Result<(), String> {
     handle()?
         .host(HostRequest::SetSetting {
             key: key.to_owned(),

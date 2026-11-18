@@ -30,6 +30,12 @@ daw-control.workspace = true
 vox.workspace = true
 vox-stream.workspace = true
 tokio = { workspace = true, features = ["rt", "net", "time", "signal", "sync", "macros"] }
+# Following a session's transport (`--clock session:…`, src/session_clock.rs):
+# its host's presence and clock over vox, as the Lighting pane follows it.
+session = { workspace = true, features = ["clock"] }
+crdt = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", features = ["vox"] }
+architect = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", features = ["vox", "connect"] }
+uuid.workspace = true
 # The visualizer as an Architect process view (`--process-view`): the
 # wire and its socket (no wgpu of its own), the frames in a memfd, and
 # Bevy's wgpu to read them back.

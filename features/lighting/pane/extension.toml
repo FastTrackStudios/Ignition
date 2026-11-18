@@ -124,7 +124,7 @@ default = "Wide"
 [[sections.settings]]
 key = "ignition.clock"
 title = "Clock"
-description = "studio, studio:<socket>, internal or midi:<port>."
+description = "studio, studio:<socket>, internal, midi:<port> or session:<url>#<doc>@<song> (IGNITION_SESSION_ROOM sets it)."
 control = "text"
 default = "studio"
 
@@ -191,6 +191,14 @@ description = "Follows the session host's transport and clock at `url` (`ws://ho
 group = "Lighting"
 effect = "mutating"
 params = '{"type":"object","properties":{"url":{"type":"string"},"doc":{"type":"string"},"lane":{"type":"string"}},"required":["url","doc","lane"]}'
+
+[[actions]]
+id = "IGNITION_SESSION_ROOM"
+name = "Lighting: the room follows a session"
+description = "The room plays the night's song `song` (slug or number) from session `doc`'s transport, hosted at `url` (`ws://host:port/vox`): the session read through fts.session, then the room's clock set to `session:<url>#<doc>@<song>`."
+group = "Lighting"
+effect = "mutating"
+params = '{"type":"object","properties":{"url":{"type":"string"},"doc":{"type":"string"},"song":{"type":"string"}},"required":["url","doc","song"]}'
 
 [[actions]]
 id = "IGNITION_SESSION_TAKEN"
