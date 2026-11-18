@@ -50,8 +50,8 @@ fn session() -> Sessions {
 }
 
 /// Ignition asking through `fts.session`, as its host answers it.
-fn ignition(sessions: &Sessions) -> impl Fn(&str, &str) -> Result<String, String> + '_ {
-    move |method, args| answer(sessions, method, args, Some(EXTENSION))
+fn ignition(sessions: &Sessions) -> impl Fn(&'static str, String) -> Result<String, String> + Sync + '_ {
+    move |method, args: String| answer(sessions, method, &args, Some(EXTENSION))
 }
 
 fn cue(name: &str, number: f32, bar: Option<u32>) -> Cue {
@@ -85,14 +85,14 @@ fn numbers(list: &CueList) -> Vec<f32> {
     list.cues.iter().filter_map(|c| c.number).collect()
 }
 
-#[test]
-fn a_cue_list_is_stored_as_a_lane_and_read_back_in_go_order() {
+#[tokio::test]
+async fn a_cue_list_is_stored_as_a_lane_and_read_back_in_go_order() {
     let sessions = session();
     let ask = ignition(&sessions);
     let lane = LaneId::from("main");
-    store(&ask, DOC, &lane, &list()).unwrap();
+    store(&ask, DOC, &lane, &list()).await.unwrap();
 
-    let back = load(&ask, DOC, &lane).unwrap();
+    let back = load(&ask, DOC, &lane).await.unwrap();
     assert_eq!(back.name, "Main");
     assert!(back.wrap);
     // GO order: cue number, timed and untimed together, as CuePlayer steps.
@@ -117,21 +117,21 @@ fn a_cue_list_is_stored_as_a_lane_and_read_back_in_go_order() {
     // Storing the list without the drop removes it.
     let mut shorter = list();
     shorter.cues.pop();
-    store(&ask, DOC, &lane, &shorter).unwrap();
+    store(&ask, DOC, &lane, &shorter).await.unwrap();
     assert_eq!(
-        numbers(&load(&ask, DOC, &lane).unwrap()),
+        numbers(&load(&ask, DOC, &lane).await.unwrap()),
         [1.0, 2.0, 2.5, 3.0]
     );
     assert_eq!(doc.items().len(), 3);
 }
 
-#[test]
-fn a_cue_moves_with_the_songs_tempo() {
+#[tokio::test]
+async fn a_cue_moves_with_the_songs_tempo() {
     let sessions = session();
     let ask = ignition(&sessions);
     let lane = LaneId::from("main");
-    store(&ask, DOC, &lane, &list()).unwrap();
-    let map = tempo(&ask, DOC).unwrap();
+    store(&ask, DOC, &lane, &list()).await.unwrap();
+    let map = tempo(&ask, DOC).await.unwrap();
     // Bar 7 is 16 s in under 120 then 60 BPM.
     let follower_bar7 = ignition_session::time_of(&map, Bars::bar(7)).seconds(&map);
     assert!((follower_bar7 - 16.0).abs() < 1e-9);
@@ -153,18 +153,18 @@ fn a_cue_moves_with_the_songs_tempo() {
         },
     )
     .unwrap();
-    let map = tempo(&ask, DOC).unwrap();
-    let back = load(&ask, DOC, &lane).unwrap();
+    let map = tempo(&ask, DOC).await.unwrap();
+    let back = load(&ask, DOC, &lane).await.unwrap();
     assert_eq!(back.cues[4].position().unwrap().bar, 7);
     let at = ignition_session::time_of(&map, back.cues[4].position().unwrap());
     assert!((at.seconds(&map) - 24.0).abs() < 1e-9);
 }
 
-#[test]
-fn ignition_and_keyflow_keep_their_own_data_in_one_session() {
+#[tokio::test]
+async fn ignition_and_keyflow_keep_their_own_data_in_one_session() {
     let sessions = session();
     let ask = ignition(&sessions);
-    store(&ask, DOC, &LaneId::from("main"), &list()).unwrap();
+    store(&ask, DOC, &LaneId::from("main"), &list()).await.unwrap();
     let chart = call_json(
         DOC,
         Request::TextSplice {
@@ -201,19 +201,19 @@ fn ignition_and_keyflow_keep_their_own_data_in_one_session() {
     );
     // And Ignition's list still loads whole.
     assert_eq!(
-        numbers(&load(&ask, DOC, &LaneId::from("main")).unwrap()).len(),
+        numbers(&load(&ask, DOC, &LaneId::from("main")).await.unwrap()).len(),
         5
     );
 }
 
-#[test]
-fn the_cues_follow_the_transport_through_play_seek_and_stop() {
+#[tokio::test]
+async fn the_cues_follow_the_transport_through_play_seek_and_stop() {
     let sessions = session();
     let ask = ignition(&sessions);
     let lane = LaneId::from("main");
-    store(&ask, DOC, &lane, &list()).unwrap();
-    let loaded = load(&ask, DOC, &lane).unwrap();
-    let mut follower = CueFollower::new(&loaded, &tempo(&ask, DOC).unwrap());
+    store(&ask, DOC, &lane, &list()).await.unwrap();
+    let loaded = load(&ask, DOC, &lane).await.unwrap();
+    let mut follower = CueFollower::new(&loaded, &tempo(&ask, DOC).await.unwrap());
 
     // Frames every 16 ms of this clock; one clock with the leader here.
     let frames = |follower: &mut CueFollower, from: f64, to: f64| {

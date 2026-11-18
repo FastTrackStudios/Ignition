@@ -32,6 +32,8 @@
 //!   clock's.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::future::Future;
+use std::pin::Pin;
 
 use ignition_daw_proto::Bars;
 use ignition_show::{Cue, CueList};
@@ -60,30 +62,32 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// Asks `fts.session` on the host: `method` (`read`, `write`) with
 /// `args` (JSON), answering JSON. In an Ignition extension this is the
-/// host's service call (`HostRequest::Service`); in a host that holds
-/// the session, `session::extension::answer` as `ignition`.
-pub trait Ask {
+/// host's service call (`HostRequest::Service`, async); in a host that
+/// holds the session, `session::extension::answer` as `ignition` (any
+/// `Fn(&str, String) -> Result<String, String>` is an `Ask`).
+pub trait Ask: Sync {
     /// One call.
-    ///
-    /// # Errors
-    ///
-    /// The host refused it or it failed.
-    fn ask(&self, method: &str, args: &str) -> std::result::Result<String, String>;
+    fn ask(&self, method: &'static str, args: String) -> AskFuture<'_>;
 }
+
+/// What [`Ask::ask`] returns.
+pub type AskFuture<'a> =
+    Pin<Box<dyn Future<Output = std::result::Result<String, String>> + Send + 'a>>;
 
 impl<F> Ask for F
 where
-    F: Fn(&str, &str) -> std::result::Result<String, String>,
+    F: Fn(&'static str, String) -> std::result::Result<String, String> + Sync,
 {
-    fn ask(&self, method: &str, args: &str) -> std::result::Result<String, String> {
-        self(method, args)
+    fn ask(&self, method: &'static str, args: String) -> AskFuture<'_> {
+        let answer = self(method, args);
+        Box::pin(async move { answer })
     }
 }
 
-fn call(ask: &impl Ask, doc: &str, request: Request) -> Result<Response> {
+async fn call(ask: &impl Ask, doc: &str, request: Request) -> Result<Response> {
     let method = session::service::action_for(&request);
     let args = call_json(doc, request).map_err(Error::Session)?;
-    let reply = ask.ask(method, &args).map_err(Error::Session)?;
+    let reply = ask.ask(method, args).await.map_err(Error::Session)?;
     response_of(&reply).map_err(Error::Session)
 }
 
@@ -92,8 +96,8 @@ fn call(ask: &impl Ask, doc: &str, request: Request) -> Result<Response> {
 /// # Errors
 ///
 /// The service refused, or its tempo map does not parse.
-pub fn tempo(ask: &impl Ask, doc: &str) -> Result<TempoMap> {
-    match call(ask, doc, Request::ReadStructure)? {
+pub async fn tempo(ask: &impl Ask, doc: &str) -> Result<TempoMap> {
+    match call(ask, doc, Request::ReadStructure).await? {
         Response::Structure { tempo, .. } => tempo
             .to_tempo_map()
             .map_err(|e| Error::Session(e.to_string())),
@@ -150,11 +154,10 @@ fn untimed_key(lane: &LaneId) -> String {
 /// # Errors
 ///
 /// The service refused, or a cue would not encode.
-pub fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> Result<()> {
-    let tempo = tempo(ask, doc)?;
+pub async fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> Result<()> {
+    let tempo = tempo(ask, doc).await?;
     let ignition = ExtensionId::from(EXTENSION);
-    call(
-        ask,
+    call(ask,
         doc,
         Request::PutLane {
             id: lane.clone(),
@@ -166,7 +169,7 @@ pub fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> Result
                 parent: None,
             },
         },
-    )?;
+    ).await?;
     let mut timed = BTreeSet::new();
     let mut untimed = BTreeMap::new();
     for (index, cue) in list.cues.iter().enumerate() {
@@ -176,8 +179,7 @@ pub fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> Result
         let payload = to_value(&cue)?;
         if let Some(bars) = cue.position() {
             let id = item_id(lane, number);
-            call(
-                ask,
+            call(ask,
                 doc,
                 Request::PutItem {
                     id: id.clone(),
@@ -190,60 +192,57 @@ pub fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> Result
                         payload,
                     },
                 },
-            )?;
+            ).await?;
             timed.insert(id);
         } else {
             untimed.insert(number.to_string(), payload);
         }
     }
     // What this lane held that the list no longer has.
-    if let Response::Timeline { items, .. } = call(ask, doc, Request::ReadTimeline)? {
+    if let Response::Timeline { items, .. } = call(ask, doc, Request::ReadTimeline).await? {
         for (id, item) in items {
             if &item.lane == lane && item.owner == ignition && !timed.contains(&id) {
-                call(ask, doc, Request::RemoveItem { id })?;
+                call(ask, doc, Request::RemoveItem { id }).await?;
             }
         }
     }
-    let held = read_data(ask, doc)?
+    let held = read_data(ask, doc).await?
         .map(&untimed_key(lane))
         .cloned()
         .unwrap_or_default();
     for key in held.keys().filter(|k| !untimed.contains_key(*k)) {
-        call(
-            ask,
+        call(ask,
             doc,
             Request::MapRemove {
                 name: untimed_key(lane),
                 key: key.clone(),
             },
-        )?;
+        ).await?;
     }
     for (key, value) in untimed {
-        call(
-            ask,
+        call(ask,
             doc,
             Request::MapSet {
                 name: untimed_key(lane),
                 key,
                 value,
             },
-        )?;
+        ).await?;
     }
     let mut head = list.clone();
     head.cues.clear();
-    call(
-        ask,
+    call(ask,
         doc,
         Request::Set {
             name: list_key(lane),
             value: to_value(&head)?,
         },
-    )?;
+    ).await?;
     Ok(())
 }
 
-fn read_data(ask: &impl Ask, doc: &str) -> Result<session::ExtensionData> {
-    match call(ask, doc, Request::ReadData)? {
+async fn read_data(ask: &impl Ask, doc: &str) -> Result<session::ExtensionData> {
+    match call(ask, doc, Request::ReadData).await? {
         Response::Data(data) => Ok(data),
         other => Err(Error::Session(format!("not Ignition's data: {other:?}"))),
     }
@@ -256,15 +255,15 @@ fn read_data(ask: &impl Ask, doc: &str) -> Result<session::ExtensionData> {
 /// # Errors
 ///
 /// The service refused, or a cue would not decode.
-pub fn load(ask: &impl Ask, doc: &str, lane: &LaneId) -> Result<CueList> {
-    let tempo = tempo(ask, doc)?;
-    let data = read_data(ask, doc)?;
+pub async fn load(ask: &impl Ask, doc: &str, lane: &LaneId) -> Result<CueList> {
+    let tempo = tempo(ask, doc).await?;
+    let data = read_data(ask, doc).await?;
     let mut list: CueList = match data.get(&list_key(lane)) {
         Some(Entry::Register(head)) => from_value(head)?,
         _ => CueList::default(),
     };
     let mut cues: Vec<Cue> = Vec::new();
-    if let Response::Timeline { items, .. } = call(ask, doc, Request::ReadTimeline)? {
+    if let Response::Timeline { items, .. } = call(ask, doc, Request::ReadTimeline).await? {
         for item in items.values() {
             if &item.lane != lane || item.owner.as_str() != EXTENSION || item.kind != CUE_KIND {
                 continue;
