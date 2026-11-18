@@ -125,9 +125,10 @@ architect-extensions = { git = "https://github.com/FastTrackStudios/architect", 
 architect-workspace = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6" }
 # Process views (architect#641): a pane drawn by another program over a
 # socket pair, its frames in shared memory or a dma-buf — the visualizer's
-# pane (apps/ignition --process-view). Pinned to main's revision until a
-# tag carries it; move to the tag with the rest of architect.
-architect-process-view = { git = "https://github.com/FastTrackStudios/architect", rev = "50a37e5e8409cb8b9b46727f83ea882cc85471c2" }
+# pane (apps/ignition --process-view). Pinned to the app's revision (the
+# runtime-compositor line with process views and their inputs' mods) until
+# a tag carries it; move to the tag with the rest of architect.
+architect-process-view = { git = "https://github.com/FastTrackStudios/architect", rev = "51e503331f8bb89bf095f8dbb1277ad8c191fd39" }
 
 architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", features = ["otel"] }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
