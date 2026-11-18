@@ -157,7 +157,8 @@ fn untimed_key(lane: &LaneId) -> String {
 pub async fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> Result<()> {
     let tempo = tempo(ask, doc).await?;
     let ignition = ExtensionId::from(EXTENSION);
-    call(ask,
+    call(
+        ask,
         doc,
         Request::PutLane {
             id: lane.clone(),
@@ -169,7 +170,8 @@ pub async fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> 
                 parent: None,
             },
         },
-    ).await?;
+    )
+    .await?;
     let mut timed = BTreeSet::new();
     let mut untimed = BTreeMap::new();
     for (index, cue) in list.cues.iter().enumerate() {
@@ -179,7 +181,8 @@ pub async fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> 
         let payload = to_value(&cue)?;
         if let Some(bars) = cue.position() {
             let id = item_id(lane, number);
-            call(ask,
+            call(
+                ask,
                 doc,
                 Request::PutItem {
                     id: id.clone(),
@@ -192,7 +195,8 @@ pub async fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> 
                         payload,
                     },
                 },
-            ).await?;
+            )
+            .await?;
             timed.insert(id);
         } else {
             untimed.insert(number.to_string(), payload);
@@ -206,38 +210,45 @@ pub async fn store(ask: &impl Ask, doc: &str, lane: &LaneId, list: &CueList) -> 
             }
         }
     }
-    let held = read_data(ask, doc).await?
+    let held = read_data(ask, doc)
+        .await?
         .map(&untimed_key(lane))
         .cloned()
         .unwrap_or_default();
     for key in held.keys().filter(|k| !untimed.contains_key(*k)) {
-        call(ask,
+        call(
+            ask,
             doc,
             Request::MapRemove {
                 name: untimed_key(lane),
                 key: key.clone(),
             },
-        ).await?;
+        )
+        .await?;
     }
     for (key, value) in untimed {
-        call(ask,
+        call(
+            ask,
             doc,
             Request::MapSet {
                 name: untimed_key(lane),
                 key,
                 value,
             },
-        ).await?;
+        )
+        .await?;
     }
     let mut head = list.clone();
     head.cues.clear();
-    call(ask,
+    call(
+        ask,
         doc,
         Request::Set {
             name: list_key(lane),
             value: to_value(&head)?,
         },
-    ).await?;
+    )
+    .await?;
     Ok(())
 }
 

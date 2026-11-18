@@ -50,7 +50,9 @@ fn session() -> Sessions {
 }
 
 /// Ignition asking through `fts.session`, as its host answers it.
-fn ignition(sessions: &Sessions) -> impl Fn(&'static str, String) -> Result<String, String> + Sync + '_ {
+fn ignition(
+    sessions: &Sessions,
+) -> impl Fn(&'static str, String) -> Result<String, String> + Sync + '_ {
     move |method, args: String| answer(sessions, method, &args, Some(EXTENSION))
 }
 
@@ -164,7 +166,9 @@ async fn a_cue_moves_with_the_songs_tempo() {
 async fn ignition_and_keyflow_keep_their_own_data_in_one_session() {
     let sessions = session();
     let ask = ignition(&sessions);
-    store(&ask, DOC, &LaneId::from("main"), &list()).await.unwrap();
+    store(&ask, DOC, &LaneId::from("main"), &list())
+        .await
+        .unwrap();
     let chart = call_json(
         DOC,
         Request::TextSplice {
