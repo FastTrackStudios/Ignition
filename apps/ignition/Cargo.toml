@@ -37,11 +37,12 @@ architect-process-view.workspace = true
 # The wire's own `ViewInput` and `ThemeTokens`: the root manifest's
 # pin, one revision for every Architect crate.
 architect-workspace.workspace = true
-rustix = { version = "1", features = ["fs", "mm"] }
+rustix = { version = "1", features = ["fs", "mm", "process"] }
 wgpu = "29"
 bevy = { version = "0.19.1", default-features = false }
 
 [dev-dependencies]
+tempfile = "3"
 ableton.workspace = true
 
 [lints]

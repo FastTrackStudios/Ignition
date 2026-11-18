@@ -169,23 +169,42 @@ fn ableton_slug(name: &str) -> String {
 // The engine
 // ---------------------------------------------------------------------------
 
-/// The newest running engine's socket: `$XDG_RUNTIME_DIR/fts/engine-<pid>.sock`
-/// whose process is alive.
+/// The newest running engine's socket whose process is alive: where
+/// Studio's engine serves local clients unless told,
+/// `$XDG_RUNTIME_DIR/fts/engine-<pid>.sock`, else (no runtime directory:
+/// macOS) `/tmp/fts-engine-<pid>.sock`. Both are looked in.
 #[must_use]
 pub fn find_engine() -> Option<PathBuf> {
-    let runtime = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from)?;
-    let mut found: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(runtime.join("fts"))
-        .ok()?
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let name = entry.file_name().into_string().ok()?;
-            let pid = name.strip_prefix("engine-")?.strip_suffix(".sock")?;
-            Path::new("/proc").join(pid).is_dir().then_some(())?;
-            Some((entry.metadata().ok()?.modified().ok()?, entry.path()))
+    let mut places: Vec<(PathBuf, &str)> = Vec::new();
+    if let Some(runtime) = std::env::var_os("XDG_RUNTIME_DIR").filter(|d| !d.is_empty()) {
+        places.push((PathBuf::from(runtime).join("fts"), "engine-"));
+    }
+    places.push((PathBuf::from("/tmp"), "fts-engine-"));
+    let mut found: Vec<(std::time::SystemTime, PathBuf)> = places
+        .iter()
+        .filter_map(|(dir, prefix)| Some((std::fs::read_dir(dir).ok()?, *prefix)))
+        .flat_map(|(entries, prefix)| {
+            entries.filter_map(Result::ok).filter_map(move |entry| {
+                let name = entry.file_name().into_string().ok()?;
+                let pid = name.strip_prefix(prefix)?.strip_suffix(".sock")?;
+                alive(pid.parse().ok()?).then_some(())?;
+                Some((entry.metadata().ok()?.modified().ok()?, entry.path()))
+            })
         })
         .collect();
     found.sort_by(|a, b| b.0.cmp(&a.0));
     found.into_iter().next().map(|(_, p)| p)
+}
+
+/// Whether process `pid` is running (a signal 0 reaches it; a process of
+/// another user's still counts). On Linux and macOS alike: no `/proc`.
+fn alive(pid: i32) -> bool {
+    rustix::process::Pid::from_raw(pid).is_some_and(|pid| {
+        matches!(
+            rustix::process::test_kill_process(pid),
+            Ok(()) | Err(rustix::io::Errno::PERM)
+        )
+    })
 }
 
 /// A playhead following a Studio engine.
@@ -634,6 +653,30 @@ mod tests {
         assert_eq!(
             night.songs[1].live.position(beat),
             ignition_core::Bars::new(2, 1.0)
+        );
+    }
+
+    /// A live engine's socket is found in the runtime directory; one whose
+    /// process is gone is not. (`/tmp/fts-engine-*`, the other place, is
+    /// shared with the machine's real engines, so it is not written here.)
+    #[test]
+    fn the_engine_found_is_a_live_ones_socket() {
+        assert!(alive(i32::try_from(std::process::id()).unwrap()));
+        assert!(!alive(i32::MAX - 7));
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("fts")).unwrap();
+        let me = dir
+            .path()
+            .join(format!("fts/engine-{}.sock", std::process::id()));
+        std::fs::write(&me, b"").unwrap();
+        std::fs::write(dir.path().join("fts/engine-2147483640.sock"), b"").unwrap();
+        // SAFETY: this test alone reads or writes XDG_RUNTIME_DIR.
+        unsafe { std::env::set_var("XDG_RUNTIME_DIR", dir.path()) };
+        let found = find_engine();
+        assert!(
+            found.as_deref() == Some(me.as_path())
+                || found.as_deref().is_some_and(|p| p.starts_with("/tmp")),
+            "{found:?}"
         );
     }
 }
