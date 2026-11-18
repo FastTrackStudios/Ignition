@@ -14,19 +14,26 @@
     den.url = "github:denful/den";
     import-tree.url = "github:vic/import-tree";
 
-    # Shared Dioxus toolchain hub — every FTS Dioxus repo follows its
-    # nixpkgs / rust-overlay pins so `dx` and the Rust toolchain stay
-    # in lockstep.
+    # The Rust toolchain: devenv-fleet at the revision devenv.yaml imports,
+    # evaluated on ITS pinned nixpkgs and rust-overlay
+    # (nix/modules/toolchain.nix), so `nix develop` (and `.#ci`) has the
+    # devenv shell's rustc store path and kache shares builds with every
+    # fleet repo. Move it with devenv.yaml, never alone.
+    devenv-fleet.url = "github:FastTrackStudios/devenv-fleet/c4ddec850ad97b5da74c746bff39a988f02b13a4";
+
+    # Shared Dioxus hub: the native libraries' nixpkgs (5e11f7ac), as
+    # before. Not the fleet's newer one: on it, the shell's buildInputs
+    # (GTK/WebKit, ffmpeg, onnxruntime and their closures) put more
+    # -isystem/-L/-rpath flags on every gcc call than Linux passes to
+    # collect2 (COLLECT_GCC_OPTIONS is one string, 128 KiB at most), so
+    # every link fails with "Argument list too long" (measured on
+    # patchbay's flake, the same set). The devenv shell has no such limit.
     dioxus-flake.url = "github:FastTrackStudios/Dioxus-Flake";
     nixpkgs.follows = "dioxus-flake/nixpkgs";
 
-    # rust-overlay does NOT follow the Dioxus hub, unlike every other
-    # FTS Dioxus repo. Bevy 0.19 raises its MSRV to Rust 1.95 (and the
-    # workspace `rust-version` says so), while the hub's overlay is
-    # pinned old enough that `rust-bin.stable."1.95.0"` does not exist
-    # in it — the toolchain simply is not there to select. So Ignition
-    # takes the overlay directly and keeps the hub's nixpkgs, which is
-    # what `dx` and the wasm story actually depend on.
+    # rust-overlay: only the phon-jit / wasm-threads nightlies
+    # (nix/modules/toolchain.nix) read it now; the stable toolchain is
+    # devenv-fleet's.
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
