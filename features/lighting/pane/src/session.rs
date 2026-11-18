@@ -11,13 +11,14 @@
 //!   list's cues as the playhead crosses them (`ignition_session::CueFollower`).
 //! - `IGNITION_SESSION_TAKEN`: what the follower took: each cue, the
 //!   session time it was taken at, and the clock estimate.
-//! - `IGNITION_SESSION_SONG {doc, lane, live_set, locator, cues, bar_one?}`: a
+//! - `IGNITION_SESSION_SONG {doc, lane, live_set, locator, cues, bar_one?, tempo?}`: a
 //!   recital song into a session: its cue list (`cues`, a song file whose
 //!   positions are relative to the song's sections) resolved against the
 //!   Live set's song `locator`, as the night resolves it, and the set's
 //!   tempo over the song made the session's, so a cue's bar and time agree
 //!   with the room's; `bar_one` (a session bar) is where the chart's bar
-//!   1 is, after a count-in (session `bar_one`).
+//!   1 is, after a count-in (session `bar_one`); `tempo: false` leaves the
+//!   session's tempo map to its host (the DAW engine).
 //! - `IGNITION_SESSION_ROOM {url, doc, song}`: the room follows the
 //!   session: its tempo read through the service as this extension, then
 //!   the room's clock set to the session host's transport
@@ -152,9 +153,15 @@ pub async fn song(args: Value) -> Result<Value, String> {
     let tempo = song_tempo(&set, &live);
     let changes = tempo.points.len();
     let ask = host()?;
-    set_tempo(&ask, &doc, tempo)
-        .await
-        .map_err(|e| e.to_string())?;
+    // The set's tempo becomes the session's unless the session's host owns
+    // its timing (the DAW engine: `tempo: false`), when the cues are placed
+    // on the session's own tempo map.
+    let keep_tempo = args.get("tempo").and_then(Value::as_bool) == Some(false);
+    if !keep_tempo {
+        set_tempo(&ask, &doc, tempo)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
     store(&ask, &doc, &lane, &list)
         .await
         .map_err(|e| e.to_string())?;
@@ -175,7 +182,8 @@ pub async fn song(args: Value) -> Result<Value, String> {
         "timed": list.cues.iter().filter(|c| c.position().is_some()).count(),
         "unresolved": unresolved,
         "bpm": set.bpm_at(live.start_beats),
-        "tempo_changes": changes,
+        "tempo_changes": if keep_tempo { 0 } else { changes },
+        "tempo_set": !keep_tempo,
     }))
 }
 

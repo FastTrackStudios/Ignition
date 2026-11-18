@@ -215,10 +215,10 @@ params = '{"type":"object","properties":{"url":{"type":"string"},"doc":{"type":"
 [[actions]]
 id = "IGNITION_SESSION_SONG"
 name = "Lighting: a recital song into a session"
-description = "Song `locator` of the Live set `live_set` into session `doc`: its cue list (`cues`, a song file with section-relative positions) resolved against the set as the night resolves it and stored as lane `lane`, and the set's tempo over the song made the session's tempo map, through fts.session; `bar_one` (optional, a bar of the song) is where the chart's bar 1 is, after a count-in."
+description = "Song `locator` of the Live set `live_set` into session `doc`: its cue list (`cues`, a song file with section-relative positions) resolved against the set as the night resolves it and stored as lane `lane`, and the set's tempo over the song made the session's tempo map, through fts.session; `bar_one` (optional, a bar of the song) is where the chart's bar 1 is, after a count-in; `tempo: false` leaves the session's tempo map and bar 1 to its host (the DAW engine) and places the cues on it."
 group = "Lighting"
 effect = "mutating"
-params = '{"type":"object","properties":{"doc":{"type":"string"},"lane":{"type":"string"},"live_set":{"type":"string"},"locator":{"type":"string"},"cues":{"type":"string"},"bar_one":{"type":"integer","minimum":1}},"required":["doc","lane","live_set","locator","cues"]}'
+params = '{"type":"object","properties":{"doc":{"type":"string"},"lane":{"type":"string"},"live_set":{"type":"string"},"locator":{"type":"string"},"cues":{"type":"string"},"bar_one":{"type":"integer","minimum":1},"tempo":{"type":"boolean"}},"required":["doc","lane","live_set","locator","cues"]}'
 
 [[actions]]
 id = "IGNITION_SESSION_TAKEN"
