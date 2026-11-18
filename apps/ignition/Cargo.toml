@@ -37,18 +37,25 @@ crdt = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6",
 architect = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", features = ["vox", "connect"] }
 uuid.workspace = true
 # The visualizer as an Architect process view (`--process-view`): the
-# wire and its socket (no wgpu of its own), the frames in a memfd, and
-# Bevy's wgpu to read them back.
+# wire, its socket and the frames' memory (shared memory, or IOSurfaces
+# on macOS), none of it on a wgpu of its own; Bevy's wgpu reads the
+# frames back or copies them into the surfaces.
 architect-process-view.workspace = true
-# The wire's own `ViewInput` and `ThemeTokens`: the same revision as
-# `architect-process-view` (the root manifest's pin), not the workspace's
-# tag, whose types are another crate's. Moves with that pin.
-architect-workspace = { git = "https://github.com/FastTrackStudios/architect", rev = "51e503331f8bb89bf095f8dbb1277ad8c191fd39" }
-rustix = { version = "1", features = ["fs", "mm"] }
+# The wire's own `ViewInput` and `ThemeTokens`: the root manifest's
+# pin, one revision for every Architect crate.
+architect-workspace.workspace = true
+# `kill(pid, 0)`: whether Studio's engine is alive (studio_clock.rs).
+rustix = { version = "1", features = ["process"] }
 wgpu = "29"
 bevy = { version = "0.19.1", default-features = false }
 
+# macOS: the Metal texture type a texture over an IOSurface is made with
+# (wgpu-hal's Metal backend is objc2, as architect-process-view's surface).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-metal = { version = "0.3", default-features = false, features = ["std", "MTLTexture"] }
+
 [dev-dependencies]
+tempfile = "3"
 ableton.workspace = true
 
 [lints]

@@ -1902,6 +1902,34 @@ mod tests {
         }
     }
 
+    /// The angle (radians) of the rotation that takes `a` to `b`.
+    ///
+    /// Not `Quat::angle_between`: that is `2·acos(|a·b|)`, and in f32
+    /// `acos` near 1 cannot resolve less than about `2·√(2·ε) ≈ 7e-4`
+    /// rad, so two rotations equal to the last bit (aims agreeing to
+    /// 1e-7) read as 3e-4 apart and a 1e-4 check fails on rounding alone.
+    /// `2·atan2(|v|, |w|)` of the relative rotation is exact near zero.
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Quat arithmetic is float, component-wise, and cannot panic or overflow"
+    )]
+    fn rotation_angle(a: Quat, b: Quat) -> f32 {
+        let d = (a.inverse() * b).normalize();
+        2.0 * d.xyz().length().atan2(d.w.abs())
+    }
+
+    #[test]
+    fn the_rotation_angle_is_exact_near_zero_and_right_far_from_it() {
+        let a = Quat::from_rotation_y(0.3);
+        assert!(rotation_angle(a, a) < 1e-6);
+        let tiny = Quat::from_rotation_z(1e-5) * a;
+        assert!((rotation_angle(a, tiny) - 1e-5).abs() < 1e-6);
+        let big = Quat::from_rotation_x(1.2) * a;
+        assert!((rotation_angle(a, big) - 1.2).abs() < 1e-5);
+        // q and -q are one rotation.
+        assert!(rotation_angle(a, -a) < 1e-6);
+    }
+
     #[expect(
         clippy::arithmetic_side_effects,
         reason = "Quat * Vec3 is float, component-wise, and cannot panic or overflow"
@@ -1914,7 +1942,7 @@ mod tests {
             expected.translation
         );
         assert!(
-            rot.angle_between(expected.rotation) < 1e-4,
+            rotation_angle(rot, expected.rotation) < 1e-4,
             "{what}: emitter aims {:?}, beam node {:?}",
             rot * Vec3::NEG_Z,
             expected.rotation * Vec3::NEG_Z

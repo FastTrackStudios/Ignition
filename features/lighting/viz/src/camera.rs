@@ -643,6 +643,10 @@ pub struct ActiveCamera {
     /// camera takes the cuts — the wide view. `None` means the first
     /// favourite.
     pub wide: Option<String>,
+    /// The main view put somewhere by hand (a drag in a host's pane, which
+    /// shows the main view): held instead of the wide preset until a
+    /// preset is picked for it again ([`Self::set_wide`]).
+    wide_free: Option<CameraState>,
 }
 
 impl ActiveCamera {
@@ -674,6 +678,7 @@ impl ActiveCamera {
             dirty: true,
             ceiling_hidden: false,
             wide: None,
+            wide_free: None,
         }
     }
 
@@ -685,8 +690,26 @@ impl ActiveCamera {
             return false;
         };
         self.wide = Some(preset.name.clone());
+        self.wide_free = None;
         self.dirty = true;
         true
+    }
+
+    /// Put the main view somewhere by hand: a host pane's drag, which
+    /// moves the view the pane shows, not the programme camera's.
+    pub fn set_wide_free(&mut self, state: CameraState) {
+        self.wide_free = Some(state);
+        self.dirty = true;
+    }
+
+    /// Where the main view is: put by hand, else on its wide preset.
+    #[must_use]
+    pub fn wide_state(&self) -> Option<CameraState> {
+        self.wide_free.or_else(|| {
+            self.wide_name()
+                .and_then(|n| self.cameras.preset(&n))
+                .map(CameraPreset::state)
+        })
     }
 
     /// The wide preset's name: what was chosen, else the first favourite,
@@ -1021,10 +1044,7 @@ pub fn drive_camera(
     // the first favourite, and reading it raw made the main view fall
     // through to the cut whenever nobody had picked a wide preset by
     // hand — which is every fresh venue.
-    let wide = active
-        .wide_name()
-        .and_then(|n| active.cameras.preset(&n))
-        .map(CameraPreset::state);
+    let wide = active.wide_state();
     let write = |state: &CameraState,
                  transform: &mut Transform,
                  projection: &mut Projection,
@@ -1255,6 +1275,37 @@ mod tests {
     /// rendering a second camera into a texture no one reads.
     ///
     /// r[verify viz.programme-view]
+    /// A host pane shows the main view, so its drag puts the main view
+    /// somewhere by hand (held through cuts, which stay the programme
+    /// camera's), and picking a preset for it lets that go.
+    #[test]
+    fn a_hand_placed_main_view_holds_until_a_preset_is_picked() {
+        let mut active = ActiveCamera::new(
+            cameras(),
+            Some("Wide"),
+            CameraState::new(Vec3::ZERO, Vec3::Y, 60.0),
+            100.0,
+        );
+        let wide = active.cameras.preset("Wide").expect("Wide").state();
+        assert_eq!(active.wide_state(), Some(wide));
+        let dragged = CameraState::new(Vec3::new(3.0, -9.0, 4.0), Vec3::Z, 40.0);
+        active.set_wide_free(dragged);
+        assert_eq!(active.wide_state(), Some(dragged));
+        assert!(active.cut_to(&CameraTarget::Slot(2), 0.0, 0.0, 120.0));
+        assert_eq!(
+            active.wide_state(),
+            Some(dragged),
+            "a cut is the programme's"
+        );
+        assert!(active.set_wide(&CameraTarget::Preset("Bird's eye".into())));
+        let birds_eye = active
+            .cameras
+            .preset("Bird's eye")
+            .expect("Bird's eye")
+            .state();
+        assert_eq!(active.wide_state(), Some(birds_eye));
+    }
+
     #[test]
     fn the_wide_view_holds_while_the_cuts_move_and_an_unwatched_programme_costs_nothing() {
         let mut active = ActiveCamera::new(
