@@ -84,10 +84,13 @@ test:
 
 # The hygiene gate. The two forks in vendor/ are not workspace members, so `--workspace` is ours only.
 # Clippy reports and does not fail for now: the port left 149 findings on
-# Rust 1.99.1 that need decisions (#13). `-D warnings` comes back with them fixed.
+# Rust 1.99.1 that need decisions (#13). `--cap-lints warn` is what makes
+# that so: the workspace sets `pedantic` and `nursery` to `deny`
+# (Cargo.toml), so without it their findings are errors whatever `-D`
+# says. Both come back, as `-- -D warnings`, with the findings fixed.
 lint:
     cargo fmt --all --check
-    cargo clippy --workspace --all-targets
+    cargo clippy --workspace --all-targets -- --cap-lints warn
 
 # ── rendering the show to video ──────────────────────────────────────
 
