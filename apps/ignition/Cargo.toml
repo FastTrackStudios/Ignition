@@ -34,10 +34,9 @@ tokio = { workspace = true, features = ["rt", "net", "time", "signal", "sync", "
 # wire and its socket (no wgpu of its own), the frames in a memfd, and
 # Bevy's wgpu to read them back.
 architect-process-view.workspace = true
-# The wire's own `ViewInput` and `ThemeTokens`: the same revision as
-# `architect-process-view` (the root manifest's pin), not the workspace's
-# tag, whose types are another crate's. Moves with that pin.
-architect-workspace = { git = "https://github.com/FastTrackStudios/architect", rev = "50a37e5e8409cb8b9b46727f83ea882cc85471c2" }
+# The wire's own `ViewInput` and `ThemeTokens`: the root manifest's
+# pin, one revision for every Architect crate.
+architect-workspace.workspace = true
 rustix = { version = "1", features = ["fs", "mm"] }
 wgpu = "29"
 bevy = { version = "0.19.1", default-features = false }

@@ -113,17 +113,17 @@ keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", tag = "v0
 # One tag shared by every entry so the framework moves together.
 # The extension API: ignition-pane links into an Architect build
 # (`linked`) and runs as a process extension (`guest`).
-architect-extensions = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6" }
+architect-extensions = { git = "https://github.com/FastTrackStudios/architect", rev = "525c4a02438c85640f6eb3e9d1e0667ea5916dee" }
 # View input and theme tokens (`ViewInput`, `Button`, `ThemeTokens`) the
 # process view receives.
-architect-workspace = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6" }
+architect-workspace = { git = "https://github.com/FastTrackStudios/architect", rev = "525c4a02438c85640f6eb3e9d1e0667ea5916dee" }
 # Process views (architect#641): a pane drawn by another program over a
 # socket pair, its frames in shared memory or a dma-buf — the visualizer's
 # pane (apps/ignition --process-view). Pinned to main's revision until a
 # tag carries it; move to the tag with the rest of architect.
-architect-process-view = { git = "https://github.com/FastTrackStudios/architect", rev = "50a37e5e8409cb8b9b46727f83ea882cc85471c2" }
+architect-process-view = { git = "https://github.com/FastTrackStudios/architect", rev = "525c4a02438c85640f6eb3e9d1e0667ea5916dee" }
 
-architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", features = ["otel"] }
+architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", rev = "525c4a02438c85640f6eb3e9d1e0667ea5916dee", features = ["otel"] }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
 ignition-mobile = { path = "apps/ignition-mobile" }
 
