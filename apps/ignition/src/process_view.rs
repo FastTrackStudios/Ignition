@@ -1,15 +1,22 @@
 //! `ignition --process-view`: the visualizer as an Architect process view.
 //!
 //! Architect shows another program's frames in a pane (architect#641,
-//! `architect-process-view`): it starts the program with a `SOCK_SEQPACKET`
-//! end in `ARCHITECT_VIEW_FD`, says hello with the pane's size, and from
-//! then on forwards the pane's input and size and shows the frames the
-//! program sends. The program's side there (`guest::serve`) draws with
-//! Vello on wgpu 30; Bevy is on wgpu 29, so this speaks the wire itself
-//! and shares its frames the portable way, **shared memory**
-//! (`Transport::Shm`): each frame rendered by the visualizer
-//! (`EmbeddedViz`, on a device of its own), read back, and written into a
-//! slot of one memfd the app uploads from.
+//! `architect-process-view`): it starts the program with its end of a
+//! socket pair in `ARCHITECT_VIEW_FD`, says hello with the pane's size, and
+//! from then on forwards the pane's input and size and shows the frames
+//! the program sends. The program's side there (`guest::serve`) draws with
+//! Vello on wgpu 30; Bevy is on wgpu 29, so this speaks the wire itself,
+//! with the transport's own wgpu-free parts (`sock`, `shm`, `surface`):
+//!
+//! - **macOS, zero-copy** (`Transport::IoSurface`), when the app can take
+//!   it: each slot an `IOSurface` with a texture of this device over it;
+//!   a frame is Bevy's target copied into the slot's texture on the GPU,
+//!   and the app's device reads the same memory. The surfaces go to the
+//!   app's Mach port (`surface::Sender`) before the buffers' message.
+//! - **Shared memory** (`Transport::Shm`) everywhere else (Linux, an app
+//!   that can't take surfaces, `ARCHITECT_PROCESS_VIEW_TRANSPORT=shm`):
+//!   each frame read back and written into a slot of one shared file the
+//!   app uploads from.
 //!
 //! The pane drives the camera: drag to orbit, right-drag (or Shift-drag)
 //! to move, the wheel to come closer; the number keys cut to the room's
@@ -17,11 +24,12 @@
 //!
 //! [`Orbit`] is the pane's camera arithmetic, pure and tested.
 
-use std::os::fd::{AsFd as _, OwnedFd};
+use std::os::fd::AsFd as _;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result};
+use architect_process_view::shm;
 use architect_process_view::sock::Socket;
 use architect_process_view::wire::{self, ToGuest, ToHost, Transport};
 use architect_workspace::{Button, ViewInput};
@@ -34,6 +42,9 @@ use ignition_viz::{DmxUniverses, VizConfig};
 
 /// Frames in flight: the one shown, the one before it, one to draw into.
 const SLOTS: u8 = 3;
+
+/// Forces shared memory (`shm`), as for Architect's own guests.
+const TRANSPORT_ENV: &str = "ARCHITECT_PROCESS_VIEW_TRANSPORT";
 
 /// The pieces the runner made for a window, made for a pane instead.
 pub struct Show {
@@ -52,7 +63,7 @@ pub struct Show {
 /// or there is no GPU.
 pub fn serve(show: Show) -> Result<()> {
     let socket = Socket::from_env().context("ARCHITECT_VIEW_FD: not started as a process view")?;
-    let (width, height, scale) = loop {
+    let (width, height, scale, zero_copy) = loop {
         let Some((bytes, _)) = socket.recv()? else {
             anyhow::bail!("the app closed the view before saying hello");
         };
@@ -61,6 +72,7 @@ pub fn serve(show: Show) -> Result<()> {
             width,
             height,
             scale,
+            zero_copy,
             ..
         } = ToGuest::decode(&bytes)?
         {
@@ -69,10 +81,10 @@ pub fn serve(show: Show) -> Result<()> {
                 "the app speaks process-view protocol {version}, this program {}",
                 wire::VERSION
             );
-            break (width.max(1), height.max(1), scale);
+            break (width.max(1), height.max(1), scale, zero_copy);
         }
     };
-    tracing::info!(width, height, scale, "process view: hello");
+    tracing::info!(width, height, scale, zero_copy, "process view: hello");
     let gpu = ignition_viz::bench::headless_gpu()?;
     let (device, queue) = (gpu.device.clone(), gpu.queue.clone());
     let Show {
@@ -89,8 +101,11 @@ pub fn serve(show: Show) -> Result<()> {
     if let Some(mut active) = viz.app_mut().world_mut().get_resource_mut::<ActiveCamera>() {
         active.keys = false;
     }
+    let link = Link::new(&device);
+    let zero_copy = zero_copy && link.can_share();
     let mut guest = Guest {
-        frames: Frames::new(&device, (width, height), 1)?,
+        frames: Frames::new(&device, (width, height), 1, zero_copy)?,
+        link,
         socket,
         device,
         queue,
@@ -102,12 +117,59 @@ pub fn serve(show: Show) -> Result<()> {
         drag: None,
         pending_camera: None,
     };
+    tracing::info!(transport = ?guest.frames.transport(), "process view: frames");
     guest.announce()?;
     guest.run(&mut viz, follow.as_ref())
 }
 
+/// Where the frames' GPU-shared slots go: on macOS the app's Mach port
+/// (`surface::Sender`), if it named one and this device is a Metal one;
+/// nowhere elsewhere (shared memory only).
+struct Link {
+    #[cfg(target_os = "macos")]
+    sender: Option<architect_process_view::surface::Sender>,
+}
+
+impl Link {
+    fn new(device: &wgpu::Device) -> Self {
+        let forced_shm = std::env::var(TRANSPORT_ENV).is_ok_and(|v| v == "shm");
+        #[cfg(target_os = "macos")]
+        {
+            // SAFETY: only asked whether the device is a Metal one.
+            let metal = unsafe { device.as_hal::<wgpu::hal::api::Metal>() }.is_some();
+            let sender = if forced_shm || !metal {
+                None
+            } else {
+                architect_process_view::surface::Sender::from_env()
+                    .inspect_err(|e| tracing::warn!("process view: no IOSurface rendezvous: {e}"))
+                    .ok()
+                    .flatten()
+            };
+            Self { sender }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (device, forced_shm);
+            Self {}
+        }
+    }
+
+    /// Whether frames can go GPU-shared.
+    const fn can_share(&self) -> bool {
+        #[cfg(target_os = "macos")]
+        {
+            self.sender.is_some()
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            false
+        }
+    }
+}
+
 struct Guest {
     socket: Socket,
+    link: Link,
     device: wgpu::Device,
     queue: wgpu::Queue,
     frames: Frames,
@@ -133,7 +195,19 @@ enum CameraAsk {
 impl Guest {
     fn announce(&self) -> Result<()> {
         let bytes = self.frames.message().encode()?;
-        self.socket.send(&bytes, &[self.frames.file.as_fd()])?;
+        match &self.frames.slots {
+            Slots::Shm { map, .. } => self.socket.send(&bytes, &[map.as_fd()])?,
+            // The surfaces first, on the Mach port; then the message that
+            // names them.
+            #[cfg(target_os = "macos")]
+            Slots::Surfaces(slots) => {
+                let surfaces: Vec<_> = slots.iter().map(|(s, _)| s.clone()).collect();
+                if let Some(sender) = &self.link.sender {
+                    sender.send(self.frames.id, &surfaces)?;
+                }
+                self.socket.send(&bytes, &[])?;
+            }
+        }
         Ok(())
     }
 
@@ -183,13 +257,21 @@ impl Guest {
                 let size = (width.max(1), height.max(1));
                 if size != (self.frames.width, self.frames.height) {
                     let id = self.frames.id.saturating_add(1);
-                    self.frames = Frames::new(&self.device, size, id)?;
+                    let shared = self.frames.shared();
+                    self.frames = Frames::new(&self.device, size, id, shared)?;
                     self.announce()?;
                 }
                 self.credit = true;
             }
             ToGuest::Expose | ToGuest::Tick => self.credit = true,
-            ToGuest::Hello { .. } => {
+            // Again: a new pane for this program, or the app could not
+            // take the GPU-shared frames (it asks for shared memory).
+            ToGuest::Hello { zero_copy, .. } => {
+                if !zero_copy && self.frames.shared() {
+                    let size = (self.frames.width, self.frames.height);
+                    let id = self.frames.id.saturating_add(1);
+                    self.frames = Frames::new(&self.device, size, id, false)?;
+                }
                 self.credit = true;
                 self.announce()?;
             }
@@ -305,86 +387,91 @@ impl Guest {
 }
 
 // ---------------------------------------------------------------------------
-// Shared memory
+// The frames' slots
 // ---------------------------------------------------------------------------
 
-/// The frames' memory: one memfd holding every slot, rows packed
-/// (`width * 4` bytes, RGBA8, sRGB-encoded as the target is), and a
-/// readback buffer with rows padded the way wgpu copies them.
+/// The frames' memory: the slots, which the app holds, and how they are
+/// shared.
 struct Frames {
     id: u64,
     width: u32,
     height: u32,
-    file: OwnedFd,
-    map: Map,
-    readback: wgpu::Buffer,
-    padded: u32,
+    slots: Slots,
     held: Vec<bool>,
 }
 
-struct Map {
-    ptr: *mut std::ffi::c_void,
-    len: usize,
-}
-
-impl Drop for Map {
-    fn drop(&mut self) {
-        // SAFETY: mapped by `Frames::new` with this length; nothing else
-        // uses it once dropped.
-        let _ = unsafe { rustix::mm::munmap(self.ptr, self.len) };
-    }
+enum Slots {
+    /// One shared file holding every slot, rows packed (`width * 4`
+    /// bytes, RGBA8, sRGB-encoded as the target is), and a readback
+    /// buffer with rows padded the way wgpu copies them.
+    Shm {
+        map: shm::Shared,
+        readback: wgpu::Buffer,
+        padded: u32,
+    },
+    /// One `IOSurface` per slot and this device's texture over it.
+    #[cfg(target_os = "macos")]
+    Surfaces(Vec<(architect_process_view::surface::IoSurface, wgpu::Texture)>),
 }
 
 impl Frames {
-    fn new(device: &wgpu::Device, (width, height): (u32, u32), id: u64) -> Result<Self> {
-        let row = width.checked_mul(4).context("a frame too wide")?;
-        let padded = row
-            .checked_next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
-            .context("a frame too wide")?;
-        let slot_len = usize::try_from(u64::from(row) * u64::from(height))?;
-        let len = slot_len
-            .checked_mul(usize::from(SLOTS))
-            .context("frames too large")?;
-        let file =
-            rustix::fs::memfd_create("ignition-process-view", rustix::fs::MemfdFlags::CLOEXEC)?;
-        rustix::fs::ftruncate(&file, u64::try_from(len)?)?;
-        // SAFETY: a fresh shared mapping of a file we own, `len` long.
-        let ptr = unsafe {
-            rustix::mm::mmap(
-                std::ptr::null_mut(),
-                len,
-                rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
-                rustix::mm::MapFlags::SHARED,
-                &file,
-                0,
+    /// `shared`: GPU-shared slots (macOS), else shared memory.
+    fn new(
+        device: &wgpu::Device,
+        (width, height): (u32, u32),
+        id: u64,
+        shared: bool,
+    ) -> Result<Self> {
+        #[cfg(target_os = "macos")]
+        let slots = if shared {
+            Slots::Surfaces(
+                (0..SLOTS)
+                    .map(|_| surface_slot(device, width, height))
+                    .collect::<Result<_>>()?,
             )
-        }?;
-        let readback = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("ignition process view readback"),
-            size: u64::from(padded) * u64::from(height),
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
+        } else {
+            shm_slots(device, (width, height))?
+        };
+        #[cfg(not(target_os = "macos"))]
+        let slots = {
+            let _ = shared;
+            shm_slots(device, (width, height))?
+        };
         Ok(Self {
             id,
             width,
             height,
-            file,
-            map: Map { ptr, len },
-            readback,
-            padded,
+            slots,
             held: vec![false; usize::from(SLOTS)],
         })
     }
 
-    const fn message(&self) -> ToHost {
+    /// Whether the slots are GPU-shared.
+    const fn shared(&self) -> bool {
+        !matches!(self.slots, Slots::Shm { .. })
+    }
+
+    const fn transport(&self) -> Transport {
+        match self.slots {
+            Slots::Shm { .. } => Transport::Shm,
+            #[cfg(target_os = "macos")]
+            Slots::Surfaces(_) => Transport::IoSurface,
+        }
+    }
+
+    fn message(&self) -> ToHost {
+        let stride = match &self.slots {
+            Slots::Shm { .. } => self.width.saturating_mul(4),
+            #[cfg(target_os = "macos")]
+            Slots::Surfaces(slots) => slots.first().map_or(0, |(s, _)| s.stride()),
+        };
         ToHost::Buffers {
             id: self.id,
-            transport: Transport::Shm,
+            transport: self.transport(),
             width: self.width,
             height: self.height,
             slots: SLOTS,
-            stride: self.width.saturating_mul(4),
+            stride,
             offset: 0,
             modifier: 0,
         }
@@ -397,7 +484,8 @@ impl Frames {
             .and_then(|i| u8::try_from(i).ok())
     }
 
-    /// Copies `texture` (this size, RGBA8) into `slot`.
+    /// Copies `texture` (this size, RGBA8) into `slot`, and waits for it
+    /// to be there.
     fn copy_in(
         &self,
         device: &wgpu::Device,
@@ -406,31 +494,71 @@ impl Frames {
         slot: u8,
     ) -> Result<()> {
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("ignition process view readback"),
+            label: Some("ignition process view frame"),
         });
-        encoder.copy_texture_to_buffer(
-            wgpu::TexelCopyTextureInfo {
-                texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            wgpu::TexelCopyBufferInfo {
-                buffer: &self.readback,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(self.padded),
-                    rows_per_image: Some(self.height),
+        let size = wgpu::Extent3d {
+            width: self.width,
+            height: self.height,
+            depth_or_array_layers: 1,
+        };
+        match &self.slots {
+            Slots::Shm {
+                readback, padded, ..
+            } => encoder.copy_texture_to_buffer(
+                texture.as_image_copy(),
+                wgpu::TexelCopyBufferInfo {
+                    buffer: readback,
+                    layout: wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(*padded),
+                        rows_per_image: Some(self.height),
+                    },
                 },
-            },
-            wgpu::Extent3d {
-                width: self.width,
-                height: self.height,
-                depth_or_array_layers: 1,
-            },
-        );
-        queue.submit([encoder.finish()]);
-        let slice = self.readback.slice(..);
+                size,
+            ),
+            // On the GPU, into the memory the app's device reads.
+            #[cfg(target_os = "macos")]
+            Slots::Surfaces(slots) => {
+                let (_, to) = slots
+                    .get(usize::from(slot))
+                    .context("a slot past the surfaces")?;
+                encoder.copy_texture_to_texture(texture.as_image_copy(), to.as_image_copy(), size);
+            }
+        }
+        let submitted = queue.submit([encoder.finish()]);
+        match &self.slots {
+            Slots::Shm {
+                map,
+                readback,
+                padded,
+            } => {
+                // Its readback's mapping waits for the copy.
+                let _ = submitted;
+                self.read_back(device, (map, readback, *padded), slot)
+            }
+            // The frame's pixels are in the surface before the app is
+            // told: the CPU-side fence the wire asks for.
+            #[cfg(target_os = "macos")]
+            Slots::Surfaces(_) => {
+                device
+                    .poll(wgpu::PollType::Wait {
+                        submission_index: Some(submitted),
+                        timeout: Some(Duration::from_secs(2)),
+                    })
+                    .map_err(|e| anyhow::anyhow!("waiting for the frame: {e}"))?;
+                Ok(())
+            }
+        }
+    }
+
+    /// The readback buffer's frame into `slot` of the shared memory.
+    fn read_back(
+        &self,
+        device: &wgpu::Device,
+        (map, readback, padded): (&shm::Shared, &wgpu::Buffer, u32),
+        slot: u8,
+    ) -> Result<()> {
+        let slice = readback.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = tx.send(result);
@@ -447,19 +575,14 @@ impl Frames {
         {
             let bytes = slice.get_mapped_range();
             let row = usize::try_from(self.width)? * 4;
-            let padded = usize::try_from(self.padded)?;
+            let padded = usize::try_from(padded)?;
             let height = usize::try_from(self.height)?;
             let base = usize::from(slot) * row * height;
-            anyhow::ensure!(
-                base + row * height <= self.map.len,
-                "a slot past the mapping"
-            );
-            // SAFETY: `base..base + row * height` is inside the mapping
-            // (checked above), which lives as long as `self`; the app
-            // reads a slot only after this frame's message names it.
-            let dest = unsafe {
-                std::slice::from_raw_parts_mut(self.map.ptr.cast::<u8>().add(base), row * height)
-            };
+            // SAFETY: the app reads a slot only after this frame's message
+            // names it, and holds none it was not sent; nothing else in
+            // this process touches the mapping.
+            let dest =
+                unsafe { map.bytes_mut(base, row * height) }.context("a slot past the mapping")?;
             for (y, out) in dest.chunks_exact_mut(row).enumerate() {
                 let from = y * padded;
                 if let Some(src) = bytes.get(from..from + row) {
@@ -467,9 +590,92 @@ impl Frames {
                 }
             }
         }
-        self.readback.unmap();
+        readback.unmap();
         Ok(())
     }
+}
+
+/// Shared-memory slots for frames of `width` × `height`.
+fn shm_slots(device: &wgpu::Device, (width, height): (u32, u32)) -> Result<Slots> {
+    let row = width.checked_mul(4).context("a frame too wide")?;
+    let padded = row
+        .checked_next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
+        .context("a frame too wide")?;
+    let slot_len = usize::try_from(u64::from(row) * u64::from(height))?;
+    let len = slot_len
+        .checked_mul(usize::from(SLOTS))
+        .context("frames too large")?;
+    let map = shm::Shared::create(len)?;
+    let readback = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("ignition process view readback"),
+        size: u64::from(padded) * u64::from(height),
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    Ok(Slots::Shm {
+        map,
+        readback,
+        padded,
+    })
+}
+
+/// A new `IOSurface` and this (Metal) device's texture over it, which a
+/// frame is copied into.
+#[cfg(target_os = "macos")]
+fn surface_slot(
+    device: &wgpu::Device,
+    width: u32,
+    height: u32,
+) -> Result<(architect_process_view::surface::IoSurface, wgpu::Texture)> {
+    use wgpu::hal;
+    let surface = architect_process_view::surface::IoSurface::new(width, height)?;
+    // SAFETY: the raw device is used only while `hal_device` lives, to make
+    // one texture that is handed to wgpu.
+    let hal_device = unsafe { device.as_hal::<hal::api::Metal>() }.context("not a Metal device")?;
+    let raw = surface
+        .metal_texture(hal_device.raw_device())
+        .context("Metal made no texture over the IOSurface")?;
+    // SAFETY: a 2D, one-level, one-layer RGBA8Unorm texture of this device,
+    // `width` × `height`, as the descriptor below says; Metal keeps the
+    // surface alive as long as the texture.
+    let hal_texture = unsafe {
+        hal::metal::Device::texture_from_raw(
+            raw,
+            wgpu::TextureFormat::Rgba8Unorm,
+            objc2_metal::MTLTextureType::Type2D,
+            1,
+            1,
+            hal::CopyExtent {
+                width,
+                height,
+                depth: 1,
+            },
+        )
+    };
+    drop(hal_device);
+    // SAFETY: made on this device, respecting the descriptor.
+    let texture = unsafe {
+        device.create_texture_from_hal::<hal::api::Metal>(
+            hal_texture,
+            &wgpu::TextureDescriptor {
+                label: Some("ignition process view slot"),
+                size: wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::COPY_DST
+                    | wgpu::TextureUsages::COPY_SRC
+                    | wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        )
+    };
+    Ok((surface, texture))
 }
 
 // ---------------------------------------------------------------------------

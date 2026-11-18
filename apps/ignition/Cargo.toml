@@ -31,15 +31,22 @@ vox.workspace = true
 vox-stream.workspace = true
 tokio = { workspace = true, features = ["rt", "net", "time", "signal", "sync", "macros"] }
 # The visualizer as an Architect process view (`--process-view`): the
-# wire and its socket (no wgpu of its own), the frames in a memfd, and
-# Bevy's wgpu to read them back.
+# wire, its socket and the frames' memory (shared memory, or IOSurfaces
+# on macOS), none of it on a wgpu of its own; Bevy's wgpu reads the
+# frames back or copies them into the surfaces.
 architect-process-view.workspace = true
 # The wire's own `ViewInput` and `ThemeTokens`: the root manifest's
 # pin, one revision for every Architect crate.
 architect-workspace.workspace = true
-rustix = { version = "1", features = ["fs", "mm", "process"] }
+# `kill(pid, 0)`: whether Studio's engine is alive (studio_clock.rs).
+rustix = { version = "1", features = ["process"] }
 wgpu = "29"
 bevy = { version = "0.19.1", default-features = false }
+
+# macOS: the Metal texture type a texture over an IOSurface is made with
+# (wgpu-hal's Metal backend is objc2, as architect-process-view's surface).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-metal = { version = "0.3", default-features = false, features = ["std", "MTLTexture"] }
 
 [dev-dependencies]
 tempfile = "3"

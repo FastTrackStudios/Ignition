@@ -21,7 +21,7 @@
 //! locate, every song `AbleSet` jumps to, lands on the right cue.
 
 mod night;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 mod process_view;
 mod render;
 mod studio_clock;
@@ -214,15 +214,15 @@ fn main() -> Result<()> {
         current: Mutex::new(None),
     });
     if args.process_view {
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
         let served = process_view::serve(process_view::Show {
             config,
             playback,
             gdtf,
             follow: follower,
         });
-        #[cfg(not(target_os = "linux"))]
-        let served: Result<()> = Err(anyhow::anyhow!("process views are Linux only"));
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        let served: Result<()> = Err(anyhow::anyhow!("process views run on Linux and macOS"));
         if let Some(stopper) = stopper {
             stopper.stop();
         }
