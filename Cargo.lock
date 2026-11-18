@@ -886,6 +886,23 @@ dependencies = [
 [[package]]
 name = "architect-devices"
 version = "0.1.0"
+source = "git+https://github.com/FastTrackStudios/architect?tag=v0.12.6#d418e65d52565b7e0f5b50b686e62df95ce1ae90"
+dependencies = [
+ "architect 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "architect-orgs 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "architect-permissions 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "architect-workspace-hack 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "facet",
+ "facet-json",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "architect-devices"
+version = "0.1.0"
 source = "git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2#50a37e5e8409cb8b9b46727f83ea882cc85471c2"
 dependencies = [
  "architect 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
@@ -1233,7 +1250,7 @@ dependencies = [
  "architect-workspace-hack 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
  "blitz-dom",
  "blitz-traits",
- "crdt",
+ "crdt 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
  "dioxus",
  "dioxus-native-dom",
  "facet",
@@ -5371,17 +5388,17 @@ dependencies = [
 [[package]]
 name = "crdt"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2#50a37e5e8409cb8b9b46727f83ea882cc85471c2"
+source = "git+https://github.com/FastTrackStudios/architect?tag=v0.12.6#d418e65d52565b7e0f5b50b686e62df95ce1ae90"
 dependencies = [
- "architect 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
- "architect-devices",
- "architect-orgs 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
- "architect-permissions 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
- "architect-workspace-hack 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
+ "architect 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "architect-devices 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "architect-orgs 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "architect-permissions 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "architect-workspace-hack 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
  "async-trait",
  "chrono",
  "crc32fast",
- "crdt-derive",
+ "crdt-derive 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
  "loro",
  "loro-internal",
  "sha2 0.10.9",
@@ -5390,6 +5407,40 @@ dependencies = [
  "tracing",
  "uuid",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "crdt"
+version = "0.1.0"
+source = "git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2#50a37e5e8409cb8b9b46727f83ea882cc85471c2"
+dependencies = [
+ "architect 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
+ "architect-devices 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
+ "architect-orgs 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
+ "architect-permissions 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
+ "architect-workspace-hack 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
+ "async-trait",
+ "chrono",
+ "crc32fast",
+ "crdt-derive 0.1.0 (git+https://github.com/FastTrackStudios/architect?rev=50a37e5e8409cb8b9b46727f83ea882cc85471c2)",
+ "loro",
+ "loro-internal",
+ "sha2 0.10.9",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "uuid",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "crdt-derive"
+version = "0.1.0"
+source = "git+https://github.com/FastTrackStudios/architect?tag=v0.12.6#d418e65d52565b7e0f5b50b686e62df95ce1ae90"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -9632,6 +9683,18 @@ dependencies = [
  "ignition-proto",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "ignition-session"
+version = "0.2.0"
+dependencies = [
+ "ignition-daw-proto",
+ "ignition-show",
+ "serde",
+ "serde_json",
+ "session",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -14799,6 +14862,18 @@ source = "git+https://github.com/nicoburns/stylo?rev=78734bf554bb40af9dc11c0eedb
 dependencies = [
  "serde",
  "stable_deref_trait",
+]
+
+[[package]]
+name = "session"
+version = "0.1.0"
+source = "git+https://github.com/FastTrackStudios/session?rev=dae00754dbab07fe73dc9bbe7092bfa9afc5f95b#dae00754dbab07fe73dc9bbe7092bfa9afc5f95b"
+dependencies = [
+ "crdt 0.1.0 (git+https://github.com/FastTrackStudios/architect?tag=v0.12.6)",
+ "facet",
+ "facet-json",
+ "loro",
+ "web-time",
 ]
 
 [[package]]

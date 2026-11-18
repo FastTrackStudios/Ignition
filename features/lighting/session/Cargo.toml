@@ -1,0 +1,21 @@
+[package]
+name = "ignition-session"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Ignition in a session: cue lists as lanes and timed items of the session primitive, read and written through `fts.session`, followed from the session's transport"
+
+[dependencies]
+# The session primitive (FastTrackStudios/session). By rev until it is
+# tagged (session#181-#184).
+session = { workspace = true, features = ["service", "extension", "sync"] }
+ignition-show.workspace = true
+ignition-daw-proto.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
