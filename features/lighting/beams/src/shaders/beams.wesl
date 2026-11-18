@@ -63,8 +63,9 @@ fn ring_point(beam: Beam, segment: u32, far: bool) -> vec3<f32> {
 }
 
 /// The hull, from nothing but the vertex index: twelve vertices a segment
-/// (the side's two triangles, a lens-cap triangle and a far-cap triangle),
-/// wound counter-clockwise seen from outside.
+/// (the side's two triangles, a lens-cap triangle and a far-cap triangle).
+/// Seen from outside they are wound clockwise, because right × up is −axis;
+/// the pipeline culls accordingly (`render.rs`).
 @vertex
 fn vertex(@builtin(vertex_index) index: u32, @builtin(instance_index) instance: u32) -> HullVertex {
     let beam = beams[instance];

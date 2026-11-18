@@ -6,9 +6,15 @@
 //! `Rgba16Float` air target, then that target added to the view's own
 //! (`shaders/beams.wesl`, `shaders/composite.wesl`).
 
+#![expect(
+    clippy::needless_pass_by_value,
+    reason = "Bevy hands a system its parameters by value"
+)]
+
 use bevy::{
     asset::{AssetId, Handle},
     camera::{Camera3d, visibility::InheritedVisibility},
+    color::LinearRgba,
     ecs::{
         component::Component,
         entity::Entity,
@@ -212,10 +218,14 @@ impl SpecializedRenderPipeline for BeamPipeline {
                         shader_defs: shader_defs.clone(),
                         ..Default::default()
                     },
-                    // Back faces only: one fragment per beam per pixel,
-                    // from outside the cone or from in it.
+                    // The faces turned away from the camera only: one
+                    // fragment per beam per pixel, from outside the cone or
+                    // from in it. A beam's basis is left-handed about its
+                    // axis (right × up is −axis, as a Bevy transform's
+                    // forward is −Z), so the hull's outward faces come out
+                    // clockwise and it is the "back" ones that are culled.
                     primitive: PrimitiveState {
-                        cull_mode: Some(Face::Front),
+                        cull_mode: Some(Face::Back),
                         ..Default::default()
                     },
                     fragment: Some(FragmentState {
@@ -319,11 +329,15 @@ pub fn prepare_beam_pipelines(
 fn air_size(view: UVec2, resolution: AirResolution) -> UVec2 {
     match resolution {
         AirResolution::Full => view,
-        AirResolution::Half => (view / 2).max(UVec2::ONE),
+        AirResolution::Half => UVec2::new(view.x.div_ceil(2), view.y.div_ceil(2)).max(UVec2::ONE),
     }
 }
 
 /// What a view's beams are told about it.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "a matrix product, which the lint cannot tell from integer arithmetic"
+)]
 fn view_uniform(
     view: &ExtractedView,
     exposure: f32,
@@ -473,7 +487,7 @@ pub fn draw_beams(
                     depth_slice: None,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(Default::default()),
+                        load: LoadOp::Clear(LinearRgba::NONE.into()),
                         store: StoreOp::Store,
                     },
                 })],
@@ -487,24 +501,24 @@ pub fn draw_beams(
         air_pass.draw(0..HULL_VERTICES, 0..buffers.count);
     }
     {
-        let mut composite_pass =
-            ctx.command_encoder()
-                .begin_render_pass(&RenderPassDescriptor {
-                    label: Some("ignition_beams_composite_pass"),
-                    color_attachments: &[Some(RenderPassColorAttachment {
-                        view: view_target.main_texture_view(),
-                        depth_slice: None,
-                        resolve_target: None,
-                        ops: Operations {
-                            load: LoadOp::Load,
-                            store: StoreOp::Store,
-                        },
-                    })],
-                    depth_stencil_attachment: None,
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                    multiview_mask: None,
-                });
+        let mut composite_pass = ctx
+            .command_encoder()
+            .begin_render_pass(&RenderPassDescriptor {
+                label: Some("ignition_beams_composite_pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: view_target.main_texture_view(),
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Load,
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
         composite_pass.set_pipeline(composite_pipeline);
         composite_pass.set_bind_group(0, &composite_bind_group, &[target.uniform_offset]);
         composite_pass.draw(0..3, 0..1);

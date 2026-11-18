@@ -103,7 +103,7 @@ impl Beam {
     /// its beam and field angles, the field widened by frost.
     #[must_use]
     pub fn profile(&self) -> (Profile, f32) {
-        let spread = 1.0 + self.frost.clamp(0.0, 1.0) * (FROST_SPREAD - 1.0);
+        let spread = self.frost.clamp(0.0, 1.0).mul_add(FROST_SPREAD - 1.0, 1.0);
         Profile::from_half_angles(self.beam_angle * 0.5, self.field_angle * 0.5 * spread)
     }
 

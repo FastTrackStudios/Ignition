@@ -28,10 +28,12 @@ impl GoboLayer {
     #[must_use]
     pub fn draw(size: u16, open: impl Fn(f32, f32) -> bool) -> Self {
         const GRID: u8 = 4;
+        const POINTS: u16 = 16;
         let size = size.max(1).next_power_of_two();
         let scale = 2.0 / (f32::from(size) * f32::from(GRID));
         let coordinate = |texel: u16, sub: u8| {
-            (f32::from(texel) * f32::from(GRID) + f32::from(sub) + 0.5) * scale - 1.0
+            let point = f32::from(texel).mul_add(f32::from(GRID), f32::from(sub));
+            (point + 0.5).mul_add(scale, -1.0)
         };
         let texels = (0..size)
             .flat_map(|row| (0..size).map(move |column| (row, column)))
@@ -40,7 +42,7 @@ impl GoboLayer {
                     .flat_map(|sy| (0..GRID).map(move |sx| (sx, sy)))
                     .map(|(sx, sy)| u16::from(open(coordinate(column, sx), coordinate(row, sy))))
                     .sum();
-                coverage_byte(hits, u16::from(GRID) * u16::from(GRID))
+                coverage_byte(hits, POINTS)
             })
             .collect();
         Self {
@@ -90,7 +92,10 @@ impl GoboLayer {
 
 /// `hits` of `out_of` as a byte.
 fn coverage_byte(hits: u16, out_of: u16) -> u8 {
-    let scaled = u32::from(hits).saturating_mul(255) / u32::from(out_of.max(1));
+    let scaled = u32::from(hits)
+        .saturating_mul(255)
+        .checked_div(u32::from(out_of))
+        .unwrap_or(0);
     u8::try_from(scaled).unwrap_or(u8::MAX)
 }
 
@@ -157,7 +162,8 @@ mod tests {
 
     #[test]
     fn the_image_holds_every_layer_and_mip() {
-        let image = gobo_image(&[GoboLayer::open(16), GoboLayer::draw(16, |x, _| x < 0.0)]).unwrap();
+        let image =
+            gobo_image(&[GoboLayer::open(16), GoboLayer::draw(16, |x, _| x < 0.0)]).unwrap();
         assert_eq!(image.texture_descriptor.mip_level_count, 5);
         assert_eq!(image.texture_descriptor.size.depth_or_array_layers, 2);
         assert_eq!(image.data.unwrap().len(), 2 * (256 + 64 + 16 + 4 + 1));
