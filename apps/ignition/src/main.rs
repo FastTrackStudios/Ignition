@@ -103,7 +103,9 @@ fn parse_args() -> Result<Args> {
         // architect#838). An empty value is a setting left empty: as if the
         // flag were not given, so its default holds.
         let (arg, mut inline) = match arg.split_once('=') {
-            Some((flag, value)) if flag.starts_with("--") => (flag.to_owned(), Some(value.to_owned())),
+            Some((flag, value)) if flag.starts_with("--") => {
+                (flag.to_owned(), Some(value.to_owned()))
+            }
             _ => (arg, None),
         };
         if inline.as_deref() == Some("") {
