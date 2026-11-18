@@ -80,6 +80,18 @@ pub fn session_seconds(
     Some((leader.at(now), leader.is_playing))
 }
 
+/// How long to wait before dialling the session's host again, after
+/// `failed` dials in a row came to nothing (0: it answered, then went):
+/// a quarter second, doubling, at most five seconds, so a room restored
+/// before its host is up follows it within seconds of it serving.
+#[must_use]
+pub fn redial_after(failed: u32) -> std::time::Duration {
+    const FIRST_MS: u64 = 250;
+    const MOST_MS: u64 = 5_000;
+    let doubled = FIRST_MS.saturating_mul(1_u64 << failed.min(16));
+    std::time::Duration::from_millis(doubled.min(MOST_MS))
+}
+
 /// The session's transport as the night's beat source.
 pub struct SessionClock {
     night: Arc<Night>,
@@ -123,26 +135,46 @@ impl SessionClock {
                 runtime.block_on(async move {
                     let pool = architect::connect::pool();
                     let endpoint = architect::connect::Endpoint::url(&url);
-                    let host: SessionClockClient = match pool.client(&endpoint).await {
-                        Ok(c) => c,
-                        Err(error) => {
-                            tracing::warn!(%error, session.url = %url, "session clock: no host");
-                            return;
+                    // The host may not be up yet (a window restoring the
+                    // room before the session is served), or may go and
+                    // come back (the engine restarting): dial until it
+                    // answers, and again whenever it goes.
+                    let mut failed: u32 = 0;
+                    loop {
+                        let dialled: Result<(SessionClockClient, DocPresenceClient), String> =
+                            async {
+                                let host = pool.client(&endpoint).await.map_err(|e| e.to_string())?;
+                                let presence =
+                                    pool.client(&endpoint).await.map_err(|e| e.to_string())?;
+                                Ok((host, presence))
+                            }
+                            .await;
+                        match dialled {
+                            Ok((host, presence)) => {
+                                if failed > 0 {
+                                    tracing::info!(session.url = %url, session.dials = failed.saturating_add(1),"session clock: host answered");
+                                }
+                                failed = 0;
+                                let pings = pinger.run(&host);
+                                let follow = driver.run(&presence);
+                                tokio::pin!(pings, follow);
+                                tokio::select! {
+                                    _ = &mut pings => {}
+                                    _ = &mut follow => {}
+                                }
+                                // Connected, then gone: dial again (once
+                                // past the backoff, so a refusing host is
+                                // not spun on).
+                                pool.evict(&endpoint);
+                            }
+                            Err(error) => {
+                                if failed == 0 {
+                                    tracing::warn!(%error, session.url = %url, "session clock: no host yet; dialling until it answers");
+                                }
+                                failed = failed.saturating_add(1);
+                            }
                         }
-                    };
-                    let presence: DocPresenceClient = match pool.client(&endpoint).await {
-                        Ok(c) => c,
-                        Err(error) => {
-                            tracing::warn!(%error, session.url = %url, "session clock: no presence");
-                            return;
-                        }
-                    };
-                    let pings = pinger.run(&host);
-                    let follow = driver.run(&presence);
-                    tokio::pin!(pings, follow);
-                    tokio::select! {
-                        _ = &mut pings => {}
-                        _ = &mut follow => {}
+                        tokio::time::sleep(redial_after(failed)).await;
                     }
                 });
             })
@@ -196,6 +228,19 @@ mod tests {
         );
         assert!(SessionArg::parse("ws://h:1/vox#doc").is_err());
         assert!(SessionArg::parse("ws://h:1/vox@song").is_err());
+    }
+
+    #[test]
+    fn a_host_not_up_yet_is_dialled_again_soon_then_every_few_seconds() {
+        use std::time::Duration;
+        // It answered, then went: dial again at once, nearly.
+        assert_eq!(redial_after(0), Duration::from_millis(250));
+        assert_eq!(redial_after(1), Duration::from_millis(500));
+        assert_eq!(redial_after(2), Duration::from_millis(1_000));
+        assert_eq!(redial_after(4), Duration::from_millis(4_000));
+        // Never longer than five seconds, however long it has been down.
+        assert_eq!(redial_after(5), Duration::from_secs(5));
+        assert_eq!(redial_after(u32::MAX), Duration::from_secs(5));
     }
 
     #[test]
