@@ -15,6 +15,9 @@ use std::path::PathBuf;
 
 #[cfg(feature = "extension")]
 pub mod ext;
+/// The show's cue list in a session (the session primitive).
+#[cfg(feature = "extension")]
+pub mod session;
 
 /// What the pane runs: the extension's settings, empty for "the default".
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

@@ -27,7 +27,7 @@ pub const LINKED: bool = cfg!(feature = "pane");
 
 static HANDLE: Mutex<Option<Handle>> = Mutex::new(None);
 
-fn handle() -> Result<Handle, String> {
+pub(crate) fn handle() -> Result<Handle, String> {
     HANDLE
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
@@ -64,6 +64,10 @@ impl Extension for Lighting {
             .action("IGNITION_POP_IN", |_| async move {
                 Ok(json!({ "stopped": pop_in() }))
             })
+            .action("IGNITION_SESSION_STORE", crate::session::store_song)
+            .action("IGNITION_SESSION_CUES", crate::session::cues)
+            .action("IGNITION_SESSION_FOLLOW", crate::session::follow)
+            .action("IGNITION_SESSION_TAKEN", |_| async move { Ok(crate::session::report()) })
             .action("IGNITION_STATE", |_| async move {
                 let picks = picks().await?;
                 Ok(json!({
