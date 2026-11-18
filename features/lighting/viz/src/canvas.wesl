@@ -8,7 +8,7 @@
 // side is a change to both. See `canvas_material.rs` for the uniform
 // layout and `docs/spec/canvas.md` (`canvas.procedural`).
 
-#import bevy_pbr::forward_io::VertexOutput
+import bevy_pbr::render::forward_io::VertexOutput;
 
 struct CanvasParams {
     // The piece of the canvas this panel shows, cover-fitted: u0, v0,
@@ -23,7 +23,7 @@ struct CanvasParams {
     colors: array<vec4<f32>, 8>,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> canvas: CanvasParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> canvas: CanvasParams;
 
 const KIND_SOLID: u32 = 0u;
 const KIND_GRADIENT: u32 = 1u;

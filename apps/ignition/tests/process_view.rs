@@ -1,6 +1,8 @@
 //! `ignition --process-view` against a host of this test's own: hello,
-//! the shared-memory buffers, frames with a picture in them, a resize;
-//! and on macOS the same over IOSurfaces.
+//! the buffers, frames with a picture in them, a resize. On Linux the
+//! frames are dma-bufs this test imports on a device of its own, as the
+//! app does; on macOS they are IOSurfaces; and shared memory when it is
+//! forced or the app cannot import, which the renderer says.
 //!
 //! Needs a GPU and the Live set: `IGNITION_LIVE_SET=<the .als> cargo
 //! nextest run -p ignition --run-ignored all -E 'test(a_pane)'`.
@@ -197,6 +199,181 @@ fn a_pane_gets_lit_frames_in_shared_memory_and_follows_a_resize() {
     assert!(
         a_lit_frame(&host, id, shm_slots(fd, (stride, height, slots))),
         "no frame after the resize"
+    );
+    ends_when_closed(host, child);
+}
+
+/// A dma-buf frame as the app has it: imported as a texture of a device
+/// of this test's (`gpu::import_dmabuf`, what Architect's pane calls),
+/// then read back here to look at.
+#[cfg(target_os = "linux")]
+struct Imported {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    textures: Vec<wgpu::Texture>,
+    size: (u32, u32),
+}
+
+#[cfg(target_os = "linux")]
+impl Imported {
+    fn new(fds: Vec<OwnedFd>, size: (u32, u32), layout: (u32, u32, u64)) -> Self {
+        use architect_process_view::gpu;
+        let host = ignition_viz::bench::headless_gpu_on(None, gpu::sharing_features).unwrap();
+        assert!(
+            gpu::can_share(&host.device),
+            "this machine's GPU cannot import dma-bufs"
+        );
+        let textures = fds
+            .into_iter()
+            .map(|fd| gpu::import_dmabuf(&host.device, fd, size, layout).unwrap())
+            .collect();
+        Self {
+            device: host.device,
+            queue: host.queue,
+            textures,
+            size,
+        }
+    }
+
+    /// A slot's pixels (RGBA8, rows packed).
+    fn pixels(&self, slot: u8) -> Vec<u8> {
+        let (width, height) = self.size;
+        let padded = (width * 4).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
+        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("the test's look at a frame"),
+            size: u64::from(padded) * u64::from(height),
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        encoder.copy_texture_to_buffer(
+            self.textures[usize::from(slot)].as_image_copy(),
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(padded),
+                    rows_per_image: Some(height),
+                },
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+        self.queue.submit([encoder.finish()]);
+        let slice = buffer.slice(..);
+        slice.map_async(wgpu::MapMode::Read, |result| result.unwrap());
+        self.device
+            .poll(wgpu::PollType::Wait {
+                submission_index: None,
+                timeout: Some(Duration::from_secs(5)),
+            })
+            .unwrap();
+        let mapped = slice.get_mapped_range().unwrap();
+        mapped
+            .chunks_exact(padded as usize)
+            .flat_map(|row| row[..(width * 4) as usize].iter().copied())
+            .collect()
+    }
+}
+
+/// Linux: the frames are dma-bufs, one per slot, which another device
+/// imports and finds the room lit in; a resize brings new ones. Nothing
+/// of a frame went through the CPU on its way.
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "needs a GPU and IGNITION_LIVE_SET"]
+fn a_pane_gets_lit_frames_as_dmabufs_on_linux() {
+    let set = std::env::var("IGNITION_LIVE_SET").expect("IGNITION_LIVE_SET");
+    let (child, host) = start(&set, None);
+    host.send(&hello(640, 360, true), &[]).unwrap();
+    let mut size = (640, 360);
+    for round in 0..2 {
+        let (message, fds) = loop {
+            let got = next(&host, Duration::from_secs(120));
+            if matches!(got.0, ToHost::Buffers { .. }) {
+                break got;
+            }
+        };
+        let ToHost::Buffers {
+            id,
+            transport,
+            width,
+            height,
+            slots,
+            stride,
+            offset,
+            modifier,
+        } = message
+        else {
+            unreachable!()
+        };
+        assert_eq!(transport, Transport::Dmabuf, "round {round}");
+        assert_eq!((width, height), size);
+        assert_eq!(fds.len(), usize::from(slots), "a dma-buf per slot");
+        let imported = Imported::new(fds, size, (stride, offset, modifier));
+        assert!(
+            a_lit_frame(&host, id, |slot| imported.pixels(slot)),
+            "no lit frame in a dma-buf (round {round})"
+        );
+        size = (800, 450);
+        host.send(
+            &ToGuest::Resize {
+                width: size.0,
+                height: size.1,
+                scale: 1.0,
+            }
+            .encode()
+            .unwrap(),
+            &[],
+        )
+        .unwrap();
+    }
+    ends_when_closed(host, child);
+}
+
+/// An app that cannot import the frames (its hello says so) gets them in
+/// shared memory, and one that finds out later (a second hello) is
+/// answered with shared-memory buffers.
+#[test]
+#[ignore = "needs a GPU and IGNITION_LIVE_SET"]
+fn an_app_that_cannot_import_gets_shared_memory() {
+    let set = std::env::var("IGNITION_LIVE_SET").expect("IGNITION_LIVE_SET");
+    let (child, host) = start(&set, None);
+    // It can, it says.
+    host.send(&hello(640, 360, true), &[]).unwrap();
+    let (first, _) = next(&host, Duration::from_secs(120));
+    let ToHost::Buffers { transport, .. } = first else {
+        panic!("expected buffers, got {first:?}");
+    };
+    // Then it could not after all.
+    host.send(&hello(640, 360, false), &[]).unwrap();
+    let (message, fds) = loop {
+        let got = next(&host, Duration::from_secs(60));
+        if matches!(got.0, ToHost::Buffers { .. }) {
+            break got;
+        }
+    };
+    let ToHost::Buffers {
+        id,
+        transport: again,
+        height,
+        slots,
+        stride,
+        ..
+    } = message
+    else {
+        unreachable!()
+    };
+    assert_eq!(again, Transport::Shm, "after {transport:?}");
+    let fd = fds.into_iter().next().unwrap();
+    assert!(
+        a_lit_frame(&host, id, shm_slots(fd, (stride, height, slots))),
+        "no frame in shared memory"
     );
     ends_when_closed(host, child);
 }

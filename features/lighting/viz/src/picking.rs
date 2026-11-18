@@ -259,7 +259,7 @@ fn attach_pickables(
             .entity(root)
             .insert((PickTarget, Pickable::default()))
             .observe(
-                move |_: On<Pointer<Over>>,
+                move |_: On<PointerOver>,
                       mut hovered: ResMut<Hovered>,
                       venue: Res<VenueRes>,
                       fixtures: Query<&Fixture>| {
@@ -269,7 +269,7 @@ fn attach_pickables(
                 },
             )
             .observe(
-                move |_: On<Pointer<Out>>,
+                move |_: On<PointerOut>,
                       mut hovered: ResMut<Hovered>,
                       fixtures: Query<&Fixture>| {
                     if let Ok(fixture) = fixtures.get(root)
@@ -280,7 +280,7 @@ fn attach_pickables(
                 },
             )
             .observe(
-                move |click: On<Pointer<Click>>,
+                move |click: On<PointerClick>,
                       pointer: Res<HostPointer>,
                       keys: Option<Res<ButtonInput<KeyCode>>>,
                       selected: Res<SelectedFixtures>,
@@ -551,7 +551,7 @@ mod tests {
                     },
                     Pickable::default(),
                 ))
-                .observe(move |_: On<Pointer<Click>>, mut clicked: ResMut<Clicked>| {
+                .observe(move |_: On<PointerClick>, mut clicked: ResMut<Clicked>| {
                     clicked.0.push(index);
                 })
                 .id();
@@ -571,18 +571,14 @@ mod tests {
             position: Vec2::ZERO,
         };
         for &leaf in &roots {
-            let click = Click {
+            app.world_mut().trigger(PointerClick {
+                entity: leaf,
+                pointer: Pointer::new(PointerId::Custom(HOST_POINTER), location.clone()),
                 button: PointerButton::Primary,
                 hit: HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
                 duration: std::time::Duration::ZERO,
                 count: 1,
-            };
-            app.world_mut().trigger(Pointer::new(
-                PointerId::Custom(HOST_POINTER),
-                location.clone(),
-                click,
-                leaf,
-            ));
+            });
         }
         assert_eq!(
             app.world().resource::<Clicked>().0,

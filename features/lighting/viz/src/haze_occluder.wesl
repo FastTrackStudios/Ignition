@@ -6,11 +6,11 @@
 // `Zero, One`). The composite reads it back to dim what the haze sits in
 // front of. See `haze.rs`.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::view
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::view;
 
 // x = extinction per metre (density * (absorption + scattering)), yzw spare.
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> occluder: vec4<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> occluder: vec4<f32>;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {

@@ -1,0 +1,112 @@
+# Vendored `bevy_pbr`: bevyengine/bevy `main` at 948cc8270 plus the two
+# commits in patches/ (FTS-PATCH.md). Upstream's manifest, with its path
+# dependencies on the other Bevy crates named by that revision, and its
+# workspace lints and wgsl-analyzer metadata (which need the workspace)
+# left out. `[patch."https://github.com/bevyengine/bevy"]` in the root
+# manifest puts it in place of the revision's own.
+
+[package]
+publish = false
+name = "bevy_pbr"
+version = "0.20.0-dev"
+edition = "2024"
+description = "Adds PBR rendering to Bevy Engine"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[features]
+webgl = ["bevy_light/webgl"]
+webgpu = ["bevy_light/webgpu"]
+pbr_transmission_textures = ["bevy_gltf?/pbr_transmission_textures"]
+pbr_multi_layer_material_textures = [
+  "bevy_gltf?/pbr_multi_layer_material_textures",
+]
+pbr_anisotropy_texture = ["bevy_gltf?/pbr_anisotropy_texture"]
+pbr_specular_textures = ["bevy_gltf?/pbr_specular_textures"]
+experimental_pbr_pcss = ["bevy_light/experimental_pbr_pcss"]
+pbr_clustered_decals = []
+pbr_light_textures = []
+bluenoise_texture = ["bevy_image/ktx2", "bevy_image/zstd"]
+dfg_lut = ["bevy_image/ktx2", "bevy_image/zstd"]
+area_light_luts = ["bevy_image/ktx2", "bevy_image/zstd"]
+trace = ["bevy_render/trace"]
+# Enables the meshlet renderer for dense high-poly scenes (experimental)
+meshlet = ["dep:lz4_flex", "dep:range-alloc"]
+# Enables processing meshes into meshlet meshes
+meshlet_processor = [
+  "meshlet",
+  "dep:meshopt",
+  "dep:metis",
+  "dep:itertools",
+  "dep:bitvec",
+]
+
+[dependencies]
+# bevy
+bevy_app = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_asset = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_color = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_core_pipeline = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_derive = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_diagnostic = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_ecs = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_extract = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_gltf = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce", optional = true }
+bevy_light = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_log = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_image = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_mesh = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce", features = [
+  "morph",
+  "bevy_mikktspace",
+] }
+bevy_shader = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_material = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_math = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_shape = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_reflect = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_render = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce", features = [
+  "morph",
+] }
+bevy_camera = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_tasks = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_transform = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_utils = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce" }
+bevy_platform = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce", default-features = false, features = [
+  "std",
+] }
+
+# other
+bitflags = { version = "2.3", features = ["bytemuck"] }
+fixedbitset = "0.5"
+thiserror = { version = "2", default-features = false }
+derive_more = { version = "2", default-features = false, features = ["from"] }
+# meshlet
+lz4_flex = { version = "0.14", default-features = false, features = [
+  "frame",
+], optional = true }
+range-alloc = { version = "0.1", optional = true }
+meshopt = { version = "0.7.0", optional = true }
+metis = { version = "0.2.2", optional = true }
+itertools = { version = "0.15", optional = true }
+bitvec = { version = "1", optional = true }
+# direct dependency required for derive macro
+bytemuck = { version = "1", features = ["derive", "must_cast"] }
+smallvec = { version = "1", default-features = false }
+nonmax = "0.5"
+static_assertions = "1"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+offset-allocator = "0.2"
+arrayvec = { version = "0.7", default-features = false }
+indexmap = { version = "2" }
+wgpu-types = "30"
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
+all-features = true
+features = ["bevy_image/zstd_rust"]

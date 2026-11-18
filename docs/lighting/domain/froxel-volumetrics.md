@@ -1,5 +1,11 @@
 # Froxel volumetrics
 
+> **Not on the current Bevy pin.** This describes Ignition's froxel pass
+> inside the vendored `bevy_pbr` 0.19.1. It was not carried when the
+> renderer moved to Bevy `main` on 2026-11-18 (`vendor/bevy_pbr/FTS-PATCH.md`,
+> `docs/lighting/research/bevy-pin.md`): the analytic beam renderer
+> replaces the fog. `IGNITION_FROXEL=1` now warns and the march draws.
+
 ## Why
 
 Bevy's volumetric fog is, in its own words, "implemented as a

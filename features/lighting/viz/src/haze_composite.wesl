@@ -6,11 +6,11 @@
 // marched at full size. The blend that does the work is set in
 // `HazeCompositeMaterial::specialize`: colour = fog + scene * alpha.
 
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::mesh_view_bindings::view
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::render::mesh_view_bindings::view;
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var haze_texture: texture_2d<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(1) var haze_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var haze_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var haze_sampler: sampler;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {

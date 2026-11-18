@@ -22,6 +22,8 @@
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod frame_stats;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod frames;
 mod night;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod process_view;

@@ -181,12 +181,40 @@ pub fn studio_limits() -> wgpu::Limits {
 /// If no adapter or device matching the studio's own feature/limit
 /// requirements is available on this machine.
 pub fn headless_gpu() -> anyhow::Result<HostGpu> {
+    headless_gpu_on(None, |_| wgpu::Features::empty())
+}
+
+/// [`headless_gpu`] for a host that shares the device's textures with
+/// another process: on the adapter `on` names (its PCI vendor and device
+/// ids, when the machine has it; two devices share a texture only on one
+/// GPU), else the high-performance one, and with the features `more`
+/// asks of that adapter beside the renderer's.
+///
+/// # Errors
+///
+/// As [`headless_gpu`].
+pub fn headless_gpu_on(
+    on: Option<(u32, u32)>,
+    more: impl FnOnce(&wgpu::Adapter) -> wgpu::Features,
+) -> anyhow::Result<HostGpu> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
-    let adapter = bevy::tasks::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::HighPerformance,
-        compatible_surface: None,
-        force_fallback_adapter: false,
-    }))?;
+    let named = on.and_then(|(vendor, device)| {
+        bevy::tasks::block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY))
+            .into_iter()
+            .find(|adapter| {
+                let info = adapter.get_info();
+                info.vendor == vendor && info.device == device
+            })
+    });
+    let adapter = match named {
+        Some(adapter) => adapter,
+        None => bevy::tasks::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            compatible_surface: None,
+            force_fallback_adapter: false,
+            ..Default::default()
+        }))?,
+    };
     #[allow(unused_mut, reason = "the solari feature adds to it")]
     let mut wanted = STUDIO_FEATURES
         | wgpu::Features::TIMESTAMP_QUERY
@@ -195,6 +223,7 @@ pub fn headless_gpu() -> anyhow::Result<HostGpu> {
     {
         wanted |= crate::solari::required_features();
     }
+    let wanted = wanted | more(&adapter);
     #[allow(unused_mut, reason = "the solari feature adds to it")]
     let mut limits = studio_limits();
     #[cfg(feature = "solari")]

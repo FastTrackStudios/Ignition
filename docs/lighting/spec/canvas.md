@@ -72,7 +72,7 @@ built-in name (`proc:rainbow`, `proc:wipe`, `proc:noise`, `proc:bands`,
 "timing":…}`).
 
 **GPU evaluation, CPU reference.** A procedural canvas is a `Material`
-(`ignition_viz::canvas_material`, shader `canvas.wgsl`) on each panel's
+(`ignition_viz::canvas_material`, shader `canvas.wesl`) on each panel's
 quad: the recipe is packed into a uniform block once, and per frame the
 only CPU work is writing the effect clock (`CanvasRecipe::cycles_at` on
 the same `CanvasClock` a clip is presented at, against the playback's

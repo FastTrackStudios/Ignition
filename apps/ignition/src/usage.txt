@@ -5,7 +5,7 @@ ignition — a night of lighting, following a Live set's playhead
   ignition --set <set.als> --check          load the night, print the running order
   ignition --set <set.als> --at <beat>      the song, bar, section and cue at a beat of the set
   ignition --midi-ports                     list MIDI inputs
-  ignition --set <set.als> --process-view   draw into an Architect pane (ARCHITECT_VIEW_FD; shared memory)
+  ignition --set <set.als> --process-view   draw into an Architect pane (ARCHITECT_VIEW_FD; frames shared on the GPU)
   ignition --set <set.als> --bench <frames> [--size 2560x1440]
                                             the pane's renderer with no pane: p50/p99 of each phase of a frame
 

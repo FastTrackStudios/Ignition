@@ -1,0 +1,38 @@
+From 798ae4450abbf6232eb9f63093c4dbeae22c0502 Mon Sep 17 00:00:00 2001
+From: "fts-forge[bot]" <345159799+fts-forge[bot]@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 15:11:27 -0800
+Subject: [PATCH 2/2] Volumetric fog: the inverse square stops at a point or
+ spot light's radius
+
+The fog took the raw distance to a clustered light, so its radiance ran
+to infinity at the light's position: a singularity in the middle of the
+picture where a beam leaves its fixture. Clamp the squared distance to
+the light's radius, which is already uploaded in position_radius.w. A
+light of radius zero (the default) is unchanged.
+---
+ crates/bevy_pbr/src/volumetric_fog/volumetric_fog.wesl | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/crates/bevy_pbr/src/volumetric_fog/volumetric_fog.wesl b/crates/bevy_pbr/src/volumetric_fog/volumetric_fog.wesl
+index 33bb79484..0733e445d 100644
+--- a/crates/bevy_pbr/src/volumetric_fog/volumetric_fog.wesl
++++ b/crates/bevy_pbr/src/volumetric_fog/volumetric_fog.wesl
+@@ -374,7 +374,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
+             let light_to_frag = (*light).position_radius.xyz - P_world;
+             let V = Rd_world;
+             let L = normalize(light_to_frag);
+-            let distance_square = dot(light_to_frag, light_to_frag);
++            // The inverse square stops at the light's own radius (the
++            // sphere-light form), so the fog has no singularity at the
++            // light's position. A light of radius zero is unchanged.
++            let light_radius = (*light).position_radius.w;
++            let distance_square = max(
++                dot(light_to_frag, light_to_frag),
++                light_radius * light_radius,
++            );
+             let distance_atten = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
+             var local_light_attenuation = distance_atten;
+             if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
+-- 
+2.56.0
+

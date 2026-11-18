@@ -12,10 +12,10 @@
 //! creates one, Bevy renders into a texture on it, and the host samples
 //! that texture directly. No copy, no readback, no second GPU context.
 //!
-//! It only works because the two halves agree on a wgpu version: Bevy
-//! 0.19.1 and the Dioxus 0.8 line are both on wgpu 29, so cargo unifies
-//! them to one crate and one `Device` type. A major-version split either
-//! side of this and the approach is dead.
+//! It only works because the two halves agree on a wgpu version: the
+//! workspace's Bevy pin and Architect are both on wgpu 30 (the root
+//! manifest), so cargo unifies them to one crate and one `Device` type.
+//! A major-version split either side of this and the approach is dead.
 
 use crate::app::{CameraSpec, VizConfig, VizPlugin, spawn_camera};
 use crate::dmx::DmxUniverses;
@@ -27,7 +27,6 @@ use bevy::camera::RenderTarget;
 use bevy::image::Image;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssets;
-use bevy::render::renderer::WgpuWrapper;
 use bevy::render::renderer::{
     RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
 };
@@ -175,10 +174,10 @@ impl EmbeddedViz {
                 .set(RenderPlugin {
                     render_creation: RenderCreation::manual(
                         RenderDevice::from(gpu.device),
-                        RenderQueue(Arc::new(WgpuWrapper::new(gpu.queue))),
-                        RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
-                        RenderAdapter(Arc::new(WgpuWrapper::new(gpu.adapter))),
-                        RenderInstance(Arc::new(WgpuWrapper::new(gpu.instance))),
+                        RenderQueue::new(gpu.queue),
+                        RenderAdapterInfo::new(adapter_info),
+                        RenderAdapter::new(gpu.adapter),
+                        RenderInstance::new(gpu.instance),
                     ),
                     // The host is presenting every frame; a pipeline
                     // still compiling would show as a hole in its UI
