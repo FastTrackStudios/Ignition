@@ -11,6 +11,12 @@
 //!   list's cues as the playhead crosses them (`ignition_session::CueFollower`).
 //! - `IGNITION_SESSION_TAKEN`: what the follower took: each cue, the
 //!   session time it was taken at, and the clock estimate.
+//! - `IGNITION_SESSION_SONG {doc, lane, live_set, locator, cues}`: a
+//!   recital song into a session: its cue list (`cues`, a song file whose
+//!   positions are relative to the song's sections) resolved against the
+//!   Live set's song `locator`, as the night resolves it, and the set's
+//!   tempo over the song made the session's, so a cue's bar and time agree
+//!   with the room's.
 //! - `IGNITION_SESSION_ROOM {url, doc, song}`: the room follows the
 //!   session: its tempo read through the service as this extension, then
 //!   the room's clock set to the session host's transport
@@ -28,16 +34,19 @@ use architect::connect::{Endpoint, pool};
 use architect_extensions::hostcall::HostRequest;
 use architect_extensions::linked::Handle;
 use crdt::sync::{DocPresenceClient, PresencePeer};
-use ignition_session::{Ask, AskFuture, CueFollower, Take, load, store, tempo};
+use ignition_daw::ableton::{LiveSet, LiveSetSong};
+use ignition_session::{Ask, AskFuture, CueFollower, Take, load, set_tempo, store, tempo};
+use ignition_show::CueList;
 use ignition_show::show_file::ShowDocument;
 use serde_json::{Value, json};
 use session::LaneId;
 use session::clock::{SessionClockClient, SharedClock};
 use session::doc::transport_of;
+use session::service::{TempoChange, TempoMapData};
 use session::sync::clock::now_micros_f64;
 
 /// `fts.session` through the host, as this extension.
-struct Host(Handle);
+pub(crate) struct Host(Handle);
 
 impl Ask for Host {
     fn ask(&self, method: &'static str, args: String) -> AskFuture<'_> {
@@ -59,6 +68,11 @@ impl Ask for Host {
 
 fn host() -> Result<Host, String> {
     crate::ext::handle().map(Host)
+}
+
+/// `fts.session` through the host, as this extension: for the views.
+pub(crate) fn host_ask() -> Result<Host, String> {
+    host()
 }
 
 fn text(args: &Value, key: &str) -> Result<String, String> {
@@ -104,14 +118,137 @@ pub async fn room(args: Value) -> Result<Value, String> {
     let url = text(&args, "url")?;
     let doc = text(&args, "doc")?;
     let song = text(&args, "song")?;
+    let lane = text(&args, "lane").unwrap_or_else(|_| "main".to_owned());
     let map = tempo(&host()?, &doc).await.map_err(|e| e.to_string())?;
     let clock = format!("session:{url}#{doc}@{song}");
     crate::ext::set_setting("ignition.clock", &clock).await?;
+    // The cue list view follows the same session, its lane `lane`.
+    crate::ext::set_setting(crate::cues::SETTING, &format!("{url}#{doc}@{lane}")).await?;
     Ok(json!({
         "clock": clock,
         "tempo_changes": map.points().len(),
         "bpm_at_start": map.bpm_at(0.0),
     }))
+}
+
+/// A recital song into a session: its cues resolved against the Live
+/// set, the set's tempo over the song as the session's tempo map.
+pub async fn song(args: Value) -> Result<Value, String> {
+    let doc = text(&args, "doc")?;
+    let lane = LaneId::from(text(&args, "lane")?.as_str());
+    let set = LiveSet::read(text(&args, "live_set")?).map_err(|e| e.to_string())?;
+    let locator = text(&args, "locator")?;
+    let live = set
+        .song(&locator)
+        .ok_or_else(|| format!("the Live set has no song {locator:?}"))?
+        .clone();
+    let path = text(&args, "cues")?;
+    let raw = std::fs::read_to_string(&path).map_err(|e| format!("{path}: {e}"))?;
+    let mut list: CueList = serde_json::from_str(&raw).map_err(|e| format!("{path}: {e}"))?;
+    let unresolved = list.resolve_positions(&live.song);
+    let tempo = song_tempo(&set, &live);
+    let changes = tempo.points.len();
+    let ask = host()?;
+    set_tempo(&ask, &doc, tempo)
+        .await
+        .map_err(|e| e.to_string())?;
+    store(&ask, &doc, &lane, &list)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(json!({
+        "stored": list.cues.len(),
+        "timed": list.cues.iter().filter(|c| c.position().is_some()).count(),
+        "unresolved": unresolved,
+        "bpm": set.bpm_at(live.start_beats),
+        "tempo_changes": changes,
+    }))
+}
+
+/// The Live set's tempo over `song`, in seconds from the song's start:
+/// its tempo at the start, and a change wherever it differs at a beat.
+#[must_use]
+pub fn song_tempo(set: &LiveSet, song: &LiveSetSong) -> TempoMapData {
+    let zero = set.seconds_at(song.start_beats);
+    let first = set.bpm_at(song.start_beats);
+    let mut points = vec![TempoChange {
+        seconds: 0.0,
+        bpm: first,
+        meter: None,
+        shape: None,
+        tension: None,
+    }];
+    let mut last = first;
+    let mut beat = song.start_beats;
+    while beat < song.end_beats {
+        let bpm = set.bpm_at(beat);
+        if (bpm - last).abs() > 1e-6 {
+            points.push(TempoChange {
+                seconds: set.seconds_at(beat) - zero,
+                bpm,
+                meter: None,
+                shape: None,
+                tension: None,
+            });
+            last = bpm;
+        }
+        beat += 1.0;
+    }
+    TempoMapData {
+        default_bpm: first,
+        numerator: 4,
+        denominator: 4,
+        points,
+    }
+}
+
+/// Joins session `doc`'s presence and its host's clock at `url` (a
+/// `ws://host:port/vox`), on a thread of its own: what a view follows the
+/// transport with. Its driver and pings run for as long as the process.
+///
+/// # Errors
+///
+/// `doc` is not a session id, or the thread could not start.
+pub fn follow_session(url: &str, doc: &str) -> Result<(PresencePeer, SharedClock), String> {
+    let id = uuid::Uuid::parse_str(doc).map_err(|e| e.to_string())?;
+    let (peer, mut driver) = PresencePeer::new(id, 30_000);
+    let clock = SharedClock::default();
+    let (url, pinger) = (url.to_owned(), clock.clone());
+    std::thread::Builder::new()
+        .name("session-follow".into())
+        .spawn(move || {
+            let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            else {
+                return;
+            };
+            runtime.block_on(async move {
+                let endpoint = Endpoint::url(&url);
+                let (Ok(host), Ok(presence)) = (
+                    pool().client::<SessionClockClient>(&endpoint).await,
+                    pool().client::<DocPresenceClient>(&endpoint).await,
+                ) else {
+                    return;
+                };
+                let pings = pinger.run(&host);
+                let follow = driver.run(&presence);
+                tokio::pin!(pings, follow);
+                tokio::select! {
+                    _ = &mut pings => {}
+                    _ = &mut follow => {}
+                }
+            });
+        })
+        .map_err(|e| e.to_string())?;
+    Ok((peer, clock))
+}
+
+/// Where session `peer`'s leader is now, in session seconds, and whether
+/// it plays: `None` before the clock is estimated or the leader has said.
+#[must_use]
+pub fn leader_now(peer: &PresencePeer, clock: &SharedClock) -> Option<(f64, bool)> {
+    let leader = peer.states().get("lead/play").and_then(transport_of)?;
+    Some((leader.at(clock.now_micros()?), leader.is_playing))
 }
 
 /// What the follower took.

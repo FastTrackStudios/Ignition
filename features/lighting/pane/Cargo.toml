@@ -21,7 +21,7 @@ required-features = ["extension"]
 # `cargo build --bin ignition-pane`.
 default = ["extension"]
 # The extension: its actions, settings and view, over the app's actions.
-extension = ["dep:architect-extensions", "dep:dioxus", "dep:serde_json", "dep:futures-timer", "dep:ignition-session", "dep:ignition-show", "dep:session", "dep:crdt", "dep:architect", "dep:tokio", "dep:uuid"]
+extension = ["dep:architect-extensions", "dep:dioxus", "dep:serde_json", "dep:futures-timer", "dep:ignition-session", "dep:ignition-show", "dep:session", "dep:crdt", "dep:architect", "dep:tokio", "dep:uuid", "dep:ignition-daw"]
 # Its view as the GPU pane — linked into an app built with
 # `architect-desktop/process-views` (Studio Architect). Without it (the
 # process), the view opens the room in a window.
@@ -37,7 +37,10 @@ futures-timer = { workspace = true, optional = true }
 # `fts.session`, followed from the session host's transport and clock.
 ignition-session = { workspace = true, optional = true }
 ignition-show = { workspace = true, optional = true }
-session = { workspace = true, optional = true, features = ["clock"] }
+session = { workspace = true, optional = true, features = ["clock", "service"] }
+# A recital song's cues resolved against its Live set, and the set's tempo
+# over the song, for the session (IGNITION_SESSION_SONG).
+ignition-daw = { workspace = true, optional = true, features = ["ableton"] }
 crdt = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", optional = true, features = ["vox"] }
 architect = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", optional = true, features = ["vox", "connect"] }
 tokio = { workspace = true, optional = true }

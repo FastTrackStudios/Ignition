@@ -129,6 +129,13 @@ control = "text"
 default = "studio"
 
 [[sections.settings]]
+key = "ignition.session"
+title = "Session"
+description = "The session the cue list view follows: <url>#<doc>@<lane> (IGNITION_SESSION_ROOM sets it)."
+control = "text"
+default = ""
+
+[[sections.settings]]
 key = "ignition.renderer"
 title = "Renderer"
 description = "The ignition program the pane runs; empty for IGNITION_BIN, else the one beside the app, else on PATH."
@@ -153,6 +160,11 @@ icon = "lightbulb"
 # arguments name the extension's settings (`{{setting:<key>}}`): a pick
 # changed on the settings page starts the renderer again with it; one
 # left empty is left out (`--show=` is as if not given).
+[[views]]
+id = "cues"
+title = "Lighting: cues"
+icon = "list"
+
 [[views]]
 id = "room"
 title = "Lighting: room"
@@ -195,10 +207,18 @@ params = '{"type":"object","properties":{"url":{"type":"string"},"doc":{"type":"
 [[actions]]
 id = "IGNITION_SESSION_ROOM"
 name = "Lighting: the room follows a session"
-description = "The room plays the night's song `song` (slug or number) from session `doc`'s transport, hosted at `url` (`ws://host:port/vox`): the session read through fts.session, then the room's clock set to `session:<url>#<doc>@<song>`."
+description = "The room plays the night's song `song` (slug or number) from session `doc`'s transport, hosted at `url` (`ws://host:port/vox`): the session read through fts.session, then the room's clock set to `session:<url>#<doc>@<song>`, and the cue list view (`cues`) to that session's lane `lane` (default `main`)."
 group = "Lighting"
 effect = "mutating"
-params = '{"type":"object","properties":{"url":{"type":"string"},"doc":{"type":"string"},"song":{"type":"string"}},"required":["url","doc","song"]}'
+params = '{"type":"object","properties":{"url":{"type":"string"},"doc":{"type":"string"},"song":{"type":"string"},"lane":{"type":"string"}},"required":["url","doc","song"]}'
+
+[[actions]]
+id = "IGNITION_SESSION_SONG"
+name = "Lighting: a recital song into a session"
+description = "Song `locator` of the Live set `live_set` into session `doc`: its cue list (`cues`, a song file with section-relative positions) resolved against the set as the night resolves it and stored as lane `lane`, and the set's tempo over the song made the session's tempo map, through fts.session."
+group = "Lighting"
+effect = "mutating"
+params = '{"type":"object","properties":{"doc":{"type":"string"},"lane":{"type":"string"},"live_set":{"type":"string"},"locator":{"type":"string"},"cues":{"type":"string"}},"required":["doc","lane","live_set","locator","cues"]}'
 
 [[actions]]
 id = "IGNITION_SESSION_TAKEN"

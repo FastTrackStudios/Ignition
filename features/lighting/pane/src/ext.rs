@@ -46,6 +46,7 @@ impl Extension for Lighting {
     fn build(&self, ext: &mut Builder) {
         *HANDLE.lock().unwrap_or_else(PoisonError::into_inner) = Some(ext.handle());
         ext.view(VIEW, ShowView)
+            .view(crate::cues::VIEW, crate::cues::CuesView)
             .action("IGNITION_SHOW_OPEN", |_| open())
             .action("IGNITION_SHOW_PICK", |a| async move {
                 if let Some(set) = a.get("live_set").and_then(Value::as_str) {
@@ -71,6 +72,7 @@ impl Extension for Lighting {
             .action("IGNITION_SESSION_CUES", crate::session::cues)
             .action("IGNITION_SESSION_FOLLOW", crate::session::follow)
             .action("IGNITION_SESSION_ROOM", crate::session::room)
+            .action("IGNITION_SESSION_SONG", crate::session::song)
             .action("IGNITION_SESSION_TAKEN", |_| async move {
                 Ok(crate::session::report())
             })

@@ -9069,6 +9069,7 @@ dependencies = [
  "crdt",
  "dioxus",
  "futures-timer",
+ "ignition-daw",
  "ignition-session",
  "ignition-show",
  "serde_json",

@@ -1,0 +1,282 @@
+//! The `cues` view: a session's cue list, in GO order, with the cue the
+//! session's transport is in lit, and the transport's time and bar.
+//!
+//! What it shows is the setting [`SETTING`] (`<url>#<doc>@<lane>`, which
+//! `IGNITION_SESSION_ROOM` sets): the list is read through `fts.session`
+//! as this extension (`ignition_session::load`), and the transport is
+//! followed as the room follows it, presence in the host's clock
+//! ([`crate::session::follow_session`]). The view writes nothing.
+
+use std::time::Duration;
+
+use architect_extensions::hostcall::HostRequest;
+use dioxus::prelude::*;
+use ignition_session::{load, tempo, time_of};
+use session::LaneId;
+
+/// The view's id.
+pub const VIEW: &str = "cues";
+
+/// The setting naming the session and lane the view shows.
+pub const SETTING: &str = "ignition.session";
+
+/// Where the cue list is: `<url>#<doc>@<lane>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Place {
+    pub url: String,
+    pub doc: String,
+    pub lane: String,
+}
+
+impl Place {
+    /// `<url>#<doc>@<lane>`; `None` for anything else (an empty setting).
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        let (rest, lane) = value.rsplit_once('@')?;
+        let (url, doc) = rest.rsplit_once('#')?;
+        (!url.is_empty() && !doc.is_empty() && !lane.is_empty()).then(|| Self {
+            url: url.to_owned(),
+            doc: doc.to_owned(),
+            lane: lane.to_owned(),
+        })
+    }
+}
+
+/// One cue as the view lists it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Row {
+    pub number: f32,
+    pub name: String,
+    /// Its bar of the song; `None`: the operator's.
+    pub bar: Option<u32>,
+    /// Its time in the session, seconds; `None`: the operator's.
+    pub at: Option<f64>,
+}
+
+/// The row the playhead is in: the last timed cue at or before `now`.
+#[must_use]
+pub fn current(rows: &[Row], now: f64) -> Option<usize> {
+    rows.iter()
+        .enumerate()
+        .filter(|(_, r)| r.at.is_some_and(|at| at <= now + 1e-6))
+        .max_by(|a, b| a.1.at.unwrap_or(0.0).total_cmp(&b.1.at.unwrap_or(0.0)))
+        .map(|(i, _)| i)
+}
+
+/// `seconds` as `m:ss.s`.
+#[must_use]
+pub fn clock_text(seconds: f64) -> String {
+    let seconds = seconds.max(0.0);
+    #[allow(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    let minutes = (seconds / 60.0).floor() as u64;
+    #[allow(clippy::cast_precision_loss, clippy::as_conversions)]
+    let rest = seconds - (minutes as f64) * 60.0;
+    format!("{minutes}:{rest:04.1}")
+}
+
+async fn setting() -> Option<Place> {
+    let value = crate::ext::handle()
+        .ok()?
+        .host(HostRequest::Setting {
+            key: SETTING.to_owned(),
+        })
+        .await
+        .ok()?;
+    Place::parse(value.as_str()?)
+}
+
+/// The list read through `fts.session`, timed under the session's tempo.
+async fn read(place: &Place) -> Result<(String, Vec<Row>), String> {
+    let ask = crate::session::host_ask()?;
+    let lane = LaneId::from(place.lane.as_str());
+    let list = load(&ask, &place.doc, &lane)
+        .await
+        .map_err(|e| e.to_string())?;
+    let map = tempo(&ask, &place.doc).await.map_err(|e| e.to_string())?;
+    let rows = list
+        .cues
+        .iter()
+        .enumerate()
+        .map(|(i, cue)| {
+            let bars = cue.position();
+            Row {
+                number: list.number_of(i),
+                name: cue.name.clone(),
+                bar: bars.map(|b| b.bar),
+                at: bars.map(|b| time_of(&map, b).seconds(&map)),
+            }
+        })
+        .collect();
+    Ok((list.name, rows))
+}
+
+#[component]
+pub fn CuesView() -> Element {
+    let mut place = use_signal(|| None::<Place>);
+    use_future(move || async move {
+        loop {
+            let now = setting().await;
+            if *place.peek() != now {
+                place.set(now);
+            }
+            futures_timer::Delay::new(Duration::from_secs(1)).await;
+        }
+    });
+    match place() {
+        None => rsx! {
+            div { style: "flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; color: var(--muted-foreground); font-size: 13px; text-align: center;",
+                "No session yet: IGNITION_SESSION_ROOM points the room and this list at one."
+            }
+        },
+        Some(p) => rsx! { Cues { key: "{p.url}#{p.doc}@{p.lane}", place: p } },
+    }
+}
+
+#[component]
+fn Cues(place: Place) -> Element {
+    let mut list =
+        use_signal(|| Err::<(String, Vec<Row>), String>("Reading the cue list…".to_owned()));
+    let mut now = use_signal(|| None::<(f64, bool)>);
+    let read_place = place.clone();
+    use_future(move || {
+        let place = read_place.clone();
+        async move {
+            // Read again now and then: a cue added elsewhere shows up.
+            loop {
+                let got = read(&place).await;
+                if *list.peek() != got {
+                    list.set(got);
+                }
+                futures_timer::Delay::new(Duration::from_secs(5)).await;
+            }
+        }
+    });
+    let follow_place = place.clone();
+    use_future(move || {
+        let place = follow_place.clone();
+        async move {
+            let Ok((peer, clock)) = crate::session::follow_session(&place.url, &place.doc) else {
+                return;
+            };
+            loop {
+                let at = crate::session::leader_now(&peer, &clock);
+                if *now.peek() != at {
+                    now.set(at);
+                }
+                futures_timer::Delay::new(Duration::from_millis(50)).await;
+            }
+        }
+    });
+
+    let (name, rows) = match list() {
+        Ok(got) => got,
+        Err(why) => {
+            return rsx! {
+                div { style: "flex: 1; padding: 20px; color: var(--muted-foreground); font-size: 13px;", "{why}" }
+            };
+        }
+    };
+    let (seconds, playing) = now().unwrap_or((0.0, false));
+    let lit = now().and_then(|(s, _)| current(&rows, s));
+    let state = if playing { "▶" } else { "■" };
+    let time = clock_text(seconds);
+    let in_cue = lit
+        .and_then(|i| rows.get(i))
+        .map_or_else(String::new, |r| format!("cue {} · {}", r.number, r.name));
+    rsx! {
+        div { style: "flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; font-size: 13px;",
+            div { style: "display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-bottom: 1px solid var(--border);",
+                div { style: "font-weight: 600; font-size: 14px;", "{name}" }
+                div { style: "display: flex; gap: 10px; font-family: monospace; font-size: 12px;",
+                    span { "{state} {time}" }
+                    span { style: "color: var(--muted-foreground);", "{in_cue}" }
+                }
+            }
+            div { style: "flex: 1; min-height: 0; overflow-y: scroll;",
+                for (i, row) in rows.iter().enumerate() {
+                    CueRow { key: "{i}", row: row.clone(), lit: lit == Some(i), past: lit.is_some_and(|l| i < l) }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn CueRow(row: Row, lit: bool, past: bool) -> Element {
+    let background = if lit { "var(--accent)" } else { "transparent" };
+    let color = if lit {
+        "var(--accent-foreground)"
+    } else if past {
+        "var(--muted-foreground)"
+    } else {
+        "var(--foreground)"
+    };
+    let weight = if lit { "600" } else { "400" };
+    let bar = row
+        .bar
+        .map_or_else(|| "—".to_owned(), |b| format!("bar {b}"));
+    let at = row.at.map_or_else(String::new, clock_text);
+    let number = row.number;
+    rsx! {
+        div { style: "display: flex; gap: 10px; align-items: baseline; padding: 5px 12px; background: {background}; color: {color}; font-weight: {weight};",
+            span { style: "width: 34px; font-family: monospace;", "{number}" }
+            span { style: "flex: 1; min-width: 0; overflow: hidden;", "{row.name}" }
+            span { style: "width: 56px; font-family: monospace; font-size: 12px;", "{bar}" }
+            span { style: "width: 52px; font-family: monospace; font-size: 12px;", "{at}" }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_place_is_a_url_a_session_and_a_lane() {
+        assert_eq!(
+            Place::parse("ws://192.168.1.10:4143/vox#4d2107f2-e6a3-47bf-a511-512f9bbe5918@dtla"),
+            Some(Place {
+                url: "ws://192.168.1.10:4143/vox".into(),
+                doc: "4d2107f2-e6a3-47bf-a511-512f9bbe5918".into(),
+                lane: "dtla".into(),
+            })
+        );
+        assert_eq!(Place::parse(""), None);
+        assert_eq!(Place::parse("ws://h/vox#doc"), None);
+    }
+
+    fn row(number: f32, at: Option<f64>) -> Row {
+        Row {
+            number,
+            name: String::new(),
+            bar: None,
+            at,
+        }
+    }
+
+    #[test]
+    fn the_lit_cue_is_the_last_timed_one_the_playhead_has_reached() {
+        let rows = [
+            row(1.0, Some(0.0)),
+            row(2.0, None),
+            row(3.0, Some(6.0)),
+            row(4.0, Some(12.0)),
+        ];
+        assert_eq!(current(&rows, 0.0), Some(0));
+        assert_eq!(current(&rows, 5.9), Some(0));
+        assert_eq!(current(&rows, 6.0), Some(2));
+        assert_eq!(current(&rows, 100.0), Some(3));
+        assert_eq!(current(&rows[2..], 1.0), None);
+    }
+
+    #[test]
+    fn a_time_reads_as_minutes_and_seconds() {
+        assert_eq!(clock_text(0.0), "0:00.0");
+        assert_eq!(clock_text(75.25), "1:15.2");
+        assert_eq!(clock_text(-3.0), "0:00.0");
+    }
+}
