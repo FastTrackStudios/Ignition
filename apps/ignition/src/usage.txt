@@ -1,6 +1,6 @@
 ignition — a night of lighting, following a Live set's playhead
 
-  ignition --set <set.als> [--show <night.ig-show>] [--clock internal|studio[:<socket>]|midi:<port>]
+  ignition --set <set.als> [--show <night.ig-show>] [--clock internal|studio[:<socket>]|midi:<port>|session:<url>#<doc>@<song>]
            [--output] [--camera <preset>] [--start <n>]
   ignition --set <set.als> --check          load the night, print the running order
   ignition --set <set.als> --at <beat>      the song, bar, section and cue at a beat of the set
@@ -14,6 +14,9 @@ ignition — a night of lighting, following a Live set's playhead
                      the song playing and where in it
   --clock midi:<p>   follow Ableton's MIDI beat clock + Song Position Pointer on the input
                      whose name contains <p> (Live: the port's Sync output on)
+  --clock session:<url>#<doc>@<song>
+                     follow a session's transport: its host's playhead (presence, in the
+                     host's clock) at <url>, as song <song> (slug or number) of the night
   --output           send DMX to the rig (sACN + Art-Net, as the venue's venue.ig-venue says)
 
   IGNITION_LIVE_SET  the set, when --set is not given

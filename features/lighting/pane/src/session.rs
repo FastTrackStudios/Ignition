@@ -11,6 +11,10 @@
 //!   list's cues as the playhead crosses them (`ignition_session::CueFollower`).
 //! - `IGNITION_SESSION_TAKEN`: what the follower took: each cue, the
 //!   session time it was taken at, and the clock estimate.
+//! - `IGNITION_SESSION_ROOM {url, doc, song}`: the room follows the
+//!   session: its tempo read through the service as this extension, then
+//!   the room's clock set to the session host's transport
+//!   (`--clock session:<url>#<doc>@<song>`; the room restarts on it).
 //!
 //! Every read and write is a host service call made as this extension
 //! (`HostRequest::Service`), so the session's provider answers for
@@ -88,6 +92,26 @@ pub async fn cues(args: Value) -> Result<Value, String> {
         .map(|c| json!({ "number": c.number, "name": c.name, "bar": c.position().map(|b| b.bar) }))
         .collect();
     Ok(json!({ "name": list.name, "cues": cues }))
+}
+
+/// The room follows session `doc`, hosted at `url`, as the night's song
+/// `song`: the session is read through `fts.session` as this extension
+/// (its tempo, so a session this extension may not read is refused here),
+/// then the room's clock is set to its host's transport. The renderer is
+/// a program, not this extension: it follows the transport (presence,
+/// never the document) itself.
+pub async fn room(args: Value) -> Result<Value, String> {
+    let url = text(&args, "url")?;
+    let doc = text(&args, "doc")?;
+    let song = text(&args, "song")?;
+    let map = tempo(&host()?, &doc).await.map_err(|e| e.to_string())?;
+    let clock = format!("session:{url}#{doc}@{song}");
+    crate::ext::set_setting("ignition.clock", &clock).await?;
+    Ok(json!({
+        "clock": clock,
+        "tempo_changes": map.points().len(),
+        "bpm_at_start": map.bpm_at(0.0),
+    }))
 }
 
 /// What the follower took.
