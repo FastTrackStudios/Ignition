@@ -103,3 +103,93 @@ bindings' compute visibility that served them (`vendor/bevy_pbr/FTS-PATCH.md`).
   and the frame breakdown re-measured. Until all four can move, the pin
   holds at its last commit on the shared major, and a Bevy fix needed
   meanwhile is cherry-picked into the fork.
+
+## One wgpu: what is enforced, and what would take an Architect change
+
+Enforced in Ignition:
+
+- **A mismatch does not build.** `apps/ignition` takes
+  `architect-process-view`'s `guest` feature and exports each slot with
+  its `gpu::export_texture` / `gpu::export_surface`, on the device Bevy
+  draws with. Those functions take the workspace's one `wgpu::Device`;
+  were Bevy on another wgpu, `apps/ignition/src/frames.rs` would not
+  type-check. There is no second, wgpu-free copy of the path to fall
+  into at build time.
+- **A mismatch in the lockfile fails a test** (`tests/one_wgpu.rs`, in
+  CI's `cargo test --workspace`): Bevy's renderer and Architect's
+  process views must be locked to the same wgpu, and no second major
+  may be there for anything but Architect's own `pixels` 0.17
+  (`architect-workspace-hack` → `dioxus-native` → `anyrender_vello_cpu`
+  → `pixels_window_renderer`), which is on wgpu 29 and off the frame
+  path. So the lockfile still holds two majors, as Architect's own does;
+  it holds one on the path a frame takes. Getting to literally one is
+  Architect's to do (drop or bump `pixels`), after which
+  `OFF_THE_FRAME_PATH` in that test is emptied.
+- **A fallback at run time is loud.** When the slots are shared memory
+  the renderer warns once per set of buffers with the reason (`forced`,
+  `host-cannot-import`, `device-cannot-export`, `no-rendezvous`,
+  `export-refused`), and every frame's span carries `transport` and
+  `fallback`.
+- **The pane no longer forces shared memory**
+  (`features/lighting/pane/src/ext.rs`).
+
+Not done, because it is Architect's: **a strict mode that refuses shared
+memory.** What it would need:
+
+1. A third value of `ARCHITECT_PROCESS_VIEW_TRANSPORT`, say
+   `gpu-only`, read by `guest::serve` (Architect's own guests) and by
+   Ignition's `Link` (which reads the same variable): where the guest
+   would fall back, it instead ends with an error naming the reason.
+2. The host's half: `ProcessViewPane` today answers a failed import by
+   saying hello again with `zero_copy: false` (`host.rs`, `fallback`).
+   In strict mode it should show the pane's "stopped" state with the
+   import error instead, and not restart the program into the same
+   failure.
+3. A setting or an environment switch on the app that turns strict mode
+   on for every process view it starts (development builds, GPU-equipped
+   test runs), passed down as that variable.
+4. The negotiated transport is already in the pane's stats line
+   (`status_line`: "dma-buf", "IOSurface", "shared memory"); a test of
+   the app on a capable host can assert it.
+
+A lighter `gpu` feature in `architect-process-view` (the module alone:
+`wgpu`, `ash`) would also let a renderer like this one take the export
+without the rest of `guest` (Vello, `anyrender_vello`, `architect`,
+`pollster`), which Ignition links today and does not call.
+
+## macOS: what was done here, and what a Mac has to verify
+
+Nothing of this was compiled for or run on macOS: this machine is
+Linux, and the workspace has no macOS check (CI's gate is Linux; the
+iOS workflow builds `ignition-mobile`, which does not link the
+renderer).
+
+What changed for macOS, written blind:
+
+- The IOSurface slots are now made by `architect_process_view::gpu::export_surface`
+  on Bevy's device, and sent with the same `surface::Sender` as before.
+  The hand-written Metal texture over an IOSurface that
+  `process_view.rs` carried while Bevy was on another wgpu
+  (`surface_slot`, `objc2-metal`) is deleted.
+- `Frames`, `Slots::Gpu` and `Surfaces` in `apps/ignition/src/frames.rs`
+  have `cfg(target_os = "macos")` arms for the transport
+  (`Transport::IoSurface`), the layout (`surface.stride()`) and the
+  announcement (the surfaces on the Mach port, then the message).
+
+To verify on a Mac, in this order:
+
+1. `cargo check --workspace --all-targets` (the `cfg(target_os =
+   "macos")` arms in `frames.rs` have never met a compiler; `gpu::Exported`
+   there is `{ texture, surface }`).
+2. `IGNITION_LIVE_SET=… cargo test --release -p ignition --test
+   process_view -- --ignored a_pane_gets_lit_frames_in_iosurfaces_on_macos`
+   (the existing test: lit frames in IOSurfaces the host's process
+   holds), and `an_app_that_cannot_import_gets_shared_memory`.
+3. Bevy at the pin on Metal: `viz --snapshot` of the two cues in
+   `frame-breakdown.md` against the pictures there. The pin predates
+   upstream #26484, so Metal may report the auto-exposure histogram's
+   out-of-bounds writes it reported upstream; that is the fork's third
+   commit.
+4. `features/lighting/tools/frame_breakdown.sh` on the M4, for its
+   numbers (is its 30 fps the fog, as here?).
+5. The pane in the Architect app: the stats line reads "IOSurface".
