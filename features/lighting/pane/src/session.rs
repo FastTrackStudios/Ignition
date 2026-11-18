@@ -11,12 +11,13 @@
 //!   list's cues as the playhead crosses them (`ignition_session::CueFollower`).
 //! - `IGNITION_SESSION_TAKEN`: what the follower took: each cue, the
 //!   session time it was taken at, and the clock estimate.
-//! - `IGNITION_SESSION_SONG {doc, lane, live_set, locator, cues}`: a
+//! - `IGNITION_SESSION_SONG {doc, lane, live_set, locator, cues, bar_one?}`: a
 //!   recital song into a session: its cue list (`cues`, a song file whose
 //!   positions are relative to the song's sections) resolved against the
 //!   Live set's song `locator`, as the night resolves it, and the set's
 //!   tempo over the song made the session's, so a cue's bar and time agree
-//!   with the room's.
+//!   with the room's; `bar_one` (a session bar) is where the chart's bar
+//!   1 is, after a count-in (session `bar_one`).
 //! - `IGNITION_SESSION_ROOM {url, doc, song}`: the room follows the
 //!   session: its tempo read through the service as this extension, then
 //!   the room's clock set to the session host's transport
@@ -35,7 +36,9 @@ use architect_extensions::hostcall::HostRequest;
 use architect_extensions::linked::Handle;
 use crdt::sync::{DocPresenceClient, PresencePeer};
 use ignition_daw::ableton::{LiveSet, LiveSetSong};
-use ignition_session::{Ask, AskFuture, CueFollower, Take, load, set_tempo, store, tempo};
+use ignition_session::{
+    Ask, AskFuture, CueFollower, Take, load, set_bar_one, set_tempo, store, tempo,
+};
 use ignition_show::CueList;
 use ignition_show::show_file::ShowDocument;
 use serde_json::{Value, json};
@@ -155,7 +158,19 @@ pub async fn song(args: Value) -> Result<Value, String> {
     store(&ask, &doc, &lane, &list)
         .await
         .map_err(|e| e.to_string())?;
+    // Where the chart's bar 1 is, when the multitracks start earlier (a
+    // count-in): the session bar given, as the song's bar 1.
+    let bar_one = args
+        .get("bar_one")
+        .and_then(Value::as_u64)
+        .and_then(|b| u32::try_from(b).ok());
+    if bar_one.is_some() {
+        set_bar_one(&ask, &doc, bar_one)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
     Ok(json!({
+        "bar_one": bar_one,
         "stored": list.cues.len(),
         "timed": list.cues.iter().filter(|c| c.position().is_some()).count(),
         "unresolved": unresolved,

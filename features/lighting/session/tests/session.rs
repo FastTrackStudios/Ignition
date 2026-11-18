@@ -278,3 +278,30 @@ async fn the_cues_follow_the_transport_through_play_seek_and_stop() {
     );
     // The speech cue (2.5) has no bar: only an operator's GO takes it.
 }
+
+/// A cue list numbers its bars as the chart does: from the song's bar 1,
+/// after a count-in; a cue in the count-in has no chart bar.
+#[test]
+fn a_session_bar_is_numbered_from_the_songs_bar_one() {
+    use ignition_session::chart_bar;
+    // Drive To LA: four bars of count-in, the verse is the chart's bar 1.
+    assert_eq!(chart_bar(5, 5), Some(1));
+    assert_eq!(chart_bar(37, 5), Some(33));
+    assert_eq!(chart_bar(1, 5), None);
+    assert_eq!(chart_bar(4, 5), None);
+    // No count-in: the session's own bars.
+    assert_eq!(chart_bar(1, 1), Some(1));
+}
+
+/// The song's bar 1 is set and read through the service, as a bar.
+#[tokio::test]
+async fn the_songs_bar_one_goes_into_the_session_and_comes_back_as_a_bar() {
+    use ignition_session::{bar_one, set_bar_one};
+    let sessions = session();
+    let ask = ignition(&sessions);
+    assert_eq!(bar_one(&ask, DOC).await.unwrap(), 1, "none set: bar 1");
+    set_bar_one(&ask, DOC, Some(5)).await.unwrap();
+    assert_eq!(bar_one(&ask, DOC).await.unwrap(), 5);
+    set_bar_one(&ask, DOC, None).await.unwrap();
+    assert_eq!(bar_one(&ask, DOC).await.unwrap(), 1);
+}

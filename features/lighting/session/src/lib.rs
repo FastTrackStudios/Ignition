@@ -119,6 +119,53 @@ pub async fn tempo(ask: &impl Ask, doc: &str) -> Result<TempoMap> {
     }
 }
 
+/// Where the song's bar 1 is in the session (session `bar_one`: the end
+/// of a count-in), as the session's bar it falls on; `1` when it sets
+/// none. A cue list numbers its bars as the chart does from it.
+///
+/// # Errors
+///
+/// The service refused, or its structure does not parse.
+pub async fn bar_one(ask: &impl Ask, doc: &str) -> Result<u32> {
+    match call(ask, doc, Request::ReadStructure).await? {
+        Response::Structure { tempo, bar_one, .. } => {
+            let map = tempo
+                .to_tempo_map()
+                .map_err(|e| Error::Session(e.to_string()))?;
+            Ok(bar_one.map_or(1, |at| bars_of(&map, at).bar))
+        }
+        other => Err(Error::Session(format!("not the structure: {other:?}"))),
+    }
+}
+
+/// Makes the session's bar `bar` the song's bar 1 (`None`: the session's
+/// start): what a chart calls bar 1 when the multitracks start earlier.
+///
+/// # Errors
+///
+/// The service refused (this extension may not change the structure).
+pub async fn set_bar_one(ask: &impl Ask, doc: &str, bar: Option<u32>) -> Result<()> {
+    let at = match bar {
+        Some(bar) => Some(time_of(&tempo(ask, doc).await?, Bars::new(bar, 1.0))),
+        None => None,
+    };
+    match call(ask, doc, Request::SetBarOne { at }).await? {
+        Response::Done => Ok(()),
+        other => Err(Error::Session(format!("bar one was not set: {other:?}"))),
+    }
+}
+
+/// A session bar as the chart numbers it, from the session bar the
+/// song's bar 1 is on: `None` in the count-in before it.
+#[must_use]
+pub const fn chart_bar(session_bar: u32, bar_one: u32) -> Option<u32> {
+    if session_bar < bar_one {
+        None
+    } else {
+        Some(session_bar.saturating_sub(bar_one).saturating_add(1))
+    }
+}
+
 /// Where bar `bars` is in the session, in musical time.
 #[must_use]
 pub fn time_of(tempo: &TempoMap, bars: Bars) -> Time {
