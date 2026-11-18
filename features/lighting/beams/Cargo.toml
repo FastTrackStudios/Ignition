@@ -1,0 +1,103 @@
+# ignition-beams: every beam in the air, drawn analytically (README.md).
+#
+# Its own small workspace for now, on purpose. The crate is written against
+# Bevy `main` at the revision the fork branch (`feat/bevy-fork-gpu-frames`)
+# pins, while the rest of Ignition is still on Bevy 0.19.1. Inside the root
+# workspace it would put a second Bevy in the root lockfile and in every
+# `--workspace` build until that branch lands. When it has landed: delete
+# the `[workspace]`, `[workspace.lints]` and `[profile]` tables below, add
+# `features/lighting/beams` to the root `members`, and take `bevy` from
+# `[workspace.dependencies]` (README.md, "Wiring it into the visualizer").
+[workspace]
+resolver = "3"
+
+[package]
+name = "ignition-beams"
+version = "0.2.0"
+license = "GPL-3.0-or-later"
+edition = "2024"
+# The Bevy pin's own MSRV. The compiler is the root rust-toolchain.toml's.
+rust-version = "1.97.1"
+authors = ["FastTrack Studio"]
+repository = "https://github.com/FastTrackStudios/Ignition"
+description = "Beams in the air without a grid: one cone hull per beam, exact ray-cone intersection, closed-form single scattering"
+
+[lib]
+name = "ignition_beams"
+path = "src/lib.rs"
+
+[dependencies]
+# Upstream `main` at 948cc8270 (2026-11-12, "Wireframe cull mode", #26482):
+# the revision `feat/bevy-fork-gpu-frames` chose. It is after #25913, on
+# wgpu 30 like Architect, and the last day `main` built on the fleet's Rust
+# 1.99.1 (`main` needs 1.100 from 41a1282e3). Move it with that branch.
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce", default-features = false, features = [
+    "std",
+    "bevy_asset",
+    "bevy_camera",
+    "bevy_color",
+    "bevy_core_pipeline",
+    "bevy_image",
+    "bevy_log",
+    "bevy_render",
+    "bevy_shader",
+] }
+
+[dev-dependencies]
+# What the example needs on top: a window, lit surfaces for the pools the
+# beams land in, and PNG for the captures.
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce", default-features = false, features = [
+    "async_executor",
+    "bevy_light",
+    "bevy_mesh",
+    "bevy_pbr",
+    "bevy_window",
+    "bevy_winit",
+    "multi_threaded",
+    "png",
+    "wayland",
+    "x11",
+] }
+
+[[example]]
+name = "truss"
+path = "examples/truss/main.rs"
+
+# ── Lints: the root workspace's tables, copied ────────────────────────
+[workspace.lints.rust]
+dead_code = "warn"
+unused = "warn"
+unused_unsafe = "warn"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "allow"
+private_intra_doc_links = "allow"
+redundant_explicit_links = "allow"
+
+[workspace.lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+unreachable = "deny"
+unimplemented = "deny"
+unchecked_time_subtraction = "deny"
+todo = "deny"
+string_slice = "deny"
+panic_in_result_fn = "deny"
+panic = "deny"
+exit = "deny"
+as_conversions = "deny"
+
+[lints]
+workspace = true
+
+# ── Profiles: the root workspace's, so kache shares the Bevy build ─────
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+opt-level = 3
