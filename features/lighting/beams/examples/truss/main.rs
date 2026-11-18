@@ -16,6 +16,16 @@
 //! display. The bench measures the beam pass's GPU time per scene and
 //! writes it, with the machine's load average, as JSON.
 
+#![expect(
+    clippy::arithmetic_side_effects,
+    clippy::suboptimal_flops,
+    reason = "arithmetic on floats and glam vectors: the first lint cannot tell them from integers, and a fused multiply-add would only obscure the arithmetic"
+)]
+#![expect(
+    clippy::needless_pass_by_value,
+    reason = "Bevy hands a system its parameters by value"
+)]
+
 mod rig;
 
 use std::{fmt::Write as _, path::PathBuf, time::Duration};
@@ -23,7 +33,7 @@ use std::{fmt::Write as _, path::PathBuf, time::Duration};
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     camera::{Exposure, Hdr, RenderTarget},
-    core_pipeline::tonemapping::Tonemapping,
+    core_pipeline::tonemapping::{DebandDither, Tonemapping},
     diagnostic::{DiagnosticPath, DiagnosticsStore},
     prelude::*,
     render::{
@@ -105,17 +115,20 @@ fn parse_options(mut args: impl Iterator<Item = String>) -> Result<Options, Stri
             }
             "--size" => {
                 let text = value()?;
-                options.size = parse_size(&text).ok_or(format!("--size: not WxH: {text}"))?;
+                options.size =
+                    parse_size(&text).ok_or_else(|| format!("--size: not WxH: {text}"))?;
             }
             "--tier" => {
                 let name = value()?;
-                options.quality.tier =
-                    BeamTier::named(&name).ok_or(format!("--tier: no tier called {name}"))?;
+                options.quality.tier = BeamTier::named(&name)
+                    .ok_or_else(|| format!("--tier: no tier called {name}"))?;
             }
             "--scene" => {
                 let name = value()?;
-                options.scene =
-                    Some(Scene::named(&name).ok_or(format!("--scene: no scene called {name}"))?);
+                options.scene = Some(
+                    Scene::named(&name)
+                        .ok_or_else(|| format!("--scene: no scene called {name}"))?,
+                );
             }
             "--out" => options.out = PathBuf::from(value()?),
             other => return Err(format!("unknown argument {other}")),
@@ -213,7 +226,9 @@ fn main() -> Result<(), String> {
                 .add_systems(Update, (run_clock, leave_after_frames, apply_stage).chain());
         }
         Mode::Headless => {
-            let all = options.scene.map_or(Scene::ALL.to_vec(), |scene| vec![scene]);
+            let all = options
+                .scene
+                .map_or_else(|| Scene::ALL.to_vec(), |scene| vec![scene]);
             app.insert_resource(Capture::new(
                 all.into_iter().flat_map(shots).collect(),
                 options.out.clone(),
@@ -340,6 +355,9 @@ fn camera_bundle(options: &Options, scene: Scene) -> impl Bundle {
         Msaa::Off,
         Exposure { ev100: EV100 },
         Tonemapping::ReinhardLuminance,
+        // The beams dither themselves before the tonemapper; this is the
+        // tonemapper's own, for what it compresses near white.
+        DebandDither::Enabled,
         Projection::Perspective(PerspectiveProjection {
             fov: 55.0_f32.to_radians(),
             ..default()
@@ -514,11 +532,9 @@ fn drive_capture(
     commands
         .spawn(Screenshot::image(offscreen.0.clone()))
         .observe(save_to_disk(path))
-        .observe(
-            |_: On<ScreenshotCaptured>, mut capture: ResMut<Capture>| {
-                capture.saved = capture.saved.saturating_add(1);
-            },
-        );
+        .observe(|_: On<ScreenshotCaptured>, mut capture: ResMut<Capture>| {
+            capture.saved = capture.saved.saturating_add(1);
+        });
     capture.staged = false;
     capture.next = capture.next.saturating_add(1);
     capture.wait = SETTLE;
@@ -534,6 +550,7 @@ const BENCH_FRAMES: u16 = 240;
 #[derive(Clone, Debug, PartialEq)]
 struct Measured {
     scene: Scene,
+    median_ms: f64,
     mean_ms: f64,
     max_ms: f64,
     load_average: String,
@@ -552,14 +569,16 @@ struct Bench {
 
 impl Bench {
     fn new(options: &Options) -> Self {
-        let scenes = options.scene.map_or(
-            vec![
-                Scene::Show,
-                Scene::Alias,
-                Scene::Overlap,
-                Scene::AtCamera,
-                Scene::InsideWash,
-            ],
+        let scenes = options.scene.map_or_else(
+            || {
+                vec![
+                    Scene::Show,
+                    Scene::Alias,
+                    Scene::Overlap,
+                    Scene::AtCamera,
+                    Scene::InsideWash,
+                ]
+            },
             |scene| vec![scene],
         );
         Self {
@@ -584,11 +603,18 @@ impl Bench {
     }
 }
 
-/// The mean and the largest of `samples`; `None` when there are none.
-fn mean_and_max(samples: &[f64]) -> Option<(f64, f64)> {
-    let count = u32::try_from(samples.len()).ok().filter(|&count| count > 0)?;
-    let mean = samples.iter().sum::<f64>() / f64::from(count);
-    Some((mean, samples.iter().copied().fold(f64::MIN, f64::max)))
+/// The median, the mean and the largest of `samples`; `None` when there
+/// are none. The median is the one to quote: the GPU is shared, and another
+/// program's frame landing inside the pass lifts the mean and the largest.
+fn summarise(samples: &[f64]) -> Option<(f64, f64, f64)> {
+    let count = u32::try_from(samples.len())
+        .ok()
+        .filter(|&count| count > 0)?;
+    let mut sorted = samples.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let median = sorted.get(sorted.len() / 2).copied()?;
+    let mean = sorted.iter().sum::<f64>() / f64::from(count);
+    Some((median, mean, sorted.last().copied()?))
 }
 
 /// The bench's results as JSON.
@@ -599,8 +625,9 @@ fn bench_json(header: &str, results: &[Measured]) -> String {
         // Writing to a `String` cannot fail.
         let _ = write!(
             json,
-            "{comma}\n  {{\"scene\": \"{}\", \"gpu_ms_mean\": {:.4}, \"gpu_ms_max\": {:.4}, \"loadavg\": \"{}\"}}",
+            "{comma}\n  {{\"scene\": \"{}\", \"gpu_ms_median\": {:.4}, \"gpu_ms_mean\": {:.4}, \"gpu_ms_max\": {:.4}, \"loadavg\": \"{}\"}}",
             result.scene.name(),
+            result.median_ms,
             result.mean_ms,
             result.max_ms,
             result.load_average,
@@ -641,18 +668,28 @@ fn drive_bench(
         return;
     }
     let gpu_time = DiagnosticPath::new("render/ignition_beams/elapsed_gpu");
-    if let Some(ms) = diagnostics.get(&gpu_time).and_then(|d| d.value()) {
+    if let Some(ms) = diagnostics
+        .get(&gpu_time)
+        .and_then(bevy::diagnostic::Diagnostic::value)
+    {
         bench.samples.push(ms);
     }
     if bench.frame < BENCH_WARM.saturating_add(BENCH_FRAMES) {
         return;
     }
-    let (mean_ms, max_ms) = mean_and_max(&bench.samples).unwrap_or((f64::NAN, f64::NAN));
+    let (median_ms, mean_ms, max_ms) =
+        summarise(&bench.samples).unwrap_or((f64::NAN, f64::NAN, f64::NAN));
     let load_average = std::fs::read_to_string("/proc/loadavg")
-        .map(|text| text.split_whitespace().take(3).collect::<Vec<_>>().join(" "))
+        .map(|text| {
+            text.split_whitespace()
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
         .unwrap_or_default();
     bench.results.push(Measured {
         scene,
+        median_ms,
         mean_ms,
         max_ms,
         load_average,
@@ -695,10 +732,26 @@ mod tests {
 
     #[test]
     fn a_bad_argument_says_which() {
-        assert!(parse_options(args("--tier froxels")).unwrap_err().contains("froxels"));
-        assert!(parse_options(args("--size big")).unwrap_err().contains("big"));
-        assert!(parse_options(args("--beams")).unwrap_err().contains("--beams"));
-        assert!(parse_options(args("--what")).unwrap_err().contains("--what"));
+        assert!(
+            parse_options(args("--tier froxels"))
+                .unwrap_err()
+                .contains("froxels")
+        );
+        assert!(
+            parse_options(args("--size big"))
+                .unwrap_err()
+                .contains("big")
+        );
+        assert!(
+            parse_options(args("--beams"))
+                .unwrap_err()
+                .contains("--beams")
+        );
+        assert!(
+            parse_options(args("--what"))
+                .unwrap_err()
+                .contains("--what")
+        );
     }
 
     #[test]
@@ -711,17 +764,31 @@ mod tests {
     }
 
     #[test]
+    fn a_summary_is_the_median_the_mean_and_the_largest() {
+        assert_eq!(summarise(&[]), None);
+        assert_eq!(
+            summarise(&[3.0, 1.0, 2.0, 10.0, 4.0]),
+            Some((3.0, 4.0, 10.0))
+        );
+    }
+
+    #[test]
     fn the_bench_writes_json_a_reader_can_parse() {
         let json = bench_json(
             "\"beams\": 70",
             &[Measured {
                 scene: Scene::Show,
+                median_ms: 1.0,
                 mean_ms: 1.25,
                 max_ms: 2.5,
                 load_average: "5.1 5.0 4.9".into(),
             }],
         );
-        assert!(json.contains("\"scene\": \"show\", \"gpu_ms_mean\": 1.2500"));
+        assert!(
+            json.contains(
+                "\"scene\": \"show\", \"gpu_ms_median\": 1.0000, \"gpu_ms_mean\": 1.2500"
+            )
+        );
         assert!(json.starts_with("{\"beams\": 70, \"scenes\": ["));
         assert!(json.trim_end().ends_with("]}"));
     }

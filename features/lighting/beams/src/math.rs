@@ -7,6 +7,15 @@
 //!
 //! Everything here is honest: values in, values out.
 
+#![expect(
+    clippy::arithmetic_side_effects,
+    reason = "arithmetic on glam vectors, which the lint cannot tell from integers; there is no integer arithmetic to overflow here"
+)]
+#![expect(
+    clippy::suboptimal_flops,
+    reason = "the shader runs the same expressions in the same order; fused multiply-adds here would make this copy differ from it"
+)]
+
 use bevy::math::Vec3;
 
 /// How far past the field angle the beam's light reaches zero, as a ratio
@@ -145,12 +154,18 @@ fn quadric_span(cone: &Cone, from_apex: Vec3, dir: Vec3) -> Option<Span> {
     if a.abs() < 1.0e-9 {
         return linear_span(half_b, c);
     }
+    #[expect(
+        clippy::suspicious_operation_groupings,
+        reason = "the discriminant of a·t² + 2·half_b·t + c"
+    )]
     let disc = half_b * half_b - a * c;
-    if disc < 0.0 {
-        // A ray steeper than the cone that misses it; a ray shallower than
-        // the cone cannot miss it, so `a < 0` never reaches here.
+    if disc < 0.0 && a > 0.0 {
+        // A ray steeper than the cone, missing it.
         return None;
     }
+    // A ray shallower than the cone cannot miss it: there a negative
+    // discriminant is rounding (a ray along the axis has exactly zero).
+    let disc = disc.max(0.0);
     // The stable form of the roots: no subtraction of nearly equal numbers.
     let q = -(half_b + disc.sqrt().copysign(half_b));
     let (r0, r1) = if q.abs() < 1.0e-30 {
@@ -289,7 +304,7 @@ impl Shaft {
     /// Everything but the inverse square at the point `from_apex`, seen
     /// along `dir`: profile, phase, extinction and end fade. `t` is how far
     /// the point is along the view ray.
-    fn weight(&self, medium: &Medium, from_apex: Vec3, dir: Vec3, t: f32) -> f32 {
+    fn weight(&self, medium: Medium, from_apex: Vec3, dir: Vec3, t: f32) -> f32 {
         let cone = &self.cone;
         let along = from_apex.dot(cone.axis).max(1.0e-4);
         let dist = from_apex.length().max(1.0e-4);
@@ -305,16 +320,18 @@ impl Shaft {
     }
 }
 
-/// The light a beam of unit intensity (1 cd on its axis) scatters towards
-/// the eye along `span` of `ray`, per unit of scattering coefficient: the
-/// integral of `profile · phase · extinction · fade / distance²`, in 1/m.
+/// The light a beam of unit intensity scatters towards the eye along
+/// `span` of `ray`, per unit of scattering coefficient, in 1/m.
+///
+/// It is the integral of `profile · phase · extinction · fade / distance²`
+/// for a beam of 1 cd on its axis.
 ///
 /// The inverse square is integrated exactly on each of `pieces` equal
 /// parts of the span (an arctangent); the other terms, which are smooth,
 /// are taken at each part's middle. Nothing in it is discrete in space, so
 /// the result is continuous in the ray, the cone and the span.
 #[must_use]
-pub fn scatter(shaft: &Shaft, medium: &Medium, ray: &Ray, span: Span, pieces: u8) -> f32 {
+pub fn scatter(shaft: &Shaft, medium: Medium, ray: &Ray, span: Span, pieces: u8) -> f32 {
     let from_apex = ray.origin - shaft.cone.apex;
     let foot = from_apex.dot(ray.dir);
     let offset = from_apex - ray.dir * foot;
@@ -353,10 +370,12 @@ pub fn effective_solid_angle(profile: &Profile, tan_edge: f32) -> f32 {
     2.0 * core::f32::consts::PI * (step / 3.0) * (ring(0.0) + sum + ring(edge))
 }
 
-/// A fixture's on-axis intensity in candela: its luminous flux in lumens
-/// over the solid angle its profile spreads it across. Integrating the
-/// profile times this over the cone gives the flux back, whatever the
-/// zoom, so a zoomed-in beam is brighter by exactly what it should be.
+/// A fixture's on-axis intensity in candela.
+///
+/// It is the luminous flux in lumens over the solid angle the profile
+/// spreads it across. Integrating the profile times this over the cone
+/// gives the flux back, whatever the zoom, so a zoomed-in beam is brighter
+/// by exactly what it should be.
 #[must_use]
 pub fn peak_candela(flux_lumens: f32, profile: &Profile, tan_edge: f32) -> f32 {
     flux_lumens / effective_solid_angle(profile, tan_edge).max(1.0e-9)
@@ -580,7 +599,7 @@ mod tests {
     }
 
     /// The same integral by brute force, in doubles.
-    fn scatter_numeric(shaft: &Shaft, medium: &Medium, ray: &Ray, span: Span) -> f64 {
+    fn scatter_numeric(shaft: &Shaft, medium: Medium, ray: &Ray, span: Span) -> f64 {
         let steps = 200_000_u32;
         let dt = f64::from(span.len()) / f64::from(steps);
         (0..steps)
@@ -611,17 +630,17 @@ mod tests {
             cone: Cone::from_lens(Vec3::ZERO, Vec3::Z, 0.06, 0.3, 30.0),
             profile: Profile {
                 x_beam: 1.0e6,
-                x_field: 1.0e6,
+                x_field: 0.999_99,
                 exponent: 1.0,
             },
-            fade_start: 1.0e6,
+            fade_start: 0.999_99,
         };
         let ray = ray(Vec3::new(-8.0, 0.5, 6.0), Vec3::new(4.0, 0.0, 7.0));
         let span = cone_segment(&flat.cone, &ray, 100.0).unwrap();
         let unit = f64::from(4.0 * core::f32::consts::PI);
-        let reference = scatter_numeric(&flat, &CLEAR, &ray, span) * unit;
+        let reference = scatter_numeric(&flat, CLEAR, &ray, span) * unit;
         for pieces in [1, 4, 16] {
-            let closed = f64::from(scatter(&flat, &CLEAR, &ray, span, pieces)) * unit;
+            let closed = f64::from(scatter(&flat, CLEAR, &ray, span, pieces)) * unit;
             assert!(
                 (closed - reference).abs() < 2.0e-5 * reference,
                 "{pieces} pieces: {closed} against {reference}"
@@ -655,10 +674,10 @@ mod tests {
         ];
         for (shaft, ray) in &cases {
             let span = cone_segment(&shaft.cone, ray, 100.0).unwrap();
-            let reference = scatter_numeric(shaft, &HAZE, ray, span);
+            let reference = scatter_numeric(shaft, HAZE, ray, span);
             let mut last_error = f64::MAX;
             for (pieces, tolerance) in [(4_u8, 0.12), (8, 0.04), (16, 0.012), (64, 0.001)] {
-                let closed = f64::from(scatter(shaft, &HAZE, ray, span, pieces));
+                let closed = f64::from(scatter(shaft, HAZE, ray, span, pieces));
                 let error = ((closed - reference) / reference).abs();
                 assert!(
                     error < tolerance,
@@ -681,7 +700,7 @@ mod tests {
             let x = -3.0 + f32::from(i) * 0.01;
             let ray = ray(Vec3::new(x, 0.0, 6.0), target);
             let light = cone_segment(&shaft.cone, &ray, 100.0)
-                .map_or(0.0, |span| scatter(&shaft, &HAZE, &ray, span, 6));
+                .map_or(0.0, |span| scatter(&shaft, HAZE, &ray, span, 6));
             if let Some(last) = last {
                 assert!(
                     (light - last).abs() < 0.004,
@@ -739,7 +758,11 @@ mod tests {
             .map(|i| {
                 let theta = (f64::from(i) + 0.5) * d;
                 let x = narrow(theta.tan() / f64::from(tan_edge));
-                f64::from(peak) * f64::from(profile.at(x)) * core::f64::consts::TAU * theta.sin() * d
+                f64::from(peak)
+                    * f64::from(profile.at(x))
+                    * core::f64::consts::TAU
+                    * theta.sin()
+                    * d
             })
             .sum()
     }
@@ -766,8 +789,7 @@ mod tests {
             Profile::from_half_angles(4.0_f32.to_radians(), 6.0_f32.to_radians());
         let (tight, tight_edge) =
             Profile::from_half_angles(2.0_f32.to_radians(), 3.0_f32.to_radians());
-        let ratio =
-            peak_candela(1.0, &tight, tight_edge) / peak_candela(1.0, &wide, wide_edge);
+        let ratio = peak_candela(1.0, &tight, tight_edge) / peak_candela(1.0, &wide, wide_edge);
         assert!((ratio - 4.0).abs() < 0.03, "ratio {ratio}");
     }
 

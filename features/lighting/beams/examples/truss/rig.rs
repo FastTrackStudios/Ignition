@@ -5,6 +5,12 @@
 //! moment, where it points, in what colour, how bright. `main.rs` applies
 //! those to entities.
 
+#![expect(
+    clippy::arithmetic_side_effects,
+    clippy::suboptimal_flops,
+    reason = "arithmetic on floats and glam vectors: the first lint cannot tell them from integers, and a fused multiply-add would only obscure a look's geometry"
+)]
+
 use bevy::{color::LinearRgba, math::Vec3};
 use ignition_beams::Gobo;
 
@@ -152,7 +158,7 @@ pub enum Scene {
     Show,
     /// Only the beam fixtures, white, panning fast, seen from the side.
     SidePan,
-    /// Beams and spots pointed straight at the camera.
+    /// The beam fixtures pointed at the camera, from dead on to a miss.
     AtCamera,
     /// The beam fixtures strobing at 25 Hz.
     Strobe,
@@ -204,7 +210,7 @@ impl Scene {
 
     /// Where the camera stands and what it looks at.
     #[must_use]
-    pub fn camera(self) -> (Vec3, Vec3) {
+    pub const fn camera(self) -> (Vec3, Vec3) {
         match self {
             Self::Show | Self::Alias | Self::Strobe | Self::Gobos => {
                 (Vec3::new(0.0, 2.2, 15.0), Vec3::new(0.0, 3.6, 0.0))
@@ -283,7 +289,11 @@ fn show(fixture: &Fixture, t: f32) -> Look {
         Kind::Beam => Look {
             aim: sweep(fixture, t, 7.0, 1.3) + Vec3::new(0.0, 0.0, 6.0),
             colour: WHITE,
-            dimmer: if fixture.truss == 2 { strobe(t, 12.5) } else { 1.0 },
+            dimmer: if fixture.truss == 2 {
+                strobe(t, 12.5)
+            } else {
+                1.0
+            },
             ..Look::dark()
         },
         Kind::Spot => Look {
@@ -298,7 +308,11 @@ fn show(fixture: &Fixture, t: f32) -> Look {
             ..Look::dark()
         },
         Kind::Wash => Look {
-            aim: Vec3::new(fixture.position.x * 0.7, 0.0, fixture.position.z * 0.4 - 1.0),
+            aim: Vec3::new(
+                fixture.position.x * 0.7,
+                0.0,
+                fixture.position.z * 0.4 - 1.0,
+            ),
             colour: palette(u16::from(fixture.truss).wrapping_add(1)),
             dimmer: 0.8,
             ..Look::dark()
@@ -325,19 +339,19 @@ fn side_pan(fixture: &Fixture, t: f32) -> Look {
 }
 
 fn at_camera(fixture: &Fixture, t: f32) -> Look {
-    if fixture.kind == Kind::Wash {
+    if fixture.kind != Kind::Beam {
         return Look::dark();
     }
-    // Not all dead on: a slow circle around the lens, so some beams are
-    // looked straight into and some just miss.
+    // The middle of each truss dead on, the rest missing by more and more:
+    // some beams are looked straight into, some graze the lens, some pass.
     let phase = t * 0.8 + f32::from(fixture.index) * 0.9;
-    let wander = Vec3::new(phase.cos(), phase.sin(), 0.0) * (0.15 + 0.5 * fixture.along.abs());
+    let miss = 0.1 + 2.6 * fixture.along.abs();
     Look {
-        aim: AT_CAMERA_EYE + wander,
-        colour: if fixture.kind == Kind::Beam {
-            WHITE
-        } else {
+        aim: AT_CAMERA_EYE + Vec3::new(phase.cos(), phase.sin(), 0.0) * miss,
+        colour: if fixture.truss == 1 {
             palette(fixture.index / 3)
+        } else {
+            WHITE
         },
         dimmer: 1.0,
         ..Look::dark()
@@ -363,11 +377,19 @@ fn strobing(fixture: &Fixture, t: f32) -> Look {
 }
 
 fn floor_wall(fixture: &Fixture) -> Look {
-    let to_wall = fixture.index % 2 == 0;
+    let to_wall = fixture.index.is_multiple_of(2);
     let aim = if to_wall {
-        Vec3::new(fixture.position.x * 0.9, 1.0 + f32::from(fixture.truss) * 1.6, WALL_Z)
+        Vec3::new(
+            fixture.position.x * 0.9,
+            1.0 + f32::from(fixture.truss) * 1.6,
+            WALL_Z,
+        )
     } else {
-        Vec3::new(fixture.position.x * 0.7 - 2.0, 0.0, fixture.position.z + 5.0)
+        Vec3::new(
+            fixture.position.x * 0.7 - 2.0,
+            0.0,
+            fixture.position.z + 5.0,
+        )
     };
     Look {
         aim,
@@ -408,9 +430,17 @@ fn alias(fixture: &Fixture) -> Look {
     if fixture.kind == Kind::Wash {
         return Look::dark();
     }
-    let side = if fixture.kind == Kind::Beam { 1.0 } else { -1.0 };
+    let side = if fixture.kind == Kind::Beam {
+        1.0
+    } else {
+        -1.0
+    };
     Look {
-        aim: Vec3::new(-4.2 * side + fixture.along * 1.5, 0.4, 9.0 - f32::from(fixture.truss) * 3.0),
+        aim: Vec3::new(
+            -4.2 * side + fixture.along * 1.5,
+            0.4,
+            9.0 - f32::from(fixture.truss) * 3.0,
+        ),
         colour: WHITE,
         dimmer: 1.0,
         zoom: if fixture.kind == Kind::Spot { 0.5 } else { 1.0 },
@@ -423,7 +453,11 @@ fn gobos(fixture: &Fixture, t: f32) -> Look {
         return Look::dark();
     }
     Look {
-        aim: Vec3::new(fixture.position.x * 0.8, 0.0, fixture.position.z * 0.3 + 4.0),
+        aim: Vec3::new(
+            fixture.position.x * 0.8,
+            0.0,
+            fixture.position.z * 0.3 + 4.0,
+        ),
         colour: if fixture.truss == 1 {
             WHITE
         } else {
@@ -432,7 +466,13 @@ fn gobos(fixture: &Fixture, t: f32) -> Look {
         dimmer: 1.0,
         gobo: Some(Gobo {
             slot: fixture.index % 3 + 1,
-            rotation: t * 2.0 * (if fixture.index % 2 == 0 { 1.0 } else { -1.0 }),
+            rotation: t
+                * 2.0
+                * (if fixture.index.is_multiple_of(2) {
+                    1.0
+                } else {
+                    -1.0
+                }),
             blur: 0.0,
         }),
         zoom: 1.3,

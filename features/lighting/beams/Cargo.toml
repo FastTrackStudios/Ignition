@@ -62,6 +62,8 @@ bevy = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd373
 [[example]]
 name = "truss"
 path = "examples/truss/main.rs"
+# Its argument parsing and scenes have tests of their own.
+test = true
 
 # ── Lints: the root workspace's tables, copied ────────────────────────
 [workspace.lints.rust]

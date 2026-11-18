@@ -106,11 +106,14 @@ fn quadric_span(cone: Cone, from_apex: vec3<f32>, dir: vec3<f32>) -> vec2<f32> {
         return vec2(-FAR, root);
     }
     let disc = half_b * half_b - a * c;
-    if disc < 0.0 {
+    if disc < 0.0 && a > 0.0 {
+        // A ray steeper than the cone, missing it.
         return vec2(0.0, -1.0);
     }
+    // A ray shallower than the cone cannot miss it: there a negative
+    // discriminant is rounding (a ray along the axis has exactly zero).
     // The stable form of the roots: no subtraction of nearly equal numbers.
-    var signed_root = sqrt(disc);
+    var signed_root = sqrt(max(disc, 0.0));
     if half_b < 0.0 {
         signed_root = -signed_root;
     }

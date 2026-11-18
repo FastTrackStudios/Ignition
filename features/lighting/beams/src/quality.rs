@@ -150,11 +150,14 @@ pub struct Governor {
     average_ms: f32,
     /// Frames since the quality last changed.
     settled: u16,
+    /// Frames in a row the average has been over the budget.
+    over: u16,
 }
 
 /// How much of each new frame time goes into the average.
 const SMOOTHING: f32 = 0.1;
-/// Over budget by this factor, for [`DROP_AFTER`] frames: drop a step.
+/// Over budget by this factor, for [`DROP_AFTER`] frames in a row: drop a
+/// step. One slow frame lifts the average for fewer frames than that.
 const OVER: f32 = 1.08;
 const DROP_AFTER: u16 = 20;
 /// Under budget by this factor, for [`CLIMB_AFTER`] frames: climb a step.
@@ -171,6 +174,7 @@ impl Governor {
             quality: ceiling,
             average_ms: budget_ms,
             settled: 0,
+            over: 0,
         }
     }
 
@@ -189,9 +193,14 @@ impl Governor {
     /// Takes one measured frame time and returns the quality for the next
     /// frame.
     pub fn observe(&mut self, frame_ms: f32) -> Quality {
-        self.average_ms += (frame_ms - self.average_ms) * SMOOTHING;
+        self.average_ms = (frame_ms - self.average_ms).mul_add(SMOOTHING, self.average_ms);
         self.settled = self.settled.saturating_add(1);
-        let next = if self.average_ms > self.budget_ms * OVER && self.settled >= DROP_AFTER {
+        self.over = if self.average_ms > self.budget_ms * OVER {
+            self.over.saturating_add(1)
+        } else {
+            0
+        };
+        let next = if self.over >= DROP_AFTER {
             self.quality.cheaper()
         } else if self.average_ms < self.budget_ms * UNDER
             && self.settled >= CLIMB_AFTER
@@ -204,6 +213,7 @@ impl Governor {
         if let Some(next) = next {
             self.quality = next;
             self.settled = 0;
+            self.over = 0;
         }
         self.quality
     }
@@ -296,7 +306,11 @@ mod tests {
         let mut changes = 0_u16;
         let mut last = governor.quality();
         for _ in 0..6000_u16 {
-            let frame_ms = if governor.quality() == TOP { 19.0 } else { 13.0 };
+            let frame_ms = if governor.quality() == TOP {
+                19.0
+            } else {
+                13.0
+            };
             let now = governor.observe(frame_ms);
             if now != last {
                 changes += 1;

@@ -133,7 +133,10 @@ pub struct BeamCamera {
     pub haze: Haze,
     pub highlights: Highlights,
     /// How far the highest tiers' gobo samples are jittered inside their
-    /// stretch of the ray, 0 (evenly spaced) to 1.
+    /// stretch of the ray, 0 (evenly spaced, the default) to 1. The
+    /// samples are prefiltered, so they need no jitter to hide their
+    /// spacing, and jitter shows as a fine screen pattern in a gobo's
+    /// shaft; it is here for a gobo with detail finer than its mips keep.
     pub gobo_jitter: f32,
 }
 
@@ -143,7 +146,7 @@ impl Default for BeamCamera {
             quality: Quality::default(),
             haze: Haze::default(),
             highlights: Highlights::default(),
-            gobo_jitter: 1.0,
+            gobo_jitter: 0.0,
         }
     }
 }
@@ -154,6 +157,10 @@ impl Default for BeamCamera {
 pub struct BeamGovernor(pub Governor);
 
 /// Feeds each governor the last frame's real time and applies its answer.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Bevy hands a system its parameters by value"
+)]
 fn govern_beam_quality(
     time: Res<Time<Real>>,
     mut cameras: Query<(&mut BeamCamera, &mut BeamGovernor)>,
