@@ -225,3 +225,55 @@ fn a_pane_gets_lit_frames_in_iosurfaces_on_macos() {
     );
     ends_when_closed(host, child);
 }
+
+/// What the renderer costs as a pane's program, with a host that releases
+/// and ticks every frame at once (no display to wait for): its own frame
+/// time (`render_us`, p50 and p99) and the frames a second it reaches.
+/// Printed, not asserted: `--nocapture` to read it. `IGNITION_TRANSPORT`
+/// (`shm`, or unset for the platform's GPU-shared frames).
+#[test]
+#[ignore = "a measurement: needs a GPU and IGNITION_LIVE_SET"]
+fn the_renderers_frame_time_as_a_pane() {
+    let set = std::env::var("IGNITION_LIVE_SET").expect("IGNITION_LIVE_SET");
+    let transport = std::env::var("IGNITION_TRANSPORT").ok();
+    let (child, host) = start(&set, transport.as_deref());
+    host.send(&hello(1280, 720, true), &[]).unwrap();
+    let (message, _fds) = next(&host, Duration::from_secs(120));
+    let ToHost::Buffers { transport, .. } = message else {
+        panic!("expected buffers, got {message:?}");
+    };
+    // The first frames compile pipelines: let them pass.
+    let mut warm = 0;
+    let mut times = Vec::new();
+    let mut began = None;
+    while times.len() < 300 {
+        let (message, _) = next(&host, Duration::from_secs(60));
+        if let ToHost::Frame {
+            buffers,
+            slot,
+            render_us,
+            ..
+        } = message
+        {
+            host.send(&ToGuest::Release { buffers, slot }.encode().unwrap(), &[])
+                .unwrap();
+            host.send(&ToGuest::Tick.encode().unwrap(), &[]).unwrap();
+            if warm < 60 {
+                warm += 1;
+                continue;
+            }
+            began.get_or_insert_with(Instant::now);
+            times.push(render_us);
+        }
+    }
+    let wall = began.unwrap().elapsed();
+    times.sort_unstable();
+    eprintln!(
+        "renderer as a pane ({transport:?}, 1280x720): render p50 {:.2} ms, p99 {:.2} ms; {:.1} frames/s over {} frames",
+        f64::from(times[times.len() / 2]) / 1e3,
+        f64::from(times[times.len() * 99 / 100]) / 1e3,
+        times.len() as f64 / wall.as_secs_f64(),
+        times.len()
+    );
+    ends_when_closed(host, child);
+}

@@ -118,8 +118,25 @@ pub fn serve(show: Show) -> Result<()> {
         pending_camera: None,
     };
     tracing::info!(transport = ?guest.frames.transport(), "process view: frames");
-    guest.announce()?;
-    guest.run(&mut viz, follow.as_ref())
+    let served = guest
+        .announce()
+        .and_then(|()| guest.run(&mut viz, follow.as_ref()));
+    // The app closed the view while a message was on its way to it: the
+    // pane is gone, which is how this ends, not a failure.
+    match served {
+        Err(e)
+            if e.downcast_ref::<std::io::Error>().is_some_and(|e| {
+                matches!(
+                    e.kind(),
+                    std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset
+                )
+            }) =>
+        {
+            tracing::info!("process view: the app closed the view");
+            Ok(())
+        }
+        served => served,
+    }
 }
 
 /// Where the frames' GPU-shared slots go: on macOS the app's Mach port
