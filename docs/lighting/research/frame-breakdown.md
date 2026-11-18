@@ -187,12 +187,12 @@ Frame through the pane, p50 of the three runs' p50s, milliseconds:
 
 | | before (0.19.1, shared memory) | after (dma-buf) | saved | of which the transport | of which the Bevy move |
 |---|---|---|---|---|---|
-| 2560x1440 | 21.7 | 19.2 | **2.5** | 1.5 (after: 20.5 forced through shared memory against 19.2 as dma-bufs; 18.8 against 20.5 on the quiet runs, 1.7) | about 1.7 (no transport: 20.6 before, 18.9 after) |
-| 5120x1440 | 47.9 | 43.2 | **4.7** | 4.4 (47.6 against 43.2) | about 3.5 (no transport: 45.9 before, 42.3 after) |
+| 2560x1440 | 22.0 | 19.2 | **2.8** | 1.3 (after: 20.5 forced through shared memory against 19.2 as dma-bufs; 1.7 on the first, quiet runs, 20.5 against 18.8) | 1.7 (no transport: 20.6 before, 18.9 after) |
+| 5120x1440 | 47.9 | 43.2 | **4.7** | 4.4 (47.6 against 43.2) | 3.6 (no transport: 45.9 before, 42.3 after) |
 
-(The two parts do not add to the total exactly: each is its own pair of
-medians, and the "before" shared-memory rows carried a little less
-overhead than the "after" ones.)
+(The two parts do not add to the total: each is its own pair of
+medians, three runs a side under a load that moved, and a difference of
+a few tenths of a millisecond between them is inside that spread.)
 
 - **The transport is now free in the renderer at 2560x1440** (the
   dma-buf rows equal the no-transport rows within the runs' spread) and
@@ -202,7 +202,7 @@ overhead than the "after" ones.)
   2.7 to 2.8 ms (5120x1440) a frame on the UI thread are gone, which
   this harness cannot show as frame time because it has no UI thread.
 - **Against the report's estimate** (3 to 6 ms saved at a 2560x1440
-  pane): about 1.5 ms in the renderer plus about 1.5 ms in the app, so
+  pane): 1.3 to 1.7 ms in the renderer plus about 1.5 ms in the app, so
   about 3 ms across the two processes, the bottom of the range. At
   5120x1440 it is about 4.4 ms plus 2.75 ms.
 - **The Bevy move itself is 8 % faster on this scene** at both sizes,
@@ -251,10 +251,11 @@ What changed, and whether it matters:
   `AutoExposure::filter` (0.15 today, `app.rs`) brings it back if it is
   wanted. Not changed here.
 - **Thin differences along the movers' beams and the fixtures' edges**
-  (the bright lines in the difference). The beams are in the same place;
-  their edges land a fraction of a pixel apart, which is TAA's jitter
-  and the fog's dither at a different frame count when the still is
-  taken. No block, band or missing light.
+  (the bright lines in the difference). The beams are in the same place
+  to the eye; their edges land a pixel or so apart. The likely cause is
+  TAA's jitter and the fog's dither being at a different step when the
+  still is taken (an inference: not traced). No block, band or missing
+  light.
 - **Every fixture is in the air in both**, so the first carried commit
   does on the pin what it did on 0.19.1 (without it, only the 4 or 12
   lights with shadow maps would be).
