@@ -38,7 +38,7 @@ use std::pin::Pin;
 use ignition_daw_proto::Bars;
 use ignition_show::{Cue, CueList};
 use session::extension::{call_json, response_of};
-use session::service::{Request, Response};
+use session::service::{Request, Response, TempoMapData};
 use session::sync::{Schedule, Tracker};
 use session::{Entry, ExtensionId, Item, ItemId, Lane, LaneId, TempoMap, Time, Transport, Value};
 
@@ -89,6 +89,20 @@ async fn call(ask: &impl Ask, doc: &str, request: Request) -> Result<Response> {
     let args = call_json(doc, request).map_err(Error::Session)?;
     let reply = ask.ask(method, args).await.map_err(Error::Session)?;
     response_of(&reply).map_err(Error::Session)
+}
+
+/// Makes `tempo` the session's tempo map (`fts.session` structure): the
+/// song's, when the cues come from a set that has it, so a cue's bar and
+/// its time agree with the set's.
+///
+/// # Errors
+///
+/// The service refused (this extension may not change the structure).
+pub async fn set_tempo(ask: &impl Ask, doc: &str, tempo: TempoMapData) -> Result<()> {
+    match call(ask, doc, Request::SetTempo { tempo }).await? {
+        Response::Done => Ok(()),
+        other => Err(Error::Session(format!("the tempo was not set: {other:?}"))),
+    }
 }
 
 /// The session's tempo map, read through the service.

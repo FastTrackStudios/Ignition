@@ -13,6 +13,9 @@
 
 use std::path::PathBuf;
 
+/// The `cues` view: a session's cue list following its transport.
+#[cfg(feature = "extension")]
+pub mod cues;
 #[cfg(feature = "extension")]
 pub mod ext;
 /// The show's cue list in a session (the session primitive).
