@@ -140,7 +140,14 @@ pub fn CuesView() -> Element {
                 "No session yet: IGNITION_SESSION_ROOM points the room and this list at one."
             }
         },
-        Some(p) => rsx! { Cues { key: "{p.url}#{p.doc}@{p.lane}", place: p } },
+        // A list of one, so its key is diffed: another session mounts the
+        // list afresh (a lone keyed child is patched in place, and went on
+        // reading the session it first opened on: Ignition#25).
+        Some(p) => rsx! {
+            for p in std::iter::once(p) {
+                Cues { key: "{p.url}#{p.doc}@{p.lane}", place: p.clone() }
+            }
+        },
     }
 }
 
