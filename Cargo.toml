@@ -24,6 +24,8 @@ members = [
     "features/lighting/fixture",
     "features/lighting/profile",
     "features/lighting/viz",
+    # Cue lists in a session (the session primitive).
+    "features/lighting/session",
     # The Architect extension (id `ignition`, extension.toml).
     "features/lighting/pane",
     # The renderer the extension starts (`--process-view`), and tooling.
@@ -55,6 +57,10 @@ ignition-daw-proto = { path = "features/lighting/daw-proto" }
 ignition-colour = { path = "features/lighting/colour" }
 ignition-rig = { path = "features/lighting/rig" }
 ignition-show = { path = "features/lighting/show" }
+ignition-session = { path = "features/lighting/session" }
+# The session primitive (FastTrackStudios/session): cue lists as its lanes
+# and items (features/lighting/session). By rev until it is tagged.
+session = { git = "https://github.com/FastTrackStudios/session", rev = "f15c8b840ab448aca1ee544546654a36640eed60", default-features = false }
 ignition-effects = { path = "features/lighting/effects" }
 ignition-playback = { path = "features/lighting/playback" }
 ignition-core = { path = "features/lighting/core" }
@@ -139,6 +145,7 @@ vox-stream = { version = "0.10.0-rc.5" }
 
 # ── External, at Studio's versions ────────────────────────────────────
 tokio = { version = "1.48", features = ["full"] }
+uuid = { version = "1", features = ["v4"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
@@ -214,6 +221,24 @@ dioxus-vdom = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.
 daw = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
 dawfile-reaper = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
 fts-sample = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+
+# One Architect: `session` (the session primitive) takes architect and
+# crdt at tag v0.12.6, which would put a second Architect in the graph,
+# and with it blitz db5b7ef (whose window resize panics). Every Architect
+# crate is at the root's pin (above); the same revision on the `www.`
+# host, which cargo counts as another source, is how a git dependency's
+# own pin is overridden. Move it with that pin.
+[patch."https://github.com/FastTrackStudios/architect"]
+architect = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-action-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-devices = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-orgs = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-permissions = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-rpc-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+architect-workspace-hack = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+crdt = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
+crdt-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "c2ac7fe173105aa20f8ef71f7d09e05c34af22e8" }
 
 # One editor source: architect v0.12.6's workspace-hack names the editor
 # on the `www.` host while its other crates name the plain one.
