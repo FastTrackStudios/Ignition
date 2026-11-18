@@ -11,12 +11,14 @@
 //!   list's cues as the playhead crosses them (`ignition_session::CueFollower`).
 //! - `IGNITION_SESSION_TAKEN`: what the follower took: each cue, the
 //!   session time it was taken at, and the clock estimate.
-//! - `IGNITION_SESSION_SONG {doc, lane, live_set, locator, cues}`: a
+//! - `IGNITION_SESSION_SONG {doc, lane, live_set, locator, cues, bar_one?, tempo?}`: a
 //!   recital song into a session: its cue list (`cues`, a song file whose
 //!   positions are relative to the song's sections) resolved against the
 //!   Live set's song `locator`, as the night resolves it, and the set's
 //!   tempo over the song made the session's, so a cue's bar and time agree
-//!   with the room's.
+//!   with the room's; `bar_one` (a session bar) is where the chart's bar
+//!   1 is, after a count-in (session `bar_one`); `tempo: false` leaves the
+//!   session's tempo map to its host (the DAW engine).
 //! - `IGNITION_SESSION_ROOM {url, doc, song}`: the room follows the
 //!   session: its tempo read through the service as this extension, then
 //!   the room's clock set to the session host's transport
@@ -35,7 +37,9 @@ use architect_extensions::hostcall::HostRequest;
 use architect_extensions::linked::Handle;
 use crdt::sync::{DocPresenceClient, PresencePeer};
 use ignition_daw::ableton::{LiveSet, LiveSetSong};
-use ignition_session::{Ask, AskFuture, CueFollower, Take, load, set_tempo, store, tempo};
+use ignition_session::{
+    Ask, AskFuture, CueFollower, Take, load, set_bar_one, set_tempo, store, tempo,
+};
 use ignition_show::CueList;
 use ignition_show::show_file::ShowDocument;
 use serde_json::{Value, json};
@@ -149,18 +153,37 @@ pub async fn song(args: Value) -> Result<Value, String> {
     let tempo = song_tempo(&set, &live);
     let changes = tempo.points.len();
     let ask = host()?;
-    set_tempo(&ask, &doc, tempo)
-        .await
-        .map_err(|e| e.to_string())?;
+    // The set's tempo becomes the session's unless the session's host owns
+    // its timing (the DAW engine: `tempo: false`), when the cues are placed
+    // on the session's own tempo map.
+    let keep_tempo = args.get("tempo").and_then(Value::as_bool) == Some(false);
+    if !keep_tempo {
+        set_tempo(&ask, &doc, tempo)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
     store(&ask, &doc, &lane, &list)
         .await
         .map_err(|e| e.to_string())?;
+    // Where the chart's bar 1 is, when the multitracks start earlier (a
+    // count-in): the session bar given, as the song's bar 1.
+    let bar_one = args
+        .get("bar_one")
+        .and_then(Value::as_u64)
+        .and_then(|b| u32::try_from(b).ok());
+    if bar_one.is_some() {
+        set_bar_one(&ask, &doc, bar_one)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
     Ok(json!({
+        "bar_one": bar_one,
         "stored": list.cues.len(),
         "timed": list.cues.iter().filter(|c| c.position().is_some()).count(),
         "unresolved": unresolved,
         "bpm": set.bpm_at(live.start_beats),
-        "tempo_changes": changes,
+        "tempo_changes": if keep_tempo { 0 } else { changes },
+        "tempo_set": !keep_tempo,
     }))
 }
 
@@ -201,9 +224,22 @@ pub fn song_tempo(set: &LiveSet, song: &LiveSetSong) -> TempoMapData {
     }
 }
 
+/// How long to wait before dialling a session's host again after `failed`
+/// dials in a row came to nothing (0: it answered, then went): a quarter
+/// second, doubling, at most five seconds. The room's renderer waits the
+/// same (`ignition::session_clock::redial_after`).
+#[must_use]
+pub fn redial_after(failed: u32) -> std::time::Duration {
+    const FIRST_MS: u64 = 250;
+    const MOST_MS: u64 = 5_000;
+    let doubled = FIRST_MS.saturating_mul(1_u64 << failed.min(16));
+    std::time::Duration::from_millis(doubled.min(MOST_MS))
+}
+
 /// Joins session `doc`'s presence and its host's clock at `url` (a
 /// `ws://host:port/vox`), on a thread of its own: what a view follows the
-/// transport with. Its driver and pings run for as long as the process.
+/// transport with. Its driver and pings run for as long as the process,
+/// dialling the host again whenever it is not there.
 ///
 /// # Errors
 ///
@@ -224,18 +260,29 @@ pub fn follow_session(url: &str, doc: &str) -> Result<(PresencePeer, SharedClock
             };
             runtime.block_on(async move {
                 let endpoint = Endpoint::url(&url);
-                let (Ok(host), Ok(presence)) = (
-                    pool().client::<SessionClockClient>(&endpoint).await,
-                    pool().client::<DocPresenceClient>(&endpoint).await,
-                ) else {
-                    return;
-                };
-                let pings = pinger.run(&host);
-                let follow = driver.run(&presence);
-                tokio::pin!(pings, follow);
-                tokio::select! {
-                    _ = &mut pings => {}
-                    _ = &mut follow => {}
+                // As the room's clock: a host not up yet (a restored
+                // layout) or gone and back (the engine restarting) is
+                // dialled until it answers.
+                let mut failed: u32 = 0;
+                loop {
+                    match (
+                        pool().client::<SessionClockClient>(&endpoint).await,
+                        pool().client::<DocPresenceClient>(&endpoint).await,
+                    ) {
+                        (Ok(host), Ok(presence)) => {
+                            failed = 0;
+                            let pings = pinger.run(&host);
+                            let follow = driver.run(&presence);
+                            tokio::pin!(pings, follow);
+                            tokio::select! {
+                                _ = &mut pings => {}
+                                _ = &mut follow => {}
+                            }
+                            pool().evict(&endpoint);
+                        }
+                        _ => failed = failed.saturating_add(1),
+                    }
+                    tokio::time::sleep(redial_after(failed)).await;
                 }
             });
         })
@@ -332,4 +379,18 @@ pub fn report() -> Value {
         "offset_us": t.clock.as_ref().and_then(SharedClock::offset_micros),
         "round_trip_us": t.clock.as_ref().and_then(SharedClock::round_trip_micros),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::redial_after;
+    use std::time::Duration;
+
+    #[test]
+    fn a_followed_host_is_dialled_again_soon_then_every_few_seconds() {
+        assert_eq!(redial_after(0), Duration::from_millis(250));
+        assert_eq!(redial_after(2), Duration::from_millis(1_000));
+        assert_eq!(redial_after(5), Duration::from_secs(5));
+        assert_eq!(redial_after(u32::MAX), Duration::from_secs(5));
+    }
 }

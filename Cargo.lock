@@ -14294,7 +14294,7 @@ dependencies = [
 [[package]]
 name = "session"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/session?rev=f15c8b840ab448aca1ee544546654a36640eed60#f15c8b840ab448aca1ee544546654a36640eed60"
+source = "git+https://github.com/FastTrackStudios/session?rev=a8ec37a454c767c0558973412c4d321746066d02#a8ec37a454c767c0558973412c4d321746066d02"
 dependencies = [
  "architect",
  "architect-permissions",
