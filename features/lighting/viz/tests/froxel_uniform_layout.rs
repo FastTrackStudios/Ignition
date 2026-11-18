@@ -106,10 +106,8 @@ fn field_pair(line: &str) -> Option<(String, String)> {
 
 #[test]
 fn every_field_of_the_froxel_uniform_fills_a_whole_lane() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("crates/")
-        .join("bevy-pbr-vendored/src/volumetric_fog");
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../vendor/bevy_pbr/src/volumetric_fog");
 
     for (file, name) in [
         ("froxel.rs", "FroxelUniform"),
@@ -145,10 +143,8 @@ fn every_field_of_the_froxel_uniform_fills_a_whole_lane() {
 
 #[test]
 fn the_froxel_uniform_is_declared_the_same_way_twice() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("crates/")
-        .join("bevy-pbr-vendored/src/volumetric_fog");
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../vendor/bevy_pbr/src/volumetric_fog");
 
     let rust = std::fs::read_to_string(root.join("froxel.rs")).expect("froxel.rs");
     let wgsl = std::fs::read_to_string(root.join("froxel.wgsl")).expect("froxel.wgsl");

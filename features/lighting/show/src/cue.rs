@@ -3668,10 +3668,6 @@ mod tests {
         }
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A cue carries what a cue is, and it survives the file.
     ///
     /// The list is short on purpose: a number, a name, a fade, direct
@@ -4405,10 +4401,6 @@ mod tests {
         }
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// The list needs to draw what the player is doing: how far into
     /// its arrival the standing cue is, and how long until a follow
     /// takes itself.
@@ -4446,10 +4438,6 @@ mod tests {
         assert_eq!(player.fade_progress(), 1.0, "and has arrived");
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A cue inserted between 5 and 6 is 5.5, and nothing after it
     /// renumbers — which is the whole point of a number that is not an
     /// index.
@@ -4742,10 +4730,6 @@ mod tests {
         assert!((get(&player, &show, 1, Attribute::Dimmer) - 1.0).abs() < 1e-6);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A delay fan across the selection wipes: every fixture arrives at
     /// the same value, each later than the one before.
     // r[verify cues.fan]
@@ -4982,10 +4966,6 @@ mod tests {
         }
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A cue-only cue's changes do not track: the cue after it starts
     /// from the state before it.
     // r[verify cues.cue-only]
@@ -5796,10 +5776,6 @@ mod wave2_tests {
         assert_eq!(player.current_name(), Some("new"));
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Late MIB counts the gap to the coming cue in the song's own
     /// signature: two bars of 3/4 are six beats, not eight, and a map
     /// that changes signature is counted stretch by stretch.
@@ -5963,10 +5939,6 @@ mod focus_and_position_tests {
         );
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// A zero-fade accent on the same downbeat as a section does not cut
     /// the section's fade short: the two are one take.
     /// r[verify cues.same-position-is-one-take]
@@ -6021,10 +5993,6 @@ mod focus_and_position_tests {
         assert_eq!(out[&(2, Attribute::Dimmer)], 1.0);
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "test assertion against a hand-picked literal, not an accumulated float — see docs/ops/clippy.md"
-    )]
     /// Freezing is a verb: it hands back the running effect's values at
     /// this instant as direct values, and the effect keeps running.
     /// r[verify effects.stomp.freeze-is-explicit]

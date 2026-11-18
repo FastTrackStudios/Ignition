@@ -125,7 +125,7 @@ pub fn parse(it: &mut dyn Iterator<Item = String>) -> Result<RenderArgs> {
     args.out = out.with_context(|| format!("render needs --out ({USAGE})"))?;
     anyhow::ensure!(args.fps > 0, "--fps must be positive");
     anyhow::ensure!(
-        args.width % 2 == 0 && args.height % 2 == 0,
+        args.width.is_multiple_of(2) && args.height.is_multiple_of(2),
         "--size: H.264 4:2:0 needs an even width and height"
     );
     Ok(args)
@@ -451,7 +451,7 @@ impl Driver for SongDriver {
         );
         self.encoder.push(rgba)?;
         let done = index.saturating_add(1);
-        if done % self.clock.fps.saturating_mul(15) == 0 || done == self.clock.frames {
+        if done.is_multiple_of(self.clock.fps.saturating_mul(15)) || done == self.clock.frames {
             let elapsed = self.began.elapsed().as_secs_f64();
             let rate = f64::from(done) / elapsed.max(1e-3);
             let left = f64::from(self.clock.frames.saturating_sub(done)) / rate.max(1e-3);

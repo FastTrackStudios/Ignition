@@ -178,7 +178,9 @@ impl GoboMask {
     pub fn open_fraction(&self) -> f32 {
         let n = f32_of_u32(self.size.saturating_mul(self.size));
         self.rgba
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             // `chunks_exact(4)` guarantees each `p` is 4 bytes long, so
             // this `get` never falls back — it exists to keep the index
             // audited rather than because index 3 can be out of range.

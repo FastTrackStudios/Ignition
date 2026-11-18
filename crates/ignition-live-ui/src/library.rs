@@ -874,12 +874,6 @@ mod tests {
         assert!(house.family.contains("protected"));
     }
 
-    #[expect(
-        clippy::float_cmp,
-        reason = "a macro's beat sum is a total of literal step values \
-                  the profile bakes in, exact in f32; not an accumulated \
-                  computation that could drift"
-    )]
     #[test]
     fn a_macro_shows_its_beats_and_release() {
         let profile = profile();

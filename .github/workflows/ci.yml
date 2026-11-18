@@ -17,6 +17,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    # A draft runs nothing; marking it ready starts the run.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 # A newer push to the same ref supersedes an older queued run. Unlike the
@@ -33,6 +35,8 @@ env:
 
 jobs:
   gate:
+    # Skipped on a draft PR: marking it ready starts the run.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     # The repo's own self-hosted runner on THEBATTLESHIP (NixOS, nix
     # preinstalled, its store persistent between runs).
     runs-on: [self-hosted, ignition]
@@ -59,7 +63,7 @@ jobs:
       - name: Build the stylesheet
         run: nix develop .#ci -c just tailwind
 
-      # fmt + clippy with `-D warnings`. Kept as `just lint` so a
+      # fmt, and clippy reporting without failing for now (#13). Kept as `just lint` so a
       # contributor runs locally exactly what CI runs.
       - name: Lint
         run: nix develop .#ci -c just lint

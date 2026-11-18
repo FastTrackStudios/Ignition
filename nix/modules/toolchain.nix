@@ -1,6 +1,6 @@
 # The FTS toolchain + native build environment (fills fts.rustToolchain,
 # fts.buildInputs, fts.nativeBuildInputs, fts.shellEnv).
-{ ... }:
+{ inputs, ... }:
 {
   perSystem = { pkgs, lib, config, ... }:
     let
@@ -27,7 +27,9 @@
       # locked rust-overlay input, so it's reproducible. Darwin-only: the native
       # stencil backend only compiles on macOS-aarch64 (elsewhere phon-jit uses
       # the interpreter and never invokes rustc for stencils).
-      rustNightly = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
+      # Studio's and the devenv shell's date (devenv.nix), not "latest": a
+      # newer rust-overlay would otherwise move it silently.
+      rustNightly = pkgs.rust-bin.nightly."2026-04-05".minimal;
       # A nightly WITH rust-src + the wasm target, for the one build that
       # cannot be done on stable: the browser keys rig's shared-memory
       # worklet (W13). wasm threads need `-C target-feature=+atomics` AND a
@@ -35,11 +37,10 @@
       # and needs rust-src. Everything else in the tree stays on the stable
       # 1.94 pin; this toolchain is reached only through `cargo-nightly`
       # (below), never by being first on PATH.
-      rustNightlyWasm = pkgs.rust-bin.selectLatestNightlyWith (t:
-        t.minimal.override {
-          extensions = [ "rust-src" ];
-          targets = [ "wasm32-unknown-unknown" ];
-        });
+      rustNightlyWasm = pkgs.rust-bin.nightly."2026-04-05".minimal.override {
+        extensions = [ "rust-src" ];
+        targets = [ "wasm32-unknown-unknown" ];
+      };
       # `cargo-nightly` — an explicit door to that toolchain. There is no
       # rustup in this shell, so `cargo +nightly` cannot work; recipes that
       # need it call this by name (see `just keys-worklet-wasm-threads`).
@@ -49,24 +50,21 @@
       '';
     in
     {
-      # Rust toolchain. NOT the FTS-wide 1.94 pin: Bevy 0.19 raises its
-      # MSRV to 1.95, and the workspace `rust-version` says so too. This
-      # divergence is the whole reason Ignition carries a flake of its
-      # own — see the root Cargo.toml comment on the bevy dependency.
-      fts.rustToolchain = pkgs.rust-bin.stable."1.95.0".default.override {
-        extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
-        # wasm for the web remotes; on darwin also the iOS targets for the
-        # iPhone app (device + simulator), and x86_64-apple-darwin so
-        # airlock (Apple Silicon) can cross-compile the Intel desktop/
-        # plugin builds without needing real Intel hardware (deploy-macos.sh
-        # TARGET=x86_64-apple-darwin, nice-plug-xtask's bundle-universal).
-        targets = [ "wasm32-unknown-unknown" ]
-          ++ lib.optionals pkgs.stdenv.isDarwin [
-            "aarch64-apple-ios"
-            "aarch64-apple-ios-sim"
-            "x86_64-apple-darwin"
-          ];
-      };
+      # The fleet toolchain: devenv-fleet's `toolchainFor`, the expression
+      # its devenv `rust` module evaluates (1.99.1 with rust-src,
+      # rust-analyzer, clippy, rustfmt and wasm32; on darwin also the iOS
+      # device and simulator targets and x86_64-apple-darwin, for airlock's
+      # iPhone and Intel builds), evaluated on devenv-fleet's own nixpkgs and
+      # rust-overlay (pins.json), so it is the devenv shell's store path.
+      # The rest of this flake stays on its own nixpkgs (flake.nix says why).
+      # Bevy 0.19 needs at least 1.95 (the workspace `rust-version`), and
+      # Architect's manifests need cargo 1.99: cargo 1.95-1.98 refuse
+      # `architect-commands` (`default-features = false` over a workspace
+      # dependency). rust-toolchain.toml pins the same 1.99.1 for rustup.
+      fts.rustToolchain = inputs.devenv-fleet.lib.toolchainFor (import inputs.devenv-fleet.inputs.nixpkgs {
+        inherit (pkgs.stdenv.hostPlatform) system;
+        overlays = [ inputs.devenv-fleet.overlays.default ];
+      });
 
       fts.buildInputs = (with pkgs; [
         openssl openssl.dev libiconv pkg-config fontconfig freetype cmake python3

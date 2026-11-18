@@ -15,11 +15,21 @@
 # dioxus, view-knowledge-graph and a markdown parser, and none of Bevy,
 # wgpu, Blitz or reaper-rs. The vendor dir is still the whole workspace's
 # — there is one Cargo.lock — but vendoring is a download, not a build.
+#
+# DISABLED (2026-11-17): the port (#12) moved the site to
+# `legacy/apps/ignition-web`, out of the workspace (it needs an older
+# Architect), so `apps/ignition-web` below does not exist and these
+# packages would fail to build. They are not exported while `siteBuilds`
+# is false; the deploy workflow that builds them is off too. To
+# re-enable: bring the site back into the workspace on the current
+# Architect, fix the paths below, and set `siteBuilds = true`.
 { ... }:
 {
   perSystem =
     { pkgs, lib, config, ... }:
     let
+      siteBuilds = false;
+
       inherit (config.fts) craneLib commonArgs mkStaticSite;
 
       # `ring` compiles C to wasm32, and the nix cc-wrapper injects
@@ -136,13 +146,14 @@
       );
     in
     {
-      packages =
+      packages = lib.optionalAttrs siteBuilds (
         { inherit ignition-webapp; }
         // lib.optionalAttrs pkgs.stdenv.isLinux {
           ignition-web-image = mkStaticSite {
             name = "ignition-web";
             siteRoot = "${ignition-webapp}/www";
           };
-        };
+        }
+      );
     };
 }

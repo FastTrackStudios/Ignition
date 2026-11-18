@@ -91,8 +91,17 @@ to one revision, with what each is for. The domain crates (`proto`,
 `daw-proto`, `colour`, `rig`, `show`, `effects`, `playback`, `core`, `dmx`,
 `profile`) take none.
 
-The compiler is `rust-toolchain.toml`'s (1.99.1); `.cargo/config.toml` is
-the fleet's. `just` lists the recipes.
+Builds go through the fleet's devenv shell (`devenv.yaml`, `devenv.nix`):
+Rust 1.99.1 at the same nix store path as every FastTrackStudios repo (so
+kache shares builds across them), mold, dx, tailwind, the wasm and iOS
+toolchains and the libraries the workspace links. Enter it with
+`devenv shell`, let direnv do it (`direnv allow`; `.envrc` loads it), or run
+one command with `devenv shell -- <command>`. `devenv shell -- fleet-doctor`
+prints the rustc path, the compiler wrapper (kache) and the linker, and fails
+if rustc is off the fleet pin. `nix develop` (and CI's `nix develop .#ci`)
+takes the same toolchain from devenv-fleet. `rust-toolchain.toml` pins the
+same 1.99.1 for rustup; `.cargo/config.toml` is the fleet's. `just` lists
+the recipes.
 
 Not yet built: `ignition-video` (media decode for mapped surfaces) and
 the Graphics/Video studio modes. Lights first, deliberately

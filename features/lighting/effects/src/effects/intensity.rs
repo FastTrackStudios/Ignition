@@ -994,10 +994,6 @@ mod tests {
     /// an eighth on and an eighth off.
     // `measure` is a literal set by `beat(...)`, not computed, so an
     // exact comparison is the right assertion.
-    #[expect(
-        clippy::float_cmp,
-        reason = "measure is a literal set by beat(...), not computed"
-    )]
     #[test]
     fn the_strobes_run_at_eighths() {
         let f = family();
