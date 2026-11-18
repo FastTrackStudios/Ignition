@@ -23,6 +23,13 @@
 //! camera presets (`1` is Wide), `0` back to the first.
 //!
 //! [`Orbit`] is the pane's camera arithmetic, pure and tested.
+//!
+//! **Where a frame goes.** Each frame is a `pane.frame` span (target
+//! `ignition::profile`) whose fields are its phases in microseconds
+//! (`crate::frame_stats::FrameTimes`), and every 300 frames
+//! (`IGNITION_FRAME_STATS`) one `ignition::frames` event says their p50
+//! and p99. [`bench`] draws the same show with no pane and no transport,
+//! for the difference (`docs/lighting/research/frame-breakdown.md`).
 
 use std::os::fd::AsFd as _;
 use std::sync::Arc;
@@ -36,15 +43,164 @@ use architect_workspace::{Button, ViewInput};
 use bevy::math::Vec3;
 use ignition_viz::Follow;
 use ignition_viz::camera::{ActiveCamera, CameraState, CameraTarget};
-use ignition_viz::embedded::EmbeddedViz;
+use ignition_viz::embedded::{EmbeddedViz, HostGpu};
 use ignition_viz::playback::Playback;
 use ignition_viz::{DmxUniverses, VizConfig};
+
+use crate::frame_stats::{FrameStats, FrameTimes, micros_since};
 
 /// Frames in flight: the one shown, the one before it, one to draw into.
 const SLOTS: u8 = 3;
 
 /// Forces shared memory (`shm`), as for Architect's own guests.
 const TRANSPORT_ENV: &str = "ARCHITECT_PROCESS_VIEW_TRANSPORT";
+
+/// `IGNITION_FRAME_DRAIN=1`: wait for the GPU to finish the rendering
+/// before the frame is copied out, so the copy's own cost can be read
+/// (`FrameTimes::drain`). A measurement's setting: it adds a wait.
+const DRAIN_ENV: &str = "IGNITION_FRAME_DRAIN";
+
+/// The frame's span: its phases are recorded on it as they end.
+fn frame_span(seq: u64, (width, height): (u32, u32), transport: &str) -> tracing::Span {
+    use tracing::field::Empty;
+    tracing::info_span!(
+        target: "ignition::profile",
+        "pane.frame",
+        seq,
+        width,
+        height,
+        transport,
+        slot = Empty,
+        update_us = Empty,
+        drain_us = Empty,
+        submit_us = Empty,
+        wait_us = Empty,
+        memcpy_us = Empty,
+        send_us = Empty,
+        total_us = Empty,
+        interval_us = Empty,
+    )
+}
+
+/// A frame's phases onto its span.
+fn record(span: &tracing::Span, times: &FrameTimes) {
+    span.record("update_us", times.update);
+    span.record("drain_us", times.drain);
+    span.record("submit_us", times.submit);
+    span.record("wait_us", times.wait);
+    span.record("memcpy_us", times.memcpy);
+    span.record("send_us", times.send);
+    span.record("total_us", times.total);
+    span.record("interval_us", times.interval);
+}
+
+/// The wire's name of a transport, as the spans and summaries say it.
+const fn transport_name(transport: Transport) -> &'static str {
+    match transport {
+        Transport::Shm => "shm",
+        Transport::Dmabuf => "dmabuf",
+        Transport::IoSurface => "iosurface",
+    }
+}
+
+/// The visualizer for a pane of `width` × `height`, on `gpu`.
+fn start_viz(
+    show: Show,
+    (width, height): (u32, u32),
+    gpu: HostGpu,
+) -> (EmbeddedViz, Arc<dyn Follow>) {
+    let Show {
+        mut config,
+        playback,
+        gdtf,
+        follow,
+    } = show;
+    config.width = width;
+    config.height = height;
+    config.overlay = false;
+    let mut viz = EmbeddedViz::new(config, DmxUniverses::new(), playback, Some(gdtf), gpu);
+    // The pane owns the keyboard: the number keys are ours to map.
+    if let Some(mut active) = viz.app_mut().world_mut().get_resource_mut::<ActiveCamera>() {
+        active.keys = false;
+    }
+    (viz, follow)
+}
+
+/// The show where the clock is, and the visualizer stepped: the frame's
+/// target, once there is one.
+fn update(
+    viz: &mut EmbeddedViz,
+    follow: &dyn Follow,
+    ask: Option<CameraAsk>,
+    (width, height): (u32, u32),
+) -> Option<wgpu::Texture> {
+    let world = viz.app_mut().world_mut();
+    if let Some(mut playback) = world.get_resource_mut::<Playback>() {
+        follow.follow(&mut playback);
+    }
+    if let Some(ask) = ask
+        && let Some(mut active) = world.get_resource_mut::<ActiveCamera>()
+    {
+        match ask {
+            CameraAsk::Free(state) => active.set_wide_free(state),
+            CameraAsk::Cut(target) => {
+                let _ = active.set_wide(&target);
+            }
+        }
+    }
+    viz.render(width, height)
+}
+
+/// Waits for the GPU to finish everything submitted so far.
+fn wait_for_gpu(device: &wgpu::Device) -> Result<()> {
+    device
+        .poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: Some(Duration::from_secs(10)),
+        })
+        .map_err(|e| anyhow::anyhow!("waiting for the GPU: {e}"))?;
+    Ok(())
+}
+
+/// The show drawn `frames` times at `size` with no pane: the renderer a
+/// pane runs, stepped and waited for as a pane's frame is, and nothing
+/// copied out or sent. What a pane's frame costs beyond this is its
+/// transport. The first `warmup` frames (pipelines compiling) are not
+/// counted.
+///
+/// # Errors
+///
+/// There is no GPU, or it is lost.
+pub fn bench(show: Show, size: (u32, u32), frames: u32, warmup: u32) -> Result<()> {
+    let gpu = ignition_viz::bench::headless_gpu()?;
+    let device = gpu.device.clone();
+    let (mut viz, follow) = start_viz(show, size, gpu);
+    let mut stats = FrameStats::new(usize::try_from(frames)?);
+    for frame in 0..warmup.saturating_add(frames) {
+        let began = Instant::now();
+        let interval = stats.begin(began);
+        let span = frame_span(u64::from(frame), size, "none");
+        let _entered = span.enter();
+        let _ = update(&mut viz, follow.as_ref(), None, size);
+        let update = micros_since(began);
+        let waiting = Instant::now();
+        wait_for_gpu(&device)?;
+        let times = FrameTimes {
+            update,
+            wait: micros_since(waiting),
+            total: micros_since(began),
+            interval,
+            ..FrameTimes::default()
+        };
+        record(&span, &times);
+        if frame >= warmup
+            && let Some(summary) = stats.push(times)
+        {
+            summary.emit("none", size);
+        }
+    }
+    Ok(())
+}
 
 /// The pieces the runner made for a window, made for a pane instead.
 pub struct Show {
@@ -87,20 +243,7 @@ pub fn serve(show: Show) -> Result<()> {
     tracing::info!(width, height, scale, zero_copy, "process view: hello");
     let gpu = ignition_viz::bench::headless_gpu()?;
     let (device, queue) = (gpu.device.clone(), gpu.queue.clone());
-    let Show {
-        mut config,
-        playback,
-        gdtf,
-        follow,
-    } = show;
-    config.width = width;
-    config.height = height;
-    config.overlay = false;
-    let mut viz = EmbeddedViz::new(config, DmxUniverses::new(), playback, Some(gdtf), gpu);
-    // The pane owns the keyboard: the number keys are ours to map.
-    if let Some(mut active) = viz.app_mut().world_mut().get_resource_mut::<ActiveCamera>() {
-        active.keys = false;
-    }
+    let (mut viz, follow) = start_viz(show, (width, height), gpu);
     let link = Link::new(&device);
     let zero_copy = zero_copy && link.can_share();
     let mut guest = Guest {
@@ -116,6 +259,8 @@ pub fn serve(show: Show) -> Result<()> {
         orbit: Orbit::default(),
         drag: None,
         pending_camera: None,
+        stats: FrameStats::from_env(),
+        drain: std::env::var(DRAIN_ENV).is_ok_and(|v| v == "1"),
     };
     tracing::info!(transport = ?guest.frames.transport(), "process view: frames");
     let served = guest
@@ -201,6 +346,10 @@ struct Guest {
     drag: Option<(f32, f32, bool)>,
     /// What the pane asked of the camera since the last frame.
     pending_camera: Option<CameraAsk>,
+    /// The frames' phases, summarised a window at a time.
+    stats: FrameStats,
+    /// Wait for the rendering before copying a frame out (`DRAIN_ENV`).
+    drain: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -361,48 +510,71 @@ impl Guest {
 
     fn draw(&mut self, viz: &mut EmbeddedViz, follow: &dyn Follow, slot: u8) -> Result<()> {
         let began = Instant::now();
-        {
-            let world = viz.app_mut().world_mut();
-            if let Some(mut playback) = world.get_resource_mut::<Playback>() {
-                follow.follow(&mut playback);
-            }
-            if let Some(ask) = self.pending_camera.take()
-                && let Some(mut active) = world.get_resource_mut::<ActiveCamera>()
-            {
-                match ask {
-                    CameraAsk::Free(state) => active.set_wide_free(state),
-                    CameraAsk::Cut(target) => {
-                        let _ = active.set_wide(&target);
-                    }
-                }
-            }
-        }
-        let (width, height) = (self.frames.width, self.frames.height);
-        let Some(texture) = viz.render(width, height) else {
+        let interval = self.stats.begin(began);
+        let size = (self.frames.width, self.frames.height);
+        let transport = transport_name(self.frames.transport());
+        let span = frame_span(self.seq.saturating_add(1), size, transport);
+        let _entered = span.enter();
+        span.record("slot", slot);
+        let texture = update(viz, follow, self.pending_camera.take(), size);
+        let update = micros_since(began);
+        let Some(texture) = texture else {
             return Ok(());
         };
         // A resize takes the render world a frame or two: until the new
         // target is there, the old one is the wrong size to send.
-        if texture.width() != width || texture.height() != height {
+        if (texture.width(), texture.height()) != size {
             return Ok(());
         }
-        self.frames
+        let draining = Instant::now();
+        if self.drain {
+            wait_for_gpu(&self.device)?;
+        }
+        let drain = micros_since(draining);
+        let copy = self
+            .frames
             .copy_in(&self.device, &self.queue, &texture, slot)?;
         if let Some(held) = self.frames.held.get_mut(usize::from(slot)) {
             *held = true;
         }
         self.seq = self.seq.saturating_add(1);
+        let sending = Instant::now();
         let message = ToHost::Frame {
             buffers: self.frames.id,
             slot,
             seq: self.seq,
             input: self.input,
-            render_us: u32::try_from(began.elapsed().as_micros()).unwrap_or(u32::MAX),
+            render_us: micros_since(began),
         };
         self.socket.send(&message.encode()?, &[])?;
         self.credit = false;
+        let times = FrameTimes {
+            update,
+            drain,
+            submit: copy.submit,
+            wait: copy.wait,
+            memcpy: copy.memcpy,
+            send: micros_since(sending),
+            total: micros_since(began),
+            interval,
+        };
+        record(&span, &times);
+        if let Some(summary) = self.stats.push(times) {
+            summary.emit(transport, size);
+        }
         Ok(())
     }
+}
+
+/// What copying a frame into its slot took, in microseconds.
+#[derive(Debug, Clone, Copy, Default)]
+struct CopyTimes {
+    /// The copy encoded and submitted.
+    submit: u32,
+    /// The wait for the GPU to have done it (and all before it).
+    wait: u32,
+    /// Shared memory: the readback into the slot.
+    memcpy: u32,
 }
 
 // ---------------------------------------------------------------------------
@@ -511,7 +683,8 @@ impl Frames {
         queue: &wgpu::Queue,
         texture: &wgpu::Texture,
         slot: u8,
-    ) -> Result<()> {
+    ) -> Result<CopyTimes> {
+        let submitting = Instant::now();
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("ignition process view frame"),
         });
@@ -545,6 +718,7 @@ impl Frames {
             }
         }
         let submitted = queue.submit([encoder.finish()]);
+        let submit = micros_since(submitting);
         match &self.slots {
             Slots::Shm {
                 map,
@@ -553,30 +727,43 @@ impl Frames {
             } => {
                 // Its readback's mapping waits for the copy.
                 let _ = submitted;
-                self.read_back(device, (map, readback, *padded), slot)
+                let (wait, memcpy) = self.read_back(device, (map, readback, *padded), slot)?;
+                Ok(CopyTimes {
+                    submit,
+                    wait,
+                    memcpy,
+                })
             }
             // The frame's pixels are in the surface before the app is
             // told: the CPU-side fence the wire asks for.
             #[cfg(target_os = "macos")]
             Slots::Surfaces(_) => {
+                let waiting = Instant::now();
                 device
                     .poll(wgpu::PollType::Wait {
                         submission_index: Some(submitted),
                         timeout: Some(Duration::from_secs(2)),
                     })
                     .map_err(|e| anyhow::anyhow!("waiting for the frame: {e}"))?;
-                Ok(())
+                Ok(CopyTimes {
+                    submit,
+                    wait: micros_since(waiting),
+                    memcpy: 0,
+                })
             }
         }
     }
 
-    /// The readback buffer's frame into `slot` of the shared memory.
+    /// The readback buffer's frame into `slot` of the shared memory:
+    /// the microseconds waited for the GPU (the rendering, the copy and
+    /// the mapping), and those the copy into the slot took.
     fn read_back(
         &self,
         device: &wgpu::Device,
         (map, readback, padded): (&shm::Shared, &wgpu::Buffer, u32),
         slot: u8,
-    ) -> Result<()> {
+    ) -> Result<(u32, u32)> {
+        let waiting = Instant::now();
         let slice = readback.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |result| {
@@ -591,6 +778,8 @@ impl Frames {
         rx.recv()
             .map_err(|_| anyhow::anyhow!("the readback never mapped"))?
             .map_err(|e| anyhow::anyhow!("mapping the readback: {e}"))?;
+        let wait = micros_since(waiting);
+        let copying = Instant::now();
         {
             let bytes = slice.get_mapped_range();
             let row = usize::try_from(self.width)? * 4;
@@ -610,7 +799,7 @@ impl Frames {
             }
         }
         readback.unmap();
-        Ok(())
+        Ok((wait, micros_since(copying)))
     }
 }
 
