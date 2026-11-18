@@ -619,10 +619,6 @@ mod tests {
     // `width` and `transition` come from the same `bump::bump` call on
     // both sides, so an exact comparison is the right assertion for
     // "this is the same object", not two independently computed values.
-    #[expect(
-        clippy::float_cmp,
-        reason = "both sides build from the same bump::bump call"
-    )]
     #[test]
     fn the_hits_are_bumps() {
         let f = family();

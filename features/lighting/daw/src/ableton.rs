@@ -1,7 +1,7 @@
 //! A Live set that is a whole night, read into song maps.
 //!
 //! A recital or a gig is often one Ableton Live set with every song laid
-//! end to end, marked the AbleSet way (see `ableton::setlist`): a locator
+//! end to end, marked the `AbleSet` way (see `ableton::setlist`): a locator
 //! per song, `SONG END` where it stops, section cards on a `SECTIONS`
 //! track. [`LiveSet`] reads that through studio's `ableton` adapter into
 //! one [`SongMap`] per song — the same shape a REAPER project's regions

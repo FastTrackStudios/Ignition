@@ -142,12 +142,6 @@ mod tests {
 
     /// The drag is relative to the press, so the value never jumps when
     /// the pointer crosses the handle or leaves the track.
-    #[expect(
-        clippy::float_cmp,
-        reason = "the four exact assertions below check the clamp's own \
-                  boundary, 0.0 or 1.0 exactly by construction, not an \
-                  accumulated rounding result"
-    )]
     #[test]
     fn a_drag_moves_the_level_by_how_far_the_hand_went() {
         let latch = Latch {

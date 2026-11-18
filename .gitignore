@@ -4,6 +4,11 @@ dist/
 node_modules/
 .DS_Store
 .direnv/
+# devenv: state, eval cache and per-user overrides.
+.devenv/
+.devenv.flake.nix
+devenv.local.nix
+devenv.local.yaml
 result
 result-*
 *.esf3d

@@ -1,5 +1,10 @@
 # Default values for the ignition chart.
 #
+# No new image comes (2026-11-17): the port (#12) moved the site to
+# `legacy/` and the deploy workflow is disabled (see its header). This
+# chart is left as it is, so the cluster keeps serving the last image
+# pushed; turning `web.enabled` off here would take the site down.
+#
 # The site is static: one deployment serving a wasm bundle over HTTP on
 # :8080, one Service, one Ingress. It keeps no state, talks to no
 # database, and every replica is interchangeable — so there is no

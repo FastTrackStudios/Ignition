@@ -1,5 +1,6 @@
 # Target systems + the package set: dioxus-flake's nixpkgs pin with the
-# rust-overlay (toolchain lockstep across every FTS Dioxus repo).
+# rust-overlay (for the nightlies). The stable toolchain comes from
+# devenv-fleet's own pins (nix/modules/toolchain.nix).
 { inputs, lib, ... }:
 {
   # mkForce: den's flakeModule contributes nix's full default-systems

@@ -794,10 +794,6 @@ mod tests {
     // r[verify focus.orbit-in-metres]
     // `transition` and `d.z` are literals `orbit_m` always sets, not
     // computed values, so an exact comparison is the right assertion.
-    #[expect(
-        clippy::float_cmp,
-        reason = "transition and z are literals orbit_m always sets, not computed"
-    )]
     #[test]
     fn a_metre_orbit_is_a_circle_of_that_radius() {
         let steps = orbit_m(1.0, 1.0, 1.0, 1.0, 90.0);
@@ -932,10 +928,6 @@ mod tests {
     // same input pan angle mirrored through `Invert`, not two separate
     // computations that merely ought to agree — so an exact comparison
     // is the right assertion.
-    #[expect(
-        clippy::float_cmp,
-        reason = "same computation mirrored through Invert, not independently derived values"
-    )]
     #[test]
     fn counter_circle_and_scissor_invert_the_right_axis() {
         // Through the expander: the far half's pan runs the other way.

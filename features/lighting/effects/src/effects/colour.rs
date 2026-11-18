@@ -443,10 +443,6 @@ mod tests {
     // lines up, not the result of any arithmetic, so an exact comparison
     // is the right assertion — it is just not one `assert_eq!` can make
     // of a float without the lint firing.
-    #[expect(
-        clippy::float_cmp,
-        reason = "phase_spread_deg is a literal set a few lines up, not computed"
-    )]
     fn the_rainbow_travels_and_the_cycle_does_not() {
         let f = family();
         assert_eq!(f["rainbow"].steps, f["colour cycle"].steps);

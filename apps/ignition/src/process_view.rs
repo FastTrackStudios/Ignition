@@ -377,7 +377,7 @@ impl Frames {
         })
     }
 
-    fn message(&self) -> ToHost {
+    const fn message(&self) -> ToHost {
         ToHost::Buffers {
             id: self.id,
             transport: Transport::Shm,

@@ -456,13 +456,43 @@ mod tests {
     #[test]
     fn the_bank_matches_the_shipped_profile_file() {
         let file = file_profile();
-        assert_eq!(file.pages, profile().pages);
+        assert_close(&file.pages, &profile().pages);
         let from_file = bank_pages_of(&file);
         let from_code = bank_pages();
         for (a, b) in from_file.iter().flatten().zip(from_code.iter().flatten()) {
             assert_eq!(a.name, b.name);
-            assert_eq!(a.fader, b.fader);
+            assert_close(&a.fader, &b.fader);
         }
+    }
+
+    /// Equal as JSON, with numbers equal to within one part in a
+    /// million. The profile file is generated on one machine and checked
+    /// on another, and a float's last digit can differ between
+    /// platforms' maths (a pan on macOS against the file written on
+    /// Linux), which is not a different bank.
+    fn assert_close<T: serde::Serialize + std::fmt::Debug>(a: &T, b: &T) {
+        fn close(a: &serde_json::Value, b: &serde_json::Value) -> bool {
+            use serde_json::Value;
+            match (a, b) {
+                (Value::Number(x), Value::Number(y)) => match (x.as_f64(), y.as_f64()) {
+                    (Some(x), Some(y)) => (x - y).abs() <= 1e-6 * x.abs().max(y.abs()).max(1.0),
+                    _ => x == y,
+                },
+                (Value::Array(x), Value::Array(y)) => {
+                    x.len() == y.len() && x.iter().zip(y).all(|(x, y)| close(x, y))
+                }
+                (Value::Object(x), Value::Object(y)) => {
+                    x.len() == y.len()
+                        && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| close(v, w)))
+                }
+                _ => a == b,
+            }
+        }
+        let (ja, jb) = (
+            serde_json::to_value(a).unwrap(),
+            serde_json::to_value(b).unwrap(),
+        );
+        assert!(close(&ja, &jb), "{a:#?}\n!=\n{b:#?}");
     }
 
     /// Four pages, and a label an operator can read under a 44px track.

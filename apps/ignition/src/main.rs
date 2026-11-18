@@ -18,7 +18,7 @@
 //! to jump to bar 17 of the current song. `--clock midi:<port>` follows
 //! Ableton Live's MIDI beat clock and Song Position Pointer (Live:
 //! Preferences → Link, Tempo & MIDI → the port's Sync output on) — every
-//! locate, every song AbleSet jumps to, lands on the right cue.
+//! locate, every song `AbleSet` jumps to, lands on the right cue.
 
 mod night;
 #[cfg(target_os = "linux")]

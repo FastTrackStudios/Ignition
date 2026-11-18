@@ -241,10 +241,6 @@ mod tests {
 
     // `phase_spread_deg` is a literal set by `beat(...)`, not computed,
     // so an exact comparison is the right assertion.
-    #[expect(
-        clippy::float_cmp,
-        reason = "phase_spread_deg is a literal set by beat(...), not computed"
-    )]
     #[test]
     fn the_scanners_bounce_and_the_sines_run_twice_round() {
         let f = family();

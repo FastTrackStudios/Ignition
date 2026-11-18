@@ -246,16 +246,13 @@ impl Preset {
         let Ok(name) = std::env::var("IGNITION_QUALITY") else {
             return Self::default();
         };
-        Self::parse(&name).map_or_else(
-            || {
-                tracing::warn!(
-                    name,
-                    "viz: no such quality preset; using medium (potato, low, medium, high, ultra)"
-                );
-                Self::default()
-            },
-            std::convert::identity,
-        )
+        Self::parse(&name).unwrap_or_else(|| {
+            tracing::warn!(
+                name,
+                "viz: no such quality preset; using medium (potato, low, medium, high, ultra)"
+            );
+            Self::default()
+        })
     }
 
     #[must_use]
@@ -943,10 +940,9 @@ impl CameraSpec {
     /// operator's own target for a free camera. What depth of field
     /// focuses on.
     pub fn focus_distance(&self) -> f32 {
-        let (eye, target) = self.free.map_or_else(
-            || self.view.eye_target(self.min, self.max),
-            std::convert::identity,
-        );
+        let (eye, target) = self
+            .free
+            .unwrap_or_else(|| self.view.eye_target(self.min, self.max));
         eye.distance(target).max(0.5)
     }
 }
