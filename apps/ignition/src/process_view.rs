@@ -299,11 +299,13 @@ impl Guest {
 
     /// The pane's input, in its logical pixels.
     fn input_event(&mut self, viz: &mut EmbeddedViz, input: &ViewInput) {
+        // The pane shows the main view (the wide one; cues cut the
+        // programme camera): a drag and the number keys move that.
         let mut current = || {
             viz.app_mut()
                 .world_mut()
                 .get_resource::<ActiveCamera>()
-                .map(|a| a.state_at(f32::MAX))
+                .and_then(ActiveCamera::wide_state)
         };
         match input {
             ViewInput::PointerDown { x, y, button, mods } => {
@@ -368,9 +370,9 @@ impl Guest {
                 && let Some(mut active) = world.get_resource_mut::<ActiveCamera>()
             {
                 match ask {
-                    CameraAsk::Free(state) => active.set_free(state),
+                    CameraAsk::Free(state) => active.set_wide_free(state),
                     CameraAsk::Cut(target) => {
-                        let _ = active.cut_to(&target, 0.0, f32::MAX, 120.0);
+                        let _ = active.set_wide(&target);
                     }
                 }
             }
