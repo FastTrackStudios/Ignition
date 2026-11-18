@@ -24,6 +24,8 @@ members = [
     "features/lighting/fixture",
     "features/lighting/profile",
     "features/lighting/viz",
+    # Cue lists in a session (the session primitive).
+    "features/lighting/session",
     # The Architect extension (id `ignition`, extension.toml).
     "features/lighting/pane",
     # The renderer the extension starts (`--process-view`), and tooling.
@@ -55,6 +57,10 @@ ignition-daw-proto = { path = "features/lighting/daw-proto" }
 ignition-colour = { path = "features/lighting/colour" }
 ignition-rig = { path = "features/lighting/rig" }
 ignition-show = { path = "features/lighting/show" }
+ignition-session = { path = "features/lighting/session" }
+# The session primitive (FastTrackStudios/session): cue lists as its lanes
+# and items (features/lighting/session). By rev until it is tagged.
+session = { git = "https://github.com/FastTrackStudios/session", rev = "f15c8b840ab448aca1ee544546654a36640eed60", default-features = false }
 ignition-effects = { path = "features/lighting/effects" }
 ignition-playback = { path = "features/lighting/playback" }
 ignition-core = { path = "features/lighting/core" }
@@ -139,6 +145,7 @@ vox-stream = { version = "0.10.0-rc.5" }
 
 # ── External, at Studio's versions ────────────────────────────────────
 tokio = { version = "1.48", features = ["full"] }
+uuid = { version = "1", features = ["v4"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
