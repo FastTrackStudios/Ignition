@@ -19,6 +19,8 @@
 - Never set or unset `RUSTC_WRAPPER` or `CARGO_HOME`, and never set
   `RUSTFLAGS`: `.cargo/config.toml`'s rustflags tables are the fleet's, flag
   for flag, so kache shares builds across the fleet's repos.
+- CI runs on ready PRs only (skipped on a draft): to get checks, mark the PR ready
+  (`gh pr ready`); it runs then and on every push after.
 - CI enters the flake's `nix develop .#ci`, which takes the same toolchain
   (devenv-fleet's `toolchainFor`); keep its package list
   (nix/modules/toolchain.nix) in step with devenv.nix.
