@@ -1169,6 +1169,8 @@ impl Plugin for VizPlugin {
             // *holds* a rate, not what one frame did.
             .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
             .add_systems(Startup, spawn_venue)
+            .add_systems(Startup, crate::environment::spawn_environment)
+            .add_systems(Update, crate::environment::apply_environment)
             // Playback runs before the fixture update so a beam reflects
             // this frame's cue state, not last frame's.
             .add_systems(
@@ -1482,6 +1484,9 @@ fn run_windowed(
         // Before `DefaultPlugins`: an asset source must exist before the
         // asset server is built. See `gdtf_assets`.
         .add_plugins(crate::gdtf_assets::GdtfSourcePlugin)
+        .add_plugins(crate::environment::EnvironmentSourcePlugin::for_venue(
+            &config.venue,
+        ))
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
@@ -1579,6 +1584,9 @@ impl Headless {
         let assets_dir = config.assets_dir.clone();
         let mut app = App::new();
         app.add_plugins(crate::gdtf_assets::GdtfSourcePlugin);
+        app.add_plugins(crate::environment::EnvironmentSourcePlugin::for_venue(
+            &config.venue,
+        ));
         app.add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {

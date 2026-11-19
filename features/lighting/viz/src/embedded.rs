@@ -158,6 +158,9 @@ impl EmbeddedViz {
         let adapter_info = gpu.adapter.get_info();
         let mut app = App::new();
         app.add_plugins(crate::gdtf_assets::GdtfSourcePlugin);
+        app.add_plugins(crate::environment::EnvironmentSourcePlugin::for_venue(
+            &config.venue,
+        ));
         app.add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {

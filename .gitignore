@@ -41,3 +41,7 @@ legacy/apps/ignition-web/generated/
 # `asset!` needs them inside the crate; git does not need them twice.
 legacy/apps/ignition-web/assets/venue/
 legacy/apps/ignition-web/assets/viz/
+
+# A measured room's model (tools/build_lab138_room.py): built on the machine
+# that has the measurements, loaded by path. See docs/lighting/lab-138-room.md.
+features/lighting/data/venues/*/model

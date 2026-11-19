@@ -2,8 +2,8 @@
   {
     "name": "Drum Kit",
     "position": {
-      "x": 0,
-      "y": 0.6096,
+      "x": -0.65,
+      "y": 0.7788,
       "z": 0
     },
     "eulers": {
@@ -20,8 +20,8 @@
   {
     "name": "Person - Drummer",
     "position": {
-      "x": 0.17,
-      "y": 1.0596,
+      "x": -0.48,
+      "y": 1.2288,
       "z": 0
     },
     "eulers": {

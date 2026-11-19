@@ -410,6 +410,7 @@ mod tests {
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx: None,
+            environment: None,
         }
     }
 
@@ -469,6 +470,7 @@ mod tests {
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx: None,
+            environment: None,
         };
         let dmx = DmxUniverses::new();
         let mut output = HashMap::new();
