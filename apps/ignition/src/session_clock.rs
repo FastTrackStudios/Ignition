@@ -13,8 +13,8 @@
 //! `ignition` (`IGNITION_SESSION_ROOM`: the session's song read through
 //! `fts.session`), and hands the room this clock. The transport itself is
 //! presence, never the document, so this follows it directly, with the
-//! host's clock estimated as every follower does
-//! (`session::clock::SharedClock`).
+//! host's clock estimated as every follower of Architect's presence does
+//! (`PresencePeer::clock`: the presence driver pings the host's clock).
 
 use crate::night::Night;
 use crate::studio_clock::{set_beat, slugs};
@@ -22,7 +22,6 @@ use anyhow::{Context, Result, anyhow};
 use crdt::sync::{DocPresenceClient, PresencePeer};
 use ignition_daw::BeatSource;
 use session::Transport;
-use session::clock::{SessionClockClient, SharedClock};
 use session::doc::transport_of;
 use std::sync::Arc;
 use std::time::Instant;
@@ -80,6 +79,13 @@ pub fn session_seconds(
     Some((leader.at(now), leader.is_playing))
 }
 
+/// The session host's clock now, in microseconds, as `peer`'s driver
+/// estimates it: `None` until the first exchanges have come back.
+#[must_use]
+pub fn host_now_micros(peer: &PresencePeer) -> Option<f64> {
+    peer.clock().now_ms().map(|ms| ms * 1000.0)
+}
+
 /// How long to wait before dialling the session's host again, after
 /// `failed` dials in a row came to nothing (0: it answered, then went):
 /// a quarter second, doubling, at most five seconds, so a room restored
@@ -97,12 +103,11 @@ pub struct SessionClock {
     night: Arc<Night>,
     song: usize,
     peer: PresencePeer,
-    clock: SharedClock,
 }
 
 impl SessionClock {
-    /// Joins the session host's presence and clock at `arg.url`, on a
-    /// thread of its own, and follows its leader.
+    /// Joins the session host's presence at `arg.url` (which carries its
+    /// clock), on a thread of its own, and follows its leader.
     ///
     /// # Errors
     ///
@@ -117,8 +122,7 @@ impl SessionClock {
         })?;
         let doc = uuid::Uuid::parse_str(&arg.doc).context("--clock session: the session id")?;
         let (peer, mut driver) = PresencePeer::new(doc, 30_000);
-        let clock = SharedClock::default();
-        let (url, pinger) = (arg.url.clone(), clock.clone());
+        let url = arg.url.clone();
         std::thread::Builder::new()
             .name("session-clock".into())
             .spawn(move || {
@@ -141,27 +145,17 @@ impl SessionClock {
                     // answers, and again whenever it goes.
                     let mut failed: u32 = 0;
                     loop {
-                        let dialled: Result<(SessionClockClient, DocPresenceClient), String> =
-                            async {
-                                let host = pool.client(&endpoint).await.map_err(|e| e.to_string())?;
-                                let presence =
-                                    pool.client(&endpoint).await.map_err(|e| e.to_string())?;
-                                Ok((host, presence))
-                            }
-                            .await;
+                        let dialled: Result<DocPresenceClient, String> =
+                            pool.client(&endpoint).await.map_err(|e| e.to_string());
                         match dialled {
-                            Ok((host, presence)) => {
+                            Ok(presence) => {
                                 if failed > 0 {
                                     tracing::info!(session.url = %url, session.dials = failed.saturating_add(1),"session clock: host answered");
                                 }
                                 let since = std::time::Instant::now();
-                                let pings = pinger.run(&host);
-                                let follow = driver.run(&presence);
-                                tokio::pin!(pings, follow);
-                                tokio::select! {
-                                    _ = &mut pings => {}
-                                    _ = &mut follow => {}
-                                }
+                                // The driver pings the host's clock
+                                // into `peer.clock()` as it runs.
+                                let _ = driver.run(&presence).await;
                                 // Connected, then gone: dial again (once
                                 // past the backoff, so a refusing host is
                                 // not spun on).
@@ -191,17 +185,12 @@ impl SessionClock {
             session.song = night.songs.get(song).map_or("", |s| s.title.as_str()),
             "session clock: following"
         );
-        Ok(Self {
-            night,
-            song,
-            peer,
-            clock,
-        })
+        Ok(Self { night, song, peer })
     }
 
     fn now(&self) -> Option<(f64, bool)> {
         let leader = self.peer.states().get("lead/play").and_then(transport_of);
-        session_seconds(leader, self.clock.now_micros())
+        session_seconds(leader, host_now_micros(&self.peer))
     }
 }
 

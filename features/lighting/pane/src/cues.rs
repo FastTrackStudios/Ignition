@@ -174,11 +174,11 @@ fn Cues(place: Place) -> Element {
     use_future(move || {
         let place = follow_place.clone();
         async move {
-            let Ok((peer, clock)) = crate::session::follow_session(&place.url, &place.doc) else {
+            let Ok(peer) = crate::session::follow_session(&place.url, &place.doc) else {
                 return;
             };
             loop {
-                let at = crate::session::leader_now(&peer, &clock);
+                let at = crate::session::leader_now(&peer);
                 if *now.peek() != at {
                     now.set(at);
                 }
