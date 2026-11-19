@@ -30,7 +30,10 @@ just viz --venue data/venues/room138-cbu --house on
 
 The visualizer looks for `environment.json` in the venue directory, and for
 the model it names in `$IGNITION_ENVIRONMENT_DIR`, then in `model/` beside the
-document (ignored by git; a symlink to wherever the model is kept works).
+document. The model and its textures are tracked there (about 1 MB), so every
+machine and every render draws the same room; rebuild it with the command
+above and commit the result when the build script changes. `model/compare/`
+(renders beside the room's photographs) is not tracked.
 With the model there, the venue's `room.json` floor, walls and ceiling are not
 drawn, though they stay as the surfaces fixtures are rigged to. Without it, a
 warning says so and the boxes are drawn, now at the measured size.
