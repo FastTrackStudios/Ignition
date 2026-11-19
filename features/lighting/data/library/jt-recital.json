@@ -107,6 +107,17 @@
         "song"
       ]
     },
+    "Know Me Night": {
+      "about": "Know Me: deep blue and turquoise beds, magenta for the choruses, amber for the solo",
+      "slots": {
+        "Accent": "Magenta",
+        "Accent 2": "Amber",
+        "Primary": "Deep Blue",
+        "Secondary": "Turquoise",
+        "Tertiary": "Cyan",
+        "White": "Open White"
+      }
+    },
     "No One Knows": {
       "about": "No One Knows as it was programmed",
       "folder": "Songs",
