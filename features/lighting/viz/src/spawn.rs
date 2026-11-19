@@ -181,7 +181,7 @@ const HAZE_ABSORPTION: f32 = 0.05;
 /// so the rig could be found in a blacked-out room, which is no longer
 /// needed now the fixtures actually light it — and a housing that glows
 /// when its lamp is off is not something any fixture does.
-const LIT_BODY_GLOW: f32 = 3.0;
+const LIT_BODY_GLOW: f32 = 0.22;
 
 /// How hot a bar's cell faces run relative to the colour they emit: hot
 /// enough for bloom to halo the strip the way a lit LED bar does.
@@ -362,6 +362,19 @@ pub struct FixtureHead;
 pub struct BeamEmitter {
     pub fixture: usize,
 }
+
+/// The glass of a fixture: a disc on the face the beam leaves through,
+/// which shows the colour and level the fixture is at. A real light is
+/// seen at its lens, not on its housing, and without this a lamp coming
+/// on is only more light on the floor.
+// r[impl viz.body-glow] - the lens carries the light, the housing stays dark
+#[derive(Component)]
+pub struct EmitterLens(pub Handle<StandardMaterial>);
+
+/// How hot a lit lens runs relative to the colour it emits: enough to
+/// read as the source at the room's exposure and to bloom a little at
+/// full, without haloing the rig.
+const LENS_GLOW: f32 = 8.0;
 
 /// What the live resolve decided this emitter should be doing, written by
 /// `update_live_fixtures` and read after transforms propagate.
@@ -1604,6 +1617,7 @@ pub fn spawn_venue(
     };
     // One mesh asset per model, shared by every fixture of the type.
     let mut shared_meshes = gdtf_geometry::SharedMeshes::new(&mut meshes);
+    let lens_disc = shared_meshes.assets.add(Mesh::from(Circle::new(1.0)));
     // Zipped with `shadowed` rather than indexed by `index`: `shadowed` was
     // built one-for-one with `venue.fixtures` just above, and iterating
     // the pair keeps that correspondence in the type instead of relying on
@@ -1896,6 +1910,32 @@ pub fn spawn_venue(
             if is_hazer(model) {
                 continue;
             }
+            // The lens: a disc just in front of the emitter, facing the
+            // way the beam goes (a `Circle` faces +Z; the beam is -Z).
+            let lens_material = standard.add(StandardMaterial {
+                base_color: Color::srgb(0.02, 0.02, 0.02),
+                perceptual_roughness: 0.4,
+                double_sided: true,
+                cull_mode: None,
+                ..default()
+            });
+            let size = f.size.to_vec3();
+            let radius = if photometry.lens_radius > 0.0 {
+                photometry.lens_radius
+            } else {
+                size.x.min(size.y).max(0.04) * 0.42
+            };
+            commands.spawn((
+                Mesh3d(lens_disc.clone()),
+                MeshMaterial3d(lens_material.clone()),
+                Transform {
+                    translation: Vec3::NEG_Z * (size.z * 0.5 + 0.006),
+                    rotation: Quat::from_rotation_y(core::f32::consts::PI),
+                    scale: Vec3::splat(radius),
+                },
+                ChildOf(emitter),
+            ));
+            commands.entity(emitter).insert(EmitterLens(lens_material));
             let mut spill = commands.spawn((
                 FixtureSpill,
                 SpotLight {
@@ -2242,13 +2282,24 @@ pub fn update_beams(
         &GlobalTransform,
         Option<&Children>,
         Option<&BarEmitter>,
+        Option<&EmitterLens>,
     )>,
     mut spill_q: Query<(&mut Visibility, &mut SpotLight), With<FixtureSpill>>,
 ) {
     let throw = BeamThrow::for_venue(&venue.0);
     let _ = time.elapsed_secs();
 
-    for (state, global, children, bar) in &emitters {
+    for (state, global, children, bar, lens) in &emitters {
+        if let Some(EmitterLens(handle)) = lens {
+            let emissive = state.color.map_or(LinearRgba::BLACK, |c| {
+                LinearRgba::rgb(c[0] * LENS_GLOW, c[1] * LENS_GLOW, c[2] * LENS_GLOW)
+            });
+            if standard.get(handle).is_some_and(|m| m.emissive != emissive)
+                && let Some(mut m) = standard.get_mut(handle)
+            {
+                m.emissive = emissive;
+            }
+        }
         let Some(children) = children else { continue };
         let origin = global.translation();
         // This project's aim convention: a fixture emits along its own
