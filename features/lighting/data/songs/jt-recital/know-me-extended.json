@@ -604,7 +604,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.6
+                  "Dimmer": 0.78
                 },
                 {
                   "Color": "White"
@@ -624,7 +624,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.6
+                  "Dimmer": 0.78
                 },
                 {
                   "Color": "White"
@@ -1676,7 +1676,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.7
+                  "Dimmer": 0.88
                 },
                 {
                   "Color": "White"
@@ -1696,7 +1696,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.7
+                  "Dimmer": 0.88
                 },
                 {
                   "Color": "White"
@@ -2067,7 +2067,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.75
+                  "Dimmer": 0.95
                 },
                 {
                   "Color": "White"
@@ -2087,7 +2087,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.75
+                  "Dimmer": 0.95
                 },
                 {
                   "Color": "White"
@@ -2753,7 +2753,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.62
+                  "Dimmer": 0.8
                 },
                 {
                   "Color": "White"
@@ -2773,7 +2773,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.62
+                  "Dimmer": 0.8
                 },
                 {
                   "Color": "White"
@@ -3501,7 +3501,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.72
+                  "Dimmer": 0.9
                 },
                 {
                   "Color": "White"
@@ -3521,7 +3521,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.72
+                  "Dimmer": 0.9
                 },
                 {
                   "Color": "White"
@@ -3912,7 +3912,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.78
+                  "Dimmer": 1.0
                 },
                 {
                   "Color": "White"
@@ -3932,7 +3932,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.78
+                  "Dimmer": 1.0
                 },
                 {
                   "Color": "White"
@@ -5157,7 +5157,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.8
+                  "Dimmer": 1.0
                 },
                 {
                   "Color": "White"
@@ -5177,7 +5177,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.8
+                  "Dimmer": 1.0
                 },
                 {
                   "Color": "White"
@@ -6132,7 +6132,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.6
+                  "Dimmer": 0.8
                 },
                 {
                   "Color": "White"
@@ -6152,7 +6152,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.25
+                  "Dimmer": 0.35
                 },
                 {
                   "Color": "White"
@@ -6431,7 +6431,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.75
+                  "Dimmer": 0.9
                 },
                 {
                   "Color": "White"
@@ -6451,7 +6451,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.75
+                  "Dimmer": 0.9
                 },
                 {
                   "Color": "White"
@@ -6873,7 +6873,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.78
+                  "Dimmer": 0.95
                 },
                 {
                   "Color": "White"
@@ -6893,7 +6893,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.78
+                  "Dimmer": 0.95
                 },
                 {
                   "Color": "White"

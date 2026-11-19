@@ -18,7 +18,7 @@
     "ambient": 0.02,
     "exposure": 0,
     "haze": 0.35,
-    "output": 0.3
+    "output": 1.0
   },
   "name": "Room 138 - CBU",
   "profile": "Ignition",

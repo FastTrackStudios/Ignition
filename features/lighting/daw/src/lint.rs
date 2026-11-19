@@ -1093,7 +1093,10 @@ fn faces(infos: &[Info], parts: &[Part], list: &CueList, push: &mut Push<'_>) {
         let Some(c) = part.cue else { continue };
         let Some(info) = infos.get(c) else { continue };
         let key = info.level("Key");
-        if !(0.5..=0.8).contains(&key) {
+        // The guide caps the key at 0.8 only "when a camera profile is
+        // set", which this lint cannot know; a room whose face light is
+        // far from the stage needs it at full. Only the floor is held.
+        if key < 0.5 {
             push(
                 18,
                 "key-level",
