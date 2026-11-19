@@ -270,7 +270,7 @@ pub fn follow_session(url: &str, doc: &str) -> Result<(PresencePeer, SharedClock
                         pool().client::<DocPresenceClient>(&endpoint).await,
                     ) {
                         (Ok(host), Ok(presence)) => {
-                            failed = 0;
+                            let since = std::time::Instant::now();
                             let pings = pinger.run(&host);
                             let follow = driver.run(&presence);
                             tokio::pin!(pings, follow);
@@ -279,6 +279,13 @@ pub fn follow_session(url: &str, doc: &str) -> Result<(PresencePeer, SharedClock
                                 _ = &mut follow => {}
                             }
                             pool().evict(&endpoint);
+                            // Answered, then gone within moments: as a
+                            // dial that failed, so it backs off.
+                            failed = if since.elapsed() < std::time::Duration::from_secs(10) {
+                                failed.saturating_add(1)
+                            } else {
+                                0
+                            };
                         }
                         _ => failed = failed.saturating_add(1),
                     }

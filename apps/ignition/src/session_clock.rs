@@ -154,7 +154,7 @@ impl SessionClock {
                                 if failed > 0 {
                                     tracing::info!(session.url = %url, session.dials = failed.saturating_add(1),"session clock: host answered");
                                 }
-                                failed = 0;
+                                let since = std::time::Instant::now();
                                 let pings = pinger.run(&host);
                                 let follow = driver.run(&presence);
                                 tokio::pin!(pings, follow);
@@ -166,6 +166,13 @@ impl SessionClock {
                                 // past the backoff, so a refusing host is
                                 // not spun on).
                                 pool.evict(&endpoint);
+                                // Answered, then gone within moments: as
+                                // a dial that failed, so it backs off.
+                                failed = if since.elapsed() < std::time::Duration::from_secs(10) {
+                                    failed.saturating_add(1)
+                                } else {
+                                    0
+                                };
                             }
                             Err(error) => {
                                 if failed == 0 {
