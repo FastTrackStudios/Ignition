@@ -402,6 +402,9 @@ pub struct Venue {
     /// is the answer either way.
     // r[impl dmx.venue-config] - the room's network lives with the room
     pub dmx: Option<ignition_dmx::OutputConfig>,
+    /// The room as a model, for a venue that has been measured: see
+    /// `environment.rs`. `None` for a room of `room.json` boxes.
+    pub environment: Option<crate::environment::Environment>,
 }
 
 /// Replace a file's contents without ever leaving it half-written.
@@ -1069,6 +1072,7 @@ impl Venue {
         // DIRECTORY fact, so it stays on this side of the split; the
         // browser passes the document in as `profile_document`.
         venue.palettes = inherit_colors(venue.palettes, dir, &venue.profile);
+        venue.environment = crate::environment::Environment::load(dir)?;
         Ok(venue)
     }
 
@@ -1115,6 +1119,7 @@ impl Venue {
             screens: serde_json::from_str(&files.screens)?,
             props: serde_json::from_str(&files.props)?,
             group_records,
+            environment: None,
         };
         if let Some(raw) = files.profile_document.as_deref() {
             venue.palettes = inherit_colors_from_str(venue.palettes, raw, &venue.profile);
@@ -1287,6 +1292,7 @@ mod tests {
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx: None,
+            environment: None,
         };
         let (min, max) = venue.room_extent();
         assert_eq!(min, Point::new(-5.0, -15.0, 0.0));
@@ -1334,6 +1340,7 @@ mod tests {
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx: None,
+            environment: None,
             group_records: vec![GroupRecord {
                 target: "1".to_string(),
                 label: "Pars".to_string(),
@@ -1368,6 +1375,7 @@ mod tests {
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx: None,
+            environment: None,
             group_records: vec![],
         };
 
@@ -1410,6 +1418,7 @@ mod tests {
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx: None,
+            environment: None,
             group_records: vec![],
         };
         let patch = venue.patch().by_chan(9).unwrap();
@@ -1552,6 +1561,7 @@ mod tests {
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx: None,
+            environment: None,
         };
         let config = venue.output_config();
         assert_eq!(config.universes.keys().copied().collect::<Vec<_>>(), [2, 5]);

@@ -1115,6 +1115,12 @@ pub fn spawn_venue(
     // bloom to give them a soft presence, far below anything a lit beam
     // puts out.
 
+    // A measured room draws its shell from the environment's model; the
+    // boxes stay as what fixtures are rigged to, undrawn.
+    let modelled = venue
+        .environment
+        .as_ref()
+        .is_some_and(crate::environment::Environment::has_model);
     for g in &venue.room {
         if settings.skip(&g.name) {
             continue;
@@ -1171,12 +1177,14 @@ pub fn spawn_venue(
         } else {
             solid(&mut standard, color, UNLIT)
         };
-        commands.spawn((
-            Mesh3d(unit_cube.clone()),
-            MeshMaterial3d(material),
-            Transform::from_scale(size),
-            ChildOf(anchor),
-        ));
+        if !(modelled && crate::environment::replaces(&g.name)) {
+            commands.spawn((
+                Mesh3d(unit_cube.clone()),
+                MeshMaterial3d(material),
+                Transform::from_scale(size),
+                ChildOf(anchor),
+            ));
+        }
         rig_surfaces.push(RigSurface {
             entity: anchor,
             center,
