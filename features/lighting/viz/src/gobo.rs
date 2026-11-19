@@ -684,6 +684,15 @@ impl GoboLibrary {
             .or(self.fallback.as_ref())
     }
 
+    /// Every wheel with its key (`None` for the built-in one), for
+    /// whoever needs all the masks at once.
+    pub fn wheels(&self) -> impl Iterator<Item = (Option<&str>, &WheelSpec)> {
+        self.by_type
+            .iter()
+            .map(|(name, wheel)| (Some(name.as_str()), &wheel.spec))
+            .chain(self.fallback.iter().map(|wheel| (None, &wheel.spec)))
+    }
+
     #[must_use]
     pub fn len(&self) -> usize {
         self.by_type.len()
@@ -785,6 +794,10 @@ pub struct GoboProjector {
     pub spin: f32,
     /// Accumulated prism rotation, radians.
     pub prism: f32,
+    /// The wheel slot showing now, when it carries a pattern.
+    pub slot: Option<usize>,
+    /// Whether the prism is in now.
+    pub prism_in: bool,
 }
 
 /// One of the projector's decals: facet 0 alone without a prism, all
@@ -828,6 +841,8 @@ fn attach_gobo_projectors(
             fixture_type,
             spin: 0.0,
             prism: 0.0,
+            slot: None,
+            prism_in: false,
         });
         for facet in 0..PRISM_FACETS {
             commands.spawn((
@@ -923,7 +938,7 @@ fn forced_bytes() -> Option<(u8, Option<u8>)> {
     clippy::arithmetic_side_effects,
     reason = "Vec3/Quat composition is float and cannot panic or overflow"
 )]
-fn update_gobo_projectors(
+pub(crate) fn update_gobo_projectors(
     time: Res<Time>,
     venue: Res<VenueRes>,
     live: Res<LiveDmx>,
@@ -956,10 +971,12 @@ fn update_gobo_projectors(
         };
 
         let mut image = None;
+        let mut showing = None;
         let mut prism_in = false;
         if let (Some(wheel), Some(byte)) = (wheel, gobo_byte) {
             if let Some(slot) = wheel.spec.slot_for_byte(byte) {
                 image.clone_from(wheel.images.get(slot).unwrap_or(&None));
+                showing = image.is_some().then_some(slot);
             }
             match wheel.spec.spin_for_byte(byte) {
                 Some(speed) => projector.spin += speed * dt,
@@ -977,6 +994,9 @@ fn update_gobo_projectors(
             }
         }
         let lit = state.color.is_some() && image.is_some();
+        // What the beams in the air read (`beams.rs`).
+        projector.slot = showing;
+        projector.prism_in = prism_in;
 
         let origin = global.translation();
         let direction = (global.rotation() * Vec3::NEG_Z).normalize_or_zero();

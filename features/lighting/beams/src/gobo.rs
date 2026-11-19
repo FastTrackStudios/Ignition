@@ -21,14 +21,21 @@ pub struct GoboLayer {
 }
 
 impl GoboLayer {
-    /// A gobo `size` texels square (a power of two), drawn by `open`:
-    /// given a point in the gobo's unit disc (x and y from −1 to 1), is
-    /// the gobo open there? Each texel is the average of a 4 × 4 grid of
-    /// points, so edges are antialiased.
+    /// A gobo `size` texels square (rounded up to a power of two), drawn by
+    /// `open`: given a point in the gobo's unit disc (x and y from −1 to
+    /// 1), is the gobo open there? Each texel is the average of a 4 × 4
+    /// grid of points, so edges are antialiased.
     #[must_use]
     pub fn draw(size: u16, open: impl Fn(f32, f32) -> bool) -> Self {
+        Self::sample(size, |x, y| if open(x, y) { 1.0 } else { 0.0 })
+    }
+
+    /// As [`GoboLayer::draw`], from how open the gobo is at each point, 0
+    /// to 1: for a gobo that is already a picture.
+    #[must_use]
+    pub fn sample(size: u16, open: impl Fn(f32, f32) -> f32) -> Self {
         const GRID: u8 = 4;
-        const POINTS: u16 = 16;
+        const POINTS: f32 = 16.0;
         let size = size.max(1).next_power_of_two();
         let scale = 2.0 / (f32::from(size) * f32::from(GRID));
         let coordinate = |texel: u16, sub: u8| {
@@ -38,11 +45,13 @@ impl GoboLayer {
         let texels = (0..size)
             .flat_map(|row| (0..size).map(move |column| (row, column)))
             .map(|(row, column)| {
-                let hits: u16 = (0..GRID)
+                let total: f32 = (0..GRID)
                     .flat_map(|sy| (0..GRID).map(move |sx| (sx, sy)))
-                    .map(|(sx, sy)| u16::from(open(coordinate(column, sx), coordinate(row, sy))))
+                    .map(|(sx, sy)| {
+                        open(coordinate(column, sx), coordinate(row, sy)).clamp(0.0, 1.0)
+                    })
                     .sum();
-                coverage_byte(hits, POINTS)
+                coverage_byte(total / POINTS)
             })
             .collect();
         Self {
@@ -90,13 +99,12 @@ impl GoboLayer {
     }
 }
 
-/// `hits` of `out_of` as a byte.
-fn coverage_byte(hits: u16, out_of: u16) -> u8 {
-    let scaled = u32::from(hits)
-        .saturating_mul(255)
-        .checked_div(u32::from(out_of))
-        .unwrap_or(0);
-    u8::try_from(scaled).unwrap_or(u8::MAX)
+/// A coverage of 0 to 1 as a byte.
+fn coverage_byte(coverage: f32) -> u8 {
+    let scaled = (coverage.clamp(0.0, 1.0) * 255.0).round();
+    (0..=u8::MAX)
+        .find(|&byte| f32::from(byte) >= scaled)
+        .unwrap_or(u8::MAX)
 }
 
 /// The gobo texture for `layers`, which must all be the same size: an

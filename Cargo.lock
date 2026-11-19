@@ -9016,6 +9016,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignition-beams"
+version = "0.2.0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "ignition-colour"
 version = "0.2.0"
 dependencies = [
@@ -9253,6 +9260,7 @@ dependencies = [
  "gdtf",
  "gltf",
  "hap-qt",
+ "ignition-beams",
  "ignition-core",
  "ignition-dmx",
  "ignition-fixture",

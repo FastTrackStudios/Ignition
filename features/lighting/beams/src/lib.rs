@@ -57,12 +57,17 @@ pub struct BeamGobos(pub Handle<Image>);
 /// The haze the beams shine through. Uniform across the room.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Haze {
-    /// How much haze is in the air, 0 (none: nothing shows) to 1.
+    /// How much haze is in the air: 0 is none (nothing shows), 1 a
+    /// normally hazed room.
     pub density: f32,
     /// Light scattered per metre at full density. With the beams' real
     /// candela and the camera's real exposure this is the one number that
     /// says how bright the air is.
     pub scattering_at_full: f32,
+    /// Light lost per metre of path at full density. Haze absorbs almost
+    /// nothing, so physically this is what it scatters; it is its own
+    /// number so the air's brightness can be set without thickening it.
+    pub extinction_at_full: f32,
     /// Henyey-Greenstein `g`: how much brighter a beam is looked into than
     /// seen from the side.
     pub anisotropy: f32,
@@ -73,6 +78,7 @@ impl Default for Haze {
         Self {
             density: 1.0,
             scattering_at_full: 0.02,
+            extinction_at_full: 0.02,
             anisotropy: 0.3,
         }
     }
@@ -82,14 +88,13 @@ impl Haze {
     /// Light scattered per metre of path.
     #[must_use]
     pub fn scattering(&self) -> f32 {
-        self.density.clamp(0.0, 1.0) * self.scattering_at_full.max(0.0)
+        self.density.max(0.0) * self.scattering_at_full.max(0.0)
     }
 
-    /// Light lost per metre of path. Haze absorbs almost nothing, so this
-    /// is what it scatters.
+    /// Light lost per metre of path.
     #[must_use]
     pub fn extinction(&self) -> f32 {
-        self.scattering()
+        self.density.max(0.0) * self.extinction_at_full.max(0.0)
     }
 }
 

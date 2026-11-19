@@ -24,6 +24,7 @@
 #![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
 pub mod app;
+pub mod beams;
 pub mod bench;
 pub mod budget;
 pub mod camera;

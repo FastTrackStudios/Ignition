@@ -1112,6 +1112,7 @@ impl Plugin for VizPlugin {
                 crate::gizmos::ProgramGizmosPlugin,
             ))
             .add_plugins(crate::haze::HazePlugin)
+            .add_plugins(AirBeamsIfChosen)
             // GLB fixture parts: the placeholder-to-scene swap.
             .add_plugins(crate::gdtf_assets::GdtfAssetsPlugin)
             // `proc:` canvases, evaluated on the GPU.
@@ -1964,6 +1965,18 @@ impl Plugin for SolariIfEnabled {
     fn build(&self, _app: &mut App) {}
 }
 
+/// The analytic beam pass, unless the fog was asked for instead
+/// (`IGNITION_BEAMS=0`, `beams.rs`).
+struct AirBeamsIfChosen;
+
+impl Plugin for AirBeamsIfChosen {
+    fn build(&self, app: &mut App) {
+        if crate::beams::air_path() == crate::beams::AirPath::Beams {
+            app.add_plugins(crate::beams::AirBeamsPlugin);
+        }
+    }
+}
+
 /// Whether the froxel volumetric path was asked for (`IGNITION_FROXEL=1`).
 ///
 /// It was Ignition's own compute pass inside the vendored `bevy_pbr`
@@ -2040,12 +2053,23 @@ pub(crate) fn spawn_camera(
         // because a beam crossing a 20 m room at the default spacing
         // comes out in stair-steps, and a live view pays for fewer
         // pixels instead.
-        crate::haze::HazeView {
-            fog_steps: quality.fog_steps,
-            scale: quality.fog_scale,
-            pixels: quality.haze_pixels,
-        },
     ));
+    // What draws the light in the air: the beam pass, or (only to compare
+    // the two) the fog marched on this camera or on a haze camera of its
+    // own, which `haze.rs` sets up from `HazeView`.
+    // r[impl viz.haze-is-volumetric] - one of the two draws the air, never both
+    match crate::beams::air_path() {
+        crate::beams::AirPath::Beams => {
+            camera.insert(crate::beams::beam_camera(quality.fog_steps));
+        }
+        crate::beams::AirPath::Fog => {
+            camera.insert(crate::haze::HazeView {
+                fog_steps: quality.fog_steps,
+                scale: quality.fog_scale,
+                pixels: quality.haze_pixels,
+            });
+        }
+    }
     // r[impl viz.haze-is-volumetric] - the screen-space march is the one path
     if froxels_wanted() {
         tracing::warn!(

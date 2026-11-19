@@ -67,6 +67,8 @@ gltf = { version = "1.4.1", default-features = false, features = ["utils"] }
 # version and features as the vendored `gdtf` crate, so it is one copy.
 zip = { version = "8.6", features = ["deflate"], default-features = false }
 ignition-core.workspace = true
+# Every beam in the air (src/beams.rs).
+ignition-beams.workspace = true
 ignition-dmx.workspace = true
 ignition-proto.workspace = true
 ignition-fixture.workspace = true

@@ -152,7 +152,7 @@ pub const FOG_SCATTERING_ASYMMETRY: f32 = 0.3;
 /// default. It sat at 0.6 while the spill lights were range-clipped;
 /// with the spill reaching the whole room, the density above is the
 /// dial that matters and this one is left at the engine's default.
-const HAZE_SCATTERING: f32 = 0.3;
+pub(crate) const HAZE_SCATTERING: f32 = 0.3;
 
 /// How much of the light crossing a metre of haze is lost to it.
 ///
@@ -479,6 +479,41 @@ impl FixtureBody {
 pub struct ProfileOptics {
     pub beam_half_deg: f32,
     pub field_half_deg: f32,
+}
+
+/// What a fixture's profile says its beam puts out and leaves by, on the
+/// emitter: GDTF's `LuminousFlux` and `BeamRadius`.
+///
+/// The flux replaces the watts-times-efficacy guess when the file states
+/// one. GDTF's default (10 000 lm) is what a file that never measured it
+/// carries, and on a 36 W par it would be seven times too much, so a flux
+/// at exactly the default is taken as unstated.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct EmitterPhotometry {
+    /// Lumens at full, when the profile states them.
+    pub flux: Option<f32>,
+    /// The lens's radius in metres.
+    pub lens_radius: f32,
+}
+
+/// GDTF's default `LuminousFlux`, which a file carries when it says nothing.
+const GDTF_DEFAULT_FLUX: f32 = 10_000.0;
+/// The lens a fixture with no profile is given: GDTF's default `BeamRadius`.
+const DEFAULT_BEAM_RADIUS_M: f32 = 0.05;
+
+/// The emitter's photometry from its profile, or the defaults without one.
+#[must_use]
+pub fn fixture_photometry(profile: Option<&GdtfFixture>) -> EmitterPhotometry {
+    let stated = profile.and_then(|p| p.photometry);
+    EmitterPhotometry {
+        flux: stated
+            .map(|p| p.flux)
+            .filter(|flux| *flux > 0.0 && (*flux - GDTF_DEFAULT_FLUX).abs() > 0.5),
+        lens_radius: stated
+            .map(|p| p.lens_radius)
+            .filter(|radius| *radius > 0.0)
+            .unwrap_or(DEFAULT_BEAM_RADIUS_M),
+    }
 }
 
 /// The one rule for how wide a fixture's light is.
@@ -1648,6 +1683,7 @@ pub fn spawn_venue(
         // r[impl viz.one-emitter-tree] - the emitter is a node of the tree
         let mut emitters: Vec<Entity> = Vec::new();
         let optics = fixture_optics(f, gdtf);
+        let photometry = fixture_photometry(gdtf);
 
         if let Some(gdtf) = gdtf {
             let mut nodes: Vec<Entity> = Vec::new();
@@ -1835,6 +1871,7 @@ pub fn spawn_venue(
                 BeamEmitter { fixture: index },
                 EmitterState::default(),
                 optics,
+                photometry,
             ));
             // A hazer is a fixture with no light of its own: it drives
             // the haze the others show in (see `haze::HazeLevel`), and
@@ -1943,7 +1980,12 @@ pub fn update_live_fixtures(
             Without<PanJoint>,
         ),
     >,
-    mut emitters: Query<(&BeamEmitter, &mut EmitterState, &ProfileOptics)>,
+    mut emitters: Query<(
+        &BeamEmitter,
+        &mut EmitterState,
+        &ProfileOptics,
+        Option<&EmitterPhotometry>,
+    )>,
     child_of: Query<&ChildOf>,
     live_dmx: Res<LiveDmx>,
     time: Res<Time>,
@@ -2077,7 +2119,7 @@ pub fn update_live_fixtures(
         transform.rotation = live.tilt;
     }
 
-    for (emitter, mut state, optics) in &mut emitters {
+    for (emitter, mut state, optics, photometry) in &mut emitters {
         match resolved.get(emitter.fixture).and_then(|o| o.as_ref()) {
             Some(live) => {
                 state.color = live.color;
@@ -2086,7 +2128,10 @@ pub fn update_live_fixtures(
                 state.field_half_angle_deg =
                     zoomed_half_angle_deg(optics.field_half_deg, live.zoom)
                         .clamp(state.half_angle_deg, MAX_FIELD_HALF_ANGLE_DEG);
-                state.lumens = live.lumens;
+                // The profile's measured flux when it states one; the
+                // wattage's guess otherwise.
+                // r[impl viz.exposure] - real lumens in when the profile has them
+                state.lumens = photometry.and_then(|p| p.flux).unwrap_or(live.lumens);
             }
             None => state.color = None,
         }
@@ -2576,6 +2621,7 @@ mod body_and_bar_tests {
             },
             beam_angle_deg: beam,
             field_angle_deg: field,
+            photometry: None,
         }
     }
 

@@ -23,6 +23,8 @@ members = [
     "features/lighting/daw",
     "features/lighting/fixture",
     "features/lighting/profile",
+    # Beams in the air, drawn analytically (features/lighting/beams/README.md).
+    "features/lighting/beams",
     "features/lighting/viz",
     # Cue lists in a session (the session primitive).
     "features/lighting/session",
@@ -69,6 +71,7 @@ ignition-daw = { path = "features/lighting/daw" }
 ignition-fixture = { path = "features/lighting/fixture" }
 ignition-profile = { path = "features/lighting/profile" }
 ignition-viz = { path = "features/lighting/viz" }
+ignition-beams = { path = "features/lighting/beams" }
 ignition-pane = { path = "features/lighting/pane" }
 
 # ── Studio crates ─────────────────────────────────────────────────────
