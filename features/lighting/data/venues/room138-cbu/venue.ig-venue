@@ -7,6 +7,7 @@
           "subnet": 0,
           "universe": 0
         },
+        "enabled": false,
         "sacn": {
           "priority": 100
         }
