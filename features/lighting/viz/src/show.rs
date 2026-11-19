@@ -295,6 +295,18 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
             push(fixture, offset, slot);
         }
     }
+    // A moving head nothing has aimed sits at its rest, straight out of
+    // its base, rather than at the end of its travel where byte zero is.
+    // r[impl playback.defaults]
+    for (chan, fixture) in patch.iter() {
+        for attr in [Attribute::Pan, Attribute::Tilt] {
+            if !frame.values.contains_key(&(chan, attr.clone())) {
+                for (offset, byte) in encode_attribute(&fixture.map, &attr, 0.0) {
+                    push(fixture, offset, byte);
+                }
+            }
+        }
+    }
     // Several lamps of one fixture share its level, strobe and colour
     // bytes. Where they disagree the highest wins, every frame the same
     // way, rather than whichever the map happened to walk last.

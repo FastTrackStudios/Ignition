@@ -75,7 +75,7 @@ looks = {
           fx(AU, "paparazzi", 1, "scatter", 1.0), fx(MV, "ballyhoo", 1, "scatter", 0.9)],
  # A voice and a piano: one face, the wall, the lamps like candles.
  "DownChorus": [st(K, 0.60, "White"), st(SP, 0.25, "White")] + dark(W, FL, BR) + [st(BK, 0.22, "Secondary"),
-          st(FI, 0.15, "Primary"), lamps(0.10), st(MV, 0.18, "Secondary", "Back Wall"),
+          st(FI, 0.15, "Primary"), lamps(0.10), st(MV, 0.18, "Secondary"),
           fx(BK, "back breathe", 4, None, 0.4), fx(AU, "candle", 4, "scatter", 0.9)],
  # Sixteen bars of everything arriving: the wash filling, the fill closing in, the beams climbing.
  "Build": faces(0.75) + dark(BR) + [st(W, 0.55, "Tertiary"), st(BK, 0.60, "Secondary"), st(FL, 0.45, "Tertiary"),

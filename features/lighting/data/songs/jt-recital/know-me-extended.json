@@ -5430,9 +5430,6 @@
                 },
                 {
                   "Color": "Secondary"
-                },
-                {
-                  "FocusPoint": "Back Wall"
                 }
               ],
               "ease": "Linear",

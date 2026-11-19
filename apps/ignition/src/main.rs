@@ -743,9 +743,41 @@ impl Follow for Follower {
             *current = Some(index);
         }
         triggers.advance(position, secs);
+        let ringing = triggers.output(&show, secs).len();
         if let Some(player) = playbacks.of_class(Class::Song) {
             player.set_clock(secs);
             player.seek(position, &show);
+            // IGNITION_LIVE_LOG=<file>: what the room is showing, twice a
+            // second, for when the picture and the cue list disagree.
+            if let Ok(path) = std::env::var("IGNITION_LIVE_LOG") {
+                static TICK: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+                if TICK.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 30 == 0 {
+                    let out = player.output(&show);
+                    let mut lit: Vec<String> = out
+                        .iter()
+                        .filter(|((_, attr), v)| {
+                            matches!(attr, ignition_core::Attribute::Dimmer | ignition_core::Attribute::Strobe)
+                                && **v > 0.001
+                        })
+                        .map(|((chan, attr), v)| format!("{chan}:{attr:?}={v:.2}"))
+                        .collect();
+                    lit.sort();
+                    let line = format!(
+                        "song={:?} entering={entering} bar={} beat={:.2} secs={secs:.2} cue={:?} cues={} ringing={ringing} lit=[{}]\n",
+                        song.title,
+                        position.bar,
+                        position.beat,
+                        player.current_name(),
+                        list.cues.len(),
+                        lit.join(" ")
+                    );
+                    if let Ok(mut file) =
+                        std::fs::OpenOptions::new().create(true).append(true).open(path)
+                    {
+                        let _ = std::io::Write::write_all(&mut file, line.as_bytes());
+                    }
+                }
+            }
         }
     }
 }

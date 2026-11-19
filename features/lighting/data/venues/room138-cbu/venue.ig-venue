@@ -7,7 +7,7 @@
           "subnet": 0,
           "universe": 0
         },
-        "enabled": false,
+        "enabled": true,
         "sacn": {
           "priority": 100
         }
@@ -17,8 +17,8 @@
   "look": {
     "ambient": 0.02,
     "exposure": 0,
-    "haze": 0.7,
-    "output": 0.5
+    "haze": 0.35,
+    "output": 0.3
   },
   "name": "Room 138 - CBU",
   "profile": "Ignition",
