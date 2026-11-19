@@ -181,7 +181,7 @@ const HAZE_ABSORPTION: f32 = 0.05;
 /// so the rig could be found in a blacked-out room, which is no longer
 /// needed now the fixtures actually light it — and a housing that glows
 /// when its lamp is off is not something any fixture does.
-const LIT_BODY_GLOW: f32 = 0.22;
+const LIT_BODY_GLOW: f32 = 3.0;
 
 /// How hot a bar's cell faces run relative to the colour they emit: hot
 /// enough for bloom to halo the strip the way a lit LED bar does.

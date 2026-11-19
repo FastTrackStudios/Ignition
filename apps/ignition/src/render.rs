@@ -374,6 +374,10 @@ pub fn run(night: Night, args: &RenderArgs) -> Result<()> {
     if let Some(output) = output {
         ignition_viz::fixture_profile::set_output_scale(output);
     }
+    // A lit fixture shows its light on its own face, as a real one does:
+    // without it a lamp coming on is only more light on the floor, and a
+    // sweep through a tower's lamps cannot be told from a swell.
+    config.body_glow = true;
     config.haze = haze.unwrap_or(0.8);
     if let Some(ambient) = crate::night::venue_ambient(&venue_dir) {
         config.ambient = ambient;
