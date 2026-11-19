@@ -5,6 +5,12 @@ description: Program a song's light show for Ignition — turn a song map and hi
 
 # Program a song
 
+**Edit with the actions, not by hand**: the `ignition-program` skill and
+`docs/lighting/guides/programming.md` cover `IGNITION_CUE_*`,
+`IGNITION_SECTION_*`, `IGNITION_FILL_SECTIONS`, `IGNITION_FILL_HITS` and the
+library. What follows is what a good show is; write it through them, and
+name palette slots (`Primary`, `Accent`…) rather than colours.
+
 The deliverable is a `CueList` JSON in `data/songs/` that plays at every venue
 implementing the profile. Every rule below exists because a show that names a
 fixture, a channel or a metre is a show for one room. Load `ignition-domain`

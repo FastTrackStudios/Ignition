@@ -18,6 +18,10 @@ use std::path::PathBuf;
 pub mod cues;
 #[cfg(feature = "extension")]
 pub mod ext;
+/// Programming a show: the library, a song's and a set's cues,
+/// environments, people, fixtures, the patch, tricks.
+#[cfg(feature = "extension")]
+pub mod program;
 /// The show's cue list in a session (the session primitive).
 #[cfg(feature = "extension")]
 pub mod session;

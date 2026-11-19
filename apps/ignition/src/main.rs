@@ -219,6 +219,7 @@ fn main() -> Result<()> {
         night,
         clock: Mutex::new(clock),
         current: Mutex::new(None),
+        live: Mutex::default(),
     });
     if args.process_view {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -534,6 +535,19 @@ struct Follower {
     night: Arc<Night>,
     clock: Mutex<Box<dyn BeatSource>>,
     current: Mutex<Option<usize>>,
+    /// The show as it is on disk now, when it was edited under us.
+    live: Mutex<Live>,
+}
+
+/// What the follower keeps of a show that is being programmed while it
+/// plays: the pools before any library, the current song's files' times
+/// and its cue list as last read.
+#[derive(Default)]
+struct Live {
+    base: Option<night::Base>,
+    stamp: night::Stamp,
+    checked: Option<Instant>,
+    list: Option<ignition_core::CueList>,
 }
 
 impl Follow for Follower {
@@ -557,7 +571,33 @@ impl Follow for Follower {
             .current
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let entering = *current != Some(index);
+        let mut entering = *current != Some(index);
+        // A show edited while it plays (the programming actions write
+        // the song's file and the set's library): looked for twice a
+        // second, taken as if the song were entered again.
+        let mut live = self
+            .live
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if entering {
+            live.stamp = self.night.stamp(song);
+            live.list = None;
+            live.checked = Some(now);
+        } else if live
+            .checked
+            .is_none_or(|at| now.duration_since(at) > std::time::Duration::from_millis(500))
+        {
+            live.checked = Some(now);
+            let stamp = self.night.stamp(song);
+            if stamp != live.stamp {
+                live.stamp = stamp;
+                if let Some(list) = song.reload() {
+                    tracing::info!(song = %song.title, cues = list.cues.len(), "show: edited, read again");
+                    live.list = Some(list);
+                }
+                entering = true;
+            }
+        }
         let position = song.live.position(beat);
         let bpm = self.night.set.bpm_at(beat);
         let secs =
@@ -585,6 +625,29 @@ impl Follow for Follower {
             ..
         } = playback;
         speeds.insert("Song".to_string(), bpm);
+        if entering {
+            // The pools as the room and the profile give them, then this
+            // song's library over them (its palette's slots as colours).
+            let base = live.base.get_or_insert_with(|| night::Base {
+                palettes: palettes.clone(),
+                library: library.clone(),
+                looks: looks.clone(),
+                tricks: named_tricks.clone(),
+            });
+            palettes.clone_from(&base.palettes);
+            library.clone_from(&base.library);
+            looks.clone_from(&base.looks);
+            named_tricks.clone_from(&base.tricks);
+            self.night
+                .library_for(song)
+                .lay_over(&mut ignition_core::library::Pools {
+                    palettes,
+                    effects: library,
+                    looks,
+                    tricks: named_tricks,
+                });
+        }
+        let list = live.list.as_ref().unwrap_or(&song.list);
         let show = Show {
             groups: &*groups,
             palettes: &*palettes,
@@ -601,11 +664,11 @@ impl Follow for Follower {
         };
         if entering {
             tracing::info!(song = %song.title, set = %song.set, bar = position.bar, "show: song");
-            *triggers = TriggerBus::new(song.list.triggers.clone());
+            *triggers = TriggerBus::new(list.triggers.clone());
             match playbacks.of_class(Class::Song) {
-                Some(player) => player.replace_list(&song.list, &show),
+                Some(player) => player.replace_list(list, &show),
                 None => {
-                    playbacks.push(Class::Song, CuePlayer::new(song.list.cues.clone()));
+                    playbacks.push(Class::Song, CuePlayer::new(list.cues.clone()));
                 }
             }
             *current = Some(index);

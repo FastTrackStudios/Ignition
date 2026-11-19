@@ -55,4 +55,6 @@ pub use ignition_daw_proto as music;
 pub use ignition_effects::effects;
 pub use ignition_playback::{macros, playbacks};
 pub use ignition_rig::{focus, group, selection, tricks};
-pub use ignition_show::{bump, canvas, cue, profile, programmer, recipe, show_file, step, trigger};
+pub use ignition_show::{
+    bump, canvas, cue, library, profile, programmer, recipe, show_file, step, trigger,
+};

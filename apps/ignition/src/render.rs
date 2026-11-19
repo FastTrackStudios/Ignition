@@ -385,6 +385,7 @@ pub fn run(night: Night, args: &RenderArgs) -> Result<()> {
         night: Arc::clone(&night),
         clock: Mutex::new(Box::new(FixedBeat(Arc::clone(&beat)))),
         current: Mutex::new(None),
+        live: Mutex::default(),
     };
     let mut driver = SongDriver {
         night: Arc::clone(&night),

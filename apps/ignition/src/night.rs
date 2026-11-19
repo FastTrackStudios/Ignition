@@ -16,6 +16,10 @@ struct ShowDoc {
     songs: Vec<SongDoc>,
     #[serde(default)]
     sets: Vec<SetDoc>,
+    /// The set's library, relative to the show; default
+    /// `../library/<show>.json`.
+    #[serde(default)]
+    library: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,6 +53,37 @@ pub struct NightSong {
     pub set: String,
     pub live: LiveSetSong,
     pub list: CueList,
+    /// The song's file: read again when it changes while the show runs.
+    pub path: PathBuf,
+}
+
+/// The pools a show plays from before any library is laid over them:
+/// the room's palettes and the profile's effects, looks and tricks.
+#[derive(Clone)]
+pub struct Base {
+    pub palettes: ignition_core::Palettes,
+    pub library: std::collections::BTreeMap<String, ignition_core::Recipe>,
+    pub looks: std::collections::BTreeMap<String, ignition_core::profile::Look>,
+    pub tricks: std::collections::BTreeMap<String, Vec<ignition_core::Trick>>,
+}
+
+/// When a song's file and the set's library were last written: a change
+/// of either is the show edited under the renderer.
+pub type Stamp = (Option<std::time::SystemTime>, Option<std::time::SystemTime>);
+
+impl NightSong {
+    /// The song's cue list as its file has it now, resolved against the
+    /// set; `None` when the file does not read (a half-made edit): the
+    /// list in hand keeps playing.
+    #[must_use]
+    pub fn reload(&self) -> Option<CueList> {
+        let raw = std::fs::read_to_string(&self.path).ok()?;
+        let mut list: CueList = serde_json::from_str(&raw).ok()?;
+        for problem in list.resolve_positions(&self.live.song) {
+            tracing::warn!(song = %self.live.name, "{problem}");
+        }
+        Some(list)
+    }
 }
 
 /// The night, in running order.
@@ -58,6 +93,8 @@ pub struct Night {
     pub set: LiveSet,
     pub sets: Vec<SetDoc>,
     pub songs: Vec<NightSong>,
+    /// The set's library file (it need not exist).
+    pub library: PathBuf,
 }
 
 impl Night {
@@ -106,15 +143,46 @@ impl Night {
                 set: entry.set,
                 live,
                 list,
+                path,
             });
         }
+        let library = dir.join(doc.library.unwrap_or_else(|| {
+            let stem = show.file_stem().and_then(|s| s.to_str()).unwrap_or("set");
+            format!("../library/{stem}.json")
+        }));
         Ok(Self {
+            library,
             name: doc.name,
             venue: dir.join(doc.venue),
             set,
             sets: doc.sets,
             songs,
         })
+    }
+
+    /// The library a song plays from: its own overrides (`library` in
+    /// its file) over the set's. Empty when neither is there.
+    #[must_use]
+    pub fn library_for(&self, song: &NightSong) -> ignition_core::library::Library {
+        use ignition_core::library::Library;
+        let set: Library = std::fs::read_to_string(&self.library)
+            .ok()
+            .and_then(|raw| serde_json::from_str(&raw).ok())
+            .unwrap_or_default();
+        let own: Library = std::fs::read_to_string(&song.path)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+            .and_then(|doc| doc.get("library").cloned())
+            .and_then(|lib| serde_json::from_value(lib).ok())
+            .unwrap_or_default();
+        own.over(&set)
+    }
+
+    /// When the song's file and the library were last written.
+    #[must_use]
+    pub fn stamp(&self, song: &NightSong) -> Stamp {
+        let at = |p: &Path| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+        (at(&song.path), at(&self.library))
     }
 
     /// The lit song a beat of the set falls in.

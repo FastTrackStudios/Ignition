@@ -32,6 +32,16 @@ default), since it is not built here.
 `tools/` its generators. The forks of `bevy_pbr` and `gdtf` are in
 `vendor/` (FTS-PATCH.md each).
 
+## Programming a show
+
+Everything a person can change has an action (`IGNITION_*`, 66 of them):
+the library, a song's cues, a whole set, environments, people, fixtures,
+the patch, tricks. They run from the app's palette, CLI, MCP and Luau
+scripts, and from a shell with `ignition-program`. Start at
+[`docs/lighting/guides/programming.md`](../../docs/lighting/guides/programming.md);
+the list is [`actions.md`](../../docs/lighting/guides/actions.md); worked
+scripts are in `examples/scripts/`.
+
 ## Lighting in Studio — the extension
 
 Lighting is a Studio extension, not an app of its own: `pane/`

@@ -1,717 +1,742 @@
 {
- "version": 1,
- "profile": "Ignition",
- "song": {
-  "live_set": "Sr. Recital Showcase",
-  "locator": "Cinematic Intro",
+  "cues": [
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Intro"
+      },
+      "block": false,
+      "fade_secs": 3.0,
+      "name": "Intro",
+      "note": "FoH: Top Of Show / *Pad Tracks* · FoH: Vox Track... · FoH: *\"From our movie\"*",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.18
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.45
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "effect": "breathe",
+          "params": {
+            "depth": 0.4
+          },
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Beams"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 1,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Chords"
+      },
+      "block": false,
+      "fade_secs": 0.75,
+      "name": "Chords",
+      "note": "FoH: *\"From our movie\"* · FoH: BAND HITS...",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.55
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.45
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.35
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Tertiary"
+                },
+                {
+                  "FocusPoint": "Band"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "effect": "circle breathe",
+          "target": {
+            "Role": "Movers"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 35,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Hits"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "Hits",
+      "note": "FoH: Vox Track · FoH: BAND **CUT** INCOMING...",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.15
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.2
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                },
+                {
+                  "Color": "White 2"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "effect": "bump",
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "effect": "blinder hit",
+          "target": {
+            "Role": "Audience"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 51,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Band In"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "Band In",
+      "note": "FoH: Band IN",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.95
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Secondary"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "chorus lift"
+        }
+      ],
+      "resolved": {
+        "bar": 67,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 8,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Band In"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "· Band In lift",
+      "note": "FoH: TRAX INTRO",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.95
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Secondary"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "chorus lift"
+        }
+      ],
+      "resolved": {
+        "bar": 75,
+        "beat": 1.0
+      },
+      "values": []
+    }
+  ],
+  "library": {
+    "palette": "DTLA Cinematic Intro"
+  },
   "name": "DTLA Cinematic Intro",
-  "start_beats": 0.0,
-  "end_beats": 328.0
- },
- "name": "DTLA Cinematic Intro",
- "cues": [
-  {
-   "name": "Intro",
-   "fade_secs": 3.0,
-   "values": [],
-   "recipes": [
+  "profile": "Ignition",
+  "sections": [
     {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.0
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
+      "bar": 1,
+      "bars": 34.0,
+      "name": "Intro"
     },
     {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.18
-        },
-        {
-         "Color": "Deep Blue"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
+      "bar": 35,
+      "bars": 16.0,
+      "name": "Chords"
     },
     {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.45
-        },
-        {
-         "Color": "Indigo"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
+      "bar": 51,
+      "bars": 16.0,
+      "name": "Hits"
     },
     {
-     "effect": "breathe",
-     "target": {
-      "Role": "Back"
-     },
-     "params": {
-      "depth": 0.4
-     }
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Beams"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
+      "bar": 67,
+      "bars": 16.0,
+      "name": "Band In"
     }
-   ],
-   "block": false,
-   "at": {
-    "section": "Intro",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 1,
-    "beat": 1.0
-   },
-   "note": "FoH: Top Of Show / *Pad Tracks* \u00b7 FoH: Vox Track... \u00b7 FoH: *\"From our movie\"*"
+  ],
+  "song": {
+    "end_beats": 328.0,
+    "live_set": "Sr. Recital Showcase",
+    "locator": "Cinematic Intro",
+    "name": "DTLA Cinematic Intro",
+    "start_beats": 0.0
   },
-  {
-   "name": "Chords",
-   "fade_secs": 0.75,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.55
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.45
-        },
-        {
-         "Color": "Deep Blue"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.7
-        },
-        {
-         "Color": "Indigo"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.35
-        },
-        {
-         "Color": "Indigo"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.0
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.3
-        },
-        {
-         "Color": "Deep Blue"
-        },
-        {
-         "FocusPoint": "Band"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "effect": "circle breathe",
-     "target": {
-      "Role": "Movers"
-     }
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Chords",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 35,
-    "beat": 1.0
-   },
-   "note": "FoH: *\"From our movie\"* \u00b7 FoH: BAND HITS..."
-  },
-  {
-   "name": "Hits",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.5
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.15
-        },
-        {
-         "Color": "Amber"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.2
-        },
-        {
-         "Color": "Indigo"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.0
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.3
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.0
-        },
-        {
-         "Color": "Open White"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "effect": "bump",
-     "target": {
-      "Role": "Wash"
-     }
-    },
-    {
-     "effect": "blinder hit",
-     "target": {
-      "Role": "Audience"
-     }
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Hits",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 51,
-    "beat": 1.0
-   },
-   "note": "FoH: Vox Track \u00b7 FoH: BAND **CUT** INCOMING..."
-  },
-  {
-   "name": "Band In",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.95
-        },
-        {
-         "Color": "Amber"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Indigo"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Deep Blue"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Amber"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "chorus lift"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Band In",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 67,
-    "beat": 1.0
-   },
-   "note": "FoH: Band IN"
-  },
-  {
-   "name": "\u00b7 Band In lift",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.95
-        },
-        {
-         "Color": "Amber"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Indigo"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Deep Blue"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Amber"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "chorus lift"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Band In",
-    "ordinal": 0,
-    "bars": 8,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 75,
-    "beat": 1.0
-   },
-   "note": "FoH: TRAX INTRO"
-  }
- ]
+  "version": 1
 }

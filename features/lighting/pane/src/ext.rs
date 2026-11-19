@@ -45,6 +45,17 @@ impl Extension for Lighting {
 
     fn build(&self, ext: &mut Builder) {
         *HANDLE.lock().unwrap_or_else(PoisonError::into_inner) = Some(ext.handle());
+        // The programming actions (src/program): the catalogue is the
+        // list. Each reads and writes a few small files and answers; it
+        // runs where it is called (a script's own thread has no runtime
+        // to hand the work to).
+        for id in crate::program::ids() {
+            let run_id = id.clone();
+            ext.action(id, move |args| {
+                let id = run_id.clone();
+                async move { crate::program::run(&id, &args) }
+            });
+        }
         ext.view(VIEW, ShowView)
             .view(crate::cues::VIEW, crate::cues::CuesView)
             .action("IGNITION_SHOW_OPEN", |_| open())

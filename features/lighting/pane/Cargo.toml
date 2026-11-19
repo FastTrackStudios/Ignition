@@ -15,6 +15,12 @@ name = "ignition-pane"
 path = "src/main.rs"
 required-features = ["extension"]
 
+[[bin]]
+# The programming actions from a shell, with no app running.
+name = "ignition-program"
+path = "src/bin/program.rs"
+required-features = ["extension"]
+
 # No Bevy here: the renderer is the `ignition` program (apps/ignition).
 [features]
 # The extension by default: EXT_CLONE builds its process copy with a plain

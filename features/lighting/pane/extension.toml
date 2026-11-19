@@ -226,3 +226,532 @@ name = "Lighting: cues taken from the session"
 description = "What the follower took (each cue and the session time it was taken at) and the clock estimate."
 group = "Lighting"
 effect = "read_only"
+
+# >>> programming actions (tools/program_actions.py writes this from actions.json)
+
+[[actions]]
+id = "IGNITION_ACTIONS"
+name = "Lighting: the programming actions"
+description = "Every programming action with its arguments, as data (this catalogue)."
+group = "Lighting"
+effect = "read_only"
+
+[[actions]]
+id = "IGNITION_HISTORY"
+name = "Lighting: edit history"
+description = "The steps of the edit history (data/.history) and which is current."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"limit\":{\"description\":\"How many of the latest steps (default 50).\",\"type\":\"integer\"}}}"
+
+[[actions]]
+id = "IGNITION_UNDO"
+name = "Lighting: undo the last edit"
+description = "Puts every file the last step wrote back as it was."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_REDO"
+name = "Lighting: redo"
+description = "Applies the step that was undone."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_EDIT_BEGIN"
+name = "Lighting: open an edit"
+description = "Opens an edit: every programming action until IGNITION_EDIT_COMMIT is one history step (one undo). A Luau script opens one first."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"label\":{\"description\":\"What the step is called in the history.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_EDIT_COMMIT"
+name = "Lighting: commit the open edit"
+description = "Closes the open edit as one history step."
+group = "Lighting"
+effect = "mutating"
+
+[[actions]]
+id = "IGNITION_EDIT_ABORT"
+name = "Lighting: abort the open edit"
+description = "Closes the open edit and puts every file it wrote back."
+group = "Lighting"
+effect = "mutating"
+
+[[actions]]
+id = "IGNITION_BATCH"
+name = "Lighting: run several actions as one step"
+description = "Runs `steps` ([{action, args}]) in order as one history step; if one fails, nothing of the batch is kept."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"steps\":{\"description\":\"[{action, args}], in order.\",\"type\":\"array\"},\"label\":{\"description\":\"The step's name in the history.\",\"type\":\"string\"}},\"required\":[\"steps\"]}"
+
+[[actions]]
+id = "IGNITION_LIBRARY_LIST"
+name = "Lighting: list the library"
+description = "What is in the library, by kind, each entry with the layer it comes from (song, set or profile), its tags and folder, and a one-line summary; and the palette in use with its slots as RGB."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"kind\":{\"description\":\"colors, palettes, splits, effects, looks, focus, beams or tricks.\",\"type\":\"string\"},\"tag\":{\"description\":\"Only entries with this tag.\",\"type\":\"string\"},\"folder\":{\"description\":\"Only entries in this folder (or under it).\",\"type\":\"string\"},\"family\":{\"description\":\"Effects of one family: intensity, movement, colour, beam, strip, matrix, one-shot.\",\"type\":\"string\"},\"search\":{\"description\":\"Only names or descriptions containing this.\",\"type\":\"string\"},\"layer\":{\"description\":\"Only entries whose top layer is song, set or profile.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_LIBRARY_GET"
+name = "Lighting: get a library entry"
+description = "One entry in full, the layer it comes from and the layers it overrides."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"kind\":{\"description\":\"colors, palettes, splits, effects, looks, focus, beams or tricks.\",\"type\":\"string\"},\"name\":{\"description\":\"The entry.\",\"type\":\"string\"}},\"required\":[\"kind\",\"name\"]}"
+
+[[actions]]
+id = "IGNITION_LIBRARY_CREATE"
+name = "Lighting: add to the library"
+description = "Adds an entry. Shapes: colors {red,green,blue}; palettes {slots:{Primary: colour name or {red,green,blue}}}; splits {colors:[names], distribute: cycle|spread|block}; effects {recipe, family}; looks {recipes:[parts], kind}; focus {target:{x,y,z}}; beams {values:[[attribute, value]]}; tricks (see IGNITION_TRICKS_UNITS). Every entry takes about, tags, folder."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"kind\":{\"description\":\"colors, palettes, splits, effects, looks, focus, beams or tricks.\",\"type\":\"string\"},\"name\":{\"description\":\"Its name.\",\"type\":\"string\"},\"entry\":{\"description\":\"The entry.\",\"type\":\"object\"},\"scope\":{\"description\":\"Which layer is written: `set` (the set's library, the default) or `song` (that song's overrides; needs `song`).\",\"type\":\"string\"},\"replace\":{\"description\":\"Write over an entry of that name in the layer.\",\"type\":\"boolean\"}},\"required\":[\"kind\",\"name\",\"entry\"]}"
+
+[[actions]]
+id = "IGNITION_LIBRARY_UPDATE"
+name = "Lighting: change a library entry"
+description = "Merges `set` into an entry (a null removes a key). An entry that is only in a lower layer is copied up into the layer written: that is how a song overrides the set, and the set the profile."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"kind\":{\"description\":\"colors, palettes, splits, effects, looks, focus, beams or tricks.\",\"type\":\"string\"},\"name\":{\"description\":\"The entry.\",\"type\":\"string\"},\"set\":{\"description\":\"The keys to change.\",\"type\":\"object\"},\"scope\":{\"description\":\"Which layer is written: `set` (the set's library, the default) or `song` (that song's overrides; needs `song`).\",\"type\":\"string\"}},\"required\":[\"kind\",\"name\",\"set\"]}"
+
+[[actions]]
+id = "IGNITION_LIBRARY_DUPLICATE"
+name = "Lighting: duplicate a library entry"
+description = "Copies an entry (from any layer, the profile's included) under another name, with `set` merged in."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"kind\":{\"description\":\"colors, palettes, splits, effects, looks, focus, beams or tricks.\",\"type\":\"string\"},\"name\":{\"description\":\"The entry to copy.\",\"type\":\"string\"},\"as\":{\"description\":\"The copy's name.\",\"type\":\"string\"},\"set\":{\"description\":\"Keys to change in the copy.\",\"type\":\"object\"},\"scope\":{\"description\":\"Which layer is written: `set` (the set's library, the default) or `song` (that song's overrides; needs `song`).\",\"type\":\"string\"}},\"required\":[\"kind\",\"name\",\"as\"]}"
+
+[[actions]]
+id = "IGNITION_LIBRARY_DELETE"
+name = "Lighting: delete a library entry"
+description = "Removes an entry from the set's (or the song's) layer; says which lower layer's entry of that name now shows through. The profile's entries are read-only."
+group = "Lighting"
+effect = "destructive"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"kind\":{\"description\":\"colors, palettes, splits, effects, looks, focus, beams or tricks.\",\"type\":\"string\"},\"name\":{\"description\":\"The entry.\",\"type\":\"string\"},\"scope\":{\"description\":\"Which layer is written: `set` (the set's library, the default) or `song` (that song's overrides; needs `song`).\",\"type\":\"string\"}},\"required\":[\"kind\",\"name\"]}"
+
+[[actions]]
+id = "IGNITION_LIBRARY_USES"
+name = "Lighting: where a library entry is used"
+description = "The songs and cues of the show that name an entry."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"name\":{\"description\":\"The entry's name.\",\"type\":\"string\"}},\"required\":[\"name\"]}"
+
+[[actions]]
+id = "IGNITION_LIBRARY_TAGS"
+name = "Lighting: the library's tags and folders"
+description = "Every tag and folder in use."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_PALETTE_USE"
+name = "Lighting: use a palette"
+description = "Names the palette in use: the set's, or with `song` that song's (an empty `palette` gives a song back the set's). Its slots become the colours cues name (Primary, Secondary…): this is the re-skin."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"palette\":{\"description\":\"The palette's name.\",\"type\":\"string\"}},\"required\":[\"palette\"]}"
+
+[[actions]]
+id = "IGNITION_EFFECT_MAKE"
+name = "Lighting: make an effect"
+description = "Writes an effect from parameters and saves it to the library: `what` moves, in a `shape`, once every `beats`, `depth` either side of where it is, spread across the target by `tricks` or `spread_deg`."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"name\":{\"description\":\"The effect's name.\",\"type\":\"string\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"},\"what\":{\"description\":\"dimmer, pan, tilt, circle, zoom, iris, focus, strobe or color.\",\"type\":\"string\"},\"shape\":{\"description\":\"sine, triangle, square (chase), ramp or ramp_down.\",\"type\":\"string\"},\"beats\":{\"description\":\"Beats per loop (default 4).\",\"type\":\"number\"},\"depth\":{\"description\":\"How far it swings, 0 to 1 (pan/tilt: degrees).\",\"type\":\"number\"},\"base\":{\"description\":\"Makes it absolute about this value instead of relative to the look.\",\"type\":\"number\"},\"colors\":{\"description\":\"For `what: color`: two or more colour or slot names.\",\"type\":\"array\"},\"spread_deg\":{\"description\":\"Phase spread across the units, degrees (360: a chase).\",\"type\":\"number\"},\"direction\":{\"description\":\"Forward, Reverse, Bounce, Build or Negative.\",\"type\":\"string\"},\"tricks\":{\"description\":\"Tricks: a trick preset's name, or its settings {tricks:[…], phase:{from,to}, phase_y, phase_z, speed:{from,to}, delay:{from,to}, fade:{from,to}, direction, grid}, or a bare chain [{\\\"Block\\\":2},{\\\"Wings\\\":2}].\"},\"speed\":{\"description\":\"The tempo source (default {\\\"Master\\\":\\\"Song\\\"}); {\\\"Bpm\\\":120}, {\\\"Hz\\\":2}.\"},\"once\":{\"description\":\"A one-shot: runs once and holds its last step.\",\"type\":\"boolean\"},\"family\":{\"description\":\"Its family, for the picker.\",\"type\":\"string\"},\"about\":{\"description\":\"One line for the picker.\",\"type\":\"string\"},\"tags\":{\"description\":\"Tags.\",\"type\":\"array\"},\"folder\":{\"description\":\"Folder.\",\"type\":\"string\"},\"scope\":{\"description\":\"Which layer is written: `set` (the set's library, the default) or `song` (that song's overrides; needs `song`).\",\"type\":\"string\"},\"replace\":{\"description\":\"Write over an effect of that name.\",\"type\":\"boolean\"},\"dry_run\":{\"description\":\"Answer the effect and save nothing.\",\"type\":\"boolean\"}},\"required\":[\"name\",\"target\"]}"
+
+[[actions]]
+id = "IGNITION_EFFECT_PREVIEW"
+name = "Lighting: preview an effect"
+description = "Runs an effect (`effect` by name, a `recipe`, or IGNITION_EFFECT_MAKE's parameters) on a target of an environment and answers what every fixture does at each sample of the loop. Saves nothing."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"effect\":{\"description\":\"A library effect.\",\"type\":\"string\"},\"recipe\":{\"description\":\"A recipe written in place.\",\"type\":\"object\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"},\"tricks\":{\"description\":\"Tricks: a trick preset's name, or its settings {tricks:[…], phase:{from,to}, phase_y, phase_z, speed:{from,to}, delay:{from,to}, fade:{from,to}, direction, grid}, or a bare chain [{\\\"Block\\\":2},{\\\"Wings\\\":2}].\"},\"bpm\":{\"description\":\"The tempo (default 120).\",\"type\":\"number\"},\"beats_shown\":{\"description\":\"How many beats to show (default one loop).\",\"type\":\"number\"},\"samples\":{\"description\":\"Samples across them (default 8, at most 64).\",\"type\":\"integer\"},\"what\":{\"description\":\"As IGNITION_EFFECT_MAKE.\",\"type\":\"string\"},\"shape\":{\"description\":\"As IGNITION_EFFECT_MAKE.\",\"type\":\"string\"},\"beats\":{\"description\":\"As IGNITION_EFFECT_MAKE.\",\"type\":\"number\"},\"depth\":{\"description\":\"As IGNITION_EFFECT_MAKE.\",\"type\":\"number\"},\"spread_deg\":{\"description\":\"As IGNITION_EFFECT_MAKE.\",\"type\":\"number\"}}}"
+
+[[actions]]
+id = "IGNITION_TRICKS_UNITS"
+name = "Lighting: the units tricks make"
+description = "Cuts a target into units with tricks and answers each unit's fixtures, its place on the selection grid (x along the selection, y across, z up, read from where the fixtures hang, or a preset's hand-made grid), and its phase, rate, delay and fade under the preset's spreads. With no `tricks`: the grid itself. `step` names one unit (wrapping): next and previous."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"},\"tricks\":{\"description\":\"Tricks: a trick preset's name, or its settings {tricks:[…], phase:{from,to}, phase_y, phase_z, speed:{from,to}, delay:{from,to}, fade:{from,to}, direction, grid}, or a bare chain [{\\\"Block\\\":2},{\\\"Wings\\\":2}].\"},\"step\":{\"description\":\"Which unit to answer as `step` (wraps; negative counts back).\",\"type\":\"integer\"}},\"required\":[\"target\"]}"
+
+[[actions]]
+id = "IGNITION_TRICKS_APPLY"
+name = "Lighting: put tricks on a cue's effects"
+description = "Puts a trick preset on a cue's effect parts (those of `target`, or the one named `effect`): its tricks, phase, speed and direction go on the part, its delay and fade become the cue's fan. A part that names a library effect becomes that effect written in place."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"cue\":{\"description\":\"The cue's name.\",\"type\":\"string\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"},\"effect\":{\"description\":\"Only the part of this effect or name.\",\"type\":\"string\"},\"tricks\":{\"description\":\"Tricks: a trick preset's name, or its settings {tricks:[…], phase:{from,to}, phase_y, phase_z, speed:{from,to}, delay:{from,to}, fade:{from,to}, direction, grid}, or a bare chain [{\\\"Block\\\":2},{\\\"Wings\\\":2}].\"},\"statics\":{\"description\":\"Also put the tricks on static parts.\",\"type\":\"boolean\"}},\"required\":[\"song\",\"cue\",\"tricks\"]}"
+
+[[actions]]
+id = "IGNITION_SONG_LIST"
+name = "Lighting: the show's songs"
+description = "Every song of the show: title, set, file, counts of cues, triggers, sections and markers, and its palette."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_SONG_GET"
+name = "Lighting: a song's show"
+description = "A song: its sections (with the cue that opens each), its markers by kind, every cue with its position and parts, its palette's slots and what it overrides."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"markers\":{\"description\":\"List every marker instead of counting them by kind.\",\"type\":\"boolean\"}},\"required\":[\"song\"]}"
+
+[[actions]]
+id = "IGNITION_SONG_CREATE"
+name = "Lighting: add a song"
+description = "Adds a song to the show with an empty cue list (and the show file, when there is none yet)."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"title\":{\"description\":\"The song's title.\",\"type\":\"string\"},\"locator\":{\"description\":\"Its locator in the Live set (default the title).\",\"type\":\"string\"},\"set\":{\"description\":\"Which set of the night.\",\"type\":\"string\"},\"sections\":{\"description\":\"Its section map: [{name, bars, bar?}].\",\"type\":\"array\"},\"file\":{\"description\":\"Its file, relative to the show (default ../songs/<show>/<slug>.json).\",\"type\":\"string\"}},\"required\":[\"title\"]}"
+
+[[actions]]
+id = "IGNITION_SONG_MAP_SET"
+name = "Lighting: set a song's sections and markers"
+description = "Sets the song's section map ([{name, bars, bar?}]) and adds markers ([{name?, kind, bar, beat, strength?}]: kick, snare, a stop), then resolves every cue's bar again."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"sections\":{\"description\":\"[{name, bars, bar?}], in order.\",\"type\":\"array\"},\"markers\":{\"description\":\"[{name?, kind, bar, beat, strength?}].\",\"type\":\"array\"},\"replace_markers\":{\"description\":\"Drop the markers there first.\",\"type\":\"boolean\"}},\"required\":[\"song\"]}"
+
+[[actions]]
+id = "IGNITION_SONG_MAP_IMPORT"
+name = "Lighting: section maps from the Live set"
+description = "Reads every song's sections from the Live set (its locator's range) into the song files and resolves the cues again."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"live_set\":{\"description\":\"The .als (default IGNITION_LIVE_SET).\",\"type\":\"string\"},\"song\":{\"description\":\"Only this song.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_SONG_SLOTS"
+name = "Lighting: a song's colours as palette slots"
+description = "Makes the colours a song's cues name into slots (White, Primary, Secondary, Tertiary, Accent…, by use), adds a palette of the song's name holding them to the set's library, and points the cues at the slots. The look is unchanged; another palette now re-skins it."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"}},\"required\":[\"song\"]}"
+
+[[actions]]
+id = "IGNITION_SONG_BAKE"
+name = "Lighting: a song with its library written in"
+description = "Writes a copy of a song's cue list with nothing left to look up in the library: slot and library colours as values, the library's effects and looks in place, its focus points as points. For a player that does not read the library (the viz tool, a session lane, a copy sent elsewhere). The song's file is not changed."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"to\":{\"description\":\"Where the copy goes.\",\"type\":\"string\"}},\"required\":[\"song\",\"to\"]}"
+
+[[actions]]
+id = "IGNITION_CUE_GET"
+name = "Lighting: a cue"
+description = "One cue as the file has it."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"cue\":{\"description\":\"Its name, its number, or {index}.\"}},\"required\":[\"song\",\"cue\"]}"
+
+[[actions]]
+id = "IGNITION_CUE_ADD"
+name = "Lighting: add a cue"
+description = "Adds a cue at a position, with parts."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"name\":{\"description\":\"The cue's name.\",\"type\":\"string\"},\"at\":{\"description\":\"Where: a bar (12), \\\"bar.beat\\\" (\\\"12.3\\\"), a section (\\\"Chorus 1\\\", \\\"Chorus 1+2\\\" two bars in, \\\"Chorus 1#2\\\" its second occurrence), {marker: name}, or the file's own form.\"},\"parts\":{\"description\":\"What the cue gets: one part or a list. A part is {target, dimmer?, color? (a colour or palette slot), split?, focus? (a focus point's name or {x,y,z}), beam?, raw?} for a static part, {target, effect, bars?, depth?, tricks?, name?} for an effect, or {look}. `clear: true` drops the target's other parts first.\"},\"fade_secs\":{\"description\":\"Arrival time, seconds (default 0.75).\",\"type\":\"number\"},\"block\":{\"description\":\"Start from nothing instead of tracking.\",\"type\":\"boolean\"},\"note\":{\"description\":\"Why it is the way it is.\",\"type\":\"string\"},\"set\":{\"description\":\"Any other keys of the cue (timing, fan, mib, trig…).\",\"type\":\"object\"}},\"required\":[\"song\",\"name\",\"at\"]}"
+
+[[actions]]
+id = "IGNITION_CUE_UPDATE"
+name = "Lighting: change, move or retime a cue"
+description = "Changes a cue: `at` moves it, `set` merges keys (name, fade_secs, block, note, timing, fan…), `parts` puts parts on it, `remove` ({target?, effect?, look?}) takes parts off."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"cue\":{\"description\":\"Its name, its number, or {index}.\"},\"at\":{\"description\":\"Where: a bar (12), \\\"bar.beat\\\" (\\\"12.3\\\"), a section (\\\"Chorus 1\\\", \\\"Chorus 1+2\\\" two bars in, \\\"Chorus 1#2\\\" its second occurrence), {marker: name}, or the file's own form.\"},\"set\":{\"description\":\"Keys to change.\",\"type\":\"object\"},\"parts\":{\"description\":\"What the cue gets: one part or a list. A part is {target, dimmer?, color? (a colour or palette slot), split?, focus? (a focus point's name or {x,y,z}), beam?, raw?} for a static part, {target, effect, bars?, depth?, tricks?, name?} for an effect, or {look}. `clear: true` drops the target's other parts first.\"},\"remove\":{\"description\":\"{target?, effect?, look?}: the parts to take off.\",\"type\":\"object\"}},\"required\":[\"song\",\"cue\"]}"
+
+[[actions]]
+id = "IGNITION_CUE_DUPLICATE"
+name = "Lighting: copy a cue"
+description = "Copies a cue to another position."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"cue\":{\"description\":\"The cue to copy.\"},\"at\":{\"description\":\"Where: a bar (12), \\\"bar.beat\\\" (\\\"12.3\\\"), a section (\\\"Chorus 1\\\", \\\"Chorus 1+2\\\" two bars in, \\\"Chorus 1#2\\\" its second occurrence), {marker: name}, or the file's own form.\"},\"name\":{\"description\":\"The copy's name.\",\"type\":\"string\"}},\"required\":[\"song\",\"cue\",\"at\"]}"
+
+[[actions]]
+id = "IGNITION_CUE_DELETE"
+name = "Lighting: delete a cue"
+description = "Removes a cue."
+group = "Lighting"
+effect = "destructive"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"cue\":{\"description\":\"Its name, its number, or {index}.\"}},\"required\":[\"song\",\"cue\"]}"
+
+[[actions]]
+id = "IGNITION_SECTION_APPLY"
+name = "Lighting: put a look on sections"
+description = "Puts parts on the cue that opens each named section (made if the section has none): a palette slot or colour, a level, an effect, a look."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"section\":{\"description\":\"A section name, \\\"Chorus 1#2\\\", \\\"kind:chorus\\\" (verse, pre, chorus, bridge, solo, break, intro, outro), \\\"*\\\", or a list.\"},\"parts\":{\"description\":\"What the cue gets: one part or a list. A part is {target, dimmer?, color? (a colour or palette slot), split?, focus? (a focus point's name or {x,y,z}), beam?, raw?} for a static part, {target, effect, bars?, depth?, tricks?, name?} for an effect, or {look}. `clear: true` drops the target's other parts first.\"}},\"required\":[\"song\",\"section\",\"parts\"]}"
+
+[[actions]]
+id = "IGNITION_SECTION_COPY"
+name = "Lighting: copy a section's look"
+description = "Copies the look of a section's cue (its parts, fade and timing) onto other sections, of the same song or of `to_song`."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"from\":{\"description\":\"The section copied.\",\"type\":\"string\"},\"to\":{\"description\":\"The sections written: a name, \\\"kind:chorus\\\", \\\"*\\\" or a list.\"},\"to_song\":{\"description\":\"Another song of the show.\",\"type\":\"string\"}},\"required\":[\"song\",\"from\",\"to\"]}"
+
+[[actions]]
+id = "IGNITION_FILL_SECTIONS"
+name = "Lighting: a look per section"
+description = "Fills from the section map: `looks` maps a section's kind (intro, verse, pre, chorus, bridge, solo, break, outro, other, or *) or its name to the parts it gets. Answers the plan section by section; `dry_run` writes nothing."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"looks\":{\"description\":\"{kind or section name: parts}.\",\"type\":\"object\"},\"replace\":{\"description\":\"Empty each section's cue first.\",\"type\":\"boolean\"},\"block\":{\"description\":\"Set every section cue's block.\",\"type\":\"boolean\"},\"dry_run\":{\"description\":\"Answer the plan and write nothing.\",\"type\":\"boolean\"}},\"required\":[\"song\",\"looks\"]}"
+
+[[actions]]
+id = "IGNITION_FILL_HITS"
+name = "Lighting: accents on hits"
+description = "Adds a trigger (a one-shot bump on `target`) at every marker of a `kind`, or every hit of a `hits` file (a band, above a strength). Answers what it would add; `dry_run` writes nothing."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"},\"kind\":{\"description\":\"The markers' kind (kick, snare…).\",\"type\":\"string\"},\"hits\":{\"description\":\"A hits file instead of markers (as data/songs/bye-bye-bye.hits.json).\",\"type\":\"string\"},\"band\":{\"description\":\"With `hits`: Low, Mid or High.\",\"type\":\"string\"},\"min_strength\":{\"description\":\"Only hits at least this strong.\",\"type\":\"number\"},\"section\":{\"description\":\"Only inside these sections.\"},\"bump\":{\"description\":\"Level, White, ColorBoost or Burst (default Level).\",\"type\":\"string\"},\"depth\":{\"description\":\"How hard, 0 to 1 (default 0.6).\",\"type\":\"number\"},\"name\":{\"description\":\"The triggers' name prefix (default the kind).\",\"type\":\"string\"},\"replace\":{\"description\":\"Drop the triggers of that name first.\",\"type\":\"boolean\"},\"dry_run\":{\"description\":\"Answer the plan and write nothing.\",\"type\":\"boolean\"}},\"required\":[\"song\",\"target\"]}"
+
+[[actions]]
+id = "IGNITION_TRIGGER_LIST"
+name = "Lighting: a song's triggers"
+description = "The song's triggers: name, position and target."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"name\":{\"description\":\"Only names starting with this.\",\"type\":\"string\"}},\"required\":[\"song\"]}"
+
+[[actions]]
+id = "IGNITION_TRIGGER_CLEAR"
+name = "Lighting: remove triggers"
+description = "Removes the song's triggers (those whose name starts with `name`)."
+group = "Lighting"
+effect = "destructive"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"song\":{\"description\":\"A song of the show: its title, locator or slug, or a path to its file.\",\"type\":\"string\"},\"name\":{\"description\":\"Only names starting with this.\",\"type\":\"string\"}},\"required\":[\"song\"]}"
+
+[[actions]]
+id = "IGNITION_SET_EACH"
+name = "Lighting: an action over every song"
+description = "Runs one action for every lit song of the show (or `songs`), `args.song` set to each, as one history step."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"action\":{\"description\":\"The action's id.\",\"type\":\"string\"},\"args\":{\"description\":\"Its arguments, without `song`.\",\"type\":\"object\"},\"songs\":{\"description\":\"Only these songs.\",\"type\":\"array\"},\"unlit\":{\"description\":\"Unlit songs too.\",\"type\":\"boolean\"}},\"required\":[\"action\"]}"
+
+[[actions]]
+id = "IGNITION_SET_CHECK"
+name = "Lighting: check the set"
+description = "What the set's songs refer to that is not there: colours, slots, palettes, effects, looks, bundles, splits, tricks, focus points, roles (and roles the room binds nothing to), groups, sections."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_ENV_LIST"
+name = "Lighting: the environments"
+description = "Every environment under data/venues: fixtures, universes, people, and which the show uses."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_ENV_GET"
+name = "Lighting: an environment"
+description = "One environment: its room (floor, walls, audience), props (truss, risers, people), screens, people, groups, role bindings, focus points and where its universes go."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_ENV_CREATE"
+name = "Lighting: make an environment"
+description = "A room from its dimensions (metres): a floor and four walls, and when asked a stage riser, an audience area and trusses. Empty of fixtures; seven focus points and the Wide and Top cameras come with it."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"name\":{\"description\":\"Its name (the folder is its slug).\",\"type\":\"string\"},\"title\":{\"description\":\"What it is called.\",\"type\":\"string\"},\"width\":{\"description\":\"Across, metres.\",\"type\":\"number\"},\"depth\":{\"description\":\"Front to back, metres.\",\"type\":\"number\"},\"height\":{\"description\":\"Metres (default 4).\",\"type\":\"number\"},\"upstage\":{\"description\":\"How far the upstage wall is behind the origin (default a fifth of the depth).\",\"type\":\"number\"},\"stage\":{\"description\":\"{width, depth, height, y}: a riser.\",\"type\":\"object\"},\"audience\":{\"description\":\"{depth, width, front}: the audience area.\",\"type\":\"object\"},\"truss\":{\"description\":\"[{name, x, y, z, width, turn}].\",\"type\":\"array\"}},\"required\":[\"name\",\"width\",\"depth\"]}"
+
+[[actions]]
+id = "IGNITION_ENV_DUPLICATE"
+name = "Lighting: duplicate an environment"
+description = "Copies an environment's files under another name, as a starting point."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"as\":{\"description\":\"The copy's name.\",\"type\":\"string\"},\"title\":{\"description\":\"What the copy is called.\",\"type\":\"string\"}},\"required\":[\"as\"]}"
+
+[[actions]]
+id = "IGNITION_ENV_USE"
+name = "Lighting: switch the show's environment"
+description = "Points the show at another environment."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"The environment's name.\",\"type\":\"string\"}},\"required\":[\"env\"]}"
+
+[[actions]]
+id = "IGNITION_ENV_PIECE_SET"
+name = "Lighting: add or change a piece of the room"
+description = "Adds or changes a piece by name: a wall, the floor, the audience area (`in: room`), a truss, a riser or any prop (`in: props`), a screen (`in: screens`). Position is its centre on the floor, size {x across, y deep, z tall}, eulers degrees."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"name\":{\"description\":\"The piece.\",\"type\":\"string\"},\"in\":{\"description\":\"room (default), props or screens.\",\"type\":\"string\"},\"position\":{\"description\":\"{x, y, z} metres.\",\"type\":\"object\"},\"size\":{\"description\":\"{x, y, z} metres.\",\"type\":\"object\"},\"eulers\":{\"description\":\"{x, y, z} degrees.\",\"type\":\"object\"},\"kind\":{\"description\":\"floor, wall, audience, truss, riser…\",\"type\":\"string\"},\"set\":{\"description\":\"Any other keys.\",\"type\":\"object\"}},\"required\":[\"name\"]}"
+
+[[actions]]
+id = "IGNITION_ENV_PIECE_REMOVE"
+name = "Lighting: remove a piece of the room"
+description = "Removes a piece by name."
+group = "Lighting"
+effect = "destructive"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"name\":{\"description\":\"The piece.\",\"type\":\"string\"},\"in\":{\"description\":\"room (default), props or screens.\",\"type\":\"string\"}},\"required\":[\"name\"]}"
+
+[[actions]]
+id = "IGNITION_PERSON_SET"
+name = "Lighting: place or move a person"
+description = "Places a performer or stand-in (or several, `people`): position on the floor, facing, height, a label such as the instrument; `move` shifts by {x, y, z}. Each is a prop the visualizer draws and a focus point at head height under their name."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"name\":{\"description\":\"Who.\",\"type\":\"string\"},\"label\":{\"description\":\"Their instrument or part.\",\"type\":\"string\"},\"position\":{\"description\":\"{x, y, z} metres.\",\"type\":\"object\"},\"facing_deg\":{\"description\":\"Which way they face, degrees (0: downstage).\",\"type\":\"number\"},\"height\":{\"description\":\"Metres (default 1.75).\",\"type\":\"number\"},\"stand_in\":{\"description\":\"A stand-in rather than the performer.\",\"type\":\"boolean\"},\"move\":{\"description\":\"{x, y, z}: shift by this.\",\"type\":\"object\"},\"people\":{\"description\":\"Several at once: a list of the same keys.\",\"type\":\"array\"}}}"
+
+[[actions]]
+id = "IGNITION_PERSON_REMOVE"
+name = "Lighting: remove a person"
+description = "Removes a person, their prop and their focus point."
+group = "Lighting"
+effect = "destructive"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"name\":{\"description\":\"Who.\",\"type\":\"string\"}},\"required\":[\"name\"]}"
+
+[[actions]]
+id = "IGNITION_PEOPLE_LIST"
+name = "Lighting: where people stand"
+description = "The people, each with their head's point; with `song` (and `section`) as that song's blocking has them."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"song\":{\"description\":\"A song's blocking.\",\"type\":\"string\"},\"section\":{\"description\":\"One section's.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_BLOCKING_SET"
+name = "Lighting: save positions for a song or section"
+description = "Saves where people stand for a song (`section` *, the default) or one section: {name: {x, y, z?, facing_deg?}}. `show: true` also moves the room's people there."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"Move the room's people there too.\",\"type\":\"boolean\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"song\":{\"description\":\"The song.\",\"type\":\"string\"},\"section\":{\"description\":\"A section, or * for the whole song.\",\"type\":\"string\"},\"positions\":{\"description\":\"{person: {x, y, z?, facing_deg?}}.\",\"type\":\"object\"}},\"required\":[\"song\"]}"
+
+[[actions]]
+id = "IGNITION_FOCUS_ON"
+name = "Lighting: focus fixtures on a person or point"
+description = "Aims fixtures at a person (as the song or section has them standing), a focus point or a point: answers the pan and tilt each needs from where it hangs. With `song` and a `section` or `cue`, puts that focus on the cue's part for the target."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"},\"person\":{\"description\":\"A person of the environment.\",\"type\":\"string\"},\"focus\":{\"description\":\"A focus point or focus role.\",\"type\":\"string\"},\"point\":{\"description\":\"{x, y, z} metres.\",\"type\":\"object\"},\"song\":{\"description\":\"Write the focus into this song.\",\"type\":\"string\"},\"section\":{\"description\":\"On this section's cue.\",\"type\":\"string\"},\"cue\":{\"description\":\"Or on this cue.\",\"type\":\"string\"},\"dimmer\":{\"description\":\"A level for the part too.\",\"type\":\"number\"}},\"required\":[\"target\"]}"
+
+[[actions]]
+id = "IGNITION_FOCUS_SET"
+name = "Lighting: add, move or remove a focus point"
+description = "Adds or moves a named point of the room (a position palette entry every show there shares); `remove: true` deletes it."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"name\":{\"description\":\"The point.\",\"type\":\"string\"},\"target\":{\"description\":\"{x, y, z} metres.\",\"type\":\"object\"},\"remove\":{\"description\":\"Delete it.\",\"type\":\"boolean\"}},\"required\":[\"name\"]}"
+
+[[actions]]
+id = "IGNITION_FIXTURE_TYPES"
+name = "Lighting: the fixture types"
+description = "The fixture types (data/fixtures): each type's modes with their channel counts, beam angle and size."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"search\":{\"description\":\"Only types containing this.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_FIXTURE_LIST"
+name = "Lighting: the fixtures"
+description = "The environment's fixtures (or a target's, in its order): channel, name, type, mode, position, rotation, tags, groups and address."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"}}}"
+
+[[actions]]
+id = "IGNITION_FIXTURE_ADD"
+name = "Lighting: hang fixtures"
+description = "Hangs `count` fixtures of a type from `position`, `step` apart, on the next free channels and addresses of `universe`, into `groups`."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"type\":{\"description\":\"A fixture type (IGNITION_FIXTURE_TYPES).\",\"type\":\"string\"},\"mode\":{\"description\":\"Its mode (default its first).\",\"type\":\"string\"},\"name\":{\"description\":\"Their name (numbered when several).\",\"type\":\"string\"},\"count\":{\"description\":\"How many (default 1).\",\"type\":\"integer\"},\"position\":{\"description\":\"{x, y, z} metres: the first one.\",\"type\":\"object\"},\"step\":{\"description\":\"{x, y, z}: from each to the next.\",\"type\":\"object\"},\"aim\":{\"description\":\"{x, y, z}: a point each one's beam points at, at rest (the hang is worked out; with none they hang pointing straight down).\",\"type\":\"object\"},\"eulers\":{\"description\":\"{x, y, z} degrees: the hang as rotations instead.\",\"type\":\"object\"},\"quat\":{\"description\":\"{w, x, y, z}: the hang as a quaternion instead.\",\"type\":\"object\"},\"tags\":{\"description\":\"Tags.\",\"type\":\"array\"},\"groups\":{\"description\":\"Groups they join (made if missing).\",\"type\":\"array\"},\"universe\":{\"description\":\"Default 1.\",\"type\":\"integer\"},\"address\":{\"description\":\"The first address (default the next free).\",\"type\":\"integer\"},\"chan\":{\"description\":\"The first channel (default the next free).\",\"type\":\"integer\"}},\"required\":[\"type\",\"position\"]}"
+
+[[actions]]
+id = "IGNITION_FIXTURE_SET"
+name = "Lighting: move, turn or change fixtures"
+description = "Changes fixtures (`chan`, `chans` or a `target`): `position` places, `move` shifts, `aim` (a point the beam points at, at rest), `eulers` or `quat` re-hangs, `mode` and `type` change what they are on the wire, `name`, `label`, `tags`. Answers the patch problems the change leaves."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"chan\":{\"description\":\"One fixture.\",\"type\":\"integer\"},\"chans\":{\"description\":\"Several.\",\"type\":\"array\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"},\"position\":{\"description\":\"{x, y, z}.\",\"type\":\"object\"},\"move\":{\"description\":\"{x, y, z}: shift by this.\",\"type\":\"object\"},\"aim\":{\"description\":\"{x, y, z}: re-hang so the beam points here at rest.\",\"type\":\"object\"},\"eulers\":{\"description\":\"{x, y, z} degrees.\",\"type\":\"object\"},\"quat\":{\"description\":\"{w, x, y, z}.\",\"type\":\"object\"},\"mode\":{\"description\":\"A mode of its type.\",\"type\":\"string\"},\"type\":{\"description\":\"Another fixture type.\",\"type\":\"string\"},\"name\":{\"description\":\"Name.\",\"type\":\"string\"},\"label\":{\"description\":\"The operator's own word for it.\",\"type\":\"string\"},\"tags\":{\"description\":\"Tags.\",\"type\":\"array\"}}}"
+
+[[actions]]
+id = "IGNITION_FIXTURE_REMOVE"
+name = "Lighting: remove fixtures"
+description = "Takes fixtures out of the environment and out of its groups."
+group = "Lighting"
+effect = "destructive"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"chan\":{\"description\":\"One fixture.\",\"type\":\"integer\"},\"chans\":{\"description\":\"Several.\",\"type\":\"array\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"}}}"
+
+[[actions]]
+id = "IGNITION_GROUP_LIST"
+name = "Lighting: the groups and role bindings"
+description = "The environment's groups with their channels, and which selection each role of the profile is bound to."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_GROUP_SET"
+name = "Lighting: make or change a group"
+description = "Sets a group's fixtures (`chans` or a `target`); `add: true` adds to it, `delete: true` removes the group."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"name\":{\"description\":\"The group.\",\"type\":\"string\"},\"chans\":{\"description\":\"Its channels, in order.\",\"type\":\"array\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"},\"add\":{\"description\":\"Add to the group instead of replacing it.\",\"type\":\"boolean\"},\"delete\":{\"description\":\"Remove the group.\",\"type\":\"boolean\"}},\"required\":[\"name\"]}"
+
+[[actions]]
+id = "IGNITION_ROLE_BIND"
+name = "Lighting: bind a role"
+description = "Says which fixtures of this room play a role of the profile: `to` a group or a selection (null unbinds); `focus` binds a focus role to a focus point."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"role\":{\"description\":\"The role (Key, Wash, Back, Movers…; or a focus role with `focus`).\",\"type\":\"string\"},\"to\":{\"description\":\"A group's name, a selection, or null.\"},\"focus\":{\"description\":\"A focus point's name, or null.\"}},\"required\":[\"role\"]}"
+
+[[actions]]
+id = "IGNITION_PATCH_GET"
+name = "Lighting: the patch"
+description = "The whole patch: every fixture's universe, address, footprint and last address; each universe's use, free space and output; and every conflict (overlap, out of range, unaddressed, a universe with no output)."
+group = "Lighting"
+effect = "read_only"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"}}}"
+
+[[actions]]
+id = "IGNITION_PATCH_SET"
+name = "Lighting: re-address fixtures"
+description = "Moves fixtures on the wire: one (`chan`, `universe`, `address`) or several (`moves`). Refused whole, with the overlaps, when it would conflict, unless `force`. `patched: false` parks a fixture."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"chan\":{\"description\":\"The fixture.\",\"type\":\"integer\"},\"universe\":{\"description\":\"Its universe.\",\"type\":\"integer\"},\"address\":{\"description\":\"Its first address, 1 to 512.\",\"type\":\"integer\"},\"patched\":{\"description\":\"Whether it is on the wire.\",\"type\":\"boolean\"},\"moves\":{\"description\":\"Several: [{chan, universe, address, patched?}].\",\"type\":\"array\"},\"force\":{\"description\":\"Write it even with conflicts.\",\"type\":\"boolean\"}}}"
+
+[[actions]]
+id = "IGNITION_PATCH_PACK"
+name = "Lighting: pack fixtures end to end"
+description = "Addresses fixtures one after another from `address` in `universe`, in the target's order."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"target\":{\"description\":\"Fixtures: a role or group name, a list of channels, or a selection (the file's own form, e.g. {\\\"Role\\\":\\\"Wash\\\"}).\"},\"chans\":{\"description\":\"Or these channels.\",\"type\":\"array\"},\"universe\":{\"description\":\"Default 1.\",\"type\":\"integer\"},\"address\":{\"description\":\"Where the first goes (default 1).\",\"type\":\"integer\"},\"force\":{\"description\":\"Write it even with conflicts.\",\"type\":\"boolean\"}}}"
+
+[[actions]]
+id = "IGNITION_PATCH_ROUTE"
+name = "Lighting: route a universe to an output"
+description = "Where a universe goes: `sacn` ({priority, universe?}), `artnet` ({net, subnet, universe}), `enabled`; a null drops a protocol, `remove: true` the route."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"universe\":{\"description\":\"The universe.\",\"type\":\"integer\"},\"sacn\":{\"description\":\"{priority, universe?} or null.\"},\"artnet\":{\"description\":\"{net, subnet, universe} or null.\"},\"enabled\":{\"description\":\"Whether it is sent.\",\"type\":\"boolean\"},\"max_hz\":{\"description\":\"Its rate limit.\",\"type\":\"number\"},\"remove\":{\"description\":\"Drop the route.\",\"type\":\"boolean\"}},\"required\":[\"universe\"]}"
+
+# <<< programming actions

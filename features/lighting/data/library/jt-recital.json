@@ -1,0 +1,219 @@
+{
+  "palettes": {
+    "DTLA Cinematic Intro": {
+      "about": "DTLA Cinematic Intro as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Indigo",
+        "Secondary": "Amber",
+        "Tertiary": "Deep Blue",
+        "White": "Cool White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Drive To LA": {
+      "about": "Drive To LA as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Magenta",
+        "Secondary": "Amber",
+        "Tertiary": "Hot",
+        "White": "Warm White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Figure It Out": {
+      "about": "Figure It Out as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Deep Red",
+        "Secondary": "Red",
+        "White": "Cool White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Fire": {
+      "about": "Fire as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Deep Red",
+        "Secondary": "Amber",
+        "Tertiary": "Red",
+        "White": "Warm White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "For You": {
+      "about": "For You as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Pink",
+        "Secondary": "Lavender",
+        "White": "Warm White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Heart Isn't Ready": {
+      "about": "Heart Isn't Ready as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Congo",
+        "Secondary": "Red",
+        "Tertiary": "Deep Red",
+        "White": "Warm White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Hey!": {
+      "about": "Hey! as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Cyan",
+        "Secondary": "Gold",
+        "Tertiary": "Straw",
+        "White": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Know Me (Extended)": {
+      "about": "Know Me (Extended) as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Blue",
+        "Secondary": "Turquoise",
+        "Tertiary": "Cyan",
+        "White": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "No One Knows": {
+      "about": "No One Knows as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Deep Red",
+        "Secondary": "Red",
+        "White": "Cool White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Not Too Much Longer (Live)": {
+      "about": "Not Too Much Longer (Live) as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Straw",
+        "Secondary": "Deep Amber",
+        "Tertiary": "Gold",
+        "White": "Warm White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Out Of The Black": {
+      "about": "Out Of The Black as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Magenta",
+        "Secondary": "Deep Red",
+        "Tertiary": "Red",
+        "White": "Cool White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Sad But True": {
+      "about": "Sad But True as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Deep Blue",
+        "Secondary": "Congo",
+        "White": "Cool White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Seven Nation Army": {
+      "about": "Seven Nation Army as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Red",
+        "Secondary": "Deep Red",
+        "White": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "She's American": {
+      "about": "She's American as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Red",
+        "Secondary": "Blue",
+        "White": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "Sleeptalker": {
+      "about": "Sleeptalker as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Purple",
+        "Secondary": "Indigo",
+        "Tertiary": "Lavender",
+        "White": "Cool White",
+        "White 2": "Warm White",
+        "White 3": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    },
+    "WORST PART OF YOU": {
+      "about": "WORST PART OF YOU as it was programmed",
+      "folder": "Songs",
+      "slots": {
+        "Primary": "Deep Red",
+        "Secondary": "Purple",
+        "Tertiary": "Magenta",
+        "White": "Cool White",
+        "White 2": "Open White"
+      },
+      "tags": [
+        "song"
+      ]
+    }
+  },
+  "version": 1
+}
