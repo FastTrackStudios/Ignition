@@ -1313,7 +1313,7 @@
   },
   {
     "address": 165,
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 2.8,
     "chan": 35,
     "eulers": {
       "x": 0,
@@ -1348,7 +1348,7 @@
   },
   {
     "address": 177,
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 2.8,
     "chan": 36,
     "eulers": {
       "x": 0,
@@ -1383,7 +1383,7 @@
   },
   {
     "address": 189,
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 2.8,
     "chan": 37,
     "eulers": {
       "x": 0,
@@ -1418,7 +1418,7 @@
   },
   {
     "address": 201,
-    "beam_angle_deg": 14.0,
+    "beam_angle_deg": 2.8,
     "chan": 38,
     "eulers": {
       "x": 0,
