@@ -108,14 +108,14 @@
       ]
     },
     "Know Me Night": {
-      "about": "Know Me: deep blue and turquoise beds, magenta for the choruses, amber for the solo",
+      "about": "Know Me: deep blue and turquoise at home, magenta for the choruses, amber for the solo, one warm white for faces",
       "slots": {
         "Accent": "Magenta",
         "Accent 2": "Amber",
         "Primary": "Deep Blue",
         "Secondary": "Turquoise",
         "Tertiary": "Cyan",
-        "White": "Open White"
+        "White": "Warm White"
       }
     },
     "No One Knows": {

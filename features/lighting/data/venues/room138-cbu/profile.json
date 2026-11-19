@@ -1,10 +1,17 @@
 {
-  "profile": "Ignition",
+  "canvases": {},
+  "colors": [],
+  "focus": {
+    "Audience": "Audience Front",
+    "Back Wall": "Band Wall",
+    "Band": "Upstage Centre",
+    "Drums": "Drums",
+    "House": "Audience Back",
+    "Stage": "Stage Wide",
+    "Vocal": "Vocal Centre"
+  },
   "groups": {
-    "Key": {
-      "Group": "Trees"
-    },
-    "Wash": {
+    "Audience": {
       "Group": "Towers"
     },
     "Back": {
@@ -13,31 +20,27 @@
     "Bars": {
       "Group": "Bars"
     },
-    "Floor": {
-      "Group": "Key Bars"
-    },
-    "Audience": {
-      "Group": "Towers"
+    "Beams": {
+      "Group": "Movers"
     },
     "Drums": {
       "Group": "Drum Towers"
     },
+    "Floor": {
+      "Group": "Key Bars"
+    },
+    "Key": {
+      "Group": "Trees"
+    },
     "Movers": {
       "Group": "Movers"
     },
-    "Beams": {
-      "Group": "Movers"
+    "Spot": {
+      "Group": "Key Guitar"
+    },
+    "Wash": {
+      "Group": "Towers"
     }
   },
-  "focus": {
-    "Vocal": "Vocal Centre",
-    "Stage": "Stage Wide",
-    "Audience": "Audience Front",
-    "Band": "Upstage Centre",
-    "Drums": "Drums",
-    "Back Wall": "Band Wall",
-    "House": "Audience Back"
-  },
-  "canvases": {},
-  "colors": []
+  "profile": "Ignition"
 }

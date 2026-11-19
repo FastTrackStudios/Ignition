@@ -37,6 +37,9 @@ name = "gencues"
 name = "authorshow"
 
 [[bin]]
+name = "lintshow"
+
+[[bin]]
 name = "lyrics"
 
 [[bin]]
