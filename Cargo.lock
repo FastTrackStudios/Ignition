@@ -14294,7 +14294,7 @@ dependencies = [
 [[package]]
 name = "session"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/session?rev=f186f34b8451e3a1543ac78a2c99d1ab02c1b352#f186f34b8451e3a1543ac78a2c99d1ab02c1b352"
+source = "git+https://github.com/FastTrackStudios/session?rev=568e9a30a2d858b68a617a94f40f2390f7ea022e#568e9a30a2d858b68a617a94f40f2390f7ea022e"
 dependencies = [
  "crdt",
  "facet",

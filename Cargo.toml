@@ -60,9 +60,9 @@ ignition-show = { path = "features/lighting/show" }
 ignition-session = { path = "features/lighting/session" }
 # The session primitive (FastTrackStudios/session): cue lists as its lanes
 # and items (features/lighting/session). By rev until it is tagged: a
-# commit of its `main`, the one Studio and Keyflow pin, so a build with all
+# commit of its `main`, the one Studio and Keyflow pin (on Architect v0.15.0), so a build with all
 # three has one `session`.
-session = { git = "https://github.com/FastTrackStudios/session", rev = "f186f34b8451e3a1543ac78a2c99d1ab02c1b352", default-features = false }
+session = { git = "https://github.com/FastTrackStudios/session", rev = "568e9a30a2d858b68a617a94f40f2390f7ea022e", default-features = false }
 ignition-effects = { path = "features/lighting/effects" }
 ignition-playback = { path = "features/lighting/playback" }
 ignition-core = { path = "features/lighting/core" }
