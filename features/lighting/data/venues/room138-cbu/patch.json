@@ -264,26 +264,6 @@
     "cell": 6
   },
   {
-    "chan": 25,
-    "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
-    "patched": true,
-    "universe": 1,
-    "address": 97,
-    "footprint": 6,
-    "source": "make_room138.py"
-  },
-  {
-    "chan": 26,
-    "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
-    "patched": true,
-    "universe": 1,
-    "address": 103,
-    "footprint": 6,
-    "source": "make_room138.py"
-  },
-  {
     "chan": 27,
     "manufacturer": "",
     "model": "36 LED Par Can",
@@ -404,26 +384,6 @@
     "source": "make_room138.py"
   },
   {
-    "chan": 39,
-    "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
-    "patched": true,
-    "universe": 1,
-    "address": 213,
-    "footprint": 6,
-    "source": "make_room138.py"
-  },
-  {
-    "chan": 40,
-    "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
-    "patched": true,
-    "universe": 1,
-    "address": 219,
-    "footprint": 6,
-    "source": "make_room138.py"
-  },
-  {
     "chan": 41,
     "manufacturer": "UKing",
     "model": "ZQ01334 15ch",
@@ -466,5 +426,357 @@
     "footprint": 15,
     "source": "the 15-channel profile in the owner's own desk file",
     "cell": 0
+  },
+  {
+    "chan": 45,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 301,
+    "footprint": 24,
+    "cell": 1,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 46,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 301,
+    "footprint": 24,
+    "cell": 2,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 47,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 301,
+    "footprint": 24,
+    "cell": 3,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 48,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 301,
+    "footprint": 24,
+    "cell": 4,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 49,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 301,
+    "footprint": 24,
+    "cell": 5,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 50,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 301,
+    "footprint": 24,
+    "cell": 6,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 51,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 301,
+    "footprint": 24,
+    "cell": 7,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 52,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 301,
+    "footprint": 24,
+    "cell": 8,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 53,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 325,
+    "footprint": 24,
+    "cell": 1,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 54,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 325,
+    "footprint": 24,
+    "cell": 2,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 55,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 325,
+    "footprint": 24,
+    "cell": 3,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 56,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 325,
+    "footprint": 24,
+    "cell": 4,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 57,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 325,
+    "footprint": 24,
+    "cell": 5,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 58,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 325,
+    "footprint": 24,
+    "cell": 6,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 59,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 325,
+    "footprint": 24,
+    "cell": 7,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 60,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 325,
+    "footprint": 24,
+    "cell": 8,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 61,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 349,
+    "footprint": 24,
+    "cell": 1,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 62,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 349,
+    "footprint": 24,
+    "cell": 2,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 63,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 349,
+    "footprint": 24,
+    "cell": 3,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 64,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 349,
+    "footprint": 24,
+    "cell": 4,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 65,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 349,
+    "footprint": 24,
+    "cell": 5,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 66,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 349,
+    "footprint": 24,
+    "cell": 6,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 67,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 349,
+    "footprint": 24,
+    "cell": 7,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 68,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 349,
+    "footprint": 24,
+    "cell": 8,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 69,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 373,
+    "footprint": 24,
+    "cell": 1,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 70,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 373,
+    "footprint": 24,
+    "cell": 2,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 71,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 373,
+    "footprint": 24,
+    "cell": 3,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 72,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 373,
+    "footprint": 24,
+    "cell": 4,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 73,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 373,
+    "footprint": 24,
+    "cell": 5,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 74,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 373,
+    "footprint": 24,
+    "cell": 6,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 75,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 373,
+    "footprint": 24,
+    "cell": 7,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
+  },
+  {
+    "chan": 76,
+    "manufacturer": "Solena",
+    "model": "Solena Max Bar 28 RGB 24ch",
+    "patched": true,
+    "universe": 1,
+    "address": 373,
+    "footprint": 24,
+    "cell": 8,
+    "source": "the bar in its 24-channel mode: eight sections, a red, green and blue each"
   }
 ]

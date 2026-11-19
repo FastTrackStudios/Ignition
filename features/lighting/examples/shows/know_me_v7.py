@@ -64,15 +64,17 @@ looks = {
  "PreChorus": faces(0.88) + dark(BR) + [st(W, 0.52, "Primary"), st(BK, 0.72, "Secondary"), st(FL, 0.30, "Secondary"),
           st(FI, 0.50, "Accent"), lamps(0.14), st(MV, 0.45, "Secondary", "Stage"),
           chords(BK, 0.12)],
+ # Each chorus lands with the wall filling across its sixteen sections in its colour, stage right to
+ # stage left, over the first two beats: the bars are run section by section, so light can travel.
  # Chorus 1 holds back the floor, the bars, the lamps, white and the fast moves.
- "Chorus": faces(0.95) + dark(FL, BR, AU) + [st(W, 0.60, "Accent"), st(BK, 0.74, "Accent"), st(FI, 0.45, "Accent"),
+ "Chorus": faces(0.95) + [fx(BK, "fill and hold", 0.5, None, 1.0)] + dark(FL, BR, AU) + [st(W, 0.60, "Accent"), st(BK, 0.74, "Accent"), st(FI, 0.45, "Accent"),
           st(MV, 0.70, "Primary", "Audience"), chords(FI, 0.22, cool=False), snare(BK, 0.14),
           fx(MV, "windmill", 2, "mirror", 0.6)],
  # Home again, in the other cold colour, with the band still driving under it.
  "Verse 2": faces(0.80) + dark(BR, AU) + [st(W, 0.42, "Tertiary"), st(BK, 0.45, "Primary"), st(FI, 0.38, "Tertiary"),
           st(FL, 0.18, "Primary"), st(MV, 0.32, "Tertiary", "Stage"), verse_chords(BK, 0.16), snare(FL, 0.10)],
  # Chorus 1 and two additions: the floor, and the lamps glinting through it.
- "Chorus 2": faces(1.00) + dark(BR) + [st(W, 0.78, "Accent"), st(BK, 0.90, "Accent"), st(FL, 0.62, "Accent"),
+ "Chorus 2": faces(1.00) + [fx(BK, "fill and hold", 0.5, None, 1.0)] + dark(BR) + [st(W, 0.78, "Accent"), st(BK, 0.90, "Accent"), st(FL, 0.62, "Accent"),
           st(FI, 0.58, "Accent"), lamps(0.14), st(MV, 0.85, "Primary", "Audience"), kick(FL, 0.18),
           snare(AU, 0.30), chords(BK, 0.16), fx(MV, "cross", 2, None, 0.7)],
  # The chart: a keytar solo, so the pool is centre (Key up, the guitarists'
@@ -84,7 +86,7 @@ looks = {
           chords(BK, 0.16), fx(FI, "fire flicker", 2, None, 0.5), fx(AU, "fire flicker", 4, "scatter", 0.8),
           fx(MV, "circle tight", 2, "pairs", 0.6)],
  # The last chorus: the only cue at full, and everything held back is spent.
- "Chorus 3": faces(1.00) + [st(W, 1.00, "Accent"), st(BK, 1.00, "Accent"), st(FL, 0.80, "Open White"), st(BR, 0.78, "Tertiary"),
+ "Chorus 3": faces(1.00) + [fx(BK, "fill and hold", 0.5, None, 1.0)] + [st(W, 1.00, "Accent"), st(BK, 1.00, "Accent"), st(FL, 0.80, "Open White"), st(BR, 0.78, "Tertiary"),
           st(FI, 1.00, "Accent"), lamps(0.50), st(MV, 1.00, "Open White", "Audience"),
           snare(AU, 0.45), kick(FL, 0.20), chords(BK, 0.14), fx(MV, "ballyhoo", 1, "scatter", 0.9)],
  # A voice and a piano: one face, the wall, the lamps like candles.

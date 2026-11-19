@@ -363,6 +363,35 @@ struct Guest {
     drain: bool,
 }
 
+/// Saves the view the pane is on as the preset on number key `digit`
+/// ("View 4" on 4), in the room's `cameras.json`, so the number recalls
+/// it from then on and in every later session.
+fn save_view(viz: &mut EmbeddedViz, digit: &str, state: &CameraState) {
+    let Ok(slot) = digit.parse::<u8>() else {
+        return;
+    };
+    let Some(mut active) = viz.app_mut().world_mut().get_resource_mut::<ActiveCamera>() else {
+        return;
+    };
+    let name = format!("View {digit}");
+    let mut preset = ignition_viz::camera::CameraPreset::new(
+        &name,
+        state.eye.to_array(),
+        state.look.to_array(),
+        state.fov_deg,
+    );
+    preset.about = "saved from the pane".to_owned();
+    active.cameras.store(preset);
+    active.cameras.set_slot(slot, &name);
+    match crate::night::VENUE_DIR.get() {
+        Some(dir) => match active.cameras.save(dir) {
+            Ok(()) => tracing::info!(camera.slot = slot, camera.name = %name, "camera: view saved"),
+            Err(error) => tracing::warn!(%error, "camera: the view was not written to the room"),
+        },
+        None => tracing::warn!("camera: no room folder to save the view in"),
+    }
+}
+
 #[derive(Debug, Clone)]
 enum CameraAsk {
     Free(CameraState),
@@ -489,9 +518,18 @@ impl Guest {
                 self.pending_camera = Some(CameraAsk::Free(self.orbit.state()));
             }
             ViewInput::Key {
-                key, down: true, ..
+                key,
+                down: true,
+                modifiers,
             } => {
-                if key.len() == 1 && key.chars().all(|c| c.is_ascii_digit()) {
+                let saving = ["Alt", "Ctrl", "Mod"].iter().any(|m| modifiers.contains(m));
+                if key.len() == 1 && key.chars().all(|c| c.is_ascii_digit()) && saving {
+                    // Alt, Ctrl or the platform key with a number: the
+                    // view the pane is on now is saved on that number.
+                    if let Some(state) = current() {
+                        save_view(viz, key, &state);
+                    }
+                } else if key.len() == 1 && key.chars().all(|c| c.is_ascii_digit()) {
                     if let Some(target) = CameraTarget::parse(key) {
                         self.pending_camera = Some(CameraAsk::Cut(target));
                     }

@@ -98,6 +98,10 @@ pub fn venue_look(venue_dir: &Path) -> (Option<f32>, Option<f32>, Option<f32>) {
     (number("haze"), number("exposure"), number("output"))
 }
 
+/// The room's folder, for what the running room writes back into it
+/// (a camera view saved from the pane).
+pub static VENUE_DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
 /// The room's own fill with every fixture off (`look.ambient`, where one
 /// is a dim worklight): a room with no other light source says a small
 /// number, so dark is dark.

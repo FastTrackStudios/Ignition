@@ -240,19 +240,64 @@
       ],
       "fov_deg": 65.0,
       "about": "From behind the curtain, looking out at the band's backs and the house: the curtain is seen through from here."
+    },
+    {
+      "name": "Audience - Middle",
+      "eye": [
+        0.0,
+        -4.0,
+        1.6
+      ],
+      "look": [
+        0.0,
+        0.2,
+        1.5
+      ],
+      "fov_deg": 60.0,
+      "about": "Standing in the middle of the crowd, at eye height, with about what a person takes in."
+    },
+    {
+      "name": "Audience - Front",
+      "eye": [
+        0.0,
+        -2.9,
+        1.6
+      ],
+      "look": [
+        0.0,
+        0.2,
+        1.5
+      ],
+      "fov_deg": 60.0,
+      "about": "The front row, at eye height."
+    },
+    {
+      "name": "Audience - Back",
+      "eye": [
+        0.0,
+        -6.6,
+        1.6
+      ],
+      "look": [
+        0.0,
+        0.2,
+        1.5
+      ],
+      "fov_deg": 60.0,
+      "about": "The back of the crowd, at eye height."
     }
   ],
   "favourites": [
     "Wide",
+    "Audience - Middle",
+    "Audience - Front",
+    "Audience - Back",
     "Singer",
     "Drums",
-    "Guitar",
-    "Bass",
-    "Keys",
     "Side stage",
-    "Super wide",
-    "Flat front",
-    "Bird's eye"
+    "Backstage",
+    "Bird's eye",
+    "Super wide"
   ],
   "setups": [
     {

@@ -2237,6 +2237,16 @@
           }
         },
         {
+          "bars": 0.5,
+          "effect": "fill and hold",
+          "params": {
+            "depth": 1.0
+          },
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
           "depth": 0.6000000238418579,
           "name": "windmill",
           "note": "effect \"windmill\" with tricks \"mirror\"",
@@ -4088,6 +4098,16 @@
           }
         },
         {
+          "bars": 0.5,
+          "effect": "fill and hold",
+          "params": {
+            "depth": 1.0
+          },
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
           "bars": 2.0,
           "effect": "cross",
           "params": {
@@ -5333,6 +5353,16 @@
           ],
           "target": {
             "Role": "Movers"
+          }
+        },
+        {
+          "bars": 0.5,
+          "effect": "fill and hold",
+          "params": {
+            "depth": 1.0
+          },
+          "target": {
+            "Role": "Back"
           }
         },
         {

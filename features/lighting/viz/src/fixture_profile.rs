@@ -816,6 +816,11 @@ pub fn power_watts(manufacturer: &str, model: &str) -> f32 {
     if mo.contains("tower blinder ring") {
         return 18.0;
     }
+    // One section of a bar patched section by section (eight to a
+    // 28 W Solena): its share of the bar.
+    if mo.contains("strip section") {
+        return 28.0 / 8.0;
+    }
     if mo.contains("solena max bar 28") {
         return 28.0;
     }

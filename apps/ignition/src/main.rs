@@ -242,6 +242,7 @@ fn main() -> Result<()> {
     // (`look` in its manifest); a room that does not is normally hazed.
     // The room is read again when the actions edit it (the patch, the
     // routes, a fixture moved, a person moved): `venue_watch`.
+    let _ = crate::night::VENUE_DIR.set(venue_dir.clone());
     ignition_viz::venue_watch::watch(&venue_dir);
     let (haze, exposure, output) = crate::night::venue_look(&venue_dir);
     if let Some(output) = output {

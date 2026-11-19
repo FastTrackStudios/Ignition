@@ -197,7 +197,7 @@ const BAR_INNER_FRACTION: f32 = 0.9;
 /// 40 a bar 13 cm out from the wall did not touch it until 0.4 m up
 /// ("their light doesn't appear until like halfway up the wall").
 // r[impl viz.bar-emitters] - a bar floods across its width
-const BAR_MIN_HALF_ANGLE_DEG: f32 = 60.0;
+const BAR_MIN_HALF_ANGLE_DEG: f32 = 40.0;
 
 /// What a fixture's housing emits as spawned: nothing. A body is matte
 /// black until `update_fixture_bodies` decides otherwise, and with the
@@ -777,24 +777,35 @@ fn spawn_bar_emitter(
         optics,
     ));
 
-    commands.spawn((
-        FixtureSpill,
-        SpotLight {
-            intensity: 0.0,
-            range: spill_range,
-            shadow_maps_enabled: false,
-            // The lens, not a point — see `lens_radius`.
-            radius: lens_radius(),
-            ..default()
-        },
-        VolumetricLight,
-        bevy::camera::visibility::RenderLayers::from_layers(&[0, crate::haze::HAZE_LAYER]),
-        Transform::default(),
-        Visibility::Hidden,
-        Name::new(format!("{name} spill")),
-        ChildOf(emitter),
-    ));
+    // The strip's light leaves along its whole length: a few spills
+    // spread over it, sharing its output, instead of one at the middle
+    // opened wide enough to reach the ends (which lit a metre of LEDs
+    // from one point and thinned it over a hemisphere).
+    let spills = cells.len().clamp(1, BAR_SPILLS);
+    for i in 0..spills {
+        let along = (crate::num::f32_of_usize(i) + 0.5) / crate::num::f32_of_usize(spills) - 0.5;
+        commands.spawn((
+            FixtureSpill,
+            SpotLight {
+                intensity: 0.0,
+                range: spill_range,
+                shadow_maps_enabled: false,
+                // The lens, not a point — see `lens_radius`.
+                radius: lens_radius(),
+                ..default()
+            },
+            VolumetricLight,
+            bevy::camera::visibility::RenderLayers::from_layers(&[0, crate::haze::HAZE_LAYER]),
+            Transform::from_translation(Vec3::X * along * half_length * 2.0),
+            Visibility::Hidden,
+            Name::new(format!("{name} spill {i}")),
+            ChildOf(emitter),
+        ));
+    }
 }
+
+/// How many spills a strip's light is spread over along its length.
+const BAR_SPILLS: usize = 4;
 
 /// The room's rig surfaces as they were found at start, kept so a fixture
 /// moved while the renderer runs is rigged by the same rule
@@ -1742,10 +1753,12 @@ pub fn spawn_venue(
             // fallback is to leave the per-cell emitters `spawn_gdtf_tree`
             // already made in place — the same picture as a fixture that
             // was never recognised as a bar at all.
+            let mut is_strip = false;
             if let Some((parent_index, cells)) = gdtf.root.bar_cells()
                 && let Some((centre, rot, half_length, pitch)) = bar_strip(&cells)
                 && let Some(&bar_parent) = nodes.get(parent_index)
             {
+                is_strip = true;
                 emitters.clear();
                 spawn_bar_emitter(
                     &mut commands,
@@ -1762,6 +1775,44 @@ pub fn spawn_venue(
                     optics,
                     throw.spill_range(),
                 );
+            }
+            // A bar run as one colour (its short mode) has one beam in
+            // its profile, or several stacked on one point, and drew as
+            // a spot at its middle: a metre of LEDs lighting from one
+            // point. A long, thin housing whose profile gave no strip is
+            // a strip along its length.
+            let housing = f.size.to_vec3();
+            if !is_strip
+                && housing.x >= 0.5
+                && housing.x >= 4.0 * housing.y.max(housing.z)
+            {
+                const CELLS: usize = 8;
+                let cells: Vec<(Vec3, Quat)> = (0..CELLS)
+                    .map(|i| {
+                        let along = (crate::num::f32_of_usize(i) + 0.5)
+                            / crate::num::f32_of_usize(CELLS)
+                            - 0.5;
+                        (Vec3::X * along * housing.x * 0.92, Quat::IDENTITY)
+                    })
+                    .collect();
+                if let Some((centre, rot, half_length, pitch)) = bar_strip(&cells) {
+                    emitters.clear();
+                    spawn_bar_emitter(
+                        &mut commands,
+                        root,
+                        index,
+                        &f.name,
+                        centre,
+                        rot,
+                        half_length,
+                        pitch,
+                        &cells,
+                        shared_meshes.assets,
+                        &mut standard,
+                        optics,
+                        throw.spill_range(),
+                    );
+                }
             }
         } else {
             // No profile: the QLC+ category placeholder, with its
@@ -1882,12 +1933,24 @@ pub fn spawn_venue(
                     emitters.push(root);
                 }
                 BodyVisual::Generic => {
+                    // A fixture nothing describes is a box the size its
+                    // record says, and it lights: it had no emitter at
+                    // all, so a section of a bar patched on its own (or
+                    // any fixture whose model is not in the library) drew
+                    // as a dark block whatever the show sent it.
+                    let size = f.size.to_vec3();
+                    let size = if size.min_element() > 0.0 {
+                        size
+                    } else {
+                        Vec3::splat(0.15)
+                    };
                     commands.spawn((
                         Mesh3d(unit_cube.clone()),
                         MeshMaterial3d(body_material.clone()),
-                        Transform::from_scale(Vec3::splat(0.15)),
+                        Transform::from_scale(size),
                         ChildOf(root),
                     ));
+                    emitters.push(root);
                 }
             }
         }
@@ -1923,17 +1986,26 @@ pub fn spawn_venue(
             let radius = if photometry.lens_radius > 0.0 {
                 photometry.lens_radius
             } else {
-                size.x.min(size.y).max(0.04) * 0.42
+                (size.x.min(size.y).max(0.04) * 0.42).max(0.05)
             };
             commands.spawn((
                 Mesh3d(lens_disc.clone()),
                 MeshMaterial3d(lens_material.clone()),
                 Transform {
-                    translation: Vec3::NEG_Z * (size.z * 0.5 + 0.006),
+                    // A profile's emitter is already at the glass; a
+                    // placeholder's is at the middle of its box.
+                    translation: Vec3::NEG_Z
+                        * if gdtf.is_some() {
+                            0.004
+                        } else {
+                            size.z.mul_add(0.5, 0.006)
+                        },
                     rotation: Quat::from_rotation_y(core::f32::consts::PI),
                     scale: Vec3::splat(radius),
                 },
-                ChildOf(emitter),
+                // A placeholder's emitter is its scaled body: the glass
+                // hangs from the fixture itself so it keeps its size.
+                ChildOf(if gdtf.is_some() { emitter } else { root }),
             ));
             commands.entity(emitter).insert(EmitterLens(lens_material));
             let mut spill = commands.spawn((
@@ -2328,6 +2400,7 @@ pub fn update_beams(
             }
         }
 
+        let spills = children.iter().filter(|c| spill_q.contains(*c)).count().max(1);
         for child in children.iter() {
             if let Ok((mut visibility, mut light)) = spill_q.get_mut(child) {
                 if let Some(color) = state.color {
@@ -2364,12 +2437,14 @@ pub fn update_beams(
                             // against, and a fully soft edge left the
                             // wall dark until halfway up.
                             // r[impl viz.bar-emitters] - a bar's wash begins at the bar
-                            let outer = (state
+                            // The spills sit along the strip, so the
+                            // cone only has to cover its spread.
+                            let _ = bar.half_length;
+                            let outer = state
                                 .field_half_angle_deg
                                 .max(BAR_MIN_HALF_ANGLE_DEG)
                                 .to_radians()
-                                + (bar.half_length / length.max(0.1)).atan())
-                            .min(core::f32::consts::FRAC_PI_2 - 0.01);
+                                .min(core::f32::consts::FRAC_PI_2 - 0.01);
                             (outer * BAR_INNER_FRACTION, outer)
                         },
                     );
@@ -2377,7 +2452,8 @@ pub fn update_beams(
                     light.inner_angle = inner;
                     light.range = throw.spill_range();
                     light.color = Color::srgb(color[0], color[1], color[2]);
-                    light.intensity = spot_lumens(state.lumens, outer);
+                    light.intensity =
+                        spot_lumens(state.lumens / crate::num::f32_of_usize(spills), outer);
                 } else {
                     *visibility = Visibility::Hidden;
                     light.intensity = 0.0;

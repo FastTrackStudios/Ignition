@@ -936,78 +936,6 @@
     "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 97,
-    "beam_angle_deg": 30.0,
-    "chan": 25,
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
-    "name": "Wall Bar 1",
-    "patched": true,
-    "position": {
-      "x": -2.83,
-      "y": 1.25,
-      "z": 0.15
-    },
-    "quat": {
-      "w": 0.14374764605841736,
-      "x": 0.9896143765389952,
-      "y": 0.0,
-      "z": 0.0
-    },
-    "size": {
-      "x": 1.0,
-      "y": 0.09,
-      "z": 0.09
-    },
-    "tags": [
-      "Luminaire_LED_Bar",
-      "Bars",
-      "Wall Bars"
-    ],
-    "universe": 1
-  },
-  {
-    "address": 103,
-    "beam_angle_deg": 30.0,
-    "chan": 26,
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
-    "name": "Wall Bar 2",
-    "patched": true,
-    "position": {
-      "x": 1.67,
-      "y": 1.25,
-      "z": 0.15
-    },
-    "quat": {
-      "w": 0.14374764605841736,
-      "x": 0.9896143765389952,
-      "y": 0.0,
-      "z": 0.0
-    },
-    "size": {
-      "x": 1.0,
-      "y": 0.09,
-      "z": 0.09
-    },
-    "tags": [
-      "Luminaire_LED_Bar",
-      "Bars",
-      "Wall Bars"
-    ],
-    "universe": 1
-  },
-  {
     "address": 109,
     "beam_angle_deg": 25.0,
     "chan": 27,
@@ -1021,14 +949,14 @@
     "name": "Tree 1 Par 1 — Bass",
     "patched": true,
     "position": {
-      "x": -5.24,
+      "x": -1.49,
       "y": -7.9,
       "z": 2.5
     },
     "quat": {
-      "w": 0.7435719466107085,
-      "x": 0.6284215269866532,
-      "y": -0.22844505823791544,
+      "w": 0.7456020199128912,
+      "x": 0.6625263080586419,
+      "y": 0.07166951256986566,
       "z": 0.0
     },
     "size": {
@@ -1059,14 +987,14 @@
     "name": "Tree 1 Par 2 — Drummer",
     "patched": true,
     "position": {
-      "x": -4.86,
+      "x": -1.11,
       "y": -7.9,
       "z": 2.5
     },
     "quat": {
-      "w": 0.7507775864596193,
-      "x": 0.5955666984138096,
-      "y": -0.2857154588228353,
+      "w": 0.7551947190396991,
+      "x": 0.6539455068080774,
+      "y": -0.045124388750174015,
       "z": 0.0
     },
     "size": {
@@ -1097,14 +1025,14 @@
     "name": "Tree 1 Par 3 — Singer",
     "patched": true,
     "position": {
-      "x": -5.24,
+      "x": -1.49,
       "y": -7.9,
       "z": 2.12
     },
     "quat": {
-      "w": 0.7275163251480881,
-      "x": 0.5533897072021097,
-      "y": -0.40556112807539224,
+      "w": 0.7317847961250907,
+      "x": 0.6672024144026477,
+      "y": -0.13903938426013218,
       "z": 0.0
     },
     "size": {
@@ -1135,14 +1063,14 @@
     "name": "Tree 1 Par 4 — Guitar 1",
     "patched": true,
     "position": {
-      "x": -4.86,
+      "x": -1.11,
       "y": -7.9,
       "z": 2.12
     },
     "quat": {
-      "w": 0.7252177554744375,
-      "x": 0.5399842969645009,
-      "y": -0.427172290974465,
+      "w": 0.7290696167087822,
+      "x": 0.6531207891201292,
+      "y": -0.20467224729114872,
       "z": 0.0
     },
     "size": {
@@ -1452,78 +1380,6 @@
     "universe": 1
   },
   {
-    "address": 213,
-    "beam_angle_deg": 45.0,
-    "chan": 39,
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
-    "name": "Key Bar 1",
-    "patched": true,
-    "position": {
-      "x": -1.5,
-      "y": -2.1,
-      "z": 0.12
-    },
-    "quat": {
-      "w": -0.18684,
-      "x": 0.3614,
-      "y": 0.81147,
-      "z": -0.41953
-    },
-    "size": {
-      "x": 1.0,
-      "y": 0.09,
-      "z": 0.09
-    },
-    "tags": [
-      "Luminaire_LED_Bar",
-      "Bars",
-      "Key Bars"
-    ],
-    "universe": 1
-  },
-  {
-    "address": 219,
-    "beam_angle_deg": 45.0,
-    "chan": 40,
-    "eulers": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "manufacturer": "",
-    "model": "Solena Max Bar 28 RGB",
-    "name": "Key Bar 2",
-    "patched": true,
-    "position": {
-      "x": 1.5,
-      "y": -2.1,
-      "z": 0.12
-    },
-    "quat": {
-      "w": 0.18684,
-      "x": -0.3614,
-      "y": 0.81147,
-      "z": -0.41953
-    },
-    "size": {
-      "x": 1.0,
-      "y": 0.09,
-      "z": 0.09
-    },
-    "tags": [
-      "Luminaire_LED_Bar",
-      "Bars",
-      "Key Bars"
-    ],
-    "universe": 1
-  },
-  {
     "address": 1,
     "beam_angle_deg": 40.0,
     "cell": 0,
@@ -1674,5 +1530,1221 @@
     ],
     "universe": 1,
     "wired_as": "UKing ZQ01334 15ch"
+  },
+  {
+    "address": 301,
+    "beam_angle_deg": 30.0,
+    "chan": 45,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 1 · 1",
+    "patched": true,
+    "position": {
+      "x": -3.3091,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 1
+  },
+  {
+    "address": 301,
+    "beam_angle_deg": 30.0,
+    "chan": 46,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 1 · 2",
+    "patched": true,
+    "position": {
+      "x": -3.1722,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 2
+  },
+  {
+    "address": 301,
+    "beam_angle_deg": 30.0,
+    "chan": 47,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 1 · 3",
+    "patched": true,
+    "position": {
+      "x": -3.0353,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 3
+  },
+  {
+    "address": 301,
+    "beam_angle_deg": 30.0,
+    "chan": 48,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 1 · 4",
+    "patched": true,
+    "position": {
+      "x": -2.8984,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 4
+  },
+  {
+    "address": 301,
+    "beam_angle_deg": 30.0,
+    "chan": 49,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 1 · 5",
+    "patched": true,
+    "position": {
+      "x": -2.7616,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 5
+  },
+  {
+    "address": 301,
+    "beam_angle_deg": 30.0,
+    "chan": 50,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 1 · 6",
+    "patched": true,
+    "position": {
+      "x": -2.6247,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 6
+  },
+  {
+    "address": 301,
+    "beam_angle_deg": 30.0,
+    "chan": 51,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 1 · 7",
+    "patched": true,
+    "position": {
+      "x": -2.4878,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 7
+  },
+  {
+    "address": 301,
+    "beam_angle_deg": 30.0,
+    "chan": 52,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 1 · 8",
+    "patched": true,
+    "position": {
+      "x": -2.3509,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 8
+  },
+  {
+    "address": 325,
+    "beam_angle_deg": 30.0,
+    "chan": 53,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 2 · 1",
+    "patched": true,
+    "position": {
+      "x": 1.1909,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 1
+  },
+  {
+    "address": 325,
+    "beam_angle_deg": 30.0,
+    "chan": 54,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 2 · 2",
+    "patched": true,
+    "position": {
+      "x": 1.3278,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 2
+  },
+  {
+    "address": 325,
+    "beam_angle_deg": 30.0,
+    "chan": 55,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 2 · 3",
+    "patched": true,
+    "position": {
+      "x": 1.4647,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 3
+  },
+  {
+    "address": 325,
+    "beam_angle_deg": 30.0,
+    "chan": 56,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 2 · 4",
+    "patched": true,
+    "position": {
+      "x": 1.6016,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 4
+  },
+  {
+    "address": 325,
+    "beam_angle_deg": 30.0,
+    "chan": 57,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 2 · 5",
+    "patched": true,
+    "position": {
+      "x": 1.7384,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 5
+  },
+  {
+    "address": 325,
+    "beam_angle_deg": 30.0,
+    "chan": 58,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 2 · 6",
+    "patched": true,
+    "position": {
+      "x": 1.8753,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 6
+  },
+  {
+    "address": 325,
+    "beam_angle_deg": 30.0,
+    "chan": 59,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 2 · 7",
+    "patched": true,
+    "position": {
+      "x": 2.0122,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 7
+  },
+  {
+    "address": 325,
+    "beam_angle_deg": 30.0,
+    "chan": 60,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Wall Bar 2 · 8",
+    "patched": true,
+    "position": {
+      "x": 2.1491,
+      "y": 1.25,
+      "z": 0.15
+    },
+    "quat": {
+      "w": 0.14374764605841736,
+      "x": 0.9896143765389952,
+      "y": 0.0,
+      "z": 0.0
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Wall Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 8
+  },
+  {
+    "address": 349,
+    "beam_angle_deg": 30.0,
+    "chan": 61,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 1 · 1",
+    "patched": true,
+    "position": {
+      "x": -1.8205,
+      "y": -1.7439,
+      "z": 0.12
+    },
+    "quat": {
+      "w": -0.18684,
+      "x": 0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 1
+  },
+  {
+    "address": 349,
+    "beam_angle_deg": 30.0,
+    "chan": 62,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 1 · 2",
+    "patched": true,
+    "position": {
+      "x": -1.7289,
+      "y": -1.8457,
+      "z": 0.12
+    },
+    "quat": {
+      "w": -0.18684,
+      "x": 0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 2
+  },
+  {
+    "address": 349,
+    "beam_angle_deg": 30.0,
+    "chan": 63,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 1 · 3",
+    "patched": true,
+    "position": {
+      "x": -1.6373,
+      "y": -1.9474,
+      "z": 0.12
+    },
+    "quat": {
+      "w": -0.18684,
+      "x": 0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 3
+  },
+  {
+    "address": 349,
+    "beam_angle_deg": 30.0,
+    "chan": 64,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 1 · 4",
+    "patched": true,
+    "position": {
+      "x": -1.5458,
+      "y": -2.0491,
+      "z": 0.12
+    },
+    "quat": {
+      "w": -0.18684,
+      "x": 0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 4
+  },
+  {
+    "address": 349,
+    "beam_angle_deg": 30.0,
+    "chan": 65,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 1 · 5",
+    "patched": true,
+    "position": {
+      "x": -1.4542,
+      "y": -2.1509,
+      "z": 0.12
+    },
+    "quat": {
+      "w": -0.18684,
+      "x": 0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 5
+  },
+  {
+    "address": 349,
+    "beam_angle_deg": 30.0,
+    "chan": 66,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 1 · 6",
+    "patched": true,
+    "position": {
+      "x": -1.3627,
+      "y": -2.2526,
+      "z": 0.12
+    },
+    "quat": {
+      "w": -0.18684,
+      "x": 0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 6
+  },
+  {
+    "address": 349,
+    "beam_angle_deg": 30.0,
+    "chan": 67,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 1 · 7",
+    "patched": true,
+    "position": {
+      "x": -1.2711,
+      "y": -2.3543,
+      "z": 0.12
+    },
+    "quat": {
+      "w": -0.18684,
+      "x": 0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 7
+  },
+  {
+    "address": 349,
+    "beam_angle_deg": 30.0,
+    "chan": 68,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 1 · 8",
+    "patched": true,
+    "position": {
+      "x": -1.1795,
+      "y": -2.4561,
+      "z": 0.12
+    },
+    "quat": {
+      "w": -0.18684,
+      "x": 0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 8
+  },
+  {
+    "address": 373,
+    "beam_angle_deg": 30.0,
+    "chan": 69,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 2 · 1",
+    "patched": true,
+    "position": {
+      "x": 1.1795,
+      "y": -2.4561,
+      "z": 0.12
+    },
+    "quat": {
+      "w": 0.18684,
+      "x": -0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 1
+  },
+  {
+    "address": 373,
+    "beam_angle_deg": 30.0,
+    "chan": 70,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 2 · 2",
+    "patched": true,
+    "position": {
+      "x": 1.2711,
+      "y": -2.3543,
+      "z": 0.12
+    },
+    "quat": {
+      "w": 0.18684,
+      "x": -0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 2
+  },
+  {
+    "address": 373,
+    "beam_angle_deg": 30.0,
+    "chan": 71,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 2 · 3",
+    "patched": true,
+    "position": {
+      "x": 1.3627,
+      "y": -2.2526,
+      "z": 0.12
+    },
+    "quat": {
+      "w": 0.18684,
+      "x": -0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 3
+  },
+  {
+    "address": 373,
+    "beam_angle_deg": 30.0,
+    "chan": 72,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 2 · 4",
+    "patched": true,
+    "position": {
+      "x": 1.4542,
+      "y": -2.1509,
+      "z": 0.12
+    },
+    "quat": {
+      "w": 0.18684,
+      "x": -0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 4
+  },
+  {
+    "address": 373,
+    "beam_angle_deg": 30.0,
+    "chan": 73,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 2 · 5",
+    "patched": true,
+    "position": {
+      "x": 1.5458,
+      "y": -2.0491,
+      "z": 0.12
+    },
+    "quat": {
+      "w": 0.18684,
+      "x": -0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 5
+  },
+  {
+    "address": 373,
+    "beam_angle_deg": 30.0,
+    "chan": 74,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 2 · 6",
+    "patched": true,
+    "position": {
+      "x": 1.6373,
+      "y": -1.9474,
+      "z": 0.12
+    },
+    "quat": {
+      "w": 0.18684,
+      "x": -0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 6
+  },
+  {
+    "address": 373,
+    "beam_angle_deg": 30.0,
+    "chan": 75,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 2 · 7",
+    "patched": true,
+    "position": {
+      "x": 1.7289,
+      "y": -1.8457,
+      "z": 0.12
+    },
+    "quat": {
+      "w": 0.18684,
+      "x": -0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 7
+  },
+  {
+    "address": 373,
+    "beam_angle_deg": 30.0,
+    "chan": 76,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "Strip Section",
+    "name": "Key Bar 2 · 8",
+    "patched": true,
+    "position": {
+      "x": 1.8205,
+      "y": -1.7439,
+      "z": 0.12
+    },
+    "quat": {
+      "w": 0.18684,
+      "x": -0.3614,
+      "y": 0.81147,
+      "z": -0.41953
+    },
+    "size": {
+      "x": 0.13,
+      "y": 0.09,
+      "z": 0.09
+    },
+    "tags": [
+      "Luminaire_LED_Bar",
+      "Bars",
+      "Key Bars"
+    ],
+    "universe": 1,
+    "wired_as": "Solena Max Bar 28 RGB 24ch",
+    "cell": 8
   }
 ]

@@ -242,6 +242,14 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
             };
             return Some(value * level);
         };
+        // A fixture patched section by section with no level byte at
+        // all (a bar of red, green and blue triplets): each section's
+        // level simply scales its own emitters.
+        if fixture.map.offset_of(&Attribute::Dimmer).is_none() {
+            return (*cell == 0 || mine.contains(attr)).then(|| {
+                if emitter { value * own(chan) } else { value }
+            });
+        }
         let master = master_of(fixture);
         if *attr == Attribute::Dimmer {
             return Some(master);
@@ -657,7 +665,7 @@ mod tests {
         assert!((b.dimmer - 0.8).abs() < 0.01);
     }
 
-    /// The tower at half in red with one lamp at full white: the level
+    /// The tower at half in red with one lamp at full level: the level
     /// byte goes to full for the lamp and the red is halved to match, so
     /// each is as bright as its own record said.
     #[test]
@@ -681,8 +689,11 @@ mod tests {
         let values = HashMap::from([
             ((41, Attribute::Dimmer), 0.5),
             ((41, colour(ColorChannel::Red)), 1.0),
+            // The lamp asks for full level; its white is left down here
+            // so the red read back below is the tower's alone (a white
+            // channel lightens every colour the renderer reads).
             ((3, Attribute::Dimmer), 1.0),
-            ((3, colour(ColorChannel::White)), 1.0),
+            ((3, colour(ColorChannel::White)), 0.0),
             ((3, colour(ColorChannel::Red)), 0.0),
         ]);
         apply_cue_output(&dmx, &venue, &values);
