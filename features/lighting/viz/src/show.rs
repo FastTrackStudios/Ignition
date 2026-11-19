@@ -316,7 +316,56 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
             bytes.push((*universe, channel0, *byte));
         }
     }
+    log_wire(patch, &bytes);
     dmx.set_channels(bytes);
+}
+
+/// `IGNITION_WIRE_LOG=<file>`: what goes to every lit fixture, one line a
+/// frame (`IGNITION_WIRE_LOG_EVERY=n` for every n-th): `chan:level/r,g,b,w`
+/// in bytes as they are on the wire, after every solve. For when a
+/// picture and a cue list disagree, and to check a show's timing by
+/// reading it rather than squinting at a render.
+fn log_wire(patch: &crate::venue::PatchTable, bytes: &[(u16, u16, u8)]) {
+    static FRAME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let Ok(path) = std::env::var("IGNITION_WIRE_LOG") else {
+        return;
+    };
+    let every = std::env::var("IGNITION_WIRE_LOG_EVERY")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(1)
+        .max(1);
+    let frame = FRAME.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    if frame % every != 0 {
+        return;
+    }
+    // Later entries win, as they do on the wire.
+    let wire: HashMap<(u16, u16), u8> = bytes.iter().map(|(u, c, b)| ((*u, *c), *b)).collect();
+    let mut rows: Vec<(u32, String)> = patch
+        .iter()
+        .filter_map(|(chan, fixture)| {
+            let at = |attr: &Attribute| -> Option<u8> {
+                let offset = fixture.map.offset_of(attr)?;
+                let channel0 = fixture.address.start_channel.saturating_sub(1).saturating_add(offset);
+                wire.get(&(fixture.address.universe, channel0)).copied()
+            };
+            let colour = |channel| at(&Attribute::ColorAdd { channel }).unwrap_or(0);
+            let (r, g, b, w) = (
+                colour(ignition_proto::ColorChannel::Red),
+                colour(ignition_proto::ColorChannel::Green),
+                colour(ignition_proto::ColorChannel::Blue),
+                colour(ignition_proto::ColorChannel::White),
+            );
+            let level = at(&Attribute::Dimmer);
+            let lit = level.unwrap_or(255) > 0 && (level.is_some_and(|l| l > 0) && (r | g | b | w) > 0 || level.is_none() && (r | g | b | w) > 0 || fixture.map.offset_of(&Attribute::Pan).is_some() && level.is_some_and(|l| l > 0));
+            lit.then(|| (chan, format!("{chan}:{}/{r},{g},{b},{w}", level.map_or_else(|| "-".to_owned(), |l| l.to_string()))))
+        })
+        .collect();
+    rows.sort_by_key(|(chan, _)| *chan);
+    let line = format!("{frame} {}\n", rows.into_iter().map(|(_, row)| row).collect::<Vec<_>>().join(" "));
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = std::io::Write::write_all(&mut file, line.as_bytes());
+    }
 }
 
 /// The offset of a map's colour wheel channel, whatever slot index the

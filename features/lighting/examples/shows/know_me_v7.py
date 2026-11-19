@@ -89,8 +89,8 @@ looks = {
           snare(AU, 0.45), kick(FL, 0.20), chords(BK, 0.14), fx(MV, "ballyhoo", 1, "scatter", 0.9)],
  # A voice and a piano: one face, the wall, the lamps like candles.
  "DownChorus": [st(K, 0.60, "White"), st(SP, 0.25, "White")] + dark(W, FL, BR) + [st(BK, 0.22, "Secondary"),
-          st(FI, 0.15, "Primary"), lamps(0.10), st(MV, 0.18, "Secondary"),
-          chords(BK, 0.08), fx(AU, "candle", 4, "scatter", 0.9)],
+          st(FI, 0.15, "Primary"), lamps(0.16), st(MV, 0.18, "Secondary"),
+          fx(AU, "wave", 2, "descend", 0.7)],     # a soft wave climbing the lamps of every tower, once every two bars
  # Sixteen bars of everything arriving: the wash filling, the fill closing in, the beams climbing.
  "Build": faces(0.75) + dark(BR) + [st(W, 0.55, "Tertiary"), st(BK, 0.60, "Secondary"), st(FL, 0.45, "Tertiary"),
           st(FI, 0.50, "Tertiary"), lamps(0.18), st(MV, 0.60, "Tertiary", "Stage"),
@@ -129,18 +129,39 @@ subs = [
           st(W, 1.00, "Accent")]),
  # The chart and the kit agree: the band plays the b7 through bars 105 and 106 and is out on three of 107.
  ("· ring out", "· ring out", "Chorus 3+14", beat, [st(BK, 1.00, "Tertiary"), st(MV, 1.00, "White", "Stage")]),
- ("· band out", None, "107.3", 0.15, faces(0.55) + dark(W, FL, BR, MV, FI) + [st(BK, 0.20, "Secondary"), lamps(0.10),
-          fx(AU, "candle", 4, "scatter", 0.9)]),
+ ("· band out", None, "107.3", 0.15, faces(0.55) + dark(W, FL, BR, MV, FI) + [st(BK, 0.20, "Secondary"), lamps(0.30),
+          fx(AU, "drain and hold", 1, "descend", 1.0)]),   # the lamps empty from the top down as the band rings out
  # Inside the sections: the second line of a verse, the b7 that ends a pre-chorus, the second half of a chorus.
  # The intro's second line, then its last two bars: the 2m and the walk-up, rising into the verse.
  ("· intro line 2", None, "Intro+4", bar_secs(1), [st(FI, 0.26, "Secondary"), lamps(0.20)]),
  # A held 2m for a bar and a half, then the two stabs of the walk-up: so the look arrives and holds
  # still, and the stabs (a figure, placed from the chart) are the only thing that moves.
  ("· intro walk", None, "Intro+6", 2 * beat, [st(BK, 0.48, "Primary"), st(W, 0.22, "Primary"), st(MV, 0.18, "Secondary")]),
+ # The verses are chill: a chord change there is a small change of state that blooms over two beats
+ # and holds, never a flash. Home (the 4) is the section's look; the pushed 5 lifts a touch; the 1,
+ # the chord the line resolves to, opens up the most; the pushed 3m7 leans darker and cooler.
+ *[cue for line, bar in ((1, 11), (2, 15)) for cue in (
+     (f"· v1 line {line} · 5", None, {"bar": bar, "beat": 4.5}, 2 * beat, [st(BK, 0.56, "Secondary"), st(FI, 0.40, "Secondary" if line == 1 else "Tertiary")]),
+     (f"· v1 line {line} · 1", None, {"bar": bar + 2, "beat": 1}, 2 * beat, [st(W, 0.46, "Primary"), st(BK, 0.60, "Tertiary"), st(FI, 0.46, "Tertiary")]),
+     (f"· v1 line {line} · 3m7", None, {"bar": bar + 2, "beat": 4.5}, 2 * beat, [st(W, 0.30, "Primary"), st(BK, 0.40, "Primary"), st(FI, 0.30, "Secondary")]),
+     (f"· v1 line {line} · home", None, {"bar": bar + 4, "beat": 1}, 2 * beat, [st(W, 0.38, "Primary"), st(BK, 0.50, "Secondary"), st(FI, 0.35 if line == 1 else 0.45, "Secondary" if line == 1 else "Tertiary")]),
+ )][:-1],
+ *[cue for line, bar in ((1, 43), (2, 47)) for cue in (
+     (f"· v2 line {line} · 5", None, {"bar": bar, "beat": 4.5}, 2 * beat, [st(BK, 0.52, "Primary"), st(FI, 0.44, "Tertiary")]),
+     (f"· v2 line {line} · 1", None, {"bar": bar + 2, "beat": 1}, 2 * beat, [st(W, 0.52, "Tertiary"), st(BK, 0.58, "Secondary"), st(FI, 0.50, "Secondary")]),
+     (f"· v2 line {line} · 3m7", None, {"bar": bar + 2, "beat": 4.5}, 2 * beat, [st(W, 0.32, "Tertiary"), st(BK, 0.36, "Primary"), st(FI, 0.30, "Tertiary")]),
+     (f"· v2 line {line} · home", None, {"bar": bar + 4, "beat": 1}, 2 * beat, [st(W, 0.42, "Tertiary"), st(BK, 0.45, "Primary"), st(FI, 0.38, "Tertiary")]),
+ )][:-1],
  ("· verse line 2", None, "Verse 1+4", bar_secs(1), [st(FI, 0.45, "Tertiary"), st(MV, 0.30, "Secondary", "Stage")]),
  ("· verse 2 line 2", None, "Verse 2+4", bar_secs(1), [st(FL, 0.30, "Primary"), st(MV, 0.36, "Secondary", "Band")]),
- ("· pre b7", None, "PreChorus+6", beat, [st(BK, 0.80, "Accent"), st(W, 0.36, "Primary"), lamps(0.22)]),
- ("· pre 2 b7", None, "PreChorus#2+6", beat, [st(BK, 0.78, "Accent"), st(W, 0.40, "Primary"), lamps(0.26)]),
+ # The b7 that ends a pre-chorus is two bars of climbing: the towers' lamps fill from the bottom
+ # lamp to the top one over exactly those two bars, and are full where the chorus lands.
+ ("· pre b7", None, "PreChorus+6", beat, [st(BK, 0.80, "Accent"), st(W, 0.36, "Primary"), lamps(0.45),
+          fx(AU, "fill and hold", 2, "climb", 1.0)]),
+ ("· pre 2 b7", None, "PreChorus#2+6", beat, [st(BK, 0.78, "Accent"), st(W, 0.40, "Primary"), lamps(0.55),
+          fx(AU, "fill and hold", 2, "climb", 1.0)]),
+ # The intro's walk-up: the lamps sweep up the towers across the two stabs (beat three to beat four).
+ ("· intro stabs", None, {"bar": 10, "beat": 3}, 0.0, [lamps(0.42), fx(AU, "fill and hold", 0.25, "climb", 1.0)]),
  ("· chorus half", None, "Chorus+8", beat, [st(FI, 0.55, "Accent"), st(MV, 0.75, "Tertiary", "Audience")]),
  ("· chorus 2 b7", None, "Chorus 2+14", beat, [st(BK, 0.95, "Tertiary"), st(MV, 0.90, "Tertiary", "Stage")]),
  ("· down line 2", None, "DownChorus+8", bar_secs(2), [st(FI, 0.24, "Primary"), lamps(0.16)]),
@@ -216,6 +237,13 @@ def sstep(action, **args): step(action, song=SONG, **args)
 step("LIBRARY_CREATE", kind="palettes", name="Know Me Night", replace=True, entry={
     "about": "Know Me: deep blue and turquoise at home, magenta for the choruses, amber for the solo, one warm white for faces",
     "slots": {"Primary": "Deep Blue", "Secondary": "Turquoise", "Tertiary": "Cyan", "Accent": "Magenta", "Accent 2": "Amber", "White": "Warm White"}})
+# Two generic ways to spread an effect, for any room with lights one above another: by real height.
+step("LIBRARY_CREATE", kind="tricks", name="climb", replace=True, entry={
+    "about": "phase by real height, the lowest lights first: a fill or a one-shot runs bottom to top (a running wave is seen travelling down)", "tricks": [],
+    "phase": {"from": 0, "to": 0}, "phase_z": {"from": 0, "to": 300}})
+step("LIBRARY_CREATE", kind="tricks", name="descend", replace=True, entry={
+    "about": "phase by real height, the highest lights first: a fill or a one-shot runs top to bottom (a running wave is seen travelling up)", "tricks": [],
+    "phase": {"from": 0, "to": 0}, "phase_z": {"from": 300, "to": 0}})
 sstep("PALETTE_USE", palette="Know Me Night")
 looks = {k: [p for p in v if p] for k, v in looks.items()}
 pre2 = [p for p in pre2 if p]
@@ -245,7 +273,7 @@ hits("snare-wall", "snare", BK, "Level", 0.20, ["Chorus", "Guitar Solo"], 0.4)  
 hits("snare-floor", "snare", FL, "Level", 0.14, ["Verse 2", "PreChorus#2"], 0.4)
 hits("kick", "kick", FL, "Level", 0.22, ["Chorus 2", "Chorus 3", "Outro"], 0.33)  # the floor takes the kick
 hits("push", "push", FI, "Level", 0.30, ["PreChorus", "PreChorus#2", "Chorus", "Chorus 2", "Guitar Solo", "Chorus 3", "Build", "Outro"])
-hits("chord", "chord", BK, "ColorBoost", 0.14, ["Verse 1", "Verse 2", "PreChorus", "PreChorus#2", "Chorus 2", "Chorus 3", "DownChorus", "Build", "Outro"])
+hits("chord", "chord", BK, "ColorBoost", 0.14, ["PreChorus", "PreChorus#2", "Chorus 2", "Chorus 3", "DownChorus", "Build", "Outro"])
 # The intro has no kit to follow, so it follows the harmony: the wall swells on each chord, the
 # colour pars and the lamps glint on the pushed ones, and the walk-up steps up the lamps into the verse.
 # Under the intro, the first verse and the first pre-chorus there is a light groove from a drum

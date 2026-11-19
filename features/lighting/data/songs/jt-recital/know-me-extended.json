@@ -504,6 +504,92 @@
     },
     {
       "at": {
+        "bar": 10,
+        "beat": 3.0
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "· intro stabs",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.42
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "name": "fill and hold",
+          "note": "effect \"fill and hold\" with tricks \"climb\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.699999988079071
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Build",
+            "measure": 1.0,
+            "once": true,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 0.0,
+            "phase_spread_z_deg": 300.0,
+            "speed": {
+              "Master": "Song"
+            }
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 10,
+        "beat": 3.0
+      },
+      "values": []
+    },
+    {
+      "at": {
         "bars": 0,
         "beat": 1.0,
         "ordinal": 0,
@@ -1023,6 +1109,214 @@
     },
     {
       "at": {
+        "bar": 11,
+        "beat": 4.5
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v1 line 1 · 5",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.56
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 11,
+        "beat": 4.5
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 1.0
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v1 line 1 · 1",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.46
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.46
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 13,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 13,
+        "beat": 4.5
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v1 line 1 · 3m7",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 13,
+        "beat": 4.5
+      },
+      "values": []
+    },
+    {
+      "at": {
         "bars": 4,
         "beat": 1.0,
         "ordinal": 0,
@@ -1079,6 +1373,290 @@
       "resolved": {
         "bar": 15,
         "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 1.0
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v1 line 1 · home",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.38
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.35
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 15,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 15,
+        "beat": 4.5
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v1 line 2 · 5",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.56
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 15,
+        "beat": 4.5
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 1.0
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v1 line 2 · 1",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.46
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.46
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 17,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 17,
+        "beat": 4.5
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v1 line 2 · 3m7",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 17,
+        "beat": 4.5
       },
       "values": []
     },
@@ -1336,7 +1914,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.22
+                  "Dimmer": 0.45
                 },
                 {
                   "Color": "White"
@@ -1349,6 +1927,56 @@
           ],
           "target": {
             "Role": "Audience"
+          }
+        },
+        {
+          "name": "fill and hold",
+          "note": "effect \"fill and hold\" with tricks \"climb\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.699999988079071
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Build",
+            "measure": 8.0,
+            "once": true,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 0.0,
+            "phase_spread_z_deg": 300.0,
+            "speed": {
+              "Master": "Song"
+            }
           }
         }
       ],
@@ -2306,6 +2934,214 @@
     },
     {
       "at": {
+        "bar": 43,
+        "beat": 4.5
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v2 line 1 · 5",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.52
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.44
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 43,
+        "beat": 4.5
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 1.0
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v2 line 1 · 1",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.52
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.58
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 45,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 45,
+        "beat": 4.5
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v2 line 1 · 3m7",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.32
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.36
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 45,
+        "beat": 4.5
+      },
+      "values": []
+    },
+    {
+      "at": {
         "bars": 4,
         "beat": 1.0,
         "ordinal": 0,
@@ -2362,6 +3198,290 @@
       "resolved": {
         "bar": 47,
         "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 1.0
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v2 line 1 · home",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.42
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.45
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.38
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 47,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 47,
+        "beat": 4.5
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v2 line 2 · 5",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.52
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.44
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 47,
+        "beat": 4.5
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 1.0
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v2 line 2 · 1",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.52
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.58
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 49,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 49,
+        "beat": 4.5
+      },
+      "block": false,
+      "fade_secs": 0.945,
+      "name": "· v2 line 2 · 3m7",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.32
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.36
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 49,
+        "beat": 4.5
       },
       "values": []
     },
@@ -2619,7 +3739,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.26
+                  "Dimmer": 0.55
                 },
                 {
                   "Color": "White"
@@ -2632,6 +3752,56 @@
           ],
           "target": {
             "Role": "Audience"
+          }
+        },
+        {
+          "name": "fill and hold",
+          "note": "effect \"fill and hold\" with tricks \"climb\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.699999988079071
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Build",
+            "measure": 8.0,
+            "once": true,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 0.0,
+            "phase_spread_z_deg": 300.0,
+            "speed": {
+              "Master": "Song"
+            }
           }
         }
       ],
@@ -4873,7 +6043,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.1
+                  "Dimmer": 0.3
                 },
                 {
                   "Color": "White"
@@ -4889,24 +6059,18 @@
           }
         },
         {
-          "depth": 0.8999999761581421,
-          "name": "candle",
-          "note": "effect \"candle\" with tricks \"scatter\"",
+          "name": "drain and hold",
+          "note": "effect \"drain and hold\" with tricks \"descend\"",
           "steps": [
             {
               "apply": [
                 {
-                  "Random": {
-                    "absolute": false,
-                    "attack": 0.6000000238418579,
-                    "attr": "Dimmer",
-                    "decay": 0.4000000059604645,
-                    "high": 0.05999999865889549,
-                    "level_var": 0.019999999552965164,
-                    "low": -0.07999999821186066,
-                    "seed": 6007,
-                    "speed_var": 0.4000000059604645
-                  }
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
                 }
               ],
               "ease": "Linear",
@@ -4916,17 +6080,12 @@
             {
               "apply": [
                 {
-                  "Random": {
-                    "absolute": false,
-                    "attack": 0.6000000238418579,
-                    "attr": "Dimmer",
-                    "decay": 0.4000000059604645,
-                    "high": 0.05999999865889549,
-                    "level_var": 0.019999999552965164,
-                    "low": -0.07999999821186066,
-                    "seed": 6007,
-                    "speed_var": 0.4000000059604645
-                  }
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8999999761581421
+                    ]
+                  ]
                 }
               ],
               "ease": "Linear",
@@ -4938,20 +6097,16 @@
             "Role": "Audience"
           },
           "timing": {
-            "direction": "Forward",
-            "measure": 16.0,
-            "once": false,
+            "direction": "Build",
+            "measure": 4.0,
+            "once": true,
             "phase_offset_deg": 0.0,
             "phase_spread_deg": 0.0,
+            "phase_spread_z_deg": -300.0,
             "speed": {
               "Master": "Song"
             }
-          },
-          "tricks": [
-            {
-              "Shuffle": 1741
-            }
-          ]
+          }
         }
       ],
       "resolved": {
@@ -5108,7 +6263,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.1
+                  "Dimmer": 0.16
                 },
                 {
                   "Color": "White"
@@ -5144,48 +6299,38 @@
           }
         },
         {
-          "depth": 0.8999999761581421,
-          "name": "candle",
-          "note": "effect \"candle\" with tricks \"scatter\"",
+          "depth": 0.699999988079071,
+          "name": "wave",
+          "note": "effect \"wave\" with tricks \"descend\"",
           "steps": [
             {
               "apply": [
                 {
-                  "Random": {
-                    "absolute": false,
-                    "attack": 0.6000000238418579,
-                    "attr": "Dimmer",
-                    "decay": 0.4000000059604645,
-                    "high": 0.05999999865889549,
-                    "level_var": 0.019999999552965164,
-                    "low": -0.07999999821186066,
-                    "seed": 6007,
-                    "speed_var": 0.4000000059604645
-                  }
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
                 }
               ],
-              "ease": "Linear",
-              "transition": 0.0,
+              "ease": "Sine",
+              "transition": 1.0,
               "width": 1.0
             },
             {
               "apply": [
                 {
-                  "Random": {
-                    "absolute": false,
-                    "attack": 0.6000000238418579,
-                    "attr": "Dimmer",
-                    "decay": 0.4000000059604645,
-                    "high": 0.05999999865889549,
-                    "level_var": 0.019999999552965164,
-                    "low": -0.07999999821186066,
-                    "seed": 6007,
-                    "speed_var": 0.4000000059604645
-                  }
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.6000000238418579
+                    ]
+                  ]
                 }
               ],
-              "ease": "Linear",
-              "transition": 0.0,
+              "ease": "Sine",
+              "transition": 1.0,
               "width": 1.0
             }
           ],
@@ -5194,19 +6339,15 @@
           },
           "timing": {
             "direction": "Forward",
-            "measure": 16.0,
+            "measure": 8.0,
             "once": false,
             "phase_offset_deg": 0.0,
             "phase_spread_deg": 0.0,
+            "phase_spread_z_deg": -300.0,
             "speed": {
               "Master": "Song"
             }
-          },
-          "tricks": [
-            {
-              "Shuffle": 1741
-            }
-          ]
+          }
         }
       ],
       "resolved": {
@@ -13977,65 +15118,6 @@
         "beat": 1.0
       },
       "hold": false,
-      "name": "chord 11.1",
-      "recipe": {
-        "steps": [
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.13300000131130219
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 0.0,
-            "width": 1.0
-          },
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.0
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 1.0,
-            "width": 3.0
-          }
-        ],
-        "target": {
-          "Role": "Back"
-        },
-        "timing": {
-          "direction": "Forward",
-          "measure": 0.44999998807907104,
-          "once": true,
-          "phase_offset_deg": 0.0,
-          "phase_spread_deg": 0.0,
-          "speed": {
-            "Master": "Song"
-          }
-        }
-      },
-      "resolved": {
-        "bar": 11,
-        "beat": 1.0
-      }
-    },
-    {
-      "at": {
-        "bar": 11,
-        "beat": 1.0
-      },
-      "hold": false,
       "name": "groove-kick 11.1",
       "recipe": {
         "steps": [
@@ -14449,65 +15531,6 @@
         "beat": 1.0
       },
       "hold": false,
-      "name": "chord 13.1",
-      "recipe": {
-        "steps": [
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.13300000131130219
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 0.0,
-            "width": 1.0
-          },
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.0
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 1.0,
-            "width": 3.0
-          }
-        ],
-        "target": {
-          "Role": "Back"
-        },
-        "timing": {
-          "direction": "Forward",
-          "measure": 0.44999998807907104,
-          "once": true,
-          "phase_offset_deg": 0.0,
-          "phase_spread_deg": 0.0,
-          "speed": {
-            "Master": "Song"
-          }
-        }
-      },
-      "resolved": {
-        "bar": 13,
-        "beat": 1.0
-      }
-    },
-    {
-      "at": {
-        "bar": 13,
-        "beat": 1.0
-      },
-      "hold": false,
       "name": "groove-kick 13.1",
       "recipe": {
         "steps": [
@@ -14862,65 +15885,6 @@
         "beat": 1.0
       },
       "hold": false,
-      "name": "chord 15.1",
-      "recipe": {
-        "steps": [
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.13300000131130219
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 0.0,
-            "width": 1.0
-          },
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.0
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 1.0,
-            "width": 3.0
-          }
-        ],
-        "target": {
-          "Role": "Back"
-        },
-        "timing": {
-          "direction": "Forward",
-          "measure": 0.44999998807907104,
-          "once": true,
-          "phase_offset_deg": 0.0,
-          "phase_spread_deg": 0.0,
-          "speed": {
-            "Master": "Song"
-          }
-        }
-      },
-      "resolved": {
-        "bar": 15,
-        "beat": 1.0
-      }
-    },
-    {
-      "at": {
-        "bar": 15,
-        "beat": 1.0
-      },
-      "hold": false,
       "name": "groove-kick 15.1",
       "recipe": {
         "steps": [
@@ -15149,65 +16113,6 @@
       "resolved": {
         "bar": 16,
         "beat": 2.5
-      }
-    },
-    {
-      "at": {
-        "bar": 17,
-        "beat": 1.0
-      },
-      "hold": false,
-      "name": "chord 17.1",
-      "recipe": {
-        "steps": [
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.13300000131130219
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 0.0,
-            "width": 1.0
-          },
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.0
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 1.0,
-            "width": 3.0
-          }
-        ],
-        "target": {
-          "Role": "Back"
-        },
-        "timing": {
-          "direction": "Forward",
-          "measure": 0.44999998807907104,
-          "once": true,
-          "phase_offset_deg": 0.0,
-          "phase_spread_deg": 0.0,
-          "speed": {
-            "Master": "Song"
-          }
-        }
-      },
-      "resolved": {
-        "bar": 17,
-        "beat": 1.0
       }
     },
     {
@@ -21064,65 +21969,6 @@
     {
       "at": {
         "bar": 43,
-        "beat": 1.0
-      },
-      "hold": false,
-      "name": "chord 43.1",
-      "recipe": {
-        "steps": [
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.13300000131130219
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 0.0,
-            "width": 1.0
-          },
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.0
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 1.0,
-            "width": 3.0
-          }
-        ],
-        "target": {
-          "Role": "Back"
-        },
-        "timing": {
-          "direction": "Forward",
-          "measure": 0.44999998807907104,
-          "once": true,
-          "phase_offset_deg": 0.0,
-          "phase_spread_deg": 0.0,
-          "speed": {
-            "Master": "Song"
-          }
-        }
-      },
-      "resolved": {
-        "bar": 43,
-        "beat": 1.0
-      }
-    },
-    {
-      "at": {
-        "bar": 43,
         "beat": 3.0
       },
       "hold": false,
@@ -21236,65 +22082,6 @@
       "resolved": {
         "bar": 44,
         "beat": 3.0
-      }
-    },
-    {
-      "at": {
-        "bar": 45,
-        "beat": 1.0
-      },
-      "hold": false,
-      "name": "chord 45.1",
-      "recipe": {
-        "steps": [
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.13300000131130219
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 0.0,
-            "width": 1.0
-          },
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.0
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 1.0,
-            "width": 3.0
-          }
-        ],
-        "target": {
-          "Role": "Back"
-        },
-        "timing": {
-          "direction": "Forward",
-          "measure": 0.44999998807907104,
-          "once": true,
-          "phase_offset_deg": 0.0,
-          "phase_spread_deg": 0.0,
-          "speed": {
-            "Master": "Song"
-          }
-        }
-      },
-      "resolved": {
-        "bar": 45,
-        "beat": 1.0
       }
     },
     {
@@ -21418,65 +22205,6 @@
     {
       "at": {
         "bar": 47,
-        "beat": 1.0
-      },
-      "hold": false,
-      "name": "chord 47.1",
-      "recipe": {
-        "steps": [
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.13300000131130219
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 0.0,
-            "width": 1.0
-          },
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.0
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 1.0,
-            "width": 3.0
-          }
-        ],
-        "target": {
-          "Role": "Back"
-        },
-        "timing": {
-          "direction": "Forward",
-          "measure": 0.44999998807907104,
-          "once": true,
-          "phase_offset_deg": 0.0,
-          "phase_spread_deg": 0.0,
-          "speed": {
-            "Master": "Song"
-          }
-        }
-      },
-      "resolved": {
-        "bar": 47,
-        "beat": 1.0
-      }
-    },
-    {
-      "at": {
-        "bar": 47,
         "beat": 3.0
       },
       "hold": false,
@@ -21590,65 +22318,6 @@
       "resolved": {
         "bar": 48,
         "beat": 3.0
-      }
-    },
-    {
-      "at": {
-        "bar": 49,
-        "beat": 1.0
-      },
-      "hold": false,
-      "name": "chord 49.1",
-      "recipe": {
-        "steps": [
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.13300000131130219
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 0.0,
-            "width": 1.0
-          },
-          {
-            "apply": [
-              {
-                "Delta": [
-                  [
-                    "Dimmer",
-                    0.0
-                  ]
-                ]
-              }
-            ],
-            "ease": "Linear",
-            "transition": 1.0,
-            "width": 3.0
-          }
-        ],
-        "target": {
-          "Role": "Back"
-        },
-        "timing": {
-          "direction": "Forward",
-          "measure": 0.44999998807907104,
-          "once": true,
-          "phase_offset_deg": 0.0,
-          "phase_spread_deg": 0.0,
-          "speed": {
-            "Master": "Song"
-          }
-        }
-      },
-      "resolved": {
-        "bar": 49,
-        "beat": 1.0
       }
     },
     {

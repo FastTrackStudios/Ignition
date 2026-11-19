@@ -543,6 +543,36 @@ impl Grid {
     }
 }
 
+/// The tolerance to bin with: the caller's, unless the fixtures are a
+/// regular stack closer than it.
+///
+/// Six lamps one above another, 21 cm apart, are six rows, and a wave
+/// meant to climb them has to see six. Under the plain tolerance they
+/// were three rows of two, and the wave ran sideways. A stack is told
+/// from a sagging truss by its regularity: three or more gaps between
+/// distinct positions, each within a quarter of the smallest, all under
+/// the tolerance. Then the rows are split at half that gap.
+fn stack_tolerance(sorted: &[(usize, f64)], tolerance: f64) -> f64 {
+    const DISTINCT: f64 = 0.02;
+    let gaps: Vec<f64> = sorted
+        .windows(2)
+        .filter_map(|w| match w {
+            [a, b] => Some(b.1 - a.1),
+            _ => None,
+        })
+        .filter(|gap| *gap > DISTINCT)
+        .collect();
+    let Some(smallest) = gaps.iter().copied().reduce(f64::min) else {
+        return tolerance;
+    };
+    let regular = gaps.iter().filter(|gap| **gap <= smallest * 1.25).count();
+    if smallest < tolerance && regular >= 3 && regular == gaps.len() {
+        smallest / 2.0
+    } else {
+        tolerance
+    }
+}
+
 /// Bin `chans` along one room axis: sorted by coordinate, a new row
 /// starts whenever a fixture is more than `tolerance` from the first
 /// fixture of the current row. Returns one row index per input channel,
@@ -555,6 +585,7 @@ fn bin(chans: &[ChanId], rig: &Rig, axis: Axis, tolerance: f64) -> Vec<usize> {
         .filter_map(|(i, &c)| rig.placement(c).map(|p| (i, axis.of(p.position))))
         .collect();
     placed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+    let tolerance = stack_tolerance(&placed, tolerance);
     let mut out = vec![0; chans.len()];
     let mut row: usize = 0;
     let mut start = f64::NAN;

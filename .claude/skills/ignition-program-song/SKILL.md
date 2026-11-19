@@ -151,9 +151,18 @@ stuff like that, not just automatic".
   song's own hits are texture and may be every bar; white, blinders and
   anything deeper are accents and stay thinned (rules 30 and 30a of the
   guide).
-- **Prove timing by playing it**: a still does not fire a hit that falls
-  inside a bar. Export a few bars (`viz --export out.mp4 --from-bar A
-  --to-bar B`) and read the frames, or play it in the room.
+- **Prove it by reading the wire, not by squinting at a render.** A still
+  does not fire a hit that falls inside a bar, and a picture cannot tell a
+  sweep from a swell. `IGNITION_WIRE_LOG=<file>` (with
+  `IGNITION_WIRE_LOG_EVERY=n`) has the renderer and `viz --export out.mp4
+  --from-bar A --to-bar B` write every lit fixture's level and colour bytes
+  per frame. Start the export a bar early so a one-shot is crossed, not
+  landed on. Read the fixtures you changed: a lamp sweep is six columns
+  filling in order; a chord shift is a level and a colour that change and
+  hold.
+- **Lights one above another** are swept by real height: the library's
+  `climb` and `descend` tricks (phase by height). A plain spread runs along
+  the selection, which is across the room.
 
 ```
 cargo run -q -p ignition-song --bin songmap -- <project.rpp>

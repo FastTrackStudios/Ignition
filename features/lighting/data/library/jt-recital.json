@@ -226,5 +226,31 @@
       ]
     }
   },
+  "tricks": {
+    "climb": {
+      "about": "phase by real height, the lowest lights first: a fill or a one-shot runs bottom to top (a running wave is seen travelling down)",
+      "phase": {
+        "from": 0,
+        "to": 0
+      },
+      "phase_z": {
+        "from": 0,
+        "to": 300
+      },
+      "tricks": []
+    },
+    "descend": {
+      "about": "phase by real height, the highest lights first: a fill or a one-shot runs top to bottom (a running wave is seen travelling up)",
+      "phase": {
+        "from": 0,
+        "to": 0
+      },
+      "phase_z": {
+        "from": 300,
+        "to": 0
+      },
+      "tricks": []
+    }
+  },
   "version": 1
 }
