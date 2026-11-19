@@ -482,7 +482,7 @@ fn env_look(cx: &mut Ctx, args: &Value) -> Res {
     let path = dir.join("venue.ig-venue");
     let mut doc = cx.json_or(&path, json!({ "version": 1, "profile": "Ignition" }))?;
     let look = obj(&mut doc)?.entry("look").or_insert_with(|| json!({}));
-    for key in ["haze", "exposure"] {
+    for key in ["haze", "exposure", "output"] {
         match args.get(key) {
             Some(Value::Null) => {
                 obj(look)?.remove(key);
@@ -496,7 +496,7 @@ fn env_look(cx: &mut Ctx, args: &Value) -> Res {
     }
     let now = look.clone();
     cx.write_json(&path, &doc)?;
-    Ok(json!({ "look": now, "defaults": { "haze": 0.8, "exposure": 0.0 } }))
+    Ok(json!({ "look": now, "defaults": { "haze": 0.8, "exposure": 0.0, "output": 1.0 } }))
 }
 
 fn piece_set(cx: &mut Ctx, args: &Value) -> Res {

@@ -12,7 +12,7 @@ actions.run("IGNITION_EDIT_BEGIN", { label = "lab: the band as it stands, the ri
 
 -- The air and the camera. No hazer is patched in this room, so its air is
 -- nearly clear: light shows on what it lands on, hardly in between.
-run("ENV_LOOK", { haze = 0.12, exposure = 0 })
+run("ENV_LOOK", { haze = 0.12, exposure = 0, output = 0.5 })
 
 -- The band. PERSON_SET places these five. The two the room file had that
 -- are not in this band (a keys player at the piano, a singing bassist) were

@@ -394,8 +394,35 @@ impl Args {
     }
 }
 
+/// The room's own air, camera and rig output (`look` in its manifest,
+/// what `IGNITION_ENV_LOOK` writes), for whatever the command line did not
+/// say.
+fn apply_venue_look(args: &mut Args) {
+    let look = std::fs::read_to_string(args.venue_dir.join("venue.ig-venue"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .and_then(|doc| doc.get("look").cloned());
+    let given = |flag: &str| std::env::args().any(|a| a == flag);
+    let number = |key: &str| {
+        look.as_ref()
+            .and_then(|l| l.get(key))
+            .and_then(serde_json::Value::as_f64)
+            .and_then(|v| v.to_string().parse::<f32>().ok())
+    };
+    if let Some(haze) = number("haze").filter(|_| !given("--haze")) {
+        args.haze = haze;
+    }
+    if let Some(stops) = number("exposure").filter(|_| !given("--exposure")) {
+        args.exposure = stops;
+    }
+    if let Some(output) = number("output") {
+        ignition_viz::fixture_profile::set_output_scale(output);
+    }
+}
+
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse()?;
+    let mut args = Args::parse()?;
+    apply_venue_look(&mut args);
 
     let view = ViewPreset::parse(&args.view)
         .ok_or_else(|| anyhow::anyhow!("unknown --view {}; use house, stage, or top", args.view))?;

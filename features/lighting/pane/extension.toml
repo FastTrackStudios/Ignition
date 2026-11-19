@@ -621,10 +621,10 @@ params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The l
 [[actions]]
 id = "IGNITION_ENV_LOOK"
 name = "Lighting: how the room looks to the camera"
-description = "The air and the camera of an environment: `haze` (0 a clear room, 1 normally hazed; a room with no hazer is near 0, and then beams do not show in the air) and `exposure` (stops on the stage exposure; 0 as calibrated). The renderer and the stills read them. With neither, answers what is set."
+description = "The air and the camera of an environment: `haze` (0 a clear room, 1 normally hazed; a room with no hazer is near 0, and then beams do not show in the air) `exposure` (stops on the stage exposure; 0 as calibrated) and `output` (what the rig delivers of its nominal flux, 1 as labelled: budget LED fixtures deliver less, and a lux reading sets it). The renderer and the stills read them. With neither, answers what is set."
 group = "Lighting"
 effect = "mutating"
-params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"haze\":{\"description\":\"0 to 2; null gives the renderer its default (0.8).\",\"type\":\"number\"},\"exposure\":{\"description\":\"Stops, e.g. 0.5 or -1; null for the default (0).\",\"type\":\"number\"}}}"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"haze\":{\"description\":\"0 to 2; null gives the renderer its default (0.8).\",\"type\":\"number\"},\"exposure\":{\"description\":\"Stops, e.g. 0.5 or -1; null for the default (0).\",\"type\":\"number\"},\"output\":{\"description\":\"0 to 4; one par at full white read with a lux meter at 1 m, over its nominal candela. null for 1.\",\"type\":\"number\"}}}"
 
 [[actions]]
 id = "IGNITION_PERSON_SET"

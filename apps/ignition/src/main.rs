@@ -240,7 +240,13 @@ fn main() -> Result<()> {
     config.camera_preset = args.camera.clone();
     // The room says how much haze hangs in it and how the camera is set
     // (`look` in its manifest); a room that does not is normally hazed.
-    let (haze, exposure) = crate::night::venue_look(&venue_dir);
+    // The room is read again when the actions edit it (the patch, the
+    // routes, a fixture moved, a person moved): `venue_watch`.
+    ignition_viz::venue_watch::watch(&venue_dir);
+    let (haze, exposure, output) = crate::night::venue_look(&venue_dir);
+    if let Some(output) = output {
+        ignition_viz::fixture_profile::set_output_scale(output);
+    }
     config.haze = haze.unwrap_or(0.8);
     if let Some(stops) = exposure {
         config.exposure = stops;
@@ -691,6 +697,9 @@ impl Follow for Follower {
                 looks: looks.clone(),
                 tricks: named_tricks.clone(),
             });
+            // The room's focus points are the room's as it is now (a
+            // person moved while the show ran), not as it was at start.
+            base.palettes.focus.clone_from(&palettes.focus);
             palettes.clone_from(&base.palettes);
             library.clone_from(&base.library);
             looks.clone_from(&base.looks);

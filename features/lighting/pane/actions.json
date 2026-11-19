@@ -1625,7 +1625,7 @@
  {
   "id": "IGNITION_ENV_LOOK",
   "name": "Lighting: how the room looks to the camera",
-  "about": "The air and the camera of an environment: `haze` (0 a clear room, 1 normally hazed; a room with no hazer is near 0, and then beams do not show in the air) and `exposure` (stops on the stage exposure; 0 as calibrated). The renderer and the stills read them. With neither, answers what is set.",
+  "about": "The air and the camera of an environment: `haze` (0 a clear room, 1 normally hazed; a room with no hazer is near 0, and then beams do not show in the air) `exposure` (stops on the stage exposure; 0 as calibrated) and `output` (what the rig delivers of its nominal flux, 1 as labelled: budget LED fixtures deliver less, and a lux reading sets it). The renderer and the stills read them. With neither, answers what is set.",
   "effect": "mutating",
   "args": {
    "root": {
@@ -1647,6 +1647,10 @@
    "exposure": {
     "type": "number",
     "about": "Stops, e.g. 0.5 or -1; null for the default (0)."
+   },
+   "output": {
+    "type": "number",
+    "about": "0 to 4; one par at full white read with a lux meter at 1 m, over its nominal candela. null for 1."
    }
   },
   "required": []

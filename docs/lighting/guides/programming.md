@@ -82,11 +82,42 @@ an environment.
 7. **The patch** turns attributes into bytes at each fixture's universe and
    address; `venue.ig-venue` says where each universe goes.
 
-The renderer reads the song's file and the set's library again when either
-changes (it looks twice a second), so a cue, palette or effect edited by an
-action shows in the room without restarting anything. The environment
-(geometry, fixtures, patch, people) is read when the renderer starts: see
-"What is left".
+A running renderer follows edits. It looks twice a second at the song's
+file and the set's library (a cue, palette or effect), and at the room's
+files (`viz/src/venue_watch.rs`): a re-patch is encoded to the new addresses
+on the next frame, a re-routed universe is bound again, a moved or re-hung
+fixture is placed again and focuses are solved from where it now hangs, and
+groups, role bindings and focus points (a person moved) are the show's at
+once. Not carried until it starts again: a fixture added, removed or changed
+to another type, where props and people are *drawn*, and a measured room's
+edits file.
+
+## How bright the room is
+
+Three numbers, all the room's own (`look` in `venue.ig-venue`,
+`IGNITION_ENV_LOOK`):
+
+- **`haze`**: how much hangs in the air (0 clear, 1 normally hazed). A room
+  with no hazer patched was drawn as a normally hazed one, which is most of
+  why the lab looked brighter than it will be: every beam lit the air. The
+  lab is 0.12.
+- **`output`**: what the rig delivers of its nominal flux. Nominal is each
+  fixture's label wattage at 38 lm/W (`fixture_profile::rig_lumens`);
+  nothing in the fixture documents is a measured flux, and budget LED
+  fixtures deliver less than their label. The lab is 0.5, **a judgement**.
+  To replace it with a measurement: one par at full white, a lux meter on
+  its axis at 1 m; nominal is 1,625 cd (1,368 lm over its 60 degree field),
+  so `output` is the reading over 1,625.
+- **`exposure`**: stops on the stage exposure (EV100 6.1, where a white
+  surface clips near 260 lux). 0 as calibrated.
+
+At those numbers the lab's singer has about 120 lux on his face from his two
+pars at 3.7 m (240 nominal); the house lights are about 350 lux on a table.
+The curtain returns a twenty-seventh of what the walls do
+([lab-138-room.md](../lab-138-room.md)), so a wash that is vivid on a wall is
+a dim glow on the drape. The room's photographs show its house lights and
+the lights that were there that day, not this rig, so they fix the room's
+surfaces and not the rig's output.
 
 ## How a cue is timed
 
@@ -275,6 +306,7 @@ In `features/lighting/examples/scripts/`, run headless through
 | `01-library.luau` | six colours, three palettes of five slots, a look written against slots, three effects from parameters, six trick presets |
 | `02-program-song.luau` | *Fire* from its section map: the plan as a dry run, then a look per kind of section, effects with tricks on the choruses, bridges and solo, 96 accents on snare markers, the last chorus copied from the first and lifted |
 | `03-reskin-set.luau` | all sixteen songs of the recital onto the palette `Ice` in one call, checked before and after |
+| `06-lab-band.luau` | the lab for the band as it will stand (singer at a keyboard, two guitars audience-right, bass, drums), the rig moved to suit the measured room, the room's haze, exposure and output |
 | `04-environment.luau` | a room with a stage, a riser, two trusses and an audience; a five-piece band; twenty-four fixtures hung, grouped, bound to roles and patched; a conflicting address refused; the movers packed onto universe 2 and routed; four movers focused on the singer |
 | `05-tricks.luau` | one effect on twelve movers as a chase, a mirrored wave and blocks of 2, by tricks alone; stepping through units |
 
@@ -324,10 +356,10 @@ All additive: a file written before loads as it did.
 
 ## What is left
 
-- **A running renderer reads the environment once.** Song and library edits
-  show live; a moved fixture, a re-patch, a new route or a moved person
-  shows when the renderer starts again. The patch and the room are loaded
-  inside the visualizer crate, which two other branches are changing.
+- **Live edits the renderer does not carry**: fixtures added, removed or
+  re-typed, where props and people are drawn, a measured room's edits file.
+- **The rig's output is a judgement** until someone reads a lux meter in the
+  room (above).
 - **Wings N as one trick** in MA's sense (it is `Wings N` + `Group k` today,
   which needs the fixture count), and **Width**.
 - **Tricks on a reference**: a part that names a library effect becomes

@@ -783,6 +783,12 @@ fn spawn_bar_emitter(
     ));
 }
 
+/// The room's rig surfaces as they were found at start, kept so a fixture
+/// moved while the renderer runs is rigged by the same rule
+/// (`venue_watch`).
+#[derive(Resource, Default)]
+pub struct RigSurfaces(pub Vec<RigSurface>);
+
 /// A piece of room structure a fixture can be rigged to: the ceiling, a
 /// wall, the deck, the truss beam over the drums.
 #[derive(Clone, Copy)]
@@ -1584,7 +1590,7 @@ pub fn spawn_venue(
                     .and_then(|lib| lib.find(manufacturer, model));
                 let optics = fixture_optics(f, profile);
                 let candela = peak_candela(
-                    power_watts(manufacturer, model) * LUMENS_PER_WATT,
+                    crate::fixture_profile::rig_lumens(manufacturer, model),
                     optics.beam_half_deg,
                 );
                 crate::budget::ShadowCandidate {
@@ -1602,6 +1608,7 @@ pub fn spawn_venue(
     // built one-for-one with `venue.fixtures` just above, and iterating
     // the pair keeps that correspondence in the type instead of relying on
     // the reader to trust that the two stay the same length.
+    commands.insert_resource(RigSurfaces(rig_surfaces.clone()));
     for ((index, f), &is_shadowed) in venue.fixtures.iter().enumerate().zip(shadowed.iter()) {
         // Unpatched channels (Norco's phantom 19/98) have no real
         // position — the patch reports (0,0,0), which would render as a
@@ -2060,7 +2067,7 @@ pub fn update_live_fixtures(
             tilt: Quat::from_axis_angle(Vec3::X, live.tilt_deg.to_radians()),
             color,
             zoom: live.zoom,
-            lumens: power_watts(manufacturer, model) * LUMENS_PER_WATT,
+            lumens: crate::fixture_profile::rig_lumens(manufacturer, model),
         });
     }
 

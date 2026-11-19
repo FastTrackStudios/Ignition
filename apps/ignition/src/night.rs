@@ -73,9 +73,10 @@ pub type Stamp = (Option<std::time::SystemTime>, Option<std::time::SystemTime>);
 
 /// How a room looks to the camera, from its manifest's `look`:
 /// `haze` (0 a clear room, 1 normally hazed) and `exposure` (stops on
-/// the stage exposure). A room that says nothing gets the renderer's own.
+/// the stage exposure) and `output` (what its rig delivers of nominal). A
+/// room that says nothing gets the renderer's own.
 #[must_use]
-pub fn venue_look(venue_dir: &Path) -> (Option<f32>, Option<f32>) {
+pub fn venue_look(venue_dir: &Path) -> (Option<f32>, Option<f32>, Option<f32>) {
     let look = std::fs::read_to_string(venue_dir.join("venue.ig-venue"))
         .ok()
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
@@ -94,7 +95,7 @@ pub fn venue_look(venue_dir: &Path) -> (Option<f32>, Option<f32>) {
                 v
             })
     };
-    (number("haze"), number("exposure"))
+    (number("haze"), number("exposure"), number("output"))
 }
 
 impl NightSong {

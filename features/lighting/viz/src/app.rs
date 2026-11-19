@@ -728,9 +728,9 @@ pub fn auto_exposure(
     // toward the target (`auto_exposure_step`), so `speed * dt` has to
     // stay below the transition distance or the step overshoots and
     // the exposure rings. Instant is a thousand stops a second against
-    // a twenty-stop transition: half the gap per 10 ms frame, settled
-    // well within a still's settle frames, and only stable up to a
-    // 20 ms frame — a still's real frame time, never a video's, which
+    // a twenty-stop transition: an eighth of the gap per 10 ms frame, settled
+    // within a still's settle frames, and stable up to an
+    // 80 ms frame — a still's real frame time, never a video's, which
     // is why `run_export` adapts at the live speeds instead.
     let (speed_brighten, speed_darken, transition) = if instant {
         (
@@ -810,7 +810,12 @@ pub const AUTO_EXPOSURE_RANGE_STOPS: f32 = 1.5;
 
 /// The instant adaptation's speed in stops per second and the distance
 /// over which it goes exponential: a still's settle frames land it.
-const AUTO_EXPOSURE_INSTANT_SPEED: f32 = 1.0e3;
+// 250 stops a second against the twenty-stop transition is an eighth of
+// the gap per 10 ms frame and stays stable up to an 80 ms frame. It was
+// 1000, stable only to 20 ms: a room with a model to draw (Room 138) runs
+// slower than that while it loads, and the exposure rang out to full
+// white or black.
+const AUTO_EXPOSURE_INSTANT_SPEED: f32 = 2.5e2;
 const AUTO_EXPOSURE_INSTANT_TRANSITION: f32 = 20.0;
 
 /// How far from its target, in stops, a live adaptation eases in
@@ -985,7 +990,7 @@ pub fn narrowest_shaft_full_angle_deg(venue: &Venue, gdtf: Option<&GdtfLibrary>)
             let model = f.model.as_deref().unwrap_or("");
             let profile = gdtf.and_then(|lib| lib.find(manufacturer, model));
             let half = fixture_optics(f, profile).beam_half_deg;
-            let lumens = power_watts(manufacturer, model) * LUMENS_PER_WATT;
+            let lumens = crate::fixture_profile::rig_lumens(manufacturer, model);
             (peak_candela(lumens, half) >= SHAFT_CANDELA_THRESHOLD).then_some(half * 2.0)
         })
         .min_by(f32::total_cmp)
@@ -1172,6 +1177,7 @@ impl Plugin for VizPlugin {
             .add_systems(Startup, spawn_venue)
             .add_systems(Startup, crate::environment::spawn_environment)
             .add_systems(Update, crate::environment::apply_environment)
+            .add_systems(Update, crate::venue_watch::follow_venue_edits)
             // Playback runs before the fixture update so a beam reflects
             // this frame's cue state, not last frame's.
             .add_systems(
@@ -2211,18 +2217,22 @@ mod quality_tests {
     }
 
     #[test]
-    fn the_instant_adaptation_rings_at_a_video_frame_but_not_at_a_stills() {
+    fn the_instant_adaptation_does_not_ring_at_a_stills_frame_or_a_slow_one() {
         let instant = (
             AUTO_EXPOSURE_INSTANT_SPEED,
             AUTO_EXPOSURE_INSTANT_SPEED,
             AUTO_EXPOSURE_INSTANT_TRANSITION,
         );
-        // A still's 10 ms frame: half the gap a frame, settled in 20.
+        // A still's 10 ms frame: an eighth of the gap a frame.
         let frames = adapt_without_ringing(0.0, 1.5, instant, 0.010);
-        assert!(frames <= 20, "{frames}");
-        // A 30 fps video frame: the first step overshoots (the bug).
+        assert!(frames <= 45, "{frames}");
+        // A 33 ms frame (a room with a model to draw, a video frame) no
+        // longer overshoots; at the old speed it did, and rang.
         let next = auto_exposure_step(0.0, 1.5, instant.0, instant.1, instant.2, 1.0 / 30.0);
-        assert!(next > 1.5, "{next}");
+        assert!(next < 1.5, "{next}");
+        // Nor does an 80 ms one.
+        let slow = auto_exposure_step(0.0, 1.5, instant.0, instant.1, instant.2, 0.080);
+        assert!(slow <= 1.5, "{slow}");
     }
 
     // r[verify viz.post-processing] - each feature is a RenderQuality switch
