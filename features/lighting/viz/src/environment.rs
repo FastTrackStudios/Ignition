@@ -433,6 +433,74 @@ pub fn apply_environment(
     *settled = found >= environment.objects.len();
 }
 
+/// How thin a movable piece of architecture has to be to count as a
+/// drape: a curtain, a screen, a partition.
+const DRAPE_THICKNESS_M: f32 = 0.2;
+
+/// A drape is seen through from behind.
+///
+/// The room's walls have one face, so a camera outside the room looks
+/// straight in. A curtain is a slab with a back, and a camera taken
+/// upstage of it saw only that back. A thin, movable piece of
+/// architecture is therefore drawn only while the camera is on the side
+/// of it the room is on (the side the origin of the stage is on); from
+/// the other side it is left out, and the room is seen as from backstage.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "a Bevy system's Res parameters are taken by value (docs/lighting/ops/clippy.md)"
+)]
+pub fn see_through_drapes(
+    environment: Option<Res<EnvironmentRes>>,
+    roots: Query<Entity, With<EnvironmentRoot>>,
+    children: Query<&Children>,
+    names: Query<&Name>,
+    cameras: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    mut visibility: Query<&mut Visibility>,
+) {
+    let Some(environment) = environment else {
+        return;
+    };
+    let Some(eye) = cameras
+        .iter()
+        .find(|(camera, _)| camera.is_active)
+        .map(|(_, at)| at.translation())
+    else {
+        return;
+    };
+    for root in &roots {
+        for entity in children.iter_descendants(root) {
+            let Ok(name) = names.get(entity) else {
+                continue;
+            };
+            let Some(object) = environment.0.objects.iter().find(|o| o.name == name.as_str()) else {
+                continue;
+            };
+            let (size, at) = (object.size.to_vec3(), object.position.to_vec3());
+            // The thin way through it, on the floor plan.
+            let (thin, across, eye_across) = if size.y <= size.x {
+                (size.y, at.y, eye.y)
+            } else {
+                (size.x, at.x, eye.x)
+            };
+            if object.kind != "architecture" || !object.movable || thin > DRAPE_THICKNESS_M {
+                continue;
+            }
+            // The room is on the origin's side of the drape.
+            let behind = (eye_across - across) * (0.0 - across) < 0.0;
+            let want = if environment.0.shows(object) && !behind {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+            if let Ok(mut seen) = visibility.get_mut(entity)
+                && *seen != want
+            {
+                *seen = want;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

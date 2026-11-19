@@ -225,6 +225,21 @@
       "fov_deg": 56.0,
       "ortho": true,
       "about": "Plan view above the ceiling: the XY of every fixture."
+    },
+    {
+      "name": "Backstage",
+      "eye": [
+        0.0,
+        5.2,
+        2.3
+      ],
+      "look": [
+        0.0,
+        -2.0,
+        1.2
+      ],
+      "fov_deg": 65.0,
+      "about": "From behind the curtain, looking out at the band's backs and the house: the curtain is seen through from here."
     }
   ],
   "favourites": [

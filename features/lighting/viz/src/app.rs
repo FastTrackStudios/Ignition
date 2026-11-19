@@ -1176,7 +1176,14 @@ impl Plugin for VizPlugin {
             .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
             .add_systems(Startup, spawn_venue)
             .add_systems(Startup, crate::environment::spawn_environment)
-            .add_systems(Update, crate::environment::apply_environment)
+            .add_systems(
+                Update,
+                (
+                    crate::environment::apply_environment,
+                    crate::environment::see_through_drapes,
+                )
+                    .chain(),
+            )
             .add_systems(Update, crate::venue_watch::follow_venue_edits)
             // Playback runs before the fixture update so a beam reflects
             // this frame's cue state, not last frame's.
