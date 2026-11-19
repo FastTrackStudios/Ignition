@@ -37,7 +37,7 @@ futures-timer = { workspace = true, optional = true }
 # `fts.session`, followed from the session host's transport and clock.
 ignition-session = { workspace = true, optional = true }
 ignition-show = { workspace = true, optional = true }
-session = { workspace = true, optional = true, features = ["clock", "service"] }
+session = { workspace = true, optional = true, features = ["service", "sync"] }
 # A recital song's cues resolved against its Live set, and the set's tempo
 # over the song, for the session (IGNITION_SESSION_SONG).
 ignition-daw = { workspace = true, optional = true, features = ["ableton"] }
