@@ -173,6 +173,7 @@ impl DmxUniverses {
         let tilt_fine = map.offset_of(&Attribute::TiltFine);
 
         let mut resolved = ResolvedAttributes::default();
+        let mut white = 0.0_f32;
         for (offset, attr) in &map.channels {
             let v = read(*offset);
             match attr {
@@ -191,11 +192,11 @@ impl DmxUniverses {
                         // a cheap approximation — there's no real colour-
                         // mixing model here yet, just enough to make a
                         // white/amber channel visibly lighten the RGB.
-                        ColorChannel::White | ColorChannel::Amber => {
-                            resolved.color[0] = (resolved.color[0] + f * 0.6).min(1.0);
-                            resolved.color[1] = (resolved.color[1] + f * 0.6).min(1.0);
-                            resolved.color[2] = (resolved.color[2] + f * 0.6).min(1.0);
-                        }
+                        // Summed here and added once the loop is done:
+                        // added in place, a white charted before the
+                        // red, green and blue was overwritten by them,
+                        // and a tower's warm lamps drew dark.
+                        ColorChannel::White | ColorChannel::Amber => white += f * 0.6,
                         _ => {}
                     }
                     resolved.has_color = true;
@@ -216,6 +217,11 @@ impl DmxUniverses {
                 // alongside the coarse byte above), is either not drawn
                 // or already covered elsewhere.
                 _ => {}
+            }
+        }
+        if white > 0.0 {
+            for c in &mut resolved.color {
+                *c = (*c + white).min(1.0);
             }
         }
         // A fixture whose personality has no Dimmer channel at all (a bare

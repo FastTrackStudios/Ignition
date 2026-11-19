@@ -212,6 +212,10 @@ Inputs: sections with kind, BPM, per-cue per-role `level` (0–1), `palette`,
 30. Accent density ≤ 1/bar in CH, ≤ 1 per 2 bars in V, 0 in a BD build; decay
     ∈ [¼b, 2b]; no accent on a role running a ½b intensity effect; on a
     stage ≥ 0.85 accents are cutouts.
+30a. Texture is not an accent: a relative, level-only lift of at most 0.3
+    that rides the song's own rhythm (the snare of a big section, the kick,
+    a chord change, a pushed chord) is not counted against rule 30. It is
+    placed from the song's events, never on a grid, and never on Key.
 31. All-roles-zero cues only if tagged `blackout`, ≤ 2 bars, followed by a cue
     with energy ≥ 0.7.
 32. Wall hue ∈ palette ∪ {neutral}; wall level ≤ stage peak in V; white

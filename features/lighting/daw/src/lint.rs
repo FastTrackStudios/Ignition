@@ -1434,12 +1434,41 @@ fn effects(
     rule_strobe(&positioned, parts, last_chorus, total, list, push);
 }
 
+/// The deepest a trigger may lift a level and still be texture.
+const TEXTURE_DEPTH: f32 = 0.3;
+
+/// Whether a trigger is texture: relative, level only, and no deeper
+/// than [`TEXTURE_DEPTH`]. Anything that adds white or colour, or lifts
+/// further, is an accent.
+fn is_texture(trigger: &Trigger) -> bool {
+    let mut any = false;
+    for apply in trigger.recipe.steps.iter().flat_map(|s| s.apply.iter()) {
+        let RecipeApply::Delta(pairs) = apply else {
+            return false;
+        };
+        for (attr, value) in pairs {
+            if *attr != ignition_proto::Attribute::Dimmer || value.abs() > TEXTURE_DEPTH {
+                return false;
+            }
+            any = true;
+        }
+    }
+    any
+}
+
 fn accents(triggers: &[Trigger], parts: &[Part], song: &SongMap, push: &mut Push<'_>) {
     // 30. density by section kind. The figures in a bar are one accent
     // however many moments they carry: a figure is a person's drawing
     // of the music, and two drawn in one bar are that bar's one idea.
     let mut per_bar: BTreeMap<u32, BTreeSet<String>> = BTreeMap::new();
     for t in triggers {
+        // 30a. Texture is not an accent. A small relative lift that rides
+        // the song's own rhythm (the snare of a big chorus, a chord
+        // change) is the section breathing with the band; the cap is on
+        // the moments an audience would point at.
+        if is_texture(t) {
+            continue;
+        }
         let Some(at) = t.bars().or_else(|| t.at.resolve(song)) else {
             continue;
         };

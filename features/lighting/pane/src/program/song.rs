@@ -1112,6 +1112,12 @@ fn song_bake(cx: &mut Ctx, args: &Value) -> Res {
                     let timing = map.entry("timing").or_insert_with(|| json!({}));
                     obj(timing)?.insert("measure".into(), json!(bars * 4.0));
                 }
+                // The part's depth goes with the recipe: without it a
+                // baked copy plays every library effect of the set at
+                // full depth.
+                if let Some(depth) = part.get("params").and_then(|p| p.get("depth")).or_else(|| part.get("depth")) {
+                    map.insert("depth".into(), depth.clone());
+                }
                 out.push(recipe);
                 inlined += 1;
             } else {
