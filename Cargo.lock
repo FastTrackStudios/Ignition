@@ -9659,7 +9659,7 @@ dependencies = [
 [[package]]
 name = "keyflow-proto"
 version = "0.1.0"
-source = "git+https://github.com/FastTrackStudios/keyflow?rev=42af988f9a89f81f234b071f57ccc6cb34e61dd1#42af988f9a89f81f234b071f57ccc6cb34e61dd1"
+source = "git+https://github.com/FastTrackStudios/keyflow?rev=37f33703fbed2e7da66593390bc19e62e5ebc9aa#37f33703fbed2e7da66593390bc19e62e5ebc9aa"
 dependencies = [
  "architect",
  "color-palette",

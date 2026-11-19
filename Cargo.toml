@@ -113,7 +113,7 @@ fts-sample = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731d
 
 # Not Studio's, but Studio's pin: the LRC lyrics parser
 # (`keyflow_proto::lrc`), for ignition-daw's `lyrics`.
-keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", rev = "42af988f9a89f81f234b071f57ccc6cb34e61dd1" }
+keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", rev = "37f33703fbed2e7da66593390bc19e62e5ebc9aa" }
 
 # ── Architect — the same source Studio's root pins at that commit ─────
 # One tag shared by every entry so the framework moves together.
