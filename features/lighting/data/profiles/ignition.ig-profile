@@ -18426,6 +18426,12 @@
       "required": false
     },
     {
+      "about": "Front light beyond what the faces need. It takes the song's colour and its effects, where Key stays one white. A room with only enough front light for its faces leaves it unbound.",
+      "kind": "Group",
+      "name": "Fill",
+      "required": false
+    },
+    {
       "about": "Atmospherics. A beam is inert in clean air.",
       "kind": "Group",
       "name": "Haze",

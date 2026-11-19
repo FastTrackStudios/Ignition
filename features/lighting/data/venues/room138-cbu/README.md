@@ -101,12 +101,13 @@ room is entirely what these say:
 
 | Role | Group | |
 |---|---|---|
-| `Key` | Front Light | the trees, plus the two bars crossing on the frontman |
+| `Key` | Tree Faces | two pars a side, on the singer and the lead guitarist, kept white |
+| `Fill` | Tree Colour | the other two pars a side, free to take the song's colour |
 | `Wash` | Towers | the main colourable surface, and the show's biggest target |
 | `Back` | Wall Bars | up the wall behind the band |
 | `Bars` | Bars | all four |
 | `Floor` | Wall Bars | the uplight package |
-| `Audience` | Towers | they carry the warm blinder and face the room |
+| `Audience` | Tower Lamps | the twenty-four warm whites, which face the room |
 | `Drums` | Drum Towers | the middle pair, which are what is actually over the kit |
 | `Movers` | Movers | the four on the wall |
 | `Beams` | Movers | being beam movers, they are the hard-edged package too |
@@ -134,10 +135,15 @@ open), so the guesses are listed rather than buried:
   audience" were the whole of the brief. The x spacing, the distance into
   the house and the aim angles are chosen to look like a room that works,
   not measured.
-- **The tower fixture** — no manufacturer mark is legible in the photo. The
-  footprint (WW, R, G, B) is the contract; the physical size is read off
-  the picture against 7-inch-par-sized bodies. Replace the spec when the
-  model is identified.
+- **The tower fixture** — identified from the owner's own desk file as
+  the U'King ZQ01334 in its 15-channel mode: one level, one strobe and
+  one colour for the whole tower, and a warm white for each of its six
+  lamps. Each lamp is still its own record, drawn as a lamp
+  (`CBU Tower Blinder Ring`), with `wired_as` naming the real fixture and
+  `cell` its lamp. So `Towers` is four channels (a tower's level and
+  colour, carried by its first lamp) and `Tower Lamps` is the twenty-four
+  warm whites. The drawn lamp's size, 40 degree spread and 18 W are still
+  read off the photograph.
 - **DMX addressing** — packed from 1 with no gaps, in the order towers,
   trees, movers, wall bars, key bars. Whatever the real patch is, it goes in
   `patch.json` and `fixtures.json` together.

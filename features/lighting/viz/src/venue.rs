@@ -98,6 +98,23 @@ pub struct FixtureRecord {
     /// The gel in front of it, if it is a conventional.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub gel: String,
+    /// Which lamp of a several-lamp fixture this record is, 1-based.
+    ///
+    /// A tower of six lamps on one address has one level, one strobe and
+    /// one colour for the whole tower, and a warm white per lamp. Each
+    /// lamp is its own record on the tower's address with its `cell`: it
+    /// keeps the fixture's shared channels and only its own one of the
+    /// repeated ones. What two lamps say differently about a shared
+    /// channel the higher value wins (`show.rs::apply_output`), because
+    /// the fixture has one byte for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cell: Option<u8>,
+    /// The fixture type this lamp is wired as, where that differs from
+    /// what it is drawn as: `model` stays the lamp (one round head of a
+    /// tower), and this names the whole fixture whose chart the address
+    /// follows (`UKing ZQ01334 15ch`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub wired_as: String,
     /// The address expressed net-wide rather than per-universe, as the
     /// Eos pull writes it.
     ///
@@ -601,6 +618,45 @@ fn address_gaps(venue: &Venue) -> Vec<Option<u16>> {
         .collect()
 }
 
+/// Narrows a several-lamp fixture's map to one lamp: of every attribute
+/// the chart repeats (six warm whites), only the `cell`-th stays; the
+/// channels the chart has once (level, strobe, the shared colour) stay
+/// as they are.
+fn keep_cell(map: &mut ignition_proto::ChannelMap, cell: u8) {
+    let mut seen: Vec<(ignition_proto::Attribute, u8)> = Vec::new();
+    let repeated: Vec<ignition_proto::Attribute> = {
+        let mut counts: Vec<(ignition_proto::Attribute, u8)> = Vec::new();
+        for (_, attr) in &map.channels {
+            match counts.iter_mut().find(|(a, _)| a == attr) {
+                Some((_, n)) => *n = n.saturating_add(1),
+                None => counts.push((attr.clone(), 1)),
+            }
+        }
+        counts
+            .into_iter()
+            .filter(|(_, n)| *n > 1)
+            .map(|(a, _)| a)
+            .collect()
+    };
+    map.channels.sort_by_key(|(offset, _)| *offset);
+    map.channels.retain(|(_, attr)| {
+        if !repeated.contains(attr) {
+            return true;
+        }
+        let nth = match seen.iter_mut().find(|(a, _)| a == attr) {
+            Some((_, n)) => {
+                *n = n.saturating_add(1);
+                *n
+            }
+            None => {
+                seen.push((attr.clone(), 1));
+                1
+            }
+        };
+        nth == cell
+    });
+}
+
 impl PatchTable {
     // r[impl patch.type-is-data] - the channel map comes from a document
     // r[impl patch.type-modes] - and the room's own spacing picks the mode
@@ -615,7 +671,14 @@ impl PatchTable {
                 let model = f.model.as_deref().unwrap_or("");
                 let address = f.dmx_address()?;
                 let gap = gaps.get(index).copied().flatten();
-                let found = crate::fixture_library::profile_for(manufacturer, model, gap)?;
+                let mut found = if f.wired_as.is_empty() {
+                    crate::fixture_library::profile_for(manufacturer, model, gap)?
+                } else {
+                    crate::fixture_library::profile_for("", &f.wired_as, gap)?
+                };
+                if let Some(cell) = f.cell {
+                    keep_cell(&mut found.profile.map, cell);
+                }
                 Some(Patch {
                     address,
                     mirrors: f.mirrors.clone(),

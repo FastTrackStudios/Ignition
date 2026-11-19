@@ -12,7 +12,7 @@
   },
   "groups": {
     "Audience": {
-      "Group": "Towers"
+      "Group": "Tower Lamps"
     },
     "Back": {
       "Group": "Wall Bars"
@@ -26,11 +26,14 @@
     "Drums": {
       "Group": "Drum Towers"
     },
+    "Fill": {
+      "Group": "Tree Colour"
+    },
     "Floor": {
       "Group": "Key Bars"
     },
     "Key": {
-      "Group": "Trees"
+      "Group": "Tree Faces"
     },
     "Movers": {
       "Group": "Movers"

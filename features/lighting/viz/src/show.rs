@@ -75,7 +75,16 @@ fn encode_attribute(map: &ChannelMap, attr: &Attribute, value: f32) -> Vec<(u16,
             let [coarse, low] = encode_wide(range, value);
             vec![(offset, coarse), (fine, low)]
         }
-        None => vec![(offset, encode_attribute_byte(map, attr, value))],
+        // Every channel the chart gives this attribute: a tower of six
+        // warm whites patched as one fixture lights all six for "white".
+        None => {
+            let byte = encode_attribute_byte(map, attr, value);
+            map.channels
+                .iter()
+                .filter(|(_, a)| a == attr)
+                .map(|(o, _)| (*o, byte))
+                .collect()
+        }
     }
 }
 
@@ -182,9 +191,28 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
             bytes.push((addr.universe, channel0, byte));
         }
     };
+    // A fixture with no dimmer channel (a bare RGB bar) still has a
+    // level in the show: the cue's Dimmer scales its emitters here, where
+    // the bytes are made. Without this a level of zero left it lit, and
+    // every dimmer effect on it did nothing.
+    // r[impl playback.clamp-at-output]
+    let level = |chan: ChanId, fixture: &Patch| -> f32 {
+        if fixture.map.offset_of(&Attribute::Dimmer).is_some() {
+            return 1.0;
+        }
+        frame
+            .values
+            .get(&(chan, Attribute::Dimmer))
+            .map_or(1.0, |d| d.clamp(0.0, 1.0))
+    };
     for ((chan, attr), &value) in frame.values {
         let Some(fixture) = patch.by_chan(*chan) else {
             continue;
+        };
+        let value = if matches!(attr, Attribute::ColorAdd { .. }) {
+            value * level(*chan, fixture)
+        } else {
+            value
         };
         if let Some(color) = solved.get(chan) {
             let taken = match attr {
@@ -204,9 +232,10 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
         let Some(fixture) = patch.by_chan(*chan) else {
             continue;
         };
-        for (channel, level) in color.emitters.iter().flatten() {
+        let master = level(*chan, fixture);
+        for (channel, emitter) in color.emitters.iter().flatten() {
             let attr = Attribute::ColorAdd { channel: *channel };
-            for (offset, byte) in encode_attribute(&fixture.map, &attr, *level) {
+            for (offset, byte) in encode_attribute(&fixture.map, &attr, *emitter * master) {
                 push(fixture, offset, byte);
             }
         }
@@ -216,6 +245,10 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
             push(fixture, offset, slot);
         }
     }
+    // Several lamps of one fixture share its level, strobe and colour
+    // bytes. Where they disagree the highest wins, every frame the same
+    // way, rather than whichever the map happened to walk last.
+    bytes.sort_unstable();
     for ((universe, channel1), byte) in frame.parked_dmx {
         if let Some(channel0) = channel1.checked_sub(1) {
             bytes.push((*universe, channel0, *byte));
@@ -452,6 +485,65 @@ mod tests {
         let resolved = dmx.resolve(&fixture.address, &fixture.map);
         assert!((resolved.dimmer - 1.0).abs() < 0.01);
         assert!((resolved.color[0] - 0.5).abs() < 0.02);
+    }
+
+    /// A bar with red, green and blue and no dimmer channel still has a
+    /// level: the cue's Dimmer scales the colour bytes, and zero is dark.
+    #[test]
+    fn a_fixture_with_no_dimmer_channel_takes_its_level_in_its_colour() {
+        let venue = venue_with_one(25, 1, 97, "", "Solena Max Bar 28 RGB");
+        let red = Attribute::ColorAdd {
+            channel: ColorChannel::Red,
+        };
+        let fixture = venue.patch().by_chan(25).unwrap();
+        assert!(fixture.map.offset_of(&Attribute::Dimmer).is_none());
+        for (level, want) in [(1.0_f32, 1.0_f32), (0.5, 0.5), (0.0, 0.0)] {
+            let dmx = DmxUniverses::new();
+            let values = HashMap::from([((25, Attribute::Dimmer), level), ((25, red.clone()), 1.0)]);
+            apply_cue_output(&dmx, &venue, &values);
+            let out = dmx.resolve(&fixture.address, &fixture.map);
+            assert!((out.color[0] - want).abs() < 0.02, "level {level}: {}", out.color[0]);
+        }
+    }
+
+    /// Six lamps of one tower, each its own record on the tower's
+    /// address: a lamp has its own warm white and shares the level and
+    /// the colour, where the highest value any lamp asked for wins.
+    #[test]
+    fn the_lamps_of_one_fixture_share_its_level_and_keep_their_own_white() {
+        let lamp = |chan: u32, cell: u8| -> FixtureRecord {
+            serde_json::from_value(serde_json::json!({
+                "chan": chan, "name": "lamp", "tags": [],
+                "model": "CBU Tower Blinder Ring", "wired_as": "UKing ZQ01334 15ch",
+                "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "eulers": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "quat": {"w": 1.0, "x": 0.0, "y": 0.0, "z": 0.0},
+                "size": {"x": 0.2, "y": 0.2, "z": 0.2},
+                "universe": 1, "address": 1, "cell": cell,
+            }))
+            .expect("valid fixture record")
+        };
+        let mut venue = venue_of(lamp(1, 1));
+        venue.fixtures.push(lamp(2, 2));
+        let white = Attribute::ColorAdd {
+            channel: ColorChannel::White,
+        };
+        let patch = venue.patch();
+        let (one, two) = (patch.by_chan(1).unwrap(), patch.by_chan(2).unwrap());
+        assert_eq!(one.map.offset_of(&white), Some(2));
+        assert_eq!(two.map.offset_of(&white), Some(3));
+        assert_eq!(two.map.offset_of(&Attribute::Dimmer), Some(0));
+
+        let dmx = DmxUniverses::new();
+        let values = HashMap::from([
+            ((1, Attribute::Dimmer), 0.2),
+            ((2, Attribute::Dimmer), 0.8),
+            ((2, white.clone()), 1.0),
+        ]);
+        apply_cue_output(&dmx, &venue, &values);
+        let (a, b) = (dmx.resolve(&one.address, &one.map), dmx.resolve(&two.address, &two.map));
+        assert!((a.dimmer - 0.8).abs() < 0.01, "the higher level wins: {}", a.dimmer);
+        assert!((b.dimmer - 0.8).abs() < 0.01);
     }
 
     /// A cue targeting a channel with no patch entry, or one whose

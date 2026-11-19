@@ -34,10 +34,12 @@
       "Tower 1",
       "Tower Row 1"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 1,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 5,
+    "address": 1,
     "beam_angle_deg": 40.0,
     "chan": 2,
     "eulers": {
@@ -71,10 +73,12 @@
       "Tower 1",
       "Tower Row 2"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 2,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 9,
+    "address": 1,
     "beam_angle_deg": 40.0,
     "chan": 3,
     "eulers": {
@@ -108,10 +112,12 @@
       "Tower 1",
       "Tower Row 3"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 3,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 13,
+    "address": 1,
     "beam_angle_deg": 40.0,
     "chan": 4,
     "eulers": {
@@ -145,10 +151,12 @@
       "Tower 1",
       "Tower Row 4"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 4,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 17,
+    "address": 1,
     "beam_angle_deg": 40.0,
     "chan": 5,
     "eulers": {
@@ -182,10 +190,12 @@
       "Tower 1",
       "Tower Row 5"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 5,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 21,
+    "address": 1,
     "beam_angle_deg": 40.0,
     "chan": 6,
     "eulers": {
@@ -219,10 +229,12 @@
       "Tower 1",
       "Tower Row 6"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 6,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 25,
+    "address": 16,
     "beam_angle_deg": 40.0,
     "chan": 7,
     "eulers": {
@@ -256,10 +268,12 @@
       "Tower 2",
       "Tower Row 1"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 1,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 29,
+    "address": 16,
     "beam_angle_deg": 40.0,
     "chan": 8,
     "eulers": {
@@ -293,10 +307,12 @@
       "Tower 2",
       "Tower Row 2"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 2,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 33,
+    "address": 16,
     "beam_angle_deg": 40.0,
     "chan": 9,
     "eulers": {
@@ -330,10 +346,12 @@
       "Tower 2",
       "Tower Row 3"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 3,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 37,
+    "address": 16,
     "beam_angle_deg": 40.0,
     "chan": 10,
     "eulers": {
@@ -367,10 +385,12 @@
       "Tower 2",
       "Tower Row 4"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 4,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 41,
+    "address": 16,
     "beam_angle_deg": 40.0,
     "chan": 11,
     "eulers": {
@@ -404,10 +424,12 @@
       "Tower 2",
       "Tower Row 5"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 5,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 45,
+    "address": 16,
     "beam_angle_deg": 40.0,
     "chan": 12,
     "eulers": {
@@ -441,10 +463,12 @@
       "Tower 2",
       "Tower Row 6"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 6,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 49,
+    "address": 31,
     "beam_angle_deg": 40.0,
     "chan": 13,
     "eulers": {
@@ -478,10 +502,12 @@
       "Tower 3",
       "Tower Row 1"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 1,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 53,
+    "address": 31,
     "beam_angle_deg": 40.0,
     "chan": 14,
     "eulers": {
@@ -515,10 +541,12 @@
       "Tower 3",
       "Tower Row 2"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 2,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 57,
+    "address": 31,
     "beam_angle_deg": 40.0,
     "chan": 15,
     "eulers": {
@@ -552,10 +580,12 @@
       "Tower 3",
       "Tower Row 3"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 3,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 61,
+    "address": 31,
     "beam_angle_deg": 40.0,
     "chan": 16,
     "eulers": {
@@ -589,10 +619,12 @@
       "Tower 3",
       "Tower Row 4"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 4,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 65,
+    "address": 31,
     "beam_angle_deg": 40.0,
     "chan": 17,
     "eulers": {
@@ -626,10 +658,12 @@
       "Tower 3",
       "Tower Row 5"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 5,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 69,
+    "address": 31,
     "beam_angle_deg": 40.0,
     "chan": 18,
     "eulers": {
@@ -663,10 +697,12 @@
       "Tower 3",
       "Tower Row 6"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 6,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 73,
+    "address": 46,
     "beam_angle_deg": 40.0,
     "chan": 19,
     "eulers": {
@@ -700,10 +736,12 @@
       "Tower 4",
       "Tower Row 1"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 1,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 77,
+    "address": 46,
     "beam_angle_deg": 40.0,
     "chan": 20,
     "eulers": {
@@ -737,10 +775,12 @@
       "Tower 4",
       "Tower Row 2"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 2,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 81,
+    "address": 46,
     "beam_angle_deg": 40.0,
     "chan": 21,
     "eulers": {
@@ -774,10 +814,12 @@
       "Tower 4",
       "Tower Row 3"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 3,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 85,
+    "address": 46,
     "beam_angle_deg": 40.0,
     "chan": 22,
     "eulers": {
@@ -811,10 +853,12 @@
       "Tower 4",
       "Tower Row 4"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 4,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 89,
+    "address": 46,
     "beam_angle_deg": 40.0,
     "chan": 23,
     "eulers": {
@@ -848,10 +892,12 @@
       "Tower 4",
       "Tower Row 5"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 5,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
-    "address": 93,
+    "address": 46,
     "beam_angle_deg": 40.0,
     "chan": 24,
     "eulers": {
@@ -885,7 +931,9 @@
       "Tower 4",
       "Tower Row 6"
     ],
-    "universe": 1
+    "universe": 1,
+    "cell": 6,
+    "wired_as": "UKing ZQ01334 15ch"
   },
   {
     "address": 97,
