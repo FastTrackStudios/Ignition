@@ -1,6 +1,6 @@
 use crate::{
-    AreaLightLuts, DfgLut, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    AreaLightLuts, DfgLut, ScreenSpaceTransmission, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 use arrayvec::ArrayVec;
 use bevy_core_pipeline::{
@@ -10,7 +10,7 @@ use bevy_core_pipeline::{
     },
     prepass::ViewPrepassTextures,
     tonemapping::{
-        Tonemapping, TonemappingLuts, get_lut_bind_group_layout_entries, get_lut_bindings,
+        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
 };
 use bevy_ecs::{
@@ -18,7 +18,8 @@ use bevy_ecs::{
     entity::Entity,
     query::Has,
     resource::Resource,
-    system::{Commands, Local, Query, Res},
+    system::{Commands, Query, Res},
+    world::{FromWorld, World},
 };
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
@@ -31,20 +32,14 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
-        Msaa, RenderVisibilityRanges, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
+        Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
+        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT, VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE,
     },
 };
 use core::fmt::Write;
 use core::num::NonZero;
 
 use crate::{
-    Bluenoise, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, ExtractedAtmosphere, FogMeta,
-    GlobalClusterableObjectMeta, GpuClusteredLights, GpuFog, GpuLights, LightMeta,
-    LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
-    ScreenSpaceAmbientOcclusionResources, ScreenSpaceReflectionsBuffer,
-    ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
-    ViewTransmissionTexture,
     contact_shadows::{
         ContactShadowsBuffer, ContactShadowsUniform, ViewContactShadowsUniformOffset,
     },
@@ -55,11 +50,15 @@ use crate::{
         },
     },
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
-    irradiance_volume::{
-        self, IRRADIANCE_VOLUMES_ARE_USABLE, RenderViewIrradianceVolumeBindGroupEntries,
-    },
+    irradiance_volume::{self, RenderViewIrradianceVolumeBindGroupEntries},
     prepass,
-    resources::{AtmosphereBuffer, AtmosphereSampler, AtmosphereTextures, GpuAtmosphere},
+    resources::{AtmosphereBuffer, AtmosphereTextures, GpuAtmosphere},
+    Bluenoise, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta, GpuClusteredLights,
+    GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform, MeshPipeline,
+    MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
+    ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
+    ViewClusterBindings, ViewShadowBindings, ViewTransmissionTexture,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -68,8 +67,26 @@ use bevy_render::render_resource::binding_types::texture_cube;
 #[cfg(debug_assertions)]
 use {crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, tracing::warn};
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 18;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 19;
+pub const VISIBILITY_RANGES_BINDING_INDEX: u32 = 11;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 15;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 16;
+pub const LINEAR_SAMPLER_BINDING_INDEX: u32 = 22;
+
+/// A `Linear/ClampToEdge` sampler shared across multiple view bindings
+#[derive(Resource)]
+pub struct LinearSampler(pub Sampler);
+
+impl FromWorld for LinearSampler {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        Self(render_device.create_sampler(&SamplerDescriptor {
+            label: Some("linear_sampler"),
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            ..Default::default()
+        }))
+    }
+}
 
 #[derive(Clone)]
 pub struct MeshPipelineViewLayout {
@@ -99,6 +116,7 @@ bitflags::bitflags! {
         const CONTACT_SHADOWS                  = 1 << 13;
         const DISTANCE_FOG                     = 1 << 14;
         const AREA_LIGHT_LUTS                  = 1 << 15;
+        const VIEW_TRANSMISSION_TEXTURE        = 1 << 16;
     }
 }
 
@@ -179,6 +197,9 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         if value.contains(MeshPipelineKey::DISTANCE_FOG) {
             result |= MeshPipelineViewLayoutKey::DISTANCE_FOG;
         }
+        if value.contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE) {
+            result |= MeshPipelineViewLayoutKey::VIEW_TRANSMISSION_TEXTURE;
+        }
 
         result
     }
@@ -236,6 +257,17 @@ pub(crate) fn buffer_layout(
     }
 }
 
+/// The minimum size of the visibility ranges binding: one element of the
+/// runtime-sized storage array, or the whole fixed-size uniform array.
+pub(crate) fn visibility_ranges_min_binding_size(
+    buffer_binding_type: BufferBindingType,
+) -> NonZero<u64> {
+    match buffer_binding_type {
+        BufferBindingType::Uniform => <[Vec4; VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE]>::min_size(),
+        BufferBindingType::Storage { .. } => Vec4::min_size(),
+    }
+}
+
 /// Returns the appropriate bind group layout vec based on the parameters
 fn layout_entries(
     layout_key: MeshPipelineViewLayoutKey,
@@ -248,36 +280,13 @@ fn layout_entries(
         is_oit_supported,
     }: &MeshPipelineViewLayoutParams,
 ) -> [Vec<BindGroupLayoutEntry>; 2] {
-    // IGNITION PATCH: the view bindings are visible to compute too.
-    //
-    // Upstream declares them `FRAGMENT`, which means a compute pass
-    // cannot see the lights, the clusters or the shadow atlas — and so
-    // cannot do volumetrics the way every other engine does, as a
-    // compute pass over a froxel grid (`volumetric_fog::froxel`).
-    //
-    // Adding a stage is permissive: a binding visible to more stages is
-    // still visible to the ones that already used it, so no existing
-    // pipeline changes. The alternative is re-declaring the whole view
-    // layout — shadow arrays, sampler variants, the storage-versus-
-    // uniform split — beside the real one and keeping the two in step
-    // for ever.
-    //
-    // If froxel volumetrics land upstream this has to happen there too;
-    // #18151 cannot be built without it.
-    const VIEW_STAGES: ShaderStages = ShaderStages::from_bits_retain(
-        ShaderStages::FRAGMENT.bits() | ShaderStages::COMPUTE.bits(),
-    );
-    const VIEW_STAGES_WITH_VERTEX: ShaderStages = ShaderStages::from_bits_retain(
-        ShaderStages::VERTEX_FRAGMENT.bits() | ShaderStages::COMPUTE.bits(),
-    );
-
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
-        VIEW_STAGES,
+        ShaderStages::FRAGMENT,
         (
             // View
             (
                 0,
-                uniform_buffer::<ViewUniform>(true).visibility(VIEW_STAGES_WITH_VERTEX),
+                uniform_buffer::<ViewUniform>(true).visibility(ShaderStages::VERTEX_FRAGMENT),
             ),
             // Lights
             (1, uniform_buffer::<GpuLights>(true)),
@@ -301,12 +310,9 @@ fn layout_entries(
             ),
             // Point Shadow Texture Array Comparison Sampler
             (3, sampler(SamplerBindingType::Comparison)),
-            // Point Shadow Texture Array Linear Sampler
-            #[cfg(feature = "experimental_pbr_pcss")]
-            (4, sampler(SamplerBindingType::Filtering)),
             // Directional Shadow Texture Array
             (
-                5,
+                4,
                 #[cfg(any(
                     not(feature = "webgl"),
                     not(target_arch = "wasm32"),
@@ -316,14 +322,9 @@ fn layout_entries(
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 texture_2d(TextureSampleType::Depth),
             ),
-            // Directional Shadow Texture Array Comparison Sampler
-            (6, sampler(SamplerBindingType::Comparison)),
-            // Directional Shadow Texture Array Linear Sampler
-            #[cfg(feature = "experimental_pbr_pcss")]
-            (7, sampler(SamplerBindingType::Filtering)),
             // PointLights
             (
-                8,
+                5,
                 buffer_layout(
                     clustered_forward_buffer_binding_type,
                     false,
@@ -334,7 +335,7 @@ fn layout_entries(
             ),
             // ClusteredLightIndexLists
             (
-                9,
+                6,
                 buffer_layout(
                     clustered_forward_buffer_binding_type,
                     false,
@@ -347,7 +348,7 @@ fn layout_entries(
             ),
             // ClusterOffsetsAndCounts
             (
-                10,
+                7,
                 buffer_layout(
                     clustered_forward_buffer_binding_type,
                     false,
@@ -358,18 +359,20 @@ fn layout_entries(
             ),
             // Globals
             (
-                11,
-                uniform_buffer::<GlobalsUniform>(false).visibility(VIEW_STAGES_WITH_VERTEX),
+                8,
+                uniform_buffer::<GlobalsUniform>(false).visibility(ShaderStages::VERTEX_FRAGMENT),
             ),
             // Light probes
-            (12, uniform_buffer::<LightProbesUniform>(true)),
+            (9, uniform_buffer::<LightProbesUniform>(true)),
             // Visibility ranges
             (
-                14,
+                VISIBILITY_RANGES_BINDING_INDEX,
                 buffer_layout(
                     visibility_ranges_buffer_binding_type,
                     false,
-                    Some(Vec4::min_size()),
+                    Some(visibility_ranges_min_binding_size(
+                        visibility_ranges_buffer_binding_type,
+                    )),
                 )
                 .visibility(ShaderStages::VERTEX),
             ),
@@ -379,26 +382,26 @@ fn layout_entries(
     if layout_key.contains(MeshPipelineViewLayoutKey::DISTANCE_FOG) {
         entries = entries.extend_with_indices((
             // Fog
-            (13, uniform_buffer::<GpuFog>(true)),
+            (10, uniform_buffer::<GpuFog>(true)),
         ));
     }
     if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS) {
         entries = entries.extend_with_indices((
             // Screen space reflection settings
-            (15, uniform_buffer::<ScreenSpaceReflectionsUniform>(true)),
+            (12, uniform_buffer::<ScreenSpaceReflectionsUniform>(true)),
         ));
     }
     if layout_key.contains(MeshPipelineViewLayoutKey::CONTACT_SHADOWS) {
         entries = entries.extend_with_indices((
             // Contact shadows settings
-            (16, uniform_buffer::<ContactShadowsUniform>(true)),
+            (13, uniform_buffer::<ContactShadowsUniform>(true)),
         ));
     }
     if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
         entries = entries.extend_with_indices((
             // Screen space ambient occlusion texture
             (
-                17,
+                14,
                 texture_2d(TextureSampleType::Float { filterable: false }),
             ),
         ));
@@ -425,7 +428,7 @@ fn layout_entries(
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
-            .zip([20, 21, 22, 23])
+            .zip([17, 18, 19, 20])
         {
             if let Some(entry) = entry {
                 entries = entries.extend_with_indices(((binding as u32, *entry),));
@@ -434,13 +437,18 @@ fn layout_entries(
     }
 
     // View Transmission Texture
-    entries = entries.extend_with_indices((
-        (
-            24,
+    if layout_key.contains(MeshPipelineViewLayoutKey::VIEW_TRANSMISSION_TEXTURE) {
+        entries = entries.extend_with_indices(((
+            21,
             texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (25, sampler(SamplerBindingType::Filtering)),
-    ));
+        ),));
+    }
+
+    // Common linear sampler (shared by transmission, atmosphere, area-light LUTs, DFG LUT, and PCSS shadows)
+    entries = entries.extend_with_indices(((
+        LINEAR_SAMPLER_BINDING_INDEX,
+        sampler(SamplerBindingType::Filtering),
+    ),));
 
     // OIT
     if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
@@ -450,18 +458,18 @@ fn layout_entries(
         if is_oit_supported {
             entries = entries.extend_with_indices((
                 (
-                    26,
+                    23,
                     uniform_buffer::<OrderIndependentTransparencySettings>(true),
                 ),
                 // oit_nodes_capacity
-                (27, uniform_buffer::<u32>(false)),
+                (24, uniform_buffer::<u32>(false)),
                 // oit_nodes
-                (28, storage_buffer_sized(false, None)),
+                (25, storage_buffer_sized(false, None)),
                 // oit_heads,
-                (29, storage_buffer_sized(false, None)),
+                (26, storage_buffer_sized(false, None)),
                 // oit_atomic_counter
                 (
-                    30,
+                    27,
                     storage_buffer_sized(false, NonZero::<u64>::new(size_of::<u32>() as u64)),
                 ),
             ));
@@ -473,48 +481,37 @@ fn layout_entries(
         entries = entries.extend_with_indices((
             // transmittance LUT
             (
-                31,
+                28,
                 texture_2d(TextureSampleType::Float { filterable: true }),
             ),
-            (32, sampler(SamplerBindingType::Filtering)),
             // atmosphere data buffer
-            (33, storage_buffer_read_only::<GpuAtmosphere>(false)),
+            (29, storage_buffer_read_only::<GpuAtmosphere>(false)),
         ));
     }
 
     // Blue noise
     if layout_key.contains(MeshPipelineViewLayoutKey::STBN) {
         entries = entries.extend_with_indices(((
-            34,
+            30,
             texture_2d_array(TextureSampleType::Float { filterable: false }),
         ),));
     }
     // LTC LUTs for area lights
     if cfg!(feature = "area_light_luts") {
-        entries = entries.extend_with_indices((
-            (
-                35,
-                texture_2d_array(TextureSampleType::Float { filterable: true }),
-            ),
-            (36, sampler(SamplerBindingType::Filtering)),
-        ));
+        entries = entries.extend_with_indices(((
+            31,
+            texture_2d_array(TextureSampleType::Float { filterable: true }),
+        ),));
     }
     // DFG LUT
     if cfg!(feature = "dfg_lut") {
-        entries = entries.extend_with_indices((
-            (
-                37,
-                texture_2d(TextureSampleType::Float { filterable: true }),
-            ),
-            (38, sampler(SamplerBindingType::Filtering)),
-        ));
+        entries = entries.extend_with_indices(((
+            32,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),));
     }
 
-    // IGNITION PATCH: compute too, so the froxel injection can read the
-    // clustered decals — a gobo is a stencil at the gate, and the fog
-    // wants it as much as the wall does. Same reasoning as VIEW_STAGES
-    // above; visibility belongs to the layout, not to the buffers.
-    let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(VIEW_STAGES);
+    let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
     if layout_key.contains(MeshPipelineViewLayoutKey::ENVIRONMENT_MAP) {
         binding_array_entries = binding_array_entries.extend_with_indices((
             (0, environment_map_entries[0]),
@@ -525,12 +522,10 @@ fn layout_entries(
 
     if layout_key.contains(MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME) {
         // Irradiance volumes
-        if IRRADIANCE_VOLUMES_ARE_USABLE {
-            binding_array_entries = binding_array_entries.extend_with_indices((
-                (3, irradiance_volume_entries[0]),
-                (4, irradiance_volume_entries[1]),
-            ));
-        }
+        binding_array_entries = binding_array_entries.extend_with_indices((
+            (3, irradiance_volume_entries[0]),
+            (4, irradiance_volume_entries[1]),
+        ));
     }
 
     // Clustered decals
@@ -675,6 +670,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
         Option<&AtmosphereTextures>,
+        Option<&AtmosphereBuffer>,
         &Tonemapping,
         (
             Option<&RenderViewLightProbes<EnvironmentMapLight>>,
@@ -689,6 +685,7 @@ pub fn prepare_mesh_view_bind_groups(
             Option<&ViewScreenSpaceReflectionsUniformOffset>,
             Option<&ViewContactShadowsUniformOffset>,
             Option<&OrderIndependentTransparencySettingsOffset>,
+            Has<ScreenSpaceTransmission>,
         ),
     )>,
     (images, fallback_image, fallback_image_zero): (
@@ -705,29 +702,19 @@ pub fn prepare_mesh_view_bind_groups(
         Res<ContactShadowsBuffer>,
         Res<OitBuffers>,
     ),
-    (
-        decals_buffer,
-        render_decals,
-        atmosphere_buffer,
-        atmosphere_sampler,
-        blue_noise,
-        area_light_luts,
-        dfg_lut,
-    ): (
+    (decals_buffer, render_decals, blue_noise, area_light_luts, dfg_lut): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
-        Option<Res<AtmosphereBuffer>>,
-        Option<Res<AtmosphereSampler>>,
         Res<Bluenoise>,
         Res<AreaLightLuts>,
         Res<DfgLut>,
     ),
+    linear_sampler: Res<LinearSampler>,
     // TODO: Figure out how to reuse the memory. `BindGroupEntry` is non-send on wasm with atomics.
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))] mut entries_cache: Local<
-        Vec<BindGroupEntry>,
-    >,
     #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    mut entries_binding_array_cache: Local<Vec<BindGroupEntry>>,
+    mut entries_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+    mut entries_binding_array_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
 ) {
     if let (
         Some(view_binding),
@@ -756,6 +743,7 @@ pub fn prepare_mesh_view_bind_groups(
             prepass_textures,
             transmission_texture,
             atmosphere_textures,
+            atmosphere_buffer,
             tonemapping,
             (render_view_environment_maps, render_view_irradiance_volumes),
             has_atmosphere,
@@ -767,6 +755,7 @@ pub fn prepare_mesh_view_bind_groups(
                 view_ssr_offset,
                 view_contact_shadows_offset,
                 view_oit_settings_offset,
+                has_transmission,
             ),
         ) in &views
         {
@@ -786,7 +775,7 @@ pub fn prepare_mesh_view_bind_groups(
                     .collect();
             }
 
-            let tonemap_in_shader = camera.is_none_or(|camera| !camera.hdr);
+            let tonemap_in_shader = camera.is_some_and(|camera| camera.tonemap_in_shader);
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
             let mut offsets = ArrayVec::from_iter([
@@ -799,69 +788,66 @@ pub fn prepare_mesh_view_bind_groups(
                 (0, view_binding.clone()),
                 (1, light_binding.clone()),
                 (2, &shadow_bindings.point_light_depth_texture_view),
-                (3, &shadow_samplers.point_light_comparison_sampler),
-                #[cfg(feature = "experimental_pbr_pcss")]
-                (4, &shadow_samplers.point_light_linear_sampler),
-                (5, &shadow_bindings.directional_light_depth_texture_view),
-                (6, &shadow_samplers.directional_light_comparison_sampler),
-                #[cfg(feature = "experimental_pbr_pcss")]
-                (7, &shadow_samplers.directional_light_linear_sampler),
-                (8, clusterable_objects_binding.clone()),
+                (3, &shadow_samplers.shadow_comparison_sampler),
+                (4, &shadow_bindings.directional_light_depth_texture_view),
+                (5, clusterable_objects_binding.clone()),
                 (
-                    9,
+                    6,
                     cluster_bindings
                         .clusterable_object_index_lists_binding()
                         .unwrap(),
                 ),
-                (10, cluster_bindings.offsets_and_counts_binding().unwrap()),
-                (11, globals.clone()),
-                (12, light_probes_binding.clone()),
-                (14, visibility_ranges_buffer.as_entire_binding()),
+                (7, cluster_bindings.offsets_and_counts_binding().unwrap()),
+                (8, globals.clone()),
+                (9, light_probes_binding.clone()),
+                (
+                    VISIBILITY_RANGES_BINDING_INDEX,
+                    visibility_ranges_buffer.as_entire_binding(),
+                ),
+                (LINEAR_SAMPLER_BINDING_INDEX, &linear_sampler.0),
             ));
 
             if let Some(view_fog_offset) = view_fog_offset {
                 layout_key |= MeshPipelineViewLayoutKey::DISTANCE_FOG;
                 offsets.push(view_fog_offset.offset);
                 entries =
-                    entries.extend_with_indices(((13, fog_meta.gpu_fogs.binding().unwrap()),));
+                    entries.extend_with_indices(((10, fog_meta.gpu_fogs.binding().unwrap()),));
             }
 
             if let Some(view_ssr_offset) = view_ssr_offset {
                 layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS;
                 offsets.push(**view_ssr_offset);
-                entries = entries.extend_with_indices(((15, ssr_buffer.binding().unwrap()),));
+                entries = entries.extend_with_indices(((12, ssr_buffer.binding().unwrap()),));
             }
 
             if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
                 layout_key |= MeshPipelineViewLayoutKey::CONTACT_SHADOWS;
                 offsets.push(**view_contact_shadows_offset);
                 entries = entries
-                    .extend_with_indices(((16, contact_shadows_buffer.0.binding().unwrap()),));
+                    .extend_with_indices(((13, contact_shadows_buffer.0.binding().unwrap()),));
             }
 
             if let Some(view_oit_settings_offset) = view_oit_settings_offset {
                 layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
                 offsets.push(view_oit_settings_offset.offset);
                 entries = entries.extend_with_indices((
-                    (26, oit_buffers.settings.binding().unwrap()),
-                    (27, oit_buffers.nodes_capacity.binding().unwrap()),
-                    (28, oit_buffers.nodes.binding().unwrap()),
-                    (29, oit_buffers.heads.binding().unwrap()),
-                    (30, oit_buffers.atomic_counter.binding().unwrap()),
+                    (23, oit_buffers.settings.binding().unwrap()),
+                    (24, oit_buffers.nodes_capacity.binding().unwrap()),
+                    (25, oit_buffers.nodes.binding().unwrap()),
+                    (26, oit_buffers.heads.binding().unwrap()),
+                    (27, oit_buffers.atomic_counter.binding().unwrap()),
                 ));
             }
 
             if has_atmosphere
                 && let Some(atmosphere_textures) = atmosphere_textures
-                && let Some(atmosphere_buffer) = atmosphere_buffer.as_ref()
-                && let Some(atmosphere_sampler) = atmosphere_sampler.as_ref()
+                && let Some(atmosphere_buffer) = atmosphere_buffer
                 && let Some(atmosphere_buffer_binding) = atmosphere_buffer.buffer.binding()
             {
                 layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
                 entries = entries.extend_with_indices((
-                    (31, &atmosphere_textures.transmittance_lut.default_view),
-                    (32, &***atmosphere_sampler),
-                    (33, atmosphere_buffer_binding),
+                    (28, &atmosphere_textures.transmittance_lut.default_view),
+                    (29, atmosphere_buffer_binding),
                 ));
             }
 
@@ -871,7 +857,7 @@ pub fn prepare_mesh_view_bind_groups(
                     .get(&blue_noise.texture)
                     .expect("STBN texture is added unconditionally with at least a placeholder")
                     .texture_view;
-                entries = entries.extend_with_indices(((34, stbn_view),));
+                entries = entries.extend_with_indices(((30, stbn_view),));
             }
 
             if tonemap_in_shader {
@@ -889,19 +875,16 @@ pub fn prepare_mesh_view_bind_groups(
                 let ssao_view = &ssao_resources
                     .screen_space_ambient_occlusion_texture
                     .default_view;
-                entries = entries.extend_with_indices(((17, ssao_view),));
+                entries = entries.extend_with_indices(((14, ssao_view),));
             }
 
-            let transmission_view = transmission_texture
-                .map(|transmission| &transmission.view)
-                .unwrap_or(&fallback_image_zero.texture_view);
-
-            let transmission_sampler = transmission_texture
-                .map(|transmission| &transmission.sampler)
-                .unwrap_or(&fallback_image_zero.sampler);
-
-            entries =
-                entries.extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
+            if has_transmission {
+                layout_key |= MeshPipelineViewLayoutKey::VIEW_TRANSMISSION_TEXTURE;
+                let transmission_view = transmission_texture
+                    .map(|transmission| &transmission.view)
+                    .unwrap_or(&fallback_image_zero.texture_view);
+                entries = entries.extend_with_indices(((21, transmission_view),));
+            }
 
             // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
             // See https://github.com/gfx-rs/wgpu/issues/5263
@@ -911,7 +894,7 @@ pub fn prepare_mesh_view_bind_groups(
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)
-                    .zip([20, 21, 22, 23])
+                    .zip([17, 18, 19, 20])
                     .flat_map(|(b, i)| b.map(|b| (b, i)))
                 {
                     entries = entries.extend_with_indices(((index, binding),));
@@ -920,23 +903,20 @@ pub fn prepare_mesh_view_bind_groups(
 
             // LTC LUTs for area lights
             if cfg!(feature = "area_light_luts") {
-                let (ltc_view, ltc_sampler) = images
+                let ltc_view = images
                     .get(&area_light_luts.image)
-                    .map(|img| (&img.texture_view, &img.sampler))
-                    .unwrap_or((
-                        &fallback_image.d2_array.texture_view,
-                        &fallback_image.d2_array.sampler,
-                    ));
-                entries = entries.extend_with_indices(((35, ltc_view), (36, ltc_sampler)));
+                    .map(|img| &img.texture_view)
+                    .unwrap_or(&fallback_image.d2_array.texture_view);
+                entries = entries.extend_with_indices(((31, ltc_view),));
             }
 
             // DFG LUT
             if cfg!(feature = "dfg_lut") {
-                let (dfg_view, dfg_sampler) = images
+                let dfg_view = images
                     .get(&dfg_lut.texture)
-                    .map(|img| (&img.texture_view, &img.sampler))
-                    .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
-                entries = entries.extend_with_indices(((37, dfg_view), (38, dfg_sampler)));
+                    .map(|img| &img.texture_view)
+                    .unwrap_or(&fallback_image.d2.texture_view);
+                entries = entries.extend_with_indices(((32, dfg_view),));
             }
 
             let environment_map_bind_group_entries =
@@ -977,20 +957,19 @@ pub fn prepare_mesh_view_bind_groups(
                 None => {}
             }
 
-            let irradiance_volume_bind_group_entries =
-                if render_view_irradiance_volumes.is_some() && IRRADIANCE_VOLUMES_ARE_USABLE {
-                    layout_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
+            let irradiance_volume_bind_group_entries = if render_view_irradiance_volumes.is_some() {
+                layout_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
 
-                    Some(RenderViewIrradianceVolumeBindGroupEntries::get(
-                        render_view_irradiance_volumes,
-                        &images,
-                        &fallback_image,
-                        &render_device,
-                        &render_adapter,
-                    ))
-                } else {
-                    None
-                };
+                Some(RenderViewIrradianceVolumeBindGroupEntries::get(
+                    render_view_irradiance_volumes,
+                    &images,
+                    &fallback_image,
+                    &render_device,
+                    &render_adapter,
+                ))
+            } else {
+                None
+            };
 
             match irradiance_volume_bind_group_entries {
                 Some(RenderViewIrradianceVolumeBindGroupEntries::Single {

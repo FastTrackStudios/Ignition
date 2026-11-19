@@ -13,7 +13,7 @@ dial costs on one GPU, or for judging one decision by eye.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `IGNITION_FROXEL` | off | `1` selects the froxel grid instead of the screen-space march. The march is what ships: the grid is roughly three times cheaper, does not bead a beam and carries gobos and shadows in the air, but as it stands it renders a room with no beams in it — see `docs/domain/froxel-volumetrics.md`. |
+| `IGNITION_FROXEL` | off | **Not on the current Bevy pin** (2026-11-18, `vendor/bevy_pbr/FTS-PATCH.md`): asked for, it warns and the march draws. On Bevy 0.19.1, `1` selected the froxel grid instead of the screen-space march. The march is what ships: the grid is roughly three times cheaper, does not bead a beam and carries gobos and shadows in the air, but as it stands it renders a room with no beams in it — see `docs/domain/froxel-volumetrics.md`. |
 | `IGNITION_FOG_SCALE` | `1` | `0` marches the fog on a reduced-size haze camera instead of on the camera itself. Cheaper and sharper; off by default — see [The march](#the-march--what-ships). |
 
 ## Cost — the froxel grid

@@ -26,6 +26,7 @@
 //! server. `GdtfAssetsPlugin` (the swap system) goes anywhere after.
 
 use crate::spawn::{Fixture, FixtureBody, PartMaterial};
+use bevy::asset::CowArc;
 use bevy::asset::io::AssetSourceBuilder;
 use bevy::asset::io::{AssetReader, AssetReaderError, PathStream, Reader, VecReader};
 use bevy::asset::{AssetApp, AssetPath};
@@ -129,12 +130,18 @@ impl GdtfZipReader {
 }
 
 impl AssetReader for GdtfZipReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        Self::read_entry(path).map(VecReader::new)
+    async fn read<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
+        Self::read_entry(&path).map(VecReader::new)
     }
 
     /// A zip carries no `.meta` sidecars; the loader's defaults apply.
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         Err::<VecReader, _>(AssetReaderError::NotFound(path.to_path_buf()))
     }
 

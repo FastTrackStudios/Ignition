@@ -1,0 +1,57 @@
+# ignition-beams: every beam in the air, drawn analytically (README.md).
+
+[package]
+name = "ignition-beams"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Beams in the air without a grid: one cone hull per beam, exact ray-cone intersection, closed-form single scattering"
+
+[lib]
+name = "ignition_beams"
+path = "src/lib.rs"
+
+[dependencies]
+# The workspace's Bevy revision (the root manifest says which and why).
+bevy = { workspace = true, features = [
+    "std",
+    "bevy_asset",
+    "bevy_camera",
+    "bevy_color",
+    "bevy_core_pipeline",
+    "bevy_image",
+    "bevy_log",
+    "bevy_render",
+    "bevy_shader",
+] }
+
+[dev-dependencies]
+# What the example needs on top: a window, lit surfaces for the pools the
+# beams land in, and PNG for the captures.
+bevy = { workspace = true, features = [
+    "async_executor",
+    "bevy_light",
+    "bevy_mesh",
+    "bevy_pbr",
+    "bevy_window",
+    "bevy_winit",
+    "multi_threaded",
+    "png",
+    "wayland",
+    "x11",
+] }
+
+# Runs `shaders/scatter.wesl` on the CPU, to hold it against `src/math.rs`
+# (tests/wesl_matches_rust.rs). The version Bevy's shader crate is on.
+wesl = { version = "0.6.0", features = ["eval", "naga-ext"] }
+
+[[example]]
+name = "truss"
+path = "examples/truss/main.rs"
+# Its argument parsing and scenes have tests of their own.
+test = true
+
+[lints]
+workspace = true

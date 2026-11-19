@@ -20,6 +20,10 @@
 //! Preferences → Link, Tempo & MIDI → the port's Sync output on) — every
 //! locate, every song `AbleSet` jumps to, lands on the right cue.
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod frame_stats;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod frames;
 mod night;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod process_view;
@@ -75,6 +79,15 @@ struct Args {
     at: Option<f64>,
     midi_ports: bool,
     start: Option<usize>,
+    /// `--bar`: the bar of the `--start` song the operator's clock is
+    /// parked at.
+    bar: Option<u32>,
+    /// `--go`: the operator's clock starts running.
+    go: bool,
+    /// `--bench <frames>`: the show drawn with no pane, timed.
+    bench: Option<u32>,
+    /// `--size <w>x<h>`: the bench's frame.
+    size: (u32, u32),
     camera: Option<String>,
     /// Follow the clock in the terminal, no window: what the show would do.
     watch: bool,
@@ -94,6 +107,10 @@ fn parse_args() -> Result<Args> {
         at: None,
         midi_ports: false,
         start: None,
+        bar: None,
+        go: false,
+        bench: None,
+        size: (2560, 1440),
         camera: None,
         watch: false,
         process_view: std::env::var_os("ARCHITECT_VIEW_FD").is_some(),
@@ -142,6 +159,16 @@ fn parse_args() -> Result<Args> {
             "--check" => args.check = true,
             "--at" => args.at = Some(next("a beat of the set")?.parse()?),
             "--start" => args.start = Some(next("a song number")?.parse()?),
+            "--bar" => args.bar = Some(next("a bar number")?.parse()?),
+            "--go" => args.go = true,
+            "--bench" => args.bench = Some(next("a frame count")?.parse()?),
+            "--size" => {
+                let size = next("<width>x<height>")?;
+                let (w, h) = size
+                    .split_once('x')
+                    .with_context(|| format!("--size {size}: <width>x<height>"))?;
+                args.size = (w.parse()?, h.parse()?);
+            }
             "--camera" => args.camera = Some(next("a camera preset")?),
             "--midi-ports" => args.midi_ports = true,
             "--watch" => args.watch = true,
@@ -227,6 +254,24 @@ fn main() -> Result<()> {
         current: Mutex::new(None),
         live: Mutex::default(),
     });
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    if let Some(frames) = args.bench {
+        let benched = process_view::bench(
+            process_view::Show {
+                config,
+                playback,
+                gdtf,
+                follow: follower,
+            },
+            args.size,
+            frames,
+            60,
+        );
+        if let Some(stopper) = stopper {
+            stopper.stop();
+        }
+        return benched;
+    }
     if args.process_view {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         let served = process_view::serve(process_view::Show {
@@ -260,6 +305,12 @@ fn make_clock(
             let clock = Arc::new(OperatorClock::new(Arc::clone(night)));
             if let Some(n) = args.start {
                 clock.cue_song(n.saturating_sub(1));
+            }
+            if let Some(bar) = args.bar {
+                clock.cue_bar(bar);
+            }
+            if args.go {
+                clock.toggle();
             }
             spawn_console(Arc::clone(&clock));
             (Box::new(SharedClock(clock)), None)

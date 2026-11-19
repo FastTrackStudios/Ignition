@@ -2,7 +2,7 @@ use crate::Material;
 use bevy_asset::{AsAssetId, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use derive_more::derive::From;
 
 /// A [material](Material) used for rendering a [`Mesh3d`].
@@ -19,7 +19,7 @@ use derive_more::derive::From;
 /// # use bevy_mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
-/// # use bevy_math::primitives::Capsule3d;
+/// # use bevy_shape::Capsule3d;
 /// #
 /// // Spawn an entity with a mesh using `StandardMaterial`.
 /// fn setup(

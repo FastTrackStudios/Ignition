@@ -270,8 +270,9 @@ fn Room(picks: Picks) -> Element {
     }
     let mut program = Program::new(picks.program());
     program.args = picks.args(true);
-    // Shared memory: the renderer is on wgpu 29 (Bevy), the app on 30.
-    let mut program = program.env("ARCHITECT_PROCESS_VIEW_TRANSPORT", "shm");
+    // No transport forced: the renderer and the app are on one wgpu, so
+    // the frames are shared on the GPU (a dma-buf, an IOSurface), and the
+    // renderer says so loudly when they are not.
     if let Ok(root) = std::env::var("IGNITION_ROOT") {
         program = program.env("IGNITION_ROOT", root);
     }

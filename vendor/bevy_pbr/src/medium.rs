@@ -7,9 +7,8 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Res, SystemParamItem},
 };
-use bevy_math::{Vec4, ops};
+use bevy_math::{ops, Vec4};
 use bevy_render::{
-    RenderApp, RenderStartup,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{
         Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture, TextureDataOrder,
@@ -17,6 +16,7 @@ use bevy_render::{
         TextureViewDescriptor,
     },
     renderer::{RenderDevice, RenderQueue},
+    RenderApp, RenderStartup,
 };
 use smallvec::SmallVec;
 
@@ -105,8 +105,8 @@ impl RenderAsset for GpuScatteringMedium {
 
         scattering.extend(
             (0..source_asset.falloff_resolution * source_asset.phase_resolution).map(|raw_i| {
-                let i = raw_i % source_asset.phase_resolution;
-                let j = raw_i / source_asset.phase_resolution;
+                let i = raw_i % source_asset.falloff_resolution;
+                let j = raw_i / source_asset.falloff_resolution;
                 let falloff = (i as f32 + 0.5) / source_asset.falloff_resolution as f32;
                 let phase = (j as f32 + 0.5) / source_asset.phase_resolution as f32;
 

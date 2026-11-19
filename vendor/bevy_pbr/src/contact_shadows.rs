@@ -11,14 +11,14 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    GpuResourceAppExt, Render, RenderApp, RenderSystems,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     sync_component::SyncComponent,
     view::ExtractedView,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 
 /// Enables contact shadows for a camera.
@@ -79,11 +79,11 @@ impl From<ContactShadows> for ContactShadowsUniform {
     }
 }
 
-impl SyncComponent for ContactShadows {
+impl SyncComponent<RenderApp> for ContactShadows {
     type Target = (Self, ViewContactShadowsUniformOffset);
 }
 
-impl ExtractComponent for ContactShadows {
+impl ExtractComponent<RenderApp> for ContactShadows {
     type QueryData = &'static ContactShadows;
     type QueryFilter = ();
     type Out = Self;

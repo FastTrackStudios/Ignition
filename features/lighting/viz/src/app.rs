@@ -790,7 +790,7 @@ pub fn adaptation_curve() -> AutoExposureCompensationCurve {
     .into_iter()
     .map(|x| Vec2::new(x, x + adaptation_stops(x)))
     .collect();
-    AutoExposureCompensationCurve::from_curve(bevy::math::cubic_splines::LinearSpline::new(points))
+    AutoExposureCompensationCurve::from_curve(bevy::curve::cubic_splines::LinearSpline::new(points))
         .expect("a monotonic line is a valid compensation curve")
 }
 
@@ -1112,6 +1112,7 @@ impl Plugin for VizPlugin {
                 crate::gizmos::ProgramGizmosPlugin,
             ))
             .add_plugins(crate::haze::HazePlugin)
+            .add_plugins(AirBeamsIfChosen)
             // GLB fixture parts: the placeholder-to-scene swap.
             .add_plugins(crate::gdtf_assets::GdtfAssetsPlugin)
             // `proc:` canvases, evaluated on the GPU.
@@ -1972,31 +1973,25 @@ impl Plugin for SolariIfEnabled {
     fn build(&self, _app: &mut App) {}
 }
 
-/// `IGNITION_FROXEL_GRID=WxHxD`, for finding the right grid by eye.
-#[must_use]
-pub fn froxel_grid_override() -> Option<(u32, u32, u32)> {
-    let raw = std::env::var("IGNITION_FROXEL_GRID").ok()?;
-    let mut parts = raw.split(['x', 'X']).map(|n| n.trim().parse::<u32>());
-    let (x, y, z) = (
-        parts.next()?.ok()?,
-        parts.next()?.ok()?,
-        parts.next()?.ok()?,
-    );
-    Some((x.max(1), y.max(1), z.max(1)))
+/// The analytic beam pass, unless the fog was asked for instead
+/// (`IGNITION_BEAMS=0`, `beams.rs`).
+struct AirBeamsIfChosen;
+
+impl Plugin for AirBeamsIfChosen {
+    fn build(&self, app: &mut App) {
+        if crate::beams::air_path() == crate::beams::AirPath::Beams {
+            app.add_plugins(crate::beams::AirBeamsPlugin);
+        }
+    }
 }
 
-/// Whether the froxel volumetric path replaces the screen-space march.
+/// Whether the froxel volumetric path was asked for (`IGNITION_FROXEL=1`).
 ///
-/// **Off.** The march is the picture that ships. The grid is roughly
-/// three times cheaper and does not bead a beam, and it carries gobos
-/// and shadows in the air, but as it stands it renders a room with no
-/// beams in it at all — `beam-tests.json` shows that plainly against
-/// the march, and the cause is not yet found. A path that is cheaper
-/// and wrong is not a default.
-///
-/// `IGNITION_FROXEL=1` selects it, which is how the regression is
-/// being chased. See docs/domain/froxel-volumetrics.md.
-// r[impl viz.haze-is-volumetric] - the march by default, IGNITION_FROXEL=1 for froxels
+/// It was Ignition's own compute pass inside the vendored `bevy_pbr`
+/// 0.19.1, opt-in and never the default. It was not carried to the Bevy
+/// pin (vendor/bevy_pbr/FTS-PATCH.md): the analytic beam renderer
+/// replaces the fog altogether. Asking for it is answered with a warning
+/// and the march.
 #[must_use]
 pub fn froxels_wanted() -> bool {
     std::env::var("IGNITION_FROXEL").is_ok_and(|v| v.trim() == "1")
@@ -2066,35 +2061,29 @@ pub(crate) fn spawn_camera(
         // because a beam crossing a 20 m room at the default spacing
         // comes out in stair-steps, and a live view pays for fewer
         // pixels instead.
-        crate::haze::HazeView {
-            fog_steps: quality.fog_steps,
-            scale: quality.fog_scale,
-            pixels: quality.haze_pixels,
-        },
     ));
-    // The froxel path replaces the screen-space march rather than
-    // joining it: with both running the beams are drawn twice and
-    // neither can be judged. `HazeView` is what sets the march up, so
-    // taking it off is how the old path is turned off.
-    // r[impl viz.haze-is-volumetric] - froxels, behind IGNITION_FROXEL
+    // What draws the light in the air: the beam pass, or (only to compare
+    // the two) the fog marched on this camera or on a haze camera of its
+    // own, which `haze.rs` sets up from `HazeView`.
+    // r[impl viz.haze-is-volumetric] - one of the two draws the air, never both
+    match crate::beams::air_path() {
+        crate::beams::AirPath::Beams => {
+            camera.insert(crate::beams::beam_camera(quality.fog_steps));
+        }
+        crate::beams::AirPath::Fog => {
+            camera.insert(crate::haze::HazeView {
+                fog_steps: quality.fog_steps,
+                scale: quality.fog_scale,
+                pixels: quality.haze_pixels,
+            });
+        }
+    }
+    // r[impl viz.haze-is-volumetric] - the screen-space march is the one path
     if froxels_wanted() {
-        // The preset sizes the grid; `IGNITION_FROXEL_GRID` still
-        // outranks it, the way every other dial here works.
-        let (x, y, z) = froxel_grid_override().unwrap_or(quality.froxel_grid);
-        camera.remove::<crate::haze::HazeView>();
-        camera.insert(bevy::pbr::froxel::FroxelVolumetrics {
-            dimensions: bevy::math::UVec3::new(x, y, z),
-            samples: std::env::var("IGNITION_FROXEL_SAMPLES")
-                .ok()
-                .and_then(|v| v.trim().parse().ok())
-                .unwrap_or(quality.froxel_samples),
-            history_weight: std::env::var("IGNITION_FROXEL_HISTORY")
-                .ok()
-                .and_then(|v| v.trim().parse::<f32>().ok())
-                .unwrap_or_else(|| crate::num::f32_of_u32(quality.froxel_history_pct) / 100.0),
-            dilution: crate::haze_texture::HazeLook::default().dilution,
-            ..bevy::pbr::froxel::FroxelVolumetrics::default()
-        });
+        tracing::warn!(
+            "IGNITION_FROXEL=1 is ignored: the froxel volumetrics were not carried to this \
+             Bevy (vendor/bevy_pbr/FTS-PATCH.md); the screen-space march draws the haze"
+        );
     }
     if adapt {
         camera.insert(auto_exposure(curves, quality.instant_adaptation));

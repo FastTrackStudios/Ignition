@@ -37,22 +37,20 @@ crdt = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6",
 architect = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.12.6", features = ["vox", "connect"] }
 uuid.workspace = true
 # The visualizer as an Architect process view (`--process-view`): the
-# wire, its socket and the frames' memory (shared memory, or IOSurfaces
-# on macOS), none of it on a wgpu of its own; Bevy's wgpu reads the
-# frames back or copies them into the surfaces.
-architect-process-view.workspace = true
+# wire, its socket and the frames' memory. `guest` is the program's side
+# of sharing frames on the GPU (`gpu::export_texture`, a dma-buf on
+# Linux; `gpu::export_surface`, an IOSurface on macOS), on the same wgpu
+# as Bevy's device: it is that feature's wgpu types the frames' code
+# names, so a second wgpu in the graph is a build error here, not a
+# slower transport.
+architect-process-view = { workspace = true, features = ["guest"] }
 # The wire's own `ViewInput` and `ThemeTokens`: the root manifest's
 # pin, one revision for every Architect crate.
 architect-workspace.workspace = true
 # `kill(pid, 0)`: whether Studio's engine is alive (studio_clock.rs).
 rustix = { version = "1", features = ["process"] }
-wgpu = "29"
-bevy = { version = "0.19.1", default-features = false }
-
-# macOS: the Metal texture type a texture over an IOSurface is made with
-# (wgpu-hal's Metal backend is objc2, as architect-process-view's surface).
-[target.'cfg(target_os = "macos")'.dependencies]
-objc2-metal = { version = "0.3", default-features = false, features = ["std", "MTLTexture"] }
+wgpu.workspace = true
+bevy.workspace = true
 
 [dev-dependencies]
 tempfile = "3"
