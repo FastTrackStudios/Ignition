@@ -112,7 +112,7 @@ room is entirely what these say:
 | `Movers` | Movers | the four on the wall |
 | `Beams` | Movers | being beam movers, they are the hard-edged package too |
 
-Unbound, deliberately: **Spot, Haze, House Lights.** Room 138 has none of
+Unbound, deliberately: **Haze, House Lights.** Room 138 has none of
 them, and the show names them rarely — House Lights twice, the others not
 at all. Those cues are skipped with a warning naming the role, which is
 the graceful-degradation rule working rather than a fault.
