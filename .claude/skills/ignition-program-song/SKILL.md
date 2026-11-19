@@ -117,6 +117,25 @@ Where the chart and the stems disagree, look at the hits: the chart said
 the band is out on three of bar 107 and the kit's last hits were there,
 where a loudness curve alone had the song ending two bars early.
 
+### No automatic stepping
+
+An effect that turns lights on one after another, or swaps them, on a grid
+(`build`, `chase`, `mirror chase in/out`, `chase eighths`, `alternate`,
+`strip chase`, `sparkle`, a `wave` rolling tower to tower) is a claim that
+the music does that. It almost never does, and the owner's verdict on a
+show full of them was that it looks bad: "we only want to intentionally do
+stuff like that, not just automatic".
+
+- A layer of fixed lights (wash, fill, floor, bars, blinders, back) **holds
+  still** inside a cue. What moves it is the song's events: all of it
+  together on a kick, a snare, a chord change, a stab.
+- A stepped move is **placed by hand** for a moment that has those steps in
+  it (a walk-up's two stabs, a written hit figure), as events at those
+  beats, never as a loop.
+- A held chord gets a held look. Read the bar before putting motion in it.
+- Smooth travel on moving heads, and organic flicker that claims no rhythm
+  (`candle`, `fire flicker`), are fine where the section wants them.
+
 ### What else makes it land
 
 - **A fade is an arrival.** A cue's fade ends on the beat it is for; a

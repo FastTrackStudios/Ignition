@@ -49,47 +49,43 @@ def dark(*roles): return [st(r, 0.0) for r in roles]
 def lamps(level): return st(AU, level, "White")                              # the towers' warm lamps
 
 # Home is cold (deep blue, turquoise); the chorus owns magenta; amber is the
-# solo's alone; white is for faces and the last chorus. Every section has
-# something breathing on each layer it uses; only the choruses travel.
+# solo's alone; white is for faces and the last chorus. No layer runs an
+# effect that steps or rolls through its lights on its own: a look holds
+# still and what moves it is the song's events. The beams are the exception
+# (they travel smoothly), with the candle and firelight on the lamps.
 looks = {
  "Count In": dark(K, SP, FI, W, FL, BR, MV, AU) + [st(BK, 0.06, "Primary")],
  # A piano and a drum machine: the wall, the warm lamps glinting, no beams yet.
  "Intro": dark(K, SP, W, FL, BR) + [st(BK, 0.30, "Primary"), st(FI, 0.18, "Primary"), lamps(0.16), st(MV, 0.0),
-          fx(BK, "back breathe", 4, None, 0.4), fx(AU, "sparkle", 4, "scatter", 0.9)],
+          fx(BK, "back breathe", 4, None, 0.4)],
  "Verse 1": faces(0.60) + dark(FL, BR, AU) + [st(W, 0.38, "Primary"), st(BK, 0.50, "Secondary"), st(FI, 0.35, "Secondary"),
-          st(MV, 0.28, "Secondary", "Band"),
-          fx(W, "offset breathe", 4, "halves", 0.4), fx(FI, "see saw", 4, None, 0.4), verse_chords(BK, 0.14),
+          st(MV, 0.28, "Secondary", "Band"), verse_chords(BK, 0.14),
           fx(MV, "circle", 4, "mirror", 0.5)],
  "PreChorus": faces(0.70) + dark(BR) + [st(W, 0.52, "Primary"), st(BK, 0.72, "Secondary"), st(FL, 0.30, "Secondary"),
           st(FI, 0.50, "Accent"), lamps(0.14), st(MV, 0.45, "Secondary", "Stage"),
-          fx(W, "build", 2, "ends in", 0.6), fx(FI, "mirror chase in", 2, None, 0.6), fx(AU, "sparkle", 2, "scatter", 0.9),
           chords(BK, 0.12)],
  # Chorus 1 holds back the floor, the bars, the lamps, white and the fast moves.
  "Chorus": faces(0.75) + dark(FL, BR, AU) + [st(W, 0.60, "Accent"), st(BK, 0.74, "Accent"), st(FI, 0.45, "Accent"),
-          st(MV, 0.70, "Primary", "Audience"),
-          fx(W, "mirror chase out", 1, None, 0.6), chords(FI, 0.22, cool=False), snare(BK, 0.14),
+          st(MV, 0.70, "Primary", "Audience"), chords(FI, 0.22, cool=False), snare(BK, 0.14),
           fx(MV, "windmill", 2, "mirror", 0.6)],
  # Home again, in the other cold colour, with the band still driving under it.
  "Verse 2": faces(0.62) + dark(BR, AU) + [st(W, 0.42, "Tertiary"), st(BK, 0.45, "Primary"), st(FI, 0.38, "Tertiary"),
-          st(FL, 0.18, "Primary"), st(MV, 0.32, "Tertiary", "Stage"),
-          fx(W, "offset breathe", 2, "thirds", 0.4), fx(FI, "see saw", 2, None, 0.4), verse_chords(BK, 0.16), snare(FL, 0.10)],
+          st(FL, 0.18, "Primary"), st(MV, 0.32, "Tertiary", "Stage"), verse_chords(BK, 0.16), snare(FL, 0.10)],
  # Chorus 1 and two additions: the floor, and the lamps glinting through it.
  "Chorus 2": faces(0.78) + dark(BR) + [st(W, 0.78, "Accent"), st(BK, 0.90, "Accent"), st(FL, 0.62, "Accent"),
-          st(FI, 0.58, "Accent"), lamps(0.14), st(MV, 0.85, "Primary", "Audience"),
-          fx(W, "mirror chase out", 1, None, 0.7), fx(FI, "alternate", 1, None, 0.6), kick(FL, 0.18),
+          st(FI, 0.58, "Accent"), lamps(0.14), st(MV, 0.85, "Primary", "Audience"), kick(FL, 0.18),
           snare(AU, 0.30), chords(BK, 0.16), fx(MV, "cross", 2, None, 0.7)],
  # The chart: a keytar solo, so the pool is centre (Key up, the guitarists'
  # pars down). A pool on the player and embers everywhere else: amber wall, amber fill
  # guttering, the lamps glowing low. No wash, no floor: the last chorus has
  # somewhere to come from.
- "Guitar Solo": [st(K, 0.95, "White"), st(SP, 0.30, "White"), st(BK, 0.60, "Accent 2"), st(FI, 0.50, "Accent 2"), lamps(0.20)]
-          + dark(W, FL, BR) + [st(MV, 0.60, "White", "Band"),
+ "Guitar Solo": [st(K, 0.95, "White"), st(SP, 0.30, "White"), st(BK, 0.36, "Accent 2"), st(FI, 0.36, "Accent 2"), lamps(0.16)]
+          + dark(W, FL, BR) + [st(MV, 0.36, "White", "Band"),
           chords(BK, 0.16), fx(FI, "fire flicker", 2, None, 0.5), fx(AU, "fire flicker", 4, "scatter", 0.8),
           fx(MV, "circle tight", 2, "pairs", 0.6)],
  # The last chorus: the only cue at full, and everything held back is spent.
- "Chorus 3": faces(0.80) + [st(W, 1.00, "Accent"), st(BK, 1.00, "Accent"), st(FL, 0.80, "Open White"), st(BR, 1.00, "Tertiary"),
+ "Chorus 3": faces(0.80) + [st(W, 1.00, "Accent"), st(BK, 1.00, "Accent"), st(FL, 0.80, "Open White"), st(BR, 0.78, "Tertiary"),
           st(FI, 1.00, "Accent"), lamps(0.50), st(MV, 1.00, "Open White", "Audience"),
-          fx(W, "chase eighths", 0.5, "mirror", 0.7), fx(FI, "alternate", 0.5, None, 0.7), fx(BR, "strip chase", 1, None, 0.9),
           snare(AU, 0.45), kick(FL, 0.20), chords(BK, 0.14), fx(MV, "ballyhoo", 1, "scatter", 0.9)],
  # A voice and a piano: one face, the wall, the lamps like candles.
  "DownChorus": [st(K, 0.60, "White"), st(SP, 0.25, "White")] + dark(W, FL, BR) + [st(BK, 0.22, "Secondary"),
@@ -98,18 +94,14 @@ looks = {
  # Sixteen bars of everything arriving: the wash filling, the fill closing in, the beams climbing.
  "Build": faces(0.75) + dark(BR) + [st(W, 0.55, "Tertiary"), st(BK, 0.60, "Secondary"), st(FL, 0.45, "Tertiary"),
           st(FI, 0.50, "Tertiary"), lamps(0.18), st(MV, 0.60, "Tertiary", "Stage"),
-          fx(W, "build", 2, "ends in", 0.7), fx(FI, "mirror chase in", 1, None, 0.6), fx(AU, "sparkle", 2, "scatter", 1.0),
           fx(MV, "tilt dim", 2, None, 0.8)],
  # The band alone, with the singer talking over it (the chart): faces stay up. The chorus's colour once more, wide and rolling, under the last chorus's level.
  "Outro": [st(K, 0.78, "White"), st(SP, 0.78, "White"), st(W, 0.80, "Accent"), st(BK, 0.85, "Accent"), st(FL, 0.55, "Primary"),
           st(BR, 0.45, "Primary"), st(FI, 0.75, "Accent"), lamps(0.30), st(MV, 0.80, "Primary", "Audience"),
-          fx(W, "wave", 2, "mirror", 0.6), fx(FI, "see saw", 1, None, 0.5), fx(BR, "running sines", 2, None, 0.8),
           snare(AU, 0.32), kick(FL, 0.15), fx(MV, "fly out", 4, None, 0.7)],
 }
 pre2 = faces(0.72) + dark(BR) + [st(W, 0.56, "Primary"), st(BK, 0.68, "Secondary"), st(FL, 0.40, "Secondary"),
-          st(FI, 0.55, "Secondary"), lamps(0.18), st(MV, 0.50, "Secondary", "Stage"),
-          fx(W, "build", 2, "ends in", 0.7), fx(FI, "mirror chase in", 1, None, 0.6), fx(AU, "sparkle", 1, "scatter", 1.0),
-          chords(BK, 0.14), snare(FL, 0.12)]
+          st(FI, 0.55, "Secondary"), lamps(0.18), st(MV, 0.50, "Secondary", "Stage")]
 beat = bar_secs(0.25)
 fades = {"Count In": 0.0, "Intro": bar_secs(2), "Verse 1": bar_secs(1), "PreChorus": bar_secs(1), "Chorus": beat / 2,
          "Verse 2": bar_secs(1.5), "PreChorus (2)": bar_secs(1), "Chorus 2": beat / 2, "Guitar Solo": beat / 2,
@@ -120,22 +112,21 @@ punt = [{"look": "punt"}]
 BLOCKS = ("safe", "End", "reset")
 subs = [
  ("· pre riser", "· pre turn", "PreChorus+7", beat, [st(BK, 0.85, "Accent"), st(FI, 0.70, "Accent"),
-          {"target": "Beams", "effect": "strobe riser", "bars": 1}, fx(FI, "build", 1, "ends in", 0.9)]),
+          {"target": "Beams", "effect": "strobe riser", "bars": 1}]),
  ("· stop", "· stop", "Chorus+14", 0.0, dark(W, FL, MV, FI) + [st(BK, 0.15, "Accent")]),             # bar 41: the kit drops out
  ("· pre 2 riser", "· pre 2 turn", "PreChorus#2+7", beat, [st(BK, 0.90, "Accent"), st(FI, 0.75, "Accent"), lamps(0.30),
-          {"target": "Beams", "effect": "strobe riser", "bars": 1}, fx(AU, "build", 1, "ends in", 1.0)]),
+          {"target": "Beams", "effect": "strobe riser", "bars": 1}]),
  ("· Chorus 2 lift", "· Chorus 2 lift", "Chorus 2+8", beat, [st(MV, 0.90, "White", "Audience"), st(FL, 0.80, "White"), lamps(0.32),
           fx(MV, "pan fan", 2, None, 0.8)]),
  ("· solo up", "· solo up", "Guitar Solo+8", beat, [st(BK, 0.80, "Accent 2"), st(BR, 0.60, "Accent 2"), st(W, 0.30, "Accent 2"),
-          lamps(0.32), fx(BR, "comet", 2, None, 0.8), fx(W, "wave", 2, "mirror", 0.6), fx(MV, "counter circle", 2, None, 0.7)]),
+          lamps(0.32), fx(MV, "counter circle", 2, None, 0.7)]),
  ("· breath", "· Chorus lift", "Guitar Solo+15", 0.0, faces(0.70) + dark(W, FL, BR, MV, FI, AU) + [st(BK, 0.12, "Primary")]),
  # The second half of the last chorus: the fill goes white and moves with the chords, the bars throw
  # comets, the lamps chase. Each layer is stated again so the first half's effect on it ends here.
  ("· Chorus 3 lift", "· Chorus 3 lift", "Chorus 3+8", beat, [st(FI, 1.00, "White"), st(BR, 1.00, "Tertiary"),
           st(FL, 0.80, "Open White"), lamps(0.70), st(MV, 1.00, "Open White", "Audience"),
-          fx(MV, "can can", 0.5, None, 1.0), fx(AU, "chase eighths", 0.5, "mirror", 1.0),
-          chords(FI, 0.25, cool=False), fx(BR, "comet", 1, None, 0.9), fx(FL, "pulse", 1, None, 0.3),
-          st(W, 1.00, "Accent"), fx(W, "mirror chase out", 1, None, 0.7)]),
+          fx(MV, "can can", 0.5, None, 1.0),
+          st(W, 1.00, "Accent")]),
  # The chart and the kit agree: the band plays the b7 through bars 105 and 106 and is out on three of 107.
  ("· ring out", "· ring out", "Chorus 3+14", beat, [st(BK, 1.00, "Tertiary"), st(MV, 1.00, "White", "Stage")]),
  ("· band out", None, "107.3", 0.15, faces(0.55) + dark(W, FL, BR, MV, FI) + [st(BK, 0.20, "Secondary"), lamps(0.10),
@@ -143,8 +134,9 @@ subs = [
  # Inside the sections: the second line of a verse, the b7 that ends a pre-chorus, the second half of a chorus.
  # The intro's second line, then its last two bars: the 2m and the walk-up, rising into the verse.
  ("· intro line 2", None, "Intro+4", bar_secs(1), [st(FI, 0.26, "Secondary"), lamps(0.20)]),
- ("· intro walk", None, "Intro+6", bar_secs(2), [st(BK, 0.48, "Primary"), st(W, 0.22, "Primary"), st(MV, 0.18, "Secondary"),
-          fx(W, "build", 2, "ends in", 0.6)]),
+ # A held 2m for a bar and a half, then the two stabs of the walk-up: so the look arrives and holds
+ # still, and the stabs (a figure, placed from the chart) are the only thing that moves.
+ ("· intro walk", None, "Intro+6", 2 * beat, [st(BK, 0.48, "Primary"), st(W, 0.22, "Primary"), st(MV, 0.18, "Secondary")]),
  ("· verse line 2", None, "Verse 1+4", bar_secs(1), [st(FI, 0.45, "Tertiary"), st(MV, 0.30, "Secondary", "Stage")]),
  ("· verse 2 line 2", None, "Verse 2+4", bar_secs(1), [st(FL, 0.30, "Primary"), st(MV, 0.36, "Secondary", "Band")]),
  ("· pre b7", None, "PreChorus+6", beat, [st(BK, 0.80, "Accent"), st(W, 0.36, "Primary"), lamps(0.22)]),
@@ -157,13 +149,12 @@ subs = [
  ("· build 8", None, "Build+8", bar_secs(1), [st(BR, 0.35, "Tertiary"), st(W, 0.68, "Tertiary"), lamps(0.26)]),
  ("· outro half", None, "Outro+8", beat, [st(MV, 0.90, "Tertiary", "Audience"), st(BR, 0.60, "Primary")]),
  ("· build top", "· outro flip", "Build+12", bar_secs(1), [st(BK, 0.95, "Accent"), st(BR, 0.60, "Tertiary"), st(FI, 0.80, "Accent"),
-          lamps(0.35), fx(BR, "strip fill", 4, None, 0.9), fx(AU, "build", 1, "ends in", 1.0)]),
+          lamps(0.35)]),
  ("· button", "· voice back", "Outro+16", 0.0, faces(0.70) + [st(W, 0.90, "White"), st(BK, 0.90, "Accent"), st(FL, 0.80, "White"),
           st(FI, 0.90, "White"), lamps(0.90), st(MV, 0.80, "White", "Audience")]),
  ("End", "End", {"section": "Outro", "last_bar": True}, bar_secs(2), dark(K, SP, FI, W, FL, BR, MV, AU) + [st(BK, 0.10, "Primary")]),
  ("safe", "· down 2", "158.3", 1.0, punt),      # the look to fall back on, kept out of the count-in
- ("reset", "· riser", "158.4", 1.0, punt),
-]
+ ("reset", "· riser", "158.4", 1.0, punt)]
 
 # Accents: one a bar at most. A landing or a crash on the one is a white pop on
 # the wash; the pickup out of a fill is a level bump on the bars.
@@ -215,6 +206,10 @@ for (bar, bt, piece), v in sorted(H.items()):
     if piece == "Snare" and v >= 0.3: markers.append({"kind": "snare", "bar": bar, "beat": bt, "strength": round(min(v / 1.5, 1.0), 2)})
     if piece == "Kick" and v >= 0.3: markers.append({"kind": "kick", "bar": bar, "beat": bt, "strength": round(min(v / 1.5, 1.0), 2)})
 
+# A walk-up and the fill under it are one moment: where the chart has the stabs, the drums' pickup is not a second accent.
+stab_bars = {m["bar"] for m in markers if m["kind"] == "stab"}
+markers = [m for m in markers if not (m["kind"] == "pickup" and m["bar"] in stab_bars)]
+
 steps = []
 def step(action, **args): steps.append({"action": "IGNITION_" + action, "args": args})
 def sstep(action, **args): step(action, song=SONG, **args)
@@ -262,6 +257,10 @@ hits("push-fill", "push", FI, "Level", 0.30, ["Intro", "DownChorus"])
 hits("push-lamps", "push", AU, "Level", 0.26, ["Intro", "DownChorus"])
 hits("stab", "stab", AU, "Level", 0.30)
 hits("stab-fill", "stab", FI, "Level", 0.30, ["Intro", "DownChorus", "Build"])
+# The towers do nothing on their own. They move together, with the kick, in the choruses.
+hits("kick-wash", "kick", W, "Level", 0.20, ["Chorus", "Chorus 2", "Chorus 3", "Outro"], 0.33)
+hits("fig walk", "stab", W, "Level", 0.55, ["Intro", "Chorus 2", "Guitar Solo", "Chorus 3", "Build", "Outro"])   # the walk-up, as one figure
+hits("kick-bars", "kick", BR, "Level", 0.25, ["Chorus 3"], 0.33)        # the bars take the kick too in the last chorus
 hits("button", "button", AU, "White", 1.0)
 hits("chorus", "land", W, "White", 0.9)
 hits("crash", "crash", W, "White", 0.6)
