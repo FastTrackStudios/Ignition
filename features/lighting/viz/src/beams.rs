@@ -21,7 +21,8 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 use ignition_beams::{
-    Beam, BeamCamera, BeamGobos, BeamTier, BeamsPlugin, Gobo, GoboLayer, Haze, Quality, gobo_image,
+    Beam, BeamCamera, BeamGobos, BeamHazeBanks, BeamOccluder, BeamTier, BeamsPlugin, Gobo,
+    GoboLayer, Haze, Quality, Sphere, gobo_image,
 };
 
 use crate::fixture_profile::is_hazer;
@@ -151,6 +152,8 @@ impl Plugin for AirBeamsPlugin {
                     pack_gobos,
                     turn_prism_facets.after(crate::gobo::update_gobo_projectors),
                     drive_beam_haze,
+                    follow_haze_banks,
+                    stand_people_in_beams,
                 ),
             )
             .add_systems(
@@ -378,6 +381,60 @@ fn write_air_beams(
     }
 }
 
+/// A person as the beams see one: four spheres up the model, which is
+/// 1.8 m tall and Y-up before the entity's own scale and turn. A likeness
+/// good for "somebody is standing in this beam", not for a silhouette.
+fn person_spheres() -> Vec<Sphere> {
+    [(0.45, 0.2), (0.95, 0.2), (1.3, 0.22), (1.66, 0.12)]
+        .into_iter()
+        .map(|(height, radius)| Sphere {
+            centre: Vec3::new(0.0, height, 0.0),
+            radius,
+        })
+        .collect()
+}
+
+/// Has every person cut the beams they stand in.
+fn stand_people_in_beams(mut commands: Commands, people: Query<Entity, Added<crate::props::Pose>>) {
+    for person in &people {
+        commands.entity(person).insert(BeamOccluder {
+            spheres: person_spheres(),
+        });
+    }
+}
+
+/// World to the haze texture's coordinates for a volume: the unit cube it
+/// was scaled from, moved to run from 0 to 1.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "a matrix product, which the lint cannot tell from integer arithmetic"
+)]
+fn uvw_from_world(volume: &GlobalTransform) -> Mat4 {
+    Mat4::from_translation(Vec3::splat(0.5)) * volume.to_matrix().inverse()
+}
+
+/// Keeps the beams on the room's uneven, drifting haze: the same texture,
+/// placement and drift the fog volume carries (`haze_texture.rs`).
+fn follow_haze_banks(
+    mut commands: Commands,
+    banks: Option<Res<BeamHazeBanks>>,
+    volumes: Query<(&bevy::light::FogVolume, &GlobalTransform)>,
+) {
+    let wanted = volumes.iter().find_map(|(volume, transform)| {
+        Some(BeamHazeBanks {
+            density: volume.density_texture.clone()?,
+            uvw_from_world: uvw_from_world(transform),
+            drift: volume.density_texture_offset,
+        })
+    });
+    match (wanted, banks) {
+        (Some(wanted), Some(banks)) if *banks == wanted => {}
+        (Some(wanted), _) => commands.insert_resource(wanted),
+        (None, Some(_)) => commands.remove_resource::<BeamHazeBanks>(),
+        (None, None) => {}
+    }
+}
+
 /// The room's haze on every camera that sees beams: the hazers' settled
 /// level times the operator's dial.
 #[expect(
@@ -436,6 +493,37 @@ mod tests {
             flux: 9_000.0,
             lens_radius: 0.05,
         }
+    }
+
+    #[test]
+    fn the_haze_texture_runs_from_nought_to_one_across_its_volume() {
+        let volume = GlobalTransform::from(Transform {
+            translation: Vec3::new(1.0, 2.0, 3.0),
+            scale: Vec3::new(10.0, 20.0, 4.0),
+            ..default()
+        });
+        let uvw = uvw_from_world(&volume);
+        let at = |world: Vec3| uvw.transform_point3(world);
+        assert!((at(Vec3::new(1.0, 2.0, 3.0)) - Vec3::splat(0.5)).length() < 1.0e-5);
+        assert!((at(Vec3::new(-4.0, -8.0, 1.0)) - Vec3::ZERO).length() < 1.0e-5);
+        assert!((at(Vec3::new(6.0, 12.0, 5.0)) - Vec3::ONE).length() < 1.0e-5);
+    }
+
+    #[test]
+    fn a_person_is_spheres_from_the_feet_to_the_head() {
+        let spheres = person_spheres();
+        let top = spheres
+            .iter()
+            .map(|s| s.centre.y + s.radius)
+            .fold(0.0, f32::max);
+        let bottom = spheres
+            .iter()
+            .map(|s| s.centre.y - s.radius)
+            .fold(f32::MAX, f32::min);
+        assert!(
+            (top - 1.78).abs() < 0.05 && bottom < 0.3,
+            "{bottom} to {top}"
+        );
     }
 
     #[test]

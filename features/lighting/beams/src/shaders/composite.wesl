@@ -23,6 +23,8 @@ struct BeamView {
     size: vec4<f32>,
     medium: vec4<f32>,
     look: vec4<f32>,
+    haze_from_world: mat4x4<f32>,
+    haze_drift: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> view: BeamView;

@@ -215,6 +215,97 @@ fn linear_span(half_b: f32, c: f32) -> Option<Span> {
     }
 }
 
+/// The most occluders one beam is cut by; the nearest to its lens win.
+pub const MAX_OCCLUDERS: usize = 6;
+
+/// A ball that stands in for something solid in a beam: a head, a torso.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sphere {
+    pub centre: Vec3,
+    pub radius: f32,
+}
+
+/// The shadow a sphere casts in light from `apex`: itself a cone, from the
+/// sphere's centre on, with no far end. `None` when the apex is inside the
+/// sphere, which casts no shadow that means anything.
+///
+/// A beam's light is a point source at its virtual apex, so what a sphere
+/// hides from it is exactly a cone, and the part of a view ray in that
+/// shadow is found the same exact way as the part of it in the beam.
+#[must_use]
+pub fn shadow_cone(apex: Vec3, sphere: Sphere) -> Option<Cone> {
+    let to_centre = sphere.centre - apex;
+    let distance = to_centre.length();
+    if distance <= sphere.radius * 1.001 {
+        return None;
+    }
+    let reach = (distance * distance - sphere.radius * sphere.radius).sqrt();
+    Some(Cone {
+        apex,
+        axis: to_centre / distance,
+        tan_edge: sphere.radius / reach,
+        near: distance,
+        far: FAR,
+    })
+}
+
+/// Whether any of a sphere is in a beam's cone: what decides which
+/// occluders a beam is given.
+#[must_use]
+pub fn sphere_meets_cone(cone: &Cone, sphere: Sphere) -> bool {
+    let from_apex = sphere.centre - cone.apex;
+    let along = from_apex.dot(cone.axis);
+    if along < cone.near - sphere.radius || along > cone.far + sphere.radius {
+        return false;
+    }
+    let radial = (from_apex - cone.axis * along).length();
+    let slant = (1.0 + cone.tan_edge * cone.tan_edge).sqrt();
+    radial <= cone.tan_edge * along + sphere.radius * slant
+}
+
+/// What is left of `span` outside every one of `shadows`, in order along
+/// the ray.
+#[must_use]
+pub fn lit_spans(span: Span, shadows: &[Span]) -> Vec<Span> {
+    let mut sorted: Vec<Span> = shadows.iter().filter_map(|s| s.intersect(span)).collect();
+    sorted.sort_by(|a, b| a.enter.total_cmp(&b.enter));
+    let mut lit = Vec::with_capacity(sorted.len().saturating_add(1));
+    let mut cursor = span.enter;
+    for shadow in sorted {
+        lit.extend(Span::new(cursor, shadow.enter));
+        cursor = cursor.max(shadow.exit);
+    }
+    lit.extend(Span::new(cursor, span.exit));
+    lit
+}
+
+/// [`scatter`], with the parts of the span in an occluder's shadow left
+/// out: something solid inside the beam cuts the shaft behind it.
+///
+/// Each lit part is integrated on its own, in closed form like the whole.
+/// The shadows have hard edges; they are exact for spheres and are only as
+/// good for anything else as the spheres standing in for it.
+#[must_use]
+pub fn scatter_past(
+    shaft: &Shaft,
+    medium: Medium,
+    ray: &Ray,
+    span: Span,
+    occluders: &[Sphere],
+    pieces: u8,
+) -> f32 {
+    let shadows: Vec<Span> = occluders
+        .iter()
+        .take(MAX_OCCLUDERS)
+        .filter_map(|sphere| shadow_cone(shaft.cone.apex, *sphere))
+        .filter_map(|shadow| cone_segment(&shadow, ray, FAR))
+        .collect();
+    lit_spans(span, &shadows)
+        .into_iter()
+        .map(|lit| scatter(shaft, medium, ray, lit, pieces))
+        .sum()
+}
+
 /// A beam's brightness across its width.
 ///
 /// `x` is the tangent of the angle off the axis over the tangent of the
@@ -710,6 +801,77 @@ mod tests {
             }
             last = Some(light);
         }
+    }
+
+    #[test]
+    fn what_is_lit_is_the_span_less_its_shadows() {
+        let span = Span {
+            enter: 2.0,
+            exit: 10.0,
+        };
+        let s = |enter, exit| Span { enter, exit };
+        assert_eq!(lit_spans(span, &[]), vec![span]);
+        assert_eq!(
+            lit_spans(span, &[s(4.0, 5.0)]),
+            vec![s(2.0, 4.0), s(5.0, 10.0)]
+        );
+        // Overlapping and out of order: their union is taken out once.
+        assert_eq!(
+            lit_spans(span, &[s(6.0, 8.0), s(4.0, 7.0), s(0.0, 3.0)]),
+            vec![s(3.0, 4.0), s(8.0, 10.0)]
+        );
+        assert_eq!(lit_spans(span, &[s(0.0, 20.0)]), vec![]);
+        assert_eq!(lit_spans(span, &[s(11.0, 12.0)]), vec![span]);
+    }
+
+    #[test]
+    fn a_spheres_shadow_is_behind_it_and_as_wide_as_it_looks_from_the_lamp() {
+        let sphere = Sphere {
+            centre: Vec3::new(0.0, 0.0, 5.0),
+            radius: 0.5,
+        };
+        let shadow = shadow_cone(Vec3::ZERO, sphere).unwrap();
+        // Behind the sphere on the axis: dark. In front of it: lit.
+        assert!(inside(&shadow, Vec3::new(0.0, 0.0, 8.0)));
+        assert!(!inside(&shadow, Vec3::new(0.0, 0.0, 3.0)));
+        // Twice as far, the shadow is twice as wide: just inside and out.
+        assert!(inside(&shadow, Vec3::new(0.99, 0.0, 10.0)));
+        assert!(!inside(&shadow, Vec3::new(1.02, 0.0, 10.0)));
+        // A lamp inside the sphere has no shadow to speak of.
+        assert_eq!(shadow_cone(Vec3::new(0.0, 0.0, 4.8), sphere), None);
+    }
+
+    #[test]
+    fn a_sphere_in_the_beam_darkens_the_shaft_behind_it_and_only_there() {
+        let shaft = shaft(8.0);
+        let sphere = Sphere {
+            centre: Vec3::new(0.0, 0.0, 6.0),
+            radius: 0.3,
+        };
+        assert!(sphere_meets_cone(&shaft.cone, sphere));
+        assert!(!sphere_meets_cone(
+            &shaft.cone,
+            Sphere {
+                centre: Vec3::new(5.0, 0.0, 6.0),
+                radius: 0.3
+            }
+        ));
+        // Across the beam behind the sphere: some of it is in shadow.
+        let behind = ray(Vec3::new(-6.0, 0.0, 9.0), Vec3::new(0.0, 0.0, 9.0));
+        let span = cone_segment(&shaft.cone, &behind, 100.0).unwrap();
+        let whole = scatter(&shaft, HAZE, &behind, span, 8);
+        let cut = scatter_past(&shaft, HAZE, &behind, span, &[sphere], 8);
+        assert!(cut < whole * 0.9 && cut > 0.0, "{cut} of {whole}");
+        // Across it in front of the sphere: untouched.
+        let before = ray(Vec3::new(-6.0, 0.0, 3.0), Vec3::new(0.0, 0.0, 3.0));
+        let span = cone_segment(&shaft.cone, &before, 100.0).unwrap();
+        let whole = scatter(&shaft, HAZE, &before, span, 8);
+        let same = scatter_past(&shaft, HAZE, &before, span, &[sphere], 8);
+        assert!((whole - same).abs() < 1.0e-6 * whole);
+        // Down the axis from behind the sphere: everything past it is dark.
+        let along = ray(Vec3::new(0.0, 0.0, 20.0), Vec3::new(0.0, 0.0, 8.0));
+        let span = cone_segment(&shaft.cone, &along, 13.0).unwrap();
+        assert!(scatter_past(&shaft, HAZE, &along, span, &[sphere], 8).abs() < 1.0e-9);
     }
 
     #[test]

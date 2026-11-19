@@ -11,7 +11,8 @@
 //! Conditions, set per quality tier (`quality.rs`):
 //! `constants::PIECES` (parts the span is cut into), `GOBO_SOFT` (one gobo
 //! sample where the ray passes closest to the axis), `GOBO_STEPS` with
-//! `constants::GOBO_SAMPLES` (the gobo averaged along the span).
+//! `constants::GOBO_SAMPLES` (the gobo averaged along the span), `OCCLUDERS`
+//! (something solid in a beam cuts the shaft behind it).
 //!
 //! Ported in part from ASLS Studio (GPL-3.0),
 //! `src/plugins/visualizer/air_beams.js` and `beam_shading.js`: the hull
@@ -20,6 +21,7 @@
 
 import package::shaders::scatter::{
     Beam, Cone, FAR, cone_of, cone_span, scatter, profile, closest_to_axis, gobo_uv, screen_noise,
+    lit_spans,
 };
 
 /// What every beam shares for one view (`BeamViewUniform` in `render.rs`).
@@ -34,6 +36,11 @@ struct BeamView {
     /// How far gobo samples are jittered, 0 to 1 (x); how fast a highlight
     /// pales to white (y); where it starts to (z); dither amplitude (w).
     look: vec4<f32>,
+    /// World to the haze texture's coordinates.
+    haze_from_world: mat4x4<f32>,
+    /// How far the haze's banks have drifted, in texture coordinates
+    /// (xyz); 1 when the haze is uneven at all (w).
+    haze_drift: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> view: BeamView;
@@ -41,6 +48,11 @@ struct BeamView {
 @group(0) @binding(2) var depth_texture: texture_depth_2d;
 @group(0) @binding(3) var gobo_texture: texture_2d_array<f32>;
 @group(0) @binding(4) var gobo_sampler: sampler;
+/// Every beam's occluders, one after another: centre (xyz), radius (w).
+@group(0) @binding(5) var<storage, read> occluders: array<vec4<f32>>;
+/// The haze's unevenness: a multiple of the room's density, averaging one.
+@group(0) @binding(6) var haze_texture: texture_3d<f32>;
+@group(0) @binding(7) var haze_sampler: sampler;
 
 const SEGMENTS: u32 = 24u;
 const TAU: f32 = 6.28318530717959;
@@ -154,6 +166,56 @@ fn gobo_modulation(beam: Beam, cone: Cone, origin: vec3<f32>, dir: vec3<f32>, sp
     return sum / total;
 }
 
+/// The haze at the middle of each piece of a span, as a multiple of the
+/// room's. The banks are metres across and the texture is filtered, so
+/// this is smooth along the ray and across the screen: it shapes a shaft,
+/// it cannot bead it.
+fn densities(origin: vec3<f32>, dir: vec3<f32>, span: vec2<f32>) -> array<f32, 16> {
+    var density: array<f32, 16>;
+    for (var piece = 0u; piece < 16u; piece++) {
+        density[piece] = 1.0;
+    }
+    if view.haze_drift.w < 0.5 {
+        return density;
+    }
+    let step = (span.y - span.x) / f32(constants::PIECES);
+    for (var piece = 0u; piece < constants::PIECES; piece++) {
+        let world = origin + dir * (span.x + step * (f32(piece) + 0.5));
+        let uvw = (view.haze_from_world * vec4(world, 1.0)).xyz + view.haze_drift.xyz;
+        density[piece] = textureSampleLevel(haze_texture, haze_sampler, uvw, 0.0).r;
+    }
+    return density;
+}
+
+/// The beam's light along the span with something solid in the beam: the
+/// parts of it no occluder shadows.
+@if(OCCLUDERS)
+fn light_past(beam: Beam, cone: Cone, origin: vec3<f32>, dir: vec3<f32>, span: vec2<f32>) -> f32 {
+    let count = min(u32(beam.occluders.y), 6u);
+    var spheres: array<vec4<f32>, 6>;
+    let first = u32(beam.occluders.x);
+    for (var i = 0u; i < count; i++) {
+        spheres[i] = occluders[first + i];
+    }
+    var lit = lit_spans(cone.apex, origin, dir, span, spheres, count);
+    var light = 0.0;
+    for (var i = 0u; i < lit.count; i++) {
+        let part = lit.spans[i];
+        light += scatter(beam, cone, view.medium.yz, origin, dir, part, densities(origin, dir, part));
+    }
+    return light;
+}
+
+/// The beam's light along the span. On the tiers that pay for it
+/// (`OCCLUDERS`), a beam with something solid in it is cut behind that.
+fn light_along(beam: Beam, cone: Cone, origin: vec3<f32>, dir: vec3<f32>, span: vec2<f32>) -> f32 {
+    @if(OCCLUDERS)
+    if beam.occluders.y > 0.5 {
+        return light_past(beam, cone, origin, dir, span);
+    }
+    return scatter(beam, cone, view.medium.yz, origin, dir, span, densities(origin, dir, span));
+}
+
 @fragment
 fn fragment(in: HullVertex) -> @location(0) vec4<f32> {
     let beam = beams[in.instance];
@@ -179,7 +241,7 @@ fn fragment(in: HullVertex) -> @location(0) vec4<f32> {
         discard;
     }
 
-    var light = scatter(beam, cone, view.medium.yz, origin, dir, span);
+    var light = light_along(beam, cone, origin, dir, span);
     @if(GOBO_SOFT || GOBO_STEPS)
     if beam.gobo_knee.x >= 0.0 {
         light *= gobo_modulation(beam, cone, origin, dir, span, in.position.xy + f32(in.instance) * 7.31);

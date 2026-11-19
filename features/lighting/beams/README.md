@@ -28,7 +28,7 @@ strobe rate. The plan it follows is step 3 of
    parts to white instead of clipping them in the beam's colour, and
    dithers below one output step.
 
-Per-beam data is a storage buffer of seven `vec4`s (`GpuBeam`, `Beam` in
+Per-beam data is a storage buffer of eight `vec4`s (`GpuBeam`, `Beam` in
 `shaders/scatter.wesl`).
 
 ## Using it
@@ -65,6 +65,8 @@ the surface the beam lands on; this crate draws only the air).
 | high | 8 | 8 samples along the segment |
 | ultra | 16 | 16 samples |
 
+High and ultra also cut a beam behind what stands in it (below).
+
 The stepped gobo only multiplies the closed-form light by a ratio of two
 sums with the same weights, so it is between 0 and 1 and exactly 1 with no
 gobo: it cannot make the beam itself noisy. Each sample's mip level is
@@ -75,45 +77,49 @@ stands for, so the samples are averages, not points.
 the tiers, then, as a last resort, to a half-resolution air target with a
 depth-aware upsample. It climbs back slowly and only with headroom.
 
+## Occluders, uneven haze, prisms
+
+- **Something solid in a beam cuts the shaft behind it** (`BeamOccluder`,
+  tiers high and ultra). The depth buffer only gives the first surface
+  along a view ray: it hides a beam behind a performer, it cannot cut the
+  beam the performer stands in. What is done instead: the light is a point
+  source at the beam's apex, so a sphere's shadow is exactly a cone, and
+  the part of each view ray inside it is found in closed form, the same
+  way as the part inside the beam, and left out of the integral. An
+  occluder is therefore a few spheres (a head, a torso, legs). No map, no
+  pass, no grid. The shadows have hard edges, are exact for spheres and
+  only as good for anything else as the spheres are a likeness; each beam
+  takes its six nearest. It costs a shadow test per sphere for every pixel
+  of a beam that has any, which is why the lower tiers leave it out.
+- **Haze that is not even** (`BeamHazeBanks`): a 3D texture that
+  multiplies the room's density, sampled where each piece of the view ray
+  falls. The banks must be low in detail; then it shapes a shaft along its
+  length and cannot bead it.
+- **A prism** is one `Beam` per facet with the facet's share of the flux;
+  the visualizer makes three (`viz/src/beams.rs`).
+
 ## What is not built yet
 
-- **Occluders inside a beam.** A performer or truss in front of a beam
-  hides it (the depth cut); one *inside* a beam does not cut the shaft
-  behind it. The report's per-beam occluder map is not here.
-- **Haze that is not uniform.** No density noise; `Beam::haze_response`
-  is a per-beam lever only.
-- **Prisms** have no helper: a prism is one `Beam` per facet, which the
-  data model allows, and the caller makes them.
+- **Occluders that are not spheres.** A truss or a riser needs boxes; the
+  shadow of a convex box from a point is still a single interval along a
+  view ray, so it fits the same scheme.
+- **Soft shadow edges** from the lens's width.
 - **Colour** is whatever linear RGB the caller gives; nothing here reads
   emitter spectra or filters.
-- **MSAA and sub-viewports.** The camera must have `Msaa::Off` (a multisampled
-  camera gets no beams) and must cover its whole target. A
+- **Focus** is a blur the caller sets per gobo, not a function of
+  distance from the focal plane.
+- **MSAA and sub-viewports.** The camera must have `Msaa::Off` (a
+  multisampled camera gets no beams) and must cover its whole target. A
   temporally jittered projection is not followed, so with TAA the depth
   cut is off by under a pixel.
 
-## Wiring it into the visualizer
+## In the visualizer
 
-Not done here: it follows `feat/bevy-fork-gpu-frames` landing.
-
-1. Delete this crate's `[workspace]`, `[workspace.lints]` and `[profile]`
-   tables, add it to the root `members`, and take `bevy` from the root
-   `[workspace.dependencies]` (same revision already).
-2. `ignition-viz` depends on `ignition-beams` and adds `BeamsPlugin`. The
-   room camera gets `BeamCamera` (and `BeamGovernor`), behind
-   `IGNITION_BEAMS=1` until the A/B is done.
-3. Where `spawn.rs` gives an emitter a `SpotLight` and `VolumetricLight`,
-   it gets a `Beam` on the same entity. Each frame, where the fixture's
-   state is written to the light, it is written to the `Beam` too: the
-   beam and field angles at the current zoom, `BeamRadius`,
-   `LuminousFlux`, the colour, dimmer × strobe, the gobo slot and
-   rotation, frost. The spot light's intensity becomes
-   `peak_candela(..) × 4π` so pools and shafts agree.
-4. The gobo images already loaded for the decals are packed into one
-   array with `gobo_image` and set as `BeamGobos`.
-5. The hazers' level drives `BeamCamera::haze.density`.
-6. Then delete: `FogVolume`, `VolumetricFog`, `VolumetricLight`, the haze
-   camera and its occluder twins in `haze.rs`, `vendor/bevy_pbr`, and the
-   shadow maps that existed only so movers could be in the fog.
+`features/lighting/viz/src/beams.rs`: every emitter's light in the air is
+this pass, and Bevy's volumetric fog is not on the cameras.
+`IGNITION_BEAMS=0` puts the fog back, to compare.
+`docs/lighting/research/beams-in-the-visualizer.md` has the frame times
+and the stills.
 
 ## Proving it
 
@@ -124,9 +130,9 @@ the pass's GPU time. `docs/lighting/research/analytic-beams.md` has the
 captures and the measured cost.
 
 ```sh
-cargo test --release
-cargo run --release --example truss
-cargo run --release --example truss -- --headless --out target/tmp/beams
+cargo test --release -p ignition-beams
+cargo run --release -p ignition-beams --example truss
+cargo run --release -p ignition-beams --example truss -- --headless --out target/tmp/beams
 ```
 
 ## Provenance and licence
@@ -139,7 +145,7 @@ copyright its authors:
 
 | From | What | Where it is here |
 |---|---|---|
-| `src/plugins/visualizer/air_beams.js`, `AIR_FRAGMENT` | The cone cut at the lens with its apex behind it; the arctangent integral of the inverse square over equal pieces, each weighted by profile, phase, extinction and end fade at its middle; the Henyey-Greenstein phase; the closest-approach point; the soft and the stepped gobo; the per-beam soft knee | `shaders/scatter.wesl`, `shaders/beams.wesl`, mirrored in `src/math.rs` |
+| `src/plugins/visualizer/air_beams.js`, `AIR_FRAGMENT` | The cone cut at the lens with its apex behind it; the arctangent integral of the inverse square over equal pieces, each weighted by profile, phase, extinction and end fade at its middle; the Henyey-Greenstein phase; the closest-approach point; the soft and the stepped gobo; the per-beam soft knee | `shaders/scatter.wesl`, `shaders/beams.wesl`, mirrored in `src/math.rs` (`tests/wesl_matches_rust.rs` runs the WESL on the CPU and holds it against the Rust) |
 | `air_beams.js`, `COMPOSITE_FRAGMENT` | The depth-weighted four-tap upsample of a reduced air buffer | `shaders/composite.wesl`, `air_at` |
 | `src/plugins/visualizer/beam_shading.js`, `ROLLOFF_GLSL`, `createConeGeometry` | The roll-off towards white; the hull ring pushed out by `1 / cos(π / segments)` | `shaders/composite.wesl`, `roll_off`; `shaders/beams.wesl`, `RING_SCALE` |
 

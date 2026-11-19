@@ -23,7 +23,7 @@ use bevy::{
         system::{Commands, Query, Res, ResMut},
     },
     image::Image,
-    math::{Mat4, UVec2, Vec4},
+    math::{Mat4, UVec2, Vec3, Vec4},
     render::{
         Extract,
         camera::ExtractedCamera,
@@ -39,8 +39,8 @@ use bevy::{
             TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
             VertexState,
             binding_types::{
-                sampler, storage_buffer_read_only, texture_2d, texture_2d_array, texture_depth_2d,
-                uniform_buffer,
+                sampler, storage_buffer_read_only, texture_2d, texture_2d_array, texture_3d,
+                texture_depth_2d, uniform_buffer,
             },
         },
         renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
@@ -52,8 +52,9 @@ use bevy::{
 };
 
 use crate::{
-    BeamCamera, BeamGobos,
+    BeamCamera, BeamGobos, BeamHazeBanks, BeamOccluder,
     beam::{Beam, GpuBeam},
+    math::{MAX_OCCLUDERS, Sphere, sphere_meets_cone},
     quality::{AirResolution, BeamTier, GoboInAir},
 };
 
@@ -73,7 +74,68 @@ const HULL_VERTICES: u32 = 288;
 #[derive(Resource, Default)]
 pub struct ExtractedBeams {
     beams: Vec<GpuBeam>,
+    /// Every beam's occluders one after another: centre, radius.
+    occluders: Vec<Vec4>,
     gobos: Option<AssetId<Image>>,
+    haze: Option<ExtractedHaze>,
+}
+
+/// The uneven haze, as the render world holds it.
+#[derive(Clone, Copy)]
+struct ExtractedHaze {
+    density: AssetId<Image>,
+    uvw_from_world: Mat4,
+    drift: Vec3,
+}
+
+/// An occluder's spheres in the world.
+fn world_spheres(occluder: &BeamOccluder, transform: &GlobalTransform) -> Vec<Sphere> {
+    let scale = transform.scale().max_element();
+    occluder
+        .spheres
+        .iter()
+        .map(|sphere| Sphere {
+            centre: transform.transform_point(sphere.centre),
+            radius: sphere.radius * scale,
+        })
+        .collect()
+}
+
+/// The spheres a beam is cut by: those in its cone, the nearest to its
+/// lens first, no more than the shader takes.
+fn occluders_of(beam: &GpuBeam, spheres: &[Sphere]) -> Vec<Sphere> {
+    let cone = beam.cone();
+    let mut inside: Vec<Sphere> = spheres
+        .iter()
+        .copied()
+        .filter(|sphere| sphere_meets_cone(&cone, *sphere))
+        .collect();
+    inside.sort_by(|a, b| {
+        a.centre
+            .distance_squared(cone.apex)
+            .total_cmp(&b.centre.distance_squared(cone.apex))
+    });
+    inside.truncate(MAX_OCCLUDERS);
+    inside
+}
+
+/// Gives each beam its place in the occluder buffer and fills the buffer.
+fn assign_occluders(beams: &mut [GpuBeam], spheres: &[Sphere]) -> Vec<Vec4> {
+    let mut buffer = Vec::new();
+    for beam in beams {
+        let cut_by = occluders_of(beam, spheres);
+        let (Ok(first), Ok(count)) = (u16::try_from(buffer.len()), u16::try_from(cut_by.len()))
+        else {
+            break;
+        };
+        beam.occluders = Vec4::new(f32::from(first), f32::from(count), 0.0, 0.0);
+        buffer.extend(
+            cut_by
+                .iter()
+                .map(|sphere| sphere.centre.extend(sphere.radius)),
+        );
+    }
+    buffer
 }
 
 /// Copies the lit, visible beams and the gobo texture's id out of the
@@ -81,7 +143,9 @@ pub struct ExtractedBeams {
 pub fn extract_beams(
     mut extracted: ResMut<ExtractedBeams>,
     beams: Extract<Query<(&Beam, &GlobalTransform, Option<&InheritedVisibility>)>>,
+    occluders: Extract<Query<(&BeamOccluder, &GlobalTransform)>>,
     gobos: Extract<Option<Res<BeamGobos>>>,
+    haze: Extract<Option<Res<BeamHazeBanks>>>,
 ) {
     extracted.beams.clear();
     extracted.beams.extend(
@@ -90,7 +154,17 @@ pub fn extract_beams(
             .filter(|(_, _, visible)| visible.is_none_or(|visible| visible.get()))
             .filter_map(|(beam, transform, _)| beam.to_gpu(transform)),
     );
+    let spheres: Vec<Sphere> = occluders
+        .iter()
+        .flat_map(|(occluder, transform)| world_spheres(occluder, transform))
+        .collect();
+    extracted.occluders = assign_occluders(&mut extracted.beams, &spheres);
     extracted.gobos = gobos.as_ref().map(|gobos| gobos.0.id());
+    extracted.haze = haze.as_ref().map(|haze| ExtractedHaze {
+        density: haze.density.id(),
+        uvw_from_world: haze.uvw_from_world,
+        drift: haze.drift,
+    });
 }
 
 /// What every beam shares for one view: `BeamView` in the shaders.
@@ -101,15 +175,23 @@ pub struct BeamViewUniform {
     size: Vec4,
     medium: Vec4,
     look: Vec4,
+    haze_from_world: Mat4,
+    haze_drift: Vec4,
 }
 
 /// The beams' storage buffer and the views' uniforms.
 #[derive(Resource, Default)]
 pub struct BeamBuffers {
     beams: StorageBuffer<Vec<GpuBeam>>,
+    occluders: StorageBuffer<Vec<Vec4>>,
     views: DynamicUniformBuffer<BeamViewUniform>,
     count: u32,
 }
+
+/// One voxel of density one: what the haze texture is bound to when the
+/// haze is even. The plugin makes it (`lib.rs`).
+#[derive(Resource, Clone, Default)]
+pub struct EvenHaze(pub Option<Handle<Image>>);
 
 /// The shaders, loaded by the plugin (`lib.rs`).
 #[derive(Resource, Clone)]
@@ -137,6 +219,10 @@ pub fn init_beam_pipeline(mut commands: Commands, shaders: Res<BeamShaders>) {
                 storage_buffer_read_only::<Vec<GpuBeam>>(false),
                 texture_depth_2d().visibility(ShaderStages::FRAGMENT),
                 texture_2d_array(TextureSampleType::Float { filterable: true })
+                    .visibility(ShaderStages::FRAGMENT),
+                sampler(SamplerBindingType::Filtering).visibility(ShaderStages::FRAGMENT),
+                storage_buffer_read_only::<Vec<Vec4>>(false).visibility(ShaderStages::FRAGMENT),
+                texture_3d(TextureSampleType::Float { filterable: true })
                     .visibility(ShaderStages::FRAGMENT),
                 sampler(SamplerBindingType::Filtering).visibility(ShaderStages::FRAGMENT),
             ),
@@ -200,6 +286,7 @@ fn air_shader_defs(tier: BeamTier) -> Vec<ShaderDefVal> {
             matches!(tier.gobo(), GoboInAir::Steps(_)),
         ),
         ShaderDefVal::UInt("GOBO_SAMPLES".into(), u32::from(samples)),
+        ShaderDefVal::Bool("OCCLUDERS".into(), tier.occluders()),
     ]
 }
 
@@ -343,6 +430,7 @@ fn view_uniform(
     exposure: f32,
     camera: &BeamCamera,
     size: UVec2,
+    haze: Option<ExtractedHaze>,
 ) -> BeamViewUniform {
     let clip_from_world = view
         .clip_from_world
@@ -365,6 +453,8 @@ fn view_uniform(
             camera.highlights.white_from,
             camera.highlights.dither,
         ),
+        haze_from_world: haze.map_or(Mat4::IDENTITY, |haze| haze.uvw_from_world),
+        haze_drift: haze.map_or(Vec4::ZERO, |haze| haze.drift.extend(1.0)),
     }
 }
 
@@ -382,16 +472,26 @@ pub fn prepare_beam_buffers(
     buffers.count = u32::try_from(extracted.beams.len()).unwrap_or(u32::MAX);
     buffers.beams.get_mut().clone_from(&extracted.beams);
     buffers.beams.write_buffer(&device, &queue);
+    // Never empty: a buffer with nothing in it cannot be bound.
+    let occluders = buffers.occluders.get_mut();
+    occluders.clone_from(&extracted.occluders);
+    if occluders.is_empty() {
+        occluders.push(Vec4::ZERO);
+    }
+    buffers.occluders.write_buffer(&device, &queue);
 
     buffers.views.clear();
     for (entity, view, extracted_camera, camera) in &views {
         let Some(size) = extracted_camera.physical_viewport_size else {
             continue;
         };
-        let uniform_offset =
-            buffers
-                .views
-                .push(&view_uniform(view, extracted_camera.exposure, camera, size));
+        let uniform_offset = buffers.views.push(&view_uniform(
+            view,
+            extracted_camera.exposure,
+            camera,
+            size,
+            extracted.haze,
+        ));
         let air = air_size(size, camera.quality.resolution);
         let air = texture_cache.get(
             &device,
@@ -419,6 +519,10 @@ pub fn prepare_beam_buffers(
 }
 
 /// Draws a view's beams into its air target, then adds that to the view.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a Bevy system names each resource it reads as a parameter"
+)]
 pub fn draw_beams(
     view: ViewQuery<(
         &ViewTarget,
@@ -431,6 +535,7 @@ pub fn draw_beams(
     pipeline: Res<BeamPipeline>,
     buffers: Res<BeamBuffers>,
     extracted: Res<ExtractedBeams>,
+    even_haze: Res<EvenHaze>,
     images: Res<RenderAssets<GpuImage>>,
     mut ctx: RenderContext,
 ) {
@@ -445,6 +550,8 @@ pub fn draw_beams(
         Some(views),
         Some(depth_view),
         Some(gobos),
+        Some(occluders),
+        Some(haze),
     ) = (
         pipeline_cache.get_render_pipeline(pipelines.air),
         pipeline_cache.get_render_pipeline(pipelines.composite),
@@ -452,6 +559,13 @@ pub fn draw_beams(
         buffers.views.binding(),
         depth.attachment.depth_stencil_views().depth_only_view(),
         extracted.gobos.and_then(|gobos| images.get(gobos)),
+        buffers.occluders.binding(),
+        // The haze's banks, or one voxel of density one standing in: the
+        // shader does not sample it when the haze is even.
+        extracted
+            .haze
+            .and_then(|haze| images.get(haze.density))
+            .or_else(|| even_haze.0.as_ref().and_then(|even| images.get(even.id()))),
     )
     else {
         return;
@@ -466,6 +580,9 @@ pub fn draw_beams(
             depth_view,
             &gobos.texture_view,
             &gobos.sampler,
+            occluders,
+            &haze.texture_view,
+            &haze.sampler,
         )),
     );
     let composite_bind_group = ctx.render_device().create_bind_group(
@@ -555,7 +672,16 @@ mod tests {
                     | ShaderDefVal::UInt(name, _) => name.to_string(),
                 })
                 .collect();
-            assert_eq!(names, ["PIECES", "GOBO_SOFT", "GOBO_STEPS", "GOBO_SAMPLES"]);
+            assert_eq!(
+                names,
+                [
+                    "PIECES",
+                    "GOBO_SOFT",
+                    "GOBO_STEPS",
+                    "GOBO_SAMPLES",
+                    "OCCLUDERS"
+                ]
+            );
         }
     }
 }

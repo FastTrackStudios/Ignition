@@ -43,6 +43,10 @@ bevy = { workspace = true, features = [
     "x11",
 ] }
 
+# Runs `shaders/scatter.wesl` on the CPU, to hold it against `src/math.rs`
+# (tests/wesl_matches_rust.rs). The version Bevy's shader crate is on.
+wesl = { version = "0.6.0", features = ["eval", "naga-ext"] }
+
 [[example]]
 name = "truss"
 path = "examples/truss/main.rs"

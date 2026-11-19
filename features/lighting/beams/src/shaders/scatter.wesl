@@ -38,7 +38,15 @@ struct Beam {
     /// Gobo layer, negative for none (x); its rotation in radians (y); its
     /// blur as a mip level, from focus and frost (z); the soft knee (w).
     gobo_knee: vec4<f32>,
+    /// Where this beam's occluders start in their buffer (x) and how many
+    /// it has (y).
+    occluders: vec4<f32>,
 }
+
+/// The most occluders one beam is cut by; `math.rs` has the same number.
+const MAX_OCCLUDERS: u32 = 6u;
+/// The most pieces a span is cut into: the size of a density array.
+const MAX_PIECES: u32 = 16u;
 
 /// A beam's cone, cut at the lens and at its far end.
 struct Cone {
@@ -149,12 +157,76 @@ fn cone_span(cone: Cone, origin: vec3<f32>, dir: vec3<f32>, t_max: f32) -> vec2<
     return span_intersect(vec2(0.0, t_max), inside);
 }
 
+/// The shadow a sphere (centre xyz, radius w) casts in light from `apex`:
+/// itself a cone, from the sphere's centre on. Empty when the apex is in
+/// the sphere.
+fn shadow_cone(apex: vec3<f32>, sphere: vec4<f32>) -> Cone {
+    let to_centre = sphere.xyz - apex;
+    let distance = length(to_centre);
+    if distance <= sphere.w * 1.001 {
+        return Cone(apex, vec3(0.0, 0.0, 1.0), 0.0, FAR, FAR);
+    }
+    let reach = sqrt(distance * distance - sphere.w * sphere.w);
+    return Cone(apex, to_centre / distance, sphere.w / reach, distance, FAR);
+}
+
+/// What is left of a span outside its occluders' shadows.
+struct LitSpans {
+    spans: array<vec2<f32>, 7>,
+    count: u32,
+}
+
+/// The parts of `span` of the ray that no sphere shadows from `apex`, in
+/// order along the ray. The shadows are sorted by where they start and
+/// their union is walked once.
+fn lit_spans(apex: vec3<f32>, origin: vec3<f32>, dir: vec3<f32>, span: vec2<f32>, spheres: array<vec4<f32>, 6>, count: u32) -> LitSpans {
+    var balls = spheres;
+    var shadows: array<vec2<f32>, 6>;
+    var shadowed = 0u;
+    for (var i = 0u; i < min(count, MAX_OCCLUDERS); i++) {
+        let shadow = span_intersect(span, cone_span(shadow_cone(apex, balls[i]), origin, dir, FAR));
+        if shadow.y <= shadow.x {
+            continue;
+        }
+        // Insertion, by where the shadow starts.
+        var at = shadowed;
+        while at > 0u && shadows[at - 1u].x > shadow.x {
+            shadows[at] = shadows[at - 1u];
+            at -= 1u;
+        }
+        shadows[at] = shadow;
+        shadowed += 1u;
+    }
+    var lit: LitSpans;
+    lit.count = 0u;
+    var cursor = span.x;
+    for (var i = 0u; i < shadowed; i++) {
+        if shadows[i].x > cursor {
+            lit.spans[lit.count] = vec2(cursor, shadows[i].x);
+            lit.count += 1u;
+        }
+        cursor = max(cursor, shadows[i].y);
+    }
+    if span.y > cursor {
+        lit.spans[lit.count] = vec2(cursor, span.y);
+        lit.count += 1u;
+    }
+    return lit;
+}
+
+/// Hermite step from 0 at `lo` to 1 at `hi`: WGSL's `smoothstep`, written
+/// out so the CPU evaluator the tests run this file with has it too.
+fn smooth_step(lo: f32, hi: f32, x: f32) -> f32 {
+    let t = clamp((x - lo) / (hi - lo), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+}
+
 /// The beam's brightness across its width: 1 on the axis, one half at the
 /// beam angle, one tenth at the field angle, nothing from the edge out.
 /// `x` is the tangent of the angle off the axis over the edge's.
 fn profile(beam: Beam, x: f32) -> f32 {
     let core = exp(-LN_2 * pow(x / beam.right_x_beam.w, beam.profile_haze_fade.x));
-    return core * (1.0 - smoothstep(beam.profile_haze_fade.y, 1.0, x));
+    return core * (1.0 - smooth_step(beam.profile_haze_fade.y, 1.0, x));
 }
 
 /// Henyey-Greenstein, per steradian. `cos_theta` is 1 for light scattered
@@ -178,7 +250,7 @@ fn weight(beam: Beam, cone: Cone, medium: vec2<f32>, from_apex: vec3<f32>, dir: 
     return profile(beam, x)
         * phase(medium.y, cos_theta)
         * exp(-medium.x * path)
-        * (1.0 - smoothstep(beam.profile_haze_fade.w, 1.0, depth));
+        * (1.0 - smooth_step(beam.profile_haze_fade.w, 1.0, depth));
 }
 
 /// The light a beam of unit intensity scatters towards the eye along
@@ -188,7 +260,12 @@ fn weight(beam: Beam, cone: Cone, medium: vec2<f32>, from_apex: vec3<f32>, dir: 
 /// `PIECES` equal parts of the span; the other terms, which are smooth,
 /// are taken at each part's middle. There is no step in space, no noise
 /// and no history: the result is continuous in everything it is given.
-fn scatter(beam: Beam, cone: Cone, medium: vec2<f32>, origin: vec3<f32>, dir: vec3<f32>, span: vec2<f32>) -> f32 {
+///
+/// `density` is the haze at each part's middle as a multiple of the room's
+/// (all ones for even haze): the caller samples it, so this stays free of
+/// bindings.
+fn scatter(beam: Beam, cone: Cone, medium: vec2<f32>, origin: vec3<f32>, dir: vec3<f32>, span: vec2<f32>, density: array<f32, 16>) -> f32 {
+    var haze = density;
     let from_apex = origin - cone.apex;
     let foot = dot(from_apex, dir);
     let offset = from_apex - dir * foot;
@@ -203,7 +280,7 @@ fn scatter(beam: Beam, cone: Cone, medium: vec2<f32>, origin: vec3<f32>, dir: ve
         // atan(u1/h) − atan(u0/h) as one arctangent, exact as h → 0.
         let inverse_square = atan2(h * step, h2 + u0 * u1) / h;
         let t = span.x + step * (f32(piece) + 0.5);
-        sum += inverse_square * weight(beam, cone, medium, from_apex + dir * t, dir, t);
+        sum += inverse_square * haze[piece] * weight(beam, cone, medium, from_apex + dir * t, dir, t);
     }
     return sum;
 }

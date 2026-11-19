@@ -43,6 +43,7 @@ use bevy::{
 
 pub use beam::{Beam, Gobo};
 pub use gobo::{GoboLayer, gobo_image};
+pub use math::Sphere;
 pub use quality::{AirResolution, BeamTier, GoboInAir, Governor, Quality};
 
 /// Draws every [`Beam`] in the air for every camera with a [`BeamCamera`].
@@ -54,7 +55,40 @@ pub struct BeamsPlugin;
 #[derive(Resource, Clone, Debug)]
 pub struct BeamGobos(pub Handle<Image>);
 
-/// The haze the beams shine through. Uniform across the room.
+/// Something solid that cuts the beams it stands in: the shaft behind it
+/// is dark. Put it on an entity with a transform.
+///
+/// The depth buffer only says where the first surface along a view ray is,
+/// which hides a beam behind a performer but cannot cut the beam the
+/// performer is standing in. This can: the light is a point source at the
+/// beam's apex, so a sphere's shadow is exactly a cone, and the part of
+/// each view ray in it is found in closed form and left out. So an
+/// occluder is given as spheres (a head, a torso, legs), in the entity's
+/// own space. The shadows have hard edges and are as good as the spheres
+/// are a likeness.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct BeamOccluder {
+    pub spheres: Vec<Sphere>,
+}
+
+/// Haze that is not even: a 3D texture that multiplies the room's density,
+/// averaging one, placed in the world and drifting.
+///
+/// Each beam's light is weighted by it where the pieces of a view ray
+/// fall, so a shaft brightens and thins along its length as it crosses
+/// the banks. The texture should be low in detail (banks metres across)
+/// and repeat.
+#[derive(Resource, Clone, Debug, PartialEq)]
+pub struct BeamHazeBanks {
+    pub density: Handle<Image>,
+    /// World to the texture's coordinates, 0 to 1 across the room.
+    pub uvw_from_world: bevy::math::Mat4,
+    /// How far the banks have drifted, in texture coordinates.
+    pub drift: bevy::math::Vec3,
+}
+
+/// The haze the beams shine through: one density for the room, shaped by
+/// [`BeamHazeBanks`] when that is there.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Haze {
     /// How much haze is in the air: 0 is none (nothing shows), 1 a
@@ -189,6 +223,22 @@ fn govern_beam_quality(
     }
 }
 
+/// One voxel of density one, for when the haze is even.
+fn even_haze_image() -> Image {
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    Image::new_fill(
+        Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D3,
+        &[u8::MAX],
+        TextureFormat::R8Unorm,
+        bevy::asset::RenderAssetUsages::RENDER_WORLD,
+    )
+}
+
 impl Plugin for BeamsPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "shaders/scatter.wesl");
@@ -207,11 +257,17 @@ impl Plugin for BeamsPlugin {
             air: assets.load("embedded://ignition_beams/shaders/beams.wesl"),
             composite: assets.load("embedded://ignition_beams/shaders/composite.wesl"),
         };
+        let even_haze = render::EvenHaze(Some(
+            app.world_mut()
+                .resource_mut::<Assets<Image>>()
+                .add(even_haze_image()),
+        ));
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app
             .insert_resource(shaders)
+            .insert_resource(even_haze)
             .init_resource::<render::ExtractedBeams>()
             .init_gpu_resource::<render::BeamBuffers>()
             .init_gpu_resource::<SpecializedRenderPipelines<render::BeamPipeline>>()

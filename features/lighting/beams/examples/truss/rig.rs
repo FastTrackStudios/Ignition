@@ -179,10 +179,13 @@ pub enum Scene {
     /// Beams and spots thrown out over the house into open air, cut short,
     /// so each ends in its own fade and not on a surface.
     EndFade,
+    /// A figure of spheres standing in the spots' beams, seen from the
+    /// side: the shafts behind it are cut.
+    Occluder,
 }
 
 impl Scene {
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Show,
         Self::SidePan,
         Self::AtCamera,
@@ -193,6 +196,7 @@ impl Scene {
         Self::Alias,
         Self::Gobos,
         Self::EndFade,
+        Self::Occluder,
     ];
 
     #[must_use]
@@ -208,6 +212,7 @@ impl Scene {
             Self::Alias => "alias",
             Self::Gobos => "gobos",
             Self::EndFade => "end-fade",
+            Self::Occluder => "occluder",
         }
     }
 
@@ -229,6 +234,7 @@ impl Scene {
             Self::FloorWall => (Vec3::new(-7.0, 1.4, 9.0), Vec3::new(1.0, 2.2, -6.0)),
             Self::InsideWash => (INSIDE_WASH_EYE, Vec3::new(3.0, 2.5, -4.0)),
             Self::EndFade => (Vec3::new(-21.0, 5.0, 9.0), Vec3::new(0.0, 8.5, 5.0)),
+            Self::Occluder => (Vec3::new(-11.0, 1.4, 0.5), Vec3::new(0.0, 2.6, 0.5)),
         }
     }
 }
@@ -281,6 +287,7 @@ pub fn look(scene: Scene, fixture: &Fixture, t: f32) -> Look {
         Scene::Alias => alias(fixture),
         Scene::Gobos => gobos(fixture, t),
         Scene::EndFade => end_fade(fixture),
+        Scene::Occluder => occluded(fixture),
     }
 }
 
@@ -489,6 +496,29 @@ fn gobos(fixture: &Fixture, t: f32) -> Look {
             blur: 0.0,
         }),
         zoom: 1.3,
+        ..Look::dark()
+    }
+}
+
+/// Where the figure of the occluder scene stands.
+pub const FIGURE_AT: Vec3 = Vec3::new(0.0, 0.0, 0.5);
+
+/// One spot from the front truss and one from the back, onto the figure
+/// from either side: each shaft goes dark behind it.
+fn occluded(fixture: &Fixture) -> Look {
+    let nearest_middle = fixture.along.abs() < 0.2;
+    if fixture.kind != Kind::Spot || !nearest_middle || fixture.truss == 1 {
+        return Look::dark();
+    }
+    Look {
+        aim: FIGURE_AT + Vec3::new(0.0, 1.3, 0.0),
+        colour: if fixture.truss == 0 {
+            WHITE
+        } else {
+            palette(1)
+        },
+        dimmer: 1.0,
+        zoom: 0.7,
         ..Look::dark()
     }
 }

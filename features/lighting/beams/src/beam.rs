@@ -96,6 +96,22 @@ pub struct GpuBeam {
     pub colour_candela: Vec4,
     pub profile_haze_fade: Vec4,
     pub gobo_knee: Vec4,
+    /// Where its occluders start in their buffer (x), how many (y).
+    pub occluders: Vec4,
+}
+
+impl GpuBeam {
+    /// The beam's cone, as the shader builds it.
+    #[must_use]
+    pub fn cone(&self) -> crate::math::Cone {
+        crate::math::Cone::from_lens(
+            self.lens_range.truncate(),
+            self.axis_tan_edge.truncate(),
+            self.up_lens_radius.w,
+            self.axis_tan_edge.w,
+            self.lens_range.w,
+        )
+    }
 }
 
 impl Beam {
@@ -142,6 +158,7 @@ impl Beam {
                 FADE_START,
             ),
             gobo_knee: gobo.extend(self.knee.max(1.0e-3)),
+            occluders: Vec4::ZERO,
         })
     }
 }

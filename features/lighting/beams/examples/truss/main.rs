@@ -46,8 +46,8 @@ use bevy::{
     winit::WinitPlugin,
 };
 use ignition_beams::{
-    AirResolution, Beam, BeamCamera, BeamGobos, BeamGovernor, BeamTier, BeamsPlugin, GoboLayer,
-    Governor, Quality, gobo_image, math::peak_candela,
+    AirResolution, Beam, BeamCamera, BeamGobos, BeamGovernor, BeamOccluder, BeamTier, BeamsPlugin,
+    GoboLayer, Governor, Quality, Sphere, gobo_image, math::peak_candela,
 };
 use rig::{Fixture, Kind, Scene, look, rig, trusses};
 
@@ -316,6 +316,33 @@ fn build_rig(
         perceptual_roughness: 0.8,
         ..default()
     });
+    if options.scene == Some(Scene::Occluder) {
+        // A figure of four spheres, drawn as what the beams take it for.
+        let spheres: Vec<Sphere> = [(0.45, 0.22), (0.95, 0.22), (1.35, 0.25), (1.75, 0.14)]
+            .into_iter()
+            .map(|(height, radius)| Sphere {
+                centre: Vec3::new(0.0, height, 0.0),
+                radius,
+            })
+            .collect();
+        let figure = commands
+            .spawn((
+                BeamOccluder {
+                    spheres: spheres.clone(),
+                },
+                Transform::from_translation(rig::FIGURE_AT),
+                Visibility::default(),
+            ))
+            .id();
+        for sphere in spheres {
+            commands.spawn((
+                Mesh3d(meshes.add(bevy::prelude::Sphere::new(sphere.radius))),
+                MeshMaterial3d(body.clone()),
+                Transform::from_translation(sphere.centre),
+                ChildOf(figure),
+            ));
+        }
+    }
     for fixture in rig(options.beams) {
         commands
             .spawn((

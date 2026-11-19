@@ -55,6 +55,15 @@ impl BeamTier {
         }
     }
 
+    /// Whether something solid in a beam cuts the shaft behind it. It
+    /// costs a shadow test per occluder for every pixel of a beam that has
+    /// any, so the two lower tiers leave it out: there a beam is only
+    /// hidden behind what stands in front of it.
+    #[must_use]
+    pub const fn occluders(self) -> bool {
+        matches!(self, Self::High | Self::Ultra)
+    }
+
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
