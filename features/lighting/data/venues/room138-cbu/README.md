@@ -128,9 +128,8 @@ photographs, and none of its forty fixtures is in the scan or the room's
 photographs (`docs/lighting/lab-138-room.md` lists what that leaves
 open), so the guesses are listed rather than buried:
 
-- **Mover positions** — "halfway up the wall, in between each tower or
-  wherever you think" was the brief, so the height and the gap spacing
-  are a judgement call.
+- **Mover positions** — one on top of each tower, the owner's call: the
+  best place this room has for them. Base at the top of the column.
 - **Tower and tree positions** — "spread symmetrically" and "in the
   audience" were the whole of the brief. The x spacing, the distance into
   the house and the aim angles are chosen to look like a room that works,
