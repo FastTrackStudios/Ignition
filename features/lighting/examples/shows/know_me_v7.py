@@ -141,6 +141,10 @@ subs = [
  ("· band out", None, "107.3", 0.15, faces(0.55) + dark(W, FL, BR, MV, FI) + [st(BK, 0.20, "Secondary"), lamps(0.10),
           fx(AU, "candle", 4, "scatter", 0.9)]),
  # Inside the sections: the second line of a verse, the b7 that ends a pre-chorus, the second half of a chorus.
+ # The intro's second line, then its last two bars: the 2m and the walk-up, rising into the verse.
+ ("· intro line 2", None, "Intro+4", bar_secs(1), [st(FI, 0.26, "Secondary"), lamps(0.20)]),
+ ("· intro walk", None, "Intro+6", bar_secs(2), [st(BK, 0.48, "Primary"), st(W, 0.22, "Primary"), st(MV, 0.18, "Secondary"),
+          fx(W, "build", 2, "ends in", 0.6)]),
  ("· verse line 2", None, "Verse 1+4", bar_secs(1), [st(FI, 0.45, "Tertiary"), st(MV, 0.30, "Secondary", "Stage")]),
  ("· verse 2 line 2", None, "Verse 2+4", bar_secs(1), [st(FL, 0.30, "Primary"), st(MV, 0.36, "Secondary", "Band")]),
  ("· pre b7", None, "PreChorus+6", beat, [st(BK, 0.80, "Accent"), st(W, 0.36, "Primary"), lamps(0.22)]),
@@ -199,10 +203,17 @@ for name, form in forms.items():
     for off, bt, chord, pushed in form:
         markers.append({"kind": "push" if pushed else "chord", "name": chord, "bar": secs[name][0] + off, "beat": bt,
                         "strength": 1.0 if pushed else 0.6})
-# The kit, from the stems: every snare and kick that is really there.
+# The walk-up that ends a line (2m as an eighth on three, 1/3 on the and of three): two stabs.
+for name, form in forms.items():
+    for off, bt, chord, pushed in form:
+        if chord == "1/3":
+            markers.append({"kind": "stab", "name": "walk-up", "bar": secs[name][0] + off, "beat": 3, "strength": 0.8})
+            markers.append({"kind": "stab", "name": "walk-up", "bar": secs[name][0] + off, "beat": 3.5, "strength": 1.0})
+# The kit, from the stems: every snare and kick that is really there, with how hard it was hit, so a
+# show can answer the big ones one way and a light groove another (or not at all).
 for (bar, bt, piece), v in sorted(H.items()):
-    if piece == "Snare" and v >= 0.6: markers.append({"kind": "snare", "bar": bar, "beat": bt, "strength": round(min(v / 1.5, 1.0), 2)})
-    if piece == "Kick" and v >= 0.5: markers.append({"kind": "kick", "bar": bar, "beat": bt, "strength": round(min(v / 1.5, 1.0), 2)})
+    if piece == "Snare" and v >= 0.3: markers.append({"kind": "snare", "bar": bar, "beat": bt, "strength": round(min(v / 1.5, 1.0), 2)})
+    if piece == "Kick" and v >= 0.3: markers.append({"kind": "kick", "bar": bar, "beat": bt, "strength": round(min(v / 1.5, 1.0), 2)})
 
 steps = []
 def step(action, **args): steps.append({"action": "IGNITION_" + action, "args": args})
@@ -229,17 +240,28 @@ for name, old, at, fade, parts in subs:
 sstep("SONG_MAP_SET", markers=markers, replace_markers=True)
 # The show: which events this show answers, with what, where. Texture first
 # (small, level only), then the accents an audience would point at.
-def hits(label, kind, target, bump, depth, section=None):
-    args = dict(target=target, kind=kind, bump=bump, depth=depth, name=label, replace=True)
+def hits(label, kind, target, bump, depth, section=None, least=0.0):
+    args = dict(target=target, kind=kind, bump=bump, depth=depth, name=label, replace=True, min_strength=least)
     if section: args["section"] = section
     sstep("FILL_HITS", **args)
-hits("snare", "snare", AU, "Level", 0.40, ["Chorus 3"])                 # the lamps take the snare when it is big
-hits("snare-c2", "snare", AU, "Level", 0.30, ["Chorus 2", "Outro"])
-hits("snare-wall", "snare", BK, "Level", 0.20, ["Chorus", "Guitar Solo"])   # held back: only the wall
-hits("snare-floor", "snare", FL, "Level", 0.14, ["Verse 2", "PreChorus#2"])
-hits("kick", "kick", FL, "Level", 0.22, ["Chorus 2", "Chorus 3", "Outro"])  # the floor takes the kick
+hits("snare", "snare", AU, "Level", 0.40, ["Chorus 3"], 0.4)                 # the lamps take the snare when it is big
+hits("snare-c2", "snare", AU, "Level", 0.30, ["Chorus 2", "Outro"], 0.4)
+hits("snare-wall", "snare", BK, "Level", 0.20, ["Chorus", "Guitar Solo"], 0.4)   # held back: only the wall
+hits("snare-floor", "snare", FL, "Level", 0.14, ["Verse 2", "PreChorus#2"], 0.4)
+hits("kick", "kick", FL, "Level", 0.22, ["Chorus 2", "Chorus 3", "Outro"], 0.33)  # the floor takes the kick
 hits("push", "push", FI, "Level", 0.30, ["PreChorus", "PreChorus#2", "Chorus", "Chorus 2", "Guitar Solo", "Chorus 3", "Build", "Outro"])
 hits("chord", "chord", BK, "ColorBoost", 0.14, ["Verse 1", "Verse 2", "PreChorus", "PreChorus#2", "Chorus 2", "Chorus 3", "DownChorus", "Build", "Outro"])
+# The intro has no kit to follow, so it follows the harmony: the wall swells on each chord, the
+# colour pars and the lamps glint on the pushed ones, and the walk-up steps up the lamps into the verse.
+# Under the intro, the first verse and the first pre-chorus there is a light groove from a drum
+# machine: the wall barely moves with its kick and the colour pars with its snare.
+hits("groove-kick", "kick", BK, "Level", 0.10, ["Intro", "Verse 1", "PreChorus"])
+hits("groove-snare", "snare", FI, "Level", 0.14, ["Intro", "Verse 1", "PreChorus"])
+hits("chord-intro", "chord", BK, "ColorBoost", 0.24, ["Intro"])
+hits("push-fill", "push", FI, "Level", 0.30, ["Intro", "DownChorus"])
+hits("push-lamps", "push", AU, "Level", 0.26, ["Intro", "DownChorus"])
+hits("stab", "stab", AU, "Level", 0.30)
+hits("stab-fill", "stab", FI, "Level", 0.30, ["Intro", "DownChorus", "Build"])
 hits("button", "button", AU, "White", 1.0)
 hits("chorus", "land", W, "White", 0.9)
 hits("crash", "crash", W, "White", 0.6)
