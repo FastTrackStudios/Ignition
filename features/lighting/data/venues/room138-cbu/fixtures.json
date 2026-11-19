@@ -1522,5 +1522,157 @@
       "Key Bars"
     ],
     "universe": 1
+  },
+  {
+    "address": 1,
+    "beam_angle_deg": 40.0,
+    "chan": 41,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "name": "Tower 1",
+    "patched": true,
+    "position": {
+      "x": -3.6,
+      "y": 1.52,
+      "z": 0.884
+    },
+    "quat": {
+      "w": 0.86079,
+      "x": -0.50896,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 1"
+    ],
+    "universe": 1,
+    "cell": 0,
+    "wired_as": "UKing ZQ01334 15ch"
+  },
+  {
+    "address": 16,
+    "beam_angle_deg": 40.0,
+    "chan": 42,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "name": "Tower 2",
+    "patched": true,
+    "position": {
+      "x": -2.05,
+      "y": 1.52,
+      "z": 0.884
+    },
+    "quat": {
+      "w": 0.86079,
+      "x": -0.50896,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 2"
+    ],
+    "universe": 1,
+    "cell": 0,
+    "wired_as": "UKing ZQ01334 15ch"
+  },
+  {
+    "address": 31,
+    "beam_angle_deg": 40.0,
+    "chan": 43,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "name": "Tower 3",
+    "patched": true,
+    "position": {
+      "x": 0.75,
+      "y": 1.52,
+      "z": 0.884
+    },
+    "quat": {
+      "w": 0.86079,
+      "x": -0.50896,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 3"
+    ],
+    "universe": 1,
+    "cell": 0,
+    "wired_as": "UKing ZQ01334 15ch"
+  },
+  {
+    "address": 46,
+    "beam_angle_deg": 40.0,
+    "chan": 44,
+    "eulers": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "manufacturer": "",
+    "model": "CBU Tower Blinder Ring",
+    "name": "Tower 4",
+    "patched": true,
+    "position": {
+      "x": 2.59,
+      "y": 1.52,
+      "z": 0.884
+    },
+    "quat": {
+      "w": 0.86079,
+      "x": -0.50896,
+      "y": 0.0,
+      "z": -0.0
+    },
+    "size": {
+      "x": 0.18,
+      "y": 0.18,
+      "z": 0.12
+    },
+    "tags": [
+      "Luminaire_LED_Wash",
+      "Towers",
+      "Tower 4"
+    ],
+    "universe": 1,
+    "cell": 0,
+    "wired_as": "UKing ZQ01334 15ch"
   }
 ]

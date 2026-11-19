@@ -1613,7 +1613,9 @@ pub fn spawn_venue(
         // Unpatched channels (Norco's phantom 19/98) have no real
         // position — the patch reports (0,0,0), which would render as a
         // stray fixture at the room's origin.
-        if !f.patched {
+        // Lamp 0 of a fixture patched lamp by lamp is the fixture's own
+        // level and colour: channels in the show, drawn by its lamps.
+        if !f.patched || f.cell == Some(0) {
             continue;
         }
         let manufacturer = f.manufacturer.as_deref().unwrap_or("");

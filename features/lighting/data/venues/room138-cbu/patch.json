@@ -422,5 +422,49 @@
     "address": 219,
     "footprint": 6,
     "source": "make_room138.py"
+  },
+  {
+    "chan": 41,
+    "manufacturer": "UKing",
+    "model": "ZQ01334 15ch",
+    "patched": true,
+    "universe": 1,
+    "address": 1,
+    "footprint": 15,
+    "source": "the 15-channel profile in the owner's own desk file",
+    "cell": 0
+  },
+  {
+    "chan": 42,
+    "manufacturer": "UKing",
+    "model": "ZQ01334 15ch",
+    "patched": true,
+    "universe": 1,
+    "address": 16,
+    "footprint": 15,
+    "source": "the 15-channel profile in the owner's own desk file",
+    "cell": 0
+  },
+  {
+    "chan": 43,
+    "manufacturer": "UKing",
+    "model": "ZQ01334 15ch",
+    "patched": true,
+    "universe": 1,
+    "address": 31,
+    "footprint": 15,
+    "source": "the 15-channel profile in the owner's own desk file",
+    "cell": 0
+  },
+  {
+    "chan": 44,
+    "manufacturer": "UKing",
+    "model": "ZQ01334 15ch",
+    "patched": true,
+    "universe": 1,
+    "address": 46,
+    "footprint": 15,
+    "source": "the 15-channel profile in the owner's own desk file",
+    "cell": 0
   }
 ]

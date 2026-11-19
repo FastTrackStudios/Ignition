@@ -140,9 +140,11 @@ open), so the guesses are listed rather than buried:
   one colour for the whole tower, and a warm white for each of its six
   lamps. Each lamp is still its own record, drawn as a lamp
   (`CBU Tower Blinder Ring`), with `wired_as` naming the real fixture and
-  `cell` its lamp. So `Towers` is four channels (a tower's level and
-  colour, carried by its first lamp) and `Tower Lamps` is the twenty-four
-  warm whites. The drawn lamp's size, 40 degree spread and 18 W are still
+  `cell` its lamp. Lamp 0 (`Tower 1` to `Tower 4`, channels 41 to 44) is
+  the tower itself: its level, strobe and colour, drawn by its lamps. So
+  `Towers` is those four and `Tower Lamps` is the twenty-four warm
+  whites, each with a level of its own; the output works out the one
+  level byte the fixture really has. The drawn lamp's size, 40 degree spread and 18 W are still
   read off the photograph.
 - **DMX addressing** — packed from 1 with no gaps, in the order towers,
   trees, movers, wall bars, key bars. Whatever the real patch is, it goes in

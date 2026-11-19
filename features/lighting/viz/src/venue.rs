@@ -557,6 +557,11 @@ pub struct Patch {
     /// operator wants to know before the fixture does something
     /// unexpected.
     pub confidence: String,
+    /// For one record of a fixture patched lamp by lamp: its lamp
+    /// number and the attributes that are this lamp's own (the ones the
+    /// chart repeats). Lamp 0 is the fixture itself: its level, strobe
+    /// and shared colour, and none of the repeated channels.
+    pub cell: Option<(u8, Vec<ignition_proto::Attribute>)>,
 }
 
 impl Patch {
@@ -621,8 +626,9 @@ fn address_gaps(venue: &Venue) -> Vec<Option<u16>> {
 /// Narrows a several-lamp fixture's map to one lamp: of every attribute
 /// the chart repeats (six warm whites), only the `cell`-th stays; the
 /// channels the chart has once (level, strobe, the shared colour) stay
-/// as they are.
-fn keep_cell(map: &mut ignition_proto::ChannelMap, cell: u8) {
+/// as they are, so a lamp is drawn in the fixture's colour at its
+/// level. Returns the repeated attributes: the ones that are a lamp's own.
+fn keep_cell(map: &mut ignition_proto::ChannelMap, cell: u8) -> Vec<ignition_proto::Attribute> {
     let mut seen: Vec<(ignition_proto::Attribute, u8)> = Vec::new();
     let repeated: Vec<ignition_proto::Attribute> = {
         let mut counts: Vec<(ignition_proto::Attribute, u8)> = Vec::new();
@@ -655,6 +661,7 @@ fn keep_cell(map: &mut ignition_proto::ChannelMap, cell: u8) {
         };
         nth == cell
     });
+    repeated
 }
 
 impl PatchTable {
@@ -676,9 +683,9 @@ impl PatchTable {
                 } else {
                     crate::fixture_library::profile_for("", &f.wired_as, gap)?
                 };
-                if let Some(cell) = f.cell {
-                    keep_cell(&mut found.profile.map, cell);
-                }
+                let cell = f
+                    .cell
+                    .map(|cell| (cell, keep_cell(&mut found.profile.map, cell)));
                 Some(Patch {
                     address,
                     mirrors: f.mirrors.clone(),
@@ -687,6 +694,7 @@ impl PatchTable {
                     fixture_type: found.fixture_type,
                     mode: found.mode,
                     confidence: found.confidence,
+                    cell,
                 })
             })
             .collect();
