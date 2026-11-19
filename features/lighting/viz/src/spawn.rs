@@ -363,6 +363,14 @@ pub struct BeamEmitter {
     pub fixture: usize,
 }
 
+/// The fastest a moving head's pan or tilt turns, in degrees a second.
+///
+/// A budget 150 W beam is claimed at a full 540 degree pan in 2.5 s and a
+/// full 270 degree tilt in 1.25 s, both 216 degrees a second; measured
+/// professional beams are 190 to 260. Short moves are slower still (a head
+/// has to start and stop), which this does not model.
+pub const MOTOR_DEG_PER_SEC: f32 = 200.0;
+
 /// The glass of a fixture: a disc on the face the beam leaves through,
 /// which shows the colour and level the fixture is at. A real light is
 /// seen at its lens, not on its housing, and without this a lamp coming
@@ -2087,6 +2095,7 @@ pub fn fixture_moves(manufacturer: &str, model: &str, profile: Option<&GdtfFixtu
               single-pass shape as `spawn_venue` above"
 )]
 pub fn update_live_fixtures(
+    mut motors: Local<std::collections::HashMap<usize, (f32, f32)>>,
     venue: Res<VenueRes>,
     dmx: Option<Res<DmxRes>>,
     mut fixtures: Query<(Entity, &Fixture, &mut Transform), Without<FixtureHead>>,
@@ -2176,9 +2185,23 @@ pub fn update_live_fixtures(
         let Some(slot) = resolved.get_mut(index) else {
             continue;
         };
+        // A head turns no faster than its motors. The wire can ask for
+        // any angle on any frame; drawn as asked, a snap effect or a short
+        // fade across the stage showed a head moving as no head can.
+        // Drawn at the motor's pace, a move that is too fast looks as it
+        // will in the room: late.
+        let step = MOTOR_DEG_PER_SEC * time.delta_secs();
+        let (pan_deg, tilt_deg) = match motors.get(&index).copied() {
+            Some((pan, tilt)) if step > 0.0 => (
+                pan + (live.pan_deg - pan).clamp(-step, step),
+                tilt + (live.tilt_deg - tilt).clamp(-step, step),
+            ),
+            _ => (live.pan_deg, live.tilt_deg),
+        };
+        motors.insert(index, (pan_deg, tilt_deg));
         *slot = Some(Live {
-            pan: Quat::from_axis_angle(Vec3::Z, live.pan_deg.to_radians()),
-            tilt: Quat::from_axis_angle(Vec3::X, live.tilt_deg.to_radians()),
+            pan: Quat::from_axis_angle(Vec3::Z, pan_deg.to_radians()),
+            tilt: Quat::from_axis_angle(Vec3::X, tilt_deg.to_radians()),
             color,
             zoom: live.zoom,
             lumens: crate::fixture_profile::rig_lumens(manufacturer, model),
