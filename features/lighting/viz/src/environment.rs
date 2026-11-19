@@ -25,6 +25,14 @@ use std::path::{Path, PathBuf};
 /// The document's name in a venue directory.
 pub const FILE: &str = "environment.json";
 
+/// The edits laid over the document, beside it: what the programming
+/// actions write (an object moved, turned or hidden, a light group
+/// switched). `environment.json` is generated (`tools/build_lab138_room.py`
+/// writes the whole file); this one is never generated, so a rebuild of the
+/// room keeps every edit. `{ "objects": { "<name>": { position?, eulers?,
+/// visible? } }, "light_groups": { "<name>": true } }`.
+pub const EDITS: &str = "environment.edits.json";
+
 /// The asset source the model is read through — see
 /// [`EnvironmentSourcePlugin`].
 pub const SOURCE: &str = "environment";
@@ -142,12 +150,53 @@ impl Environment {
     /// If the document is there and will not parse. A venue without one
     /// is `Ok(None)`.
     #[cfg(not(target_arch = "wasm32"))]
+    /// Lays the edits file over the document: each named object's
+    /// position, turn and visibility, each named light group's switch. A
+    /// name the model no longer has is skipped (the room was rebuilt
+    /// without it), with a warning.
+    ///
+    /// # Errors
+    ///
+    /// The edits are not JSON, or a position is not `{x, y, z}`.
+    pub fn apply_edits(&mut self, raw: &str) -> Result<(), serde_json::Error> {
+        let edits: serde_json::Value = serde_json::from_str(raw)?;
+        let empty = serde_json::Map::new();
+        let objects = edits.get("objects").and_then(|o| o.as_object()).unwrap_or(&empty);
+        for (name, edit) in objects {
+            let Some(object) = self.objects.iter_mut().find(|o| &o.name == name) else {
+                tracing::warn!(object = name, "an edit names an object the room no longer has");
+                continue;
+            };
+            if let Some(position) = edit.get("position") {
+                object.position = serde_json::from_value(position.clone())?;
+            }
+            if let Some(eulers) = edit.get("eulers") {
+                object.eulers = serde_json::from_value(eulers.clone())?;
+            }
+            if let Some(visible) = edit.get("visible").and_then(serde_json::Value::as_bool) {
+                object.visible = visible;
+            }
+        }
+        let groups = edits.get("light_groups").and_then(|g| g.as_object()).unwrap_or(&empty);
+        for (name, on) in groups {
+            if let Some(on) = on.as_bool() {
+                self.switch(name, on);
+            }
+        }
+        Ok(())
+    }
+
     pub fn load(venue_dir: &Path) -> anyhow::Result<Option<Self>> {
         let Ok(raw) = std::fs::read_to_string(venue_dir.join(FILE)) else {
             return Ok(None);
         };
         let mut environment = Self::from_json(&raw)
             .map_err(|e| anyhow::anyhow!("{}: {e}", venue_dir.join(FILE).display()))?;
+        if let Ok(edits) = std::fs::read_to_string(venue_dir.join(EDITS)) {
+            environment
+                .apply_edits(&edits)
+                .map_err(|e| anyhow::anyhow!("{}: {e}", venue_dir.join(EDITS).display()))?;
+        }
         let candidates = std::env::var_os(DIR_VAR)
             .map(PathBuf::from)
             .into_iter()

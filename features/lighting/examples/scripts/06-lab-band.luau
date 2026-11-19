@@ -26,9 +26,11 @@ run("PERSON_SET", { people = {
   { name = "Bass",     label = "bass",                           position = { x = -1.90, y = 0.05,  z = 0 }, facing_deg = 0 },
   { name = "Drummer",  label = "drums",                          position = { x = -0.48, y = 1.23,  z = 0 }, facing_deg = 0, height = 1.35 },
 } })
--- His keyboard in front of him, the mic at it.
-run("ENV_PIECE_SET", { name = "Keyboard", ["in"] = "props", position = { x = 0.0, y = -1.15, z = 0 } })
-run("ENV_PIECE_SET", { name = "Mic 1",    ["in"] = "props", position = { x = 0.0, y = -1.0,  z = 0 } })
+-- His keyboard in front of him, square to the room with its keys toward
+-- him (the model's keys face the audience at 0 degrees, so it is turned
+-- 180), and the mic stand in front of it, its boom over the keys.
+run("ENV_PIECE_SET", { name = "Keyboard", ["in"] = "props", position = { x = 0.0, y = -1.15, z = 0 }, eulers = { x = 0, y = 0, z = 180 } })
+run("ENV_PIECE_SET", { name = "Mic 1",    ["in"] = "props", position = { x = 0.0, y = -1.5,  z = 0 } })
 run("FOCUS_SET", { name = "Vocal Centre", target = { x = 0.0, y = -0.75, z = 1.65 } })
 
 -- Front light: the two trees come in from x = 2.9 to 2.2 and forward to

@@ -240,8 +240,14 @@ step fails. `IGNITION_UNDO`, `IGNITION_REDO`, `IGNITION_HISTORY`.
   move | position | eulers | visible}` moves, turns or hides one (the
   architecture only with `force`), `ENV_LIGHTS {group: "house", on}` sets
   whether the house lights start on. An object must exist in the model: a
-  new shape is the build script's (`tools/build_lab138_room.py`), and
-  running that script writes `environment.json` over, edits included.
+  new shape is the build script's (`tools/build_lab138_room.py`). The
+  script owns `environment.json` and writes all of it; the actions never
+  write that file. Their edits go to `environment.edits.json` beside it,
+  which the loader lays over the room (objects by name: position, turn,
+  shown; light groups: on), so a rebuild keeps every edit and
+  `reset: true` drops one object's.
+- `IGNITION_ENV_LOOK {haze, exposure}` sets the room's air and camera
+  (`look` in `venue.ig-venue`): a room with no hazer is near 0 haze.
 - Coordinates are metres: x stage right (−) to stage left (+), y downstage
   (−) to upstage (+), z up, the playing area centred on the origin.
 - `IGNITION_PERSON_SET` places people (one, or `people: […]`);
@@ -322,9 +328,6 @@ All additive: a file written before loads as it did.
   show live; a moved fixture, a re-patch, a new route or a moved person
   shows when the renderer starts again. The patch and the room are loaded
   inside the visualizer crate, which two other branches are changing.
-- **The measured room's file has two writers**: these actions and its
-  build script, which writes the whole file. An edit meant to outlive a
-  rebuild has to go into the script until one of them yields.
 - **Wings N as one trick** in MA's sense (it is `Wings N` + `Group k` today,
   which needs the fixture count), and **Width**.
 - **Tricks on a reference**: a part that names a library effect becomes

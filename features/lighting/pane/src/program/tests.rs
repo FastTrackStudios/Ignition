@@ -137,8 +137,10 @@ fn a_measured_rooms_objects_move_and_its_architecture_stays() {
     assert_eq!(lights["light_groups"][0]["lights"], 1);
     let got = run("IGNITION_ENV_GET", &json!({ "root": dir, "env": "lab" })).unwrap_or_default();
     assert_eq!(got["measured"]["objects"].as_array().map(Vec::len), Some(2));
-    // What these actions do not read is written back.
+    // The generated room is not written: the edits are beside it.
     let raw = std::fs::read_to_string(env.join("environment.json")).unwrap_or_default();
-    assert!(raw.contains("note_kept"));
+    assert!(raw.contains("note_kept") && raw.contains(r#""x":1,"y":2"#), "the room's own file is as it was");
+    let edits = std::fs::read_to_string(env.join("environment.edits.json")).unwrap_or_default();
+    assert!(edits.contains("Piano") && edits.contains("house"));
     let _ = std::fs::remove_dir_all(&dir);
 }
