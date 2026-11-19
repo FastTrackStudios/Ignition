@@ -277,7 +277,7 @@ step fails. `IGNITION_UNDO`, `IGNITION_REDO`, `IGNITION_HISTORY`.
   which the loader lays over the room (objects by name: position, turn,
   shown; light groups: on), so a rebuild keeps every edit and
   `reset: true` drops one object's.
-- `IGNITION_ENV_LOOK {haze, exposure}` sets the room's air and camera
+- `IGNITION_ENV_LOOK {haze, exposure, ambient}` sets the room's air and camera, and `ambient` its own fill with every fixture off (0.15 unless the room says; a room with no other light says about 0.02);
   (`look` in `venue.ig-venue`): a room with no hazer is near 0 haze.
 - Coordinates are metres: x stage right (−) to stage left (+), y downstage
   (−) to upstage (+), z up, the playing area centred on the origin.

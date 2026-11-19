@@ -248,6 +248,9 @@ fn main() -> Result<()> {
         ignition_viz::fixture_profile::set_output_scale(output);
     }
     config.haze = haze.unwrap_or(0.8);
+    if let Some(ambient) = crate::night::venue_ambient(&venue_dir) {
+        config.ambient = ambient;
+    }
     if let Some(stops) = exposure {
         config.exposure = stops;
     }

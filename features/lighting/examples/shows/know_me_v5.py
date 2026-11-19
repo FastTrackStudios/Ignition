@@ -53,7 +53,7 @@ looks = {
           fx(W, "mirror chase out", 1, None, 0.6), fx(FI, "see saw", 1, None, 0.5), fx(BK, "pulse", 2, None, 0.3),
           fx(MV, "windmill", 2, "mirror", 0.6)],
  # Home again, in the other cold colour, with the band still driving under it.
- "Verse 2": faces(0.62) + dark(BR, AU) + [st(W, 0.42, "Tertiary"), st(BK, 0.52, "Primary"), st(FI, 0.38, "Tertiary"),
+ "Verse 2": faces(0.62) + dark(BR, AU) + [st(W, 0.42, "Tertiary"), st(BK, 0.45, "Primary"), st(FI, 0.38, "Tertiary"),
           st(FL, 0.18, "Primary"), st(MV, 0.32, "Tertiary", "Stage"),
           fx(W, "offset breathe", 2, "thirds", 0.4), fx(FI, "see saw", 2, None, 0.4), fx(BK, "back breathe", 4, None, 0.3)],
  # Chorus 1 and two additions: the floor, and the lamps glinting through it.
@@ -88,7 +88,7 @@ looks = {
           fx(W, "wave", 2, "mirror", 0.6), fx(FI, "see saw", 1, None, 0.5), fx(BR, "running sines", 2, None, 0.8),
           fx(AU, "sparkle", 1, "scatter", 1.0), fx(MV, "fly out", 4, None, 0.7)],
 }
-pre2 = faces(0.72) + dark(BR) + [st(W, 0.56, "Primary"), st(BK, 0.74, "Secondary"), st(FL, 0.40, "Secondary"),
+pre2 = faces(0.72) + dark(BR) + [st(W, 0.56, "Primary"), st(BK, 0.68, "Secondary"), st(FL, 0.40, "Secondary"),
           st(FI, 0.55, "Secondary"), lamps(0.18), st(MV, 0.50, "Secondary", "Stage"),
           fx(W, "build", 2, "ends in", 0.7), fx(FI, "mirror chase in", 1, None, 0.6), fx(AU, "sparkle", 1, "scatter", 1.0)]
 beat = bar_secs(0.25)
@@ -100,7 +100,6 @@ fades = {"Count In": 0.0, "Intro": bar_secs(2), "Verse 1": bar_secs(1), "PreChor
 punt = [{"look": "punt"}]
 BLOCKS = ("safe", "End", "reset")
 subs = [
- ("safe", "· down 2", "Count In", 0.5, punt),
  ("· pre riser", "· pre turn", "PreChorus+7", beat, [st(BK, 0.85, "Accent"), st(FI, 0.70, "Accent"),
           {"target": "Beams", "effect": "strobe riser", "bars": 1}, fx(FI, "build", 1, "ends in", 0.9)]),
  ("· stop", "· stop", "Chorus+14", 0.0, dark(W, FL, MV, FI) + [st(BK, 0.15, "Accent")]),             # bar 41: the kit drops out
@@ -120,6 +119,7 @@ subs = [
  ("· button", "· voice back", "Outro+16", 0.0, faces(0.70) + [st(W, 0.90, "White"), st(BK, 0.90, "Accent"), st(FL, 0.80, "White"),
           st(FI, 0.90, "White"), lamps(0.90), st(MV, 0.80, "White", "Audience")]),
  ("End", "End", {"section": "Outro", "last_bar": True}, bar_secs(2), dark(K, SP, FI, W, FL, BR, MV, AU) + [st(BK, 0.10, "Primary")]),
+ ("safe", "· down 2", "158.3", 1.0, punt),      # the look to fall back on, kept out of the count-in
  ("reset", "· riser", "158.4", 1.0, punt),
 ]
 

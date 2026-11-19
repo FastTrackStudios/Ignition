@@ -415,6 +415,9 @@ fn apply_venue_look(args: &mut Args) {
     if let Some(stops) = number("exposure").filter(|_| !given("--exposure")) {
         args.exposure = stops;
     }
+    if let Some(ambient) = number("ambient").filter(|_| !given("--ambient")) {
+        args.ambient = ambient;
+    }
     if let Some(output) = number("output") {
         ignition_viz::fixture_profile::set_output_scale(output);
     }

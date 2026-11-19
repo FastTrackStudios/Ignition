@@ -98,6 +98,17 @@ pub fn venue_look(venue_dir: &Path) -> (Option<f32>, Option<f32>, Option<f32>) {
     (number("haze"), number("exposure"), number("output"))
 }
 
+/// The room's own fill with every fixture off (`look.ambient`, where one
+/// is a dim worklight): a room with no other light source says a small
+/// number, so dark is dark.
+#[must_use]
+pub fn venue_ambient(venue_dir: &Path) -> Option<f32> {
+    let doc: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(venue_dir.join("venue.ig-venue")).ok()?).ok()?;
+    let v = doc.get("look")?.get("ambient")?.as_f64()?;
+    v.to_string().parse::<f32>().ok()
+}
+
 impl NightSong {
     /// The song's cue list as its file has it now, resolved against the
     /// set; `None` when the file does not read (a half-made edit): the

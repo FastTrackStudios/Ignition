@@ -180,27 +180,6 @@
         "bars": 0,
         "beat": 1.0,
         "ordinal": 0,
-        "section": "Count In"
-      },
-      "block": true,
-      "fade_secs": 0.5,
-      "name": "safe",
-      "recipes": [
-        {
-          "look": "punt"
-        }
-      ],
-      "resolved": {
-        "bar": 1,
-        "beat": 1.0
-      },
-      "values": []
-    },
-    {
-      "at": {
-        "bars": 0,
-        "beat": 1.0,
-        "ordinal": 0,
         "section": "Intro"
       },
       "block": true,
@@ -2241,7 +2220,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.52
+                  "Dimmer": 0.45
                 },
                 {
                   "Color": "Primary"
@@ -2494,7 +2473,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.74
+                  "Dimmer": 0.68
                 },
                 {
                   "Color": "Secondary"
@@ -2537,7 +2516,7 @@
                   "Dimmer": 0.55
                 },
                 {
-                  "Color": "Accent"
+                  "Color": "Secondary"
                 }
               ],
               "ease": "Linear",
@@ -6727,6 +6706,25 @@
       "resolved": {
         "bar": 158,
         "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bar": 158,
+        "beat": 3.0
+      },
+      "block": true,
+      "fade_secs": 1.0,
+      "name": "safe",
+      "recipes": [
+        {
+          "look": "punt"
+        }
+      ],
+      "resolved": {
+        "bar": 158,
+        "beat": 3.0
       },
       "values": []
     },
