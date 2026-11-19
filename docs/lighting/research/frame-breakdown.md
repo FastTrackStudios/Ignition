@@ -263,6 +263,21 @@ What changed, and whether it matters:
   screens' canvases (the WESL port of `canvas.wesl`), the people and the
   haze's unevenness are where they were.
 
+The stills above were taken with the two fog commits vendored over
+upstream's revision. The build that ships takes them from the fork
+(`FastTrackStudios/bevy`, `fts-948cc8270-1`), which also carries
+upstream #26484, the auto-exposure histogram's bounds. The recital's
+chorus on the fork against the middle picture: mean difference 1.9 of
+255, where two captures of the same build differ by 0.7 (TAA and the
+fog's dither), and 11 pixels of 3.7 million differ by more than 32 (12
+between two captures of the same build). The fork's picture is about
+2 % dimmer than the vendored build's (ImageMagick's mean over all
+channels: 75.5 and 76.2 in two captures, 77.5 vendored, 71.9 on 0.19.1;
+a different average from the 77 → 83 above), so it sits between 0.19.1
+and the vendored build, which is what
+bounding the histogram would do to the metering (an inference: not
+traced). The Norco cue was not retaken.
+
 Not compared: the froxel path (not carried), the Solari feature (not
 built), a moving shot (stills only), and the pane inside Architect's
 window (below).

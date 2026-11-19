@@ -190,7 +190,7 @@ Two implementations of that fog exist and MUST agree about the room's
 brightness — and until they demonstrably do, the screen-space raymarch is
 what ships. The other is a **froxel grid**: a frustum-aligned voxel grid,
 lit once per froxel rather than once per pixel per step, integrated front to
-back and sampled at each pixel's own depth. `IGNITION_FROXEL=1` selected it, on Bevy 0.19.1; it was not carried to the Bevy pin of 2026-11-18 (`vendor/bevy_pbr/FTS-PATCH.md`), where the switch is answered with a warning and the march. The froxel path MUST carry the same lighting the march does —
+back and sampled at each pixel's own depth. `IGNITION_FROXEL=1` selected it, on Bevy 0.19.1; it was not carried to the Bevy pin of 2026-11-18 (`docs/lighting/research/bevy-pin.md`), where the switch is answered with a warning and the march. The froxel path MUST carry the same lighting the march does —
 the same clustered light walk, spot cone, distance attenuation and shadow
 map — and MUST additionally read the gobo decals (`r[viz.gobo-raster]`), so
 a stencil shows in the air and not only where the beam lands. Because a

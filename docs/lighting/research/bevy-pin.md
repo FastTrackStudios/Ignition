@@ -6,18 +6,14 @@ order of work); the numbers are in [frame-breakdown.md](frame-breakdown.md).
 
 ## What is pinned
 
+`FastTrackStudios/bevy` at tag **`fts-948cc8270-1`** (branch `fts/main`),
+in the root `Cargo.toml`'s `[workspace.dependencies]`. It is
 `bevyengine/bevy` at **`948cc8270204b46fd37353eb786144a677d0c0ce`**
-(2026-11-12 21:01 UTC, "Wireframe cull mode", #26482), in the root
-`Cargo.toml`'s `[workspace.dependencies]`. Its crates call themselves
-`0.20.0-dev`.
+(2026-11-12 21:01 UTC, "Wireframe cull mode", #26482) plus the three
+commits listed below. Its crates call themselves `0.20.0-dev`.
 
-There is no `FastTrackStudios/bevy` repository (checked with `gh repo
-view` on 2026-11-18), and this work was told not to create one. So the
-pin is upstream's own revision, and the two commits the room needs are
-carried as a vendored `bevy_pbr` (`vendor/bevy_pbr`, patched in over
-the revision's own). That is a stand-in for the fork, not a substitute:
-the section below is what to put in the fork so the vendored crate can
-go.
+The fork was made on 2026-11-18. Its `main` is upstream's at the moment
+of forking and is not what Ignition builds; nothing is vendored.
 
 ## Why that commit
 
@@ -59,8 +55,7 @@ What is **not** in it, because it landed after the Rust bump:
 - #26484 (2026-11-17), "Guard the histogram accumulation in
   compute_histogram". The auto-exposure compute shader writes outside
   its 64-bin arrays (Metal reported it). Ignition uses auto exposure,
-  and the bug is in 0.19.1 too, so it is not a regression of this move;
-  it is the first cherry-pick for the fork.
+  and the bug is in 0.19.1 too; the fork cherry-picks it.
 - #26576 (atmosphere sun speckles; Ignition has no atmosphere).
 
 ## What the fork carries
@@ -69,23 +64,37 @@ Branch `fts/main` = upstream `948cc8270` plus, in this order:
 
 | # | Commit | Files | Why | Until |
 |---|---|---|---|---|
-| 1 | "A point or spot light may be volumetric without a shadow map" (`vendor/bevy_pbr/patches/0001-…`) | `crates/bevy_pbr/src/render/light.rs`, 15 lines | Every fixture is in the haze; a dozen can afford a shadow map. | The fog is deleted (the analytic beam renderer). Upstream candidate. |
-| 2 | "Volumetric fog: the inverse square stops at a point or spot light's radius" (`patches/0002-…`) | `crates/bevy_pbr/src/volumetric_fog/volumetric_fog.wesl`, 9 lines | No singularity where a beam leaves its fixture. | As 1. Upstream candidate. |
-| 3 | Cherry-pick of upstream #26484 (083bfcbc8) | `crates/bevy_post_process/src/auto_exposure/auto_exposure.wesl`, 8 lines | Out-of-bounds writes in the auto-exposure histogram. Not carried here: it is outside `bevy_pbr`, and vendoring a second crate for it was not worth it for a bug 0.19.1 also has. | The pin passes 2026-11-17. |
+| 1 | `d3bd99848` "A point or spot light may be volumetric without a shadow map" | `crates/bevy_pbr/src/render/light.rs`, 15 lines | Every fixture is in the haze; a dozen can afford a shadow map. | The fog is deleted (the analytic beam renderer). Upstream candidate. |
+| 2 | `798ae4450` "Volumetric fog: the inverse square stops at a point or spot light's radius" | `crates/bevy_pbr/src/volumetric_fog/volumetric_fog.wesl`, 9 lines | No singularity where a beam leaves its fixture. | As 1. Upstream candidate. |
+| 3 | `048708a25`, a cherry-pick of upstream #26484 (083bfcbc8) | `crates/bevy_post_process/src/auto_exposure/auto_exposure.wesl`, 8 lines | Out-of-bounds writes in the auto-exposure histogram (Metal reported it; 0.19.1 has the bug too). | The pin passes 2026-11-17. |
 
-Tag it `fts-948cc8270-1` (the upstream short SHA, then a counter), as
-`FastTrackStudios/vendor` tags and Blitz is pinned by revision. Then, in
-the root `Cargo.toml`:
+**1.** Upstream sets the GPU `VOLUMETRIC` flag only when
+`shadow_maps_enabled && volumetric`, and the fog's shader skips a light
+without the flag, so "is in the haze" and "casts a shadow" are one
+switch. A shadow map is a render pass per light per frame and
+`budget.rs` affords twelve; a rig has sixty-odd emitters, all of them in
+the air. The flag no longer asks for a shadow map, and the two
+volumetric counts are no longer capped by the shadow maps' capacity. The
+shader already takes `shadow = 1.0` for a light with no map.
 
-```toml
-bevy = { git = "https://github.com/FastTrackStudios/bevy", tag = "fts-948cc8270-1", default-features = false }
-```
+**2.** Upstream takes the raw distance to a clustered light, so radiance
+runs to infinity at the light's position. The squared distance is
+clamped to the light's radius, which Bevy already uploads in
+`position_radius.w`. A no-op at radius zero, the default
+(`spawn::DEFAULT_LENS_RADIUS_M`).
 
-and delete `vendor/bevy_pbr` and the `[patch."https://github.com/bevyengine/bevy"]`
-table. Nothing else names the source.
+Tags are `fts-<upstream short SHA>-<counter>`, as `FastTrackStudios/vendor`
+tags and Blitz is pinned by revision. A new commit on the same upstream
+base is the next counter; a new base is a new branch point: rebase
+`fts/main` onto the new upstream commit, drop what upstream has taken,
+tag, and move the tag in the root `Cargo.toml`. Nothing else names the
+source.
 
-Not carried, from the 0.19.1 fork: the froxel volumetrics and the view
-bindings' compute visibility that served them (`vendor/bevy_pbr/FTS-PATCH.md`).
+Not carried, from the 0.19.1 fork: the froxel volumetrics (`froxel.rs`,
+three shaders, the extracted `volumetric_shadows.wgsl`) and the view
+bindings' compute visibility that served them. They were opt-in
+(`IGNITION_FROXEL=1`), and the fog is being replaced; `IGNITION_FROXEL`
+is now ignored with a warning.
 
 ## Moving the pin
 
@@ -186,10 +195,9 @@ To verify on a Mac, in this order:
    (the existing test: lit frames in IOSurfaces the host's process
    holds), and `an_app_that_cannot_import_gets_shared_memory`.
 3. Bevy at the pin on Metal: `viz --snapshot` of the two cues in
-   `frame-breakdown.md` against the pictures there. The pin predates
-   upstream #26484, so Metal may report the auto-exposure histogram's
-   out-of-bounds writes it reported upstream; that is the fork's third
-   commit.
+   `frame-breakdown.md` against the pictures there. The fork carries
+   upstream #26484, so Metal should not report the auto-exposure
+   histogram's out-of-bounds writes it reported upstream.
 4. `features/lighting/tools/frame_breakdown.sh` on the M4, for its
    numbers (is its 30 fps the fog, as here?).
 5. The pane in the Architect app: the stats line reads "IOSurface".

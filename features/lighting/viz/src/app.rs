@@ -1968,7 +1968,7 @@ impl Plugin for SolariIfEnabled {
 ///
 /// It was Ignition's own compute pass inside the vendored `bevy_pbr`
 /// 0.19.1, opt-in and never the default. It was not carried to the Bevy
-/// pin (vendor/bevy_pbr/FTS-PATCH.md): the analytic beam renderer
+/// pin (docs/lighting/research/bevy-pin.md): the analytic beam renderer
 /// replaces the fog altogether. Asking for it is answered with a warning
 /// and the march.
 #[must_use]
@@ -2050,7 +2050,7 @@ pub(crate) fn spawn_camera(
     if froxels_wanted() {
         tracing::warn!(
             "IGNITION_FROXEL=1 is ignored: the froxel volumetrics were not carried to this \
-             Bevy (vendor/bevy_pbr/FTS-PATCH.md); the screen-space march draws the haze"
+             Bevy (docs/lighting/research/bevy-pin.md); the screen-space march draws the haze"
         );
     }
     if adapt {

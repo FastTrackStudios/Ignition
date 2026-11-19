@@ -71,7 +71,7 @@ apps/
   ignition-live-web      the Live panes, built for a browser/iPad
 crates/
   ignition-live-ui       Dioxus panes shared by the Live page (and the old desk)
-vendor/                  one-hunk forks of `bevy_pbr` and `gdtf` (FTS-PATCH.md each)
+vendor/                  the one-hunk fork of `gdtf` (FTS-PATCH.md); Bevy's is FastTrackStudios/bevy
 legacy/                  not ported, not built: the operator desk and the public
                          site (legacy/README.md)
 docs/lighting/           guides/ · spec/ (normative `r[topic.id]` requirements) ·

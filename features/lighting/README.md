@@ -29,8 +29,9 @@ default), since it is not built here.
 | `../../apps/ignition` | `ignition` | the renderer Studio starts for the extension (`--process-view`, a pop-out), and tooling: `render`, `--check`, `--at`, a debug runner |
 
 `data/` is Ignition's data (venues, profiles, GDTF, songs, shows);
-`tools/` its generators. The forks of `bevy_pbr` and `gdtf` are in
-`vendor/` (FTS-PATCH.md each).
+`tools/` its generators. The fork of `gdtf` is in `vendor/`
+(FTS-PATCH.md); Bevy's is FastTrackStudios/bevy
+(`docs/lighting/research/bevy-pin.md`).
 
 ## Lighting in Studio — the extension
 

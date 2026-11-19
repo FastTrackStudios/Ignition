@@ -159,9 +159,10 @@ midir = "0.11"
 cpal = "0.18"
 
 # ── The renderer: Bevy and its wgpu ───────────────────────────────────
-# Bevy by revision: upstream `main` at 948cc8270 (2026-11-12, "Wireframe
-# cull mode", #26482). Why that commit, and what a FastTrackStudios fork
-# would carry, is in docs/lighting/research/bevy-pin.md; in short it is
+# Bevy by the fork's tag: FastTrackStudios/bevy `fts-948cc8270-1`, which
+# is upstream `main` at 948cc8270 (2026-11-12, "Wireframe cull mode",
+# #26482) plus three commits (branch `fts/main`). Why that commit, and
+# what the fork carries, is in docs/lighting/research/bevy-pin.md; in short it is
 # the newest `main` commit that (a) is past Solari's spot lights (#25913),
 # (b) is on Architect's wgpu major, (c) builds on the fleet's Rust 1.99.1
 # (`main` needs 1.100 from 41a1282e3, the next day) and (d) passed every
@@ -169,12 +170,10 @@ cpal = "0.18"
 # included. Move it on purpose, never to "latest": `main`'s pictures
 # change week to week.
 #
-# There is no FastTrackStudios/bevy yet, so the two commits the room
-# needs are carried as a vendored `bevy_pbr` (vendor/bevy_pbr, patched in
-# below) rather than a fork's branch. With the fork, this becomes
-# `git = "https://github.com/FastTrackStudios/bevy", tag = "fts-948cc8270-1"`
-# and the vendored crate and its patch entry go.
-bevy = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce", default-features = false }
+# The fork's commits: a light scatters in the volumetric fog without
+# casting a shadow, the fog has no singularity at a lamp (both go when
+# the fog does), and upstream #26484 (auto exposure's histogram).
+bevy = { git = "https://github.com/FastTrackStudios/bevy", tag = "fts-948cc8270-1", default-features = false }
 # One wgpu for the renderer and the app: Architect's major (30, with
 # FTS's `wgpu-hal` below), which the Bevy pin is on too, so the room's
 # frames are exported on the device Bevy draws with and never pass
@@ -223,14 +222,6 @@ styx-format = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.1.
 phon = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.4.1" }
 facet-core = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.4.1" }
 phon-jit = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.2.3" }
-
-# The Bevy pin's `bevy_pbr` with two commits on it, so a light can
-# scatter in volumetric fog without casting a shadow, and the fog has no
-# singularity at a lamp (vendor/bevy_pbr/FTS-PATCH.md,
-# docs/lighting/domain/beams-in-the-air.md). What a FastTrackStudios/bevy
-# fork would carry instead; both go when the fog does.
-[patch."https://github.com/bevyengine/bevy"]
-bevy_pbr = { path = "vendor/bevy_pbr" }
 
 # The FTS forks of dioxus-native, dioxus-native-dom and dioxus-vdom
 # (vendor v0.7.1 = architect's v0.7.0 + DioxusLabs/dioxus#5668's fix).
