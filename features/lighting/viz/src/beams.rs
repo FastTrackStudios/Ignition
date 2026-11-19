@@ -201,12 +201,14 @@ fn attach_air_beams(
 /// first row is the top of the picture, which is up in the beam.
 fn mask_openness(mask: &crate::gobo::GoboMask, x: f32, y: f32) -> f32 {
     let size = crate::num::f32_of_u32(mask.size);
+    // The texel a coordinate falls in, by arithmetic. This was a search
+    // down from the mask's last texel for the first one at or below the
+    // coordinate, twice a sample: for every texel of every gobo of every
+    // wheel that was minutes of a renderer's start in a development
+    // build, with the pane black the whole time.
     let texel = |along: f32| {
         let scaled = (along.mul_add(0.5, 0.5) * size).clamp(0.0, (size - 1.0).max(0.0));
-        (0..mask.size)
-            .rev()
-            .find(|&i| crate::num::f32_of_u32(i) <= scaled)
-            .unwrap_or(0)
+        crate::num::u32_of_f32(scaled.floor()).min(mask.size.saturating_sub(1))
     };
     let index = texel(-y)
         .saturating_mul(mask.size)
