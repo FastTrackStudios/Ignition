@@ -35,6 +35,8 @@ use std::time::Duration;
 use architect::connect::{Endpoint, pool};
 use architect_extensions::hostcall::HostRequest;
 use architect_extensions::linked::Handle;
+use crdt::clock::SharedClock;
+use crdt::presence::clock_ms;
 use crdt::sync::{DocPresenceClient, PresencePeer};
 use ignition_daw::ableton::{LiveSet, LiveSetSong};
 use ignition_session::{
@@ -44,10 +46,8 @@ use ignition_show::CueList;
 use ignition_show::show_file::ShowDocument;
 use serde_json::{Value, json};
 use session::LaneId;
-use session::clock::{SessionClockClient, SharedClock};
 use session::doc::transport_of;
 use session::service::{TempoChange, TempoMapData};
-use session::sync::clock::now_micros_f64;
 
 /// `fts.session` through the host, as this extension.
 pub(crate) struct Host(Handle);
@@ -236,19 +236,19 @@ pub fn redial_after(failed: u32) -> std::time::Duration {
     std::time::Duration::from_millis(doubled.min(MOST_MS))
 }
 
-/// Joins session `doc`'s presence and its host's clock at `url` (a
-/// `ws://host:port/vox`), on a thread of its own: what a view follows the
-/// transport with. Its driver and pings run for as long as the process,
+/// Joins session `doc`'s presence at `url` (a `ws://host:port/vox`), on a
+/// thread of its own: what a view follows the transport with. Presence
+/// carries the host's clock (the driver pings it into
+/// [`PresencePeer::clock`]). The driver runs for as long as the process,
 /// dialling the host again whenever it is not there.
 ///
 /// # Errors
 ///
 /// `doc` is not a session id, or the thread could not start.
-pub fn follow_session(url: &str, doc: &str) -> Result<(PresencePeer, SharedClock), String> {
+pub fn follow_session(url: &str, doc: &str) -> Result<PresencePeer, String> {
     let id = uuid::Uuid::parse_str(doc).map_err(|e| e.to_string())?;
     let (peer, mut driver) = PresencePeer::new(id, 30_000);
-    let clock = SharedClock::default();
-    let (url, pinger) = (url.to_owned(), clock.clone());
+    let url = url.to_owned();
     std::thread::Builder::new()
         .name("session-follow".into())
         .spawn(move || {
@@ -265,37 +265,29 @@ pub fn follow_session(url: &str, doc: &str) -> Result<(PresencePeer, SharedClock
                 // dialled until it answers.
                 let mut failed: u32 = 0;
                 loop {
-                    match (
-                        pool().client::<SessionClockClient>(&endpoint).await,
-                        pool().client::<DocPresenceClient>(&endpoint).await,
-                    ) {
-                        (Ok(host), Ok(presence)) => {
+                    match pool().client::<DocPresenceClient>(&endpoint).await {
+                        Ok(presence) => {
                             failed = 0;
-                            let pings = pinger.run(&host);
-                            let follow = driver.run(&presence);
-                            tokio::pin!(pings, follow);
-                            tokio::select! {
-                                _ = &mut pings => {}
-                                _ = &mut follow => {}
-                            }
+                            let _ = driver.run(&presence).await;
                             pool().evict(&endpoint);
                         }
-                        _ => failed = failed.saturating_add(1),
+                        Err(_) => failed = failed.saturating_add(1),
                     }
                     tokio::time::sleep(redial_after(failed)).await;
                 }
             });
         })
         .map_err(|e| e.to_string())?;
-    Ok((peer, clock))
+    Ok(peer)
 }
 
 /// Where session `peer`'s leader is now, in session seconds, and whether
 /// it plays: `None` before the clock is estimated or the leader has said.
 #[must_use]
-pub fn leader_now(peer: &PresencePeer, clock: &SharedClock) -> Option<(f64, bool)> {
+pub fn leader_now(peer: &PresencePeer) -> Option<(f64, bool)> {
     let leader = peer.states().get("lead/play").and_then(transport_of)?;
-    Some((leader.at(clock.now_micros()?), leader.is_playing))
+    let host_micros = peer.clock().now_ms()? * 1000.0;
+    Some((leader.at(host_micros), leader.is_playing))
 }
 
 /// What the follower took.
@@ -323,21 +315,14 @@ pub async fn follow(args: Value) -> Result<Value, String> {
     let map = tempo(&ask, &doc).await.map_err(|e| e.to_string())?;
     let mut follower = CueFollower::new(&list, &map);
 
-    let clock = SharedClock::default();
-    let pinger = clock.clone();
-    let host_clock: SessionClockClient = pool()
-        .client(&Endpoint::url(&url))
-        .await
-        .map_err(|e| e.to_string())?;
-    tokio::spawn(async move {
-        let _ = pinger.run(&host_clock).await;
-    });
     let id = uuid::Uuid::parse_str(&doc).map_err(|e| e.to_string())?;
     let presence: DocPresenceClient = pool()
         .client(&Endpoint::url(&url))
         .await
         .map_err(|e| e.to_string())?;
     let (peer, mut driver) = PresencePeer::new(id, 30_000);
+    // The host's clock, estimated by the presence driver as it runs.
+    let clock = peer.clock().clone();
     tokio::spawn(async move {
         let _ = driver.run(&presence).await;
     });
@@ -351,13 +336,14 @@ pub async fn follow(args: Value) -> Result<Value, String> {
         loop {
             tokio::time::sleep(Duration::from_millis(16)).await;
             let (Some(offset), Some(leader)) = (
-                clock.offset_micros(),
+                clock.offset_ms().map(|ms| ms * 1000.0),
                 peer.states().get("lead/play").and_then(transport_of),
             ) else {
                 continue;
             };
             follower.observe(leader);
-            let now = now_micros_f64();
+            // This process's clock the offset is to (Architect's).
+            let now = clock_ms() * 1000.0;
             let take = follower.tick(now, offset);
             let at = leader.at(now + offset);
             let entry = match take {
@@ -376,8 +362,8 @@ pub fn report() -> Value {
     let t = taken();
     json!({
         "taken": t.log,
-        "offset_us": t.clock.as_ref().and_then(SharedClock::offset_micros),
-        "round_trip_us": t.clock.as_ref().and_then(SharedClock::round_trip_micros),
+        "offset_us": t.clock.as_ref().and_then(SharedClock::offset_ms).map(|ms| ms * 1000.0),
+        "round_trip_us": t.clock.as_ref().and_then(SharedClock::round_trip_ms).map(|ms| ms * 1000.0),
     })
 }
 

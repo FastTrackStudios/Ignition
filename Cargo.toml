@@ -59,8 +59,10 @@ ignition-rig = { path = "features/lighting/rig" }
 ignition-show = { path = "features/lighting/show" }
 ignition-session = { path = "features/lighting/session" }
 # The session primitive (FastTrackStudios/session): cue lists as its lanes
-# and items (features/lighting/session). By rev until it is tagged.
-session = { git = "https://github.com/FastTrackStudios/session", rev = "a8ec37a454c767c0558973412c4d321746066d02", default-features = false }
+# and items (features/lighting/session). By rev until it is tagged: a
+# commit of its `main`, the one Studio and Keyflow pin, so a build with all
+# three has one `session`.
+session = { git = "https://github.com/FastTrackStudios/session", rev = "f186f34b8451e3a1543ac78a2c99d1ab02c1b352", default-features = false }
 ignition-effects = { path = "features/lighting/effects" }
 ignition-playback = { path = "features/lighting/playback" }
 ignition-core = { path = "features/lighting/core" }
@@ -71,45 +73,43 @@ ignition-profile = { path = "features/lighting/profile" }
 ignition-viz = { path = "features/lighting/viz" }
 ignition-pane = { path = "features/lighting/pane" }
 
-# ── Studio crates ─────────────────────────────────────────────────────
-# Everything Ignition takes from github.com/FastTrackStudios/studio, at
-# the commit the port was saved at (8bfa77ea, branch
-# save/recital-worktree-2026-11-17). One revision for all of them: they
-# are one workspace there and resolve against each other. Each entry says
-# what Ignition uses it for; removing an entry is a step towards Ignition
-# not needing Studio.
+# ── Crates that came from Studio ──────────────────────────────────────
+# What Ignition took from github.com/FastTrackStudios/studio, where each
+# lives now: the daw repo, fts-fx (`dsp`) and studio-adapters (`ableton`),
+# at the revisions Studio pins, so a build with both has one of each.
+# Each entry says what Ignition uses it for.
 #
 # `utils::paths::checkout_path` only: where the checkout's data is
 # (features/lighting, its GDTF library, the visualizer's assets). Used by
 # ignition-fixture, ignition-viz and apps/ignition.
-utils = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+utils = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
 # Reading an Ableton Live set (`read_live_set`, `setlist`, `tempo`): the
 # songs of a night and their tempo maps. ignition-daw's `ableton` feature
 # (on by default), and apps/ignition's tests.
-ableton = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+ableton = { git = "https://github.com/FastTrackStudios/studio-adapters", rev = "6ce1b1a912e969071cd2fe55caaea0a5cd486252" }
 # `dsp::hits::detect` (feature `hits`): drum hits found in a stem, for
 # ignition-daw's `hits` (cues on the hits).
-dsp = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+dsp = { git = "https://github.com/FastTrackStudios/fts-fx", rev = "5bae622f5d874ce58ab04916ab29a8100e883012" }
 # The REAPER project parser (`parse_rpp_file`, `ReaperProject`, MIDI
 # items): ignition-daw's `reaper` and `chart`.
-dawfile-reaper = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+dawfile-reaper = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
 # The DAW's wire types (`ProjectContext`, the `Transport` service, play
 # state): ignition-daw's `play` feature.
-daw-proto = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+daw-proto = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
 # `daw_control::Daw`, the client of Studio's running engine: apps/ignition
 # follows Studio's playback with it (`--clock studio`, studio_clock.rs).
-daw-control = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+daw-control = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
 # The DAW facade. ignition-daw's `play` feature plays a REAPER project on
 # its standalone engine (`daw::standalone`, feature `standalone-rpp`), so
 # a song can be heard while its cues are written.
-daw = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+daw = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
 # `audio::io::AudioIoPrefs`: the output device for that playback
 # (ignition-daw's `play` feature).
-audio = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+audio = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
 # Decoding a stem to mono samples (`load_mono_f32`), for hit detection in
 # ignition-daw. Defaults off, as at Studio's root; ignition-daw asks for
 # `decode-compressed`.
-fts-sample = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1", default-features = false }
+fts-sample = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e", default-features = false }
 
 # Not Studio's, but Studio's pin: the LRC lyrics parser
 # (`keyflow_proto::lrc`), for ignition-daw's `lyrics`.
@@ -213,13 +213,29 @@ dioxus-native = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.
 dioxus-native-dom = { git = "https://www.github.com/FastTrackStudios/vendor", rev = "25bf4bcdfd0b6acb268ca91a93bc8ff8da683a96" }
 dioxus-vdom = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.7.1" }
 
-# keyflow (a git dependency) still takes daw, dawfile-reaper and fts-sample
-# from daw's old repo; this gives it Studio's copies, so there is one of
-# each. Paths in Studio; here the same crates from Studio's repo.
+# One daw: Keyflow (a git dependency) takes daw crates at its own tag, and
+# studio-adapters and fts-fx at theirs. Every crate of the daw repo is at
+# the revision above; the same revision on the `www.` host, which cargo
+# counts as another source, is how a git dependency's own pin is
+# overridden (Studio's table, the same revision). Move it with the pins
+# above.
 [patch."https://github.com/FastTrackStudios/daw"]
-daw = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
-dawfile-reaper = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
-fts-sample = { git = "https://github.com/FastTrackStudios/studio", rev = "8bfa77ea4efdd98322e848fb53d95ee554d419d1" }
+daw = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+daw-standalone = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+session-format = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+dawfile-reaper = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+signal-plugin-host = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+builtin = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+daw-sync = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+daw-proto = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+daw-control = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+daw-module = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+daw-transport-sync = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+daw-test-macro = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+utils = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+midi = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+audio = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
+fts-sample = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }
 
 # One Architect: `session` (the session primitive) takes architect and
 # crdt at tag v0.12.6, which would put a second Architect in the graph,
