@@ -78,12 +78,13 @@ Every action also takes `root` (the lighting data root, default `IGNITION_ROOT`)
 | Action | Effect | What it does | Arguments |
 |---|---|---|---|
 | `IGNITION_ENV_LIST` | read only | Every environment under data/venues: fixtures, universes, people, and which the show uses. | show |
-| `IGNITION_ENV_GET` | read only | One environment: its room (floor, walls, audience), props (truss, risers, people), screens, people, groups, role bindings, focus points and where its universes go. | show, env |
+| `IGNITION_ENV_GET` | read only | One environment: its room (floor, walls, audience), props (truss, risers, people), screens, people, groups, role bindings, focus points and where its universes go; and, for a measured room (environment.json), its dimensions, every object of its model (kind, position, turn, shown, movable) and its own light groups. | show, env |
 | `IGNITION_ENV_CREATE` | mutating | A room from its dimensions (metres): a floor and four walls, and when asked a stage riser, an audience area and trusses. Empty of fixtures; seven focus points and the Wide and Top cameras come with it. | **name**, title, **width**, **depth**, height, upstage, stage, audience, truss |
 | `IGNITION_ENV_DUPLICATE` | mutating | Copies an environment's files under another name, as a starting point. | show, env, **as**, title |
 | `IGNITION_ENV_USE` | mutating | Points the show at another environment. | show, **env** |
-| `IGNITION_ENV_PIECE_SET` | mutating | Adds or changes a piece by name: a wall, the floor, the audience area (`in: room`), a truss, a riser or any prop (`in: props`), a screen (`in: screens`). Position is its centre on the floor, size {x across, y deep, z tall}, eulers degrees. | show, env, **name**, in, position, size, eulers, kind, set |
+| `IGNITION_ENV_PIECE_SET` | mutating | Adds or changes a piece by name: a wall, the floor, the audience area (`in: room`), a truss, a riser or any prop (`in: props`), a screen (`in: screens`). Position is its centre on the floor, size {x across, y deep, z tall}, eulers degrees. `in: environment` moves, turns (eulers.z), shows or hides an object of a measured room's model (`visible`, `move`); the architecture moves only with `force`. | show, env, **name**, in, visible, move, force, position, size, eulers, kind, set |
 | `IGNITION_ENV_PIECE_REMOVE` | destructive | Removes a piece by name. | show, env, **name**, in |
+| `IGNITION_ENV_LIGHTS` | mutating | A measured room's own lights (the house lights, not the rig): its groups, how many lights each has and whether each starts on. With `group` and `on`, switches one. | show, env, group, on |
 
 ## People and focus
 

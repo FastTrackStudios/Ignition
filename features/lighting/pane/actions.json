@@ -1374,7 +1374,7 @@
  {
   "id": "IGNITION_ENV_GET",
   "name": "Lighting: an environment",
-  "about": "One environment: its room (floor, walls, audience), props (truss, risers, people), screens, people, groups, role bindings, focus points and where its universes go.",
+  "about": "One environment: its room (floor, walls, audience), props (truss, risers, people), screens, people, groups, role bindings, focus points and where its universes go; and, for a measured room (environment.json), its dimensions, every object of its model (kind, position, turn, shown, movable) and its own light groups.",
   "effect": "read_only",
   "args": {
    "root": {
@@ -1502,7 +1502,7 @@
  {
   "id": "IGNITION_ENV_PIECE_SET",
   "name": "Lighting: add or change a piece of the room",
-  "about": "Adds or changes a piece by name: a wall, the floor, the audience area (`in: room`), a truss, a riser or any prop (`in: props`), a screen (`in: screens`). Position is its centre on the floor, size {x across, y deep, z tall}, eulers degrees.",
+  "about": "Adds or changes a piece by name: a wall, the floor, the audience area (`in: room`), a truss, a riser or any prop (`in: props`), a screen (`in: screens`). Position is its centre on the floor, size {x across, y deep, z tall}, eulers degrees. `in: environment` moves, turns (eulers.z), shows or hides an object of a measured room's model (`visible`, `move`); the architecture moves only with `force`.",
   "effect": "mutating",
   "args": {
    "root": {
@@ -1523,7 +1523,19 @@
    },
    "in": {
     "type": "string",
-    "about": "room (default), props or screens."
+    "about": "room (default), props, screens, or environment (a measured room's objects)."
+   },
+   "visible": {
+    "type": "boolean",
+    "about": "With `in: environment`: whether the object is shown."
+   },
+   "move": {
+    "type": "object",
+    "about": "With `in: environment`: {x, y, z} to shift by."
+   },
+   "force": {
+    "type": "boolean",
+    "about": "With `in: environment`: move an object marked not movable."
    },
    "position": {
     "type": "object",
@@ -1580,6 +1592,35 @@
   "required": [
    "name"
   ]
+ },
+ {
+  "id": "IGNITION_ENV_LIGHTS",
+  "name": "Lighting: the room's own lights",
+  "about": "A measured room's own lights (the house lights, not the rig): its groups, how many lights each has and whether each starts on. With `group` and `on`, switches one.",
+  "effect": "mutating",
+  "args": {
+   "root": {
+    "type": "string",
+    "about": "The lighting data root (the folder holding data/); default IGNITION_ROOT."
+   },
+   "show": {
+    "type": "string",
+    "about": "The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital."
+   },
+   "env": {
+    "type": "string",
+    "about": "An environment: a name under data/venues or a path; default the show's venue."
+   },
+   "group": {
+    "type": "string",
+    "about": "A light group (house\u2026)."
+   },
+   "on": {
+    "type": "boolean",
+    "about": "Whether it starts on."
+   }
+  },
+  "required": []
  },
  {
   "id": "IGNITION_PERSON_SET",

@@ -565,7 +565,7 @@ params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The l
 [[actions]]
 id = "IGNITION_ENV_GET"
 name = "Lighting: an environment"
-description = "One environment: its room (floor, walls, audience), props (truss, risers, people), screens, people, groups, role bindings, focus points and where its universes go."
+description = "One environment: its room (floor, walls, audience), props (truss, risers, people), screens, people, groups, role bindings, focus points and where its universes go; and, for a measured room (environment.json), its dimensions, every object of its model (kind, position, turn, shown, movable) and its own light groups."
 group = "Lighting"
 effect = "read_only"
 params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"}}}"
@@ -597,10 +597,10 @@ params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The l
 [[actions]]
 id = "IGNITION_ENV_PIECE_SET"
 name = "Lighting: add or change a piece of the room"
-description = "Adds or changes a piece by name: a wall, the floor, the audience area (`in: room`), a truss, a riser or any prop (`in: props`), a screen (`in: screens`). Position is its centre on the floor, size {x across, y deep, z tall}, eulers degrees."
+description = "Adds or changes a piece by name: a wall, the floor, the audience area (`in: room`), a truss, a riser or any prop (`in: props`), a screen (`in: screens`). Position is its centre on the floor, size {x across, y deep, z tall}, eulers degrees. `in: environment` moves, turns (eulers.z), shows or hides an object of a measured room's model (`visible`, `move`); the architecture moves only with `force`."
 group = "Lighting"
 effect = "mutating"
-params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"name\":{\"description\":\"The piece.\",\"type\":\"string\"},\"in\":{\"description\":\"room (default), props or screens.\",\"type\":\"string\"},\"position\":{\"description\":\"{x, y, z} metres.\",\"type\":\"object\"},\"size\":{\"description\":\"{x, y, z} metres.\",\"type\":\"object\"},\"eulers\":{\"description\":\"{x, y, z} degrees.\",\"type\":\"object\"},\"kind\":{\"description\":\"floor, wall, audience, truss, riser…\",\"type\":\"string\"},\"set\":{\"description\":\"Any other keys.\",\"type\":\"object\"}},\"required\":[\"name\"]}"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"name\":{\"description\":\"The piece.\",\"type\":\"string\"},\"in\":{\"description\":\"room (default), props, screens, or environment (a measured room's objects).\",\"type\":\"string\"},\"visible\":{\"description\":\"With `in: environment`: whether the object is shown.\",\"type\":\"boolean\"},\"move\":{\"description\":\"With `in: environment`: {x, y, z} to shift by.\",\"type\":\"object\"},\"force\":{\"description\":\"With `in: environment`: move an object marked not movable.\",\"type\":\"boolean\"},\"position\":{\"description\":\"{x, y, z} metres.\",\"type\":\"object\"},\"size\":{\"description\":\"{x, y, z} metres.\",\"type\":\"object\"},\"eulers\":{\"description\":\"{x, y, z} degrees.\",\"type\":\"object\"},\"kind\":{\"description\":\"floor, wall, audience, truss, riser…\",\"type\":\"string\"},\"set\":{\"description\":\"Any other keys.\",\"type\":\"object\"}},\"required\":[\"name\"]}"
 
 [[actions]]
 id = "IGNITION_ENV_PIECE_REMOVE"
@@ -609,6 +609,14 @@ description = "Removes a piece by name."
 group = "Lighting"
 effect = "destructive"
 params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"name\":{\"description\":\"The piece.\",\"type\":\"string\"},\"in\":{\"description\":\"room (default), props or screens.\",\"type\":\"string\"}},\"required\":[\"name\"]}"
+
+[[actions]]
+id = "IGNITION_ENV_LIGHTS"
+name = "Lighting: the room's own lights"
+description = "A measured room's own lights (the house lights, not the rig): its groups, how many lights each has and whether each starts on. With `group` and `on`, switches one."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"group\":{\"description\":\"A light group (house…).\",\"type\":\"string\"},\"on\":{\"description\":\"Whether it starts on.\",\"type\":\"boolean\"}}}"
 
 [[actions]]
 id = "IGNITION_PERSON_SET"

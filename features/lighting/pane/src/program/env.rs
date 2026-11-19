@@ -186,6 +186,7 @@ fn env_list(cx: &Ctx, args: &Value) -> Res {
             "fixtures": fixtures.as_array().map_or(0, Vec::len),
             "universes": universes,
             "people": file(cx, &dir, "people.json").as_array().map_or(0, Vec::len),
+            "measured": dir.join(MEASURED).is_file(),
             "in_use": in_use.as_ref() == Some(&dir),
         }));
     }
@@ -196,6 +197,18 @@ fn env_get(cx: &Ctx, args: &Value) -> Res {
     let r = room(cx, args)?;
     let palettes = cx.json_or(&r.dir.join("palettes.json"), json!({}))?;
     let manifest = cx.json_or(&r.dir.join("venue.ig-venue"), json!({}))?;
+    // A measured room: what is drawn instead of `room.json`'s boxes.
+    let measured = cx.json(&r.dir.join(MEASURED)).ok().map(|m| {
+        json!({
+            "name": m.get("name"), "model": m.get("model"), "dimensions": m.get("measured"),
+            "light_groups": m.get("light_groups"), "lights": list(&m, "lights").len(),
+            "objects": list(&m, "objects").iter().map(|o| json!({
+                "name": o.get("name"), "kind": o.get("kind"), "position": o.get("position"),
+                "turn_deg": o.get("eulers").and_then(|e| e.get("z")), "size": o.get("size"),
+                "visible": o.get("visible"), "movable": o.get("movable"), "group": o.get("group"),
+            })).collect::<Vec<_>>(),
+        })
+    });
     let bound: Map<String, Value> = r
         .binding
         .groups
@@ -211,6 +224,7 @@ fn env_get(cx: &Ctx, args: &Value) -> Res {
         "props": file(cx, &r.dir, "props.json"),
         "screens": file(cx, &r.dir, "screens.json"),
         "people": file(cx, &r.dir, "people.json"),
+        "measured": measured,
         "fixtures": r.fixtures.as_array().map_or(0, Vec::len),
         "groups": r.groups.iter().map(|g| json!({ "name": g.name, "fixtures": g.chans.len() })).collect::<Vec<_>>(),
         "roles": bound, "focus_roles": r.binding.focus,
@@ -351,11 +365,78 @@ fn piece_file(args: &Value) -> Result<&'static str, String> {
         "room" => Ok("room.json"),
         "props" | "prop" => Ok("props.json"),
         "screens" | "screen" => Ok("screens.json"),
-        other => Err(format!("`in` {other:?}: room, props or screens")),
+        other => Err(format!("`in` {other:?}: room, props, screens, or environment (a measured room's objects)")),
     }
 }
 
+/// The measured room, when the environment has one: `environment.json`
+/// (the visualizer's `environment.rs`): the model's objects by name, each
+/// with where it stands, whether it is shown and whether it may move, and
+/// the room's own lights in switchable groups.
+const MEASURED: &str = "environment.json";
+
+/// Moves, turns, shows or hides an object of the measured room. Only what
+/// the model has can be changed (an object is a node of the model), and
+/// one marked not `movable` (the architecture) moves only with `force`.
+fn object_set(cx: &mut Ctx, args: &Value) -> Res {
+    let dir = env_dir(cx, args)?;
+    let name = text(args, "name")?;
+    let path = dir.join(MEASURED);
+    let mut doc = cx.json(&path).map_err(|_| "this environment has no measured model (environment.json)".to_owned())?;
+    let objects = arr(&mut doc, "objects")?;
+    let names: Vec<String> = objects.iter().filter_map(|o| opt_text(o, "name").map(str::to_owned)).collect();
+    let slot = objects
+        .iter_mut()
+        .find(|o| opt_text(o, "name") == Some(name))
+        .ok_or_else(|| format!("the model has no object {name:?}; it has {names:?}"))?;
+    let moves = args.get("position").is_some() || args.get("eulers").is_some() || args.get("move").is_some();
+    if moves && slot.get("movable").and_then(Value::as_bool) == Some(false) && !flag(args, "force") {
+        return Err(format!("{name:?} is part of the room and does not move (`force: true` moves it anyway)"));
+    }
+    let mut set = Map::new();
+    for key in ["position", "eulers", "visible", "movable", "note"] {
+        if let Some(v) = args.get(key) {
+            set.insert(key.into(), v.clone());
+        }
+    }
+    merge(slot, &Value::Object(set));
+    if let Some(by) = args.get("move") {
+        let at = xyz(slot.get("position")).unwrap_or(Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+        obj(slot)?.insert("position".into(), json!({ "x": at.x + num(by, "x").unwrap_or(0.0), "y": at.y + num(by, "y").unwrap_or(0.0), "z": at.z + num(by, "z").unwrap_or(0.0) }));
+    }
+    let now = slot.clone();
+    cx.write_json(&path, &doc)?;
+    Ok(json!({ "object": now, "note": "only eulers.z turns an object; the room's build script (its `about`) writes this file over when it is run again" }))
+}
+
+/// The room's own lights (the house lights, not the rig): the groups and
+/// whether each starts on; `group` + `on` switches one.
+fn env_lights(cx: &mut Ctx, args: &Value) -> Res {
+    let dir = env_dir(cx, args)?;
+    let path = dir.join(MEASURED);
+    let mut doc = cx.json(&path).map_err(|_| "this environment has no measured model (environment.json)".to_owned())?;
+    if let Some(group) = opt_text(args, "group") {
+        let on = args.get("on").and_then(Value::as_bool).ok_or("`on` (true or false) is required with `group`")?;
+        let groups = arr(&mut doc, "light_groups")?;
+        let names: Vec<String> = groups.iter().filter_map(|g| opt_text(g, "name").map(str::to_owned)).collect();
+        let slot = groups.iter_mut().find(|g| opt_text(g, "name") == Some(group)).ok_or_else(|| format!("no light group {group:?}; the room has {names:?}"))?;
+        obj(slot)?.insert("on".into(), json!(on));
+        cx.write_json(&path, &doc)?;
+    }
+    let groups: Vec<Value> = list(&doc, "light_groups")
+        .iter()
+        .map(|g| {
+            let n = list(&doc, "lights").iter().filter(|l| l.get("group") == g.get("name")).count();
+            json!({ "name": g.get("name"), "label": g.get("label"), "on": g.get("on"), "lights": n })
+        })
+        .collect();
+    Ok(json!({ "light_groups": groups }))
+}
+
 fn piece_set(cx: &mut Ctx, args: &Value) -> Res {
+    if matches!(opt_text(args, "in"), Some("environment" | "model")) {
+        return object_set(cx, args);
+    }
     let dir = env_dir(cx, args)?;
     let name = text(args, "name")?;
     let path = dir.join(piece_file(args)?);
@@ -1139,6 +1220,7 @@ pub(crate) fn run(cx: &mut Ctx, id: &str, args: &Value) -> Option<Res> {
         "IGNITION_ENV_USE" => env_use(cx, args),
         "IGNITION_ENV_PIECE_SET" => piece_set(cx, args),
         "IGNITION_ENV_PIECE_REMOVE" => piece_remove(cx, args),
+        "IGNITION_ENV_LIGHTS" => env_lights(cx, args),
         "IGNITION_PERSON_SET" => person_set(cx, args),
         "IGNITION_PERSON_REMOVE" => person_remove(cx, args),
         "IGNITION_PEOPLE_LIST" => people_list(cx, args),

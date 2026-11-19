@@ -34,7 +34,7 @@ default), since it is not built here.
 
 ## Programming a show
 
-Everything a person can change has an action (`IGNITION_*`, 66 of them):
+Everything a person can change has an action (`IGNITION_*`, 67 of them):
 the library, a song's cues, a whole set, environments, people, fixtures,
 the patch, tricks. They run from the app's palette, CLI, MCP and Luau
 scripts, and from a shell with `ignition-program`. Start at

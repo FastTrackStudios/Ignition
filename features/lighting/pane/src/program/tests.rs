@@ -105,3 +105,40 @@ fn a_song_is_programmed_by_section_and_reskinned_by_palette() {
     assert_eq!(used["results"][0]["result"]["slots"][0]["blue"], 1.0);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_measured_rooms_objects_move_and_its_architecture_stays() {
+    let _turn = TURN.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let dir = root("measured");
+    let env = dir.join("data/venues/lab");
+    std::fs::create_dir_all(&env).unwrap_or_default();
+    std::fs::write(env.join("fixtures.json"), "[]").unwrap_or_default();
+    std::fs::write(
+        env.join("environment.json"),
+        r#"{"name":"Lab","model":"lab.glb","note_kept":7,
+            "light_groups":[{"name":"house","label":"House","on":false}],
+            "lights":[{"name":"L1","group":"house"}],
+            "objects":[{"name":"Floor","kind":"architecture","position":{"x":0,"y":0,"z":0},"visible":true,"movable":false},
+                       {"name":"Piano","kind":"gear","position":{"x":1,"y":2,"z":0},"visible":true,"movable":true}]}"#,
+    )
+    .unwrap_or_default();
+    let a = |extra: serde_json::Value| {
+        let mut v = json!({ "root": dir, "env": "lab", "in": "environment" });
+        super::merge(&mut v, &extra);
+        v
+    };
+    assert!(run("IGNITION_ENV_PIECE_SET", &a(json!({ "name": "Floor", "move": { "x": 1.0 } }))).is_err());
+    assert!(run("IGNITION_ENV_PIECE_SET", &a(json!({ "name": "Sofa", "visible": false }))).is_err(), "not in the model");
+    let moved = run("IGNITION_ENV_PIECE_SET", &a(json!({ "name": "Piano", "move": { "x": 0.5 }, "visible": false }))).unwrap_or_default();
+    assert_eq!(moved["object"]["position"]["x"], 1.5);
+    assert_eq!(moved["object"]["visible"], false);
+    let lights = run("IGNITION_ENV_LIGHTS", &json!({ "root": dir, "env": "lab", "group": "house", "on": true })).unwrap_or_default();
+    assert_eq!(lights["light_groups"][0]["on"], true);
+    assert_eq!(lights["light_groups"][0]["lights"], 1);
+    let got = run("IGNITION_ENV_GET", &json!({ "root": dir, "env": "lab" })).unwrap_or_default();
+    assert_eq!(got["measured"]["objects"].as_array().map(Vec::len), Some(2));
+    // What these actions do not read is written back.
+    let raw = std::fs::read_to_string(env.join("environment.json")).unwrap_or_default();
+    assert!(raw.contains("note_kept"));
+    let _ = std::fs::remove_dir_all(&dir);
+}

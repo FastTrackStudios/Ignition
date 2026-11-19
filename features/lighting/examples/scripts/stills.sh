@@ -6,6 +6,10 @@
 #
 # `viz` does not read the library, so each song is baked first
 # (IGNITION_SONG_BAKE: slots and library entries written in).
+#
+# The lab (room138-cbu) is drawn as its measured model when the model is on
+# this machine: IGNITION_ENVIRONMENT_DIR names its folder (see
+# docs/lighting/lab-138-room.md); without it the room is its boxes.
 set -euo pipefail
 prog=$1 viz=$2 root=$3 out=$4
 export IGNITION_ROOT=$root
@@ -13,8 +17,12 @@ tmp=$(mktemp -d)
 mkdir -p "$out"
 act() { "$prog" "$@" > /dev/null; }
 shot() { # venue cue-list cue file [camera] [seconds into the cue's effects]
+  local lab=()
+  # The measured room's model takes frames to load, and its dark curtain
+  # wants a fixed exposure.
+  [ "$1" = room138-cbu ] && lab=(--settle-frames 90 --auto-exposure off --exposure 1.2)
   (cd "$root" && "$viz" --venue "data/venues/$1" --cuelist "$2" --cue "$3" --camera "${5:-Wide}" \
-    --width 1280 --height 720 ${6:+--time "$6"} --snapshot "$out/$4" > "$tmp/viz.log" 2>&1) ||
+    --width 1280 --height 720 ${6:+--time "$6"} "${lab[@]}" --snapshot "$out/$4" > "$tmp/viz.log" 2>&1) ||
     { echo "viz failed for $4"; tail -3 "$tmp/viz.log"; exit 1; }
   echo "$out/$4"
 }

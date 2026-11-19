@@ -18,6 +18,7 @@ read-only ones, through `SCRIPT_RUN`). With no app running,
 | Thing | What it is | Where it is stored | Edited by | grandMA3 |
 |---|---|---|---|---|
 | **Environment** | A room: floor, walls, audience area; props (truss, risers); screens; cameras | `data/venues/<env>/` (`room.json`, `props.json`, `screens.json`, `cameras.json`, `venue.ig-venue`) | `IGNITION_ENV_*` | Stage, 3D objects |
+| **Measured room** | A room built from a scan: one model whose objects (architecture, furniture, gear) are named, placed, shown or hidden, plus the room's own lights in switchable groups. Drawn instead of the boxes when the model is on the machine | `<env>/environment.json` (the model itself is not in the repo: `IGNITION_ENVIRONMENT_DIR` or `<env>/model/`). Only the lab, `room138-cbu`, has one: see [lab-138-room.md](../lab-138-room.md) | `IGNITION_ENV_GET` (its dimensions, objects, light groups), `IGNITION_ENV_PIECE_SET {in: "environment"}` (move, turn, show, hide an object), `IGNITION_ENV_LIGHTS` (house lights) | Stage with imported 3D objects |
 | **People** | Performers and stand-ins: position, facing, height, label | `<env>/people.json`; each is also a prop (drawn) and a focus point at head height (aimed at) | `IGNITION_PERSON_SET/REMOVE`, `IGNITION_PEOPLE_LIST` | MArker fixtures |
 | **Blocking** | Where people stand per song and per section | `<env>/blocking.json` | `IGNITION_BLOCKING_SET` | (none) |
 | **Fixture** | One light: type, mode, where it hangs, how it is turned, tags | `<env>/fixtures.json` (one record per channel) | `IGNITION_FIXTURE_ADD/SET/REMOVE/LIST` | Patch: fixture, 3D position |
@@ -234,6 +235,13 @@ step fails. `IGNITION_UNDO`, `IGNITION_REDO`, `IGNITION_HISTORY`.
   audience, truss}` makes a room from nothing; `ENV_DUPLICATE` copies one as
   a starting point; `ENV_PIECE_SET` adds or moves a wall, riser, truss or
   screen; `ENV_USE` points a show at another environment.
+- A **measured room** (the lab) is edited through the same actions:
+  `ENV_GET` lists its 80 objects, `ENV_PIECE_SET {in: "environment", name,
+  move | position | eulers | visible}` moves, turns or hides one (the
+  architecture only with `force`), `ENV_LIGHTS {group: "house", on}` sets
+  whether the house lights start on. An object must exist in the model: a
+  new shape is the build script's (`tools/build_lab138_room.py`), and
+  running that script writes `environment.json` over, edits included.
 - Coordinates are metres: x stage right (−) to stage left (+), y downstage
   (−) to upstage (+), z up, the playing area centred on the origin.
 - `IGNITION_PERSON_SET` places people (one, or `people: […]`);
@@ -264,8 +272,10 @@ In `features/lighting/examples/scripts/`, run headless through
 | `04-environment.luau` | a room with a stage, a riser, two trusses and an audience; a five-piece band; twenty-four fixtures hung, grouped, bound to roles and patched; a conflicting address refused; the movers packed onto universe 2 and routed; four movers focused on the singer |
 | `05-tricks.luau` | one effect on twelve movers as a chase, a mirrored wave and blocks of 2, by tricks alone; stepping through units |
 
-*Fire*'s chorus as script 2 programmed it, in the three palettes of script 1
-(only the palette's name differs between them):
+The recital's stills are in the lab as measured (`room138-cbu`'s model; see
+[lab-138-room.md](../lab-138-room.md)). *Fire*'s chorus as script 2
+programmed it, in the three palettes of script 1 (only the palette's name
+differs between them):
 
 | Sunset | Ice | Neon |
 |---|---|---|
@@ -312,6 +322,9 @@ All additive: a file written before loads as it did.
   show live; a moved fixture, a re-patch, a new route or a moved person
   shows when the renderer starts again. The patch and the room are loaded
   inside the visualizer crate, which two other branches are changing.
+- **The measured room's file has two writers**: these actions and its
+  build script, which writes the whole file. An edit meant to outlive a
+  rebuild has to go into the script until one of them yields.
 - **Wings N as one trick** in MA's sense (it is `Wings N` + `Group k` today,
   which needs the fixture count), and **Width**.
 - **Tricks on a reference**: a part that names a library effect becomes
