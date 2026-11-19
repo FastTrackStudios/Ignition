@@ -367,7 +367,13 @@ pub fn run(night: Night, args: &RenderArgs) -> Result<()> {
     config.output = false;
     config.cameras = cameras;
     config.camera_preset = Some(args.camera.clone());
-    config.haze = 0.8;
+    // The room says how much haze hangs in it and how the camera is set
+    // (`look` in its manifest); a room that does not is normally hazed.
+    let (haze, exposure) = crate::night::venue_look(&venue_dir);
+    config.haze = haze.unwrap_or(0.8);
+    if let Some(stops) = exposure {
+        config.exposure = stops;
+    }
     config.assets_dir = root.join("viz/assets").to_string_lossy().into_owned();
     let gdtf = ignition_viz::gdtf_geometry::GdtfLibrary::load_default();
 

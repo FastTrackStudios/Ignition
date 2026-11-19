@@ -1623,6 +1623,35 @@
   "required": []
  },
  {
+  "id": "IGNITION_ENV_LOOK",
+  "name": "Lighting: how the room looks to the camera",
+  "about": "The air and the camera of an environment: `haze` (0 a clear room, 1 normally hazed; a room with no hazer is near 0, and then beams do not show in the air) and `exposure` (stops on the stage exposure; 0 as calibrated). The renderer and the stills read them. With neither, answers what is set.",
+  "effect": "mutating",
+  "args": {
+   "root": {
+    "type": "string",
+    "about": "The lighting data root (the folder holding data/); default IGNITION_ROOT."
+   },
+   "show": {
+    "type": "string",
+    "about": "The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital."
+   },
+   "env": {
+    "type": "string",
+    "about": "An environment: a name under data/venues or a path; default the show's venue."
+   },
+   "haze": {
+    "type": "number",
+    "about": "0 to 2; null gives the renderer its default (0.8)."
+   },
+   "exposure": {
+    "type": "number",
+    "about": "Stops, e.g. 0.5 or -1; null for the default (0)."
+   }
+  },
+  "required": []
+ },
+ {
   "id": "IGNITION_PERSON_SET",
   "name": "Lighting: place or move a person",
   "about": "Places a performer or stand-in (or several, `people`): position on the floor, facing, height, a label such as the instrument; `move` shifts by {x, y, z}. Each is a prop the visualizer draws and a focus point at head height under their name.",

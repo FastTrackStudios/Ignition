@@ -774,6 +774,24 @@ pub fn power_watts(manufacturer: &str, model: &str) -> f32 {
     if m == "rockville" && mo.contains("rockstrip") {
         return 50.0;
     }
+    // Room 138's rig, by model (its venue file names no manufacturer).
+    // Without these every one of them fell to the 40 W default below,
+    // which drew the 24 tower rings at more than twice their output and
+    // the beam heads at a quarter of theirs. Wattages are the fixture
+    // documents' (`data/fixtures/*.json`, `physical.power_w`); the
+    // tower ring's 18 W is that document's own guess.
+    if mo.contains("tower blinder ring") {
+        return 18.0;
+    }
+    if mo.contains("solena max bar 28") {
+        return 28.0;
+    }
+    if mo.contains("36 led par") {
+        return 36.0;
+    }
+    if mo.contains("150w moving head beam") {
+        return 150.0;
+    }
     // A hazer is not a light source. It emits haze, which is a property
     // of the room the fog volume already models — giving it an output
     // made it shine a white beam it does not have.

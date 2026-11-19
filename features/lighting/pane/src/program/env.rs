@@ -230,6 +230,7 @@ fn env_get(cx: &Ctx, args: &Value) -> Res {
         "roles": bound, "focus_roles": r.binding.focus,
         "focus": palettes.get("focus"),
         "dmx": manifest.get("dmx"),
+        "look": manifest.get("look"),
     }))
 }
 
@@ -431,6 +432,31 @@ fn env_lights(cx: &mut Ctx, args: &Value) -> Res {
         })
         .collect();
     Ok(json!({ "light_groups": groups }))
+}
+
+/// How the room looks to the camera: `haze` (0 a clear room, 1 normally
+/// hazed; a room with no hazer is near 0) and `exposure` (stops on the
+/// stage exposure). The renderer and the stills read them.
+fn env_look(cx: &mut Ctx, args: &Value) -> Res {
+    let dir = env_dir(cx, args)?;
+    let path = dir.join("venue.ig-venue");
+    let mut doc = cx.json_or(&path, json!({ "version": 1, "profile": "Ignition" }))?;
+    let look = obj(&mut doc)?.entry("look").or_insert_with(|| json!({}));
+    for key in ["haze", "exposure"] {
+        match args.get(key) {
+            Some(Value::Null) => {
+                obj(look)?.remove(key);
+            }
+            Some(v) if v.is_number() => {
+                obj(look)?.insert(key.into(), v.clone());
+            }
+            Some(_) => return Err(format!("`{key}` is a number")),
+            None => {}
+        }
+    }
+    let now = look.clone();
+    cx.write_json(&path, &doc)?;
+    Ok(json!({ "look": now, "defaults": { "haze": 0.8, "exposure": 0.0 } }))
 }
 
 fn piece_set(cx: &mut Ctx, args: &Value) -> Res {
@@ -1221,6 +1247,7 @@ pub(crate) fn run(cx: &mut Ctx, id: &str, args: &Value) -> Option<Res> {
         "IGNITION_ENV_PIECE_SET" => piece_set(cx, args),
         "IGNITION_ENV_PIECE_REMOVE" => piece_remove(cx, args),
         "IGNITION_ENV_LIGHTS" => env_lights(cx, args),
+        "IGNITION_ENV_LOOK" => env_look(cx, args),
         "IGNITION_PERSON_SET" => person_set(cx, args),
         "IGNITION_PERSON_REMOVE" => person_remove(cx, args),
         "IGNITION_PEOPLE_LIST" => people_list(cx, args),

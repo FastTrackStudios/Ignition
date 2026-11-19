@@ -619,6 +619,14 @@ effect = "mutating"
 params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"group\":{\"description\":\"A light group (house…).\",\"type\":\"string\"},\"on\":{\"description\":\"Whether it starts on.\",\"type\":\"boolean\"}}}"
 
 [[actions]]
+id = "IGNITION_ENV_LOOK"
+name = "Lighting: how the room looks to the camera"
+description = "The air and the camera of an environment: `haze` (0 a clear room, 1 normally hazed; a room with no hazer is near 0, and then beams do not show in the air) and `exposure` (stops on the stage exposure; 0 as calibrated). The renderer and the stills read them. With neither, answers what is set."
+group = "Lighting"
+effect = "mutating"
+params = "{\"type\":\"object\",\"properties\":{\"root\":{\"description\":\"The lighting data root (the folder holding data/); default IGNITION_ROOT.\",\"type\":\"string\"},\"show\":{\"description\":\"The show: a path to an .ig-show or a name under data/shows; default IGNITION_SHOW, else the recital.\",\"type\":\"string\"},\"env\":{\"description\":\"An environment: a name under data/venues or a path; default the show's venue.\",\"type\":\"string\"},\"haze\":{\"description\":\"0 to 2; null gives the renderer its default (0.8).\",\"type\":\"number\"},\"exposure\":{\"description\":\"Stops, e.g. 0.5 or -1; null for the default (0).\",\"type\":\"number\"}}}"
+
+[[actions]]
 id = "IGNITION_PERSON_SET"
 name = "Lighting: place or move a person"
 description = "Places a performer or stand-in (or several, `people`): position on the floor, facing, height, a label such as the instrument; `move` shifts by {x, y, z}. Each is a prop the visualizer draws and a focus point at head height under their name."

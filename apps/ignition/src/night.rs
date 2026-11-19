@@ -71,6 +71,32 @@ pub struct Base {
 /// of either is the show edited under the renderer.
 pub type Stamp = (Option<std::time::SystemTime>, Option<std::time::SystemTime>);
 
+/// How a room looks to the camera, from its manifest's `look`:
+/// `haze` (0 a clear room, 1 normally hazed) and `exposure` (stops on
+/// the stage exposure). A room that says nothing gets the renderer's own.
+#[must_use]
+pub fn venue_look(venue_dir: &Path) -> (Option<f32>, Option<f32>) {
+    let look = std::fs::read_to_string(venue_dir.join("venue.ig-venue"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .and_then(|doc| doc.get("look").cloned());
+    let number = |key: &str| {
+        look.as_ref()
+            .and_then(|l| l.get(key))
+            .and_then(serde_json::Value::as_f64)
+            .map(|v| {
+                #[expect(
+                    clippy::as_conversions,
+                    clippy::cast_possible_truncation,
+                    reason = "a dial between 0 and a few"
+                )]
+                let v = v as f32;
+                v
+            })
+    };
+    (number("haze"), number("exposure"))
+}
+
 impl NightSong {
     /// The song's cue list as its file has it now, resolved against the
     /// set; `None` when the file does not read (a half-made edit): the

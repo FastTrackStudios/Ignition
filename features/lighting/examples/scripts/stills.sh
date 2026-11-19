@@ -16,13 +16,19 @@ export IGNITION_ROOT=$root
 tmp=$(mktemp -d)
 mkdir -p "$out"
 act() { "$prog" "$@" > /dev/null; }
+look() { # venue, key, default: the room's `look` (IGNITION_ENV_LOOK)
+  python3 -I -c 'import json,sys
+try: v=json.load(open(sys.argv[1])).get("look",{}).get(sys.argv[2])
+except Exception: v=None
+print(sys.argv[3] if v is None else v)' "$root/data/venues/$1/venue.ig-venue" "$2" "$3"
+}
 shot() { # venue cue-list cue file [camera] [seconds into the cue's effects]
-  local lab=()
-  # The measured room's model takes frames to load, and its dark curtain
-  # wants a fixed exposure.
-  [ "$1" = room138-cbu ] && lab=(--settle-frames 90 --auto-exposure off --exposure 1.2)
+  # The room's own air and camera. Exposure is fixed: over the frames the
+  # measured room's model takes to load, auto-exposure runs away.
   (cd "$root" && "$viz" --venue "data/venues/$1" --cuelist "$2" --cue "$3" --camera "${5:-Wide}" \
-    --width 1280 --height 720 ${6:+--time "$6"} "${lab[@]}" --snapshot "$out/$4" > "$tmp/viz.log" 2>&1) ||
+    --width 1280 --height 720 ${6:+--time "$6"} --settle-frames 90 --auto-exposure off \
+    --haze "$(look "$1" haze 0.6)" --exposure "$(look "$1" exposure 0)" \
+    --snapshot "$out/$4" > "$tmp/viz.log" 2>&1) ||
     { echo "viz failed for $4"; tail -3 "$tmp/viz.log"; exit 1; }
   echo "$out/$4"
 }
