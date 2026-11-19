@@ -56,9 +56,9 @@ def lamps(level): return st(AU, level, "White")                              # t
 looks = {
  "Count In": dark(K, SP, FI, W, FL, BR, MV, AU) + [st(BK, 0.06, "Primary")],
  # A piano and a drum machine: the wall, the warm lamps glinting, no beams yet.
- "Intro": dark(K, SP, W, FL, BR) + [st(BK, 0.30, "Primary"), st(FI, 0.18, "Primary"), lamps(0.16), st(MV, 0.0),
+ "Intro": dark(K, SP, W, BR) + [st(FL, 0.28, "Primary")] + [st(BK, 0.30, "Primary"), st(FI, 0.18, "Primary"), lamps(0.16), st(MV, 0.0),
           fx(BK, "back breathe", 4, None, 0.4)],
- "Verse 1": faces(0.78) + dark(FL, BR, AU) + [st(W, 0.38, "Primary"), st(BK, 0.50, "Secondary"), st(FI, 0.35, "Secondary"),
+ "Verse 1": faces(0.78) + dark(BR, AU) + [st(FL, 0.32, "Secondary")] + [st(W, 0.38, "Primary"), st(BK, 0.50, "Secondary"), st(FI, 0.35, "Secondary"),
           st(MV, 0.28, "Secondary", "Band"), verse_chords(BK, 0.14),
           fx(MV, "circle", 4, "mirror", 0.5)],
  "PreChorus": faces(0.88) + dark(BR) + [st(W, 0.52, "Primary"), st(BK, 0.72, "Secondary"), st(FL, 0.30, "Secondary"),
@@ -67,7 +67,7 @@ looks = {
  # Each chorus lands with the wall filling across its sixteen sections in its colour, stage right to
  # stage left, over the first two beats: the bars are run section by section, so light can travel.
  # Chorus 1 holds back the floor, the bars, the lamps, white and the fast moves.
- "Chorus": faces(0.95) + [fx(BK, "fill and hold", 0.5, None, 1.0)] + dark(FL, BR, AU) + [st(W, 0.60, "Accent"), st(BK, 0.74, "Accent"), st(FI, 0.45, "Accent"),
+ "Chorus": faces(0.95) + [fx(BK, "fill and hold", 0.5, None, 1.0)] + dark(BR, AU) + [st(FL, 0.50, "Accent"), st(W, 0.60, "Accent"), st(BK, 0.74, "Accent"), st(FI, 0.45, "Accent"),
           st(MV, 0.70, "Primary", "Audience"), chords(FI, 0.22, cool=False), snare(BK, 0.14),
           fx(MV, "windmill", 2, "mirror", 0.6)],
  # Home again, in the other cold colour, with the band still driving under it.
@@ -82,7 +82,7 @@ looks = {
  # guttering, the lamps glowing low. No wash, no floor: the last chorus has
  # somewhere to come from.
  "Guitar Solo": [st(K, 0.95, "White"), st(SP, 0.30, "White"), st(BK, 0.36, "Accent 2"), st(FI, 0.36, "Accent 2"), lamps(0.16)]
-          + dark(W, FL, BR) + [st(MV, 0.36, "White", "Band"),
+          + dark(W, BR) + [st(FL, 0.22, "Accent 2"), st(MV, 0.26, "White", "Band"),
           chords(BK, 0.16), fx(FI, "fire flicker", 2, None, 0.5), fx(AU, "fire flicker", 4, "scatter", 0.8),
           fx(MV, "circle tight", 2, "pairs", 0.6)],
  # The last chorus: the only cue at full, and everything held back is spent.
@@ -90,7 +90,7 @@ looks = {
           st(FI, 1.00, "Accent"), lamps(0.50), st(MV, 1.00, "Open White", "Audience"),
           snare(AU, 0.45), kick(FL, 0.20), chords(BK, 0.14), fx(MV, "ballyhoo", 1, "scatter", 0.9)],
  # A voice and a piano: one face, the wall, the lamps like candles.
- "DownChorus": [st(K, 0.80, "White"), st(SP, 0.35, "White")] + dark(W, FL, BR) + [st(BK, 0.22, "Secondary"),
+ "DownChorus": [st(K, 0.80, "White"), st(SP, 0.35, "White")] + dark(W, BR) + [st(FL, 0.30, "Secondary")] + [st(BK, 0.22, "Secondary"),
           st(FI, 0.15, "Primary"), lamps(0.16), st(MV, 0.18, "Secondary"),
           fx(AU, "wave", 2, "descend", 0.7)],     # a soft wave climbing the lamps of every tower, once every two bars
  # Sixteen bars of everything arriving: the wash filling, the fill closing in, the beams climbing.

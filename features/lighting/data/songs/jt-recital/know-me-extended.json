@@ -252,7 +252,7 @@
             }
           ],
           "target": {
-            "Role": "Floor"
+            "Role": "Bars"
           }
         },
         {
@@ -260,7 +260,10 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.0
+                  "Dimmer": 0.28
+                },
+                {
+                  "Color": "Primary"
                 }
               ],
               "ease": "Linear",
@@ -269,7 +272,7 @@
             }
           ],
           "target": {
-            "Role": "Bars"
+            "Role": "Floor"
           }
         },
         {
@@ -653,23 +656,6 @@
             }
           ],
           "target": {
-            "Role": "Floor"
-          }
-        },
-        {
-          "steps": [
-            {
-              "apply": [
-                {
-                  "Dimmer": 0.0
-                }
-              ],
-              "ease": "Linear",
-              "transition": 0.0,
-              "width": 1.0
-            }
-          ],
-          "target": {
             "Role": "Bars"
           }
         },
@@ -688,6 +674,26 @@
           ],
           "target": {
             "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.32
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
           }
         },
         {
@@ -2116,23 +2122,6 @@
             }
           ],
           "target": {
-            "Role": "Floor"
-          }
-        },
-        {
-          "steps": [
-            {
-              "apply": [
-                {
-                  "Dimmer": 0.0
-                }
-              ],
-              "ease": "Linear",
-              "transition": 0.0,
-              "width": 1.0
-            }
-          ],
-          "target": {
             "Role": "Bars"
           }
         },
@@ -2151,6 +2140,26 @@
           ],
           "target": {
             "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
           }
         },
         {
@@ -4419,23 +4428,6 @@
             }
           ],
           "target": {
-            "Role": "Floor"
-          }
-        },
-        {
-          "steps": [
-            {
-              "apply": [
-                {
-                  "Dimmer": 0.0
-                }
-              ],
-              "ease": "Linear",
-              "transition": 0.0,
-              "width": 1.0
-            }
-          ],
-          "target": {
             "Role": "Bars"
           }
         },
@@ -4444,7 +4436,27 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.36
+                  "Dimmer": 0.22
+                },
+                {
+                  "Color": "Accent 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.26
                 },
                 {
                   "Color": "White"
@@ -6228,7 +6240,7 @@
             }
           ],
           "target": {
-            "Role": "Floor"
+            "Role": "Bars"
           }
         },
         {
@@ -6236,7 +6248,10 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.0
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Secondary"
                 }
               ],
               "ease": "Linear",
@@ -6245,7 +6260,7 @@
             }
           ],
           "target": {
-            "Role": "Bars"
+            "Role": "Floor"
           }
         },
         {
