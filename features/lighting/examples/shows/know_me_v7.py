@@ -71,7 +71,7 @@ looks = {
           st(MV, 0.70, "Primary", "Audience"), chords(FI, 0.22, cool=False), snare(BK, 0.14),
           fx(MV, "windmill", 2, "mirror", 0.6)],
  # Home again, in the other cold colour, with the band still driving under it.
- "Verse 2": faces(0.80) + dark(BR, AU) + [st(W, 0.42, "Tertiary"), st(BK, 0.45, "Primary"), st(FI, 0.38, "Tertiary"),
+ "Verse 2": faces(0.80) + dark(BR, AU) + [st(W, 0.42, "Tertiary"), st(BK, 0.47, "Primary"), st(FI, 0.38, "Tertiary"),
           st(FL, 0.18, "Primary"), st(MV, 0.32, "Tertiary", "Stage"), verse_chords(BK, 0.16), snare(FL, 0.10)],
  # Chorus 1 and two additions: the floor, and the lamps glinting through it.
  "Chorus 2": faces(1.00) + [fx(BK, "fill and hold", 0.5, None, 1.0)] + dark(BR) + [st(W, 0.78, "Accent"), st(BK, 0.90, "Accent"), st(FL, 0.62, "Accent"),
@@ -81,7 +81,7 @@ looks = {
  # pars down). A pool on the player and embers everywhere else: amber wall, amber fill
  # guttering, the lamps glowing low. No wash, no floor: the last chorus has
  # somewhere to come from.
- "Guitar Solo": [st(K, 0.95, "White"), st(SP, 0.30, "White"), st(BK, 0.36, "Accent 2"), st(FI, 0.36, "Accent 2"), lamps(0.16)]
+ "Guitar Solo": [st(K, 0.95, "White"), st(SP, 0.30, "White"), st(BK, 0.30, "Accent 2"), st(FI, 0.30, "Accent 2"), lamps(0.14)]
           + dark(W, BR) + [st(FL, 0.22, "Accent 2"), st(MV, 0.26, "White", "Band"),
           chords(BK, 0.16), fx(FI, "fire flicker", 2, None, 0.5), fx(AU, "fire flicker", 4, "scatter", 0.8),
           fx(MV, "circle tight", 2, "pairs", 0.6)],

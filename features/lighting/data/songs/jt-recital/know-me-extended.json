@@ -2866,7 +2866,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.45
+                  "Dimmer": 0.47
                 },
                 {
                   "Color": "Primary"
@@ -4342,7 +4342,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.36
+                  "Dimmer": 0.3
                 },
                 {
                   "Color": "Accent 2"
@@ -4362,7 +4362,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.36
+                  "Dimmer": 0.3
                 },
                 {
                   "Color": "Accent 2"
@@ -4382,7 +4382,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.16
+                  "Dimmer": 0.14
                 },
                 {
                   "Color": "White"
