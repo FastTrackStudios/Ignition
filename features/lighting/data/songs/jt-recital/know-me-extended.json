@@ -260,7 +260,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.28
+                  "Dimmer": 0.3
                 },
                 {
                   "Color": "Primary"
@@ -681,7 +681,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.32
+                  "Dimmer": 0.48
                 },
                 {
                   "Color": "Secondary"
@@ -1779,7 +1779,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.3
+                  "Dimmer": 0.65
                 },
                 {
                   "Color": "Secondary"
@@ -2147,7 +2147,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.5
+                  "Dimmer": 0.72
                 },
                 {
                   "Color": "Accent"
@@ -2906,7 +2906,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.18
+                  "Dimmer": 0.45
                 },
                 {
                   "Color": "Primary"
@@ -3175,7 +3175,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.3
+                  "Dimmer": 0.46
                 },
                 {
                   "Color": "Primary"
@@ -3617,7 +3617,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.4
+                  "Dimmer": 0.66
                 },
                 {
                   "Color": "Secondary"
@@ -4028,7 +4028,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.62
+                  "Dimmer": 0.88
                 },
                 {
                   "Color": "Accent"
@@ -6248,7 +6248,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.3
+                  "Dimmer": 0.22
                 },
                 {
                   "Color": "Secondary"
@@ -6573,7 +6573,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.45
+                  "Dimmer": 0.58
                 },
                 {
                   "Color": "Tertiary"
@@ -6684,7 +6684,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.55
+                  "Dimmer": 0.6
                 },
                 {
                   "Color": "Tertiary"
@@ -6998,7 +6998,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.55
+                  "Dimmer": 0.8
                 },
                 {
                   "Color": "Primary"
