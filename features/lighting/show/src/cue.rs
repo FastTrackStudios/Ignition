@@ -2083,7 +2083,15 @@ impl CuePlayer {
         // r[impl cues.mib.preference] - the best-rated dark window
         // r[impl cues.mib.hold] - a holding cue moves nothing
         if !cue.mib.hold && next.saturating_add(1) < self.cues.len() {
-            let now = self.resolve(&layers, show, &HashSet::new());
+            // Dark is what the cues set, not where an effect happens to
+            // be: a light at the bottom of a chase is lit, and moving its
+            // colour to the next section's there is seen.
+            let unmodulated = |layers: &Layers| {
+                let mut base = layers.clone();
+                base.modulated.clear();
+                base
+            };
+            let now = self.resolve(&unmodulated(&layers), show, &HashSet::new());
             let dark_now = |chan: ChanId| {
                 now.get(&(chan, Attribute::Dimmer))
                     .is_none_or(|v| *v <= 0.0)
@@ -2093,7 +2101,7 @@ impl CuePlayer {
             let dark_before: HashSet<ChanId> = if cue.block {
                 HashSet::new()
             } else {
-                let was = self.resolve(&before, show, &HashSet::new());
+                let was = self.resolve(&unmodulated(&before), show, &HashSet::new());
                 was.iter()
                     .filter(|((_, attr), v)| *attr == Attribute::Dimmer && **v <= 0.0)
                     .map(|((chan, _), _)| *chan)

@@ -60,6 +60,23 @@
             }
           ],
           "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
             "Role": "Wash"
           }
         },
@@ -112,6 +129,23 @@
           ],
           "target": {
             "Role": "Movers"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
           }
         },
         {
@@ -264,7 +298,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.28
+                  "Dimmer": 0.3
                 },
                 {
                   "Color": "Primary"
@@ -284,13 +318,47 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.25
+                  "Dimmer": 0.18
                 },
                 {
-                  "Color": "Secondary"
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.16
                 },
                 {
-                  "FocusPoint": "Back Wall"
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
                 }
               ],
               "ease": "Linear",
@@ -304,13 +372,68 @@
         },
         {
           "bars": 4.0,
-          "effect": "breathe",
+          "effect": "back breathe",
           "params": {
-            "depth": 0.3
+            "depth": 0.4
           },
           "target": {
             "Role": "Back"
           }
+        },
+        {
+          "depth": 0.8999999761581421,
+          "name": "sparkle",
+          "note": "effect \"sparkle\" with tricks \"scatter\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8500000238418579
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 16.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 360.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Shuffle": 1741
+            }
+          ]
         }
       ],
       "resolved": {
@@ -409,7 +532,24 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.35
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.38
                 },
                 {
                   "Color": "Primary"
@@ -449,7 +589,27 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.25
+                  "Dimmer": 0.35
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.28
                 },
                 {
                   "Color": "Secondary"
@@ -468,9 +628,9 @@
           }
         },
         {
-          "depth": 0.30000001192092896,
-          "name": "breathe",
-          "note": "effect \"breathe\" with tricks \"halves\"",
+          "depth": 0.4000000059604645,
+          "name": "offset breathe",
+          "note": "effect \"offset breathe\" with tricks \"halves\"",
           "steps": [
             {
               "apply": [
@@ -511,7 +671,7 @@
             "measure": 16.0,
             "once": false,
             "phase_offset_deg": 0.0,
-            "phase_spread_deg": 0.0,
+            "phase_spread_deg": 360.0,
             "speed": {
               "Master": "Song"
             }
@@ -520,6 +680,353 @@
             {
               "Wings": 2
             }
+          ]
+        },
+        {
+          "bars": 4.0,
+          "effect": "see saw",
+          "params": {
+            "depth": 0.4
+          },
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "bars": 4.0,
+          "effect": "back breathe",
+          "params": {
+            "depth": 0.3
+          },
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "depth": 0.5,
+          "name": "circle",
+          "note": "effect \"circle\" with tricks \"mirror\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      0.0
+                    ],
+                    [
+                      "Tilt",
+                      18.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      6.888302326202393
+                    ],
+                    [
+                      "Tilt",
+                      16.629831314086914
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      12.727921485900879
+                    ],
+                    [
+                      "Tilt",
+                      12.727921485900879
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      16.629831314086914
+                    ],
+                    [
+                      "Tilt",
+                      6.888298988342285
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      18.0
+                    ],
+                    [
+                      "Tilt",
+                      -1.5736100067442749e-6
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      16.629831314086914
+                    ],
+                    [
+                      "Tilt",
+                      -6.888301849365234
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      12.727921485900879
+                    ],
+                    [
+                      "Tilt",
+                      -12.727924346923828
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      6.888298988342285
+                    ],
+                    [
+                      "Tilt",
+                      -16.62983512878418
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      -1.5736100067442749e-6
+                    ],
+                    [
+                      "Tilt",
+                      -18.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      -6.888301849365234
+                    ],
+                    [
+                      "Tilt",
+                      -16.62982940673828
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      -12.727924346923828
+                    ],
+                    [
+                      "Tilt",
+                      -12.727917671203613
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      -16.62983512878418
+                    ],
+                    [
+                      "Tilt",
+                      -6.888301849365234
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      -18.0
+                    ],
+                    [
+                      "Tilt",
+                      3.1472200134885497e-6
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      -16.62982940673828
+                    ],
+                    [
+                      "Tilt",
+                      6.888307571411133
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      -12.727917671203613
+                    ],
+                    [
+                      "Tilt",
+                      12.727921485900879
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Pan",
+                      -6.888301849365234
+                    ],
+                    [
+                      "Tilt",
+                      16.629833221435547
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 1.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 16.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 0.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            "Mirror"
           ]
         }
       ],
@@ -602,7 +1109,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.5
+                  "Dimmer": 0.52
                 },
                 {
                   "Color": "Primary"
@@ -655,6 +1162,46 @@
           ],
           "target": {
             "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.14
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
           }
         },
         {
@@ -721,7 +1268,7 @@
           },
           "timing": {
             "direction": "Build",
-            "measure": 16.0,
+            "measure": 8.0,
             "once": false,
             "phase_offset_deg": 0.0,
             "phase_spread_deg": 360.0,
@@ -734,6 +1281,71 @@
               "Wings": 2
             },
             "Reverse"
+          ]
+        },
+        {
+          "bars": 2.0,
+          "effect": "mirror chase in",
+          "params": {
+            "depth": 0.6
+          },
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "depth": 0.8999999761581421,
+          "name": "sparkle",
+          "note": "effect \"sparkle\" with tricks \"scatter\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8500000238418579
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 8.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 360.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Shuffle": 1741
+            }
           ]
         }
       ],
@@ -775,11 +1387,87 @@
           }
         },
         {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
           "bars": 1.0,
           "effect": "strobe riser",
           "target": {
             "Role": "Beams"
           }
+        },
+        {
+          "depth": 0.8999999761581421,
+          "name": "build",
+          "note": "effect \"build\" with tricks \"ends in\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.699999988079071
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          },
+          "timing": {
+            "direction": "Build",
+            "measure": 4.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 360.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Wings": 2
+            },
+            "Reverse"
+          ]
         }
       ],
       "resolved": {
@@ -878,7 +1566,24 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.65
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
                 },
                 {
                   "Color": "Accent"
@@ -898,7 +1603,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.85
+                  "Dimmer": 0.74
                 },
                 {
                   "Color": "Accent"
@@ -911,6 +1616,26 @@
           ],
           "target": {
             "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.45
+                },
+                {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
           }
         },
         {
@@ -937,57 +1662,34 @@
           }
         },
         {
-          "depth": 0.5,
-          "name": "wave",
-          "note": "effect \"wave\" with tricks \"mirror\"",
-          "steps": [
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Dimmer",
-                      0.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Sine",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Dimmer",
-                      -0.6000000238418579
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Sine",
-              "transition": 1.0,
-              "width": 1.0
-            }
-          ],
+          "bars": 1.0,
+          "effect": "mirror chase out",
+          "params": {
+            "depth": 0.6
+          },
           "target": {
             "Role": "Wash"
+          }
+        },
+        {
+          "bars": 1.0,
+          "effect": "see saw",
+          "params": {
+            "depth": 0.5
           },
-          "timing": {
-            "direction": "Forward",
-            "measure": 8.0,
-            "once": false,
-            "phase_offset_deg": 0.0,
-            "phase_spread_deg": 360.0,
-            "speed": {
-              "Master": "Song"
-            }
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "bars": 2.0,
+          "effect": "pulse",
+          "params": {
+            "depth": 0.3
           },
-          "tricks": [
-            "Mirror"
-          ]
+          "target": {
+            "Role": "Back"
+          }
         },
         {
           "depth": 0.6000000238418579,
@@ -1390,6 +2092,23 @@
             {
               "apply": [
                 {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
                   "Dimmer": 0.15
                 },
                 {
@@ -1477,7 +2196,7 @@
             }
           ],
           "target": {
-            "Role": "Floor"
+            "Role": "Bars"
           }
         },
         {
@@ -1494,7 +2213,7 @@
             }
           ],
           "target": {
-            "Role": "Bars"
+            "Role": "Audience"
           }
         },
         {
@@ -1502,7 +2221,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.4
+                  "Dimmer": 0.42
                 },
                 {
                   "Color": "Tertiary"
@@ -1522,7 +2241,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.5
+                  "Dimmer": 0.52
                 },
                 {
                   "Color": "Primary"
@@ -1542,7 +2261,47 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.3
+                  "Dimmer": 0.38
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.18
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.32
                 },
                 {
                   "Color": "Tertiary"
@@ -1561,7 +2320,7 @@
           }
         },
         {
-          "depth": 0.30000001192092896,
+          "depth": 0.4000000059604645,
           "name": "offset breathe",
           "note": "effect \"offset breathe\" with tricks \"thirds\"",
           "steps": [
@@ -1601,7 +2360,7 @@
           },
           "timing": {
             "direction": "Forward",
-            "measure": 16.0,
+            "measure": 8.0,
             "once": false,
             "phase_offset_deg": 0.0,
             "phase_spread_deg": 360.0,
@@ -1614,6 +2373,26 @@
               "Group": 3
             }
           ]
+        },
+        {
+          "bars": 2.0,
+          "effect": "see saw",
+          "params": {
+            "depth": 0.4
+          },
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "bars": 4.0,
+          "effect": "back breathe",
+          "params": {
+            "depth": 0.3
+          },
+          "target": {
+            "Role": "Back"
+          }
         }
       ],
       "resolved": {
@@ -1695,7 +2474,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.55
+                  "Dimmer": 0.56
                 },
                 {
                   "Color": "Primary"
@@ -1715,7 +2494,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.72
+                  "Dimmer": 0.74
                 },
                 {
                   "Color": "Secondary"
@@ -1748,6 +2527,46 @@
           ],
           "target": {
             "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.55
+                },
+                {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.18
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
           }
         },
         {
@@ -1814,7 +2633,7 @@
           },
           "timing": {
             "direction": "Build",
-            "measure": 16.0,
+            "measure": 8.0,
             "once": false,
             "phase_offset_deg": 0.0,
             "phase_spread_deg": 360.0,
@@ -1827,6 +2646,70 @@
               "Wings": 2
             },
             "Reverse"
+          ]
+        },
+        {
+          "bars": 1.0,
+          "effect": "mirror chase in",
+          "params": {
+            "depth": 0.6
+          },
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "name": "sparkle",
+          "note": "effect \"sparkle\" with tricks \"scatter\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8500000238418579
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 4.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 360.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Shuffle": 1741
+            }
           ]
         }
       ],
@@ -1868,11 +2751,106 @@
           }
         },
         {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.75
+                },
+                {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
           "bars": 1.0,
           "effect": "strobe riser",
           "target": {
             "Role": "Beams"
           }
+        },
+        {
+          "name": "build",
+          "note": "effect \"build\" with tricks \"ends in\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.699999988079071
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Build",
+            "measure": 4.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 360.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Wings": 2
+            },
+            "Reverse"
+          ]
         }
       ],
       "resolved": {
@@ -1974,7 +2952,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.95
+                  "Dimmer": 0.9
                 },
                 {
                   "Color": "Accent"
@@ -1994,7 +2972,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.7
+                  "Dimmer": 0.62
                 },
                 {
                   "Color": "Accent"
@@ -2007,6 +2985,46 @@
           ],
           "target": {
             "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.58
+                },
+                {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.14
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
           }
         },
         {
@@ -2033,9 +3051,38 @@
           }
         },
         {
-          "depth": 0.6000000238418579,
-          "name": "wave",
-          "note": "effect \"wave\" with tricks \"mirror\"",
+          "bars": 1.0,
+          "effect": "mirror chase out",
+          "params": {
+            "depth": 0.7
+          },
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "bars": 1.0,
+          "effect": "alternate",
+          "params": {
+            "depth": 0.6
+          },
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "bars": 1.0,
+          "effect": "pulse",
+          "params": {
+            "depth": 0.4
+          },
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "name": "sparkle",
+          "note": "effect \"sparkle\" with tricks \"scatter\"",
           "steps": [
             {
               "apply": [
@@ -2048,8 +3095,8 @@
                   ]
                 }
               ],
-              "ease": "Sine",
-              "transition": 1.0,
+              "ease": "Linear",
+              "transition": 0.0,
               "width": 1.0
             },
             {
@@ -2058,22 +3105,22 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      -0.6000000238418579
+                      -0.8500000238418579
                     ]
                   ]
                 }
               ],
-              "ease": "Sine",
-              "transition": 1.0,
+              "ease": "Linear",
+              "transition": 0.0,
               "width": 1.0
             }
           ],
           "target": {
-            "Role": "Wash"
+            "Role": "Audience"
           },
           "timing": {
             "direction": "Forward",
-            "measure": 8.0,
+            "measure": 4.0,
             "once": false,
             "phase_offset_deg": 0.0,
             "phase_spread_deg": 360.0,
@@ -2082,335 +3129,20 @@
             }
           },
           "tricks": [
-            "Mirror"
+            {
+              "Shuffle": 1741
+            }
           ]
         },
         {
-          "depth": 0.699999988079071,
-          "name": "windmill",
-          "note": "effect \"windmill\" with tricks \"mirror\"",
-          "steps": [
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      0.0
-                    ],
-                    [
-                      "Tilt",
-                      16.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      6.1229352951049805
-                    ],
-                    [
-                      "Tilt",
-                      14.782072067260742
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      11.313708305358887
-                    ],
-                    [
-                      "Tilt",
-                      11.313708305358887
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      14.782072067260742
-                    ],
-                    [
-                      "Tilt",
-                      6.122932434082031
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      16.0
-                    ],
-                    [
-                      "Tilt",
-                      -1.3987644251756137e-6
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      14.782072067260742
-                    ],
-                    [
-                      "Tilt",
-                      -6.122934818267822
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      11.313708305358887
-                    ],
-                    [
-                      "Tilt",
-                      -11.31371021270752
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      6.122932434082031
-                    ],
-                    [
-                      "Tilt",
-                      -14.782074928283691
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -1.3987644251756137e-6
-                    ],
-                    [
-                      "Tilt",
-                      -16.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -6.122934818267822
-                    ],
-                    [
-                      "Tilt",
-                      -14.782071113586426
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -11.31371021270752
-                    ],
-                    [
-                      "Tilt",
-                      -11.313704490661621
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -14.782074928283691
-                    ],
-                    [
-                      "Tilt",
-                      -6.122934818267822
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -16.0
-                    ],
-                    [
-                      "Tilt",
-                      2.7975288503512274e-6
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -14.782071113586426
-                    ],
-                    [
-                      "Tilt",
-                      6.1229400634765625
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -11.313704490661621
-                    ],
-                    [
-                      "Tilt",
-                      11.313708305358887
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -6.122934818267822
-                    ],
-                    [
-                      "Tilt",
-                      14.782073974609375
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            }
-          ],
+          "bars": 2.0,
+          "effect": "cross",
+          "params": {
+            "depth": 0.7
+          },
           "target": {
             "Role": "Movers"
-          },
-          "timing": {
-            "direction": "Forward",
-            "measure": 8.0,
-            "once": false,
-            "phase_offset_deg": 0.0,
-            "phase_spread_deg": 360.0,
-            "speed": {
-              "Master": "Song"
-            }
-          },
-          "tricks": [
-            "Mirror"
-          ]
+          }
         }
       ],
       "resolved": {
@@ -2473,6 +3205,36 @@
           "target": {
             "Role": "Floor"
           }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.32
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "bars": 2.0,
+          "effect": "pan fan",
+          "params": {
+            "depth": 0.8
+          },
+          "target": {
+            "Role": "Movers"
+          }
         }
       ],
       "resolved": {
@@ -2517,7 +3279,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.9
+                  "Dimmer": 0.95
                 },
                 {
                   "Color": "White"
@@ -2537,7 +3299,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.55
+                  "Dimmer": 0.6
                 },
                 {
                   "Color": "Accent 2"
@@ -2550,6 +3312,46 @@
           ],
           "target": {
             "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Accent 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.2
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
           }
         },
         {
@@ -2608,7 +3410,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.55
+                  "Dimmer": 0.6
                 },
                 {
                   "Color": "White"
@@ -2625,6 +3427,91 @@
           "target": {
             "Role": "Movers"
           }
+        },
+        {
+          "bars": 4.0,
+          "effect": "fire flicker",
+          "params": {
+            "depth": 0.5
+          },
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "bars": 2.0,
+          "effect": "fire flicker",
+          "params": {
+            "depth": 0.5
+          },
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "depth": 0.800000011920929,
+          "name": "fire flicker",
+          "note": "effect \"fire flicker\" with tricks \"scatter\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Random": {
+                    "absolute": false,
+                    "attack": 0.30000001192092896,
+                    "attr": "Dimmer",
+                    "decay": 0.20000000298023224,
+                    "high": 0.20000000298023224,
+                    "level_var": 0.10000000149011612,
+                    "low": -0.20000000298023224,
+                    "seed": 5563,
+                    "speed_var": 0.6000000238418579
+                  }
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Random": {
+                    "absolute": false,
+                    "attack": 0.30000001192092896,
+                    "attr": "Dimmer",
+                    "decay": 0.20000000298023224,
+                    "high": 0.20000000298023224,
+                    "level_var": 0.10000000149011612,
+                    "low": -0.20000000298023224,
+                    "seed": 5563,
+                    "speed_var": 0.6000000238418579
+                  }
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 16.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 0.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Shuffle": 1741
+            }
+          ]
         },
         {
           "depth": 0.6000000238418579,
@@ -2978,7 +3865,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.75
+                  "Dimmer": 0.8
                 },
                 {
                   "Color": "Accent 2"
@@ -3014,6 +3901,46 @@
           }
         },
         {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Accent 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.32
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
           "bars": 2.0,
           "effect": "comet",
           "params": {
@@ -3021,6 +3948,69 @@
           },
           "target": {
             "Role": "Bars"
+          }
+        },
+        {
+          "depth": 0.6000000238418579,
+          "name": "wave",
+          "note": "effect \"wave\" with tricks \"mirror\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Sine",
+              "transition": 1.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.6000000238418579
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Sine",
+              "transition": 1.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 8.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 360.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            "Mirror"
+          ]
+        },
+        {
+          "bars": 2.0,
+          "effect": "counter circle",
+          "params": {
+            "depth": 0.7
+          },
+          "target": {
+            "Role": "Movers"
           }
         }
       ],
@@ -3147,6 +4137,40 @@
           ],
           "target": {
             "Role": "Movers"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
           }
         },
         {
@@ -3315,6 +4339,46 @@
                   "Dimmer": 1.0
                 },
                 {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.55
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
                   "Color": "Open White"
                 },
                 {
@@ -3332,8 +4396,8 @@
         },
         {
           "depth": 0.699999988079071,
-          "name": "wave",
-          "note": "effect \"wave\" with tricks \"mirror\"",
+          "name": "chase eighths",
+          "note": "effect \"chase eighths\" with tricks \"mirror\"",
           "steps": [
             {
               "apply": [
@@ -3346,8 +4410,8 @@
                   ]
                 }
               ],
-              "ease": "Sine",
-              "transition": 1.0,
+              "ease": "Linear",
+              "transition": 0.0,
               "width": 1.0
             },
             {
@@ -3356,13 +4420,13 @@
                   "Delta": [
                     [
                       "Dimmer",
-                      -0.6000000238418579
+                      -0.75
                     ]
                   ]
                 }
               ],
-              "ease": "Sine",
-              "transition": 1.0,
+              "ease": "Linear",
+              "transition": 0.0,
               "width": 1.0
             }
           ],
@@ -3371,7 +4435,7 @@
           },
           "timing": {
             "direction": "Forward",
-            "measure": 4.0,
+            "measure": 2.0,
             "once": false,
             "phase_offset_deg": 0.0,
             "phase_spread_deg": 360.0,
@@ -3384,6 +4448,16 @@
           ]
         },
         {
+          "bars": 0.5,
+          "effect": "alternate",
+          "params": {
+            "depth": 0.7
+          },
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
           "bars": 1.0,
           "effect": "strip chase",
           "params": {
@@ -3392,6 +4466,150 @@
           "target": {
             "Role": "Bars"
           }
+        },
+        {
+          "name": "paparazzi",
+          "note": "effect \"paparazzi\" with tricks \"scatter\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8999999761581421
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8999999761581421
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8999999761581421
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8999999761581421
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8999999761581421
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8999999761581421
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8999999761581421
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 4.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 360.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Shuffle": 1741
+            }
+          ]
         },
         {
           "depth": 0.8999999761581421,
@@ -3762,26 +4980,52 @@
           }
         },
         {
-          "name": "ballyhoo",
-          "note": "effect \"ballyhoo\" with tricks \"scatter\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "bars": 0.5,
+          "effect": "can can",
+          "params": {
+            "depth": 1.0
+          },
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "name": "chase eighths",
+          "note": "effect \"chase eighths\" with tricks \"mirror\"",
           "steps": [
             {
               "apply": [
                 {
                   "Delta": [
                     [
-                      "Pan",
+                      "Dimmer",
                       0.0
-                    ],
-                    [
-                      "Tilt",
-                      11.313708305358887
                     ]
                   ]
                 }
               ],
               "ease": "Linear",
-              "transition": 1.0,
+              "transition": 0.0,
               "width": 1.0
             },
             {
@@ -3789,304 +5033,32 @@
                 {
                   "Delta": [
                     [
-                      "Pan",
-                      25.86862564086914
-                    ],
-                    [
-                      "Tilt",
-                      16.0
+                      "Dimmer",
+                      -0.75
                     ]
                   ]
                 }
               ],
               "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      19.79899024963379
-                    ],
-                    [
-                      "Tilt",
-                      11.313708305358887
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -10.71513557434082
-                    ],
-                    [
-                      "Tilt",
-                      -1.3987644251756137e-6
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -28.0
-                    ],
-                    [
-                      "Tilt",
-                      -11.31371021270752
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -10.71513557434082
-                    ],
-                    [
-                      "Tilt",
-                      -16.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      19.79899024963379
-                    ],
-                    [
-                      "Tilt",
-                      -11.313704490661621
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      25.868621826171875
-                    ],
-                    [
-                      "Tilt",
-                      2.7975288503512274e-6
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -6.677933015453164e-7
-                    ],
-                    [
-                      "Tilt",
-                      11.313708305358887
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -25.868621826171875
-                    ],
-                    [
-                      "Tilt",
-                      16.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -19.79899024963379
-                    ],
-                    [
-                      "Tilt",
-                      11.313700675964355
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      10.71514892578125
-                    ],
-                    [
-                      "Tilt",
-                      -3.8159618043209775e-7
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      28.0
-                    ],
-                    [
-                      "Tilt",
-                      -11.313712120056152
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      10.715147972106934
-                    ],
-                    [
-                      "Tilt",
-                      -16.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -19.799009323120117
-                    ],
-                    [
-                      "Tilt",
-                      -11.313708305358887
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -25.868621826171875
-                    ],
-                    [
-                      "Tilt",
-                      5.595057700702455e-6
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
+              "transition": 0.0,
               "width": 1.0
             }
           ],
           "target": {
-            "Role": "Movers"
+            "Role": "Audience"
           },
           "timing": {
             "direction": "Forward",
             "measure": 2.0,
             "once": false,
             "phase_offset_deg": 0.0,
-            "phase_spread_deg": 0.0,
+            "phase_spread_deg": 360.0,
             "speed": {
               "Master": "Song"
             }
           },
           "tricks": [
-            {
-              "Shuffle": 1741
-            }
+            "Mirror"
           ]
         }
       ],
@@ -4163,6 +5135,23 @@
             {
               "apply": [
                 {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
                   "Dimmer": 0.08
                 },
                 {
@@ -4197,6 +5186,91 @@
           "target": {
             "Role": "Back"
           }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.12
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "depth": 0.8999999761581421,
+          "name": "candle",
+          "note": "effect \"candle\" with tricks \"scatter\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Random": {
+                    "absolute": false,
+                    "attack": 0.6000000238418579,
+                    "attr": "Dimmer",
+                    "decay": 0.4000000059604645,
+                    "high": 0.05999999865889549,
+                    "level_var": 0.019999999552965164,
+                    "low": -0.07999999821186066,
+                    "seed": 6007,
+                    "speed_var": 0.4000000059604645
+                  }
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Random": {
+                    "absolute": false,
+                    "attack": 0.6000000238418579,
+                    "attr": "Dimmer",
+                    "decay": 0.4000000059604645,
+                    "high": 0.05999999865889549,
+                    "level_var": 0.019999999552965164,
+                    "low": -0.07999999821186066,
+                    "seed": 6007,
+                    "speed_var": 0.4000000059604645
+                  }
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 16.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 0.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Shuffle": 1741
+            }
+          ]
         }
       ],
       "resolved": {
@@ -4313,7 +5387,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.2
+                  "Dimmer": 0.22
                 },
                 {
                   "Color": "Secondary"
@@ -4336,6 +5410,46 @@
                   "Dimmer": 0.15
                 },
                 {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.1
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.18
+                },
+                {
                   "Color": "Secondary"
                 },
                 {
@@ -4350,6 +5464,81 @@
           "target": {
             "Role": "Movers"
           }
+        },
+        {
+          "bars": 4.0,
+          "effect": "back breathe",
+          "params": {
+            "depth": 0.4
+          },
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "depth": 0.8999999761581421,
+          "name": "candle",
+          "note": "effect \"candle\" with tricks \"scatter\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Random": {
+                    "absolute": false,
+                    "attack": 0.6000000238418579,
+                    "attr": "Dimmer",
+                    "decay": 0.4000000059604645,
+                    "high": 0.05999999865889549,
+                    "level_var": 0.019999999552965164,
+                    "low": -0.07999999821186066,
+                    "seed": 6007,
+                    "speed_var": 0.4000000059604645
+                  }
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Random": {
+                    "absolute": false,
+                    "attack": 0.6000000238418579,
+                    "attr": "Dimmer",
+                    "decay": 0.4000000059604645,
+                    "high": 0.05999999865889549,
+                    "level_var": 0.019999999552965164,
+                    "low": -0.07999999821186066,
+                    "seed": 6007,
+                    "speed_var": 0.4000000059604645
+                  }
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 16.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 0.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Shuffle": 1741
+            }
+          ]
         }
       ],
       "resolved": {
@@ -4432,7 +5621,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.6
+                  "Dimmer": 0.55
                 },
                 {
                   "Color": "Tertiary"
@@ -4452,7 +5641,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.85
+                  "Dimmer": 0.6
                 },
                 {
                   "Color": "Secondary"
@@ -4472,7 +5661,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.5
+                  "Dimmer": 0.45
                 },
                 {
                   "Color": "Tertiary"
@@ -4492,7 +5681,47 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.7
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Tertiary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.18
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
                 },
                 {
                   "Color": "Tertiary"
@@ -4551,7 +5780,7 @@
           },
           "timing": {
             "direction": "Build",
-            "measure": 16.0,
+            "measure": 8.0,
             "once": false,
             "phase_offset_deg": 0.0,
             "phase_spread_deg": 360.0,
@@ -4565,6 +5794,80 @@
             },
             "Reverse"
           ]
+        },
+        {
+          "bars": 1.0,
+          "effect": "mirror chase in",
+          "params": {
+            "depth": 0.6
+          },
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "name": "sparkle",
+          "note": "effect \"sparkle\" with tricks \"scatter\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.8500000238418579
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Forward",
+            "measure": 8.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 360.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Shuffle": 1741
+            }
+          ]
+        },
+        {
+          "bars": 2.0,
+          "effect": "tilt dim",
+          "params": {
+            "depth": 0.8
+          },
+          "target": {
+            "Role": "Movers"
+          }
         }
       ],
       "resolved": {
@@ -4625,6 +5928,46 @@
           }
         },
         {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.35
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
           "bars": 4.0,
           "effect": "strip fill",
           "params": {
@@ -4633,6 +5976,61 @@
           "target": {
             "Role": "Bars"
           }
+        },
+        {
+          "name": "build",
+          "note": "effect \"build\" with tricks \"ends in\"",
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      -0.699999988079071
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            },
+            {
+              "apply": [
+                {
+                  "Delta": [
+                    [
+                      "Dimmer",
+                      0.0
+                    ]
+                  ]
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          },
+          "timing": {
+            "direction": "Build",
+            "measure": 4.0,
+            "once": false,
+            "phase_offset_deg": 0.0,
+            "phase_spread_deg": 360.0,
+            "speed": {
+              "Master": "Song"
+            }
+          },
+          "tricks": [
+            {
+              "Wings": 2
+            },
+            "Reverse"
+          ]
         }
       ],
       "resolved": {
@@ -4657,7 +6055,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.55
+                  "Dimmer": 0.6
                 },
                 {
                   "Color": "White"
@@ -4677,7 +6075,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.55
+                  "Dimmer": 0.6
                 },
                 {
                   "Color": "White"
@@ -4697,7 +6095,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.5
+                  "Dimmer": 0.8
                 },
                 {
                   "Color": "Accent"
@@ -4717,7 +6115,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.62
+                  "Dimmer": 0.85
                 },
                 {
                   "Color": "Accent"
@@ -4737,7 +6135,7 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.4
+                  "Dimmer": 0.55
                 },
                 {
                   "Color": "Primary"
@@ -4757,7 +6155,10 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.0
+                  "Dimmer": 0.45
+                },
+                {
+                  "Color": "Primary"
                 }
               ],
               "ease": "Linear",
@@ -4774,7 +6175,47 @@
             {
               "apply": [
                 {
-                  "Dimmer": 0.6
+                  "Dimmer": 0.75
+                },
+                {
+                  "Color": "Accent"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
                 },
                 {
                   "Color": "Primary"
@@ -4793,7 +6234,7 @@
           }
         },
         {
-          "depth": 0.5,
+          "depth": 0.6000000238418579,
           "name": "wave",
           "note": "effect \"wave\" with tricks \"mirror\"",
           "steps": [
@@ -4846,27 +6287,42 @@
           ]
         },
         {
-          "depth": 0.6000000238418579,
-          "name": "figure eight",
-          "note": "effect \"figure eight\" with tricks \"mirror\"",
+          "bars": 1.0,
+          "effect": "see saw",
+          "params": {
+            "depth": 0.5
+          },
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "bars": 2.0,
+          "effect": "running sines",
+          "params": {
+            "depth": 0.8
+          },
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "name": "sparkle",
+          "note": "effect \"sparkle\" with tricks \"scatter\"",
           "steps": [
             {
               "apply": [
                 {
                   "Delta": [
                     [
-                      "Pan",
-                      0.0
-                    ],
-                    [
-                      "Tilt",
+                      "Dimmer",
                       0.0
                     ]
                   ]
                 }
               ],
               "ease": "Linear",
-              "transition": 1.0,
+              "transition": 0.0,
               "width": 1.0
             },
             {
@@ -4874,303 +6330,45 @@
                 {
                   "Delta": [
                     [
-                      "Pan",
-                      7.653669357299805
-                    ],
-                    [
-                      "Tilt",
-                      8.485280990600586
+                      "Dimmer",
+                      -0.8500000238418579
                     ]
                   ]
                 }
               ],
               "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      14.142135620117188
-                    ],
-                    [
-                      "Tilt",
-                      12.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      18.477590560913086
-                    ],
-                    [
-                      "Tilt",
-                      8.485280990600586
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      20.0
-                    ],
-                    [
-                      "Tilt",
-                      -1.0490732620382914e-6
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      18.477590560913086
-                    ],
-                    [
-                      "Tilt",
-                      -8.485282897949219
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      14.142135620117188
-                    ],
-                    [
-                      "Tilt",
-                      -12.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      7.653665542602539
-                    ],
-                    [
-                      "Tilt",
-                      -8.485278129577637
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -1.748455588312936e-6
-                    ],
-                    [
-                      "Tilt",
-                      2.098146524076583e-6
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -7.653668403625488
-                    ],
-                    [
-                      "Tilt",
-                      8.485280990600586
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -14.14213752746582
-                    ],
-                    [
-                      "Tilt",
-                      12.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -18.47759437561035
-                    ],
-                    [
-                      "Tilt",
-                      8.485275268554688
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -20.0
-                    ],
-                    [
-                      "Tilt",
-                      -2.861971211132186e-7
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -18.477588653564453
-                    ],
-                    [
-                      "Tilt",
-                      -8.485283851623535
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -14.142130851745605
-                    ],
-                    [
-                      "Tilt",
-                      -12.0
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
-              "width": 1.0
-            },
-            {
-              "apply": [
-                {
-                  "Delta": [
-                    [
-                      "Pan",
-                      -7.653668403625488
-                    ],
-                    [
-                      "Tilt",
-                      -8.485280990600586
-                    ]
-                  ]
-                }
-              ],
-              "ease": "Linear",
-              "transition": 1.0,
+              "transition": 0.0,
               "width": 1.0
             }
           ],
           "target": {
-            "Role": "Movers"
+            "Role": "Audience"
           },
           "timing": {
             "direction": "Forward",
-            "measure": 8.0,
+            "measure": 4.0,
             "once": false,
             "phase_offset_deg": 0.0,
-            "phase_spread_deg": 0.0,
+            "phase_spread_deg": 360.0,
             "speed": {
               "Master": "Song"
             }
           },
           "tricks": [
-            "Mirror"
+            {
+              "Shuffle": 1741
+            }
           ]
+        },
+        {
+          "bars": 4.0,
+          "effect": "fly out",
+          "params": {
+            "depth": 0.7
+          },
+          "target": {
+            "Role": "Movers"
+          }
         }
       ],
       "resolved": {
@@ -5295,6 +6493,46 @@
             {
               "apply": [
                 {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
                   "Dimmer": 0.8
                 },
                 {
@@ -5377,6 +6615,23 @@
             }
           ],
           "target": {
+            "Role": "Fill"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
             "Role": "Wash"
           }
         },
@@ -5429,6 +6684,23 @@
           ],
           "target": {
             "Role": "Movers"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Audience"
           }
         },
         {
@@ -7628,7 +8900,7 @@
                 "Delta": [
                   [
                     "Dimmer",
-                    0.44999998807907104
+                    0.5
                   ],
                   [
                     {
@@ -7636,7 +8908,7 @@
                         "channel": "Red"
                       }
                     },
-                    0.809999942779541
+                    0.8999999761581421
                   ],
                   [
                     {
@@ -7644,7 +8916,7 @@
                         "channel": "Green"
                       }
                     },
-                    0.809999942779541
+                    0.8999999761581421
                   ],
                   [
                     {
@@ -7652,7 +8924,7 @@
                         "channel": "Blue"
                       }
                     },
-                    0.809999942779541
+                    0.8999999761581421
                   ],
                   [
                     {
@@ -7660,7 +8932,7 @@
                         "channel": "White"
                       }
                     },
-                    0.809999942779541
+                    0.8999999761581421
                   ]
                 ]
               }
@@ -7718,7 +8990,7 @@
           }
         ],
         "target": {
-          "Role": "Wash"
+          "Role": "Audience"
         },
         "timing": {
           "direction": "Forward",
