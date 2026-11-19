@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>A Show, End to End</title>
+    <link>https://ignition.fasttrackstudio.app/guide</link>
+    <description></description>
+    <item>
+      <title>A Show, End to End</title>
+      <link>https://ignition.fasttrackstudio.app/guide/a-show-end-to-end</link>
+      <guid>https://ignition.fasttrackstudio.app/guide/a-show-end-to-end</guid>
+      <description>The front door — every part of Ignition, and the order they happen in.</description>
+    </item>
+    <item>
+      <title>What Ignition is</title>
+      <link>https://ignition.fasttrackstudio.app/guide/what-ignition-is</link>
+      <guid>https://ignition.fasttrackstudio.app/guide/what-ignition-is</guid>
+      <description>A console, a visualizer and a video mapper in one application — and why that is one application.</description>
+    </item>
+    <item>
+      <title>The four files</title>
+      <link>https://ignition.fasttrackstudio.app/guide/the-four-files</link>
+      <guid>https://ignition.fasttrackstudio.app/guide/the-four-files</guid>
+      <description>Profile, venue, show and night — and the line between them that makes a show portable.</description>
+    </item>
+    <item>
+      <title>Roles, selections and tricks</title>
+      <link>https://ignition.fasttrackstudio.app/guide/roles-selections-tricks</link>
+      <guid>https://ignition.fasttrackstudio.app/guide/roles-selections-tricks</guid>
+      <description>How you say which fixtures — without ever saying which fixtures.</description>
+    </item>
+    <item>
+      <title>Recipes, cues and effects</title>
+      <link>https://ignition.fasttrackstudio.app/guide/recipes-cues-effects</link>
+      <guid>https://ignition.fasttrackstudio.app/guide/recipes-cues-effects</guid>
+      <description>A recipe is a template that is cooked against the live rig; a cue is what changes.</description>
+    </item>
+    <item>
+      <title>The song</title>
+      <link>https://ignition.fasttrackstudio.app/guide/the-song</link>
+      <guid>https://ignition.fasttrackstudio.app/guide/the-song</guid>
+      <description>Where cues come from when the desk can read the session the band is playing to.</description>
+    </item>
+    <item>
+      <title>Running it</title>
+      <link>https://ignition.fasttrackstudio.app/guide/running-it</link>
+      <guid>https://ignition.fasttrackstudio.app/guide/running-it</guid>
+      <description>Building from source, the visualizer, and rendering a video of your own show.</description>
+    </item>
+  </channel>
+</rss>
