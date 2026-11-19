@@ -1,5 +1,20 @@
 # Ignition: agent instructions
 
+## The goal
+
+One library that adapts to any rig and any venue, and fluency in it (README,
+"The goal"). When programming or changing lighting:
+
+- Load `ignition-domain`, then `ignition-program` (the actions) and
+  `ignition-program-song` (a song's show, the cue design guide, the lint)
+  before writing a cue. They are in `.claude/skills/`.
+- Library first: name an effect, a trick preset, a look, a palette slot. Do
+  not type values a library entry already holds; promote a good new one into
+  the library instead of leaving it in a song.
+- Roles, never fixtures, in anything a show or the library holds. A venue's
+  files are the only place a fixture, an address or a position appears.
+- A song's accents come from the song: its section map, its hits, its stems.
+
 ## Build and test
 
 - Build inside the fleet's devenv shell: `devenv shell -- <command>`, or
