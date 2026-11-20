@@ -1505,6 +1505,11 @@ fn run_windowed(
             DefaultPlugins
                 .set(AssetPlugin {
                     file_path: assets_dir,
+                    // No `.meta` files ship beside the assets: never ask
+                    // for them (a browser's server answers a missing one
+                    // with a page the loader cannot read, and the model
+                    // never loads).
+                    meta_check: bevy::asset::AssetMetaCheck::Never,
                     ..default()
                 })
                 .set(WindowPlugin {
@@ -1605,6 +1610,11 @@ impl Headless {
             DefaultPlugins
                 .set(AssetPlugin {
                     file_path: assets_dir,
+                    // No `.meta` files ship beside the assets: never ask
+                    // for them (a browser's server answers a missing one
+                    // with a page the loader cannot read, and the model
+                    // never loads).
+                    meta_check: bevy::asset::AssetMetaCheck::Never,
                     ..default()
                 })
                 .set(WindowPlugin {
