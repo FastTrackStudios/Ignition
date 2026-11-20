@@ -31,6 +31,10 @@ solari = ["bevy/bevy_solari"]
 # every row in an `IGNITION_PROFILE=all` table reads "<Enable the debug
 # feature to see the name>", which is a table of one row.
 trace = ["bevy/trace", "bevy/debug"]
+# The visualizer's own models (the people, the props, the screens' content)
+# as one folder of a dx web bundle (`WEB_ASSETS`): what a page hands
+# `run_web` as its `assets_dir`. Off the web it does nothing.
+web-assets = ["dep:manganis"]
 
 [dependencies]
 utils.workspace = true
@@ -117,6 +121,8 @@ artnet_protocol = "0.4.4"
 # workspace asks for comes along and is ignored for this target.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy = { workspace = true, features = ["webgpu"] }
+# `asset!`, for `web-assets`: the same Dioxus revision as the workspace's.
+manganis = { git = "https://github.com/DioxusLabs/dioxus", rev = "430cfb563f1b70602ef387f0c80f171d84527b41", optional = true }
 
 # The one visualizer binary — windowed by default, `--snapshot <path>` to
 # render a single frame headlessly. Replaces the pre-Bevy pair of `shot`

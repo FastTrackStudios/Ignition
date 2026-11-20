@@ -31,6 +31,10 @@
 //!   holds where it jumped to ([`Take::Seek`]). Untimed cues are never the
 //!   clock's.
 
+// In a browser nothing is `Send`: a host's call is a future of the page's
+// one thread.
+#![cfg_attr(target_arch = "wasm32", allow(clippy::future_not_send))]
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
 use std::pin::Pin;
@@ -71,8 +75,14 @@ pub trait Ask: Sync {
 }
 
 /// What [`Ask::ask`] returns.
+#[cfg(not(target_arch = "wasm32"))]
 pub type AskFuture<'a> =
     Pin<Box<dyn Future<Output = std::result::Result<String, String>> + Send + 'a>>;
+
+/// What [`Ask::ask`] returns: in a browser nothing is `Send` (a host's
+/// call is a future of the page's one thread).
+#[cfg(target_arch = "wasm32")]
+pub type AskFuture<'a> = Pin<Box<dyn Future<Output = std::result::Result<String, String>> + 'a>>;
 
 impl<F> Ask for F
 where

@@ -20,7 +20,7 @@ use crate::venue::Vec3 as Point;
 use bevy::prelude::*;
 use bevy::world_serialization::WorldAssetRoot;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// The document's name in a venue directory.
 pub const FILE: &str = "environment.json";
@@ -143,13 +143,6 @@ impl Environment {
         Ok(serde_json::from_str(raw)?)
     }
 
-    /// The venue's environment, if it has one, with its model located.
-    ///
-    /// # Errors
-    ///
-    /// If the document is there and will not parse. A venue without one
-    /// is `Ok(None)`.
-    #[cfg(not(target_arch = "wasm32"))]
     /// Lays the edits file over the document: each named object's
     /// position, turn and visibility, each named light group's switch. A
     /// name the model no longer has is skipped (the room was rebuilt
@@ -186,7 +179,14 @@ impl Environment {
         Ok(())
     }
 
-    pub fn load(venue_dir: &Path) -> anyhow::Result<Option<Self>> {
+    /// The venue's environment, if it has one, with its model located.
+    ///
+    /// # Errors
+    ///
+    /// If the document is there and will not parse. A venue without one
+    /// is `Ok(None)`.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn load(venue_dir: &std::path::Path) -> anyhow::Result<Option<Self>> {
         let Ok(raw) = std::fs::read_to_string(venue_dir.join(FILE)) else {
             return Ok(None);
         };
