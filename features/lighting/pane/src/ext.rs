@@ -359,7 +359,7 @@ pub fn ShowView() -> Element {
 
 /// Linked in: the GPU pane, `ignition --process-view`, started again
 /// whenever a pick changes (the previous renderer stopped).
-#[cfg(all(feature = "pane", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "pane", any(target_os = "linux", target_os = "macos")))]
 #[component]
 fn Room(picks: Picks) -> Element {
     use architect_process_view::host::{ProcessViewPane, Program, sessions};
@@ -393,6 +393,20 @@ fn Room(picks: Picks) -> Element {
                     ProcessViewPane { session_key: k.clone(), program: program.clone() }
                 }
             }
+        }
+    }
+}
+
+/// Linked into an iPhone or iPad build: no GPU process to draw the room
+/// in (`architect_process_view` hosts one on Linux and macOS only), and
+/// Ignition's renderer is not built for iOS yet.
+#[cfg(all(feature = "pane", not(target_arch = "wasm32"), not(any(target_os = "linux", target_os = "macos"))))]
+#[component]
+fn Room(picks: Picks) -> Element {
+    let _ = picks;
+    rsx! {
+        div { style: "flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--muted-foreground); font-size: 13px;",
+            "The lighting room draws on the desktop app and in a browser; on this device it is not built yet."
         }
     }
 }
