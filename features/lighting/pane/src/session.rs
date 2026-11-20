@@ -245,6 +245,7 @@ pub fn redial_after(failed: u32) -> std::time::Duration {
 /// # Errors
 ///
 /// `doc` is not a session id, or the thread could not start.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn follow_session(url: &str, doc: &str) -> Result<PresencePeer, String> {
     let id = uuid::Uuid::parse_str(doc).map_err(|e| e.to_string())?;
     let (peer, mut driver) = PresencePeer::new(id, 30_000);
@@ -286,6 +287,60 @@ pub fn follow_session(url: &str, doc: &str) -> Result<PresencePeer, String> {
         })
         .map_err(|e| e.to_string())?;
     Ok(peer)
+}
+
+/// [`follow_session`] in a browser: the presence driver on the page's own
+/// tasks (a browser has no threads), dialling the host again the same way.
+///
+/// # Errors
+///
+/// `doc` is not a session id.
+#[cfg(target_arch = "wasm32")]
+pub fn follow_session(url: &str, doc: &str) -> Result<PresencePeer, String> {
+    let id = uuid::Uuid::parse_str(doc).map_err(|e| e.to_string())?;
+    let (peer, mut driver) = PresencePeer::new(id, 30_000);
+    let url = url.to_owned();
+    spawn_task(async move {
+        let endpoint = Endpoint::url(&url);
+        let mut failed: u32 = 0;
+        loop {
+            match pool().client::<DocPresenceClient>(&endpoint).await {
+                Ok(presence) => {
+                    let since = architect::platform::Instant::now();
+                    let _ = driver.run(&presence).await;
+                    pool().evict(&endpoint);
+                    failed = if since.elapsed() < Duration::from_secs(10) {
+                        failed.saturating_add(1)
+                    } else {
+                        0
+                    };
+                }
+                Err(_) => failed = failed.saturating_add(1),
+            }
+            architect::platform::sleep(redial_after(failed)).await;
+        }
+    });
+    Ok(peer)
+}
+
+/// A task beside the caller: on the runtime natively, on the page's own
+/// tasks in a browser (where nothing is `Send`).
+#[cfg(not(target_arch = "wasm32"))]
+fn spawn_task(task: impl std::future::Future<Output = ()> + Send + 'static) {
+    tokio::spawn(task);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn spawn_task(task: impl std::future::Future<Output = ()> + 'static) {
+    // Detached: the handle is not kept, as natively.
+    drop(architect::platform::spawn(task));
+}
+
+async fn pause(dur: Duration) {
+    #[cfg(not(target_arch = "wasm32"))]
+    tokio::time::sleep(dur).await;
+    #[cfg(target_arch = "wasm32")]
+    architect::platform::sleep(dur).await;
 }
 
 /// Where session `peer`'s leader is now, in session seconds, and whether
@@ -330,7 +385,7 @@ pub async fn follow(args: Value) -> Result<Value, String> {
     let (peer, mut driver) = PresencePeer::new(id, 30_000);
     // The host's clock, estimated by the presence driver as it runs.
     let clock = peer.clock().clone();
-    tokio::spawn(async move {
+    spawn_task(async move {
         let _ = driver.run(&presence).await;
     });
     {
@@ -339,9 +394,9 @@ pub async fn follow(args: Value) -> Result<Value, String> {
         t.clock = Some(clock.clone());
     }
     // Frames, 60 a second, off the action: the cues it takes go in the log.
-    tokio::spawn(async move {
+    spawn_task(async move {
         loop {
-            tokio::time::sleep(Duration::from_millis(16)).await;
+            pause(Duration::from_millis(16)).await;
             let (Some(offset), Some(leader)) = (
                 clock.offset_ms().map(|ms| ms * 1000.0),
                 peer.states().get("lead/play").and_then(transport_of),

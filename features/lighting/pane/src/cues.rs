@@ -81,7 +81,7 @@ pub fn clock_text(seconds: f64) -> String {
     format!("{minutes}:{rest:04.1}")
 }
 
-async fn setting() -> Option<Place> {
+pub(crate) async fn setting() -> Option<Place> {
     let value = crate::ext::handle()
         .ok()?
         .host(HostRequest::Setting {
@@ -135,6 +135,11 @@ pub fn CuesView() -> Element {
         }
     });
     match place() {
+        // In a browser the room is in the page: its own list, each cue a
+        // press that takes it.
+        #[cfg(all(feature = "pane", target_arch = "wasm32"))]
+        None => rsx! { crate::web::RoomCues {} },
+        #[cfg(not(all(feature = "pane", target_arch = "wasm32")))]
         None => rsx! {
             div { style: "flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; color: var(--muted-foreground); font-size: 13px; text-align: center;",
                 "No session yet: IGNITION_SESSION_ROOM points the room and this list at one."
@@ -213,15 +218,31 @@ fn Cues(place: Place) -> Element {
             }
             div { style: "flex: 1; min-height: 0; overflow-y: scroll;",
                 for (i, row) in rows.iter().enumerate() {
-                    CueRow { key: "{i}", row: row.clone(), lit: lit == Some(i), past: lit.is_some_and(|l| i < l) }
+                    CueRow { key: "{i}", index: i, row: row.clone(), lit: lit == Some(i), past: lit.is_some_and(|l| i < l) }
                 }
             }
         }
     }
 }
 
+/// A press on a cue: in a browser the room is in the page and takes it;
+/// natively the room follows its clock, and a press does nothing.
+#[cfg_attr(
+    not(all(feature = "pane", target_arch = "wasm32")),
+    expect(
+        clippy::missing_const_for_fn,
+        reason = "natively a press does nothing; in a browser it takes the cue"
+    )
+)]
+fn press(index: usize) {
+    #[cfg(all(feature = "pane", target_arch = "wasm32"))]
+    crate::web::take(index);
+    #[cfg(not(all(feature = "pane", target_arch = "wasm32")))]
+    let _ = index;
+}
+
 #[component]
-fn CueRow(row: Row, lit: bool, past: bool) -> Element {
+fn CueRow(index: usize, row: Row, lit: bool, past: bool) -> Element {
     let background = if lit { "var(--accent)" } else { "transparent" };
     let color = if lit {
         "var(--accent-foreground)"
@@ -237,7 +258,9 @@ fn CueRow(row: Row, lit: bool, past: bool) -> Element {
     let at = row.at.map_or_else(String::new, clock_text);
     let number = row.number;
     rsx! {
-        div { style: "display: flex; gap: 10px; align-items: baseline; padding: 5px 12px; background: {background}; color: {color}; font-weight: {weight};",
+        div {
+            style: "display: flex; gap: 10px; align-items: baseline; padding: 5px 12px; background: {background}; color: {color}; font-weight: {weight};",
+            onclick: move |_| press(index),
             span { style: "width: 34px; font-family: monospace;", "{number}" }
             span { style: "flex: 1; min-width: 0; overflow: hidden;", "{row.name}" }
             span { style: "width: 56px; font-family: monospace; font-size: 12px;", "{bar}" }

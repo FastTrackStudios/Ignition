@@ -227,6 +227,40 @@ description = "What the follower took (each cue and the session time it was take
 group = "Lighting"
 effect = "read_only"
 
+# The room in a browser (src/web.rs): a browser runs no programs, so the
+# room is Ignition's web renderer in the page, and these are its
+# operator's. Natively the room is the `ignition` program, which follows
+# its clock: they are refused there.
+[[actions]]
+id = "IGNITION_ROOM_CUES"
+name = "Lighting: hand the room a cue list"
+description = "In a browser, the room plays `cues` (a song's cue list: the file's object, or its text), standing before its first cue. A session the room follows (IGNITION_SESSION_ROOM) hands it its own."
+group = "Lighting"
+effect = "mutating"
+params = '{"type":"object","properties":{"cues":{"description":"A cue list (data/songs/<song>.json, or lighting/cues/<song>.json in a project): the object or its text."}},"required":["cues"]}'
+
+[[actions]]
+id = "IGNITION_ROOM_CUE"
+name = "Lighting: take a cue in the room"
+description = "In a browser, the room to the end of a cue of its list: `index` (from 0, GO order) or `number` (the cue's number)."
+group = "Lighting"
+effect = "mutating"
+params = '{"type":"object","properties":{"index":{"type":"integer"},"number":{"type":"number"}}}'
+
+[[actions]]
+id = "IGNITION_ROOM_GO"
+name = "Lighting: GO in the room"
+description = "In a browser, the room's next cue."
+group = "Lighting"
+effect = "mutating"
+
+[[actions]]
+id = "IGNITION_ROOM_STATE"
+name = "Lighting: the room in the page"
+description = "In a browser, what the room is doing: whether it is drawn (or why not), whether it follows a session, its list's name, how many cues and the one standing."
+group = "Lighting"
+effect = "read_only"
+
 # >>> programming actions (tools/program_actions.py writes this from actions.json)
 
 [[actions]]
