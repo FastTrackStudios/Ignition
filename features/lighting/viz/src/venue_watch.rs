@@ -33,6 +33,21 @@ use crate::venue::Venue;
 
 static DIR: OnceLock<PathBuf> = OnceLock::new();
 
+/// The room in `dir` read again. A browser has no venue directory (a page
+/// hands its room in as documents), so nothing is watched there.
+#[cfg(not(target_arch = "wasm32"))]
+fn read_venue(dir: &Path) -> anyhow::Result<Venue> {
+    Venue::load(dir)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn read_venue(dir: &Path) -> anyhow::Result<Venue> {
+    anyhow::bail!(
+        "{}: a browser has no venue directory to read",
+        dir.display()
+    )
+}
+
 /// Names the venue directory the running renderer follows. Called once,
 /// before the app runs, by a host that shows a room being edited.
 pub fn watch(venue_dir: &Path) {
@@ -145,7 +160,7 @@ pub fn follow_venue_edits(
     if before == now {
         return;
     }
-    let new = match Venue::load(dir) {
+    let new = match read_venue(dir) {
         Ok(new) => new,
         Err(error) => {
             // A half-written edit: the room in hand keeps playing.
