@@ -9,6 +9,7 @@ use std::sync::{Mutex, PoisonError};
 
 use architect_extensions::hostcall::HostRequest;
 use architect_extensions::linked::{Builder, Extension, Handle};
+use architect_extensions_dioxus::BuilderExt as _;
 use dioxus::prelude::*;
 use serde_json::{Value, json};
 

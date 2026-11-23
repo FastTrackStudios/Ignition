@@ -3,6 +3,9 @@
 //! `[entry]`) — what a development copy runs.
 
 #[cfg(not(target_arch = "wasm32"))]
+use architect_extensions_dioxus::guest::GuestExt as _;
+
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), architect_extensions::guest::GuestError> {
     architect_extensions::guest::Guest::extension(&ignition_pane::ext::Lighting).serve()
 }

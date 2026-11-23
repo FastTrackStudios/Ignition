@@ -122,18 +122,19 @@ keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", rev = "37
 # One tag shared by every entry so the framework moves together.
 # The extension API: ignition-pane links into an Architect build
 # (`linked`) and runs as a process extension (`guest`).
-architect-extensions = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.15.0" }
+architect-extensions = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-extensions-dioxus = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
 # View input and theme tokens (`ViewInput`, `Button`, `ThemeTokens`) the
 # process view receives.
-architect-workspace = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.15.0" }
+architect-workspace = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
 # Process views (architect#641): a pane drawn by another program over a
 # socket pair, its frames in a dma-buf (Linux), an IOSurface (macOS) or
 # shared memory — the visualizer's pane (apps/ignition --process-view),
 # by the tag the rest of architect is. apps/ignition takes its `guest`
 # feature for `gpu::export_texture`, on the workspace's one wgpu.
-architect-process-view = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.15.0" }
+architect-process-view = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
 
-architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.15.0", features = ["otel"] }
+architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework", features = ["otel"] }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
 ignition-mobile = { path = "apps/ignition-mobile" }
 
@@ -273,16 +274,16 @@ fts-sample = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263
 # host, which cargo counts as another source, is how a git dependency's
 # own pin is overridden. Move it with that pin.
 [patch."https://github.com/FastTrackStudios/architect"]
-architect = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-action-derive = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-derive = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-devices = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-orgs = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-permissions = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-rpc-derive = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-workspace-hack = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-crdt = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-crdt-derive = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
+architect = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-action-derive = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-derive = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-devices = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-orgs = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-permissions = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-rpc-derive = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-workspace-hack = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+crdt = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+crdt-derive = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
 
 # One editor source: architect v0.12.6's workspace-hack names the editor
 # on the `www.` host while its other crates name the plain one.
