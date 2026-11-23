@@ -54,8 +54,8 @@ session = { workspace = true, optional = true, features = ["service", "sync"] }
 # A recital song's cues resolved against its Live set, and the set's tempo
 # over the song, for the session (IGNITION_SESSION_SONG).
 ignition-daw = { workspace = true, optional = true, features = ["ableton"] }
-crdt = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework", optional = true, features = ["vox"] }
-architect = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework", optional = true, features = ["vox", "connect"] }
+crdt = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede", optional = true, features = ["vox"] }
+architect = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede", optional = true, features = ["vox", "connect"] }
 uuid = { workspace = true, optional = true }
 
 # Natively the room is the `ignition` program's GPU process view, and the
@@ -76,7 +76,7 @@ architect-extensions = { workspace = true, optional = true, features = ["linked-
 architect-extensions-dioxus = { workspace = true, optional = true }
 ignition-viz = { workspace = true, optional = true, default-features = false, features = ["web-assets"] }
 ignition-core = { workspace = true, optional = true }
-architect = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework", optional = true, features = ["vox", "connect", "platform"] }
+architect = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede", optional = true, features = ["vox", "connect", "platform"] }
 tracing = { workspace = true, optional = true }
 # A browser has no threads to park a timer on.
 futures-timer = { workspace = true, optional = true, features = ["wasm-bindgen"] }

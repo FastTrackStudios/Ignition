@@ -64,7 +64,7 @@ ignition-session = { path = "features/lighting/session" }
 # and items (features/lighting/session). By rev until it is tagged: a
 # commit of its `main`, the one Studio and Keyflow pin (on Architect v0.15.0), so a build with all
 # three has one `session`.
-session = { git = "https://github.com/FastTrackStudios/session", rev = "568e9a30a2d858b68a617a94f40f2390f7ea022e", default-features = false }
+session = { git = "https://github.com/FastTrackStudios/session", rev = "e8a705ed1c9ae8b16934018e3b4b897769635961", default-features = false }
 ignition-effects = { path = "features/lighting/effects" }
 ignition-playback = { path = "features/lighting/playback" }
 ignition-core = { path = "features/lighting/core" }
@@ -116,25 +116,25 @@ fts-sample = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731d
 
 # Not Studio's, but Studio's pin: the LRC lyrics parser
 # (`keyflow_proto::lrc`), for ignition-daw's `lyrics`.
-keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", rev = "37f33703fbed2e7da66593390bc19e62e5ebc9aa" }
+keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", rev = "e170cfbdcc67221124380eb9fc57d9957fb70e3d" }
 
 # ── Architect — the same source Studio's root pins at that commit ─────
 # One tag shared by every entry so the framework moves together.
 # The extension API: ignition-pane links into an Architect build
 # (`linked`) and runs as a process extension (`guest`).
-architect-extensions = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-architect-extensions-dioxus = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-extensions = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-extensions-dioxus = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
 # View input and theme tokens (`ViewInput`, `Button`, `ThemeTokens`) the
 # process view receives.
-architect-workspace = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-workspace = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
 # Process views (architect#641): a pane drawn by another program over a
 # socket pair, its frames in a dma-buf (Linux), an IOSurface (macOS) or
 # shared memory — the visualizer's pane (apps/ignition --process-view),
 # by the tag the rest of architect is. apps/ignition takes its `guest`
 # feature for `gpu::export_texture`, on the workspace's one wgpu.
-architect-process-view = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect-process-view = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
 
-architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", branch = "strip/application-framework", features = ["otel"] }
+architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede", features = ["otel"] }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
 ignition-mobile = { path = "apps/ignition-mobile" }
 
@@ -274,16 +274,15 @@ fts-sample = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263
 # host, which cargo counts as another source, is how a git dependency's
 # own pin is overridden. Move it with that pin.
 [patch."https://github.com/FastTrackStudios/architect"]
-architect = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-architect-action-derive = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-architect-derive = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-architect-devices = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-architect-orgs = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-architect-permissions = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-architect-rpc-derive = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-architect-workspace-hack = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-crdt = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
-crdt-derive = { git = "https://www.github.com/FastTrackStudios/architect", branch = "strip/application-framework" }
+architect = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-action-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-devices = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-orgs = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-permissions = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-rpc-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+crdt = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+crdt-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
 
 # One editor source: architect v0.12.6's workspace-hack names the editor
 # on the `www.` host while its other crates name the plain one.
