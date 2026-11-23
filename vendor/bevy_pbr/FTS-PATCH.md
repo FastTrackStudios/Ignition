@@ -1,61 +1,52 @@
-# Vendored `bevy_pbr` 0.19.1
+# Vendored `bevy_pbr`: Bevy `main` at 948cc8270, plus two commits
 
-A copy of the published crate, redirected by `[patch.crates-io]` in the
-root `Cargo.toml` so every `bevy_pbr` in the tree — including the one
-`bevy_internal` pulls in — resolves here. Nothing else about the Bevy
-dependency changes.
+`crates/bevy_pbr` of bevyengine/bevy at
+`948cc8270204b46fd37353eb786144a677d0c0ce` (the workspace's Bevy pin,
+root `Cargo.toml`), with the two commits in `patches/` applied. The root
+manifest's `[patch."https://github.com/bevyengine/bevy"]` puts it in
+place of the revision's own `bevy_pbr`, for every Bevy crate in the tree.
 
-Two hunks, both in the volumetric fog, both marked `IGNITION PATCH`.
-Neither is a tuning knob: each is a place where upstream's behaviour is
-reasonable for a game and wrong for a lighting visualiser.
+It stands in for a fork. There is no `FastTrackStudios/bevy` yet; when
+there is, its branch is upstream at that revision plus `patches/*.patch`
+(`git am`), Ignition depends on it by tag, and this directory and its
+patch entry are deleted. `docs/lighting/research/bevy-pin.md` has the
+whole list of what the fork carries and why the revision was chosen.
 
-## A light may scatter without casting a shadow
+Both commits are in the volumetric fog, which the analytic beam renderer
+replaces; they go when the fog does.
+
+## 1. A point or spot light may be volumetric without a shadow map
 
 `src/render/light.rs`. Upstream sets the GPU `VOLUMETRIC` flag only when
-`shadow_maps_enabled && volumetric`, and `volumetric_fog.wgsl` skips any
-light without the flag — so "appears in the haze" and "casts a shadow"
-are the same switch. A shadow map is a render pass per light per frame;
-`budget.rs` affords eight. So of sixty-seven emitters marked
-`VolumetricLight`, eight were in the air and fifty-nine were not, which
-is neither what `r[viz.haze-is-volumetric]` says nor what a hazed room
-looks like.
+`shadow_maps_enabled && volumetric`, and the fog's shader skips a light
+without the flag, so "is in the haze" and "casts a shadow" are one
+switch. A shadow map is a render pass per light per frame and
+`budget.rs` affords twelve; a rig has sixty-odd emitters, all of them in
+the air. The flag no longer asks for a shadow map, and the two
+volumetric counts are no longer capped by the shadow maps' capacity. The
+shader already takes `shadow = 1.0` for a light with no map.
 
-Nothing else had to change: the shader already defaults `shadow = 1.0`
-for a light whose shadow bit is clear, so a shadowless light scatters
-correctly and simply silhouettes nobody. The two volumetric counts are
-no longer clamped to shadow-map array capacity either, for the same
-reason — a light that wants no map should not compete for one.
+## 2. The inverse square stops at the light's radius
 
-Every fixture is now in the air, at no shadow cost. It costs frame rate
-in the fog loop instead: about 80 fps to 50 in the operator's layout on
-the reference machine, which is the trade an operator would actually
-choose to make.
+`src/volumetric_fog/volumetric_fog.wesl`. Upstream takes the raw
+distance to a clustered light, so radiance runs to infinity at the
+light's position: in fog, a singularity where a beam leaves its fixture.
+The squared distance is clamped to the light's radius, which Bevy
+already uploads in `position_radius.w`. A no-op at radius zero, the
+default (`spawn::DEFAULT_LENS_RADIUS_M`).
 
-See `docs/domain/beams-in-the-air.md`.
+## What was not carried from the 0.19.1 fork
 
-## The inverse square may stop at the lamp's own radius
+The froxel volumetrics (`froxel.rs`, three shaders, the extracted
+`volumetric_shadows.wgsl`) and the view bindings' compute visibility
+that served them. They were opt-in (`IGNITION_FROXEL=1`), and the fog is
+being replaced; `IGNITION_FROXEL` is now ignored with a warning.
 
-`src/volumetric_fog/volumetric_fog.wgsl`. Upstream takes the raw
-distance from the light, so radiance runs to infinity at the light's
-position. On a surface that is invisible — nothing is ever *at* a light.
-In fog it is a singularity in the middle of the picture, and Bevy
-already uploads the radius that bounds it in `position_radius.w`; the
-fog is simply the one place that ignores it.
+## Moving the pin
 
-The clamp is the standard sphere-light form and is a no-op at radius
-zero, which is the default (`spawn::DEFAULT_LENS_RADIUS_M`). It was
-written to test whether a real lens diameter — a beam leaves a fixture a
-hundred and fifty millimetres across, not at a point — would fix the
-blocky cone apexes. **It does not**; the apexes are the haze buffer's
-resolution, which is ours and not Bevy's. The hunk stays because the
-singularity is real and the clamp is correct, and because GDTF's
-`BeamRadius` makes a per-fixture lens cheap to wire up if the look is
-ever wanted.
-
-## Keeping it
-
-Re-vendor on a Bevy bump: copy the published crate, drop
-`Cargo.toml.orig` and `Cargo.lock`, restore the header and
-`publish = false`, and re-apply the three marked hunks (`grep -rn
-"IGNITION PATCH"`). They are small and local; if either lands upstream,
-delete the patch entry and the directory.
+Copy `crates/bevy_pbr/{src,README.md,LICENSE-*}` of the new revision
+over this directory, apply `patches/*.patch` (`git apply --directory
+vendor/bevy_pbr -p3`), and regenerate `Cargo.toml` from upstream's: its
+path dependencies on the other Bevy crates become `git` + `rev`
+dependencies at the new revision, and `[lints] workspace = true` and the
+`wgsl-analyzer` metadata are dropped.

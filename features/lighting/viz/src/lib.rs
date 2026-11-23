@@ -24,6 +24,7 @@
 #![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
 pub mod app;
+pub mod beams;
 pub mod bench;
 pub mod budget;
 pub mod camera;
@@ -32,8 +33,10 @@ pub mod canvas_material;
 pub mod channel_map;
 pub mod dmx;
 pub mod embedded;
+pub mod environment;
 pub mod fixture_library;
 pub mod fixture_profile;
+pub mod venue_watch;
 pub mod gdtf_assets;
 pub mod gdtf_geometry;
 pub mod gdtf_import;
@@ -67,6 +70,19 @@ pub use app::{Follow, Grade, RenderQuality, VizConfig, run, run_export};
 /// The browser's way in — see `app::run_web`.
 #[cfg(target_arch = "wasm32")]
 pub use app::{WebDesk, WebShow, run_web};
+
+/// The visualizer's own asset folder in a dx web bundle.
+///
+/// `assets/` (the people, the props, the screens' content): its URL is the
+/// `assets_dir` a page hands [`run_web`]. dx copies the folder into any
+/// bundle that links this crate with `web-assets`.
+#[cfg(all(target_arch = "wasm32", feature = "web-assets"))]
+#[expect(
+    clippy::volatile_composites,
+    reason = "the asset! macro's const has volatile inner types (a Dioxus macro's, not ours)"
+)]
+pub const WEB_ASSETS: manganis::Asset =
+    manganis::asset!("/assets", manganis::AssetOptions::folder());
 pub use camera::{
     ActiveCamera, CameraCommand, CameraPreset, CameraSetup, CameraState, CameraTarget, Cameras,
 };

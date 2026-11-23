@@ -367,7 +367,20 @@ pub fn run(night: Night, args: &RenderArgs) -> Result<()> {
     config.output = false;
     config.cameras = cameras;
     config.camera_preset = Some(args.camera.clone());
-    config.haze = 0.8;
+    // The room says how much haze hangs in it and how the camera is set
+    // (`look` in its manifest); a room that does not is normally hazed.
+    ignition_viz::venue_watch::watch(&venue_dir);
+    let (haze, exposure, output) = crate::night::venue_look(&venue_dir);
+    if let Some(output) = output {
+        ignition_viz::fixture_profile::set_output_scale(output);
+    }
+    config.haze = haze.unwrap_or(0.8);
+    if let Some(ambient) = crate::night::venue_ambient(&venue_dir) {
+        config.ambient = ambient;
+    }
+    if let Some(stops) = exposure {
+        config.exposure = stops;
+    }
     config.assets_dir = root.join("viz/assets").to_string_lossy().into_owned();
     let gdtf = ignition_viz::gdtf_geometry::GdtfLibrary::load_default();
 
@@ -385,6 +398,7 @@ pub fn run(night: Night, args: &RenderArgs) -> Result<()> {
         night: Arc::clone(&night),
         clock: Mutex::new(Box::new(FixedBeat(Arc::clone(&beat)))),
         current: Mutex::new(None),
+        live: Mutex::default(),
     };
     let mut driver = SongDriver {
         night: Arc::clone(&night),

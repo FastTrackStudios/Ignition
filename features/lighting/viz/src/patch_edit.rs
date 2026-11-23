@@ -280,6 +280,8 @@ fn insert(venue: &mut Venue, insert: &Insert) -> Outcome {
             mirrors: Vec::new(),
             label: String::new(),
             gel: String::new(),
+            cell: None,
+            wired_as: String::new(),
             global_address: None,
             extra: std::collections::BTreeMap::new(),
         });

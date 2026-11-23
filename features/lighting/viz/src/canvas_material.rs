@@ -4,7 +4,7 @@
 //! pixels wide, on a worker, copied into a texture — and then sampled
 //! by the screen quads like a clip. That was three milliseconds a frame
 //! for three canvases at Norco, and a 320-wide picture stretched across
-//! a wall of TVs. Now the recipe is a [`Material`]: `canvas.wgsl`
+//! a wall of TVs. Now the recipe is a [`Material`]: `canvas.wesl`
 //! evaluates `ignition_core::canvas::CanvasRecipe::sample` per fragment
 //! from a uniform block, at whatever resolution the screen has, and the
 //! only thing the CPU does per frame is write one float — the effect
@@ -29,13 +29,13 @@ use bevy::shader::ShaderRef;
 use ignition_core::canvas::{CanvasRecipe, Procedural, Travel};
 use ignition_core::step::SpeedMasters;
 
-const SHADER: &str = "embedded://ignition_viz/canvas.wgsl";
+const SHADER: &str = "embedded://ignition_viz/canvas.wesl";
 
 /// The most colours a ramp carries to the shader. `named("rainbow")`
 /// has six; the uniform has room for eight.
 pub const MAX_COLORS: usize = 8;
 
-/// The uniform block `canvas.wgsl` reads. Every field is a `vec4` so
+/// The uniform block `canvas.wesl` reads. Every field is a `vec4` so
 /// the layout is the same on both sides without padding rules.
 #[derive(ShaderType, Clone, Copy, Debug, Default, PartialEq)]
 pub struct CanvasParams {
@@ -286,7 +286,7 @@ pub struct CanvasMaterialPlugin;
 
 impl Plugin for CanvasMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "canvas.wgsl");
+        embedded_asset!(app, "canvas.wesl");
         app.add_plugins(MaterialPlugin::<CanvasMaterial>::default())
             .init_resource::<CanvasClock>()
             .add_systems(

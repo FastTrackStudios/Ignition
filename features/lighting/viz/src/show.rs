@@ -75,7 +75,16 @@ fn encode_attribute(map: &ChannelMap, attr: &Attribute, value: f32) -> Vec<(u16,
             let [coarse, low] = encode_wide(range, value);
             vec![(offset, coarse), (fine, low)]
         }
-        None => vec![(offset, encode_attribute_byte(map, attr, value))],
+        // Every channel the chart gives this attribute: a tower of six
+        // warm whites patched as one fixture lights all six for "white".
+        None => {
+            let byte = encode_attribute_byte(map, attr, value);
+            map.channels
+                .iter()
+                .filter(|(_, a)| a == attr)
+                .map(|(o, _)| (*o, byte))
+                .collect()
+        }
     }
 }
 
@@ -182,6 +191,78 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
             bytes.push((addr.universe, channel0, byte));
         }
     };
+    // A fixture with no dimmer channel (a bare RGB bar) still has a
+    // level in the show: the cue's Dimmer scales its emitters here, where
+    // the bytes are made. Without this a level of zero left it lit, and
+    // every dimmer effect on it did nothing.
+    //
+    // A fixture patched lamp by lamp has one level byte for all of it,
+    // and the show has a level per record: the fixture's own (its shared
+    // colour) and one per lamp (its warm white). The byte goes to the
+    // highest of them and every emitter is scaled by its own record's
+    // level over that, so each is as bright as it was asked to be.
+    // r[impl playback.clamp-at-output]
+    let own = |chan: ChanId| -> f32 {
+        frame
+            .values
+            .get(&(chan, Attribute::Dimmer))
+            .map_or(0.0, |d| d.clamp(0.0, 1.0))
+    };
+    let mut masters: HashMap<(u16, u16), f32> = HashMap::new();
+    for ((chan, attr), _) in frame.values {
+        if *attr == Attribute::Dimmer
+            && let Some(fixture) = patch.by_chan(*chan)
+            && fixture.cell.is_some()
+        {
+            let master = masters
+                .entry((fixture.address.universe, fixture.address.start_channel))
+                .or_insert(0.0);
+            *master = master.max(own(*chan));
+        }
+    }
+    let master_of = |fixture: &Patch| -> f32 {
+        masters
+            .get(&(fixture.address.universe, fixture.address.start_channel))
+            .copied()
+            .unwrap_or(0.0)
+    };
+    // What `attr` of `chan` is worth on the wire, or `None` where this
+    // record is not the one that writes it.
+    let scaled = |chan: ChanId, fixture: &Patch, attr: &Attribute, value: f32| -> Option<f32> {
+        let emitter = matches!(attr, Attribute::ColorAdd { .. });
+        let Some((cell, mine)) = &fixture.cell else {
+            let no_dimmer = fixture.map.offset_of(&Attribute::Dimmer).is_none();
+            let level = if emitter && no_dimmer {
+                frame
+                    .values
+                    .get(&(chan, Attribute::Dimmer))
+                    .map_or(1.0, |d| d.clamp(0.0, 1.0))
+            } else {
+                1.0
+            };
+            return Some(value * level);
+        };
+        // A fixture patched section by section with no level byte at
+        // all (a bar of red, green and blue triplets): each section's
+        // level simply scales its own emitters.
+        if fixture.map.offset_of(&Attribute::Dimmer).is_none() {
+            return (*cell == 0 || mine.contains(attr)).then(|| {
+                if emitter { value * own(chan) } else { value }
+            });
+        }
+        let master = master_of(fixture);
+        if *attr == Attribute::Dimmer {
+            return Some(master);
+        }
+        let writes = if *cell == 0 { !mine.contains(attr) } else { mine.contains(attr) };
+        if !writes {
+            return None;
+        }
+        if !emitter {
+            return Some(value);
+        }
+        Some(if master > 0.0 { value * own(chan) / master } else { 0.0 })
+    };
     for ((chan, attr), &value) in frame.values {
         let Some(fixture) = patch.by_chan(*chan) else {
             continue;
@@ -196,6 +277,9 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
                 continue; // written below, from the solve
             }
         }
+        let Some(value) = scaled(*chan, fixture, attr, value) else {
+            continue;
+        };
         for (offset, byte) in encode_attribute(&fixture.map, attr, value) {
             push(fixture, offset, byte);
         }
@@ -204,9 +288,12 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
         let Some(fixture) = patch.by_chan(*chan) else {
             continue;
         };
-        for (channel, level) in color.emitters.iter().flatten() {
+        for (channel, emitter) in color.emitters.iter().flatten() {
             let attr = Attribute::ColorAdd { channel: *channel };
-            for (offset, byte) in encode_attribute(&fixture.map, &attr, *level) {
+            let Some(value) = scaled(*chan, fixture, &attr, *emitter) else {
+                continue;
+            };
+            for (offset, byte) in encode_attribute(&fixture.map, &attr, value) {
                 push(fixture, offset, byte);
             }
         }
@@ -216,12 +303,77 @@ pub fn apply_output(dmx: &DmxUniverses, venue: &Venue, frame: &OutputFrame<'_>) 
             push(fixture, offset, slot);
         }
     }
+    // A moving head nothing has aimed sits at its rest, straight out of
+    // its base, rather than at the end of its travel where byte zero is.
+    // r[impl playback.defaults]
+    for (chan, fixture) in patch.iter() {
+        for attr in [Attribute::Pan, Attribute::Tilt] {
+            if !frame.values.contains_key(&(chan, attr.clone())) {
+                for (offset, byte) in encode_attribute(&fixture.map, &attr, 0.0) {
+                    push(fixture, offset, byte);
+                }
+            }
+        }
+    }
+    // Several lamps of one fixture share its level, strobe and colour
+    // bytes. Where they disagree the highest wins, every frame the same
+    // way, rather than whichever the map happened to walk last.
+    bytes.sort_unstable();
     for ((universe, channel1), byte) in frame.parked_dmx {
         if let Some(channel0) = channel1.checked_sub(1) {
             bytes.push((*universe, channel0, *byte));
         }
     }
+    log_wire(patch, &bytes);
     dmx.set_channels(bytes);
+}
+
+/// `IGNITION_WIRE_LOG=<file>`: what goes to every lit fixture, one line a
+/// frame (`IGNITION_WIRE_LOG_EVERY=n` for every n-th): `chan:level/r,g,b,w`
+/// in bytes as they are on the wire, after every solve. For when a
+/// picture and a cue list disagree, and to check a show's timing by
+/// reading it rather than squinting at a render.
+fn log_wire(patch: &crate::venue::PatchTable, bytes: &[(u16, u16, u8)]) {
+    static FRAME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let Ok(path) = std::env::var("IGNITION_WIRE_LOG") else {
+        return;
+    };
+    let every = std::env::var("IGNITION_WIRE_LOG_EVERY")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(1)
+        .max(1);
+    let frame = FRAME.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    if frame % every != 0 {
+        return;
+    }
+    // Later entries win, as they do on the wire.
+    let wire: HashMap<(u16, u16), u8> = bytes.iter().map(|(u, c, b)| ((*u, *c), *b)).collect();
+    let mut rows: Vec<(u32, String)> = patch
+        .iter()
+        .filter_map(|(chan, fixture)| {
+            let at = |attr: &Attribute| -> Option<u8> {
+                let offset = fixture.map.offset_of(attr)?;
+                let channel0 = fixture.address.start_channel.saturating_sub(1).saturating_add(offset);
+                wire.get(&(fixture.address.universe, channel0)).copied()
+            };
+            let colour = |channel| at(&Attribute::ColorAdd { channel }).unwrap_or(0);
+            let (r, g, b, w) = (
+                colour(ignition_proto::ColorChannel::Red),
+                colour(ignition_proto::ColorChannel::Green),
+                colour(ignition_proto::ColorChannel::Blue),
+                colour(ignition_proto::ColorChannel::White),
+            );
+            let level = at(&Attribute::Dimmer);
+            let lit = level.unwrap_or(255) > 0 && (level.is_some_and(|l| l > 0) && (r | g | b | w) > 0 || level.is_none() && (r | g | b | w) > 0 || fixture.map.offset_of(&Attribute::Pan).is_some() && level.is_some_and(|l| l > 0));
+            lit.then(|| (chan, format!("{chan}:{}/{r},{g},{b},{w}", level.map_or_else(|| "-".to_owned(), |l| l.to_string()))))
+        })
+        .collect();
+    rows.sort_by_key(|(chan, _)| *chan);
+    let line = format!("{frame} {}\n", rows.into_iter().map(|(_, row)| row).collect::<Vec<_>>().join(" "));
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = std::io::Write::write_all(&mut file, line.as_bytes());
+    }
 }
 
 /// The offset of a map's colour wheel channel, whatever slot index the
@@ -410,6 +562,7 @@ mod tests {
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx: None,
+            environment: None,
         }
     }
 
@@ -453,6 +606,103 @@ mod tests {
         assert!((resolved.color[0] - 0.5).abs() < 0.02);
     }
 
+    /// A bar with red, green and blue and no dimmer channel still has a
+    /// level: the cue's Dimmer scales the colour bytes, and zero is dark.
+    #[test]
+    fn a_fixture_with_no_dimmer_channel_takes_its_level_in_its_colour() {
+        let venue = venue_with_one(25, 1, 97, "", "Solena Max Bar 28 RGB");
+        let red = Attribute::ColorAdd {
+            channel: ColorChannel::Red,
+        };
+        let fixture = venue.patch().by_chan(25).unwrap();
+        assert!(fixture.map.offset_of(&Attribute::Dimmer).is_none());
+        for (level, want) in [(1.0_f32, 1.0_f32), (0.5, 0.5), (0.0, 0.0)] {
+            let dmx = DmxUniverses::new();
+            let values = HashMap::from([((25, Attribute::Dimmer), level), ((25, red.clone()), 1.0)]);
+            apply_cue_output(&dmx, &venue, &values);
+            let out = dmx.resolve(&fixture.address, &fixture.map);
+            assert!((out.color[0] - want).abs() < 0.02, "level {level}: {}", out.color[0]);
+        }
+    }
+
+    /// Six lamps of one tower, each its own record on the tower's
+    /// address: a lamp has its own warm white and shares the level and
+    /// the colour, where the highest value any lamp asked for wins.
+    #[test]
+    fn the_lamps_of_one_fixture_share_its_level_and_keep_their_own_white() {
+        let lamp = |chan: u32, cell: u8| -> FixtureRecord {
+            serde_json::from_value(serde_json::json!({
+                "chan": chan, "name": "lamp", "tags": [],
+                "model": "CBU Tower Blinder Ring", "wired_as": "UKing ZQ01334 15ch",
+                "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "eulers": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "quat": {"w": 1.0, "x": 0.0, "y": 0.0, "z": 0.0},
+                "size": {"x": 0.2, "y": 0.2, "z": 0.2},
+                "universe": 1, "address": 1, "cell": cell,
+            }))
+            .expect("valid fixture record")
+        };
+        let mut venue = venue_of(lamp(1, 1));
+        venue.fixtures.push(lamp(2, 2));
+        let white = Attribute::ColorAdd {
+            channel: ColorChannel::White,
+        };
+        let patch = venue.patch();
+        let (one, two) = (patch.by_chan(1).unwrap(), patch.by_chan(2).unwrap());
+        assert_eq!(one.map.offset_of(&white), Some(2));
+        assert_eq!(two.map.offset_of(&white), Some(3));
+        assert_eq!(two.map.offset_of(&Attribute::Dimmer), Some(0));
+
+        let dmx = DmxUniverses::new();
+        let values = HashMap::from([
+            ((1, Attribute::Dimmer), 0.2),
+            ((2, Attribute::Dimmer), 0.8),
+            ((2, white.clone()), 1.0),
+        ]);
+        apply_cue_output(&dmx, &venue, &values);
+        let (a, b) = (dmx.resolve(&one.address, &one.map), dmx.resolve(&two.address, &two.map));
+        assert!((a.dimmer - 0.8).abs() < 0.01, "the higher level wins: {}", a.dimmer);
+        assert!((b.dimmer - 0.8).abs() < 0.01);
+    }
+
+    /// The tower at half in red with one lamp at full level: the level
+    /// byte goes to full for the lamp and the red is halved to match, so
+    /// each is as bright as its own record said.
+    #[test]
+    fn a_towers_colour_and_a_lamps_white_keep_their_own_levels() {
+        let record = |chan: u32, cell: u8| -> FixtureRecord {
+            serde_json::from_value(serde_json::json!({
+                "chan": chan, "name": "lamp", "tags": [],
+                "model": "CBU Tower Blinder Ring", "wired_as": "UKing ZQ01334 15ch",
+                "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "eulers": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "quat": {"w": 1.0, "x": 0.0, "y": 0.0, "z": 0.0},
+                "size": {"x": 0.2, "y": 0.2, "z": 0.2},
+                "universe": 1, "address": 1, "cell": cell,
+            }))
+            .expect("valid fixture record")
+        };
+        let mut venue = venue_of(record(41, 0));
+        venue.fixtures.push(record(3, 3));
+        let colour = |channel| Attribute::ColorAdd { channel };
+        let dmx = DmxUniverses::new();
+        let values = HashMap::from([
+            ((41, Attribute::Dimmer), 0.5),
+            ((41, colour(ColorChannel::Red)), 1.0),
+            // The lamp asks for full level; its white is left down here
+            // so the red read back below is the tower's alone (a white
+            // channel lightens every colour the renderer reads).
+            ((3, Attribute::Dimmer), 1.0),
+            ((3, colour(ColorChannel::White)), 0.0),
+            ((3, colour(ColorChannel::Red)), 0.0),
+        ]);
+        apply_cue_output(&dmx, &venue, &values);
+        let lamp = venue.patch().by_chan(3).unwrap();
+        let out = dmx.resolve(&lamp.address, &lamp.map);
+        assert!((out.dimmer - 1.0).abs() < 0.01, "level {}", out.dimmer);
+        assert!((out.color[0] - 0.5).abs() < 0.02, "red {}", out.color[0]);
+    }
+
     /// A cue targeting a channel with no patch entry, or one whose
     /// manufacturer/model has no known `ChannelMap`, must not panic — the
     /// same tolerance the read-side (`scene.rs`) already has.
@@ -469,6 +719,7 @@ mod tests {
             patch: std::sync::OnceLock::default(),
             overridden: Vec::new(),
             dmx: None,
+            environment: None,
         };
         let dmx = DmxUniverses::new();
         let mut output = HashMap::new();

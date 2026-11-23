@@ -41,3 +41,8 @@ legacy/apps/ignition-web/generated/
 # `asset!` needs them inside the crate; git does not need them twice.
 legacy/apps/ignition-web/assets/venue/
 legacy/apps/ignition-web/assets/viz/
+
+# A measured room's model (tools/build_lab138_room.py) is tracked, so every
+# machine and every render draws the same room. What is built beside it for
+# checking against the room's photographs shows people and stays out.
+features/lighting/data/venues/*/model/compare

@@ -30,7 +30,6 @@ use crate::num;
 use bevy::asset::RenderAssetUsages;
 use bevy::image::{Image, ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
 use bevy::light::FogVolume;
-use bevy::pbr::froxel::FroxelVolumetrics;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
@@ -325,7 +324,6 @@ fn follow_look(
     mut images: ResMut<Assets<Image>>,
     mut built: Local<Option<(bool, i32, u32)>>,
     mut fogs: Query<&mut FogVolume>,
-    mut froxels: Query<&mut FroxelVolumetrics>,
 ) {
     let shape = (
         look.uneven,
@@ -345,12 +343,6 @@ fn follow_look(
         }
         if !fogs.is_empty() {
             *built = Some(shape);
-        }
-    }
-
-    if look.is_changed() {
-        for mut froxel in &mut froxels {
-            froxel.dilution = look.dilution;
         }
     }
 }

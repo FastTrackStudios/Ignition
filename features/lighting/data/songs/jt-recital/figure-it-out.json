@@ -1,2403 +1,2473 @@
 {
- "version": 1,
- "profile": "Ignition",
- "song": {
-  "live_set": "Sr. Recital Showcase",
-  "locator": "Figure It Out",
+  "cues": [
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Count In"
+      },
+      "block": true,
+      "fade_secs": 2.222,
+      "name": "Count In",
+      "note": "FoH: GTR Start",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.25
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.12
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.25
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Beams"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 1,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Figure It Out"
+      },
+      "block": false,
+      "fade_secs": 1.111,
+      "name": "Figure It Out",
+      "note": "FoH: VOCAL in",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.55
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.45
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.35
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.0
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.475
+                },
+                {
+                  "Color": "Secondary"
+                },
+                {
+                  "FocusPoint": "Band"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "effect": "circle breathe",
+          "target": {
+            "Role": "Movers"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 3,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Verse 1"
+      },
+      "block": false,
+      "fade_secs": 1.111,
+      "name": "Verse 1",
+      "note": "FoH: DRUMS in",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.75
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.55
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.25
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.332
+                },
+                {
+                  "Color": "Primary"
+                },
+                {
+                  "FocusPoint": "Stage"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "verse bed"
+        }
+      ],
+      "resolved": {
+        "bar": 7,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Drums In"
+      },
+      "block": false,
+      "fade_secs": 0.278,
+      "name": "Drums In",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Secondary"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "effect": "ballyhoo",
+          "target": {
+            "Role": "Movers"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 15,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "PreChorus"
+      },
+      "block": false,
+      "fade_secs": 0.556,
+      "name": "PreChorus",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.85
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.77
+                },
+                {
+                  "Color": "Primary"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "pre chorus rise"
+        }
+      ],
+      "resolved": {
+        "bar": 23,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Chorus"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "Chorus",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.95
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "chorus drive"
+        }
+      ],
+      "resolved": {
+        "bar": 31,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 4,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Chorus"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "· Chorus lift",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.95
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "chorus drive"
+        },
+        {
+          "bundle": "drop and hold"
+        }
+      ],
+      "resolved": {
+        "bar": 35,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Instrumental"
+      },
+      "block": false,
+      "fade_secs": 0.278,
+      "name": "Instrumental",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Secondary"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "effect": "ballyhoo",
+          "target": {
+            "Role": "Movers"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 40,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Verse 2"
+      },
+      "block": false,
+      "fade_secs": 1.111,
+      "name": "Verse 2",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.75
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.55
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.25
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.332
+                },
+                {
+                  "Color": "Primary"
+                },
+                {
+                  "FocusPoint": "Stage"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "verse drift"
+        }
+      ],
+      "resolved": {
+        "bar": 44,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 1,
+        "section": "Chorus"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "Chorus (2)",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.95
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "chorus drive"
+        }
+      ],
+      "resolved": {
+        "bar": 52,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 4,
+        "beat": 1.0,
+        "ordinal": 1,
+        "section": "Chorus"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "· Chorus (2) lift",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.95
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "chorus drive"
+        },
+        {
+          "bundle": "drop and hold"
+        }
+      ],
+      "resolved": {
+        "bar": 56,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Turn Around"
+      },
+      "block": false,
+      "fade_secs": 0.278,
+      "name": "Turn Around",
+      "note": "FoH: GTR SOLO...",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.5
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.7
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Secondary"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "effect": "ballyhoo",
+          "target": {
+            "Role": "Movers"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 61,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Guitar Solo"
+      },
+      "block": false,
+      "fade_secs": 0.556,
+      "name": "Guitar Solo",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.6
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.4
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.3
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                },
+                {
+                  "FocusPoint": "Band"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "effect": "circle tight",
+          "target": {
+            "Role": "Movers"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 63,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Band IN"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "Band IN",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.95
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "chorus drive"
+        }
+      ],
+      "resolved": {
+        "bar": 73,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 5,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "Band IN"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "· Band IN lift",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.95
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.9
+                },
+                {
+                  "Color": "Secondary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "bundle": "chorus drive"
+        },
+        {
+          "bundle": "drop and hold"
+        }
+      ],
+      "resolved": {
+        "bar": 78,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 1.0,
+        "ordinal": 0,
+        "section": "END"
+      },
+      "block": false,
+      "fade_secs": 0.0,
+      "name": "END",
+      "note": "FoH: END...",
+      "recipes": [
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "Primary"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 0.8
+                },
+                {
+                  "Color": "White"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "steps": [
+            {
+              "apply": [
+                {
+                  "Dimmer": 1.0
+                },
+                {
+                  "Color": "White 2"
+                },
+                {
+                  "FocusPoint": "Audience"
+                }
+              ],
+              "ease": "Linear",
+              "transition": 0.0,
+              "width": 1.0
+            }
+          ],
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "effect": "blinder hit",
+          "target": {
+            "Role": "Wash"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 83,
+        "beat": 1.0
+      },
+      "values": []
+    },
+    {
+      "at": {
+        "bars": 0,
+        "beat": 3.0,
+        "ordinal": 0,
+        "section": "END"
+      },
+      "block": true,
+      "fade_secs": 0.0,
+      "name": "· blackout",
+      "recipes": [
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Key"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Wash"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Back"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Bars"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Floor"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Movers"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Beams"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Drums"
+          }
+        },
+        {
+          "apply": {
+            "Dimmer": 0.0
+          },
+          "target": {
+            "Role": "Audience"
+          }
+        }
+      ],
+      "resolved": {
+        "bar": 83,
+        "beat": 3.0
+      },
+      "values": []
+    }
+  ],
+  "library": {
+    "palette": "Figure It Out"
+  },
   "name": "Figure It Out",
-  "start_beats": 6042.0,
-  "end_beats": 6382.0
- },
- "name": "Figure It Out",
- "cues": [
-  {
-   "name": "Count In",
-   "fade_secs": 2.222,
-   "values": [],
-   "recipes": [
+  "profile": "Ignition",
+  "sections": [
     {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.25
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
+      "bar": 1,
+      "bars": 2.0,
+      "name": "Count In"
     },
     {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.12
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
+      "bar": 3,
+      "bars": 4.0,
+      "name": "Figure It Out"
     },
     {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.25
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
+      "bar": 7,
+      "bars": 8.0,
+      "name": "Verse 1"
     },
     {
-     "target": {
-      "Role": "Bars"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
+      "bar": 15,
+      "bars": 8.0,
+      "name": "Drums In"
     },
     {
-     "target": {
-      "Role": "Floor"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
+      "bar": 23,
+      "bars": 8.0,
+      "name": "PreChorus"
     },
     {
-     "target": {
-      "Role": "Movers"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
+      "bar": 31,
+      "bars": 9.0,
+      "name": "Chorus"
     },
     {
-     "target": {
-      "Role": "Beams"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
+      "bar": 40,
+      "bars": 4.0,
+      "name": "Instrumental"
+    },
+    {
+      "bar": 44,
+      "bars": 8.0,
+      "name": "Verse 2"
+    },
+    {
+      "bar": 52,
+      "bars": 9.0,
+      "name": "Chorus"
+    },
+    {
+      "bar": 61,
+      "bars": 2.0,
+      "name": "Turn Around"
+    },
+    {
+      "bar": 63,
+      "bars": 10.0,
+      "name": "Guitar Solo"
+    },
+    {
+      "bar": 73,
+      "bars": 10.0,
+      "name": "Band IN"
+    },
+    {
+      "bar": 83,
+      "bars": 2.5,
+      "name": "END"
     }
-   ],
-   "block": true,
-   "at": {
-    "section": "Count In",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 1,
-    "beat": 1.0
-   },
-   "note": "FoH: GTR Start"
+  ],
+  "song": {
+    "end_beats": 6382.0,
+    "live_set": "Sr. Recital Showcase",
+    "locator": "Figure It Out",
+    "name": "Figure It Out",
+    "start_beats": 6042.0
   },
-  {
-   "name": "Figure It Out",
-   "fade_secs": 1.111,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.55
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.45
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.7
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.35
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.0
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.475
-        },
-        {
-         "Color": "Red"
-        },
-        {
-         "FocusPoint": "Band"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "effect": "circle breathe",
-     "target": {
-      "Role": "Movers"
-     }
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Figure It Out",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 3,
-    "beat": 1.0
-   },
-   "note": "FoH: VOCAL in"
-  },
-  {
-   "name": "Verse 1",
-   "fade_secs": 1.111,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.75
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.4
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.55
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.25
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.5
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.332
-        },
-        {
-         "Color": "Deep Red"
-        },
-        {
-         "FocusPoint": "Stage"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "verse bed"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Verse 1",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 7,
-    "beat": 1.0
-   },
-   "note": "FoH: DRUMS in"
-  },
-  {
-   "name": "Drums In",
-   "fade_secs": 0.278,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.5
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.7
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.7
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.3
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Red"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "effect": "ballyhoo",
-     "target": {
-      "Role": "Movers"
-     }
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Drums In",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 15,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "PreChorus",
-   "fade_secs": 0.556,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.85
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.6
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.7
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.5
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.6
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.77
-        },
-        {
-         "Color": "Deep Red"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "pre chorus rise"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "PreChorus",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 23,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "Chorus",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.95
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "chorus drive"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Chorus",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 31,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "\u00b7 Chorus lift",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.95
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "chorus drive"
-    },
-    {
-     "bundle": "drop and hold"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Chorus",
-    "ordinal": 0,
-    "bars": 4,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 35,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "Instrumental",
-   "fade_secs": 0.278,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.5
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.7
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.7
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.3
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Red"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "effect": "ballyhoo",
-     "target": {
-      "Role": "Movers"
-     }
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Instrumental",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 40,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "Verse 2",
-   "fade_secs": 1.111,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.75
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.4
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.55
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.25
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.5
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.332
-        },
-        {
-         "Color": "Deep Red"
-        },
-        {
-         "FocusPoint": "Stage"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "verse drift"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Verse 2",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 44,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "Chorus (2)",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.95
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "chorus drive"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Chorus",
-    "ordinal": 1,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 52,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "\u00b7 Chorus (2) lift",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.95
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "chorus drive"
-    },
-    {
-     "bundle": "drop and hold"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Chorus",
-    "ordinal": 1,
-    "bars": 4,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 56,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "Turn Around",
-   "fade_secs": 0.278,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.5
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.7
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.7
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.3
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Red"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "effect": "ballyhoo",
-     "target": {
-      "Role": "Movers"
-     }
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Turn Around",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 61,
-    "beat": 1.0
-   },
-   "note": "FoH: GTR SOLO..."
-  },
-  {
-   "name": "Guitar Solo",
-   "fade_secs": 0.556,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.6
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.3
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.4
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.3
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        },
-        {
-         "FocusPoint": "Band"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "effect": "circle tight",
-     "target": {
-      "Role": "Movers"
-     }
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Guitar Solo",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 63,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "Band IN",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.95
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "chorus drive"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Band IN",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 73,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "\u00b7 Band IN lift",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.95
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.9
-        },
-        {
-         "Color": "Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "bundle": "chorus drive"
-    },
-    {
-     "bundle": "drop and hold"
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "Band IN",
-    "ordinal": 0,
-    "bars": 5,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 78,
-    "beat": 1.0
-   }
-  },
-  {
-   "name": "END",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Deep Red"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 0.8
-        },
-        {
-         "Color": "Cool White"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "steps": [
-      {
-       "apply": [
-        {
-         "Dimmer": 1.0
-        },
-        {
-         "Color": "Open White"
-        },
-        {
-         "FocusPoint": "Audience"
-        }
-       ],
-       "width": 1.0,
-       "transition": 0.0,
-       "ease": "Linear"
-      }
-     ]
-    },
-    {
-     "effect": "blinder hit",
-     "target": {
-      "Role": "Wash"
-     }
-    }
-   ],
-   "block": false,
-   "at": {
-    "section": "END",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 1.0
-   },
-   "resolved": {
-    "bar": 83,
-    "beat": 1.0
-   },
-   "note": "FoH: END..."
-  },
-  {
-   "name": "\u00b7 blackout",
-   "fade_secs": 0.0,
-   "values": [],
-   "recipes": [
-    {
-     "target": {
-      "Role": "Key"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Wash"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Back"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Bars"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Floor"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Movers"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Beams"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Drums"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    },
-    {
-     "target": {
-      "Role": "Audience"
-     },
-     "apply": {
-      "Dimmer": 0.0
-     }
-    }
-   ],
-   "block": true,
-   "at": {
-    "section": "END",
-    "ordinal": 0,
-    "bars": 0,
-    "beat": 3.0
-   },
-   "resolved": {
-    "bar": 83,
-    "beat": 3.0
-   }
-  }
- ]
+  "version": 1
 }

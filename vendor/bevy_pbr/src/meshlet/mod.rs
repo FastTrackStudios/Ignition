@@ -14,18 +14,18 @@ mod resource_manager;
 mod visibility_buffer_raster_node;
 
 pub(crate) use self::{
-    instance_manager::{InstanceManager, queue_material_meshlet_meshes},
+    instance_manager::{queue_material_meshlet_meshes, InstanceManager},
     material_pipeline_prepare::{
         prepare_material_meshlet_meshes_main_opaque_pass, prepare_material_meshlet_meshes_prepass,
     },
 };
 
 pub use self::asset::{
-    MESHLET_MESH_ASSET_VERSION, MeshletMesh, MeshletMeshLoader, MeshletMeshSaver,
+    MeshletMesh, MeshletMeshLoader, MeshletMeshSaver, MESHLET_MESH_ASSET_VERSION,
 };
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::{
-    MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR, MeshToMeshletMeshConversionError,
+    MeshToMeshletMeshConversionError, MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR,
 };
 use self::{
     instance_manager::extract_meshlet_mesh_entities,
@@ -39,14 +39,14 @@ use self::{
     meshlet_mesh_manager::perform_pending_meshlet_mesh_writes,
     pipelines::*,
     resource_manager::{
-        ResourceManager, prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
+        prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups, ResourceManager,
     },
     visibility_buffer_raster_node::meshlet_visibility_buffer_raster,
 };
-use crate::render::{EARLY_SHADOW_PASS, per_view_shadow_pass};
-use crate::{PreviousGlobalTransform, meshlet::meshlet_mesh_manager::init_meshlet_mesh_manager};
+use crate::render::{per_view_shadow_pass, EARLY_SHADOW_PASS};
+use crate::{meshlet::meshlet_mesh_manager::init_meshlet_mesh_manager, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetApp, AssetId, Handle, embedded_asset};
+use bevy_asset::{embedded_asset, AssetApp, AssetId, Handle};
 use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_core_pipeline::{
     core_3d::main_opaque_pass_3d,
@@ -63,12 +63,12 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
     template::FromTemplate,
 };
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{Msaa, prepare_view_targets},
+    view::{prepare_view_targets, Msaa},
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::components::Transform;
@@ -137,19 +137,19 @@ impl Plugin for MeshletPlugin {
             std::process::exit(1);
         }
 
-        load_shader_library!(app, "meshlet_bindings.wgsl");
-        load_shader_library!(app, "visibility_buffer_resolve.wgsl");
-        load_shader_library!(app, "meshlet_cull_shared.wgsl");
-        embedded_asset!(app, "clear_visibility_buffer.wgsl");
-        embedded_asset!(app, "cull_instances.wgsl");
-        embedded_asset!(app, "cull_bvh.wgsl");
-        embedded_asset!(app, "cull_clusters.wgsl");
-        embedded_asset!(app, "visibility_buffer_software_raster.wgsl");
-        embedded_asset!(app, "visibility_buffer_hardware_raster.wgsl");
-        embedded_asset!(app, "meshlet_mesh_material.wgsl");
-        embedded_asset!(app, "resolve_render_targets.wgsl");
-        embedded_asset!(app, "remap_1d_to_2d_dispatch.wgsl");
-        embedded_asset!(app, "fill_counts.wgsl");
+        load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "visibility_buffer_resolve.wesl");
+        load_shader_library!(app, "cull_shared.wesl");
+        embedded_asset!(app, "clear_visibility_buffer.wesl");
+        embedded_asset!(app, "cull_instances.wesl");
+        embedded_asset!(app, "cull_bvh.wesl");
+        embedded_asset!(app, "cull_clusters.wesl");
+        embedded_asset!(app, "visibility_buffer_software_raster.wesl");
+        embedded_asset!(app, "visibility_buffer_hardware_raster.wesl");
+        embedded_asset!(app, "meshlet_mesh_material.wesl");
+        embedded_asset!(app, "resolve_render_targets.wesl");
+        embedded_asset!(app, "remap_1d_to_2d_dispatch.wesl");
+        embedded_asset!(app, "fill_counts.wesl");
 
         app.init_asset::<MeshletMesh>()
             .register_asset_loader(MeshletMeshLoader);
@@ -258,9 +258,7 @@ fn configure_meshlet_views(
 ) {
     for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
         if *msaa != Msaa::Off {
-            error!(
-                "MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin."
-            );
+            error!("MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin.");
             std::process::exit(1);
         }
 

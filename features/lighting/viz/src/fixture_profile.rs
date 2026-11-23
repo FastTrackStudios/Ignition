@@ -726,6 +726,39 @@ mod beam_angle_tests {
 /// far better than the single global number this replaced.
 pub const LUMENS_PER_WATT: f32 = 38.0;
 
+/// How much of its nominal output this room's rig delivers, as bits of an
+/// `f32`: 1.0 unless the room says otherwise.
+static OUTPUT_SCALE: std::sync::atomic::AtomicU32 =
+    std::sync::atomic::AtomicU32::new(1.0_f32.to_bits());
+
+/// Sets the rig's output against nominal (`look.output` in a venue's
+/// manifest; `IGNITION_ENV_LOOK`).
+///
+/// Nominal is a fixture's label wattage at [`LUMENS_PER_WATT`], and for
+/// budget LED fixtures that is an upper bound: the label counts LEDs at
+/// their rating, not what the driver feeds them, and nothing in the
+/// fixture documents is a measured flux. Until a room's fixtures are
+/// metered this is the one honest dial for it. To set it from a reading:
+/// one par at full white, a lux meter on its axis at 1 m; nominal is its
+/// peak candela (`peak_candela`), the scale is the reading over that.
+pub fn set_output_scale(scale: f32) {
+    let scale = if scale.is_finite() { scale.clamp(0.0, 4.0) } else { 1.0 };
+    OUTPUT_SCALE.store(scale.to_bits(), std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The scale [`set_output_scale`] set.
+#[must_use]
+pub fn output_scale() -> f32 {
+    f32::from_bits(OUTPUT_SCALE.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+/// A fixture's luminous flux as drawn: its wattage at [`LUMENS_PER_WATT`],
+/// times what this room's rig delivers of nominal.
+#[must_use]
+pub fn rig_lumens(manufacturer: &str, model: &str) -> f32 {
+    power_watts(manufacturer, model) * LUMENS_PER_WATT * output_scale()
+}
+
 /// The fixture's real electrical power draw in watts, from the
 /// manufacturer's own spec. Same sourcing rule as `shape_for`'s
 /// dimensions: a real published figure or nothing.
@@ -773,6 +806,29 @@ pub fn power_watts(manufacturer: &str, model: &str) -> f32 {
     // across the stage.
     if m == "rockville" && mo.contains("rockstrip") {
         return 50.0;
+    }
+    // Room 138's rig, by model (its venue file names no manufacturer).
+    // Without these every one of them fell to the 40 W default below,
+    // which drew the 24 tower rings at more than twice their output and
+    // the beam heads at a quarter of theirs. Wattages are the fixture
+    // documents' (`data/fixtures/*.json`, `physical.power_w`); the
+    // tower ring's 18 W is that document's own guess.
+    if mo.contains("tower blinder ring") {
+        return 18.0;
+    }
+    // One section of a bar patched section by section (eight to a
+    // 28 W Solena): its share of the bar.
+    if mo.contains("strip section") {
+        return 28.0 / 8.0;
+    }
+    if mo.contains("solena max bar 28") {
+        return 28.0;
+    }
+    if mo.contains("36 led par") {
+        return 36.0;
+    }
+    if mo.contains("150w moving head beam") {
+        return 150.0;
     }
     // A hazer is not a light source. It emits haze, which is a property
     // of the room the fog volume already models — giving it an output

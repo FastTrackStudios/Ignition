@@ -20,6 +20,10 @@
 //! Preferences → Link, Tempo & MIDI → the port's Sync output on) — every
 //! locate, every song `AbleSet` jumps to, lands on the right cue.
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod frame_stats;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod frames;
 mod night;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod process_view;
@@ -75,6 +79,15 @@ struct Args {
     at: Option<f64>,
     midi_ports: bool,
     start: Option<usize>,
+    /// `--bar`: the bar of the `--start` song the operator's clock is
+    /// parked at.
+    bar: Option<u32>,
+    /// `--go`: the operator's clock starts running.
+    go: bool,
+    /// `--bench <frames>`: the show drawn with no pane, timed.
+    bench: Option<u32>,
+    /// `--size <w>x<h>`: the bench's frame.
+    size: (u32, u32),
     camera: Option<String>,
     /// Follow the clock in the terminal, no window: what the show would do.
     watch: bool,
@@ -94,6 +107,10 @@ fn parse_args() -> Result<Args> {
         at: None,
         midi_ports: false,
         start: None,
+        bar: None,
+        go: false,
+        bench: None,
+        size: (2560, 1440),
         camera: None,
         watch: false,
         process_view: std::env::var_os("ARCHITECT_VIEW_FD").is_some(),
@@ -142,6 +159,16 @@ fn parse_args() -> Result<Args> {
             "--check" => args.check = true,
             "--at" => args.at = Some(next("a beat of the set")?.parse()?),
             "--start" => args.start = Some(next("a song number")?.parse()?),
+            "--bar" => args.bar = Some(next("a bar number")?.parse()?),
+            "--go" => args.go = true,
+            "--bench" => args.bench = Some(next("a frame count")?.parse()?),
+            "--size" => {
+                let size = next("<width>x<height>")?;
+                let (w, h) = size
+                    .split_once('x')
+                    .with_context(|| format!("--size {size}: <width>x<height>"))?;
+                args.size = (w.parse()?, h.parse()?);
+            }
             "--camera" => args.camera = Some(next("a camera preset")?),
             "--midi-ports" => args.midi_ports = true,
             "--watch" => args.watch = true,
@@ -211,7 +238,23 @@ fn main() -> Result<()> {
     config.output = args.output;
     config.cameras = cameras;
     config.camera_preset = args.camera.clone();
-    config.haze = 0.8;
+    // The room says how much haze hangs in it and how the camera is set
+    // (`look` in its manifest); a room that does not is normally hazed.
+    // The room is read again when the actions edit it (the patch, the
+    // routes, a fixture moved, a person moved): `venue_watch`.
+    let _ = crate::night::VENUE_DIR.set(venue_dir.clone());
+    ignition_viz::venue_watch::watch(&venue_dir);
+    let (haze, exposure, output) = crate::night::venue_look(&venue_dir);
+    if let Some(output) = output {
+        ignition_viz::fixture_profile::set_output_scale(output);
+    }
+    config.haze = haze.unwrap_or(0.8);
+    if let Some(ambient) = crate::night::venue_ambient(&venue_dir) {
+        config.ambient = ambient;
+    }
+    if let Some(stops) = exposure {
+        config.exposure = stops;
+    }
     config.assets_dir = root.join("viz/assets").to_string_lossy().into_owned();
     let gdtf = ignition_viz::gdtf_geometry::GdtfLibrary::load_default();
 
@@ -219,7 +262,26 @@ fn main() -> Result<()> {
         night,
         clock: Mutex::new(clock),
         current: Mutex::new(None),
+        live: Mutex::default(),
     });
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    if let Some(frames) = args.bench {
+        let benched = process_view::bench(
+            process_view::Show {
+                config,
+                playback,
+                gdtf,
+                follow: follower,
+            },
+            args.size,
+            frames,
+            60,
+        );
+        if let Some(stopper) = stopper {
+            stopper.stop();
+        }
+        return benched;
+    }
     if args.process_view {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         let served = process_view::serve(process_view::Show {
@@ -253,6 +315,12 @@ fn make_clock(
             let clock = Arc::new(OperatorClock::new(Arc::clone(night)));
             if let Some(n) = args.start {
                 clock.cue_song(n.saturating_sub(1));
+            }
+            if let Some(bar) = args.bar {
+                clock.cue_bar(bar);
+            }
+            if args.go {
+                clock.toggle();
             }
             spawn_console(Arc::clone(&clock));
             (Box::new(SharedClock(clock)), None)
@@ -534,6 +602,19 @@ struct Follower {
     night: Arc<Night>,
     clock: Mutex<Box<dyn BeatSource>>,
     current: Mutex<Option<usize>>,
+    /// The show as it is on disk now, when it was edited under us.
+    live: Mutex<Live>,
+}
+
+/// What the follower keeps of a show that is being programmed while it
+/// plays: the pools before any library, the current song's files' times
+/// and its cue list as last read.
+#[derive(Default)]
+struct Live {
+    base: Option<night::Base>,
+    stamp: night::Stamp,
+    checked: Option<Instant>,
+    list: Option<ignition_core::CueList>,
 }
 
 impl Follow for Follower {
@@ -557,7 +638,33 @@ impl Follow for Follower {
             .current
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let entering = *current != Some(index);
+        let mut entering = *current != Some(index);
+        // A show edited while it plays (the programming actions write
+        // the song's file and the set's library): looked for twice a
+        // second, taken as if the song were entered again.
+        let mut live = self
+            .live
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if entering {
+            live.stamp = self.night.stamp(song);
+            live.list = None;
+            live.checked = Some(now);
+        } else if live
+            .checked
+            .is_none_or(|at| now.duration_since(at) > std::time::Duration::from_millis(500))
+        {
+            live.checked = Some(now);
+            let stamp = self.night.stamp(song);
+            if stamp != live.stamp {
+                live.stamp = stamp;
+                if let Some(list) = song.reload() {
+                    tracing::info!(song = %song.title, cues = list.cues.len(), "show: edited, read again");
+                    live.list = Some(list);
+                }
+                entering = true;
+            }
+        }
         let position = song.live.position(beat);
         let bpm = self.night.set.bpm_at(beat);
         let secs =
@@ -585,6 +692,32 @@ impl Follow for Follower {
             ..
         } = playback;
         speeds.insert("Song".to_string(), bpm);
+        if entering {
+            // The pools as the room and the profile give them, then this
+            // song's library over them (its palette's slots as colours).
+            let base = live.base.get_or_insert_with(|| night::Base {
+                palettes: palettes.clone(),
+                library: library.clone(),
+                looks: looks.clone(),
+                tricks: named_tricks.clone(),
+            });
+            // The room's focus points are the room's as it is now (a
+            // person moved while the show ran), not as it was at start.
+            base.palettes.focus.clone_from(&palettes.focus);
+            palettes.clone_from(&base.palettes);
+            library.clone_from(&base.library);
+            looks.clone_from(&base.looks);
+            named_tricks.clone_from(&base.tricks);
+            self.night
+                .library_for(song)
+                .lay_over(&mut ignition_core::library::Pools {
+                    palettes,
+                    effects: library,
+                    looks,
+                    tricks: named_tricks,
+                });
+        }
+        let list = live.list.as_ref().unwrap_or(&song.list);
         let show = Show {
             groups: &*groups,
             palettes: &*palettes,
@@ -601,19 +734,51 @@ impl Follow for Follower {
         };
         if entering {
             tracing::info!(song = %song.title, set = %song.set, bar = position.bar, "show: song");
-            *triggers = TriggerBus::new(song.list.triggers.clone());
+            *triggers = TriggerBus::new(list.triggers.clone());
             match playbacks.of_class(Class::Song) {
-                Some(player) => player.replace_list(&song.list, &show),
+                Some(player) => player.replace_list(list, &show),
                 None => {
-                    playbacks.push(Class::Song, CuePlayer::new(song.list.cues.clone()));
+                    playbacks.push(Class::Song, CuePlayer::new(list.cues.clone()));
                 }
             }
             *current = Some(index);
         }
         triggers.advance(position, secs);
+        let ringing = triggers.output(&show, secs).len();
         if let Some(player) = playbacks.of_class(Class::Song) {
             player.set_clock(secs);
             player.seek(position, &show);
+            // IGNITION_LIVE_LOG=<file>: what the room is showing, twice a
+            // second, for when the picture and the cue list disagree.
+            if let Ok(path) = std::env::var("IGNITION_LIVE_LOG") {
+                static TICK: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+                if TICK.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 30 == 0 {
+                    let out = player.output(&show);
+                    let mut lit: Vec<String> = out
+                        .iter()
+                        .filter(|((_, attr), v)| {
+                            matches!(attr, ignition_core::Attribute::Dimmer | ignition_core::Attribute::Strobe)
+                                && **v > 0.001
+                        })
+                        .map(|((chan, attr), v)| format!("{chan}:{attr:?}={v:.2}"))
+                        .collect();
+                    lit.sort();
+                    let line = format!(
+                        "song={:?} entering={entering} bar={} beat={:.2} secs={secs:.2} cue={:?} cues={} ringing={ringing} lit=[{}]\n",
+                        song.title,
+                        position.bar,
+                        position.beat,
+                        player.current_name(),
+                        list.cues.len(),
+                        lit.join(" ")
+                    );
+                    if let Ok(mut file) =
+                        std::fs::OpenOptions::new().create(true).append(true).open(path)
+                    {
+                        let _ = std::io::Write::write_all(&mut file, line.as_bytes());
+                    }
+                }
+            }
         }
     }
 }

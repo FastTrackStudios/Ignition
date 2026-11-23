@@ -23,6 +23,8 @@ members = [
     "features/lighting/daw",
     "features/lighting/fixture",
     "features/lighting/profile",
+    # Beams in the air, drawn analytically (features/lighting/beams/README.md).
+    "features/lighting/beams",
     "features/lighting/viz",
     # Cue lists in a session (the session primitive).
     "features/lighting/session",
@@ -45,8 +47,8 @@ exclude = ["legacy", "vendor"]
 version = "0.2.0"
 license = "GPL-3.0-or-later"
 edition = "2024"
-# Bevy 0.19's own MSRV. The compiler is rust-toolchain.toml's.
-rust-version = "1.95"
+# The Bevy pin's own MSRV. The compiler is rust-toolchain.toml's.
+rust-version = "1.97.1"
 authors = ["FastTrack Studio"]
 repository = "https://github.com/FastTrackStudios/Ignition"
 
@@ -62,7 +64,7 @@ ignition-session = { path = "features/lighting/session" }
 # and items (features/lighting/session). By rev until it is tagged: a
 # commit of its `main`, the one Studio and Keyflow pin (on Architect v0.15.0), so a build with all
 # three has one `session`.
-session = { git = "https://github.com/FastTrackStudios/session", rev = "568e9a30a2d858b68a617a94f40f2390f7ea022e", default-features = false }
+session = { git = "https://github.com/FastTrackStudios/session", rev = "e8a705ed1c9ae8b16934018e3b4b897769635961", default-features = false }
 ignition-effects = { path = "features/lighting/effects" }
 ignition-playback = { path = "features/lighting/playback" }
 ignition-core = { path = "features/lighting/core" }
@@ -71,6 +73,7 @@ ignition-daw = { path = "features/lighting/daw" }
 ignition-fixture = { path = "features/lighting/fixture" }
 ignition-profile = { path = "features/lighting/profile" }
 ignition-viz = { path = "features/lighting/viz" }
+ignition-beams = { path = "features/lighting/beams" }
 ignition-pane = { path = "features/lighting/pane" }
 
 # ── Crates that came from Studio ──────────────────────────────────────
@@ -113,22 +116,25 @@ fts-sample = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731d
 
 # Not Studio's, but Studio's pin: the LRC lyrics parser
 # (`keyflow_proto::lrc`), for ignition-daw's `lyrics`.
-keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", rev = "37f33703fbed2e7da66593390bc19e62e5ebc9aa" }
+keyflow-proto = { git = "https://github.com/FastTrackStudios/keyflow", rev = "e170cfbdcc67221124380eb9fc57d9957fb70e3d" }
 
 # ── Architect — the same source Studio's root pins at that commit ─────
 # One tag shared by every entry so the framework moves together.
 # The extension API: ignition-pane links into an Architect build
 # (`linked`) and runs as a process extension (`guest`).
-architect-extensions = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.15.0" }
+architect-extensions = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-extensions-dioxus = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
 # View input and theme tokens (`ViewInput`, `Button`, `ThemeTokens`) the
 # process view receives.
-architect-workspace = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.15.0" }
+architect-workspace = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
 # Process views (architect#641): a pane drawn by another program over a
-# socket pair, its frames in shared memory or a dma-buf — the visualizer's
-# pane (apps/ignition --process-view), by the tag the rest of architect is.
-architect-process-view = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.15.0" }
+# socket pair, its frames in a dma-buf (Linux), an IOSurface (macOS) or
+# shared memory — the visualizer's pane (apps/ignition --process-view),
+# by the tag the rest of architect is. apps/ignition takes its `guest`
+# feature for `gpu::export_texture`, on the workspace's one wgpu.
+architect-process-view = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
 
-architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", tag = "v0.15.0", features = ["otel"] }
+architect-telemetry = { git = "https://github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede", features = ["otel"] }
 ignition-live-ui = { path = "crates/ignition-live-ui" }
 ignition-mobile = { path = "apps/ignition-mobile" }
 
@@ -156,18 +162,34 @@ futures-timer = "3"
 midir = "0.11"
 cpal = "0.18"
 
-# Bevy and wgpu are not here: ignition-viz and apps/ignition name them
-# themselves (`bevy = "0.19.1"`, `wgpu = "29"`), because Bevy 0.19 is on
-# wgpu 29 while Architect's Blitz is on wgpu 30. That is why the pane is
-# a process view (another program, its own GPU device).
+# ── The renderer: Bevy and its wgpu ───────────────────────────────────
+# Bevy by revision: upstream `main` at 948cc8270 (2026-11-12, "Wireframe
+# cull mode", #26482). Why that commit, and what a FastTrackStudios fork
+# would carry, is in docs/lighting/research/bevy-pin.md; in short it is
+# the newest `main` commit that (a) is past Solari's spot lights (#25913),
+# (b) is on Architect's wgpu major, (c) builds on the fleet's Rust 1.99.1
+# (`main` needs 1.100 from 41a1282e3, the next day) and (d) passed every
+# check upstream runs on a `main` push, the screenshot comparisons
+# included. Move it on purpose, never to "latest": `main`'s pictures
+# change week to week.
+#
+# There is no FastTrackStudios/bevy yet, so the two commits the room
+# needs are carried as a vendored `bevy_pbr` (vendor/bevy_pbr, patched in
+# below) rather than a fork's branch. With the fork, this becomes
+# `git = "https://github.com/FastTrackStudios/bevy", tag = "fts-948cc8270-1"`
+# and the vendored crate and its patch entry go.
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "948cc8270204b46fd37353eb786144a677d0c0ce", default-features = false }
+# One wgpu for the renderer and the app: Architect's major (30, with
+# FTS's `wgpu-hal` below), which the Bevy pin is on too, so the room's
+# frames are exported on the device Bevy draws with and never pass
+# through the CPU. `tests/one_wgpu.rs` (apps/ignition) fails when the
+# two are locked apart, or when Cargo.lock holds a second major for
+# anything but Architect's own `pixels` (which is off the frame path).
+wgpu = "30"
 
 [patch.crates-io]
-# The visualizer's two one-hunk forks (features/lighting/viz):
-# gdtf 0.3.0 (vendor/gdtf/FTS-PATCH.md) and bevy_pbr 0.19.1, so a light
-# can scatter in volumetric fog without casting a shadow
-# (vendor/bevy_pbr/FTS-PATCH.md, docs/lighting/domain/beams-in-the-air.md).
+# The visualizer's fork of gdtf 0.3.0 (vendor/gdtf/FTS-PATCH.md).
 gdtf = { path = "vendor/gdtf" }
-bevy_pbr = { path = "vendor/bevy_pbr" }
 
 # ── Studio's patches ──────────────────────────────────────────────────
 # A git dependency's [patch] does not reach its consumers, so the entries
@@ -205,6 +227,14 @@ styx-format = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.1.
 phon = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.4.1" }
 facet-core = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.4.1" }
 phon-jit = { git = "https://github.com/FastTrackStudios/vendor", tag = "v0.2.3" }
+
+# The Bevy pin's `bevy_pbr` with two commits on it, so a light can
+# scatter in volumetric fog without casting a shadow, and the fog has no
+# singularity at a lamp (vendor/bevy_pbr/FTS-PATCH.md,
+# docs/lighting/domain/beams-in-the-air.md). What a FastTrackStudios/bevy
+# fork would carry instead; both go when the fog does.
+[patch."https://github.com/bevyengine/bevy"]
+bevy_pbr = { path = "vendor/bevy_pbr" }
 
 # The FTS forks of dioxus-native, dioxus-native-dom and dioxus-vdom
 # (vendor v0.7.1 = architect's v0.7.0 + DioxusLabs/dioxus#5668's fix).
@@ -244,16 +274,15 @@ fts-sample = { git = "https://www.github.com/FastTrackStudios/daw", rev = "86263
 # host, which cargo counts as another source, is how a git dependency's
 # own pin is overridden. Move it with that pin.
 [patch."https://github.com/FastTrackStudios/architect"]
-architect = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-action-derive = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-derive = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-devices = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-orgs = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-permissions = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-rpc-derive = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-architect-workspace-hack = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-crdt = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
-crdt-derive = { git = "https://www.github.com/FastTrackStudios/architect", tag = "v0.15.0" }
+architect = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-action-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-devices = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-orgs = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-permissions = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+architect-rpc-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+crdt = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
+crdt-derive = { git = "https://www.github.com/FastTrackStudios/architect", rev = "eaa969f150b4c558b4722c09e7cf619d9fa4bede" }
 
 # One editor source: architect v0.12.6's workspace-hack names the editor
 # on the `www.` host while its other crates name the plain one.

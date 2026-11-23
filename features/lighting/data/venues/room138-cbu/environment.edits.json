@@ -1,0 +1,84 @@
+{
+  "light_groups": {
+    "house": false
+  },
+  "objects": {
+    "Amp 1": {
+      "position": {
+        "x": -4.6,
+        "y": 0.85,
+        "z": 0
+      }
+    },
+    "Amp 2": {
+      "position": {
+        "x": -2.6,
+        "y": 0.85,
+        "z": 0
+      }
+    },
+    "Amp 3": {
+      "position": {
+        "x": 1.25,
+        "y": 0.85,
+        "z": 0
+      }
+    },
+    "Amp 4": {
+      "position": {
+        "x": 2.2,
+        "y": 0.85,
+        "z": 0
+      }
+    },
+    "Bongos": {
+      "visible": false
+    },
+    "Chair 1.1": {
+      "visible": false
+    },
+    "Chair 1.2": {
+      "visible": false
+    },
+    "Chair 2.1": {
+      "visible": false
+    },
+    "Chair 2.2": {
+      "visible": false
+    },
+    "Chair 3.1": {
+      "visible": false
+    },
+    "Chair 3.2": {
+      "visible": false
+    },
+    "Chair 4.1": {
+      "visible": false
+    },
+    "Chair 4.2": {
+      "visible": false
+    },
+    "Keyboard - Red": {
+      "visible": false
+    },
+    "Panel - Curtain Blue": {
+      "position": {
+        "x": -2.83,
+        "y": 1.159,
+        "z": 0
+      }
+    },
+    "Table 1": {
+      "visible": false
+    },
+    "Table 2": {
+      "visible": false
+    },
+    "Table 3": {
+      "visible": false
+    },
+    "Table 4": {
+      "visible": false
+    }
+  }
+}

@@ -31,16 +31,18 @@ solari = ["bevy/bevy_solari"]
 # every row in an `IGNITION_PROFILE=all` table reads "<Enable the debug
 # feature to see the name>", which is a table of one row.
 trace = ["bevy/trace", "bevy/debug"]
+# The visualizer's own models (the people, the props, the screens' content)
+# as one folder of a dx web bundle (`WEB_ASSETS`): what a page hands
+# `run_web` as its `assets_dir`. Off the web it does nothing.
+web-assets = ["dep:manganis"]
 
 [dependencies]
 utils.workspace = true
 anyhow.workspace = true
-# The visualizer's engine: the render / PBR / post-process / picking set,
-# with the camera controllers for the operator's fly-around. Bevy 0.19 is
-# on wgpu 29 — hence the wgpu pin below, not the workspace's 30 that
-# Blitz is on: the visualizer opens its own window and shares no device
-# with a Blitz one in this tree.
-bevy = { version = "0.19.1", default-features = false, features = [
+# The visualizer's engine: the render / PBR / post-process / picking set.
+# The workspace's Bevy revision and its wgpu, which is Architect's (the
+# root manifest says why).
+bevy = { workspace = true, features = [
     "3d",
     "webp",
     "jpeg",
@@ -49,14 +51,12 @@ bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_text",
     "default_font",
     "pbr_clustered_decals",
-    "bevy_camera_controller",
-    "free_camera",
-    "pan_camera",
+    "bevy_curve",
     "multi_threaded",
     "x11",
     "wayland",
 ] }
-wgpu = "29"
+wgpu.workspace = true
 tracing.workspace = true
 # The bench runs with no host and no Bevy `LogPlugin` (the embedded path
 # disables it, since a host owns the subscriber), so it installs one itself.
@@ -71,6 +71,8 @@ gltf = { version = "1.4.1", default-features = false, features = ["utils"] }
 # version and features as the vendored `gdtf` crate, so it is one copy.
 zip = { version = "8.6", features = ["deflate"], default-features = false }
 ignition-core.workspace = true
+# Every beam in the air (src/beams.rs).
+ignition-beams.workspace = true
 ignition-dmx.workspace = true
 ignition-proto.workspace = true
 ignition-fixture.workspace = true
@@ -118,7 +120,9 @@ artnet_protocol = "0.4.4"
 # Features are additive, so the `x11`/`wayland`/`multi_threaded` set the
 # workspace asks for comes along and is ignored for this target.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy = { version = "0.19.1", default-features = false, features = ["webgpu"] }
+bevy = { workspace = true, features = ["webgpu"] }
+# `asset!`, for `web-assets`: the same Dioxus revision as the workspace's.
+manganis = { git = "https://github.com/DioxusLabs/dioxus", rev = "430cfb563f1b70602ef387f0c80f171d84527b41", optional = true }
 
 # The one visualizer binary — windowed by default, `--snapshot <path>` to
 # render a single frame headlessly. Replaces the pre-Bevy pair of `shot`

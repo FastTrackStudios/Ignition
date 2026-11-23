@@ -344,6 +344,18 @@ pub struct GdtfFixture {
     /// leaves the default: the visualizer then assumes twice the beam,
     /// which is where an LED par's field typically lands.
     pub field_angle_deg: Option<f32>,
+    /// The same node's `LuminousFlux` in lumens and `BeamRadius` in
+    /// metres: what the fixture puts out and how wide its lens is.
+    pub photometry: Option<BeamPhotometry>,
+}
+
+/// What a `<Beam>` node says about its light besides its angles.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BeamPhotometry {
+    /// `LuminousFlux`, lumens.
+    pub flux: f32,
+    /// `BeamRadius`, metres: the radius of the lens the beam leaves by.
+    pub lens_radius: f32,
 }
 
 impl GdtfFixture {
@@ -368,6 +380,19 @@ fn first_beam_angles(g: &Geometry) -> Option<(f32, Option<f32>)> {
         return Some((f32_of_f64(b.beam_angle), field));
     }
     g.children().iter().find_map(first_beam_angles)
+}
+
+/// The first lit `<Beam>`'s flux and lens radius.
+fn first_beam_photometry(g: &Geometry) -> Option<BeamPhotometry> {
+    if let Geometry::Beam(b) = g
+        && b.beam_angle > 0.1
+    {
+        return Some(BeamPhotometry {
+            flux: f32_of_f64(b.luminous_flux),
+            lens_radius: f32_of_f64(b.beam_radius),
+        });
+    }
+    g.children().iter().find_map(first_beam_photometry)
 }
 
 /// Reads a `.gdtf` file and builds the real geometry tree for one DMX
@@ -476,6 +501,7 @@ pub fn import_geometry(path: &Path, mode_name: Option<&str>) -> anyhow::Result<G
         root,
         beam_angle_deg,
         field_angle_deg,
+        photometry: first_beam_photometry(root_geometry),
     })
 }
 

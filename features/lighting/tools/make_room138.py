@@ -21,11 +21,17 @@ REPO = Path(__file__).resolve().parent.parent
 OUT = REPO / "data" / "venues" / "room138-cbu"
 FT = 0.3048
 
-# ── The room, as given: 48 ft along the wall the band plays against,
-#    35 ft deep. Ceiling height was not stated; 16 ft is a plain
-#    classroom/black-box height and is flagged as an assumption in the
-#    README.
-WIDTH, DEPTH, HEIGHT = 48 * FT, 35 * FT, 16 * FT
+# ── The room, as measured off a LiDAR scan of it (docs/lighting/
+#    lab-138-room.md): 14.00 m along the wall the band plays against,
+#    10.12 m deep, each +/- 0.1. It was given as 48 x 35 ft, which is
+#    0.6 m long both ways. HEIGHT is the flat soffit at both ends; the
+#    tile ceiling between them is a pyramid rising to 5.45 m, which the
+#    environment model draws (tools/build_lab138_room.py) and these
+#    boxes do not.
+WIDTH, DEPTH, HEIGHT = 14.0, 10.12, 3.5
+# The band wall is a full-width velvet curtain hung 12 cm off it, in
+# 9 cm folds. Nothing stands closer to the wall than this.
+CURTAIN_CLEAR = 0.45
 BAND_DEEP = 12 * FT                    # the playing area, centred on y=0
 Y_BAND_WALL = BAND_DEEP / 2            # +y: the 48 ft wall, drums against it
 Y_HOUSE_BACK = Y_BAND_WALL - DEPTH     # -y: the back of the room
@@ -121,7 +127,10 @@ room = [r for r in room if r is not None]
 #    the drums" is the audience's left, which is stage right and -x here.
 #    One constant, so the whole band mirrors if that reading is wrong.
 AUDIENCE_LEFT = -1.0
-DRUMS_Y = Y_BAND_WALL - 4 * FT
+# The kit, where the scan has it: on its mat 0.65 m audience-left of the
+# room's centre line, its middle 1.05 m off the wall. +/- 0.2.
+DRUMS_X = -0.65
+DRUMS_Y = Y_BAND_WALL - 1.05
 BACK_LINE = Y_BAND_WALL - 5 * FT
 VOCAL = (0.0, Y_BAND_WALL - 9 * FT)      # out in front of the kit
 
@@ -146,7 +155,9 @@ BAND = [
 for n, x in enumerate([-12 * FT, 12 * FT], start=1):
     add(f"Wall Bar {n}", "Solena Max Bar 28 RGB",
         ["Luminaire_LED_Bar", "Bars", "Wall Bars"],
-        v3(x, Y_BAND_WALL - 0.4 * FT, 0.15), (0, 0.15, 1), v3(1.0, 0.09, 0.09), 30.0, 6)
+        # In front of the curtain, not in it: they were 12 cm off the wall,
+        # which is where the drape hangs.
+        v3(x, Y_BAND_WALL - CURTAIN_CLEAR, 0.15), (0, 0.15, 1), v3(1.0, 0.09, 0.09), 30.0, 6)
 
 # A T-bar stand about 8 ft tall with the four pars side by side along
 # the crossbar, as photographed — not stacked up the pole.
@@ -158,10 +169,15 @@ TREE_SPAN = [-1.5 * FT, -0.5 * FT, 0.5 * FT, 1.5 * FT]
 TREE_AIM = [
     ("Keys", AUDIENCE_LEFT * 15.5 * FT, BACK_LINE - 3 * FT, 1.55),
     ("Bass", AUDIENCE_LEFT * 6.5 * FT, BACK_LINE, 1.55),
-    ("Drums", 0.17, DRUMS_Y + 0.45, 1.15),
+    ("Drums", DRUMS_X + 0.17, DRUMS_Y + 0.45, 1.15),
     ("Vocal", VOCAL[0], VOCAL[1], 1.55),
 ]
-for t, x in enumerate([-16 * FT, 16 * FT], start=1):
+# At +/- 2.9 m, in the clear strip between the tables and the console.
+# They were at +/- 16 ft, which on stage left is inside the mixing
+# console (a fixed 3.65 m desk from y = -6.07 to -2.42 at x = 4.15..5.2)
+# and on stage right is on the lounge's coffee table.
+TREE_X = 2.9
+for t, x in enumerate([-TREE_X, TREE_X], start=1):
     side = "Right" if x < 0 else "Left"
     room.append({"name": f"Column - Tree {t}", "position": v3(x, TREE_Y, TREE_H / 2),
                  "eulers": v3(0, 0, 0), "size": v3(0.09, 0.09, TREE_H)})
@@ -187,11 +203,13 @@ for t, x in enumerate([-16 * FT, 16 * FT], start=1):
 #
 #    Hung facing downstage with a little tilt down; pan and tilt are
 #    live, so this is only where they point with the desk at zero.
-MOVER_Z = HEIGHT / 2
+MOVER_Z = 8 * FT
 for n, x in enumerate([-21 * FT, -12 * FT, 12 * FT, 21 * FT], start=1):
     add(f"Mover {n}", "150W Moving Head Beam",
         ["Luminaire_Beam", "Movers"],
-        v3(x, Y_BAND_WALL - 0.5 * FT, MOVER_Z), (0, -1, -0.35),
+        # Clear of the curtain. What they hang from is still open: the
+        # wall behind them is drape from floor to 3.12 m.
+        v3(x, Y_BAND_WALL - CURTAIN_CLEAR, MOVER_Z), (0, -1, -0.35),
         v3(0.22, 0.26, 0.36), 14.0, 12)
 
 VOCAL_HEAD = 1.55
@@ -236,9 +254,9 @@ groups.append({"target": str(len(groups) + 1), "label": "Front Light",
 # The drum kit, centred on the 48 ft wall as described. Same shape the
 # other venues give it — props carry a size, not a kind.
 props = [
-    {"name": "Drum Kit", "position": v3(0, DRUMS_Y, 0),
+    {"name": "Drum Kit", "position": v3(DRUMS_X, DRUMS_Y, 0),
      "eulers": v3(0, 0, 0), "size": v3(1.926, 1.632, 1.206)},
-    {"name": "Person - Drummer", "position": v3(0.17, DRUMS_Y + 0.45, 0),
+    {"name": "Person - Drummer", "position": v3(DRUMS_X + 0.17, DRUMS_Y + 0.45, 0),
      "eulers": v3(0, 0, 0), "size": v3(0.68, 0.3, 1.8)},
     *[{"name": name, "position": v3(x, y, 0), "eulers": v3(0, 0, yaw),
        "size": v3(0.678, 0.302, 1.83)} for name, x, y, yaw in BAND],
@@ -252,6 +270,14 @@ props = [
      "eulers": v3(0, 0, 0), "size": v3(0.59, 0.52, 1.6)},
 ]
 
+PHOTO_VIEWS = [
+    ("Photo - Curtain", [-0.3, -4.5, 1.5], [-0.76, 2.48, 1.87], "The curtain from the tables."),
+    ("Photo - Stage", [-0.72, -2.24, 1.45], [-0.72, 1.7, 0.55], "The stage from in front of the kit."),
+    ("Photo - Console", [-0.6, -5.0, 1.5], [5.57, -4.27, 1.5], "The console end from the tables."),
+    ("Photo - Stage Left", [-2.6, -4.6, 1.5], [5.5, -0.6, 1.9], "The curtain's stage-left half and the console."),
+    ("Photo - Lounge", [-1.8, -4.3, 1.5], [-7.0, -4.6, 2.0], "The lounge end from the tables."),
+]
+
 cameras = {
     "presets": [
         {"name": "Wide", "eye": [0.0, Y_HOUSE_BACK + 4 * FT, 5.5 * FT],
@@ -261,7 +287,7 @@ cameras = {
          "look": [0.0, Y_BAND_WALL - 6 * FT, 5 * FT], "fov_deg": 32.0,
          "about": "Close on the centre mic."},
         {"name": "Drums", "eye": [3 * FT, -6 * FT, 5.5 * FT],
-         "look": [0.0, Y_BAND_WALL - 4 * FT, 3.5 * FT], "fov_deg": 35.0,
+         "look": [DRUMS_X, DRUMS_Y, 3.5 * FT], "fov_deg": 35.0,
          "about": "Drum cam, past the singer's shoulder."},
         {"name": "Super wide", "eye": [-20 * FT, Y_HOUSE_BACK + 2 * FT, 9 * FT],
          "look": [0.0, 0.0, 4 * FT], "fov_deg": 70.0,
@@ -289,6 +315,12 @@ cameras = {
         # Above the ceiling, framed to hold the whole 48 x 35 floor: at
         # 40 ft up a 56 degree view is about 42 ft of room, so nothing
         # falls off the edge. The ceiling hides itself while this is up.
+        # Where five of the room's photographs were taken from, as near as
+        # the furniture in them fixes it: docs/lighting/lab-138-room.md
+        # sets each beside its photograph. A phone's 0.5x lens, 92 degrees
+        # tall in a 4:3 frame.
+        *[{"name": name, "eye": eye, "look": look, "fov_deg": 92.0, "about": about}
+          for name, eye, look, about in PHOTO_VIEWS],
         {"name": "Bird's eye", "eye": [0.0, (Y_BAND_WALL + Y_HOUSE_BACK) / 2, 40 * FT],
          "look": [0.0, (Y_BAND_WALL + Y_HOUSE_BACK) / 2, 0.0], "fov_deg": 56.0,
          "ortho": True, "about": "Plan view above the ceiling: the XY of every fixture."},
@@ -314,7 +346,7 @@ palettes = {
         {"name": "Vocal Stage Left", "target": v3(8 * FT, FRONT, HEAD)},
         {"name": "Vocal Stage Right", "target": v3(-8 * FT, FRONT, HEAD)},
         {"name": "Upstage Centre", "target": v3(0, BACK, HEAD)},
-        {"name": "Drums", "target": v3(0, BACK, 1.1)},
+        {"name": "Drums", "target": v3(DRUMS_X, DRUMS_Y, 1.1)},
         {"name": "Stage Wide", "target": v3(0, (FRONT + BACK) / 2, HEAD)},
         {"name": "Band Wall", "target": v3(0, Y_BAND_WALL, HEIGHT / 2)},
         {"name": "Audience Front", "target": v3(0, -8 * FT, HEAD)},

@@ -3,7 +3,7 @@ title: What Ignition is
 type: concept
 order: 1
 stage: Start here
-blurb: A console, a visualizer and a video mapper in one application — and why that is one application.
+blurb: One library of looks, effects and tricks that plays in any room, in a console, a visualizer and a video mapper that are one application.
 ---
 
 # What Ignition is
@@ -24,6 +24,35 @@ Ignition is built to the shape of grandMA3 rather than to the shape of a scene
 list: referenced palettes, [[roles-selections-tricks|ordered selections]],
 tracking cues, and
 [[recipes-cues-effects|parametric recipes and phaser-style effects]].
+
+## The goal: one library, any room
+
+Ignition is built around **one library that adapts to any rig and any
+venue**, and around people and agents who know that library well enough to
+program and busk with it by name.
+
+- **One library.** Colours, palettes, splits, effects (mover patterns,
+  intensity, colour, beam, strip and matrix families, one-shots), tricks,
+  looks, bundles and the busk pages ship once, in the profile
+  (the profile). A set or a song adds to it or
+  overrides an entry; it never starts its own.
+- **Any room.** Nothing in the library, or in a show written with it, names a
+  fixture, an address or a coordinate. It names **roles**, the jobs a rig
+  plays (`Key`, `Wash`, `Back`, `Movers`). A venue says which of its fixtures
+  play each role, so the same show and the same busking hands work on two
+  light trees in a classroom and on a touring rig.
+- **Fluency.** A show is programmed by reaching for the library first: an
+  effect by name, a trick preset on it, a palette slot for its colour. A value
+  typed by hand into one song is the exception, and a good one is promoted
+  into the library. The same holds live: the pages a person busks from are
+  the library's, so what they learn in one room is what they play in the next.
+
+What follows from it: a change that makes a show depend on one room, or adds
+a second place where effects or colours live, works against the goal; a
+change that makes the library richer, easier to learn or easier to bind to a
+new room works for it.
+
+The three claims below are what that goal rests on.
 
 ## The three claims
 

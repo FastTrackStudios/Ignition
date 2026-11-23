@@ -74,6 +74,14 @@ lists).
 | Stomp | Absolute layer last-wins; relative layer separate and continues |
 | Clone / fixture-type exchange | Not needed — the show never held fixture identity |
 
+## Editing any of it
+
+Through the programming actions (`IGNITION_*`; the `ignition-program`
+skill, `docs/lighting/guides/programming.md`): the library in three layers
+(profile, set, song), palettes of slots, cues and sections, environments,
+people, fixtures, the patch, trick presets. The code is
+`features/lighting/pane/src/program/` and `features/lighting/show/src/library.rs`.
+
 ## Where the code is
 
 `crates/ignition-core`: `selection.rs`, `tricks.rs`, `recipe.rs` (+`expand_recipe`, cook status), `step.rs` (timing), `effects.rs` (library), `bump.rs`, `cue.rs` (player, cascade, tracking, seek), `trigger.rs` (bus), `programmer.rs` (busking layers), `profile.rs`, `preset.rs`, `focus.rs`, `music.rs`. `crates/ignition-song`: song map from the DAW, hits, chart, generate, `bin/authorshow.rs` (how *Bye Bye Bye* is written). `crates/ignition-viz`: venue loading, playback loop, DMX encode, visualizer. Design history: `docs/domain/cue-building-architecture.md`, `docs/domain/musical-time-cues.md`. Professional cueing rules and the lint checklist: `docs/domain/cue-design-guide.md`.

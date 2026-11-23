@@ -8,7 +8,7 @@ blurb: Building from source, the visualizer, and rendering a video of your own s
 
 # Running it
 
-Ignition is Rust, and the toolchain is pinned in a Nix flake — Bevy 0.19 wants
+Ignition is Rust, and the toolchain is pinned in a Nix flake — Bevy wants
 a newer compiler than the ambient one, so build through the dev shell.
 
 ```

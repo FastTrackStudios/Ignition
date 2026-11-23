@@ -332,6 +332,17 @@ pub struct Timing {
     // r[impl effects.once]
     // r[impl recipes.one-shot]
     pub once: bool,
+    /// The rate spread across the selection's units, in their shaped
+    /// order (after blocks, groups and wings): the first unit runs at
+    /// `speed_from` times the recipe's speed, the last at `speed_to`,
+    /// the rest in a straight line between. grandMA3's MAtricks Speed
+    /// From/To. `1 → 1`, the default, is one rate for every unit and is
+    /// not written.
+    // r[impl tricks.spread.attributes] - speed, beside phase
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub speed_from: f32,
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub speed_to: f32,
 }
 
 impl Default for Timing {
@@ -345,6 +356,8 @@ impl Default for Timing {
             phase_offset_deg: 0.0,
             direction: Direction::default(),
             once: false,
+            speed_from: 1.0,
+            speed_to: 1.0,
         }
     }
 }
@@ -355,6 +368,15 @@ impl Default for Timing {
 )]
 fn is_zero(v: &f32) -> bool {
     *v == 0.0
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's skip_serializing_if requires fn(&T) -> bool"
+)]
+#[expect(clippy::float_cmp, reason = "exactly the default, as written")]
+fn is_one(v: &f32) -> bool {
+    *v == 1.0
 }
 
 impl Timing {
@@ -440,10 +462,23 @@ impl Timing {
         pos: &crate::tricks::UnitPos,
         masters: &SpeedMasters,
     ) -> f32 {
-        let raw = self.cycles(secs, masters)
-            + self.spread_fraction_3d(pos)
+        let raw = self
+            .cycles(secs, masters)
+            .mul_add(self.rate_at(pos.x, pos.count[0]), self.spread_fraction_3d(pos))
             + self.phase_offset_deg / 360.0;
         self.finish(raw)
+    }
+
+    /// This unit's rate multiplier under the speed spread: `speed_from`
+    /// at the first unit, `speed_to` at the last.
+    // r[impl tricks.spread.attributes]
+    #[must_use]
+    pub fn rate_at(&self, index: usize, count: usize) -> f32 {
+        if count <= 1 {
+            return self.speed_from;
+        }
+        let t = float_of(index) / float_of(count.saturating_sub(1));
+        (self.speed_to - self.speed_from).mul_add(t, self.speed_from)
     }
 
     /// The tail of `cycles_at` that `Bounce` and `once` share.
@@ -484,8 +519,10 @@ impl Timing {
     #[must_use]
     pub fn cycles_at(&self, secs: f32, index: usize, count: usize, masters: &SpeedMasters) -> f32 {
         let spread = self.spread_fraction(index, count);
-        let raw = spread.mul_add(self.phase_spread_deg / 360.0, self.cycles(secs, masters))
-            + self.phase_offset_deg / 360.0;
+        let raw = spread.mul_add(
+            self.phase_spread_deg / 360.0,
+            self.cycles(secs, masters) * self.rate_at(index, count),
+        ) + self.phase_offset_deg / 360.0;
         self.finish(raw)
     }
 }

@@ -1,200 +1,201 @@
 {
- "version": 1,
- "name": "JT's Senior Recital",
- "profile": "../profiles/ignition.ig-profile",
- "venue": "../venues/room138-cbu",
- "live_set": {
-  "name": "Sr. Recital Showcase",
-  "file": "Sr. Recital Showcase.als"
- },
- "sets": [
-  {
-   "name": "Act I: The Originals",
-   "lit": true,
-   "songs": [
-    "DTLA Cinematic Intro",
-    "Drive To LA",
-    "For You",
-    "Heart Isn't Ready",
-    "No One Knows",
-    "Hey!"
-   ]
+  "library": "../library/jt-recital.json",
+  "live_set": {
+    "file": "Sr. Recital Showcase.als",
+    "name": "Sr. Recital Showcase"
   },
-  {
-   "name": "Act II: Royal Blood",
-   "lit": true,
-   "songs": [
-    "Sleeptalker",
-    "Figure It Out",
-    "Seven Nation Army",
-    "Sad But True",
-    "Out Of The Black"
-   ]
-  },
-  {
-   "name": "Act III: The Fun Part",
-   "lit": true,
-   "songs": [
-    "She's American",
-    "WORST PART OF YOU",
-    "Fire",
-    "Not Too Much Longer (Live)",
-    "Know Me (Extended)"
-   ]
-  },
-  {
-   "name": "Archive",
-   "lit": false,
-   "songs": [
-    "Better Strangers",
-    "Berenstein"
-   ]
-  }
- ],
- "songs": [
-  {
-   "set": "Act I: The Originals",
-   "song": "DTLA Cinematic Intro",
-   "locator": "Cinematic Intro",
-   "start_beats": 0.0,
-   "end_beats": 328.0,
-   "lit": true,
-   "file": "../songs/jt-recital/dtla-cinematic-intro.json"
-  },
-  {
-   "set": "Act I: The Originals",
-   "song": "Drive To LA",
-   "locator": "Drive To LA",
-   "start_beats": 328.0,
-   "end_beats": 852.0,
-   "lit": true,
-   "file": "../songs/jt-recital/drive-to-la.json"
-  },
-  {
-   "set": "Act I: The Originals",
-   "song": "For You",
-   "locator": "For You",
-   "start_beats": 3050.0,
-   "end_beats": 3386.015145791708,
-   "lit": true,
-   "file": "../songs/jt-recital/for-you.json"
-  },
-  {
-   "set": "Act I: The Originals",
-   "song": "Heart Isn't Ready",
-   "locator": "Heart isn't Ready",
-   "start_beats": 3394.0,
-   "end_beats": 3750.0,
-   "lit": true,
-   "file": "../songs/jt-recital/heart-isnt-ready.json"
-  },
-  {
-   "set": "Act I: The Originals",
-   "song": "No One Knows",
-   "locator": "No One Knows",
-   "start_beats": 1360.0,
-   "end_beats": 2088.0,
-   "lit": true,
-   "file": "../songs/jt-recital/no-one-knows.json"
-  },
-  {
-   "set": "Act I: The Originals",
-   "song": "Hey!",
-   "locator": "Hey!",
-   "start_beats": 2673.0,
-   "end_beats": 3037.0,
-   "lit": true,
-   "file": "../songs/jt-recital/hey.json"
-  },
-  {
-   "set": "Act II: Royal Blood",
-   "song": "Sleeptalker",
-   "locator": "Sleeptalker",
-   "start_beats": 8835.0,
-   "end_beats": 9222.0,
-   "lit": true,
-   "file": "../songs/jt-recital/sleeptalker.json"
-  },
-  {
-   "set": "Act II: Royal Blood",
-   "song": "Figure It Out",
-   "locator": "Figure It Out",
-   "start_beats": 6042.0,
-   "end_beats": 6382.0,
-   "lit": true,
-   "file": "../songs/jt-recital/figure-it-out.json"
-  },
-  {
-   "set": "Act II: Royal Blood",
-   "song": "Seven Nation Army",
-   "locator": "7 Nation Army",
-   "start_beats": 6386.0,
-   "end_beats": 6848.0,
-   "lit": true,
-   "file": "../songs/jt-recital/seven-nation-army.json"
-  },
-  {
-   "set": "Act II: Royal Blood",
-   "song": "Sad But True",
-   "locator": "Sad But True",
-   "start_beats": 7442.0,
-   "end_beats": 7928.0,
-   "lit": true,
-   "file": "../songs/jt-recital/sad-but-true.json"
-  },
-  {
-   "set": "Act II: Royal Blood",
-   "song": "Out Of The Black",
-   "locator": "Out Of The Black",
-   "start_beats": 7962.0,
-   "end_beats": 8825.0,
-   "lit": true,
-   "file": "../songs/jt-recital/out-of-the-black.json"
-  },
-  {
-   "set": "Act III: The Fun Part",
-   "song": "She's American",
-   "locator": "She's American",
-   "start_beats": 856.0,
-   "end_beats": 1352.0,
-   "lit": true,
-   "file": "../songs/jt-recital/shes-american.json"
-  },
-  {
-   "set": "Act III: The Fun Part",
-   "song": "WORST PART OF YOU",
-   "locator": "WORST PART OF YOU",
-   "start_beats": 5346.0,
-   "end_beats": 5882.0,
-   "lit": true,
-   "file": "../songs/jt-recital/worst-part-of-you.json"
-  },
-  {
-   "set": "Act III: The Fun Part",
-   "song": "Fire",
-   "locator": "Fire",
-   "start_beats": 4282.0,
-   "end_beats": 4694.0,
-   "lit": true,
-   "file": "../songs/jt-recital/fire.json"
-  },
-  {
-   "set": "Act III: The Fun Part",
-   "song": "Not Too Much Longer (Live)",
-   "locator": "Not Too Much Longer",
-   "start_beats": 3762.0,
-   "end_beats": 4270.0,
-   "lit": true,
-   "file": "../songs/jt-recital/not-too-much-longer-live.json"
-  },
-  {
-   "set": "Act III: The Fun Part",
-   "song": "Know Me (Extended)",
-   "locator": "Know Me",
-   "start_beats": 4702.0,
-   "end_beats": 5334.0,
-   "lit": true,
-   "file": "../songs/jt-recital/know-me-extended.json"
-  }
- ]
+  "name": "JT's Senior Recital",
+  "profile": "../profiles/ignition.ig-profile",
+  "sets": [
+    {
+      "lit": true,
+      "name": "Act I: The Originals",
+      "songs": [
+        "DTLA Cinematic Intro",
+        "Drive To LA",
+        "For You",
+        "Heart Isn't Ready",
+        "No One Knows",
+        "Hey!"
+      ]
+    },
+    {
+      "lit": true,
+      "name": "Act II: Royal Blood",
+      "songs": [
+        "Sleeptalker",
+        "Figure It Out",
+        "Seven Nation Army",
+        "Sad But True",
+        "Out Of The Black"
+      ]
+    },
+    {
+      "lit": true,
+      "name": "Act III: The Fun Part",
+      "songs": [
+        "She's American",
+        "WORST PART OF YOU",
+        "Fire",
+        "Not Too Much Longer (Live)",
+        "Know Me (Extended)"
+      ]
+    },
+    {
+      "lit": false,
+      "name": "Archive",
+      "songs": [
+        "Better Strangers",
+        "Berenstein"
+      ]
+    }
+  ],
+  "songs": [
+    {
+      "end_beats": 328.0,
+      "file": "../songs/jt-recital/dtla-cinematic-intro.json",
+      "lit": true,
+      "locator": "Cinematic Intro",
+      "set": "Act I: The Originals",
+      "song": "DTLA Cinematic Intro",
+      "start_beats": 0.0
+    },
+    {
+      "end_beats": 852.0,
+      "file": "../songs/jt-recital/drive-to-la.json",
+      "lit": true,
+      "locator": "Drive To LA",
+      "set": "Act I: The Originals",
+      "song": "Drive To LA",
+      "start_beats": 328.0
+    },
+    {
+      "end_beats": 3386.015145791708,
+      "file": "../songs/jt-recital/for-you.json",
+      "lit": true,
+      "locator": "For You",
+      "set": "Act I: The Originals",
+      "song": "For You",
+      "start_beats": 3050.0
+    },
+    {
+      "end_beats": 3750.0,
+      "file": "../songs/jt-recital/heart-isnt-ready.json",
+      "lit": true,
+      "locator": "Heart isn't Ready",
+      "set": "Act I: The Originals",
+      "song": "Heart Isn't Ready",
+      "start_beats": 3394.0
+    },
+    {
+      "end_beats": 2088.0,
+      "file": "../songs/jt-recital/no-one-knows.json",
+      "lit": true,
+      "locator": "No One Knows",
+      "set": "Act I: The Originals",
+      "song": "No One Knows",
+      "start_beats": 1360.0
+    },
+    {
+      "end_beats": 3037.0,
+      "file": "../songs/jt-recital/hey.json",
+      "lit": true,
+      "locator": "Hey!",
+      "set": "Act I: The Originals",
+      "song": "Hey!",
+      "start_beats": 2673.0
+    },
+    {
+      "end_beats": 9222.0,
+      "file": "../songs/jt-recital/sleeptalker.json",
+      "lit": true,
+      "locator": "Sleeptalker",
+      "set": "Act II: Royal Blood",
+      "song": "Sleeptalker",
+      "start_beats": 8835.0
+    },
+    {
+      "end_beats": 6382.0,
+      "file": "../songs/jt-recital/figure-it-out.json",
+      "lit": true,
+      "locator": "Figure It Out",
+      "set": "Act II: Royal Blood",
+      "song": "Figure It Out",
+      "start_beats": 6042.0
+    },
+    {
+      "end_beats": 6848.0,
+      "file": "../songs/jt-recital/seven-nation-army.json",
+      "lit": true,
+      "locator": "7 Nation Army",
+      "set": "Act II: Royal Blood",
+      "song": "Seven Nation Army",
+      "start_beats": 6386.0
+    },
+    {
+      "end_beats": 7928.0,
+      "file": "../songs/jt-recital/sad-but-true.json",
+      "lit": true,
+      "locator": "Sad But True",
+      "set": "Act II: Royal Blood",
+      "song": "Sad But True",
+      "start_beats": 7442.0
+    },
+    {
+      "end_beats": 8825.0,
+      "file": "../songs/jt-recital/out-of-the-black.json",
+      "lit": true,
+      "locator": "Out Of The Black",
+      "set": "Act II: Royal Blood",
+      "song": "Out Of The Black",
+      "start_beats": 7962.0
+    },
+    {
+      "end_beats": 1352.0,
+      "file": "../songs/jt-recital/shes-american.json",
+      "lit": true,
+      "locator": "She's American",
+      "set": "Act III: The Fun Part",
+      "song": "She's American",
+      "start_beats": 856.0
+    },
+    {
+      "end_beats": 5882.0,
+      "file": "../songs/jt-recital/worst-part-of-you.json",
+      "lit": true,
+      "locator": "WORST PART OF YOU",
+      "set": "Act III: The Fun Part",
+      "song": "WORST PART OF YOU",
+      "start_beats": 5346.0
+    },
+    {
+      "end_beats": 4694.0,
+      "file": "../songs/jt-recital/fire.json",
+      "lit": true,
+      "locator": "Fire",
+      "set": "Act III: The Fun Part",
+      "song": "Fire",
+      "start_beats": 4282.0
+    },
+    {
+      "end_beats": 4270.0,
+      "file": "../songs/jt-recital/not-too-much-longer-live.json",
+      "lit": true,
+      "locator": "Not Too Much Longer",
+      "set": "Act III: The Fun Part",
+      "song": "Not Too Much Longer (Live)",
+      "start_beats": 3762.0
+    },
+    {
+      "end_beats": 5334.0,
+      "file": "../songs/jt-recital/know-me-extended.json",
+      "lit": true,
+      "locator": "Know Me",
+      "set": "Act III: The Fun Part",
+      "song": "Know Me (Extended)",
+      "start_beats": 4702.0
+    }
+  ],
+  "venue": "../venues/room138-cbu",
+  "version": 1
 }

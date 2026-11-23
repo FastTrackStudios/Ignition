@@ -6,6 +6,33 @@ application — desktop and web, from the same codebase.
 
 **Status**: pre-alpha; see `docs/lighting/`.
 
+## The goal: one library, any room
+
+Ignition is built around **one library that adapts to any rig and any
+venue**, and around people and agents who know that library well enough to
+program and busk with it by name.
+
+- **One library.** Colours, palettes, splits, effects (mover patterns,
+  intensity, colour, beam, strip and matrix families, one-shots), tricks,
+  looks, bundles and the busk pages ship once, in the profile
+  (`features/lighting/data/profiles/`). A set or a song adds to it or
+  overrides an entry; it never starts its own.
+- **Any room.** Nothing in the library, or in a show written with it, names a
+  fixture, an address or a coordinate. It names **roles**, the jobs a rig
+  plays (`Key`, `Wash`, `Back`, `Movers`). A venue says which of its fixtures
+  play each role, so the same show and the same busking hands work on two
+  light trees in a classroom and on a touring rig.
+- **Fluency.** A show is programmed by reaching for the library first: an
+  effect by name, a trick preset on it, a palette slot for its colour. A value
+  typed by hand into one song is the exception, and a good one is promoted
+  into the library. The same holds live: the pages a person busks from are
+  the library's, so what they learn in one room is what they play in the next.
+
+What follows from it: a change that makes a show depend on one room, or adds
+a second place where effects or colours live, works against the goal; a
+change that makes the library richer, easier to learn or easier to bind to a
+new room works for it.
+
 ## Why
 
 FastTrackStudio (the sibling repo) is a music-production and live-worship

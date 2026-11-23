@@ -152,7 +152,7 @@ pub const FOG_SCATTERING_ASYMMETRY: f32 = 0.3;
 /// default. It sat at 0.6 while the spill lights were range-clipped;
 /// with the spill reaching the whole room, the density above is the
 /// dial that matters and this one is left at the engine's default.
-const HAZE_SCATTERING: f32 = 0.3;
+pub(crate) const HAZE_SCATTERING: f32 = 0.3;
 
 /// How much of the light crossing a metre of haze is lost to it.
 ///
@@ -197,7 +197,7 @@ const BAR_INNER_FRACTION: f32 = 0.9;
 /// 40 a bar 13 cm out from the wall did not touch it until 0.4 m up
 /// ("their light doesn't appear until like halfway up the wall").
 // r[impl viz.bar-emitters] - a bar floods across its width
-const BAR_MIN_HALF_ANGLE_DEG: f32 = 60.0;
+const BAR_MIN_HALF_ANGLE_DEG: f32 = 40.0;
 
 /// What a fixture's housing emits as spawned: nothing. A body is matte
 /// black until `update_fixture_bodies` decides otherwise, and with the
@@ -363,6 +363,27 @@ pub struct BeamEmitter {
     pub fixture: usize,
 }
 
+/// The fastest a moving head's pan or tilt turns, in degrees a second.
+///
+/// A budget 150 W beam is claimed at a full 540 degree pan in 2.5 s and a
+/// full 270 degree tilt in 1.25 s, both 216 degrees a second; measured
+/// professional beams are 190 to 260. Short moves are slower still (a head
+/// has to start and stop), which this does not model.
+pub const MOTOR_DEG_PER_SEC: f32 = 200.0;
+
+/// The glass of a fixture: a disc on the face the beam leaves through,
+/// which shows the colour and level the fixture is at. A real light is
+/// seen at its lens, not on its housing, and without this a lamp coming
+/// on is only more light on the floor.
+// r[impl viz.body-glow] - the lens carries the light, the housing stays dark
+#[derive(Component)]
+pub struct EmitterLens(pub Handle<StandardMaterial>);
+
+/// How hot a lit lens runs relative to the colour it emits: enough to
+/// read as the source at the room's exposure and to bloom a little at
+/// full, without haloing the rig.
+const LENS_GLOW: f32 = 8.0;
+
 /// What the live resolve decided this emitter should be doing, written by
 /// `update_live_fixtures` and read after transforms propagate.
 ///
@@ -479,6 +500,41 @@ impl FixtureBody {
 pub struct ProfileOptics {
     pub beam_half_deg: f32,
     pub field_half_deg: f32,
+}
+
+/// What a fixture's profile says its beam puts out and leaves by, on the
+/// emitter: GDTF's `LuminousFlux` and `BeamRadius`.
+///
+/// The flux replaces the watts-times-efficacy guess when the file states
+/// one. GDTF's default (10 000 lm) is what a file that never measured it
+/// carries, and on a 36 W par it would be seven times too much, so a flux
+/// at exactly the default is taken as unstated.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct EmitterPhotometry {
+    /// Lumens at full, when the profile states them.
+    pub flux: Option<f32>,
+    /// The lens's radius in metres.
+    pub lens_radius: f32,
+}
+
+/// GDTF's default `LuminousFlux`, which a file carries when it says nothing.
+const GDTF_DEFAULT_FLUX: f32 = 10_000.0;
+/// The lens a fixture with no profile is given: GDTF's default `BeamRadius`.
+const DEFAULT_BEAM_RADIUS_M: f32 = 0.05;
+
+/// The emitter's photometry from its profile, or the defaults without one.
+#[must_use]
+pub fn fixture_photometry(profile: Option<&GdtfFixture>) -> EmitterPhotometry {
+    let stated = profile.and_then(|p| p.photometry);
+    EmitterPhotometry {
+        flux: stated
+            .map(|p| p.flux)
+            .filter(|flux| *flux > 0.0 && (*flux - GDTF_DEFAULT_FLUX).abs() > 0.5),
+        lens_radius: stated
+            .map(|p| p.lens_radius)
+            .filter(|radius| *radius > 0.0)
+            .unwrap_or(DEFAULT_BEAM_RADIUS_M),
+    }
 }
 
 /// The one rule for how wide a fixture's light is.
@@ -729,24 +785,41 @@ fn spawn_bar_emitter(
         optics,
     ));
 
-    commands.spawn((
-        FixtureSpill,
-        SpotLight {
-            intensity: 0.0,
-            range: spill_range,
-            shadow_maps_enabled: false,
-            // The lens, not a point — see `lens_radius`.
-            radius: lens_radius(),
-            ..default()
-        },
-        VolumetricLight,
-        bevy::camera::visibility::RenderLayers::from_layers(&[0, crate::haze::HAZE_LAYER]),
-        Transform::default(),
-        Visibility::Hidden,
-        Name::new(format!("{name} spill")),
-        ChildOf(emitter),
-    ));
+    // The strip's light leaves along its whole length: a few spills
+    // spread over it, sharing its output, instead of one at the middle
+    // opened wide enough to reach the ends (which lit a metre of LEDs
+    // from one point and thinned it over a hemisphere).
+    let spills = cells.len().clamp(1, BAR_SPILLS);
+    for i in 0..spills {
+        let along = (crate::num::f32_of_usize(i) + 0.5) / crate::num::f32_of_usize(spills) - 0.5;
+        commands.spawn((
+            FixtureSpill,
+            SpotLight {
+                intensity: 0.0,
+                range: spill_range,
+                shadow_maps_enabled: false,
+                // The lens, not a point — see `lens_radius`.
+                radius: lens_radius(),
+                ..default()
+            },
+            VolumetricLight,
+            bevy::camera::visibility::RenderLayers::from_layers(&[0, crate::haze::HAZE_LAYER]),
+            Transform::from_translation(Vec3::X * along * half_length * 2.0),
+            Visibility::Hidden,
+            Name::new(format!("{name} spill {i}")),
+            ChildOf(emitter),
+        ));
+    }
 }
+
+/// How many spills a strip's light is spread over along its length.
+const BAR_SPILLS: usize = 4;
+
+/// The room's rig surfaces as they were found at start, kept so a fixture
+/// moved while the renderer runs is rigged by the same rule
+/// (`venue_watch`).
+#[derive(Resource, Default)]
+pub struct RigSurfaces(pub Vec<RigSurface>);
 
 /// A piece of room structure a fixture can be rigged to: the ceiling, a
 /// wall, the deck, the truss beam over the drums.
@@ -1115,6 +1188,12 @@ pub fn spawn_venue(
     // bloom to give them a soft presence, far below anything a lit beam
     // puts out.
 
+    // A measured room draws its shell from the environment's model; the
+    // boxes stay as what fixtures are rigged to, undrawn.
+    let modelled = venue
+        .environment
+        .as_ref()
+        .is_some_and(crate::environment::Environment::has_model);
     for g in &venue.room {
         if settings.skip(&g.name) {
             continue;
@@ -1171,12 +1250,14 @@ pub fn spawn_venue(
         } else {
             solid(&mut standard, color, UNLIT)
         };
-        commands.spawn((
-            Mesh3d(unit_cube.clone()),
-            MeshMaterial3d(material),
-            Transform::from_scale(size),
-            ChildOf(anchor),
-        ));
+        if !(modelled && crate::environment::replaces(&g.name)) {
+            commands.spawn((
+                Mesh3d(unit_cube.clone()),
+                MeshMaterial3d(material),
+                Transform::from_scale(size),
+                ChildOf(anchor),
+            ));
+        }
         rig_surfaces.push(RigSurface {
             entity: anchor,
             center,
@@ -1541,7 +1622,7 @@ pub fn spawn_venue(
                     .and_then(|lib| lib.find(manufacturer, model));
                 let optics = fixture_optics(f, profile);
                 let candela = peak_candela(
-                    power_watts(manufacturer, model) * LUMENS_PER_WATT,
+                    crate::fixture_profile::rig_lumens(manufacturer, model),
                     optics.beam_half_deg,
                 );
                 crate::budget::ShadowCandidate {
@@ -1555,15 +1636,19 @@ pub fn spawn_venue(
     };
     // One mesh asset per model, shared by every fixture of the type.
     let mut shared_meshes = gdtf_geometry::SharedMeshes::new(&mut meshes);
+    let lens_disc = shared_meshes.assets.add(Mesh::from(Circle::new(1.0)));
     // Zipped with `shadowed` rather than indexed by `index`: `shadowed` was
     // built one-for-one with `venue.fixtures` just above, and iterating
     // the pair keeps that correspondence in the type instead of relying on
     // the reader to trust that the two stay the same length.
+    commands.insert_resource(RigSurfaces(rig_surfaces.clone()));
     for ((index, f), &is_shadowed) in venue.fixtures.iter().enumerate().zip(shadowed.iter()) {
         // Unpatched channels (Norco's phantom 19/98) have no real
         // position — the patch reports (0,0,0), which would render as a
         // stray fixture at the room's origin.
-        if !f.patched {
+        // Lamp 0 of a fixture patched lamp by lamp is the fixture's own
+        // level and colour: channels in the show, drawn by its lamps.
+        if !f.patched || f.cell == Some(0) {
             continue;
         }
         let manufacturer = f.manufacturer.as_deref().unwrap_or("");
@@ -1648,6 +1733,7 @@ pub fn spawn_venue(
         // r[impl viz.one-emitter-tree] - the emitter is a node of the tree
         let mut emitters: Vec<Entity> = Vec::new();
         let optics = fixture_optics(f, gdtf);
+        let photometry = fixture_photometry(gdtf);
 
         if let Some(gdtf) = gdtf {
             let mut nodes: Vec<Entity> = Vec::new();
@@ -1675,10 +1761,12 @@ pub fn spawn_venue(
             // fallback is to leave the per-cell emitters `spawn_gdtf_tree`
             // already made in place — the same picture as a fixture that
             // was never recognised as a bar at all.
+            let mut is_strip = false;
             if let Some((parent_index, cells)) = gdtf.root.bar_cells()
                 && let Some((centre, rot, half_length, pitch)) = bar_strip(&cells)
                 && let Some(&bar_parent) = nodes.get(parent_index)
             {
+                is_strip = true;
                 emitters.clear();
                 spawn_bar_emitter(
                     &mut commands,
@@ -1695,6 +1783,44 @@ pub fn spawn_venue(
                     optics,
                     throw.spill_range(),
                 );
+            }
+            // A bar run as one colour (its short mode) has one beam in
+            // its profile, or several stacked on one point, and drew as
+            // a spot at its middle: a metre of LEDs lighting from one
+            // point. A long, thin housing whose profile gave no strip is
+            // a strip along its length.
+            let housing = f.size.to_vec3();
+            if !is_strip
+                && housing.x >= 0.5
+                && housing.x >= 4.0 * housing.y.max(housing.z)
+            {
+                const CELLS: usize = 8;
+                let cells: Vec<(Vec3, Quat)> = (0..CELLS)
+                    .map(|i| {
+                        let along = (crate::num::f32_of_usize(i) + 0.5)
+                            / crate::num::f32_of_usize(CELLS)
+                            - 0.5;
+                        (Vec3::X * along * housing.x * 0.92, Quat::IDENTITY)
+                    })
+                    .collect();
+                if let Some((centre, rot, half_length, pitch)) = bar_strip(&cells) {
+                    emitters.clear();
+                    spawn_bar_emitter(
+                        &mut commands,
+                        root,
+                        index,
+                        &f.name,
+                        centre,
+                        rot,
+                        half_length,
+                        pitch,
+                        &cells,
+                        shared_meshes.assets,
+                        &mut standard,
+                        optics,
+                        throw.spill_range(),
+                    );
+                }
             }
         } else {
             // No profile: the QLC+ category placeholder, with its
@@ -1815,12 +1941,24 @@ pub fn spawn_venue(
                     emitters.push(root);
                 }
                 BodyVisual::Generic => {
+                    // A fixture nothing describes is a box the size its
+                    // record says, and it lights: it had no emitter at
+                    // all, so a section of a bar patched on its own (or
+                    // any fixture whose model is not in the library) drew
+                    // as a dark block whatever the show sent it.
+                    let size = f.size.to_vec3();
+                    let size = if size.min_element() > 0.0 {
+                        size
+                    } else {
+                        Vec3::splat(0.15)
+                    };
                     commands.spawn((
                         Mesh3d(unit_cube.clone()),
                         MeshMaterial3d(body_material.clone()),
-                        Transform::from_scale(Vec3::splat(0.15)),
+                        Transform::from_scale(size),
                         ChildOf(root),
                     ));
+                    emitters.push(root);
                 }
             }
         }
@@ -1835,6 +1973,7 @@ pub fn spawn_venue(
                 BeamEmitter { fixture: index },
                 EmitterState::default(),
                 optics,
+                photometry,
             ));
             // A hazer is a fixture with no light of its own: it drives
             // the haze the others show in (see `haze::HazeLevel`), and
@@ -1842,6 +1981,41 @@ pub fn spawn_venue(
             if is_hazer(model) {
                 continue;
             }
+            // The lens: a disc just in front of the emitter, facing the
+            // way the beam goes (a `Circle` faces +Z; the beam is -Z).
+            let lens_material = standard.add(StandardMaterial {
+                base_color: Color::srgb(0.02, 0.02, 0.02),
+                perceptual_roughness: 0.4,
+                double_sided: true,
+                cull_mode: None,
+                ..default()
+            });
+            let size = f.size.to_vec3();
+            let radius = if photometry.lens_radius > 0.0 {
+                photometry.lens_radius
+            } else {
+                (size.x.min(size.y).max(0.04) * 0.42).max(0.05)
+            };
+            commands.spawn((
+                Mesh3d(lens_disc.clone()),
+                MeshMaterial3d(lens_material.clone()),
+                Transform {
+                    // A profile's emitter is already at the glass; a
+                    // placeholder's is at the middle of its box.
+                    translation: Vec3::NEG_Z
+                        * if gdtf.is_some() {
+                            0.004
+                        } else {
+                            size.z.mul_add(0.5, 0.006)
+                        },
+                    rotation: Quat::from_rotation_y(core::f32::consts::PI),
+                    scale: Vec3::splat(radius),
+                },
+                // A placeholder's emitter is its scaled body: the glass
+                // hangs from the fixture itself so it keeps its size.
+                ChildOf(if gdtf.is_some() { emitter } else { root }),
+            ));
+            commands.entity(emitter).insert(EmitterLens(lens_material));
             let mut spill = commands.spawn((
                 FixtureSpill,
                 SpotLight {
@@ -1921,6 +2095,7 @@ pub fn fixture_moves(manufacturer: &str, model: &str, profile: Option<&GdtfFixtu
               single-pass shape as `spawn_venue` above"
 )]
 pub fn update_live_fixtures(
+    mut motors: Local<std::collections::HashMap<usize, (f32, f32)>>,
     venue: Res<VenueRes>,
     dmx: Option<Res<DmxRes>>,
     mut fixtures: Query<(Entity, &Fixture, &mut Transform), Without<FixtureHead>>,
@@ -1943,7 +2118,12 @@ pub fn update_live_fixtures(
             Without<PanJoint>,
         ),
     >,
-    mut emitters: Query<(&BeamEmitter, &mut EmitterState, &ProfileOptics)>,
+    mut emitters: Query<(
+        &BeamEmitter,
+        &mut EmitterState,
+        &ProfileOptics,
+        Option<&EmitterPhotometry>,
+    )>,
     child_of: Query<&ChildOf>,
     live_dmx: Res<LiveDmx>,
     time: Res<Time>,
@@ -2005,12 +2185,26 @@ pub fn update_live_fixtures(
         let Some(slot) = resolved.get_mut(index) else {
             continue;
         };
+        // A head turns no faster than its motors. The wire can ask for
+        // any angle on any frame; drawn as asked, a snap effect or a short
+        // fade across the stage showed a head moving as no head can.
+        // Drawn at the motor's pace, a move that is too fast looks as it
+        // will in the room: late.
+        let step = MOTOR_DEG_PER_SEC * time.delta_secs();
+        let (pan_deg, tilt_deg) = match motors.get(&index).copied() {
+            Some((pan, tilt)) if step > 0.0 => (
+                pan + (live.pan_deg - pan).clamp(-step, step),
+                tilt + (live.tilt_deg - tilt).clamp(-step, step),
+            ),
+            _ => (live.pan_deg, live.tilt_deg),
+        };
+        motors.insert(index, (pan_deg, tilt_deg));
         *slot = Some(Live {
-            pan: Quat::from_axis_angle(Vec3::Z, live.pan_deg.to_radians()),
-            tilt: Quat::from_axis_angle(Vec3::X, live.tilt_deg.to_radians()),
+            pan: Quat::from_axis_angle(Vec3::Z, pan_deg.to_radians()),
+            tilt: Quat::from_axis_angle(Vec3::X, tilt_deg.to_radians()),
             color,
             zoom: live.zoom,
-            lumens: power_watts(manufacturer, model) * LUMENS_PER_WATT,
+            lumens: crate::fixture_profile::rig_lumens(manufacturer, model),
         });
     }
 
@@ -2077,7 +2271,7 @@ pub fn update_live_fixtures(
         transform.rotation = live.tilt;
     }
 
-    for (emitter, mut state, optics) in &mut emitters {
+    for (emitter, mut state, optics, photometry) in &mut emitters {
         match resolved.get(emitter.fixture).and_then(|o| o.as_ref()) {
             Some(live) => {
                 state.color = live.color;
@@ -2086,7 +2280,10 @@ pub fn update_live_fixtures(
                 state.field_half_angle_deg =
                     zoomed_half_angle_deg(optics.field_half_deg, live.zoom)
                         .clamp(state.half_angle_deg, MAX_FIELD_HALF_ANGLE_DEG);
-                state.lumens = live.lumens;
+                // The profile's measured flux when it states one; the
+                // wattage's guess otherwise.
+                // r[impl viz.exposure] - real lumens in when the profile has them
+                state.lumens = photometry.and_then(|p| p.flux).unwrap_or(live.lumens);
             }
             None => state.color = None,
         }
@@ -2180,13 +2377,24 @@ pub fn update_beams(
         &GlobalTransform,
         Option<&Children>,
         Option<&BarEmitter>,
+        Option<&EmitterLens>,
     )>,
     mut spill_q: Query<(&mut Visibility, &mut SpotLight), With<FixtureSpill>>,
 ) {
     let throw = BeamThrow::for_venue(&venue.0);
     let _ = time.elapsed_secs();
 
-    for (state, global, children, bar) in &emitters {
+    for (state, global, children, bar, lens) in &emitters {
+        if let Some(EmitterLens(handle)) = lens {
+            let emissive = state.color.map_or(LinearRgba::BLACK, |c| {
+                LinearRgba::rgb(c[0] * LENS_GLOW, c[1] * LENS_GLOW, c[2] * LENS_GLOW)
+            });
+            if standard.get(handle).is_some_and(|m| m.emissive != emissive)
+                && let Some(mut m) = standard.get_mut(handle)
+            {
+                m.emissive = emissive;
+            }
+        }
         let Some(children) = children else { continue };
         let origin = global.translation();
         // This project's aim convention: a fixture emits along its own
@@ -2215,6 +2423,7 @@ pub fn update_beams(
             }
         }
 
+        let spills = children.iter().filter(|c| spill_q.contains(*c)).count().max(1);
         for child in children.iter() {
             if let Ok((mut visibility, mut light)) = spill_q.get_mut(child) {
                 if let Some(color) = state.color {
@@ -2251,12 +2460,14 @@ pub fn update_beams(
                             // against, and a fully soft edge left the
                             // wall dark until halfway up.
                             // r[impl viz.bar-emitters] - a bar's wash begins at the bar
-                            let outer = (state
+                            // The spills sit along the strip, so the
+                            // cone only has to cover its spread.
+                            let _ = bar.half_length;
+                            let outer = state
                                 .field_half_angle_deg
                                 .max(BAR_MIN_HALF_ANGLE_DEG)
                                 .to_radians()
-                                + (bar.half_length / length.max(0.1)).atan())
-                            .min(core::f32::consts::FRAC_PI_2 - 0.01);
+                                .min(core::f32::consts::FRAC_PI_2 - 0.01);
                             (outer * BAR_INNER_FRACTION, outer)
                         },
                     );
@@ -2264,7 +2475,8 @@ pub fn update_beams(
                     light.inner_angle = inner;
                     light.range = throw.spill_range();
                     light.color = Color::srgb(color[0], color[1], color[2]);
-                    light.intensity = spot_lumens(state.lumens, outer);
+                    light.intensity =
+                        spot_lumens(state.lumens / crate::num::f32_of_usize(spills), outer);
                 } else {
                     *visibility = Visibility::Hidden;
                     light.intensity = 0.0;
@@ -2576,6 +2788,7 @@ mod body_and_bar_tests {
             },
             beam_angle_deg: beam,
             field_angle_deg: field,
+            photometry: None,
         }
     }
 

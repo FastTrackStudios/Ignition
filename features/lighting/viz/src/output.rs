@@ -32,6 +32,14 @@ impl DmxOutput {
     /// Binds `config` under `source_name`, enabled or not. Never fails:
     /// a bind error is a status, not a crash.
     // r[impl dmx.output-toggle] - bind errors are visible state, not a panic
+    /// Binds another config in place of the one in hand, on or off as it
+    /// was: a universe routed elsewhere while the show runs. A sink that
+    /// was attached (the loopback) goes with the old sender.
+    pub fn rebind(&mut self, config: &OutputConfig, source_name: &str) {
+        self.stop();
+        *self = Self::bind(config, source_name, self.enabled);
+    }
+
     pub fn bind(config: &OutputConfig, source_name: &str, enabled: bool) -> Self {
         let sender = Sender::bind(config, source_name);
         sender.set_enabled(enabled);

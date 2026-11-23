@@ -728,9 +728,9 @@ pub fn auto_exposure(
     // toward the target (`auto_exposure_step`), so `speed * dt` has to
     // stay below the transition distance or the step overshoots and
     // the exposure rings. Instant is a thousand stops a second against
-    // a twenty-stop transition: half the gap per 10 ms frame, settled
-    // well within a still's settle frames, and only stable up to a
-    // 20 ms frame — a still's real frame time, never a video's, which
+    // a twenty-stop transition: an eighth of the gap per 10 ms frame, settled
+    // within a still's settle frames, and stable up to an
+    // 80 ms frame — a still's real frame time, never a video's, which
     // is why `run_export` adapts at the live speeds instead.
     let (speed_brighten, speed_darken, transition) = if instant {
         (
@@ -790,7 +790,7 @@ pub fn adaptation_curve() -> AutoExposureCompensationCurve {
     .into_iter()
     .map(|x| Vec2::new(x, x + adaptation_stops(x)))
     .collect();
-    AutoExposureCompensationCurve::from_curve(bevy::math::cubic_splines::LinearSpline::new(points))
+    AutoExposureCompensationCurve::from_curve(bevy::curve::cubic_splines::LinearSpline::new(points))
         .expect("a monotonic line is a valid compensation curve")
 }
 
@@ -810,7 +810,12 @@ pub const AUTO_EXPOSURE_RANGE_STOPS: f32 = 1.5;
 
 /// The instant adaptation's speed in stops per second and the distance
 /// over which it goes exponential: a still's settle frames land it.
-const AUTO_EXPOSURE_INSTANT_SPEED: f32 = 1.0e3;
+// 250 stops a second against the twenty-stop transition is an eighth of
+// the gap per 10 ms frame and stays stable up to an 80 ms frame. It was
+// 1000, stable only to 20 ms: a room with a model to draw (Room 138) runs
+// slower than that while it loads, and the exposure rang out to full
+// white or black.
+const AUTO_EXPOSURE_INSTANT_SPEED: f32 = 2.5e2;
 const AUTO_EXPOSURE_INSTANT_TRANSITION: f32 = 20.0;
 
 /// How far from its target, in stops, a live adaptation eases in
@@ -985,7 +990,7 @@ pub fn narrowest_shaft_full_angle_deg(venue: &Venue, gdtf: Option<&GdtfLibrary>)
             let model = f.model.as_deref().unwrap_or("");
             let profile = gdtf.and_then(|lib| lib.find(manufacturer, model));
             let half = fixture_optics(f, profile).beam_half_deg;
-            let lumens = power_watts(manufacturer, model) * LUMENS_PER_WATT;
+            let lumens = crate::fixture_profile::rig_lumens(manufacturer, model);
             (peak_candela(lumens, half) >= SHAFT_CANDELA_THRESHOLD).then_some(half * 2.0)
         })
         .min_by(f32::total_cmp)
@@ -1112,6 +1117,7 @@ impl Plugin for VizPlugin {
                 crate::gizmos::ProgramGizmosPlugin,
             ))
             .add_plugins(crate::haze::HazePlugin)
+            .add_plugins(AirBeamsIfChosen)
             // GLB fixture parts: the placeholder-to-scene swap.
             .add_plugins(crate::gdtf_assets::GdtfAssetsPlugin)
             // `proc:` canvases, evaluated on the GPU.
@@ -1169,6 +1175,16 @@ impl Plugin for VizPlugin {
             // *holds* a rate, not what one frame did.
             .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
             .add_systems(Startup, spawn_venue)
+            .add_systems(Startup, crate::environment::spawn_environment)
+            .add_systems(
+                Update,
+                (
+                    crate::environment::apply_environment,
+                    crate::environment::see_through_drapes,
+                )
+                    .chain(),
+            )
+            .add_systems(Update, crate::venue_watch::follow_venue_edits)
             // Playback runs before the fixture update so a beam reflects
             // this frame's cue state, not last frame's.
             .add_systems(
@@ -1482,6 +1498,9 @@ fn run_windowed(
         // Before `DefaultPlugins`: an asset source must exist before the
         // asset server is built. See `gdtf_assets`.
         .add_plugins(crate::gdtf_assets::GdtfSourcePlugin)
+        .add_plugins(crate::environment::EnvironmentSourcePlugin::for_venue(
+            &config.venue,
+        ))
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
@@ -1579,6 +1598,9 @@ impl Headless {
         let assets_dir = config.assets_dir.clone();
         let mut app = App::new();
         app.add_plugins(crate::gdtf_assets::GdtfSourcePlugin);
+        app.add_plugins(crate::environment::EnvironmentSourcePlugin::for_venue(
+            &config.venue,
+        ));
         app.add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
@@ -1964,31 +1986,25 @@ impl Plugin for SolariIfEnabled {
     fn build(&self, _app: &mut App) {}
 }
 
-/// `IGNITION_FROXEL_GRID=WxHxD`, for finding the right grid by eye.
-#[must_use]
-pub fn froxel_grid_override() -> Option<(u32, u32, u32)> {
-    let raw = std::env::var("IGNITION_FROXEL_GRID").ok()?;
-    let mut parts = raw.split(['x', 'X']).map(|n| n.trim().parse::<u32>());
-    let (x, y, z) = (
-        parts.next()?.ok()?,
-        parts.next()?.ok()?,
-        parts.next()?.ok()?,
-    );
-    Some((x.max(1), y.max(1), z.max(1)))
+/// The analytic beam pass, unless the fog was asked for instead
+/// (`IGNITION_BEAMS=0`, `beams.rs`).
+struct AirBeamsIfChosen;
+
+impl Plugin for AirBeamsIfChosen {
+    fn build(&self, app: &mut App) {
+        if crate::beams::air_path() == crate::beams::AirPath::Beams {
+            app.add_plugins(crate::beams::AirBeamsPlugin);
+        }
+    }
 }
 
-/// Whether the froxel volumetric path replaces the screen-space march.
+/// Whether the froxel volumetric path was asked for (`IGNITION_FROXEL=1`).
 ///
-/// **Off.** The march is the picture that ships. The grid is roughly
-/// three times cheaper and does not bead a beam, and it carries gobos
-/// and shadows in the air, but as it stands it renders a room with no
-/// beams in it at all — `beam-tests.json` shows that plainly against
-/// the march, and the cause is not yet found. A path that is cheaper
-/// and wrong is not a default.
-///
-/// `IGNITION_FROXEL=1` selects it, which is how the regression is
-/// being chased. See docs/domain/froxel-volumetrics.md.
-// r[impl viz.haze-is-volumetric] - the march by default, IGNITION_FROXEL=1 for froxels
+/// It was Ignition's own compute pass inside the vendored `bevy_pbr`
+/// 0.19.1, opt-in and never the default. It was not carried to the Bevy
+/// pin (vendor/bevy_pbr/FTS-PATCH.md): the analytic beam renderer
+/// replaces the fog altogether. Asking for it is answered with a warning
+/// and the march.
 #[must_use]
 pub fn froxels_wanted() -> bool {
     std::env::var("IGNITION_FROXEL").is_ok_and(|v| v.trim() == "1")
@@ -2058,35 +2074,29 @@ pub(crate) fn spawn_camera(
         // because a beam crossing a 20 m room at the default spacing
         // comes out in stair-steps, and a live view pays for fewer
         // pixels instead.
-        crate::haze::HazeView {
-            fog_steps: quality.fog_steps,
-            scale: quality.fog_scale,
-            pixels: quality.haze_pixels,
-        },
     ));
-    // The froxel path replaces the screen-space march rather than
-    // joining it: with both running the beams are drawn twice and
-    // neither can be judged. `HazeView` is what sets the march up, so
-    // taking it off is how the old path is turned off.
-    // r[impl viz.haze-is-volumetric] - froxels, behind IGNITION_FROXEL
+    // What draws the light in the air: the beam pass, or (only to compare
+    // the two) the fog marched on this camera or on a haze camera of its
+    // own, which `haze.rs` sets up from `HazeView`.
+    // r[impl viz.haze-is-volumetric] - one of the two draws the air, never both
+    match crate::beams::air_path() {
+        crate::beams::AirPath::Beams => {
+            camera.insert(crate::beams::beam_camera(quality.fog_steps));
+        }
+        crate::beams::AirPath::Fog => {
+            camera.insert(crate::haze::HazeView {
+                fog_steps: quality.fog_steps,
+                scale: quality.fog_scale,
+                pixels: quality.haze_pixels,
+            });
+        }
+    }
+    // r[impl viz.haze-is-volumetric] - the screen-space march is the one path
     if froxels_wanted() {
-        // The preset sizes the grid; `IGNITION_FROXEL_GRID` still
-        // outranks it, the way every other dial here works.
-        let (x, y, z) = froxel_grid_override().unwrap_or(quality.froxel_grid);
-        camera.remove::<crate::haze::HazeView>();
-        camera.insert(bevy::pbr::froxel::FroxelVolumetrics {
-            dimensions: bevy::math::UVec3::new(x, y, z),
-            samples: std::env::var("IGNITION_FROXEL_SAMPLES")
-                .ok()
-                .and_then(|v| v.trim().parse().ok())
-                .unwrap_or(quality.froxel_samples),
-            history_weight: std::env::var("IGNITION_FROXEL_HISTORY")
-                .ok()
-                .and_then(|v| v.trim().parse::<f32>().ok())
-                .unwrap_or_else(|| crate::num::f32_of_u32(quality.froxel_history_pct) / 100.0),
-            dilution: crate::haze_texture::HazeLook::default().dilution,
-            ..bevy::pbr::froxel::FroxelVolumetrics::default()
-        });
+        tracing::warn!(
+            "IGNITION_FROXEL=1 is ignored: the froxel volumetrics were not carried to this \
+             Bevy (vendor/bevy_pbr/FTS-PATCH.md); the screen-space march draws the haze"
+        );
     }
     if adapt {
         camera.insert(auto_exposure(curves, quality.instant_adaptation));
@@ -2214,18 +2224,22 @@ mod quality_tests {
     }
 
     #[test]
-    fn the_instant_adaptation_rings_at_a_video_frame_but_not_at_a_stills() {
+    fn the_instant_adaptation_does_not_ring_at_a_stills_frame_or_a_slow_one() {
         let instant = (
             AUTO_EXPOSURE_INSTANT_SPEED,
             AUTO_EXPOSURE_INSTANT_SPEED,
             AUTO_EXPOSURE_INSTANT_TRANSITION,
         );
-        // A still's 10 ms frame: half the gap a frame, settled in 20.
+        // A still's 10 ms frame: an eighth of the gap a frame.
         let frames = adapt_without_ringing(0.0, 1.5, instant, 0.010);
-        assert!(frames <= 20, "{frames}");
-        // A 30 fps video frame: the first step overshoots (the bug).
+        assert!(frames <= 45, "{frames}");
+        // A 33 ms frame (a room with a model to draw, a video frame) no
+        // longer overshoots; at the old speed it did, and rang.
         let next = auto_exposure_step(0.0, 1.5, instant.0, instant.1, instant.2, 1.0 / 30.0);
-        assert!(next > 1.5, "{next}");
+        assert!(next < 1.5, "{next}");
+        // Nor does an 80 ms one.
+        let slow = auto_exposure_step(0.0, 1.5, instant.0, instant.1, instant.2, 0.080);
+        assert!(slow <= 1.5, "{slow}");
     }
 
     // r[verify viz.post-processing] - each feature is a RenderQuality switch

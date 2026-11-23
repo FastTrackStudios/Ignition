@@ -3,12 +3,12 @@
 use core::ops::Range;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetServer, Handle, load_embedded_asset};
+use bevy_asset::{AssetServer, Handle};
 use bevy_core_pipeline::{
-    FullscreenShader,
-    core_3d::{DEPTH_PREPASS_TEXTURE_SUPPORTED, main_opaque_pass_3d},
+    core_3d::{main_opaque_pass_3d, DEPTH_PREPASS_TEXTURE_SUPPORTED},
     prepass::{DeferredPrepass, DepthPrepass},
     schedule::{Core3d, Core3dSystems},
+    FullscreenShader,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -18,34 +18,35 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
-    system::{Commands, Query, Res, ResMut, lifetimeless::Read},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
 };
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        AddressMode, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
-        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
-        TextureSampleType, TextureViewDescriptor, TextureViewDimension, binding_types,
+        binding_types, AddressMode, BindGroupEntries, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+        DynamicUniformBuffer, FilterMode, FragmentState, Operations, PipelineCache,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType, TextureViewDescriptor,
+        TextureViewDimension,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_component::SyncComponent,
     texture::GpuImage,
     view::{ExtractedView, ViewTarget},
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_shader::{Shader, load_shader_library};
+use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    Bluenoise, MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
-    MeshViewBindGroup, ViewKeyCache, binding_arrays_are_usable, deferred::deferred_lighting,
+    binding_arrays_are_usable, deferred::deferred_lighting, Bluenoise, MeshPipelineSystems,
+    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, ViewKeyCache,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -191,8 +192,7 @@ pub struct ScreenSpaceReflectionsPipelineKey {
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "ssr.wgsl");
-        load_shader_library!(app, "raymarch.wgsl");
+        load_shader_library!(app, "raymarch.wesl");
 
         app.add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
 
@@ -380,7 +380,7 @@ pub fn init_screen_space_reflections_pipeline(
         fullscreen_shader: fullscreen_shader.clone(),
         // Even though ssr was loaded using load_shader_library, we can still access it like a
         // normal embedded asset (so we can use it as both a library or a kernel).
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "ssr.wgsl"),
+        fragment_shader: asset_server.load("embedded://bevy_pbr/ssr.wesl"),
     });
 }
 
@@ -444,7 +444,7 @@ pub fn prepare_ssr_settings(
     }
 }
 
-impl SyncComponent for ScreenSpaceReflections {
+impl SyncComponent<RenderApp> for ScreenSpaceReflections {
     type Target = (
         ScreenSpaceReflectionsUniform,
         ViewScreenSpaceReflectionsUniformOffset,
@@ -452,7 +452,7 @@ impl SyncComponent for ScreenSpaceReflections {
     );
 }
 
-impl ExtractComponent for ScreenSpaceReflections {
+impl ExtractComponent<RenderApp> for ScreenSpaceReflections {
     type QueryData = Read<ScreenSpaceReflections>;
     type QueryFilter = ();
     type Out = ScreenSpaceReflectionsUniform;

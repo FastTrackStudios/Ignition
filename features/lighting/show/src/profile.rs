@@ -1212,7 +1212,7 @@ mod tests {
     fn the_default_profile_offers_the_optional_layers() {
         let p = default_profile();
         for name in [
-            "Movers", "Beams", "Bars", "Floor", "Audience", "Drums", "Spot", "Haze",
+            "Movers", "Beams", "Bars", "Floor", "Audience", "Drums", "Spot", "Fill", "Haze",
         ] {
             let r = role(&p, name, RoleKind::Group).expect(name);
             assert!(!r.required, "{name} is optional");

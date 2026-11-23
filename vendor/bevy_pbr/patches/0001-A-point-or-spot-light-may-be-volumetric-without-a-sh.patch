@@ -1,0 +1,64 @@
+From d3bd99848539ba0e60988e66b100e8a53323388c Mon Sep 17 00:00:00 2001
+From: "fts-forge[bot]" <345159799+fts-forge[bot]@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 15:11:27 -0800
+Subject: [PATCH 1/2] A point or spot light may be volumetric without a shadow
+ map
+
+VolumetricLight on a point or spot light only took effect when the light
+also had shadow_maps_enabled, and the number of volumetric lights was
+capped by the shadow maps' capacity. The fog's shader already treats a
+light without a shadow map as unshadowed (shadow = 1.0), so the flag no
+longer asks for one and the counts are no longer capped.
+
+Ignition: every fixture of a rig is in the haze, and only a dozen can
+afford a shadow map.
+---
+ crates/bevy_pbr/src/render/light.rs | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/crates/bevy_pbr/src/render/light.rs b/crates/bevy_pbr/src/render/light.rs
+index c93f0de4f..b3a790506 100644
+--- a/crates/bevy_pbr/src/render/light.rs
++++ b/crates/bevy_pbr/src/render/light.rs
+@@ -1207,11 +1207,12 @@ pub fn prepare_lights(
+         .filter(|light| light.2.spot_light_angles.is_none())
+         .count();
+ 
++    // Not bounded by the shadow maps' capacity: a volumetric light needs
++    // no shadow map (see the `VOLUMETRIC` flag below).
+     let point_light_volumetric_enabled_count = point_lights
+         .iter()
+         .filter(|(_, _, light, _, _, _)| light.volumetric && light.spot_light_angles.is_none())
+-        .count()
+-        .min(max_texture_cubes);
++        .count();
+ 
+     let point_light_shadow_maps_count = point_lights
+         .iter()
+@@ -1242,8 +1243,7 @@ pub fn prepare_lights(
+     let spot_light_volumetric_enabled_count = point_lights
+         .iter()
+         .filter(|(_, _, light, _, _, _)| light.volumetric && light.spot_light_angles.is_some())
+-        .count()
+-        .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
++        .count();
+ 
+     let spot_light_shadow_maps_count = point_lights
+         .iter()
+@@ -1309,8 +1309,11 @@ pub fn prepare_lights(
+             1.0,
+             light.shadow_map_near_z,
+         );
+-        if light.shadow_maps_enabled
+-            && light.volumetric
++        // A point or spot light scatters in the fog whether or not it
++        // casts a shadow: the fog's shader takes `shadow = 1.0` for a
++        // light with no shadow map, so the counts above are not bounded
++        // by the shadow maps' capacity either.
++        if light.volumetric
+             && (index < point_light_volumetric_enabled_count
+                 || (light.spot_light_angles.is_some()
+                     && index - point_light_count < spot_light_volumetric_enabled_count))
+-- 
+2.56.0
+

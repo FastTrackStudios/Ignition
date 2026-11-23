@@ -122,6 +122,9 @@ struct Args {
     // `--loopback` feeds the sent frame back into the universes — a
     // verification path, see `ignition_viz::output::LoopbackSink`.
     loopback: bool,
+    // `--house on|off` and `--env-light <group>=on|off`: the room's own
+    // practical lights (`environment.json`), over what the venue says.
+    env_lights: Vec<(String, bool)>,
 }
 
 impl Args {
@@ -177,6 +180,7 @@ impl Args {
             camera_preset: None,
             output: false,
             loopback: false,
+            env_lights: Vec::new(),
         }
     }
 
@@ -269,6 +273,20 @@ impl Args {
             "--look" => self.look = Some(parse_point(&next("x,y,z in metres")?)?),
             "--camera" => self.camera_preset = Some(next("a preset name from cameras.json")?),
             "--assets" => self.assets_dir = next("a directory")?,
+            // The room's own lights: the house lights, or any group the
+            // venue's environment declares.
+            "--house" => {
+                let on = parse_switch(&next("on|off")?)?;
+                self.env_lights.push(("house".to_string(), on));
+            }
+            "--env-light" => {
+                let spec = next("group=on|off")?;
+                let Some((group, state)) = spec.split_once('=') else {
+                    anyhow::bail!("--env-light wants group=on|off, got {spec}");
+                };
+                self.env_lights
+                    .push((group.to_string(), parse_switch(state)?));
+            }
             _ => return Ok(false),
         }
         Ok(true)
@@ -376,12 +394,43 @@ impl Args {
     }
 }
 
+/// The room's own air, camera and rig output (`look` in its manifest,
+/// what `IGNITION_ENV_LOOK` writes), for whatever the command line did not
+/// say.
+fn apply_venue_look(args: &mut Args) {
+    let look = std::fs::read_to_string(args.venue_dir.join("venue.ig-venue"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .and_then(|doc| doc.get("look").cloned());
+    let given = |flag: &str| std::env::args().any(|a| a == flag);
+    let number = |key: &str| {
+        look.as_ref()
+            .and_then(|l| l.get(key))
+            .and_then(serde_json::Value::as_f64)
+            .and_then(|v| v.to_string().parse::<f32>().ok())
+    };
+    if let Some(haze) = number("haze").filter(|_| !given("--haze")) {
+        args.haze = haze;
+    }
+    if let Some(stops) = number("exposure").filter(|_| !given("--exposure")) {
+        args.exposure = stops;
+    }
+    if let Some(ambient) = number("ambient").filter(|_| !given("--ambient")) {
+        args.ambient = ambient;
+    }
+    if let Some(output) = number("output") {
+        ignition_viz::fixture_profile::set_output_scale(output);
+    }
+}
+
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse()?;
+    let mut args = Args::parse()?;
+    apply_venue_look(&mut args);
 
     let view = ViewPreset::parse(&args.view)
         .ok_or_else(|| anyhow::anyhow!("unknown --view {}; use house, stage, or top", args.view))?;
-    let venue = Venue::load(&args.venue_dir)?;
+    let mut venue = Venue::load(&args.venue_dir)?;
+    switch_environment_lights(&mut venue, &args.env_lights)?;
     let cameras = resolve_cameras(&args.venue_dir, &venue, args.camera_preset.as_deref())?;
     println!(
         "loaded venue {}: {} fixtures, {} room objects",
@@ -673,6 +722,35 @@ fn run_pipeline(
         }
         (None, Some(request)) => run_export(config, playback, gdtf, &request)?,
         (None, None) => run(config, playback, gdtf),
+    }
+    Ok(())
+}
+
+/// `on` or `off`.
+fn parse_switch(text: &str) -> anyhow::Result<bool> {
+    match text {
+        "on" => Ok(true),
+        "off" => Ok(false),
+        other => anyhow::bail!("expected on or off, got {other}"),
+    }
+}
+
+/// `--house` and `--env-light`, applied to the venue's environment.
+fn switch_environment_lights(venue: &mut Venue, switches: &[(String, bool)]) -> anyhow::Result<()> {
+    for (group, on) in switches {
+        let Some(environment) = venue.environment.as_mut() else {
+            anyhow::bail!("this venue has no environment.json, so no {group} lights to switch");
+        };
+        anyhow::ensure!(
+            environment.switch(group, *on),
+            "the venue's environment has no light group {group:?}; it has {}",
+            environment
+                .light_groups
+                .iter()
+                .map(|g| g.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
     Ok(())
 }

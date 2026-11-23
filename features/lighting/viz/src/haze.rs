@@ -43,8 +43,8 @@ use bevy::render::render_resource::{
 };
 use bevy::shader::ShaderRef;
 
-const OCCLUDER_SHADER: &str = "embedded://ignition_viz/haze_occluder.wgsl";
-const COMPOSITE_SHADER: &str = "embedded://ignition_viz/haze_composite.wgsl";
+const OCCLUDER_SHADER: &str = "embedded://ignition_viz/haze_occluder.wesl";
+const COMPOSITE_SHADER: &str = "embedded://ignition_viz/haze_composite.wesl";
 
 /// The render layer the haze camera sees: occluder twins and volumetric
 /// lights, nothing else.
@@ -255,8 +255,8 @@ pub struct HazePlugin;
 
 impl Plugin for HazePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "haze_occluder.wgsl");
-        embedded_asset!(app, "haze_composite.wgsl");
+        embedded_asset!(app, "haze_occluder.wesl");
+        embedded_asset!(app, "haze_composite.wesl");
         app.add_plugins((
             MaterialPlugin::<HazeOccluderMaterial>::default(),
             MaterialPlugin::<HazeCompositeMaterial>::default(),

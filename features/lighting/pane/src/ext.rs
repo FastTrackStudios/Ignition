@@ -9,6 +9,7 @@ use std::sync::{Mutex, PoisonError};
 
 use architect_extensions::hostcall::HostRequest;
 use architect_extensions::linked::{Builder, Extension, Handle};
+use architect_extensions_dioxus::BuilderExt as _;
 use dioxus::prelude::*;
 use serde_json::{Value, json};
 
@@ -38,13 +39,37 @@ pub(crate) fn handle() -> Result<Handle, String> {
         .ok_or_else(|| "the Lighting extension is not running".to_owned())
 }
 
+/// The manifest, as written.
+const MANIFEST: &str = include_str!("../extension.toml");
+
 impl Extension for Lighting {
     fn manifest(&self) -> &'static str {
-        include_str!("../extension.toml")
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            MANIFEST
+        }
+        // A browser runs no programs: the `room` view (a process view,
+        // the package's renderer) is not there; the room is `show`'s.
+        #[cfg(target_arch = "wasm32")]
+        {
+            static WEB: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+            WEB.get_or_init(|| without_view(MANIFEST, ROOM))
+        }
     }
 
     fn build(&self, ext: &mut Builder) {
         *HANDLE.lock().unwrap_or_else(PoisonError::into_inner) = Some(ext.handle());
+        // The programming actions (src/program): the catalogue is the
+        // list. Each reads and writes a few small files and answers; it
+        // runs where it is called (a script's own thread has no runtime
+        // to hand the work to).
+        for id in crate::program::ids() {
+            let run_id = id.clone();
+            ext.action(id, move |args| {
+                let id = run_id.clone();
+                async move { crate::program::run(&id, &args) }
+            });
+        }
         ext.view(VIEW, ShowView)
             .view(crate::cues::VIEW, crate::cues::CuesView)
             .action("IGNITION_SHOW_OPEN", |_| open())
@@ -76,11 +101,15 @@ impl Extension for Lighting {
             .action("IGNITION_SESSION_TAKEN", |_| async move {
                 Ok(crate::session::report())
             })
+            .action("IGNITION_ROOM_CUES", room::hand_cues)
+            .action("IGNITION_ROOM_CUE", room::take_cue)
+            .action("IGNITION_ROOM_GO", room::go)
+            .action("IGNITION_ROOM_STATE", |_| async move { room::state() })
             .action("IGNITION_STATE", |_| async move {
                 let picks = picks().await?;
                 Ok(json!({
                     "copy": if LINKED { "linked" } else { "process" },
-                    "pid": std::process::id(),
+                    "pid": pid(),
                     "renderer": picks.program().display().to_string(),
                     "args": picks.args(LINKED),
                     "show": picks.show,
@@ -88,6 +117,98 @@ impl Extension for Lighting {
                     "clock": picks.clock,
                 }))
             });
+    }
+}
+
+/// `manifest` without its `[[views]]` table `id` (that table's lines, up
+/// to the next table).
+#[cfg(any(test, target_arch = "wasm32"))]
+fn without_view(manifest: &str, id: &str) -> String {
+    let wanted = format!("id = \"{id}\"");
+    let mut out: Vec<&str> = Vec::new();
+    let mut lines = manifest.lines().peekable();
+    while let Some(line) = lines.next() {
+        let is_it = line.trim() == "[[views]]" && lines.peek().is_some_and(|l| l.trim() == wanted);
+        if is_it {
+            // Its lines, up to the next table's header.
+            while lines
+                .next_if(|l| !l.trim_start().starts_with('['))
+                .is_some()
+            {}
+            continue;
+        }
+        out.push(line);
+    }
+    out.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_browser_manifest_has_no_process_view() {
+        let web = without_view(MANIFEST, ROOM);
+        let manifest: toml::Value = toml::from_str(&web).expect("still TOML");
+        let views: Vec<&str> = manifest["views"]
+            .as_array()
+            .expect("views")
+            .iter()
+            .filter_map(|v| v["id"].as_str())
+            .collect();
+        assert!(!views.contains(&ROOM));
+        assert!(views.contains(&VIEW));
+        assert!(views.contains(&crate::cues::VIEW));
+        let actions = manifest["actions"].as_array().expect("actions").len();
+        let all: toml::Value = toml::from_str(MANIFEST).expect("the manifest is TOML");
+        assert_eq!(actions, all["actions"].as_array().expect("actions").len());
+    }
+}
+
+/// This process's id (a browser has none).
+#[cfg(not(target_arch = "wasm32"))]
+fn pid() -> u32 {
+    std::process::id()
+}
+
+#[cfg(target_arch = "wasm32")]
+const fn pid() -> u32 {
+    0
+}
+
+/// The room's operator actions: in a browser the room is in the page
+/// (`crate::web`); natively it is the `ignition` program, which follows
+/// its clock, so they are refused.
+#[cfg(all(feature = "pane", target_arch = "wasm32"))]
+mod room {
+    pub use crate::web::{go, hand_cues, take_cue};
+
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "the action's signature, which natively refuses"
+    )]
+    pub fn state() -> Result<serde_json::Value, String> {
+        Ok(crate::web::state())
+    }
+}
+
+#[cfg(not(all(feature = "pane", target_arch = "wasm32")))]
+mod room {
+    use serde_json::Value;
+
+    const NATIVE: &str = "the room is the `ignition` program here, which follows its clock (IGNITION_CLOCK_PICK, IGNITION_SESSION_ROOM); these are the browser's room's";
+
+    pub async fn hand_cues(_args: Value) -> Result<Value, String> {
+        Err(NATIVE.to_owned())
+    }
+    pub async fn take_cue(_args: Value) -> Result<Value, String> {
+        Err(NATIVE.to_owned())
+    }
+    pub async fn go(_args: Value) -> Result<Value, String> {
+        Err(NATIVE.to_owned())
+    }
+    pub fn state() -> Result<Value, String> {
+        Err(NATIVE.to_owned())
     }
 }
 
@@ -212,9 +333,10 @@ fn pop_in() -> bool {
 }
 
 /// The view: the picks, read again when a setting changes (once a
-/// second), and what draws the room.
+/// second), and what draws the room. Public so a view of another linked
+/// extension can show the room (studio-web's `lighting`).
 #[component]
-fn ShowView() -> Element {
+pub fn ShowView() -> Element {
     let mut current = use_signal(|| None::<Picks>);
     use_future(move || async move {
         loop {
@@ -238,7 +360,7 @@ fn ShowView() -> Element {
 
 /// Linked in: the GPU pane, `ignition --process-view`, started again
 /// whenever a pick changes (the previous renderer stopped).
-#[cfg(feature = "pane")]
+#[cfg(all(feature = "pane", not(target_arch = "wasm32")))]
 #[component]
 fn Room(picks: Picks) -> Element {
     use architect_process_view::host::{ProcessViewPane, Program, sessions};
@@ -259,8 +381,9 @@ fn Room(picks: Picks) -> Element {
     }
     let mut program = Program::new(picks.program());
     program.args = picks.args(true);
-    // Shared memory: the renderer is on wgpu 29 (Bevy), the app on 30.
-    let mut program = program.env("ARCHITECT_PROCESS_VIEW_TRANSPORT", "shm");
+    // No transport forced: the renderer and the app are on one wgpu, so
+    // the frames are shared on the GPU (a dma-buf, an IOSurface), and the
+    // renderer says so loudly when they are not.
     if let Ok(root) = std::env::var("IGNITION_ROOT") {
         program = program.env("IGNITION_ROOT", root);
     }
@@ -273,6 +396,16 @@ fn Room(picks: Picks) -> Element {
             }
         }
     }
+}
+
+/// Linked into a browser build: the room in the page, Ignition's web
+/// renderer (`crate::web`). It plays the session (or a list handed in),
+/// not the picks' Live set: a browser has no files to read it from.
+#[cfg(all(feature = "pane", target_arch = "wasm32"))]
+#[component]
+fn Room(picks: Picks) -> Element {
+    let _ = picks;
+    rsx! { crate::web::Room {} }
 }
 
 /// As a process (a development or installed copy): the room is the

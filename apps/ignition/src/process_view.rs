@@ -4,47 +4,201 @@
 //! `architect-process-view`): it starts the program with its end of a
 //! socket pair in `ARCHITECT_VIEW_FD`, says hello with the pane's size, and
 //! from then on forwards the pane's input and size and shows the frames
-//! the program sends. The program's side there (`guest::serve`) draws with
-//! Vello on wgpu 30; Bevy is on wgpu 29, so this speaks the wire itself,
-//! with the transport's own wgpu-free parts (`sock`, `shm`, `surface`):
-//!
-//! - **macOS, zero-copy** (`Transport::IoSurface`), when the app can take
-//!   it: each slot an `IOSurface` with a texture of this device over it;
-//!   a frame is Bevy's target copied into the slot's texture on the GPU,
-//!   and the app's device reads the same memory. The surfaces go to the
-//!   app's Mach port (`surface::Sender`) before the buffers' message.
-//! - **Shared memory** (`Transport::Shm`) everywhere else (Linux, an app
-//!   that can't take surfaces, `ARCHITECT_PROCESS_VIEW_TRANSPORT=shm`):
-//!   each frame read back and written into a slot of one shared file the
-//!   app uploads from.
+//! the program sends. The program's side there (`guest::serve`) draws a
+//! `PaintView` with Vello; this one draws a Bevy app, so it speaks the
+//! wire itself, with that crate's socket and its GPU sharing
+//! (`gpu::export_texture`) on Bevy's own device: the renderer and the app
+//! are on one wgpu. The frames' slots and their transports are
+//! `crate::frames`: a dma-buf texture per slot on Linux, an `IOSurface`
+//! per slot on macOS, and shared memory only where neither can be had,
+//! which is said out loud.
 //!
 //! The pane drives the camera: drag to orbit, right-drag (or Shift-drag)
 //! to move, the wheel to come closer; the number keys cut to the room's
 //! camera presets (`1` is Wide), `0` back to the first.
 //!
 //! [`Orbit`] is the pane's camera arithmetic, pure and tested.
+//!
+//! **Where a frame goes.** Each frame is a `pane.frame` span (target
+//! `ignition::profile`) whose fields are its phases in microseconds
+//! (`crate::frame_stats::FrameTimes`), and every 300 frames
+//! (`IGNITION_FRAME_STATS`) one `ignition::frames` event says their p50
+//! and p99. [`bench`] draws the same show with no pane and no transport,
+//! for the difference (`docs/lighting/research/frame-breakdown.md`).
 
-use std::os::fd::AsFd as _;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result};
-use architect_process_view::shm;
+use architect_process_view::gpu;
 use architect_process_view::sock::Socket;
-use architect_process_view::wire::{self, ToGuest, ToHost, Transport};
+use architect_process_view::wire::{self, Adapter, ToGuest, ToHost, Transport};
 use architect_workspace::{Button, ViewInput};
 use bevy::math::Vec3;
 use ignition_viz::Follow;
 use ignition_viz::camera::{ActiveCamera, CameraState, CameraTarget};
-use ignition_viz::embedded::EmbeddedViz;
+use ignition_viz::embedded::{EmbeddedViz, HostGpu};
 use ignition_viz::playback::Playback;
 use ignition_viz::{DmxUniverses, VizConfig};
 
-/// Frames in flight: the one shown, the one before it, one to draw into.
-const SLOTS: u8 = 3;
+use crate::frame_stats::{FrameStats, FrameTimes, micros_since};
+use crate::frames::{Fallback, Frames, Surfaces};
 
 /// Forces shared memory (`shm`), as for Architect's own guests.
 const TRANSPORT_ENV: &str = "ARCHITECT_PROCESS_VIEW_TRANSPORT";
+
+/// `IGNITION_FRAME_DRAIN=1`: wait for the GPU to finish the rendering
+/// before the frame is copied out, so the copy's own cost can be read
+/// (`FrameTimes::drain`). A measurement's setting: it adds a wait.
+const DRAIN_ENV: &str = "IGNITION_FRAME_DRAIN";
+
+/// The frame's span: its phases are recorded on it as they end.
+fn frame_span(
+    seq: u64,
+    (width, height): (u32, u32),
+    (transport, fallback): (&str, Option<&Fallback>),
+) -> tracing::Span {
+    use tracing::field::Empty;
+    tracing::info_span!(
+        target: "ignition::profile",
+        "pane.frame",
+        seq,
+        width,
+        height,
+        transport,
+        // Why the frame is not shared on the GPU, when it is not.
+        fallback = fallback.map(Fallback::name),
+        slot = Empty,
+        update_us = Empty,
+        drain_us = Empty,
+        submit_us = Empty,
+        wait_us = Empty,
+        memcpy_us = Empty,
+        send_us = Empty,
+        total_us = Empty,
+        interval_us = Empty,
+    )
+}
+
+/// A frame's phases onto its span.
+fn record(span: &tracing::Span, times: &FrameTimes) {
+    span.record("update_us", times.update);
+    span.record("drain_us", times.drain);
+    span.record("submit_us", times.submit);
+    span.record("wait_us", times.wait);
+    span.record("memcpy_us", times.memcpy);
+    span.record("send_us", times.send);
+    span.record("total_us", times.total);
+    span.record("interval_us", times.interval);
+}
+
+/// The wire's name of a transport, as the spans and summaries say it.
+const fn transport_name(transport: Transport) -> &'static str {
+    match transport {
+        Transport::Shm => "shm",
+        Transport::Dmabuf => "dmabuf",
+        Transport::IoSurface => "iosurface",
+    }
+}
+
+/// The visualizer for a pane of `width` × `height`, on `gpu`.
+fn start_viz(
+    show: Show,
+    (width, height): (u32, u32),
+    gpu: HostGpu,
+) -> (EmbeddedViz, Arc<dyn Follow>) {
+    let Show {
+        mut config,
+        playback,
+        gdtf,
+        follow,
+    } = show;
+    config.width = width;
+    config.height = height;
+    config.overlay = false;
+    let mut viz = EmbeddedViz::new(config, DmxUniverses::new(), playback, Some(gdtf), gpu);
+    // The pane owns the keyboard: the number keys are ours to map.
+    if let Some(mut active) = viz.app_mut().world_mut().get_resource_mut::<ActiveCamera>() {
+        active.keys = false;
+    }
+    (viz, follow)
+}
+
+/// The show where the clock is, and the visualizer stepped: the frame's
+/// target, once there is one.
+fn update(
+    viz: &mut EmbeddedViz,
+    follow: &dyn Follow,
+    ask: Option<CameraAsk>,
+    (width, height): (u32, u32),
+) -> Option<wgpu::Texture> {
+    let world = viz.app_mut().world_mut();
+    if let Some(mut playback) = world.get_resource_mut::<Playback>() {
+        follow.follow(&mut playback);
+    }
+    if let Some(ask) = ask
+        && let Some(mut active) = world.get_resource_mut::<ActiveCamera>()
+    {
+        match ask {
+            CameraAsk::Free(state) => active.set_wide_free(state),
+            CameraAsk::Cut(target) => {
+                let _ = active.set_wide(&target);
+            }
+        }
+    }
+    viz.render(width, height)
+}
+
+/// Waits for the GPU to finish everything submitted so far.
+fn wait_for_gpu(device: &wgpu::Device) -> Result<()> {
+    device
+        .poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: Some(Duration::from_secs(10)),
+        })
+        .map_err(|e| anyhow::anyhow!("waiting for the GPU: {e}"))?;
+    Ok(())
+}
+
+/// The show drawn `frames` times at `size` with no pane: the renderer a
+/// pane runs, stepped and waited for as a pane's frame is, and nothing
+/// copied out or sent. What a pane's frame costs beyond this is its
+/// transport. The first `warmup` frames (pipelines compiling) are not
+/// counted.
+///
+/// # Errors
+///
+/// There is no GPU, or it is lost.
+pub fn bench(show: Show, size: (u32, u32), frames: u32, warmup: u32) -> Result<()> {
+    let gpu = ignition_viz::bench::headless_gpu()?;
+    let device = gpu.device.clone();
+    let (mut viz, follow) = start_viz(show, size, gpu);
+    let mut stats = FrameStats::new(usize::try_from(frames)?);
+    for frame in 0..warmup.saturating_add(frames) {
+        let began = Instant::now();
+        let interval = stats.begin(began);
+        let span = frame_span(u64::from(frame), size, ("none", None));
+        let _entered = span.enter();
+        let _ = update(&mut viz, follow.as_ref(), None, size);
+        let update = micros_since(began);
+        let waiting = Instant::now();
+        wait_for_gpu(&device)?;
+        let times = FrameTimes {
+            update,
+            wait: micros_since(waiting),
+            total: micros_since(began),
+            interval,
+            ..FrameTimes::default()
+        };
+        record(&span, &times);
+        if frame >= warmup
+            && let Some(summary) = stats.push(times)
+        {
+            summary.emit("none", size);
+        }
+    }
+    Ok(())
+}
 
 /// The pieces the runner made for a window, made for a pane instead.
 pub struct Show {
@@ -63,7 +217,7 @@ pub struct Show {
 /// or there is no GPU.
 pub fn serve(show: Show) -> Result<()> {
     let socket = Socket::from_env().context("ARCHITECT_VIEW_FD: not started as a process view")?;
-    let (width, height, scale, zero_copy) = loop {
+    let (width, height, scale, zero_copy, adapter) = loop {
         let Some((bytes, _)) = socket.recv()? else {
             anyhow::bail!("the app closed the view before saying hello");
         };
@@ -73,6 +227,7 @@ pub fn serve(show: Show) -> Result<()> {
             height,
             scale,
             zero_copy,
+            adapter,
             ..
         } = ToGuest::decode(&bytes)?
         {
@@ -81,30 +236,16 @@ pub fn serve(show: Show) -> Result<()> {
                 "the app speaks process-view protocol {version}, this program {}",
                 wire::VERSION
             );
-            break (width.max(1), height.max(1), scale, zero_copy);
+            break (width.max(1), height.max(1), scale, zero_copy, adapter);
         }
     };
     tracing::info!(width, height, scale, zero_copy, "process view: hello");
-    let gpu = ignition_viz::bench::headless_gpu()?;
+    let gpu = pane_gpu(&adapter)?;
     let (device, queue) = (gpu.device.clone(), gpu.queue.clone());
-    let Show {
-        mut config,
-        playback,
-        gdtf,
-        follow,
-    } = show;
-    config.width = width;
-    config.height = height;
-    config.overlay = false;
-    let mut viz = EmbeddedViz::new(config, DmxUniverses::new(), playback, Some(gdtf), gpu);
-    // The pane owns the keyboard: the number keys are ours to map.
-    if let Some(mut active) = viz.app_mut().world_mut().get_resource_mut::<ActiveCamera>() {
-        active.keys = false;
-    }
+    let (mut viz, follow) = start_viz(show, (width, height), gpu);
     let link = Link::new(&device);
-    let zero_copy = zero_copy && link.can_share();
     let mut guest = Guest {
-        frames: Frames::new(&device, (width, height), 1, zero_copy)?,
+        frames: Frames::new(&device, (width, height), 1, link.share(zero_copy))?,
         link,
         socket,
         device,
@@ -116,8 +257,14 @@ pub fn serve(show: Show) -> Result<()> {
         orbit: Orbit::default(),
         drag: None,
         pending_camera: None,
+        stats: FrameStats::from_env(),
+        drain: std::env::var(DRAIN_ENV).is_ok_and(|v| v == "1"),
     };
-    tracing::info!(transport = ?guest.frames.transport(), "process view: frames");
+    tracing::info!(
+        transport = transport_name(guest.frames.transport()),
+        fallback = guest.frames.fallback().map(Fallback::name),
+        "process view: frames"
+    );
     let served = guest
         .announce()
         .and_then(|()| guest.run(&mut viz, follow.as_ref()));
@@ -139,47 +286,56 @@ pub fn serve(show: Show) -> Result<()> {
     }
 }
 
-/// Where the frames' GPU-shared slots go: on macOS the app's Mach port
-/// (`surface::Sender`), if it named one and this device is a Metal one;
-/// nowhere elsewhere (shared memory only).
+/// The device a pane's frames are drawn and shared on: the app's own
+/// adapter (the one its hello names: two devices share a texture only on
+/// one GPU), with what sharing frames needs of it beside what the
+/// renderer does (`VULKAN_EXTERNAL_MEMORY_DMA_BUF` on Linux).
+fn pane_gpu(adapter: &Adapter) -> Result<HostGpu> {
+    ignition_viz::bench::headless_gpu_on(
+        Some((adapter.vendor, adapter.device)),
+        gpu::sharing_features,
+    )
+}
+
+/// Whether this pane's frames can be shared on the GPU, decided once:
+/// what the environment forces, what the device can export, and where
+/// the slots travel.
 struct Link {
-    #[cfg(target_os = "macos")]
-    sender: Option<architect_process_view::surface::Sender>,
+    forced_shm: bool,
+    /// The device can export frames (`gpu::can_share`).
+    exports: bool,
+    surfaces: Surfaces,
 }
 
 impl Link {
     fn new(device: &wgpu::Device) -> Self {
         let forced_shm = std::env::var(TRANSPORT_ENV).is_ok_and(|v| v == "shm");
-        #[cfg(target_os = "macos")]
-        {
-            // SAFETY: only asked whether the device is a Metal one.
-            let metal = unsafe { device.as_hal::<wgpu::hal::api::Metal>() }.is_some();
-            let sender = if forced_shm || !metal {
-                None
+        Self {
+            forced_shm,
+            exports: gpu::can_share(device),
+            // Not asked for when shared memory is forced (macOS: the
+            // Mach port is looked up).
+            surfaces: if forced_shm {
+                Surfaces::none()
             } else {
-                architect_process_view::surface::Sender::from_env()
-                    .inspect_err(|e| tracing::warn!("process view: no IOSurface rendezvous: {e}"))
-                    .ok()
-                    .flatten()
-            };
-            Self { sender }
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            let _ = (device, forced_shm);
-            Self {}
+                Surfaces::from_env()
+            },
         }
     }
 
-    /// Whether frames can go GPU-shared.
-    const fn can_share(&self) -> bool {
-        #[cfg(target_os = "macos")]
-        {
-            self.sender.is_some()
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            false
+    /// Whether frames can go GPU-shared to an app that says it can
+    /// (`zero_copy`) or cannot import them; else why not.
+    fn share(&self, zero_copy: bool) -> Result<(), Fallback> {
+        if self.forced_shm {
+            Err(Fallback::Forced)
+        } else if !zero_copy {
+            Err(Fallback::Host)
+        } else if !self.exports {
+            Err(Fallback::Device)
+        } else if !self.surfaces.reachable() {
+            Err(Fallback::NoRendezvous)
+        } else {
+            Ok(())
         }
     }
 }
@@ -201,6 +357,39 @@ struct Guest {
     drag: Option<(f32, f32, bool)>,
     /// What the pane asked of the camera since the last frame.
     pending_camera: Option<CameraAsk>,
+    /// The frames' phases, summarised a window at a time.
+    stats: FrameStats,
+    /// Wait for the rendering before copying a frame out (`DRAIN_ENV`).
+    drain: bool,
+}
+
+/// Saves the view the pane is on as the preset on number key `digit`
+/// ("View 4" on 4), in the room's `cameras.json`, so the number recalls
+/// it from then on and in every later session.
+fn save_view(viz: &mut EmbeddedViz, digit: &str, state: &CameraState) {
+    let Ok(slot) = digit.parse::<u8>() else {
+        return;
+    };
+    let Some(mut active) = viz.app_mut().world_mut().get_resource_mut::<ActiveCamera>() else {
+        return;
+    };
+    let name = format!("View {digit}");
+    let mut preset = ignition_viz::camera::CameraPreset::new(
+        &name,
+        state.eye.to_array(),
+        state.look.to_array(),
+        state.fov_deg,
+    );
+    preset.about = "saved from the pane".to_owned();
+    active.cameras.store(preset);
+    active.cameras.set_slot(slot, &name);
+    match crate::night::VENUE_DIR.get() {
+        Some(dir) => match active.cameras.save(dir) {
+            Ok(()) => tracing::info!(camera.slot = slot, camera.name = %name, "camera: view saved"),
+            Err(error) => tracing::warn!(%error, "camera: the view was not written to the room"),
+        },
+        None => tracing::warn!("camera: no room folder to save the view in"),
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -211,21 +400,7 @@ enum CameraAsk {
 
 impl Guest {
     fn announce(&self) -> Result<()> {
-        let bytes = self.frames.message().encode()?;
-        match &self.frames.slots {
-            Slots::Shm { map, .. } => self.socket.send(&bytes, &[map.as_fd()])?,
-            // The surfaces first, on the Mach port; then the message that
-            // names them.
-            #[cfg(target_os = "macos")]
-            Slots::Surfaces(slots) => {
-                let surfaces: Vec<_> = slots.iter().map(|(s, _)| s.clone()).collect();
-                if let Some(sender) = &self.link.sender {
-                    sender.send(self.frames.id, &surfaces)?;
-                }
-                self.socket.send(&bytes, &[])?;
-            }
-        }
-        Ok(())
+        self.frames.announce(&self.socket, &self.link.surfaces)
     }
 
     fn run(&mut self, viz: &mut EmbeddedViz, follow: &dyn Follow) -> Result<()> {
@@ -274,8 +449,9 @@ impl Guest {
                 let size = (width.max(1), height.max(1));
                 if size != (self.frames.width, self.frames.height) {
                     let id = self.frames.id.saturating_add(1);
-                    let shared = self.frames.shared();
-                    self.frames = Frames::new(&self.device, size, id, shared)?;
+                    // As they were shared: the same reason, if not.
+                    let share = self.frames.fallback().cloned().map_or(Ok(()), Err);
+                    self.frames = Frames::new(&self.device, size, id, share)?;
                     self.announce()?;
                 }
                 self.credit = true;
@@ -287,7 +463,7 @@ impl Guest {
                 if !zero_copy && self.frames.shared() {
                     let size = (self.frames.width, self.frames.height);
                     let id = self.frames.id.saturating_add(1);
-                    self.frames = Frames::new(&self.device, size, id, false)?;
+                    self.frames = Frames::new(&self.device, size, id, Err(Fallback::Host))?;
                 }
                 self.credit = true;
                 self.announce()?;
@@ -342,9 +518,18 @@ impl Guest {
                 self.pending_camera = Some(CameraAsk::Free(self.orbit.state()));
             }
             ViewInput::Key {
-                key, down: true, ..
+                key,
+                down: true,
+                modifiers,
             } => {
-                if key.len() == 1 && key.chars().all(|c| c.is_ascii_digit()) {
+                let saving = ["Alt", "Ctrl", "Mod"].iter().any(|m| modifiers.contains(m));
+                if key.len() == 1 && key.chars().all(|c| c.is_ascii_digit()) && saving {
+                    // Alt, Ctrl or the platform key with a number: the
+                    // view the pane is on now is saved on that number.
+                    if let Some(state) = current() {
+                        save_view(viz, key, &state);
+                    }
+                } else if key.len() == 1 && key.chars().all(|c| c.is_ascii_digit()) {
                     if let Some(target) = CameraTarget::parse(key) {
                         self.pending_camera = Some(CameraAsk::Cut(target));
                     }
@@ -361,340 +546,64 @@ impl Guest {
 
     fn draw(&mut self, viz: &mut EmbeddedViz, follow: &dyn Follow, slot: u8) -> Result<()> {
         let began = Instant::now();
-        {
-            let world = viz.app_mut().world_mut();
-            if let Some(mut playback) = world.get_resource_mut::<Playback>() {
-                follow.follow(&mut playback);
-            }
-            if let Some(ask) = self.pending_camera.take()
-                && let Some(mut active) = world.get_resource_mut::<ActiveCamera>()
-            {
-                match ask {
-                    CameraAsk::Free(state) => active.set_wide_free(state),
-                    CameraAsk::Cut(target) => {
-                        let _ = active.set_wide(&target);
-                    }
-                }
-            }
-        }
-        let (width, height) = (self.frames.width, self.frames.height);
-        let Some(texture) = viz.render(width, height) else {
+        let interval = self.stats.begin(began);
+        let size = (self.frames.width, self.frames.height);
+        let transport = transport_name(self.frames.transport());
+        let span = frame_span(
+            self.seq.saturating_add(1),
+            size,
+            (transport, self.frames.fallback()),
+        );
+        let _entered = span.enter();
+        span.record("slot", slot);
+        let texture = update(viz, follow, self.pending_camera.take(), size);
+        let update = micros_since(began);
+        let Some(texture) = texture else {
             return Ok(());
         };
         // A resize takes the render world a frame or two: until the new
         // target is there, the old one is the wrong size to send.
-        if texture.width() != width || texture.height() != height {
+        if (texture.width(), texture.height()) != size {
             return Ok(());
         }
-        self.frames
+        let draining = Instant::now();
+        if self.drain {
+            wait_for_gpu(&self.device)?;
+        }
+        let drain = micros_since(draining);
+        let copy = self
+            .frames
             .copy_in(&self.device, &self.queue, &texture, slot)?;
         if let Some(held) = self.frames.held.get_mut(usize::from(slot)) {
             *held = true;
         }
         self.seq = self.seq.saturating_add(1);
+        let sending = Instant::now();
         let message = ToHost::Frame {
             buffers: self.frames.id,
             slot,
             seq: self.seq,
             input: self.input,
-            render_us: u32::try_from(began.elapsed().as_micros()).unwrap_or(u32::MAX),
+            render_us: micros_since(began),
         };
         self.socket.send(&message.encode()?, &[])?;
         self.credit = false;
+        let times = FrameTimes {
+            update,
+            drain,
+            submit: copy.submit,
+            wait: copy.wait,
+            memcpy: copy.memcpy,
+            send: micros_since(sending),
+            total: micros_since(began),
+            interval,
+        };
+        record(&span, &times);
+        if let Some(summary) = self.stats.push(times) {
+            summary.emit(transport, size);
+        }
         Ok(())
     }
-}
-
-// ---------------------------------------------------------------------------
-// The frames' slots
-// ---------------------------------------------------------------------------
-
-/// The frames' memory: the slots, which the app holds, and how they are
-/// shared.
-struct Frames {
-    id: u64,
-    width: u32,
-    height: u32,
-    slots: Slots,
-    held: Vec<bool>,
-}
-
-enum Slots {
-    /// One shared file holding every slot, rows packed (`width * 4`
-    /// bytes, RGBA8, sRGB-encoded as the target is), and a readback
-    /// buffer with rows padded the way wgpu copies them.
-    Shm {
-        map: shm::Shared,
-        readback: wgpu::Buffer,
-        padded: u32,
-    },
-    /// One `IOSurface` per slot and this device's texture over it.
-    #[cfg(target_os = "macos")]
-    Surfaces(Vec<(architect_process_view::surface::IoSurface, wgpu::Texture)>),
-}
-
-impl Frames {
-    /// `shared`: GPU-shared slots (macOS), else shared memory.
-    fn new(
-        device: &wgpu::Device,
-        (width, height): (u32, u32),
-        id: u64,
-        shared: bool,
-    ) -> Result<Self> {
-        #[cfg(target_os = "macos")]
-        let slots = if shared {
-            Slots::Surfaces(
-                (0..SLOTS)
-                    .map(|_| surface_slot(device, width, height))
-                    .collect::<Result<_>>()?,
-            )
-        } else {
-            shm_slots(device, (width, height))?
-        };
-        #[cfg(not(target_os = "macos"))]
-        let slots = {
-            let _ = shared;
-            shm_slots(device, (width, height))?
-        };
-        Ok(Self {
-            id,
-            width,
-            height,
-            slots,
-            held: vec![false; usize::from(SLOTS)],
-        })
-    }
-
-    /// Whether the slots are GPU-shared.
-    const fn shared(&self) -> bool {
-        !matches!(self.slots, Slots::Shm { .. })
-    }
-
-    const fn transport(&self) -> Transport {
-        match self.slots {
-            Slots::Shm { .. } => Transport::Shm,
-            #[cfg(target_os = "macos")]
-            Slots::Surfaces(_) => Transport::IoSurface,
-        }
-    }
-
-    fn message(&self) -> ToHost {
-        let stride = match &self.slots {
-            Slots::Shm { .. } => self.width.saturating_mul(4),
-            #[cfg(target_os = "macos")]
-            Slots::Surfaces(slots) => slots.first().map_or(0, |(s, _)| s.stride()),
-        };
-        ToHost::Buffers {
-            id: self.id,
-            transport: self.transport(),
-            width: self.width,
-            height: self.height,
-            slots: SLOTS,
-            stride,
-            offset: 0,
-            modifier: 0,
-        }
-    }
-
-    fn free_slot(&self) -> Option<u8> {
-        self.held
-            .iter()
-            .position(|held| !held)
-            .and_then(|i| u8::try_from(i).ok())
-    }
-
-    /// Copies `texture` (this size, RGBA8) into `slot`, and waits for it
-    /// to be there.
-    fn copy_in(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        texture: &wgpu::Texture,
-        slot: u8,
-    ) -> Result<()> {
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("ignition process view frame"),
-        });
-        let size = wgpu::Extent3d {
-            width: self.width,
-            height: self.height,
-            depth_or_array_layers: 1,
-        };
-        match &self.slots {
-            Slots::Shm {
-                readback, padded, ..
-            } => encoder.copy_texture_to_buffer(
-                texture.as_image_copy(),
-                wgpu::TexelCopyBufferInfo {
-                    buffer: readback,
-                    layout: wgpu::TexelCopyBufferLayout {
-                        offset: 0,
-                        bytes_per_row: Some(*padded),
-                        rows_per_image: Some(self.height),
-                    },
-                },
-                size,
-            ),
-            // On the GPU, into the memory the app's device reads.
-            #[cfg(target_os = "macos")]
-            Slots::Surfaces(slots) => {
-                let (_, to) = slots
-                    .get(usize::from(slot))
-                    .context("a slot past the surfaces")?;
-                encoder.copy_texture_to_texture(texture.as_image_copy(), to.as_image_copy(), size);
-            }
-        }
-        let submitted = queue.submit([encoder.finish()]);
-        match &self.slots {
-            Slots::Shm {
-                map,
-                readback,
-                padded,
-            } => {
-                // Its readback's mapping waits for the copy.
-                let _ = submitted;
-                self.read_back(device, (map, readback, *padded), slot)
-            }
-            // The frame's pixels are in the surface before the app is
-            // told: the CPU-side fence the wire asks for.
-            #[cfg(target_os = "macos")]
-            Slots::Surfaces(_) => {
-                device
-                    .poll(wgpu::PollType::Wait {
-                        submission_index: Some(submitted),
-                        timeout: Some(Duration::from_secs(2)),
-                    })
-                    .map_err(|e| anyhow::anyhow!("waiting for the frame: {e}"))?;
-                Ok(())
-            }
-        }
-    }
-
-    /// The readback buffer's frame into `slot` of the shared memory.
-    fn read_back(
-        &self,
-        device: &wgpu::Device,
-        (map, readback, padded): (&shm::Shared, &wgpu::Buffer, u32),
-        slot: u8,
-    ) -> Result<()> {
-        let slice = readback.slice(..);
-        let (tx, rx) = std::sync::mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |result| {
-            let _ = tx.send(result);
-        });
-        device
-            .poll(wgpu::PollType::Wait {
-                submission_index: None,
-                timeout: Some(Duration::from_secs(2)),
-            })
-            .map_err(|e| anyhow::anyhow!("waiting for the frame: {e}"))?;
-        rx.recv()
-            .map_err(|_| anyhow::anyhow!("the readback never mapped"))?
-            .map_err(|e| anyhow::anyhow!("mapping the readback: {e}"))?;
-        {
-            let bytes = slice.get_mapped_range();
-            let row = usize::try_from(self.width)? * 4;
-            let padded = usize::try_from(padded)?;
-            let height = usize::try_from(self.height)?;
-            let base = usize::from(slot) * row * height;
-            // SAFETY: the app reads a slot only after this frame's message
-            // names it, and holds none it was not sent; nothing else in
-            // this process touches the mapping.
-            let dest =
-                unsafe { map.bytes_mut(base, row * height) }.context("a slot past the mapping")?;
-            for (y, out) in dest.chunks_exact_mut(row).enumerate() {
-                let from = y * padded;
-                if let Some(src) = bytes.get(from..from + row) {
-                    out.copy_from_slice(src);
-                }
-            }
-        }
-        readback.unmap();
-        Ok(())
-    }
-}
-
-/// Shared-memory slots for frames of `width` × `height`.
-fn shm_slots(device: &wgpu::Device, (width, height): (u32, u32)) -> Result<Slots> {
-    let row = width.checked_mul(4).context("a frame too wide")?;
-    let padded = row
-        .checked_next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
-        .context("a frame too wide")?;
-    let slot_len = usize::try_from(u64::from(row) * u64::from(height))?;
-    let len = slot_len
-        .checked_mul(usize::from(SLOTS))
-        .context("frames too large")?;
-    let map = shm::Shared::create(len)?;
-    let readback = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("ignition process view readback"),
-        size: u64::from(padded) * u64::from(height),
-        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-        mapped_at_creation: false,
-    });
-    Ok(Slots::Shm {
-        map,
-        readback,
-        padded,
-    })
-}
-
-/// A new `IOSurface` and this (Metal) device's texture over it, which a
-/// frame is copied into.
-#[cfg(target_os = "macos")]
-fn surface_slot(
-    device: &wgpu::Device,
-    width: u32,
-    height: u32,
-) -> Result<(architect_process_view::surface::IoSurface, wgpu::Texture)> {
-    use wgpu::hal;
-    let surface = architect_process_view::surface::IoSurface::new(width, height)?;
-    // SAFETY: the raw device is used only while `hal_device` lives, to make
-    // one texture that is handed to wgpu.
-    let hal_device = unsafe { device.as_hal::<hal::api::Metal>() }.context("not a Metal device")?;
-    let raw = surface
-        .metal_texture(hal_device.raw_device())
-        .context("Metal made no texture over the IOSurface")?;
-    // SAFETY: a 2D, one-level, one-layer RGBA8Unorm texture of this device,
-    // `width` × `height`, as the descriptor below says; Metal keeps the
-    // surface alive as long as the texture.
-    let hal_texture = unsafe {
-        hal::metal::Device::texture_from_raw(
-            raw,
-            wgpu::TextureFormat::Rgba8Unorm,
-            objc2_metal::MTLTextureType::Type2D,
-            1,
-            1,
-            hal::CopyExtent {
-                width,
-                height,
-                depth: 1,
-            },
-        )
-    };
-    drop(hal_device);
-    // SAFETY: made on this device, respecting the descriptor.
-    let texture = unsafe {
-        device.create_texture_from_hal::<hal::api::Metal>(
-            hal_texture,
-            &wgpu::TextureDescriptor {
-                label: Some("ignition process view slot"),
-                size: wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
-                usage: wgpu::TextureUsages::COPY_DST
-                    | wgpu::TextureUsages::COPY_SRC
-                    | wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-        )
-    };
-    Ok((surface, texture))
 }
 
 // ---------------------------------------------------------------------------
