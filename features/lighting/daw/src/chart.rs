@@ -1,6 +1,6 @@
 //! The hit chart — hits a human curated, and the ideas they belong to.
 //!
-//! [`crate::hits`] detects; this reads what somebody *decided*. The
+//! the session's hits (Studio's detection, as hit markers or hits MIDI) say what was played; this reads what somebody *decided*. The
 //! difference matters more than it sounds. The detector finds a thousand
 //! onsets in a three-minute song and is right about nearly all of them,
 //! which is exactly the problem: a hi-hat is a real onset and wants no

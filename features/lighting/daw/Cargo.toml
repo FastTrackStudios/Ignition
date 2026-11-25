@@ -43,9 +43,6 @@ name = "lintshow"
 name = "lyrics"
 
 [[bin]]
-name = "hits"
-
-[[bin]]
 name = "chart"
 
 [[bin]]
@@ -64,7 +61,6 @@ daw.workspace = true
 dawfile-reaper.workspace = true
 ableton = { workspace = true, optional = true }
 keyflow-proto.workspace = true
-dsp = { workspace = true, features = ["hits"] }
 fts-sample = { workspace = true, features = ["decode-compressed"] }
 anyhow.workspace = true
 serde.workspace = true

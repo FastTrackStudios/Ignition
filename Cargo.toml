@@ -90,9 +90,6 @@ utils = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731dfd07e
 # songs of a night and their tempo maps. ignition-daw's `ableton` feature
 # (on by default), and apps/ignition's tests.
 ableton = { git = "https://github.com/FastTrackStudios/studio-adapters", rev = "6ce1b1a912e969071cd2fe55caaea0a5cd486252" }
-# `dsp::hits::detect` (feature `hits`): drum hits found in a stem, for
-# ignition-daw's `hits` (cues on the hits).
-dsp = { git = "https://github.com/FastTrackStudios/fts-fx", rev = "5bae622f5d874ce58ab04916ab29a8100e883012" }
 # The REAPER project parser (`parse_rpp_file`, `ReaperProject`, MIDI
 # items): ignition-daw's `reaper` and `chart`.
 dawfile-reaper = { git = "https://github.com/FastTrackStudios/daw", rev = "86263731dfd07e3ef69cfdce923901ce9894905e" }

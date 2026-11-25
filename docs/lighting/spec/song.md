@@ -114,12 +114,14 @@ Two sources describe where the band hits. One is heard; one is decided. They are
 not equal.
 
 r[song.hits.detected]
-Detection MAY produce hits from the audio: each with a snapped position, its
-original seconds, a strength 0..1 against the strongest hit in the song, a band
-(`Low`, `Mid`, `High`) and the dynamic level at that moment. A per-bar dynamics
-curve MAY accompany them, sampled at each bar's midpoint, because a *cue* is
-written at bar resolution and a show does not need seventeen thousand numbers to
-know the second chorus is bigger than the first.
+Detected hits MAY come from the session, never from Ignition's own analysis: the
+hits Studio detects (rhythm) and stores in the song, as its hit markers or the
+hits MIDI it writes (one note per piece, velocity from strength). Each carries a
+position, its original seconds, a strength 0..1 against the strongest hit in the
+song and the piece it belongs to. A per-bar dynamics curve MAY be derived from
+them, sampled at each bar's midpoint, because a *cue* is written at bar
+resolution and a show does not need seventeen thousand numbers to know the
+second chorus is bigger than the first.
 
 r[song.hits.grid-snapped]
 Detected hits MUST be snapped to a musical grid, eighths by default. A detected

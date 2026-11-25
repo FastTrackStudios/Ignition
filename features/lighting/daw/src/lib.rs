@@ -21,7 +21,6 @@ pub mod ableton;
 pub mod beat_clock;
 pub mod chart;
 pub mod generate;
-pub mod hits;
 pub mod lint;
 pub mod lyrics;
 pub mod mib;
